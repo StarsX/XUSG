@@ -3,7 +3,6 @@
 //--------------------------------------------------------------------------------------
 
 #include "XUSGDescriptor.h"
-#include "XUSGSampler.inl"
 
 using namespace std;
 using namespace XUSG;
@@ -114,7 +113,7 @@ DescriptorTableCache_DX12::DescriptorTableCache_DX12() :
 }
 
 DescriptorTableCache_DX12::DescriptorTableCache_DX12(const Device& device, const wchar_t* name) :
-	DescriptorTableCache()
+	DescriptorTableCache_DX12()
 {
 	SetDevice(device);
 	SetName(name);

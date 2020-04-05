@@ -3,10 +3,8 @@
 //--------------------------------------------------------------------------------------
 
 #include "XUSGGraphicsState.h"
-#include "XUSGBlend.inl"
-#include "XUSGRasterizer.inl"
-#include "XUSGDepthStencil.inl"
 
+using namespace std;
 using namespace XUSG;
 using namespace Graphics;
 
@@ -153,7 +151,7 @@ PipelineCache_DX12::PipelineCache_DX12() :
 }
 
 PipelineCache_DX12::PipelineCache_DX12(const Device& device) :
-	PipelineCache()
+	PipelineCache_DX12()
 {
 	SetDevice(device);
 }

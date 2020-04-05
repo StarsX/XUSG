@@ -126,6 +126,9 @@ namespace XUSG
 		static std::shared_ptr<CommandList> MakeShared(API api = API_DIRECTX12);
 	};
 
+	using CommandList_uptr = std::unique_ptr<CommandList>;
+	using CommandList_sptr = std::shared_ptr<CommandList>;
+
 	//--------------------------------------------------------------------------------------
 	// Constant buffer
 	//--------------------------------------------------------------------------------------
@@ -151,6 +154,9 @@ namespace XUSG
 		static std::unique_ptr<ConstantBuffer> MakeUnique(API api = API_DIRECTX12);
 		static std::shared_ptr<ConstantBuffer> MakeShared(API api = API_DIRECTX12);
 	};
+
+	using ConstantBuffer_uptr = std::unique_ptr<ConstantBuffer>;
+	using ConstantBuffer_sptr = std::shared_ptr<ConstantBuffer>;
 
 	//--------------------------------------------------------------------------------------
 	// Resource base
@@ -178,6 +184,9 @@ namespace XUSG
 		static std::unique_ptr<ResourceBase> MakeUnique(API api = API_DIRECTX12);
 		static std::shared_ptr<ResourceBase> MakeShared(API api = API_DIRECTX12);
 	};
+
+	using ResourceBase_uptr = std::unique_ptr<ResourceBase>;
+	using ResourceBase_sptr = std::shared_ptr<ResourceBase>;
 
 	//--------------------------------------------------------------------------------------
 	// 2D Texture
@@ -239,6 +248,9 @@ namespace XUSG
 		static std::shared_ptr<Texture2D> MakeShared(API api = API_DIRECTX12);
 	};
 
+	using Texture2D_uptr = std::unique_ptr<Texture2D>;
+	using Texture2D_sptr = std::shared_ptr<Texture2D>;
+
 	//--------------------------------------------------------------------------------------
 	// Render target
 	//--------------------------------------------------------------------------------------
@@ -283,6 +295,9 @@ namespace XUSG
 		static std::shared_ptr<RenderTarget> MakeShared(API api = API_DIRECTX12);
 	};
 
+	using RenderTarget_uptr = std::unique_ptr<RenderTarget>;
+	using RenderTarget_sptr = std::shared_ptr<RenderTarget>;
+
 	//--------------------------------------------------------------------------------------
 	// Depth stencil
 	//--------------------------------------------------------------------------------------
@@ -315,6 +330,9 @@ namespace XUSG
 		static std::shared_ptr<DepthStencil> MakeShared(API api = API_DIRECTX12);
 	};
 
+	using DepthStencil_uptr = std::unique_ptr<DepthStencil>;
+	using DepthStencil_sptr = std::shared_ptr<DepthStencil>;
+
 	//--------------------------------------------------------------------------------------
 	// 3D Texture
 	//--------------------------------------------------------------------------------------
@@ -338,6 +356,9 @@ namespace XUSG
 		static std::unique_ptr<Texture3D> MakeUnique(API api = API_DIRECTX12);
 		static std::shared_ptr<Texture3D> MakeShared(API api = API_DIRECTX12);
 	};
+
+	using Texture3D_uptr = std::unique_ptr<Texture3D>;
+	using Texture3D_sptr = std::shared_ptr<Texture3D>;
 
 	//--------------------------------------------------------------------------------------
 	// Raw buffer
@@ -370,6 +391,9 @@ namespace XUSG
 		static std::shared_ptr<RawBuffer> MakeShared(API api = API_DIRECTX12);
 	};
 
+	using RawBuffer_uptr = std::unique_ptr<RawBuffer>;
+	using RawBuffer_sptr = std::shared_ptr<RawBuffer>;
+
 	//--------------------------------------------------------------------------------------
 	// Structured buffer
 	//--------------------------------------------------------------------------------------
@@ -399,6 +423,9 @@ namespace XUSG
 		static std::shared_ptr<StructuredBuffer> MakeShared(API api = API_DIRECTX12);
 	};
 
+	using StructuredBuffer_uptr = std::unique_ptr<StructuredBuffer>;
+	using StructuredBuffer_sptr = std::shared_ptr<StructuredBuffer>;
+
 	//--------------------------------------------------------------------------------------
 	// Typed buffer
 	//--------------------------------------------------------------------------------------
@@ -426,6 +453,9 @@ namespace XUSG
 		static std::unique_ptr<TypedBuffer> MakeUnique(API api = API_DIRECTX12);
 		static std::shared_ptr<TypedBuffer> MakeShared(API api = API_DIRECTX12);
 	};
+
+	using TypedBuffer_uptr = std::unique_ptr<TypedBuffer>;
+	using TypedBuffer_sptr = std::shared_ptr<TypedBuffer>;
 
 	//--------------------------------------------------------------------------------------
 	// Vertex buffer
@@ -456,6 +486,9 @@ namespace XUSG
 		static std::shared_ptr<VertexBuffer> MakeShared(API api = API_DIRECTX12);
 	};
 
+	using VertexBuffer_uptr = std::unique_ptr<VertexBuffer>;
+	using VertexBuffer_sptr = std::shared_ptr<VertexBuffer>;
+
 	//--------------------------------------------------------------------------------------
 	// Index buffer
 	//--------------------------------------------------------------------------------------
@@ -479,6 +512,9 @@ namespace XUSG
 		static std::unique_ptr<IndexBuffer> MakeUnique(API api = API_DIRECTX12);
 		static std::shared_ptr<IndexBuffer> MakeShared(API api = API_DIRECTX12);
 	};
+
+	using IndexBuffer_uptr = std::unique_ptr<IndexBuffer>;
+	using IndexBuffer_sptr = std::shared_ptr<IndexBuffer>;
 
 	//--------------------------------------------------------------------------------------
 	// Descriptor
@@ -516,6 +552,8 @@ namespace XUSG
 	};
 
 	class DescriptorTableCache;
+	using DescriptorTableCache_uptr = std::unique_ptr<DescriptorTableCache>;
+	using DescriptorTableCache_sptr = std::shared_ptr<DescriptorTableCache>;
 
 	namespace Util
 	{
@@ -550,6 +588,9 @@ namespace XUSG
 			static std::unique_ptr<DescriptorTable> MakeUnique(API api = API_DIRECTX12);
 			static std::shared_ptr<DescriptorTable> MakeShared(API api = API_DIRECTX12);
 		};
+
+		using DescriptorTable_uptr = std::unique_ptr<DescriptorTable>;
+		using DescriptorTable_sptr = std::shared_ptr<DescriptorTable>;
 	}
 
 	class DLL_EXPORT DescriptorTableCache
@@ -605,6 +646,9 @@ namespace XUSG
 		static std::shared_ptr<Reflector> MakeShared(API api = API_DIRECTX12);
 	};
 
+	using Reflector_uptr = std::unique_ptr<Reflector>;
+	using Reflector_sptr = std::shared_ptr<Reflector>;
+
 	//--------------------------------------------------------------------------------------
 	// Shader
 	//--------------------------------------------------------------------------------------
@@ -625,8 +669,6 @@ namespace XUSG
 		};
 	}
 
-	using ReflectorPtr = std::shared_ptr<Reflector>;
-
 	class DLL_EXPORT ShaderPool
 	{
 	public:
@@ -634,16 +676,19 @@ namespace XUSG
 		virtual ~ShaderPool() {};
 
 		virtual void SetShader(Shader::Stage stage, uint32_t index, const Blob& shader) = 0;
-		virtual void SetShader(Shader::Stage stage, uint32_t index, const Blob& shader, const ReflectorPtr& reflector) = 0;
-		virtual void SetReflector(Shader::Stage stage, uint32_t index, const ReflectorPtr& reflector) = 0;
+		virtual void SetShader(Shader::Stage stage, uint32_t index, const Blob& shader, const Reflector_sptr& reflector) = 0;
+		virtual void SetReflector(Shader::Stage stage, uint32_t index, const Reflector_sptr& reflector) = 0;
 
 		virtual Blob CreateShader(Shader::Stage stage, uint32_t index, const std::wstring& fileName) = 0;
 		virtual Blob GetShader(Shader::Stage stage, uint32_t index) const = 0;
-		virtual ReflectorPtr GetReflector(Shader::Stage stage, uint32_t index) const = 0;
+		virtual Reflector_sptr GetReflector(Shader::Stage stage, uint32_t index) const = 0;
 
 		static std::unique_ptr<ShaderPool> MakeUnique(API api = API_DIRECTX12);
 		static std::shared_ptr<ShaderPool> MakeShared(API api = API_DIRECTX12);
 	};
+
+	using ShaderPool_uptr = std::unique_ptr<ShaderPool>;
+	using ShaderPool_sptr = std::shared_ptr<ShaderPool>;
 
 	//--------------------------------------------------------------------------------------
 	// Pipeline layout
@@ -663,6 +708,8 @@ namespace XUSG
 	};
 
 	class PipelineLayoutCache;
+	using PipelineLayoutCache_uptr = std::unique_ptr<PipelineLayoutCache>;
+	using PipelineLayoutCache_sptr = std::shared_ptr<PipelineLayoutCache>;
 
 	namespace Util
 	{
@@ -698,6 +745,9 @@ namespace XUSG
 			static std::unique_ptr<PipelineLayout> MakeUnique(API api = API_DIRECTX12);
 			static std::shared_ptr<PipelineLayout> MakeShared(API api = API_DIRECTX12);
 		};
+
+		using PipelineLayout_uptr = std::unique_ptr<PipelineLayout>;
+		using PipelineLayout_sptr = std::shared_ptr<PipelineLayout>;
 	}
 
 	class DLL_EXPORT PipelineLayoutCache
@@ -772,6 +822,8 @@ namespace XUSG
 		};
 
 		class PipelineCache;
+		using PipelineCache_uptr = std::unique_ptr<PipelineCache>;
+		using PipelineCache_sptr = std::shared_ptr<PipelineCache>;
 
 		class DLL_EXPORT State
 		{
@@ -807,6 +859,9 @@ namespace XUSG
 			static std::shared_ptr<State> MakeShared(API api = API_DIRECTX12);
 		};
 
+		using State_uptr = std::unique_ptr<State>;
+		using State_sptr = std::shared_ptr<State>;
+
 		class DLL_EXPORT PipelineCache
 		{
 		public:
@@ -838,6 +893,8 @@ namespace XUSG
 	namespace Compute
 	{
 		class PipelineCache;
+		using PipelineCache_uptr = std::unique_ptr<PipelineCache>;
+		using PipelineCache_sptr = std::shared_ptr<PipelineCache>;
 
 		class DLL_EXPORT State
 		{
@@ -875,5 +932,8 @@ namespace XUSG
 			static std::unique_ptr<PipelineCache> MakeUnique(const Device& device, API api = API_DIRECTX12);
 			static std::shared_ptr<PipelineCache> MakeShared(const Device& device, API api = API_DIRECTX12);
 		};
+
+		using State_uptr = std::unique_ptr<State>;
+		using State_sptr = std::shared_ptr<State>;
 	}
 }

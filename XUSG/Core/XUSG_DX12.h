@@ -5,6 +5,7 @@
 #pragma once
 
 #define DLL_EXPORT					__declspec(dllexport)
+#define DLL_IMPORT					__declspec(dllimport)
 
 #define H_RETURN(x, o, m, r)		{ const auto hr = x; if (FAILED(hr)) { o << m << std::endl; return r; } }
 #define V_RETURN(x, o, r)			H_RETURN(x, o, HrToString(hr), r)
@@ -515,7 +516,7 @@ namespace XUSG
 
 	// Device
 	MIDL_INTERFACE("189819f1-1db6-4b57-be54-1821339b85f7")
-		DX12Device : public ID3D12Device
+		DLL_EXPORT DX12Device : public ID3D12Device
 	{
 		bool GetCommandQueue(CommandQueue & commandQueue, CommandListType type, CommandQueueFlags flags, int32_t priority = 0, uint32_t nodeMask = 0);
 		bool GetCommandAllocator(CommandAllocator& commandAllocator, CommandListType type);

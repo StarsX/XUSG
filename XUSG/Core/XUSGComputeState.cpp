@@ -54,7 +54,7 @@ PipelineCache_DX12::PipelineCache_DX12() :
 }
 
 PipelineCache_DX12::PipelineCache_DX12(const Device& device) :
-	PipelineCache()
+	PipelineCache_DX12()
 {
 	SetDevice(device);
 }

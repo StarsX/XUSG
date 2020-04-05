@@ -14,9 +14,6 @@
     <Filter Include="Core\Source Files">
       <UniqueIdentifier>{4a3be520-be50-4d71-b51f-24eea1c6d5f8}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Core\Source Files\Inc">
-      <UniqueIdentifier>{ba873edb-a7a0-4679-bd53-b2b9796e6e6f}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Source Files">
       <UniqueIdentifier>{22741106-cfc3-42ae-b49e-29613ac22770}</UniqueIdentifier>
     </Filter>
@@ -116,17 +113,17 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Core\XUSGBlend.inl">
-      <Filter>Core\Source Files\Inc</Filter>
+    <None Include="Core\XUSGDepthStencil.cpp">
+      <Filter>Core\Source Files</Filter>
     </None>
-    <None Include="Core\XUSGDepthStencil.inl">
-      <Filter>Core\Source Files\Inc</Filter>
+    <None Include="Core\XUSGBlend.cpp">
+      <Filter>Core\Source Files</Filter>
     </None>
-    <None Include="Core\XUSGRasterizer.inl">
-      <Filter>Core\Source Files\Inc</Filter>
+    <None Include="Core\XUSGRasterizer.cpp">
+      <Filter>Core\Source Files</Filter>
     </None>
-    <None Include="Core\XUSGSampler.inl">
-      <Filter>Core\Source Files\Inc</Filter>
+    <None Include="Core\XUSGSampler.cpp">
+      <Filter>Core\Source Files</Filter>
     </None>
   </ItemGroup>
 </Project>

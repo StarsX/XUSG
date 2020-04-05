@@ -112,5 +112,21 @@ namespace XUSG
 		std::function<Sampler()> m_pfnSamplers[NUM_SAMPLER_PRESET];
 
 		std::wstring m_name;
+
+		static Sampler SamplerPointWrap();
+		static Sampler SamplerPointMirror();
+		static Sampler SamplerPointClamp();
+		static Sampler SamplerPointBorder();
+		static Sampler SamplerPointLessEqual();
+		static Sampler SamplerLinearWrap();
+		static Sampler SamplerLinearMirror();
+		static Sampler SamplerLinearClamp();
+		static Sampler SamplerLinearBorder();
+		static Sampler SamplerLinearLessEqual();
+		static Sampler SamplerAnisotropicWrap();
+		static Sampler SamplerAnisotropicMirror();
+		static Sampler SamplerAnisotropicClamp();
+		static Sampler SamplerAnisotropicBorder();
+		static Sampler SamplerAnisotropicLessEqual();
 	};
 }
