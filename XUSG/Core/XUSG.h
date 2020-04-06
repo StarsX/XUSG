@@ -18,7 +18,7 @@ namespace XUSG
 {
 	enum API
 	{
-		API_DIRECTX12
+		API_DIRECTX_12
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -122,12 +122,12 @@ namespace XUSG
 
 		virtual GraphicsCommandList& GetCommandList() = 0;
 
-		static std::unique_ptr<CommandList> MakeUnique(API api = API_DIRECTX12);
-		static std::shared_ptr<CommandList> MakeShared(API api = API_DIRECTX12);
-	};
+		using uptr = std::unique_ptr<CommandList>;
+		using sptr = std::shared_ptr<CommandList>;
 
-	using CommandList_uptr = std::unique_ptr<CommandList>;
-	using CommandList_sptr = std::shared_ptr<CommandList>;
+		static uptr MakeUnique(API api = API_DIRECTX_12);
+		static sptr MakeShared(API api = API_DIRECTX_12);
+	};
 
 	//--------------------------------------------------------------------------------------
 	// Constant buffer
@@ -141,7 +141,7 @@ namespace XUSG
 		virtual bool Create(const Device& device, uint64_t byteWidth, uint32_t numCBVs = 1,
 			const uint32_t* offsets = nullptr, MemoryType memoryType = MemoryType::UPLOAD,
 			const wchar_t* name = nullptr) = 0;
-		virtual bool Upload(const CommandList& commandList, Resource& uploader, const void* pData,
+		virtual bool Upload(CommandList* pCommandList, Resource& uploader, const void* pData,
 			size_t size, uint32_t cbvIndex = 0, ResourceState srcState = ResourceState::COMMON,
 			ResourceState dstState = ResourceState::COMMON) = 0;
 
@@ -151,12 +151,12 @@ namespace XUSG
 		virtual const Resource& GetResource() const = 0;
 		virtual Descriptor		GetCBV(uint32_t index = 0) const = 0;
 
-		static std::unique_ptr<ConstantBuffer> MakeUnique(API api = API_DIRECTX12);
-		static std::shared_ptr<ConstantBuffer> MakeShared(API api = API_DIRECTX12);
-	};
+		using uptr = std::unique_ptr<ConstantBuffer>;
+		using sptr = std::shared_ptr<ConstantBuffer>;
 
-	using ConstantBuffer_uptr = std::unique_ptr<ConstantBuffer>;
-	using ConstantBuffer_sptr = std::shared_ptr<ConstantBuffer>;
+		static uptr MakeUnique(API api = API_DIRECTX_12);
+		static sptr MakeShared(API api = API_DIRECTX_12);
+	};
 
 	//--------------------------------------------------------------------------------------
 	// Resource base
@@ -181,12 +181,12 @@ namespace XUSG
 		virtual Format GetFormat() const = 0;
 		virtual uint32_t GetWidth() const = 0;
 
-		static std::unique_ptr<ResourceBase> MakeUnique(API api = API_DIRECTX12);
-		static std::shared_ptr<ResourceBase> MakeShared(API api = API_DIRECTX12);
-	};
+		using uptr = std::unique_ptr<ResourceBase>;
+		using sptr = std::shared_ptr<ResourceBase>;
 
-	using ResourceBase_uptr = std::unique_ptr<ResourceBase>;
-	using ResourceBase_sptr = std::shared_ptr<ResourceBase>;
+		static uptr MakeUnique(API api = API_DIRECTX_12);
+		static sptr MakeShared(API api = API_DIRECTX_12);
+	};
 
 	//--------------------------------------------------------------------------------------
 	// 2D Texture
@@ -202,10 +202,10 @@ namespace XUSG
 			uint32_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, MemoryType memoryType = MemoryType::DEFAULT,
 			bool isCubeMap = false, const wchar_t* name = nullptr) = 0;
-		virtual bool Upload(const CommandList& commandList, Resource& uploader,
+		virtual bool Upload(CommandList* pCommandList, Resource& uploader,
 			SubresourceData* pSubresourceData, uint32_t numSubresources = 1,
 			ResourceState dstState = ResourceState::COMMON, uint32_t firstSubresource = 0) = 0;
-		virtual bool Upload(const CommandList& commandList, Resource& uploader, const void* pData,
+		virtual bool Upload(CommandList* pCommandList, Resource& uploader, const void* pData,
 			uint8_t stride = sizeof(float), ResourceState dstState = ResourceState::COMMON) = 0;
 		virtual bool CreateSRVs(uint32_t arraySize, Format format = Format::UNKNOWN, uint8_t numMips = 1,
 			uint8_t sampleCount = 1, bool isCubeMap = false) = 0;
@@ -220,18 +220,18 @@ namespace XUSG
 		virtual uint32_t SetBarrier(ResourceBarrier* pBarriers, uint8_t mipLevel, ResourceState dstState,
 			uint32_t numBarriers = 0, uint32_t slice = 0, BarrierFlag flags = BarrierFlag::NONE) = 0;
 
-		virtual void Blit(const CommandList& commandList, uint32_t groupSizeX, uint32_t groupSizeY,
+		virtual void Blit(const CommandList* pCommandList, uint32_t groupSizeX, uint32_t groupSizeY,
 			uint32_t groupSizeZ, const DescriptorTable& uavSrvTable, uint32_t uavSrvSlot = 0,
 			uint8_t mipLevel = 0, const DescriptorTable& srvTable = nullptr, uint32_t srvSlot = 0,
 			const DescriptorTable& samplerTable = nullptr, uint32_t samplerSlot = 1,
 			const Pipeline& pipeline = nullptr) = 0;
 
-		virtual uint32_t Blit(const CommandList& commandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
+		virtual uint32_t Blit(const CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
 			uint32_t groupSizeY, uint32_t groupSizeZ, uint8_t mipLevel, int8_t srcMipLevel,
 			ResourceState srcState, const DescriptorTable& uavSrvTable, uint32_t uavSrvSlot = 0,
 			uint32_t numBarriers = 0, const DescriptorTable& srvTable = nullptr,
 			uint32_t srvSlot = 0, uint32_t baseSlice = 0, uint32_t numSlices = 0) = 0;
-		virtual uint32_t GenerateMips(const CommandList& commandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
+		virtual uint32_t GenerateMips(const CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
 			uint32_t groupSizeY, uint32_t groupSizeZ, ResourceState dstState, const PipelineLayout& pipelineLayout,
 			const Pipeline& pipeline, const DescriptorTable* pUavSrvTables, uint32_t uavSrvSlot = 0,
 			const DescriptorTable& samplerTable = nullptr, uint32_t samplerSlot = 1, uint32_t numBarriers = 0,
@@ -244,12 +244,14 @@ namespace XUSG
 
 		virtual uint32_t GetHeight() const = 0;
 
-		static std::unique_ptr<Texture2D> MakeUnique(API api = API_DIRECTX12);
-		static std::shared_ptr<Texture2D> MakeShared(API api = API_DIRECTX12);
-	};
+		Texture2D* AsTexture2D();
 
-	using Texture2D_uptr = std::unique_ptr<Texture2D>;
-	using Texture2D_sptr = std::shared_ptr<Texture2D>;
+		using uptr = std::unique_ptr<Texture2D>;
+		using sptr = std::shared_ptr<Texture2D>;
+
+		static uptr MakeUnique(API api = API_DIRECTX_12);
+		static sptr MakeShared(API api = API_DIRECTX_12);
+	};
 
 	//--------------------------------------------------------------------------------------
 	// Render target
@@ -271,17 +273,17 @@ namespace XUSG
 			const wchar_t* name = nullptr) = 0;
 		virtual bool CreateFromSwapChain(const Device& device, const SwapChain& swapChain, uint32_t bufferIndex) = 0;
 
-		virtual void Blit(const CommandList& commandList, const DescriptorTable& srcSrvTable,
+		virtual void Blit(const CommandList* pCommandList, const DescriptorTable& srcSrvTable,
 			uint32_t srcSlot = 0, uint8_t mipLevel = 0, uint32_t baseSlice = 0,
 			uint32_t numSlices = 0, const DescriptorTable& samplerTable = nullptr,
 			uint32_t samplerSlot = 1, const Pipeline& pipeline = nullptr,
 			uint32_t offsetForSliceId = 0, uint32_t cbSlot = 2) = 0;
 
-		virtual uint32_t Blit(const CommandList& commandList, ResourceBarrier* pBarriers, uint8_t mipLevel,
+		virtual uint32_t Blit(const CommandList* pCommandList, ResourceBarrier* pBarriers, uint8_t mipLevel,
 			int8_t srcMipLevel, ResourceState srcState, const DescriptorTable& srcSrvTable,
 			uint32_t srcSlot = 0, uint32_t numBarriers = 0, uint32_t baseSlice = 0, uint32_t numSlices = 0,
 			uint32_t offsetForSliceId = 0, uint32_t cbSlot = 2) = 0;
-		virtual uint32_t GenerateMips(const CommandList& commandList, ResourceBarrier* pBarriers, ResourceState dstState,
+		virtual uint32_t GenerateMips(const CommandList* pCommandList, ResourceBarrier* pBarriers, ResourceState dstState,
 			const PipelineLayout& pipelineLayout, const Pipeline& pipeline, const DescriptorTable* pSrcSrvTables,
 			uint32_t srcSlot = 0, const DescriptorTable& samplerTable = nullptr, uint32_t samplerSlot = 1,
 			uint32_t numBarriers = 0, uint8_t baseMip = 1, uint8_t numMips = 0, uint32_t baseSlice = 0,
@@ -291,12 +293,12 @@ namespace XUSG
 		virtual uint32_t	GetArraySize() const = 0;
 		virtual uint8_t		GetNumMips(uint32_t slice = 0) const = 0;
 
-		static std::unique_ptr<RenderTarget> MakeUnique(API api = API_DIRECTX12);
-		static std::shared_ptr<RenderTarget> MakeShared(API api = API_DIRECTX12);
-	};
+		using uptr = std::unique_ptr<RenderTarget>;
+		using sptr = std::shared_ptr<RenderTarget>;
 
-	using RenderTarget_uptr = std::unique_ptr<RenderTarget>;
-	using RenderTarget_sptr = std::shared_ptr<RenderTarget>;
+		static uptr MakeUnique(API api = API_DIRECTX_12);
+		static sptr MakeShared(API api = API_DIRECTX_12);
+	};
 
 	//--------------------------------------------------------------------------------------
 	// Depth stencil
@@ -326,12 +328,12 @@ namespace XUSG
 		virtual uint32_t	GetArraySize() const = 0;
 		virtual uint8_t		GetNumMips() const = 0;
 
-		static std::unique_ptr<DepthStencil> MakeUnique(API api = API_DIRECTX12);
-		static std::shared_ptr<DepthStencil> MakeShared(API api = API_DIRECTX12);
-	};
+		using uptr = std::unique_ptr<DepthStencil>;
+		using sptr = std::shared_ptr<DepthStencil>;
 
-	using DepthStencil_uptr = std::unique_ptr<DepthStencil>;
-	using DepthStencil_sptr = std::shared_ptr<DepthStencil>;
+		static uptr MakeUnique(API api = API_DIRECTX_12);
+		static sptr MakeShared(API api = API_DIRECTX_12);
+	};
 
 	//--------------------------------------------------------------------------------------
 	// 3D Texture
@@ -353,12 +355,12 @@ namespace XUSG
 
 		virtual uint32_t GetDepth() const = 0;
 
-		static std::unique_ptr<Texture3D> MakeUnique(API api = API_DIRECTX12);
-		static std::shared_ptr<Texture3D> MakeShared(API api = API_DIRECTX12);
-	};
+		using uptr = std::unique_ptr<Texture3D>;
+		using sptr = std::shared_ptr<Texture3D>;
 
-	using Texture3D_uptr = std::unique_ptr<Texture3D>;
-	using Texture3D_sptr = std::shared_ptr<Texture3D>;
+		static uptr MakeUnique(API api = API_DIRECTX_12);
+		static sptr MakeShared(API api = API_DIRECTX_12);
+	};
 
 	//--------------------------------------------------------------------------------------
 	// Raw buffer
@@ -374,7 +376,7 @@ namespace XUSG
 			MemoryType memoryType = MemoryType::DEFAULT, uint32_t numSRVs = 1,
 			const uint32_t* firstSRVElements = nullptr, uint32_t numUAVs = 1,
 			const uint32_t* firstUAVElements = nullptr, const wchar_t* name = nullptr) = 0;
-		virtual bool Upload(const CommandList& commandList, Resource& uploader, const void* pData, size_t size,
+		virtual bool Upload(CommandList* pCommandList, Resource& uploader, const void* pData, size_t size,
 			uint32_t descriptorIndex = 0, ResourceState dstState = ResourceState::COMMON) = 0;
 		virtual bool CreateSRVs(uint64_t byteWidth, const uint32_t* firstElements = nullptr,
 			uint32_t numDescriptors = 1) = 0;
@@ -387,12 +389,12 @@ namespace XUSG
 		virtual void* Map(const Range* pReadRange, uint32_t descriptorIndex = 0) = 0;
 		virtual void Unmap() = 0;
 
-		static std::unique_ptr<RawBuffer> MakeUnique(API api = API_DIRECTX12);
-		static std::shared_ptr<RawBuffer> MakeShared(API api = API_DIRECTX12);
-	};
+		using uptr = std::unique_ptr<RawBuffer>;
+		using sptr = std::shared_ptr<RawBuffer>;
 
-	using RawBuffer_uptr = std::unique_ptr<RawBuffer>;
-	using RawBuffer_sptr = std::shared_ptr<RawBuffer>;
+		static uptr MakeUnique(API api = API_DIRECTX_12);
+		static sptr MakeShared(API api = API_DIRECTX_12);
+	};
 
 	//--------------------------------------------------------------------------------------
 	// Structured buffer
@@ -419,12 +421,12 @@ namespace XUSG
 		virtual void SetCounter(const Resource& counter) = 0;
 		virtual Resource& GetCounter() = 0;
 
-		static std::unique_ptr<StructuredBuffer> MakeUnique(API api = API_DIRECTX12);
-		static std::shared_ptr<StructuredBuffer> MakeShared(API api = API_DIRECTX12);
-	};
+		using uptr = std::unique_ptr<StructuredBuffer>;
+		using sptr = std::shared_ptr<StructuredBuffer>;
 
-	using StructuredBuffer_uptr = std::unique_ptr<StructuredBuffer>;
-	using StructuredBuffer_sptr = std::shared_ptr<StructuredBuffer>;
+		static uptr MakeUnique(API api = API_DIRECTX_12);
+		static sptr MakeShared(API api = API_DIRECTX_12);
+	};
 
 	//--------------------------------------------------------------------------------------
 	// Typed buffer
@@ -450,12 +452,12 @@ namespace XUSG
 
 		virtual Descriptor GetPackedUAV(uint32_t index = 0) const = 0;
 
-		static std::unique_ptr<TypedBuffer> MakeUnique(API api = API_DIRECTX12);
-		static std::shared_ptr<TypedBuffer> MakeShared(API api = API_DIRECTX12);
-	};
+		using uptr = std::unique_ptr<TypedBuffer>;
+		using sptr = std::shared_ptr<TypedBuffer>;
 
-	using TypedBuffer_uptr = std::unique_ptr<TypedBuffer>;
-	using TypedBuffer_sptr = std::shared_ptr<TypedBuffer>;
+		static uptr MakeUnique(API api = API_DIRECTX_12);
+		static sptr MakeShared(API api = API_DIRECTX_12);
+	};
 
 	//--------------------------------------------------------------------------------------
 	// Vertex buffer
@@ -482,12 +484,12 @@ namespace XUSG
 
 		virtual VertexBufferView GetVBV(uint32_t index = 0) const = 0;
 
-		static std::unique_ptr<VertexBuffer> MakeUnique(API api = API_DIRECTX12);
-		static std::shared_ptr<VertexBuffer> MakeShared(API api = API_DIRECTX12);
-	};
+		using uptr = std::unique_ptr<VertexBuffer>;
+		using sptr = std::shared_ptr<VertexBuffer>;
 
-	using VertexBuffer_uptr = std::unique_ptr<VertexBuffer>;
-	using VertexBuffer_sptr = std::shared_ptr<VertexBuffer>;
+		static uptr MakeUnique(API api = API_DIRECTX_12);
+		static sptr MakeShared(API api = API_DIRECTX_12);
+	};
 
 	//--------------------------------------------------------------------------------------
 	// Index buffer
@@ -509,12 +511,12 @@ namespace XUSG
 
 		virtual IndexBufferView GetIBV(uint32_t index = 0) const = 0;
 
-		static std::unique_ptr<IndexBuffer> MakeUnique(API api = API_DIRECTX12);
-		static std::shared_ptr<IndexBuffer> MakeShared(API api = API_DIRECTX12);
-	};
+		using uptr = std::unique_ptr<IndexBuffer>;
+		using sptr = std::shared_ptr<IndexBuffer>;
 
-	using IndexBuffer_uptr = std::unique_ptr<IndexBuffer>;
-	using IndexBuffer_sptr = std::shared_ptr<IndexBuffer>;
+		static uptr MakeUnique(API api = API_DIRECTX_12);
+		static sptr MakeShared(API api = API_DIRECTX_12);
+	};
 
 	//--------------------------------------------------------------------------------------
 	// Descriptor
@@ -552,8 +554,6 @@ namespace XUSG
 	};
 
 	class DescriptorTableCache;
-	using DescriptorTableCache_uptr = std::unique_ptr<DescriptorTableCache>;
-	using DescriptorTableCache_sptr = std::shared_ptr<DescriptorTableCache>;
 
 	namespace Util
 	{
@@ -585,12 +585,12 @@ namespace XUSG
 
 			virtual const std::string& GetKey() const = 0;
 
-			static std::unique_ptr<DescriptorTable> MakeUnique(API api = API_DIRECTX12);
-			static std::shared_ptr<DescriptorTable> MakeShared(API api = API_DIRECTX12);
-		};
+			using uptr = std::unique_ptr<DescriptorTable>;
+			using sptr = std::shared_ptr<DescriptorTable>;
 
-		using DescriptorTable_uptr = std::unique_ptr<DescriptorTable>;
-		using DescriptorTable_sptr = std::shared_ptr<DescriptorTable>;
+			static uptr MakeUnique(API api = API_DIRECTX_12);
+			static sptr MakeShared(API api = API_DIRECTX_12);
+		};
 	}
 
 	class DLL_EXPORT DescriptorTableCache
@@ -623,10 +623,13 @@ namespace XUSG
 
 		virtual uint32_t GetDescriptorStride(DescriptorPoolType type) const = 0;
 
-		static std::unique_ptr<DescriptorTableCache> MakeUnique(API api = API_DIRECTX12);
-		static std::shared_ptr<DescriptorTableCache> MakeShared(API api = API_DIRECTX12);
-		static std::unique_ptr<DescriptorTableCache> MakeUnique(const Device& device, const wchar_t* name = nullptr, API api = API_DIRECTX12);
-		static std::shared_ptr<DescriptorTableCache> MakeShared(const Device& device, const wchar_t* name = nullptr, API api = API_DIRECTX12);
+		using uptr = std::unique_ptr<DescriptorTableCache>;
+		using sptr = std::shared_ptr<DescriptorTableCache>;
+
+		static uptr MakeUnique(API api = API_DIRECTX_12);
+		static sptr MakeShared(API api = API_DIRECTX_12);
+		static uptr MakeUnique(const Device& device, const wchar_t* name = nullptr, API api = API_DIRECTX_12);
+		static sptr MakeShared(const Device& device, const wchar_t* name = nullptr, API api = API_DIRECTX_12);
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -642,12 +645,12 @@ namespace XUSG
 		virtual bool IsValid() const = 0;
 		virtual uint32_t GetResourceBindingPointByName(const char* name, uint32_t defaultVal = UINT32_MAX) const = 0;
 
-		static std::unique_ptr<Reflector> MakeUnique(API api = API_DIRECTX12);
-		static std::shared_ptr<Reflector> MakeShared(API api = API_DIRECTX12);
-	};
+		using uptr = std::unique_ptr<Reflector>;
+		using sptr = std::shared_ptr<Reflector>;
 
-	using Reflector_uptr = std::unique_ptr<Reflector>;
-	using Reflector_sptr = std::shared_ptr<Reflector>;
+		static uptr MakeUnique(API api = API_DIRECTX_12);
+		static sptr MakeShared(API api = API_DIRECTX_12);
+	};
 
 	//--------------------------------------------------------------------------------------
 	// Shader
@@ -676,19 +679,19 @@ namespace XUSG
 		virtual ~ShaderPool() {};
 
 		virtual void SetShader(Shader::Stage stage, uint32_t index, const Blob& shader) = 0;
-		virtual void SetShader(Shader::Stage stage, uint32_t index, const Blob& shader, const Reflector_sptr& reflector) = 0;
-		virtual void SetReflector(Shader::Stage stage, uint32_t index, const Reflector_sptr& reflector) = 0;
+		virtual void SetShader(Shader::Stage stage, uint32_t index, const Blob& shader, const Reflector::sptr& reflector) = 0;
+		virtual void SetReflector(Shader::Stage stage, uint32_t index, const Reflector::sptr& reflector) = 0;
 
 		virtual Blob CreateShader(Shader::Stage stage, uint32_t index, const std::wstring& fileName) = 0;
 		virtual Blob GetShader(Shader::Stage stage, uint32_t index) const = 0;
-		virtual Reflector_sptr GetReflector(Shader::Stage stage, uint32_t index) const = 0;
+		virtual Reflector::sptr GetReflector(Shader::Stage stage, uint32_t index) const = 0;
 
-		static std::unique_ptr<ShaderPool> MakeUnique(API api = API_DIRECTX12);
-		static std::shared_ptr<ShaderPool> MakeShared(API api = API_DIRECTX12);
+		using uptr = std::unique_ptr<ShaderPool>;
+		using sptr = std::shared_ptr<ShaderPool>;
+
+		static uptr MakeUnique(API api = API_DIRECTX_12);
+		static sptr MakeShared(API api = API_DIRECTX_12);
 	};
-
-	using ShaderPool_uptr = std::unique_ptr<ShaderPool>;
-	using ShaderPool_sptr = std::shared_ptr<ShaderPool>;
 
 	//--------------------------------------------------------------------------------------
 	// Pipeline layout
@@ -708,8 +711,6 @@ namespace XUSG
 	};
 
 	class PipelineLayoutCache;
-	using PipelineLayoutCache_uptr = std::unique_ptr<PipelineLayoutCache>;
-	using PipelineLayoutCache_sptr = std::shared_ptr<PipelineLayoutCache>;
 
 	namespace Util
 	{
@@ -742,12 +743,14 @@ namespace XUSG
 			virtual const std::vector<std::string>& GetDescriptorTableLayoutKeys() const = 0;
 			virtual std::string& GetPipelineLayoutKey(PipelineLayoutCache* pPipelineLayoutCache) = 0;
 
-			static std::unique_ptr<PipelineLayout> MakeUnique(API api = API_DIRECTX12);
-			static std::shared_ptr<PipelineLayout> MakeShared(API api = API_DIRECTX12);
-		};
+			using uptr = std::unique_ptr<PipelineLayout>;
+			using sptr = std::shared_ptr<PipelineLayout>;
 
-		using PipelineLayout_uptr = std::unique_ptr<PipelineLayout>;
-		using PipelineLayout_sptr = std::shared_ptr<PipelineLayout>;
+			static uptr MakeUnique(API api = API_DIRECTX_12);
+			static sptr MakeShared(API api = API_DIRECTX_12);
+			static uptr CloneUnique(const PipelineLayout* pSrc, API api = API_DIRECTX_12);
+			static sptr CloneShared(const PipelineLayout* pSrc, API api = API_DIRECTX_12);
+		};
 	}
 
 	class DLL_EXPORT PipelineLayoutCache
@@ -768,10 +771,13 @@ namespace XUSG
 		virtual DescriptorTableLayout CreateDescriptorTableLayout(uint32_t index, const Util::PipelineLayout& util) = 0;
 		virtual DescriptorTableLayout GetDescriptorTableLayout(uint32_t index, const Util::PipelineLayout& util) = 0;
 
-		static std::unique_ptr<PipelineLayoutCache> MakeUnique(API api = API_DIRECTX12);
-		static std::shared_ptr<PipelineLayoutCache> MakeShared(API api = API_DIRECTX12);
-		static std::unique_ptr<PipelineLayoutCache> MakeUnique(const Device& device, API api = API_DIRECTX12);
-		static std::shared_ptr<PipelineLayoutCache> MakeShared(const Device& device, API api = API_DIRECTX12);
+		using uptr = std::unique_ptr<PipelineLayoutCache>;
+		using sptr = std::shared_ptr<PipelineLayoutCache>;
+
+		static uptr MakeUnique(API api = API_DIRECTX_12);
+		static sptr MakeShared(API api = API_DIRECTX_12);
+		static uptr MakeUnique(const Device& device, API api = API_DIRECTX_12);
+		static sptr MakeShared(const Device& device, API api = API_DIRECTX_12);
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -822,9 +828,7 @@ namespace XUSG
 		};
 
 		class PipelineCache;
-		using PipelineCache_uptr = std::unique_ptr<PipelineCache>;
-		using PipelineCache_sptr = std::shared_ptr<PipelineCache>;
-
+		
 		class DLL_EXPORT State
 		{
 		public:
@@ -855,12 +859,12 @@ namespace XUSG
 
 			virtual const std::string& GetKey() const = 0;
 
-			static std::unique_ptr<State> MakeUnique(API api = API_DIRECTX12);
-			static std::shared_ptr<State> MakeShared(API api = API_DIRECTX12);
-		};
+			using uptr = std::unique_ptr<State>;
+			using sptr = std::shared_ptr<State>;
 
-		using State_uptr = std::unique_ptr<State>;
-		using State_sptr = std::shared_ptr<State>;
+			static uptr MakeUnique(API api = API_DIRECTX_12);
+			static sptr MakeShared(API api = API_DIRECTX_12);
+		};
 
 		class DLL_EXPORT PipelineCache
 		{
@@ -883,19 +887,23 @@ namespace XUSG
 			virtual const Rasterizer& GetRasterizer(RasterizerPreset preset) = 0;
 			virtual const DepthStencil& GetDepthStencil(DepthStencilPreset preset) = 0;
 
-			static std::unique_ptr<PipelineCache> MakeUnique(API api = API_DIRECTX12);
-			static std::shared_ptr<PipelineCache> MakeShared(API api = API_DIRECTX12);
-			static std::unique_ptr<PipelineCache> MakeUnique(const Device& device, API api = API_DIRECTX12);
-			static std::shared_ptr<PipelineCache> MakeShared(const Device& device, API api = API_DIRECTX12);
+			using uptr = std::unique_ptr<PipelineCache>;
+			using sptr = std::shared_ptr<PipelineCache>;
+
+			static uptr MakeUnique(API api = API_DIRECTX_12);
+			static sptr MakeShared(API api = API_DIRECTX_12);
+			static uptr MakeUnique(const Device& device, API api = API_DIRECTX_12);
+			static sptr MakeShared(const Device& device, API api = API_DIRECTX_12);
 		};
 	}
 
+	//--------------------------------------------------------------------------------------
+	// Compute pipeline state
+	//--------------------------------------------------------------------------------------
 	namespace Compute
 	{
 		class PipelineCache;
-		using PipelineCache_uptr = std::unique_ptr<PipelineCache>;
-		using PipelineCache_sptr = std::shared_ptr<PipelineCache>;
-
+		
 		class DLL_EXPORT State
 		{
 		public:
@@ -910,8 +918,11 @@ namespace XUSG
 
 			virtual const std::string& GetKey() const = 0;
 
-			static std::unique_ptr<State> MakeUnique(API api = API_DIRECTX12);
-			static std::shared_ptr<State> MakeShared(API api = API_DIRECTX12);
+			using uptr = std::unique_ptr<State>;
+			using sptr = std::shared_ptr<State>;
+
+			static uptr MakeUnique(API api = API_DIRECTX_12);
+			static sptr MakeShared(API api = API_DIRECTX_12);
 		};
 
 		class DLL_EXPORT PipelineCache
@@ -927,13 +938,13 @@ namespace XUSG
 			virtual Pipeline CreatePipeline(const State& state, const wchar_t* name = nullptr) = 0;
 			virtual Pipeline GetPipeline(const State& state, const wchar_t* name = nullptr) = 0;
 
-			static std::unique_ptr<PipelineCache> MakeUnique(API api = API_DIRECTX12);
-			static std::shared_ptr<PipelineCache> MakeShared(API api = API_DIRECTX12);
-			static std::unique_ptr<PipelineCache> MakeUnique(const Device& device, API api = API_DIRECTX12);
-			static std::shared_ptr<PipelineCache> MakeShared(const Device& device, API api = API_DIRECTX12);
-		};
+			using uptr = std::unique_ptr<PipelineCache>;
+			using sptr = std::shared_ptr<PipelineCache>;
 
-		using State_uptr = std::unique_ptr<State>;
-		using State_sptr = std::shared_ptr<State>;
+			static uptr MakeUnique(API api = API_DIRECTX_12);
+			static sptr MakeShared(API api = API_DIRECTX_12);
+			static uptr MakeUnique(const Device& device, API api = API_DIRECTX_12);
+			static sptr MakeShared(const Device& device, API api = API_DIRECTX_12);
+		};
 	}
 }

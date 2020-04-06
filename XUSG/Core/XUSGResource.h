@@ -21,7 +21,7 @@ namespace XUSG
 		bool Create(const Device& device, uint64_t byteWidth, uint32_t numCBVs = 1,
 			const uint32_t* offsets = nullptr, MemoryType memoryType = MemoryType::UPLOAD,
 			const wchar_t* name = nullptr);
-		bool Upload(const CommandList& commandList, Resource& uploader, const void* pData,
+		bool Upload(CommandList* pCommandList, Resource& uploader, const void* pData,
 			size_t size, uint32_t cbvIndex = 0, ResourceState srcState = ResourceState::COMMON,
 			ResourceState dstState = ResourceState::COMMON);
 
@@ -97,10 +97,10 @@ namespace XUSG
 			uint32_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, MemoryType memoryType = MemoryType::DEFAULT,
 			bool isCubeMap = false, const wchar_t* name = nullptr);
-		bool Upload(const CommandList& commandList, Resource& uploader,
+		bool Upload(CommandList* pCommandList, Resource& uploader,
 			SubresourceData* pSubresourceData, uint32_t numSubresources = 1,
 			ResourceState dstState = ResourceState::COMMON, uint32_t firstSubresource = 0);
-		bool Upload(const CommandList& commandList, Resource& uploader, const void* pData,
+		bool Upload(CommandList* pCommandList, Resource& uploader, const void* pData,
 			uint8_t stride = sizeof(float), ResourceState dstState = ResourceState::COMMON);
 		bool CreateSRVs(uint32_t arraySize, Format format = Format::UNKNOWN, uint8_t numMips = 1,
 			uint8_t sampleCount = 1, bool isCubeMap = false);
@@ -115,18 +115,18 @@ namespace XUSG
 		uint32_t SetBarrier(ResourceBarrier* pBarriers, uint8_t mipLevel, ResourceState dstState,
 			uint32_t numBarriers = 0, uint32_t slice = 0, BarrierFlag flags = BarrierFlag::NONE);
 
-		void Blit(const CommandList& commandList, uint32_t groupSizeX, uint32_t groupSizeY,
+		void Blit(const CommandList* pCommandList, uint32_t groupSizeX, uint32_t groupSizeY,
 			uint32_t groupSizeZ, const DescriptorTable& uavSrvTable, uint32_t uavSrvSlot = 0,
 			uint8_t mipLevel = 0, const DescriptorTable& srvTable = nullptr, uint32_t srvSlot = 0,
 			const DescriptorTable& samplerTable = nullptr, uint32_t samplerSlot = 1,
 			const Pipeline& pipeline = nullptr);
 
-		uint32_t Blit(const CommandList& commandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
+		uint32_t Blit(const CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
 			uint32_t groupSizeY, uint32_t groupSizeZ, uint8_t mipLevel, int8_t srcMipLevel,
 			ResourceState srcState, const DescriptorTable& uavSrvTable, uint32_t uavSrvSlot = 0,
 			uint32_t numBarriers = 0, const DescriptorTable& srvTable = nullptr,
 			uint32_t srvSlot = 0, uint32_t baseSlice = 0, uint32_t numSlices = 0);
-		uint32_t GenerateMips(const CommandList& commandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
+		uint32_t GenerateMips(const CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
 			uint32_t groupSizeY, uint32_t groupSizeZ, ResourceState dstState, const PipelineLayout& pipelineLayout,
 			const Pipeline& pipeline, const DescriptorTable* pUavSrvTables, uint32_t uavSrvSlot = 0,
 			const DescriptorTable& samplerTable = nullptr, uint32_t samplerSlot = 1, uint32_t numBarriers = 0,
@@ -166,17 +166,17 @@ namespace XUSG
 			const wchar_t* name = nullptr);
 		bool CreateFromSwapChain(const Device& device, const SwapChain& swapChain, uint32_t bufferIndex);
 
-		void Blit(const CommandList& commandList, const DescriptorTable& srcSrvTable,
+		void Blit(const CommandList* pCommandList, const DescriptorTable& srcSrvTable,
 			uint32_t srcSlot = 0, uint8_t mipLevel = 0, uint32_t baseSlice = 0,
 			uint32_t numSlices = 0, const DescriptorTable& samplerTable = nullptr,
 			uint32_t samplerSlot = 1, const Pipeline& pipeline = nullptr,
 			uint32_t offsetForSliceId = 0, uint32_t cbSlot = 2);
 
-		uint32_t Blit(const CommandList& commandList, ResourceBarrier* pBarriers, uint8_t mipLevel,
+		uint32_t Blit(const CommandList* pCommandList, ResourceBarrier* pBarriers, uint8_t mipLevel,
 			int8_t srcMipLevel, ResourceState srcState, const DescriptorTable& srcSrvTable,
 			uint32_t srcSlot = 0, uint32_t numBarriers = 0, uint32_t baseSlice = 0, uint32_t numSlices = 0,
 			uint32_t offsetForSliceId = 0, uint32_t cbSlot = 2);
-		uint32_t GenerateMips(const CommandList& commandList, ResourceBarrier* pBarriers, ResourceState dstState,
+		uint32_t GenerateMips(const CommandList* pCommandList, ResourceBarrier* pBarriers, ResourceState dstState,
 			const PipelineLayout& pipelineLayout, const Pipeline& pipeline, const DescriptorTable* pSrcSrvTables,
 			uint32_t srcSlot = 0, const DescriptorTable& samplerTable = nullptr, uint32_t samplerSlot = 1,
 			uint32_t numBarriers = 0, uint8_t baseMip = 1, uint8_t numMips = 0, uint32_t baseSlice = 0,
@@ -277,7 +277,7 @@ namespace XUSG
 			MemoryType memoryType = MemoryType::DEFAULT, uint32_t numSRVs = 1,
 			const uint32_t* firstSRVElements = nullptr, uint32_t numUAVs = 1,
 			const uint32_t* firstUAVElements = nullptr, const wchar_t* name = nullptr);
-		bool Upload(const CommandList& commandList, Resource& uploader, const void* pData, size_t size,
+		bool Upload(CommandList* pCommandList, Resource& uploader, const void* pData, size_t size,
 			uint32_t descriptorIndex = 0, ResourceState dstState = ResourceState::COMMON);
 		bool CreateSRVs(uint64_t byteWidth, const uint32_t* firstElements = nullptr,
 			uint32_t numDescriptors = 1);

@@ -129,7 +129,7 @@ bool ConstantBuffer_DX12::Create(const Device& device, uint64_t byteWidth, uint3
 	return true;
 }
 
-bool ConstantBuffer_DX12::Upload(const CommandList& commandList, Resource& uploader, const void* pData,
+bool ConstantBuffer_DX12::Upload(CommandList* pCommandList, Resource& uploader, const void* pData,
 	size_t size, uint32_t cbvIndex, ResourceState srcState, ResourceState dstState)
 {
 	const auto offset = m_cbvOffsets.empty() ? 0 : m_cbvOffsets[cbvIndex];
@@ -154,13 +154,13 @@ bool ConstantBuffer_DX12::Upload(const CommandList& commandList, Resource& uploa
 	// Copy data to the intermediate upload heap and then schedule a copy 
 	// from the upload heap to the buffer.
 	if (srcState != ResourceState::COMMON)
-		commandList.Barrier(1, &ResourceBarrier::Transition(m_resource.get(),
+		pCommandList->Barrier(1, &ResourceBarrier::Transition(m_resource.get(),
 			static_cast<D3D12_RESOURCE_STATES>(srcState), D3D12_RESOURCE_STATE_COPY_DEST));
-	M_RETURN(UpdateSubresources(const_cast<CommandList&>(commandList).GetCommandList().get(),
+	M_RETURN(UpdateSubresources(pCommandList->GetCommandList().get(),
 		m_resource.get(), uploader.get(), offset, 0, 1, &subresourceData) <= 0,
 		clog, "Failed to upload the resource.", false);
 	if (dstState != ResourceState::COMMON)
-		commandList.Barrier(1, &ResourceBarrier::Transition(m_resource.get(),
+		pCommandList->Barrier(1, &ResourceBarrier::Transition(m_resource.get(),
 			D3D12_RESOURCE_STATE_COPY_DEST, static_cast<D3D12_RESOURCE_STATES>(dstState)));
 
 	return true;
@@ -380,7 +380,7 @@ bool Texture2D_DX12::Create(const Device& device, uint32_t width, uint32_t heigh
 	return true;
 }
 
-bool Texture2D_DX12::Upload(const CommandList& commandList, Resource& uploader,
+bool Texture2D_DX12::Upload(CommandList* pCommandList, Resource& uploader,
 	SubresourceData* pSubresourceData, uint32_t numSubresources,
 	ResourceState dstState, uint32_t firstSubresource)
 {
@@ -405,21 +405,21 @@ bool Texture2D_DX12::Upload(const CommandList& commandList, Resource& uploader,
 	// from the upload heap to the Texture2D.
 	ResourceBarrier barrier;
 	auto numBarriers = SetBarrier(&barrier, ResourceState::COPY_DEST);
-	if (m_states[0] != ResourceState::COMMON) commandList.Barrier(numBarriers, &barrier);
-	M_RETURN(UpdateSubresources(const_cast<CommandList&>(commandList).GetCommandList().get(),
-		m_resource.get(), uploader.get(), 0, firstSubresource, numSubresources, pSubresourceData) <= 0,
+	if (m_states[0] != ResourceState::COMMON) pCommandList->Barrier(numBarriers, &barrier);
+	M_RETURN(UpdateSubresources(pCommandList->GetCommandList().get(), m_resource.get(),
+		uploader.get(), 0, firstSubresource, numSubresources, pSubresourceData) <= 0,
 		clog, "Failed to upload the resource.", false);
 	const bool decay = m_resource->GetDesc().Flags & D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS;
 	if (dstState != ResourceState::COMMON || !decay)
 	{
 		numBarriers = SetBarrier(&barrier, dstState);
-		commandList.Barrier(numBarriers, &barrier);
+		pCommandList->Barrier(numBarriers, &barrier);
 	}
 
 	return true;
 }
 
-bool Texture2D_DX12::Upload(const CommandList& commandList, Resource& uploader,
+bool Texture2D_DX12::Upload(CommandList* pCommandList, Resource& uploader,
 	const void* pData, uint8_t stride, ResourceState dstState)
 {
 	const auto desc = m_resource->GetDesc();
@@ -429,7 +429,7 @@ bool Texture2D_DX12::Upload(const CommandList& commandList, Resource& uploader,
 	subresourceData.RowPitch = stride * static_cast<uint32_t>(desc.Width);
 	subresourceData.SlicePitch = subresourceData.RowPitch * desc.Height;
 
-	return Upload(commandList, uploader, &subresourceData, 1, dstState);
+	return Upload(pCommandList, uploader, &subresourceData, 1, dstState);
 }
 
 bool Texture2D_DX12::CreateSRVs(uint32_t arraySize, Format format, uint8_t numMips,
@@ -603,28 +603,28 @@ uint32_t Texture2D_DX12::SetBarrier(ResourceBarrier* pBarriers, uint8_t mipLevel
 	return SetBarrier(pBarriers, dstState, numBarriers, subresource, flags);
 }
 
-void Texture2D_DX12::Blit(const CommandList& commandList, uint32_t groupSizeX, uint32_t groupSizeY,
+void Texture2D_DX12::Blit(const CommandList* pCommandList, uint32_t groupSizeX, uint32_t groupSizeY,
 	uint32_t groupSizeZ, const DescriptorTable& uavSrvTable, uint32_t uavSrvSlot, uint8_t mipLevel,
 	const DescriptorTable& srvTable, uint32_t srvSlot, const DescriptorTable& samplerTable,
 	uint32_t samplerSlot, const Pipeline& pipeline)
 {
 	// Set pipeline layout and descriptor tables
-	if (uavSrvTable) commandList.SetComputeDescriptorTable(uavSrvSlot, uavSrvTable);
-	if (srvTable) commandList.SetComputeDescriptorTable(srvSlot, srvTable);
-	if (samplerTable) commandList.SetComputeDescriptorTable(samplerSlot, samplerTable);
+	if (uavSrvTable) pCommandList->SetComputeDescriptorTable(uavSrvSlot, uavSrvTable);
+	if (srvTable) pCommandList->SetComputeDescriptorTable(srvSlot, srvTable);
+	if (samplerTable) pCommandList->SetComputeDescriptorTable(samplerSlot, samplerTable);
 
 	// Set pipeline
-	if (pipeline) commandList.SetPipelineState(pipeline);
+	if (pipeline) pCommandList->SetPipelineState(pipeline);
 
 	// Dispatch
 	const auto desc = m_resource->GetDesc();
 	const auto width = (max)(static_cast<uint32_t>(desc.Width >> mipLevel), 1u);
 	const auto height = (max)(desc.Height >> mipLevel, 1u);
-	commandList.Dispatch(DIV_UP(width, groupSizeX), DIV_UP(height, groupSizeY),
+	pCommandList->Dispatch(DIV_UP(width, groupSizeX), DIV_UP(height, groupSizeY),
 		DIV_UP(desc.DepthOrArraySize, groupSizeZ));
 }
 
-uint32_t Texture2D_DX12::Blit(const CommandList& commandList, ResourceBarrier* pBarriers,
+uint32_t Texture2D_DX12::Blit(const CommandList* pCommandList, ResourceBarrier* pBarriers,
 	uint32_t groupSizeX, uint32_t groupSizeY, uint32_t groupSizeZ, uint8_t mipLevel,
 	int8_t srcMipLevel, ResourceState srcState, const DescriptorTable& uavSrvTable,
 	uint32_t uavSrvSlot, uint32_t numBarriers, const DescriptorTable& srvTable,
@@ -651,24 +651,24 @@ uint32_t Texture2D_DX12::Blit(const CommandList& commandList, ResourceBarrier* p
 
 	if (numBarriers > prevBarriers)
 	{
-		commandList.Barrier(numBarriers, pBarriers);
+		pCommandList->Barrier(numBarriers, pBarriers);
 		numBarriers = 0;
 	}
 
-	Blit(commandList, groupSizeX, groupSizeY, groupSizeZ, uavSrvTable, uavSrvSlot, mipLevel, srvTable, srvSlot);
+	Blit(pCommandList, groupSizeX, groupSizeY, groupSizeZ, uavSrvTable, uavSrvSlot, mipLevel, srvTable, srvSlot);
 
 	return numBarriers;
 }
 
-uint32_t Texture2D_DX12::GenerateMips(const CommandList& commandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
+uint32_t Texture2D_DX12::GenerateMips(const CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
 	uint32_t groupSizeY, uint32_t groupSizeZ, ResourceState dstState, const PipelineLayout& pipelineLayout,
 	const Pipeline& pipeline, const DescriptorTable* pUavSrvTables, uint32_t uavSrvSlot, const DescriptorTable& samplerTable,
 	uint32_t samplerSlot, uint32_t numBarriers, const DescriptorTable* pSrvTables, uint32_t srvSlot, uint8_t baseMip,
 	uint8_t numMips, uint32_t baseSlice, uint32_t numSlices)
 {
-	if (pipelineLayout) commandList.SetComputePipelineLayout(pipelineLayout);
-	if (samplerTable) commandList.SetComputeDescriptorTable(samplerSlot, samplerTable);
-	if (pipeline) commandList.SetPipelineState(pipeline);
+	if (pipelineLayout) pCommandList->SetComputePipelineLayout(pipelineLayout);
+	if (samplerTable) pCommandList->SetComputeDescriptorTable(samplerSlot, samplerTable);
+	if (pipeline) pCommandList->SetPipelineState(pipeline);
 
 	if (!(numMips || baseMip || numSlices || baseSlice))
 		numBarriers = SetBarrier(pBarriers, ResourceState::UNORDERED_ACCESS, numBarriers);
@@ -698,10 +698,10 @@ uint32_t Texture2D_DX12::GenerateMips(const CommandList& commandList, ResourceBa
 				numBarriers = SetBarrier(pBarriers, dstState, numBarriers, subresource);
 		}
 
-		commandList.Barrier(numBarriers, pBarriers);
+		pCommandList->Barrier(numBarriers, pBarriers);
 		numBarriers = 0;
 
-		Blit(commandList, groupSizeX, groupSizeY, groupSizeZ, pUavSrvTables[i], uavSrvSlot, j,
+		Blit(pCommandList, groupSizeX, groupSizeY, groupSizeZ, pUavSrvTables[i], uavSrvSlot, j,
 			pSrvTables ? pSrvTables[i] : nullptr, srvSlot);
 	}
 
@@ -870,7 +870,7 @@ bool RenderTarget_DX12::CreateFromSwapChain(const Device& device, const SwapChai
 	return true;
 }
 
-void RenderTarget_DX12::Blit(const CommandList& commandList, const DescriptorTable& srcSrvTable,
+void RenderTarget_DX12::Blit(const CommandList* pCommandList, const DescriptorTable& srcSrvTable,
 	uint32_t srcSlot, uint8_t mipLevel, uint32_t baseSlice, uint32_t numSlices,
 	const DescriptorTable& samplerTable, uint32_t samplerSlot, const Pipeline& pipeline,
 	uint32_t offsetForSliceId, uint32_t cbSlot)
@@ -878,35 +878,35 @@ void RenderTarget_DX12::Blit(const CommandList& commandList, const DescriptorTab
 	// Set render target
 	const auto desc = m_resource->GetDesc();
 	if (numSlices == 0) numSlices = desc.DepthOrArraySize - baseSlice;
-	commandList.OMSetRenderTargets(1, &GetRTV(baseSlice, mipLevel));
+	pCommandList->OMSetRenderTargets(1, &GetRTV(baseSlice, mipLevel));
 
 	// Set pipeline layout and descriptor tables
-	if (srcSrvTable) commandList.SetGraphicsDescriptorTable(srcSlot, srcSrvTable);
-	if (samplerTable) commandList.SetGraphicsDescriptorTable(samplerSlot, samplerTable);
+	if (srcSrvTable) pCommandList->SetGraphicsDescriptorTable(srcSlot, srcSrvTable);
+	if (samplerTable) pCommandList->SetGraphicsDescriptorTable(samplerSlot, samplerTable);
 
 	// Set pipeline
-	if (pipeline) commandList.SetPipelineState(pipeline);
+	if (pipeline) pCommandList->SetPipelineState(pipeline);
 
 	// Set viewport
 	const auto width = (max)(static_cast<uint32_t>(desc.Width >> mipLevel), 1u);
 	const auto height = (max)(desc.Height >> mipLevel, 1u);
 	const Viewport viewport(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height));
 	const RectRange rect(0, 0, width, height);
-	commandList.RSSetViewports(1, &viewport);
-	commandList.RSSetScissorRects(1, &rect);
+	pCommandList->RSSetViewports(1, &viewport);
+	pCommandList->RSSetScissorRects(1, &rect);
 
 	// Draw quads
-	commandList.IASetPrimitiveTopology(PrimitiveTopology::TRIANGLELIST);
-	commandList.Draw(3, 1, 0, 0);
+	pCommandList->IASetPrimitiveTopology(PrimitiveTopology::TRIANGLELIST);
+	pCommandList->Draw(3, 1, 0, 0);
 	for (auto i = 1u; i < numSlices; ++i)
 	{
-		commandList.OMSetRenderTargets(1, &GetRTV(baseSlice + i, mipLevel));
-		commandList.SetGraphics32BitConstant(cbSlot, i, offsetForSliceId);
-		commandList.Draw(3, 1, 0, 0);
+		pCommandList->OMSetRenderTargets(1, &GetRTV(baseSlice + i, mipLevel));
+		pCommandList->SetGraphics32BitConstant(cbSlot, i, offsetForSliceId);
+		pCommandList->Draw(3, 1, 0, 0);
 	}
 }
 
-uint32_t RenderTarget_DX12::Blit(const CommandList& commandList, ResourceBarrier* pBarriers, uint8_t mipLevel,
+uint32_t RenderTarget_DX12::Blit(const CommandList* pCommandList, ResourceBarrier* pBarriers, uint8_t mipLevel,
 	int8_t srcMipLevel, ResourceState srcState, const DescriptorTable& srcSrvTable, uint32_t srcSlot,
 	uint32_t numBarriers, uint32_t baseSlice, uint32_t numSlices,
 	uint32_t offsetForSliceId, uint32_t cbSlot)
@@ -925,25 +925,25 @@ uint32_t RenderTarget_DX12::Blit(const CommandList& commandList, ResourceBarrier
 
 	if (numBarriers > prevBarriers)
 	{
-		commandList.Barrier(numBarriers, pBarriers);
+		pCommandList->Barrier(numBarriers, pBarriers);
 		numBarriers = 0;
 	}
 
-	Blit(commandList, srcSrvTable, srcSlot, mipLevel, baseSlice,
+	Blit(pCommandList, srcSrvTable, srcSlot, mipLevel, baseSlice,
 		numSlices, nullptr, 1, nullptr, offsetForSliceId, cbSlot);
 
 	return numBarriers;
 }
 
-uint32_t RenderTarget_DX12::GenerateMips(const CommandList& commandList, ResourceBarrier* pBarriers,
+uint32_t RenderTarget_DX12::GenerateMips(const CommandList* pCommandList, ResourceBarrier* pBarriers,
 	ResourceState dstState, const PipelineLayout& pipelineLayout, const Pipeline& pipeline,
 	const DescriptorTable* pSrcSrvTables, uint32_t srcSlot, const DescriptorTable& samplerTable,
 	uint32_t samplerSlot, uint32_t numBarriers, uint8_t baseMip, uint8_t numMips,
 	uint32_t baseSlice, uint32_t numSlices, uint32_t offsetForSliceId, uint32_t cbSlot)
 {
-	if (pipelineLayout) commandList.SetGraphicsPipelineLayout(pipelineLayout);
-	if (samplerTable) commandList.SetGraphicsDescriptorTable(samplerSlot, samplerTable);
-	if (pipeline) commandList.SetPipelineState(pipeline);
+	if (pipelineLayout) pCommandList->SetGraphicsPipelineLayout(pipelineLayout);
+	if (samplerTable) pCommandList->SetGraphicsDescriptorTable(samplerSlot, samplerTable);
+	if (pipeline) pCommandList->SetPipelineState(pipeline);
 
 	if (!(numMips || baseMip || numSlices || baseSlice))
 		numBarriers = SetBarrier(pBarriers, ResourceState::RENDER_TARGET, numBarriers);
@@ -967,11 +967,11 @@ uint32_t RenderTarget_DX12::GenerateMips(const CommandList& commandList, Resourc
 				numBarriers = SetBarrier(pBarriers, dstState, numBarriers, subresource);
 		}
 
-		commandList.Barrier(numBarriers, pBarriers);
+		pCommandList->Barrier(numBarriers, pBarriers);
 		numBarriers = 0;
 
-		if(numSlices > 1) commandList.SetGraphics32BitConstant(cbSlot, 0, offsetForSliceId);
-		Blit(commandList, pSrcSrvTables[i], srcSlot, j, baseSlice, numSlices,
+		if(numSlices > 1) pCommandList->SetGraphics32BitConstant(cbSlot, 0, offsetForSliceId);
+		Blit(pCommandList, pSrcSrvTables[i], srcSlot, j, baseSlice, numSlices,
 			nullptr, samplerSlot, nullptr, offsetForSliceId, cbSlot);
 	}
 
@@ -1614,7 +1614,7 @@ bool RawBuffer_DX12::Create(const Device& device, uint64_t byteWidth, ResourceFl
 	return true;
 }
 
-bool RawBuffer_DX12::Upload(const CommandList& commandList, Resource& uploader, const void* pData,
+bool RawBuffer_DX12::Upload(CommandList* pCommandList, Resource& uploader, const void* pData,
 	size_t size, uint32_t descriptorIndex, ResourceState dstState)
 {
 	const auto offset = m_srvOffsets.empty() ? 0 : m_srvOffsets[descriptorIndex];
@@ -1640,14 +1640,14 @@ bool RawBuffer_DX12::Upload(const CommandList& commandList, Resource& uploader, 
 	// from the upload heap to the buffer.
 	ResourceBarrier barrier;
 	auto numBarriers = SetBarrier(&barrier, ResourceState::COPY_DEST);
-	if (m_states[0] != ResourceState::COMMON) commandList.Barrier(numBarriers, &barrier);
-	M_RETURN(UpdateSubresources(const_cast<CommandList&>(commandList).GetCommandList().get(),
-		m_resource.get(), uploader.get(), offset, 0, 1, &subresourceData) <= 0,
-		clog, "Failed to upload the resource.", false);
+	if (m_states[0] != ResourceState::COMMON) pCommandList->Barrier(numBarriers, &barrier);
+	M_RETURN(UpdateSubresources(pCommandList->GetCommandList().get(), m_resource.get(),
+		uploader.get(), offset, 0, 1, &subresourceData) <= 0, clog,
+		"Failed to upload the resource.", false);
 	if (dstState != ResourceState::COMMON)
 	{
 		numBarriers = SetBarrier(&barrier, dstState);
-		commandList.Barrier(numBarriers, &barrier);
+		pCommandList->Barrier(numBarriers, &barrier);
 	}
 
 	return true;

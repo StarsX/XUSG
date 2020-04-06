@@ -111,19 +111,17 @@
     <ClCompile Include="Core\XUSG.cpp">
       <Filter>Core\Source Files</Filter>
     </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Core\XUSGDepthStencil.cpp">
+    <ClCompile Include="Core\XUSGBlend.cpp">
       <Filter>Core\Source Files</Filter>
-    </None>
-    <None Include="Core\XUSGBlend.cpp">
+    </ClCompile>
+    <ClCompile Include="Core\XUSGDepthStencil.cpp">
       <Filter>Core\Source Files</Filter>
-    </None>
-    <None Include="Core\XUSGRasterizer.cpp">
+    </ClCompile>
+    <ClCompile Include="Core\XUSGRasterizer.cpp">
       <Filter>Core\Source Files</Filter>
-    </None>
-    <None Include="Core\XUSGSampler.cpp">
+    </ClCompile>
+    <ClCompile Include="Core\XUSGSampler.cpp">
       <Filter>Core\Source Files</Filter>
-    </None>
+    </ClCompile>
   </ItemGroup>
 </Project>
