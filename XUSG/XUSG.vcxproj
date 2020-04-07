@@ -21,7 +21,6 @@
   <ItemGroup>
     <ClInclude Include="Common\d3dx12.h" />
     <ClInclude Include="Common\dds.h" />
-    <ClInclude Include="Common\dxcapi.h" />
     <ClInclude Include="Common\DXFrameworkHelper.h" />
     <ClInclude Include="Common\tinyjson.hpp" />
     <ClInclude Include="Core\XUSG.h" />

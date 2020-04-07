@@ -43,10 +43,6 @@
 #include <wrl.h>
 #include <shellapi.h>
 
-#include "tinyjson.hpp"
-
-#define INCLUDE_XUSG_NATURE_H
-
 #if defined(DEBUG) | defined(_DEBUG)
 #ifndef DBG_NEW
 #define DBG_NEW new (_NORMAL_BLOCK, __FILE__, __LINE__)

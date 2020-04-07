@@ -64,9 +64,6 @@
     <ClInclude Include="Common\dds.h">
       <Filter>Common</Filter>
     </ClInclude>
-    <ClInclude Include="Common\dxcapi.h">
-      <Filter>Common</Filter>
-    </ClInclude>
     <ClInclude Include="Common\DXFrameworkHelper.h">
       <Filter>Common</Filter>
     </ClInclude>
