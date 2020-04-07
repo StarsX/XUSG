@@ -5,7 +5,6 @@
 #include "XUSGReflector.h"
 #include "dxcapi.h"
 #include <Psapi.h>
-#include <map>
 
 using namespace std;
 using namespace XUSG;
