@@ -400,7 +400,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Command list
 	//--------------------------------------------------------------------------------------
-	class DLL_EXPORT CommandList
+	class DLL_INTERFACE CommandList
 	{
 	public:
 		//CommandList();
@@ -508,7 +508,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Constant buffer
 	//--------------------------------------------------------------------------------------
-	class DLL_EXPORT ConstantBuffer
+	class DLL_INTERFACE ConstantBuffer
 	{
 	public:
 		//ConstantBuffer();
@@ -537,7 +537,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Resource base
 	//--------------------------------------------------------------------------------------
-	class DLL_EXPORT ResourceBase
+	class DLL_INTERFACE ResourceBase
 	{
 	public:
 		//ResourceBase();
@@ -567,7 +567,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// 2D Texture
 	//--------------------------------------------------------------------------------------
-	class DLL_EXPORT Texture2D :
+	class DLL_INTERFACE Texture2D :
 		public virtual ResourceBase
 	{
 	public:
@@ -632,7 +632,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Render target
 	//--------------------------------------------------------------------------------------
-	class DLL_EXPORT RenderTarget :
+	class DLL_INTERFACE RenderTarget :
 		public virtual Texture2D
 	{
 	public:
@@ -679,7 +679,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Depth stencil
 	//--------------------------------------------------------------------------------------
-	class DLL_EXPORT DepthStencil :
+	class DLL_INTERFACE DepthStencil :
 		public virtual Texture2D
 	{
 	public:
@@ -714,7 +714,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// 3D Texture
 	//--------------------------------------------------------------------------------------
-	class DLL_EXPORT Texture3D :
+	class DLL_INTERFACE Texture3D :
 		public virtual Texture2D
 	{
 	public:
@@ -741,7 +741,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Raw buffer
 	//--------------------------------------------------------------------------------------
-	class DLL_EXPORT RawBuffer :
+	class DLL_INTERFACE RawBuffer :
 		public virtual ResourceBase
 	{
 	public:
@@ -775,7 +775,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Structured buffer
 	//--------------------------------------------------------------------------------------
-	class DLL_EXPORT StructuredBuffer :
+	class DLL_INTERFACE StructuredBuffer :
 		public virtual RawBuffer
 	{
 	public:
@@ -807,7 +807,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Typed buffer
 	//--------------------------------------------------------------------------------------
-	class DLL_EXPORT TypedBuffer :
+	class DLL_INTERFACE TypedBuffer :
 		public virtual RawBuffer
 	{
 	public:
@@ -838,7 +838,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Vertex buffer
 	//--------------------------------------------------------------------------------------
-	class DLL_EXPORT VertexBuffer :
+	class DLL_INTERFACE VertexBuffer :
 		public virtual StructuredBuffer
 	{
 	public:
@@ -870,7 +870,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Index buffer
 	//--------------------------------------------------------------------------------------
-	class DLL_EXPORT IndexBuffer :
+	class DLL_INTERFACE IndexBuffer :
 		public virtual TypedBuffer
 	{
 	public:
@@ -933,7 +933,7 @@ namespace XUSG
 
 	namespace Util
 	{
-		class DLL_EXPORT DescriptorTable
+		class DLL_INTERFACE DescriptorTable
 		{
 		public:
 			//DescriptorTable();
@@ -969,7 +969,7 @@ namespace XUSG
 		};
 	}
 
-	class DLL_EXPORT DescriptorTableCache
+	class DLL_INTERFACE DescriptorTableCache
 	{
 	public:
 		//DescriptorTableCache();
@@ -1011,7 +1011,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Shader reflector
 	//--------------------------------------------------------------------------------------
-	class DLL_EXPORT Reflector
+	class DLL_INTERFACE Reflector
 	{
 	public:
 		//Reflector();
@@ -1048,7 +1048,7 @@ namespace XUSG
 		};
 	}
 
-	class DLL_EXPORT ShaderPool
+	class DLL_INTERFACE ShaderPool
 	{
 	public:
 		//ShaderPool();
@@ -1090,7 +1090,7 @@ namespace XUSG
 
 	namespace Util
 	{
-		class DLL_EXPORT PipelineLayout
+		class DLL_INTERFACE PipelineLayout
 		{
 		public:
 			//PipelineLayout();
@@ -1129,7 +1129,7 @@ namespace XUSG
 		};
 	}
 
-	class DLL_EXPORT PipelineLayoutCache
+	class DLL_INTERFACE PipelineLayoutCache
 	{
 	public:
 		//PipelineLayoutCache();
@@ -1205,7 +1205,7 @@ namespace XUSG
 
 		class PipelineCache;
 		
-		class DLL_EXPORT State
+		class DLL_INTERFACE State
 		{
 		public:
 			//State();
@@ -1242,7 +1242,7 @@ namespace XUSG
 			static sptr MakeShared(API api = API_DIRECTX_12);
 		};
 
-		class DLL_EXPORT PipelineCache
+		class DLL_INTERFACE PipelineCache
 		{
 		public:
 			//PipelineCache();
@@ -1280,7 +1280,7 @@ namespace XUSG
 	{
 		class PipelineCache;
 		
-		class DLL_EXPORT State
+		class DLL_INTERFACE State
 		{
 		public:
 			//State();
@@ -1301,7 +1301,7 @@ namespace XUSG
 			static sptr MakeShared(API api = API_DIRECTX_12);
 		};
 
-		class DLL_EXPORT PipelineCache
+		class DLL_INTERFACE PipelineCache
 		{
 		public:
 			//PipelineCache();
