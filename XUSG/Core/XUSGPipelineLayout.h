@@ -19,15 +19,15 @@ namespace XUSG
 
 			void SetShaderStage(uint32_t index, Shader::Stage stage);
 			void SetRange(uint32_t index, DescriptorType type, uint32_t num, uint32_t baseBinding,
-				uint32_t space = 0, DescriptorRangeFlag flags = DescriptorRangeFlag::NONE);
+				uint32_t space = 0, DescriptorFlag flags = DescriptorFlag::NONE);
 			void SetConstants(uint32_t index, uint32_t num32BitValues, uint32_t binding,
 				uint32_t space = 0, Shader::Stage stage = Shader::Stage::ALL);
 			void SetRootSRV(uint32_t index, uint32_t binding, uint32_t space = 0,
-				DescriptorRangeFlag flags = DescriptorRangeFlag::DATA_STATIC, Shader::Stage stage = Shader::Stage::ALL);
+				DescriptorFlag flags = DescriptorFlag::DATA_STATIC, Shader::Stage stage = Shader::Stage::ALL);
 			void SetRootUAV(uint32_t index, uint32_t binding, uint32_t space = 0,
-				DescriptorRangeFlag flags = DescriptorRangeFlag::NONE, Shader::Stage stage = Shader::Stage::ALL);
+				DescriptorFlag flags = DescriptorFlag::NONE, Shader::Stage stage = Shader::Stage::ALL);
 			void SetRootCBV(uint32_t index, uint32_t binding, uint32_t space = 0,
-				DescriptorRangeFlag flags = DescriptorRangeFlag::NONE, Shader::Stage stage = Shader::Stage::ALL);
+				DescriptorFlag flags = DescriptorFlag::NONE, Shader::Stage stage = Shader::Stage::ALL);
 
 			XUSG::PipelineLayout CreatePipelineLayout(PipelineLayoutCache& pipelineLayoutCache, PipelineLayoutFlag flags,
 				const wchar_t* name = nullptr);

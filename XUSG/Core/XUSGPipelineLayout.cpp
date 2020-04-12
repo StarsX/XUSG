@@ -13,7 +13,7 @@ struct DescriptorRange
 	uint32_t NumDescriptors;
 	uint32_t BaseBinding;
 	uint32_t Space;
-	DescriptorRangeFlag Flags;
+	DescriptorFlag Flags;
 };
 
 Util::PipelineLayout_DX12::PipelineLayout_DX12() :
@@ -33,7 +33,7 @@ void Util::PipelineLayout_DX12::SetShaderStage(uint32_t index, Shader::Stage sta
 }
 
 void Util::PipelineLayout_DX12::SetRange(uint32_t index, DescriptorType type, uint32_t num, uint32_t baseBinding,
-	uint32_t space, DescriptorRangeFlag flags)
+	uint32_t space, DescriptorFlag flags)
 {
 	auto& key = checkKeySpace(index);
 
@@ -55,26 +55,26 @@ void Util::PipelineLayout_DX12::SetRange(uint32_t index, DescriptorType type, ui
 void Util::PipelineLayout_DX12::SetConstants(uint32_t index, uint32_t num32BitValues,
 	uint32_t binding, uint32_t space, Shader::Stage stage)
 {
-	SetRange(index, DescriptorType::CONSTANT, num32BitValues, binding, space, DescriptorRangeFlag::NONE);
+	SetRange(index, DescriptorType::CONSTANT, num32BitValues, binding, space, DescriptorFlag::NONE);
 	SetShaderStage(index, stage);
 }
 
 void Util::PipelineLayout_DX12::SetRootSRV(uint32_t index, uint32_t binding, uint32_t space,
-	DescriptorRangeFlag flags, Shader::Stage stage)
+	DescriptorFlag flags, Shader::Stage stage)
 {
 	SetRange(index, DescriptorType::ROOT_SRV, 1, binding, space, flags);
 	SetShaderStage(index, stage);
 }
 
 void Util::PipelineLayout_DX12::SetRootUAV(uint32_t index, uint32_t binding, uint32_t space,
-	DescriptorRangeFlag flags, Shader::Stage stage)
+	DescriptorFlag flags, Shader::Stage stage)
 {
 	SetRange(index, DescriptorType::ROOT_UAV, 1, binding, space, flags);
 	SetShaderStage(index, stage);
 }
 
 void Util::PipelineLayout_DX12::SetRootCBV(uint32_t index, uint32_t binding, uint32_t space,
-	DescriptorRangeFlag flags, Shader::Stage stage)
+	DescriptorFlag flags, Shader::Stage stage)
 {
 	SetRange(index, DescriptorType::ROOT_CBV, 1, binding, space, flags);
 	SetShaderStage(index, stage);
@@ -211,7 +211,7 @@ PipelineLayout PipelineLayoutCache_DX12::createPipelineLayout(const string& key,
 		featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
 
 	const auto numLayouts = static_cast<uint32_t>((key.size() - 1) / sizeof(void*));
-	const auto flags = static_cast<D3D12_ROOT_SIGNATURE_FLAGS>(key[0]);
+	const auto flags = static_cast<PipelineLayoutFlag>(key[0]);
 	const auto pDescriptorTableLayoutPtrs = reinterpret_cast<DescriptorTableLayout::element_type* const*>(&key[1]);
 
 	vector<D3D12_ROOT_PARAMETER1> descriptorTableLayouts(numLayouts);
@@ -219,7 +219,7 @@ PipelineLayout PipelineLayoutCache_DX12::createPipelineLayout(const string& key,
 		descriptorTableLayouts[i] = *pDescriptorTableLayoutPtrs[i];
 
 	CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC layoutDesc;
-	layoutDesc.Init_1_1(numLayouts, descriptorTableLayouts.data(), 0, nullptr, flags);
+	layoutDesc.Init_1_1(numLayouts, descriptorTableLayouts.data(), 0, nullptr, GetDX12RootSignatureFlags(flags));
 
 	Blob signature, error;
 	H_RETURN(D3DX12SerializeVersionedRootSignature(&layoutDesc, featureData.HighestVersion, &signature, &error),
@@ -290,19 +290,19 @@ DescriptorTableLayout PipelineLayoutCache_DX12::createDescriptorTableLayout(cons
 		case DescriptorType::ROOT_SRV:
 			// Set param
 			layout->InitAsShaderResourceView(pRanges->BaseBinding, pRanges->Space,
-				D3D12_ROOT_DESCRIPTOR_FLAGS(pRanges->Flags), visibilities[stage]);
+				GetDX12RootDescriptorFlags(pRanges->Flags), visibilities[stage]);
 			break;
 
 		case DescriptorType::ROOT_UAV:
 			// Set param
 			layout->InitAsUnorderedAccessView(pRanges->BaseBinding, pRanges->Space,
-				D3D12_ROOT_DESCRIPTOR_FLAGS(pRanges->Flags), visibilities[stage]);
+				GetDX12RootDescriptorFlags(pRanges->Flags), visibilities[stage]);
 			break;
 
 		case DescriptorType::ROOT_CBV:
 			// Set param
 			layout->InitAsConstantBufferView(pRanges->BaseBinding, pRanges->Space,
-				D3D12_ROOT_DESCRIPTOR_FLAGS(pRanges->Flags), visibilities[stage]);
+				GetDX12RootDescriptorFlags(pRanges->Flags), visibilities[stage]);
 			break;
 
 		default:
@@ -312,7 +312,7 @@ DescriptorTableLayout PipelineLayoutCache_DX12::createDescriptorTableLayout(cons
 			{
 				const auto& range = pRanges[i];
 				layout->ranges[i].Init(rangeTypes[static_cast<uint8_t>(range.ViewType)], range.NumDescriptors,
-					range.BaseBinding, range.Space, D3D12_DESCRIPTOR_RANGE_FLAGS(range.Flags));
+					range.BaseBinding, range.Space, GetDX12DescriptorRangeFlags(range.Flags));
 			}
 
 			// Set param

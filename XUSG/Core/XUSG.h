@@ -5,6 +5,38 @@
 #pragma once
 #pragma warning(disable:4250)
 
+namespace XUSG
+{
+	enum class Format : uint32_t;
+	enum class CommandListType : uint8_t;
+	enum class InputClassification : uint8_t;
+	enum class MemoryType : uint8_t;
+	enum class PrimitiveTopologyType : uint8_t;
+	enum class PrimitiveTopology : uint8_t;
+	enum class IndirectArgumentType : uint8_t;
+	enum class ResourceDimension : uint8_t;
+
+	enum class CommandQueueFlag : uint8_t;
+	enum class ResourceFlag : uint32_t;
+	enum class ResourceState : uint32_t;
+	enum class BarrierFlag : uint8_t;
+	enum class DescriptorFlag : uint8_t;
+	enum class PipelineLayoutFlag : uint8_t;
+	enum class ClearFlag : uint8_t;
+	enum class FenceFlag : uint8_t;
+
+	enum Requirement : uint32_t
+	{
+		REQ_MIP_LEVELS,
+		REQ_TEXTURECUBE_DIMENSION,
+		REQ_TEXTURE1D_U_DIMENSION,
+		REQ_TEXTURE2D_U_OR_V_DIMENSION,
+		REQ_TEXTURE3D_U_V_OR_W_DIMENSION,
+		REQ_TEXTURE1D_ARRAY_AXIS_DIMENSION,
+		REQ_TEXTURE2D_ARRAY_AXIS_DIMENSION
+	};
+};
+
 #include "XUSG_DX12.h"
 
 #define C_RETURN(x, r)		if (x) return r
@@ -14,12 +46,356 @@
 #define DIV_UP(x, n)		(((x) - 1) / (n) + 1)
 #define SizeOfInUint32(obj)	DIV_UP(sizeof(obj), sizeof(uint32_t))
 
+#define APPEND_ALIGNED_ELEMENT 0xffffffff
+
 namespace XUSG
 {
+	// Enumerations
 	enum API
 	{
 		API_DIRECTX_12
 	};
+
+	enum class Format : uint32_t
+	{
+		UNKNOWN,
+		R32G32B32A32_TYPELESS,
+		R32G32B32A32_FLOAT,
+		R32G32B32A32_UINT,
+		R32G32B32A32_SINT,
+		R32G32B32_TYPELESS,
+		R32G32B32_FLOAT,
+		R32G32B32_UINT,
+		R32G32B32_SINT,
+		R16G16B16A16_TYPELESS,
+		R16G16B16A16_FLOAT,
+		R16G16B16A16_UNORM,
+		R16G16B16A16_UINT,
+		R16G16B16A16_SNORM,
+		R16G16B16A16_SINT,
+		R32G32_TYPELESS,
+		R32G32_FLOAT,
+		R32G32_UINT,
+		R32G32_SINT,
+		R32G8X24_TYPELESS,
+		D32_FLOAT_S8X24_UINT,
+		R32_FLOAT_X8X24_TYPELESS,
+		X32_TYPELESS_G8X24_UINT,
+		R10G10B10A2_TYPELESS,
+		R10G10B10A2_UNORM,
+		R10G10B10A2_UINT,
+		R11G11B10_FLOAT,
+		R8G8B8A8_TYPELESS,
+		R8G8B8A8_UNORM,
+		R8G8B8A8_UNORM_SRGB,
+		R8G8B8A8_UINT,
+		R8G8B8A8_SNORM,
+		R8G8B8A8_SINT,
+		R16G16_TYPELESS,
+		R16G16_FLOAT,
+		R16G16_UNORM,
+		R16G16_UINT,
+		R16G16_SNORM,
+		R16G16_SINT,
+		R32_TYPELESS,
+		D32_FLOAT,
+		R32_FLOAT,
+		R32_UINT,
+		R32_SINT,
+		R24G8_TYPELESS,
+		D24_UNORM_S8_UINT,
+		R24_UNORM_X8_TYPELESS,
+		X24_TYPELESS_G8_UINT,
+		R8G8_TYPELESS,
+		R8G8_UNORM,
+		R8G8_UINT,
+		R8G8_SNORM,
+		R8G8_SINT,
+		R16_TYPELESS,
+		R16_FLOAT,
+		D16_UNORM,
+		R16_UNORM,
+		R16_UINT,
+		R16_SNORM,
+		R16_SINT,
+		R8_TYPELESS,
+		R8_UNORM,
+		R8_UINT,
+		R8_SNORM,
+		R8_SINT,
+		A8_UNORM,
+		R1_UNORM,
+		R9G9B9E5_SHAREDEXP,
+		R8G8_B8G8_UNORM,
+		G8R8_G8B8_UNORM,
+		BC1_TYPELESS,
+		BC1_UNORM,
+		BC1_UNORM_SRGB,
+		BC2_TYPELESS,
+		BC2_UNORM,
+		BC2_UNORM_SRGB,
+		BC3_TYPELESS,
+		BC3_UNORM,
+		BC3_UNORM_SRGB,
+		BC4_TYPELESS,
+		BC4_UNORM,
+		BC4_SNORM,
+		BC5_TYPELESS,
+		BC5_UNORM,
+		BC5_SNORM,
+		B5G6R5_UNORM,
+		B5G5R5A1_UNORM,
+		B8G8R8A8_UNORM,
+		B8G8R8X8_UNORM,
+		RGB10_XR_BIAS_A2_UNORM,
+		B8G8R8A8_TYPELESS,
+		B8G8R8A8_UNORM_SRGB,
+		B8G8R8X8_TYPELESS,
+		B8G8R8X8_UNORM_SRGB,
+		BC6H_TYPELESS,
+		BC6H_UF16,
+		BC6H_SF16,
+		BC7_TYPELESS,
+		BC7_UNORM,
+		BC7_UNORM_SRGB,
+		AYUV,
+		Y410,
+		Y416,
+		NV12,
+		P010,
+		P016,
+		OPAQUE_420,
+		YUY2,
+		Y210,
+		Y216,
+		NV11,
+		AI44,
+		IA44,
+		P8,
+		A8P8,
+		B4G4R4A4_UNORM,
+
+		P208,
+		V208,
+		V408,
+
+		FORCE_UINT
+	};
+
+	enum class CommandListType : uint8_t
+	{
+		DIRECT,
+		BUNDLE,
+		COMPUTE,
+		COPY,
+		VIDEO_DECODE,
+		VIDEO_PROCESS,
+		VIDEO_ENCODE
+	};
+
+	enum class InputClassification : uint8_t
+	{
+		PER_VERTEX_DATA,
+		PER_INSTANCE_DATA
+	};
+
+	enum class MemoryType : uint8_t
+	{
+		DEFAULT,
+		UPLOAD,
+		READBACK,
+		CUSTOM
+	};
+
+	enum class PrimitiveTopologyType : uint8_t
+	{
+		UNDEFINED,
+		POINT,
+		LINE,
+		TRIANGLE,
+		PATCH
+	};
+
+	enum class PrimitiveTopology : uint8_t
+	{
+		UNDEFINED,
+		POINTLIST,
+		LINELIST,
+		LINESTRIP,
+		TRIANGLELIST,
+		TRIANGLESTRIP,
+		LINELIST_ADJ,
+		LINESTRIP_ADJ,
+		TRIANGLELIST_ADJ,
+		TRIANGLESTRIP_ADJ,
+		CONTROL_POINT1_PATCHLIST,
+		CONTROL_POINT2_PATCHLIST,
+		CONTROL_POINT3_PATCHLIST,
+		CONTROL_POINT4_PATCHLIST,
+		CONTROL_POINT5_PATCHLIST,
+		CONTROL_POINT6_PATCHLIST,
+		CONTROL_POINT7_PATCHLIST,
+		CONTROL_POINT8_PATCHLIST,
+		CONTROL_POINT9_PATCHLIST,
+		CONTROL_POINT10_PATCHLIST,
+		CONTROL_POINT11_PATCHLIST,
+		CONTROL_POINT12_PATCHLIST,
+		CONTROL_POINT13_PATCHLIST,
+		CONTROL_POINT14_PATCHLIST,
+		CONTROL_POINT15_PATCHLIST,
+		CONTROL_POINT16_PATCHLIST,
+		CONTROL_POINT17_PATCHLIST,
+		CONTROL_POINT18_PATCHLIST,
+		CONTROL_POINT19_PATCHLIST,
+		CONTROL_POINT20_PATCHLIST,
+		CONTROL_POINT21_PATCHLIST,
+		CONTROL_POINT22_PATCHLIST,
+		CONTROL_POINT23_PATCHLIST,
+		CONTROL_POINT24_PATCHLIST,
+		CONTROL_POINT25_PATCHLIST,
+		CONTROL_POINT26_PATCHLIST,
+		CONTROL_POINT27_PATCHLIST,
+		CONTROL_POINT28_PATCHLIST,
+		CONTROL_POINT29_PATCHLIST,
+		CONTROL_POINT30_PATCHLIST,
+		CONTROL_POINT31_PATCHLIST,
+		CONTROL_POINT32_PATCHLIST
+	};
+
+	enum class IndirectArgumentType : uint8_t
+	{
+		DRAW,
+		DRAW_INDEXED,
+		DISPATCH,
+		VERTEX_BUFFER_VIEW,
+		INDEX_BUFFER_VIEW,
+		CONSTANT,
+		CONSTANT_BUFFER_VIEW,
+		SHADER_RESOURCE_VIEW,
+		UNORDERED_ACCESS_VIEW
+	};
+
+	enum class ResourceDimension : uint8_t
+	{
+		UNKNOWN,
+		BUFFER,
+		TEXTURE1D,
+		TEXTURE2D,
+		TEXTURE3D
+	};
+
+	enum class ResourceFlag : uint32_t
+	{
+		NONE = 0,
+		ALLOW_RENDER_TARGET = (1 << 0),
+		ALLOW_DEPTH_STENCIL = (1 << 1),
+		ALLOW_UNORDERED_ACCESS = (1 << 2),
+		DENY_SHADER_RESOURCE = (1 << 3),
+		ALLOW_CROSS_ADAPTER = (1 << 4),
+		ALLOW_SIMULTANEOUS_ACCESS = (1 << 5),
+		VIDEO_DECODE_REFERENCE_ONLY = (1 << 6),
+		NEED_PACKED_UAV = ALLOW_UNORDERED_ACCESS | 0x8000,
+		ACCELERATION_STRUCTURE = ALLOW_UNORDERED_ACCESS | 0x400000
+	};
+
+	DEFINE_ENUM_FLAG_OPERATORS(ResourceFlag);
+
+	enum class ResourceState : uint32_t
+	{
+		COMMON = 0,
+		VERTEX_AND_CONSTANT_BUFFER = (1 << 0),
+		INDEX_BUFFER = (1 << 1),
+		RENDER_TARGET = (1 << 2),
+		UNORDERED_ACCESS = (1 << 3),
+		DEPTH_WRITE = (1 << 4),
+		DEPTH_READ = (1 << 5),
+		NON_PIXEL_SHADER_RESOURCE = (1 << 6),
+		PIXEL_SHADER_RESOURCE = (1 << 7),
+		STREAM_OUT = (1 << 8),
+		INDIRECT_ARGUMENT = (1 << 9),
+		COPY_DEST = (1 << 10),
+		COPY_SOURCE = (1 << 11),
+		RESOLVE_DEST = (1 << 12),
+		RESOLVE_SOURCE = (1 << 13),
+		PREDICATION = (1 << 14),
+		RAYTRACING_ACCELERATION_STRUCTURE = (1 << 15),
+		SHADING_RATE_SOURCE = (1 << 16),
+
+		GENERAL_READ = (VERTEX_AND_CONSTANT_BUFFER | INDEX_BUFFER | NON_PIXEL_SHADER_RESOURCE | PIXEL_SHADER_RESOURCE | INDIRECT_ARGUMENT | COPY_SOURCE | PREDICATION),
+		PRESENT = 0,
+
+		VIDEO_DECODE_READ = (1 << 17),
+		VIDEO_DECODE_WRITE = (1 << 18),
+		VIDEO_PROCESS_READ = (1 << 19),
+		VIDEO_PROCESS_WRITE = (1 << 20),
+		VIDEO_ENCODE_READ = (1 << 21),
+		VIDEO_ENCODE_WRITE = (1 << 22)
+	};
+
+	DEFINE_ENUM_FLAG_OPERATORS(ResourceState);
+
+	enum class BarrierFlag : uint8_t
+	{
+		NONE = 0,
+		BEGIN_ONLY = (1 << 0),
+		END_ONLY = (1 << 1)
+	};
+
+	DEFINE_ENUM_FLAG_OPERATORS(BarrierFlag);
+
+	enum class DescriptorFlag : uint8_t
+	{
+		NONE = 0,
+		DESCRIPTORS_VOLATILE = (1 << 0),
+		DATA_VOLATILE = (1 << 1),
+		DATA_STATIC_WHILE_SET_AT_EXECUTE = (1 << 2),
+		DATA_STATIC = (1 << 3),
+		DESCRIPTORS_STATIC_KEEPING_BUFFER_BOUNDS_CHECKS = (1 << 4)
+	};
+
+	DEFINE_ENUM_FLAG_OPERATORS(DescriptorFlag);
+
+	enum class PipelineLayoutFlag : uint8_t
+	{
+		NONE = 0,
+		ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT = (1 << 0),
+		DENY_VERTEX_SHADER_ROOT_ACCESS = (1 << 1),
+		DENY_HULL_SHADER_ROOT_ACCESS = (1 << 2),
+		DENY_DOMAIN_SHADER_ROOT_ACCESS = (1 << 3),
+		DENY_GEOMETRY_SHADER_ROOT_ACCESS = (1 << 4),
+		DENY_PIXEL_SHADER_ROOT_ACCESS = (1 << 5),
+		ALLOW_STREAM_OUTPUT = (1 << 6),
+		LOCAL_PIPELINE_LAYOUT = (1 << 7)
+	};
+
+	DEFINE_ENUM_FLAG_OPERATORS(PipelineLayoutFlag);
+
+	enum class CommandQueueFlag : uint8_t
+	{
+		NONE = 0,
+		DISABLE_GPU_TIMEOUT = (1 << 0)
+	};
+
+	DEFINE_ENUM_FLAG_OPERATORS(CommandQueueFlag);
+
+	enum class ClearFlag : uint8_t
+	{
+		NONE = 0,
+		DEPTH = (1 << 0),
+		STENCIL = (1 << 1)
+	};
+
+	DEFINE_ENUM_FLAG_OPERATORS(ClearFlag);
+
+	enum class FenceFlag : uint8_t
+	{
+		NONE = 0,
+		SHARED = (1 << 0),
+		SHARED_CROSS_ADAPTER = (1 << 1),
+		NON_MONITORED = (1 << 2)
+	};
+
+	DEFINE_ENUM_FLAG_OPERATORS(FenceFlag);
 
 	//--------------------------------------------------------------------------------------
 	// Command list
@@ -722,15 +1098,15 @@ namespace XUSG
 
 			virtual void SetShaderStage(uint32_t index, Shader::Stage stage) = 0;
 			virtual void SetRange(uint32_t index, DescriptorType type, uint32_t num, uint32_t baseBinding,
-				uint32_t space = 0, DescriptorRangeFlag flags = DescriptorRangeFlag::NONE) = 0;
+				uint32_t space = 0, DescriptorFlag flags = DescriptorFlag::NONE) = 0;
 			virtual void SetConstants(uint32_t index, uint32_t num32BitValues, uint32_t binding,
 				uint32_t space = 0, Shader::Stage stage = Shader::Stage::ALL) = 0;
 			virtual void SetRootSRV(uint32_t index, uint32_t binding, uint32_t space = 0,
-				DescriptorRangeFlag flags = DescriptorRangeFlag::DATA_STATIC, Shader::Stage stage = Shader::Stage::ALL) = 0;
+				DescriptorFlag flags = DescriptorFlag::DATA_STATIC, Shader::Stage stage = Shader::Stage::ALL) = 0;
 			virtual void SetRootUAV(uint32_t index, uint32_t binding, uint32_t space = 0,
-				DescriptorRangeFlag flags = DescriptorRangeFlag::NONE, Shader::Stage stage = Shader::Stage::ALL) = 0;
+				DescriptorFlag flags = DescriptorFlag::NONE, Shader::Stage stage = Shader::Stage::ALL) = 0;
 			virtual void SetRootCBV(uint32_t index, uint32_t binding, uint32_t space = 0,
-				DescriptorRangeFlag flags = DescriptorRangeFlag::NONE, Shader::Stage stage = Shader::Stage::ALL) = 0;
+				DescriptorFlag flags = DescriptorFlag::NONE, Shader::Stage stage = Shader::Stage::ALL) = 0;
 
 			virtual XUSG::PipelineLayout CreatePipelineLayout(PipelineLayoutCache& pipelineLayoutCache, PipelineLayoutFlag flags,
 				const wchar_t* name = nullptr) = 0;

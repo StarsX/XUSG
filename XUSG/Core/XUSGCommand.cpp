@@ -7,12 +7,12 @@
 using namespace std;
 using namespace XUSG;
 
-bool DX12Device::GetCommandQueue(CommandQueue& commandQueue, CommandListType type, CommandQueueFlags flags, int32_t priority, uint32_t nodeMask)
+bool DX12Device::GetCommandQueue(CommandQueue& commandQueue, CommandListType type, CommandQueueFlag flags, int32_t priority, uint32_t nodeMask)
 {
 	D3D12_COMMAND_QUEUE_DESC queueDesc;
-	queueDesc.Type = static_cast<D3D12_COMMAND_LIST_TYPE>(type);
+	queueDesc.Type = GetDX12CommandListType(type);
 	queueDesc.Priority = priority;
-	queueDesc.Flags = static_cast<D3D12_COMMAND_QUEUE_FLAGS>(flags);
+	queueDesc.Flags = GetDX12CommandQueueFlags(flags);
 	queueDesc.NodeMask = nodeMask;
 
 	V_RETURN(CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&commandQueue)), std::cerr, false);
@@ -21,21 +21,21 @@ bool DX12Device::GetCommandQueue(CommandQueue& commandQueue, CommandListType typ
 
 bool DX12Device::GetCommandAllocator(CommandAllocator& commandAllocator, CommandListType type)
 {
-	V_RETURN(CreateCommandAllocator(static_cast<D3D12_COMMAND_LIST_TYPE>(type), IID_PPV_ARGS(&commandAllocator)), std::cerr, false);
+	V_RETURN(CreateCommandAllocator(GetDX12CommandListType(type), IID_PPV_ARGS(&commandAllocator)), std::cerr, false);
 	return true;
 }
 
 bool DX12Device::GetCommandList(GraphicsCommandList& commandList, uint32_t nodeMask, CommandListType type,
 	const CommandAllocator& commandAllocator, const Pipeline& pipeline)
 {
-	V_RETURN(CreateCommandList(nodeMask, static_cast<D3D12_COMMAND_LIST_TYPE>(type), commandAllocator.get(),
+	V_RETURN(CreateCommandList(nodeMask, GetDX12CommandListType(type), commandAllocator.get(),
 		pipeline.get(), IID_PPV_ARGS(&commandList)), std::cerr, false);
 	return true;
 }
 
 bool DX12Device::GetFence(Fence& fence, uint64_t initialValue, FenceFlag flags)
 {
-	V_RETURN(CreateFence(initialValue, static_cast<D3D12_FENCE_FLAGS>(flags), IID_PPV_ARGS(&fence)), std::cerr, false);
+	V_RETURN(CreateFence(initialValue, GetDX12FenceFlags(flags), IID_PPV_ARGS(&fence)), std::cerr, false);
 	return true;
 }
 
@@ -130,12 +130,12 @@ void CommandList_DX12::ResolveSubresource(const Resource& dstResource, uint32_t 
 	const Resource& srcResource, uint32_t srcSubresource, Format format) const
 {
 	m_commandList->ResolveSubresource(dstResource.get(), dstSubresource, srcResource.get(),
-		srcSubresource, static_cast<DXGI_FORMAT>(format));
+		srcSubresource, GetDXGIFormat(format));
 }
 
 void CommandList_DX12::IASetPrimitiveTopology(PrimitiveTopology primitiveTopology) const
 {
-	m_commandList->IASetPrimitiveTopology(static_cast<D3D12_PRIMITIVE_TOPOLOGY>(primitiveTopology));
+	m_commandList->IASetPrimitiveTopology(GetDX12PrimitiveTopology(primitiveTopology));
 }
 
 void CommandList_DX12::RSSetViewports(uint32_t numViewports, const Viewport* pViewports) const
@@ -291,7 +291,7 @@ void CommandList_DX12::ClearDepthStencilView(const Framebuffer& framebuffer, Cle
 void CommandList_DX12::ClearDepthStencilView(const Descriptor& depthStencilView, ClearFlag clearFlags, float depth,
 	uint8_t stencil, uint32_t numRects, const RectRange* pRects) const
 {
-	m_commandList->ClearDepthStencilView(depthStencilView, static_cast<D3D12_CLEAR_FLAGS>(clearFlags),
+	m_commandList->ClearDepthStencilView(depthStencilView, GetDX12ClearFlags(clearFlags),
 		depth, stencil, numRects, pRects);
 }
 

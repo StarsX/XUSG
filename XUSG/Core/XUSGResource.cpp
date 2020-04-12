@@ -5,9 +5,6 @@
 #include "DXFrameworkHelper.h"
 #include "XUSGResource.h"
 
-#define REMOVE_PACKED_UAV		(~ResourceFlag::NEED_PACKED_UAV | ResourceFlag::ALLOW_UNORDERED_ACCESS)
-#define REMOVE_RAYTRACING_AS	(~ResourceFlag::ACCELERATION_STRUCTURE | ResourceFlag::ALLOW_UNORDERED_ACCESS)
-
 using namespace std;
 using namespace XUSG;
 
@@ -99,7 +96,7 @@ bool ConstantBuffer_DX12::Create(const Device& device, uint64_t byteWidth, uint3
 	const auto strideCbv = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 	V_RETURN(m_device->CreateCommittedResource(
-		&CD3DX12_HEAP_PROPERTIES(static_cast<D3D12_HEAP_TYPE>(memoryType)),
+		&CD3DX12_HEAP_PROPERTIES(GetDX12HeapType(memoryType)),
 		D3D12_HEAP_FLAG_NONE,
 		&CD3DX12_RESOURCE_DESC::Buffer(byteWidth, D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE),
 		memoryType == MemoryType::DEFAULT ? D3D12_RESOURCE_STATE_COMMON : D3D12_RESOURCE_STATE_GENERIC_READ,
@@ -155,13 +152,13 @@ bool ConstantBuffer_DX12::Upload(CommandList* pCommandList, Resource& uploader, 
 	// from the upload heap to the buffer.
 	if (srcState != ResourceState::COMMON)
 		pCommandList->Barrier(1, &ResourceBarrier::Transition(m_resource.get(),
-			static_cast<D3D12_RESOURCE_STATES>(srcState), D3D12_RESOURCE_STATE_COPY_DEST));
+			GetDX12ResourceStates(srcState), D3D12_RESOURCE_STATE_COPY_DEST));
 	M_RETURN(UpdateSubresources(pCommandList->GetCommandList().get(),
 		m_resource.get(), uploader.get(), offset, 0, 1, &subresourceData) <= 0,
 		clog, "Failed to upload the resource.", false);
 	if (dstState != ResourceState::COMMON)
 		pCommandList->Barrier(1, &ResourceBarrier::Transition(m_resource.get(),
-			D3D12_RESOURCE_STATE_COPY_DEST, static_cast<D3D12_RESOURCE_STATES>(dstState)));
+			D3D12_RESOURCE_STATE_COPY_DEST, GetDX12ResourceStates(dstState)));
 
 	return true;
 }
@@ -217,6 +214,7 @@ Descriptor ConstantBuffer_DX12::allocateCbvPool(const wchar_t* name)
 ResourceBase_DX12::ResourceBase_DX12() :
 	m_device(nullptr),
 	m_resource(nullptr),
+	m_format(Format::UNKNOWN),
 	m_srvUavPools(0),
 	m_srvs(0),
 	m_states()
@@ -265,9 +263,8 @@ ResourceBarrier ResourceBase_DX12::Transition(ResourceState dstState,
 
 	return srcState == dstState && dstState == ResourceState::UNORDERED_ACCESS ?
 		ResourceBarrier::UAV(m_resource.get()) :
-		ResourceBarrier::Transition(m_resource.get(), static_cast<D3D12_RESOURCE_STATES>(srcState),
-			static_cast<D3D12_RESOURCE_STATES>(dstState), subresource,
-			static_cast<D3D12_RESOURCE_BARRIER_FLAGS>(flags));
+		ResourceBarrier::Transition(m_resource.get(), GetDX12ResourceStates(srcState),
+			GetDX12ResourceStates(dstState), subresource, GetDX12BarrierFlags(flags));
 }
 
 ResourceState ResourceBase_DX12::GetResourceState(uint32_t subresource) const
@@ -277,7 +274,7 @@ ResourceState ResourceBase_DX12::GetResourceState(uint32_t subresource) const
 
 Format ResourceBase_DX12::GetFormat() const
 {
-	return static_cast<Format>(m_resource->GetDesc().Format);
+	return m_format;
 }
 
 uint32_t ResourceBase_DX12::GetWidth() const
@@ -329,18 +326,16 @@ bool Texture2D_DX12::Create(const Device& device, uint32_t width, uint32_t heigh
 	if (name) m_name = name;
 
 	const auto needPackedUAV = (resourceFlags & ResourceFlag::NEED_PACKED_UAV) == ResourceFlag::NEED_PACKED_UAV;
-	resourceFlags &= REMOVE_PACKED_UAV;
-
 	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
 	const bool hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
 
 	// Map formats
-	auto formatResource = format;
-	const auto formatUAV = needPackedUAV ? MapToPackedFormat(formatResource) : format;
+	m_format = format;
+	const auto formatUAV = needPackedUAV ? MapToPackedFormat(m_format) : format;
 
 	// Setup the texture description.
-	const auto desc = CD3DX12_RESOURCE_DESC::Tex2D(static_cast<DXGI_FORMAT>(formatResource),
-		width, height, arraySize, numMips, sampleCount, 0, static_cast<D3D12_RESOURCE_FLAGS>(resourceFlags));
+	const auto desc = CD3DX12_RESOURCE_DESC::Tex2D(GetDXGIFormat(m_format),
+		width, height, arraySize, numMips, sampleCount, 0, GetDX12ResourceFlags(resourceFlags));
 
 	// Determine initial state
 	m_states.resize(arraySize * numMips);
@@ -359,8 +354,8 @@ bool Texture2D_DX12::Create(const Device& device, uint32_t width, uint32_t heigh
 			state = ResourceState::COMMON;
 	}
 	
-	V_RETURN(m_device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(static_cast<D3D12_HEAP_TYPE>(memoryType)),
-		D3D12_HEAP_FLAG_NONE, &desc, static_cast<D3D12_RESOURCE_STATES>(m_states[0]), nullptr,
+	V_RETURN(m_device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(GetDX12HeapType(memoryType)),
+		D3D12_HEAP_FLAG_NONE, &desc, GetDX12ResourceStates(m_states[0]), nullptr,
 		IID_PPV_ARGS(&m_resource)), clog, false);
 	if (!m_name.empty()) m_resource->SetName((m_name + L".Resource").c_str());
 
@@ -642,7 +637,7 @@ uint32_t Texture2D_DX12::Blit(const CommandList* pCommandList, ResourceBarrier* 
 		const auto subresource = D3D12CalcSubresource(mipLevel, j, 0, desc.MipLevels, desc.DepthOrArraySize);
 		if (m_states[subresource] != ResourceState::UNORDERED_ACCESS)
 		{
-			const auto& srcState = static_cast<D3D12_RESOURCE_STATES>(m_states[subresource]);
+			const auto& srcState = GetDX12ResourceStates(m_states[subresource]);
 			pBarriers[numBarriers++] = ResourceBarrier::Transition(m_resource.get(), srcState, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, subresource);
 			m_states[subresource] = ResourceState::UNORDERED_ACCESS;
 		}
@@ -688,7 +683,7 @@ uint32_t Texture2D_DX12::GenerateMips(const CommandList* pCommandList, ResourceB
 			auto subresource = D3D12CalcSubresource(j, n, 0, desc.MipLevels, desc.DepthOrArraySize);
 			if (m_states[subresource] != ResourceState::UNORDERED_ACCESS)
 			{
-				const auto& srcState = static_cast<D3D12_RESOURCE_STATES>(m_states[subresource]);
+				const auto& srcState = GetDX12ResourceStates(m_states[subresource]);
 				pBarriers[numBarriers++] = ResourceBarrier::Transition(m_resource.get(), srcState, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, subresource);
 				m_states[subresource] = ResourceState::UNORDERED_ACCESS;
 			}
@@ -1010,31 +1005,29 @@ bool RenderTarget_DX12::create(const Device& device, uint32_t width, uint32_t he
 	if (name) m_name = name;
 
 	const auto needPackedUAV = (resourceFlags & ResourceFlag::NEED_PACKED_UAV) == ResourceFlag::NEED_PACKED_UAV;
-	resourceFlags &= REMOVE_PACKED_UAV;
-
 	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
 	const bool hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
 
 	// Map formats
-	auto formatResource = format;
-	const auto formatUAV = needPackedUAV ? MapToPackedFormat(formatResource) : format;
+	m_format = format;
+	const auto formatUAV = needPackedUAV ? MapToPackedFormat(m_format) : format;
 
 	// Setup the texture description.
-	const auto desc = CD3DX12_RESOURCE_DESC::Tex2D(static_cast<DXGI_FORMAT>(formatResource),
+	const auto desc = CD3DX12_RESOURCE_DESC::Tex2D(GetDXGIFormat(m_format),
 		width, height, arraySize, numMips, sampleCount, 0,
-		static_cast<D3D12_RESOURCE_FLAGS>(ResourceFlag::ALLOW_RENDER_TARGET | resourceFlags));
+		GetDX12ResourceFlags(ResourceFlag::ALLOW_RENDER_TARGET | resourceFlags));
 
 	// Determine initial state
 	m_states.resize(arraySize * numMips);
 	for (auto& state : m_states) state = ResourceState::COMMON;
 
 	// Optimized clear value
-	D3D12_CLEAR_VALUE clearValue = { static_cast<DXGI_FORMAT>(format) };
+	D3D12_CLEAR_VALUE clearValue = { GetDXGIFormat(format) };
 	if (pClearColor) memcpy(clearValue.Color, pClearColor, sizeof(clearValue.Color));
 
 	// Create the render target texture.
 	V_RETURN(m_device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-		D3D12_HEAP_FLAG_NONE, &desc, static_cast<D3D12_RESOURCE_STATES>(m_states[0]), &clearValue,
+		D3D12_HEAP_FLAG_NONE, &desc, GetDX12ResourceStates(m_states[0]), &clearValue,
 		IID_PPV_ARGS(&m_resource)), clog, false);
 	if (!m_name.empty()) m_resource->SetName((m_name + L".Resource").c_str());
 
@@ -1282,7 +1275,7 @@ bool DepthStencil_DX12::create(const Device& device, uint32_t width, uint32_t he
 	hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
 	
 	// Map formats
-	auto formatResource = format;
+	m_format = format;
 	auto formatDepth = Format::UNKNOWN;
 	formatStencil = Format::UNKNOWN;
 
@@ -1291,26 +1284,26 @@ bool DepthStencil_DX12::create(const Device& device, uint32_t width, uint32_t he
 		switch (format)
 		{
 		case Format::D24_UNORM_S8_UINT:
-			formatResource = Format::R24G8_TYPELESS;
+			m_format = Format::R24G8_TYPELESS;
 			formatDepth = Format::R24_UNORM_X8_TYPELESS;
 			formatStencil = Format::X24_TYPELESS_G8_UINT;
 			break;
 		case Format::D32_FLOAT_S8X24_UINT:
-			formatResource = Format::R32G8X24_TYPELESS;
+			m_format = Format::R32G8X24_TYPELESS;
 			formatDepth = Format::R32_FLOAT_X8X24_TYPELESS;
 			formatStencil = Format::X32_TYPELESS_G8X24_UINT;
 			break;
 		case Format::D16_UNORM:
-			formatResource = Format::R16_TYPELESS;
+			m_format = Format::R16_TYPELESS;
 			formatDepth = Format::R16_UNORM;
 			break;
 		case Format::D32_FLOAT:
-			formatResource = Format::R32_TYPELESS;
+			m_format = Format::R32_TYPELESS;
 			formatDepth = Format::R32_FLOAT;
 			break;
 		default:
 			format = Format::D24_UNORM_S8_UINT;
-			formatResource = Format::R24G8_TYPELESS;
+			m_format = Format::R24G8_TYPELESS;
 			formatDepth = Format::R24_UNORM_X8_TYPELESS;
 		}
 	}
@@ -1319,22 +1312,22 @@ bool DepthStencil_DX12::create(const Device& device, uint32_t width, uint32_t he
 
 	// Setup the render depth stencil description.
 	{
-		const auto desc = CD3DX12_RESOURCE_DESC::Tex2D(static_cast<DXGI_FORMAT>(formatResource),
+		const auto desc = CD3DX12_RESOURCE_DESC::Tex2D(GetDXGIFormat(m_format),
 			width, height, arraySize, numMips, sampleCount, 0,
-			static_cast<D3D12_RESOURCE_FLAGS>(ResourceFlag::ALLOW_DEPTH_STENCIL | resourceFlags));
+			GetDX12ResourceFlags(ResourceFlag::ALLOW_DEPTH_STENCIL | resourceFlags));
 
 		// Determine initial state
 		m_states.resize(arraySize * numMips);
 		for (auto& state : m_states) state = ResourceState::DEPTH_WRITE;
 
 		// Optimized clear value
-		D3D12_CLEAR_VALUE clearValue = { static_cast<DXGI_FORMAT>(format) };
+		D3D12_CLEAR_VALUE clearValue = { GetDXGIFormat(format) };
 		clearValue.DepthStencil.Depth = clearDepth;
 		clearValue.DepthStencil.Stencil = clearStencil;
 
 		// Create the depth stencil texture.
 		V_RETURN(m_device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-			D3D12_HEAP_FLAG_NONE, &desc, static_cast<D3D12_RESOURCE_STATES>(m_states[0]), &clearValue,
+			D3D12_HEAP_FLAG_NONE, &desc, GetDX12ResourceStates(m_states[0]), &clearValue,
 			IID_PPV_ARGS(&m_resource)), clog, false);
 		if (!m_name.empty()) m_resource->SetName((m_name + L".Resource").c_str());
 	}
@@ -1437,18 +1430,16 @@ bool Texture3D_DX12::Create(const Device& device, uint32_t width, uint32_t heigh
 	if (name) m_name = name;
 
 	const auto needPackedUAV = (resourceFlags & ResourceFlag::NEED_PACKED_UAV) == ResourceFlag::NEED_PACKED_UAV;
-	resourceFlags &= REMOVE_PACKED_UAV;
-
 	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
 	const bool hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
 
 	// Map formats
-	auto formatResource = format;
-	const auto formatUAV = needPackedUAV ? MapToPackedFormat(formatResource) : format;
+	m_format = format;
+	const auto formatUAV = needPackedUAV ? MapToPackedFormat(m_format) : format;
 
 	// Setup the texture description.
-	const auto desc = CD3DX12_RESOURCE_DESC::Tex3D(static_cast<DXGI_FORMAT>(formatResource),
-		width, height, depth, numMips, static_cast<D3D12_RESOURCE_FLAGS>(resourceFlags));
+	const auto desc = CD3DX12_RESOURCE_DESC::Tex3D(GetDXGIFormat(m_format),
+		width, height, depth, numMips, GetDX12ResourceFlags(resourceFlags));
 
 	// Determine initial state
 	m_states.resize(numMips);
@@ -1467,8 +1458,8 @@ bool Texture3D_DX12::Create(const Device& device, uint32_t width, uint32_t heigh
 			state = ResourceState::COMMON;
 	}
 	
-	V_RETURN(m_device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(static_cast<D3D12_HEAP_TYPE>(memoryType)),
-		D3D12_HEAP_FLAG_NONE, &desc, static_cast<D3D12_RESOURCE_STATES>(m_states[0]), nullptr,
+	V_RETURN(m_device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(GetDX12HeapType(memoryType)),
+		D3D12_HEAP_FLAG_NONE, &desc, GetDX12ResourceStates(m_states[0]), nullptr,
 		IID_PPV_ARGS(&m_resource)), clog, false);
 	if (!m_name.empty()) m_resource->SetName((m_name + L".Resource").c_str());
 
@@ -1751,10 +1742,9 @@ bool RawBuffer_DX12::create(const Device& device, uint64_t byteWidth, ResourceFl
 	if (name) m_name = name;
 
 	const auto isRaytracingAS = (resourceFlags & ResourceFlag::ACCELERATION_STRUCTURE) == ResourceFlag::ACCELERATION_STRUCTURE;
-	resourceFlags &= REMOVE_RAYTRACING_AS;
 
 	// Setup the buffer description.
-	const auto desc = CD3DX12_RESOURCE_DESC::Buffer(byteWidth, static_cast<D3D12_RESOURCE_FLAGS>(resourceFlags));
+	const auto desc = CD3DX12_RESOURCE_DESC::Buffer(byteWidth, GetDX12ResourceFlags(resourceFlags));
 
 	// Determine initial state
 	m_states.resize(1);
@@ -1775,8 +1765,8 @@ bool RawBuffer_DX12::create(const Device& device, uint64_t byteWidth, ResourceFl
 			state = ResourceState::COMMON;
 	}
 
-	V_RETURN(m_device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(static_cast<D3D12_HEAP_TYPE>(memoryType)),
-		D3D12_HEAP_FLAG_NONE, &desc, static_cast<D3D12_RESOURCE_STATES>(m_states[0]), nullptr,
+	V_RETURN(m_device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(GetDX12HeapType(memoryType)),
+		D3D12_HEAP_FLAG_NONE, &desc, GetDX12ResourceStates(m_states[0]), nullptr,
 		IID_PPV_ARGS(&m_resource)), clog, false);
 	if (!m_name.empty()) m_resource->SetName((m_name + L".Resource").c_str());
 
@@ -1904,7 +1894,6 @@ bool TypedBuffer_DX12::Create(const Device& device, uint32_t numElements, uint32
 	const wchar_t* name)
 {
 	const auto needPackedUAV = (resourceFlags & ResourceFlag::NEED_PACKED_UAV) == ResourceFlag::NEED_PACKED_UAV;
-	resourceFlags &= REMOVE_PACKED_UAV;
 
 	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
 	const bool hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
@@ -1913,8 +1902,8 @@ bool TypedBuffer_DX12::Create(const Device& device, uint32_t numElements, uint32
 	numUAVs = hasUAV ? numUAVs : 0;
 
 	// Map formats
-	auto formatResource = format;
-	const auto formatUAV = needPackedUAV ? MapToPackedFormat(formatResource) : format;
+	m_format = format;
+	const auto formatUAV = needPackedUAV ? MapToPackedFormat(m_format) : format;
 
 	// Create buffer
 	N_RETURN(create(device, stride * numElements, resourceFlags,

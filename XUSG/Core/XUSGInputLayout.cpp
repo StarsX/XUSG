@@ -23,9 +23,23 @@ void InputLayoutPool::SetLayout(uint32_t index, const InputElementTable& element
 
 	auto& layout = m_layouts[index];
 	layout = make_shared<InputLayout::element_type>();
-	layout->elements = elementTable;
-	layout->pInputElementDescs = reinterpret_cast<decltype(layout->pInputElementDescs)>(layout->elements.data());
-	layout->NumElements = static_cast<uint32_t>(layout->elements.size());
+	layout->Elements.resize(elementTable.size());
+	layout->pInputElementDescs = layout->Elements.data();
+	layout->NumElements = static_cast<uint32_t>(layout->Elements.size());
+
+	for (auto i = 0u; i < layout->NumElements; ++i)
+	{
+		auto& elementDX12 = layout->Elements[i];
+		const auto& element = elementTable[i];
+
+		elementDX12.SemanticName = element.SemanticName;
+		elementDX12.SemanticIndex = element.SemanticIndex;
+		elementDX12.Format = GetDXGIFormat(element.Format);
+		elementDX12.InputSlot = element.InputSlot;
+		elementDX12.AlignedByteOffset  = element.AlignedByteOffset != APPEND_ALIGNED_ELEMENT ? element.AlignedByteOffset : D3D12_APPEND_ALIGNED_ELEMENT;
+		elementDX12.InputSlotClass = GetDX12InputClassification(element.InputSlotClass);
+		elementDX12.InstanceDataStepRate = element.InstanceDataStepRate;
+	}
 }
 
 InputLayout InputLayoutPool::CreateLayout(const InputElementTable& elementTable)

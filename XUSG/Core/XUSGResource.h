@@ -75,6 +75,7 @@ namespace XUSG
 		Device			m_device;
 
 		Resource		m_resource;
+		Format			m_format;
 		std::vector<DescriptorPool>	m_srvUavPools;
 		std::vector<Descriptor> m_srvs;
 		std::vector<ResourceState> m_states;

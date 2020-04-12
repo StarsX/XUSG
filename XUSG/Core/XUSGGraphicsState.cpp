@@ -247,12 +247,12 @@ Pipeline PipelineCache_DX12::createPipeline(const Key* pKey, const wchar_t* name
 	desc.DepthStencilState = *(depthStencil ? depthStencil : GetDepthStencil(DepthStencilPreset::DEFAULT_LESS).get());
 	if (pKey->InputLayout)
 		desc.InputLayout = *static_cast<decltype(desc.InputLayout)*>(pKey->InputLayout);
-	desc.PrimitiveTopologyType = static_cast<decltype(desc.PrimitiveTopologyType)>(pKey->PrimTopologyType);
+	desc.PrimitiveTopologyType = GetDX12PrimitiveTopologyType(pKey->PrimTopologyType);
 	desc.NumRenderTargets = pKey->NumRenderTargets;
 
 	for (auto i = 0; i < 8; ++i)
-		desc.RTVFormats[i] = static_cast<DXGI_FORMAT>(pKey->RTVFormats[i]);
-	desc.DSVFormat = static_cast<DXGI_FORMAT>(pKey->DSVFormat);
+		desc.RTVFormats[i] = GetDXGIFormat(pKey->RTVFormats[i]);
+	desc.DSVFormat = GetDXGIFormat(pKey->DSVFormat);
 	desc.SampleDesc.Count = pKey->SampleCount;
 
 	// Create pipeline

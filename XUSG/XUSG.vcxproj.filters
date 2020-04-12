@@ -120,5 +120,8 @@
     <ClCompile Include="Core\XUSGSampler.cpp">
       <Filter>Core\Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Core\XUSG_DX12.cpp">
+      <Filter>Core\Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>
