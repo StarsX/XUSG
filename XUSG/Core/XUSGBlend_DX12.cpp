@@ -2,7 +2,7 @@
 // Copyright (c) XU, Tianchen. All rights reserved.
 //--------------------------------------------------------------------------------------
 
-#include "XUSGGraphicsState.h"
+#include "XUSGGraphicsState_DX12.h"
 
 using namespace std;
 using namespace XUSG;

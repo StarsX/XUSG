@@ -2,7 +2,7 @@
 // Copyright (c) XU, Tianchen. All rights reserved.
 //--------------------------------------------------------------------------------------
 
-#include "XUSGReflector.h"
+#include "XUSGReflector_DX12.h"
 #include "dxcapi.h"
 #include <Psapi.h>
 

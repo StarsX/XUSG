@@ -2,7 +2,7 @@
 // Copyright (c) XU, Tianchen. All rights reserved.
 //--------------------------------------------------------------------------------------
 
-#include "XUSGDescriptor.h"
+#include "XUSGDescriptor_DX12.h"
 
 using namespace std;
 using namespace XUSG;

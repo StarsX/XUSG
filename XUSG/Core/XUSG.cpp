@@ -2,14 +2,14 @@
 // Copyright (c) XU, Tianchen. All rights reserved.
 //--------------------------------------------------------------------------------------
 
-#include "XUSGCommand.h"
-#include "XUSGResource.h"
-#include "XUSGDescriptor.h"
-#include "XUSGReflector.h"
-#include "XUSGShader.h"
-#include "XUSGPipelineLayout.h"
-#include "XUSGGraphicsState.h"
-#include "XUSGComputeState.h"
+#include "XUSGCommand_DX12.h"
+#include "XUSGResource_DX12.h"
+#include "XUSGDescriptor_DX12.h"
+#include "XUSGReflector_DX12.h"
+#include "XUSGShader_DX12.h"
+#include "XUSGPipelineLayout_DX12.h"
+#include "XUSGGraphicsState_DX12.h"
+#include "XUSGComputeState_DX12.h"
 
 using namespace std;
 using namespace XUSG;

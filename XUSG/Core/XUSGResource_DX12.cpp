@@ -3,7 +3,7 @@
 //--------------------------------------------------------------------------------------
 
 #include "DXFrameworkHelper.h"
-#include "XUSGResource.h"
+#include "XUSGResource_DX12.h"
 
 using namespace std;
 using namespace XUSG;

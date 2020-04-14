@@ -2,8 +2,8 @@
 // Copyright (c) XU, Tianchen. All rights reserved.
 //--------------------------------------------------------------------------------------
 
-#include "XUSGReflector.h"
-#include "XUSGShader.h"
+#include "XUSGReflector_DX12.h"
+#include "XUSGShader_DX12.h"
 
 using namespace std;
 using namespace XUSG;

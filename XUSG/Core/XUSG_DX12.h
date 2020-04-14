@@ -200,7 +200,6 @@ namespace XUSG
 
 	// DX12 enum transfer functions
 	DXGI_FORMAT GetDXGIFormat(Format format);
-	Format GetFormatFromDXGI(DXGI_FORMAT format);
 
 	D3D12_COMMAND_LIST_TYPE GetDX12CommandListType(CommandListType commandListType);
 	D3D12_INPUT_CLASSIFICATION GetDX12InputClassification(InputClassification inputClassification);
@@ -208,9 +207,7 @@ namespace XUSG
 	D3D12_PRIMITIVE_TOPOLOGY_TYPE GetDX12PrimitiveTopologyType(PrimitiveTopologyType primitiveTopologyType);
 	D3D_PRIMITIVE_TOPOLOGY GetDX12PrimitiveTopology(PrimitiveTopology primitiveTopology);
 	D3D12_INDIRECT_ARGUMENT_TYPE GetDX12IndirectArgumentType(IndirectArgumentType indirectArgumentType);
-
 	D3D12_RESOURCE_DIMENSION GetDX12ResourceDimension(ResourceDimension resourceDimension);
-	ResourceDimension GetResourceDimensionFromDX12(uint32_t resourceDimension);
 
 	D3D12_COMMAND_QUEUE_FLAGS GetDX12CommandQueueFlag(CommandQueueFlag commandQueueFlag);
 	D3D12_COMMAND_QUEUE_FLAGS GetDX12CommandQueueFlags(CommandQueueFlag commandQueueFlags);

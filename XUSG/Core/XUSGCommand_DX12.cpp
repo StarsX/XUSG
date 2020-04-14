@@ -2,7 +2,7 @@
 // Copyright (c) XU, Tianchen. All rights reserved.
 //--------------------------------------------------------------------------------------
 
-#include "XUSGCommand.h"
+#include "XUSGCommand_DX12.h"
 
 using namespace std;
 using namespace XUSG;

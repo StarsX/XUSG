@@ -13,8 +13,8 @@ namespace XUSG
 	enum class MemoryType : uint8_t;
 	enum class PrimitiveTopologyType : uint8_t;
 	enum class PrimitiveTopology : uint8_t;
-	enum class IndirectArgumentType : uint8_t;
 	enum class ResourceDimension : uint8_t;
+	enum class IndirectArgumentType : uint8_t;
 
 	enum class CommandQueueFlag : uint8_t;
 	enum class ResourceFlag : uint32_t;
@@ -262,6 +262,15 @@ namespace XUSG
 		CONTROL_POINT32_PATCHLIST
 	};
 
+	enum class ResourceDimension : uint8_t
+	{
+		UNKNOWN,
+		BUFFER,
+		TEXTURE1D,
+		TEXTURE2D,
+		TEXTURE3D
+	};
+
 	enum class IndirectArgumentType : uint8_t
 	{
 		DRAW,
@@ -273,15 +282,6 @@ namespace XUSG
 		CONSTANT_BUFFER_VIEW,
 		SHADER_RESOURCE_VIEW,
 		UNORDERED_ACCESS_VIEW
-	};
-
-	enum class ResourceDimension : uint8_t
-	{
-		UNKNOWN,
-		BUFFER,
-		TEXTURE1D,
-		TEXTURE2D,
-		TEXTURE3D
 	};
 
 	enum class ResourceFlag : uint32_t

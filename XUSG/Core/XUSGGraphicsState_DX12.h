@@ -5,7 +5,7 @@
 #pragma once
 
 #include "XUSG.h"
-#include "XUSGInputLayout.h"
+#include "XUSGInputLayout_DX12.h"
 
 namespace XUSG
 {
