@@ -12,3 +12,5 @@ https://github.com/StarsX/VoxelizerX12
 https://github.com/StarsX/ComputeRaster
 
 https://github.com/StarsX/FluidX12
+
+https://github.com/StarsX/ParticleEmitter
