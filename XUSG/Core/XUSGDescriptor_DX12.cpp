@@ -44,34 +44,34 @@ void Util::DescriptorTable_DX12::SetSamplers(uint32_t start, uint32_t num, const
 
 DescriptorTable Util::DescriptorTable_DX12::CreateCbvSrvUavTable(DescriptorTableCache& descriptorTableCache, const XUSG::DescriptorTable& table)
 {
-	return static_cast<DescriptorTableCache_DX12&>(descriptorTableCache).createCbvSrvUavTable(m_key, table);
+	return dynamic_cast<DescriptorTableCache_DX12&>(descriptorTableCache).createCbvSrvUavTable(m_key, table);
 }
 
 DescriptorTable Util::DescriptorTable_DX12::GetCbvSrvUavTable(DescriptorTableCache& descriptorTableCache, const XUSG::DescriptorTable& table)
 {
-	return static_cast<DescriptorTableCache_DX12&>(descriptorTableCache).getCbvSrvUavTable(m_key, table);
+	return dynamic_cast<DescriptorTableCache_DX12&>(descriptorTableCache).getCbvSrvUavTable(m_key, table);
 }
 
 DescriptorTable Util::DescriptorTable_DX12::CreateSamplerTable(DescriptorTableCache& descriptorTableCache, const XUSG::DescriptorTable& table)
 {
-	return static_cast<DescriptorTableCache_DX12&>(descriptorTableCache).createSamplerTable(m_key, table);
+	return dynamic_cast<DescriptorTableCache_DX12&>(descriptorTableCache).createSamplerTable(m_key, table);
 }
 
 DescriptorTable Util::DescriptorTable_DX12::GetSamplerTable(DescriptorTableCache& descriptorTableCache, const XUSG::DescriptorTable& table)
 {
-	return static_cast<DescriptorTableCache_DX12&>(descriptorTableCache).getSamplerTable(m_key, table);
+	return dynamic_cast<DescriptorTableCache_DX12&>(descriptorTableCache).getSamplerTable(m_key, table);
 }
 
 Framebuffer Util::DescriptorTable_DX12::CreateFramebuffer(DescriptorTableCache& descriptorTableCache,
 	const Descriptor* pDsv, const Framebuffer* pFramebuffer)
 {
-	return static_cast<DescriptorTableCache_DX12&>(descriptorTableCache).createFramebuffer(m_key, pDsv, pFramebuffer);
+	return dynamic_cast<DescriptorTableCache_DX12&>(descriptorTableCache).createFramebuffer(m_key, pDsv, pFramebuffer);
 }
 
 Framebuffer Util::DescriptorTable_DX12::GetFramebuffer(DescriptorTableCache& descriptorTableCache,
 	const Descriptor* pDsv, const Framebuffer* pFramebuffer)
 {
-	return static_cast<DescriptorTableCache_DX12&>(descriptorTableCache).getFramebuffer(m_key, pDsv, pFramebuffer);
+	return dynamic_cast<DescriptorTableCache_DX12&>(descriptorTableCache).getFramebuffer(m_key, pDsv, pFramebuffer);
 }
 
 const string& Util::DescriptorTable_DX12::GetKey() const

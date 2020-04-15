@@ -9,7 +9,7 @@
 namespace XUSG
 {
 	class Reflector_DX12 :
-		public Reflector
+		public virtual Reflector
 	{
 	public:
 		Reflector_DX12();

@@ -12,7 +12,7 @@ namespace XUSG
 	// Constant buffer
 	//--------------------------------------------------------------------------------------
 	class ConstantBuffer_DX12 :
-		public ConstantBuffer
+		public virtual ConstantBuffer
 	{
 	public:
 		ConstantBuffer_DX12();
@@ -88,7 +88,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	class Texture2D_DX12 :
 		public virtual Texture2D,
-		public ResourceBase_DX12
+		public virtual ResourceBase_DX12
 	{
 	public:
 		Texture2D_DX12();
@@ -150,8 +150,8 @@ namespace XUSG
 	// Render target
 	//--------------------------------------------------------------------------------------
 	class RenderTarget_DX12 :
-		public RenderTarget,
-		public Texture2D_DX12
+		public virtual RenderTarget,
+		public virtual Texture2D_DX12
 	{
 	public:
 		RenderTarget_DX12();
@@ -202,8 +202,8 @@ namespace XUSG
 	// Depth stencil
 	//--------------------------------------------------------------------------------------
 	class DepthStencil_DX12 :
-		public DepthStencil,
-		public Texture2D_DX12
+		public virtual DepthStencil,
+		public virtual Texture2D_DX12
 	{
 	public:
 		DepthStencil_DX12();
@@ -245,8 +245,8 @@ namespace XUSG
 	// 3D Texture
 	//--------------------------------------------------------------------------------------
 	class Texture3D_DX12 :
-		public Texture3D,
-		public Texture2D_DX12
+		public virtual Texture3D,
+		public virtual Texture2D_DX12
 	{
 	public:
 		Texture3D_DX12();
@@ -268,7 +268,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	class RawBuffer_DX12 :
 		public virtual RawBuffer,
-		public ResourceBase_DX12
+		public virtual ResourceBase_DX12
 	{
 	public:
 		RawBuffer_DX12();
@@ -306,7 +306,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	class StructuredBuffer_DX12 :
 		public virtual StructuredBuffer,
-		public RawBuffer_DX12
+		public virtual RawBuffer_DX12
 	{
 	public:
 		StructuredBuffer_DX12();
@@ -336,7 +336,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	class TypedBuffer_DX12 :
 		public virtual TypedBuffer,
-		public RawBuffer_DX12
+		public virtual RawBuffer_DX12
 	{
 	public:
 		TypedBuffer_DX12();
@@ -364,8 +364,8 @@ namespace XUSG
 	// Vertex buffer
 	//--------------------------------------------------------------------------------------
 	class VertexBuffer_DX12 :
-		public VertexBuffer,
-		public StructuredBuffer_DX12
+		public virtual VertexBuffer,
+		public virtual StructuredBuffer_DX12
 	{
 	public:
 		VertexBuffer_DX12();
@@ -394,8 +394,8 @@ namespace XUSG
 	// Index buffer
 	//--------------------------------------------------------------------------------------
 	class IndexBuffer_DX12 :
-		public IndexBuffer,
-		public TypedBuffer_DX12
+		public virtual IndexBuffer,
+		public virtual TypedBuffer_DX12
 	{
 	public:
 		IndexBuffer_DX12();

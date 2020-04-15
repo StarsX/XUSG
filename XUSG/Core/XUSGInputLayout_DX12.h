@@ -8,11 +8,11 @@
 
 namespace XUSG
 {
-	class InputLayoutPool
+	class InputLayoutPool_DX12
 	{
 	public:
-		InputLayoutPool();
-		virtual ~InputLayoutPool();
+		InputLayoutPool_DX12();
+		virtual ~InputLayoutPool_DX12();
 
 		void SetLayout(uint32_t index, const InputElementTable& elementTable);
 

@@ -11,7 +11,7 @@ namespace XUSG
 	namespace Util
 	{
 		class PipelineLayout_DX12 :
-			public PipelineLayout
+			public virtual PipelineLayout
 		{
 		public:
 			PipelineLayout_DX12();
@@ -51,7 +51,7 @@ namespace XUSG
 	}
 
 	class PipelineLayoutCache_DX12 :
-		public PipelineLayoutCache
+		public virtual PipelineLayoutCache
 	{
 	public:
 		PipelineLayoutCache_DX12();

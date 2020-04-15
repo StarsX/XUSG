@@ -9,7 +9,7 @@
 namespace XUSG
 {
 	class CommandList_DX12 :
-		public CommandList
+		public virtual CommandList
 	{
 	public:
 		CommandList_DX12();

@@ -11,7 +11,7 @@ namespace XUSG
 	namespace Util
 	{
 		class DescriptorTable_DX12 :
-			public DescriptorTable
+			public virtual DescriptorTable
 		{
 		public:
 			DescriptorTable_DX12();
@@ -45,7 +45,7 @@ namespace XUSG
 	}
 
 	class DescriptorTableCache_DX12 :
-		public DescriptorTableCache
+		public virtual DescriptorTableCache
 	{
 	public:
 		DescriptorTableCache_DX12();

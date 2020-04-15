@@ -7,16 +7,16 @@
 using namespace std;
 using namespace XUSG;
 
-InputLayoutPool::InputLayoutPool() :
+InputLayoutPool_DX12::InputLayoutPool_DX12() :
 	m_layouts(0)
 {
 }
 
-InputLayoutPool::~InputLayoutPool()
+InputLayoutPool_DX12::~InputLayoutPool_DX12()
 {
 }
 
-void InputLayoutPool::SetLayout(uint32_t index, const InputElementTable& elementTable)
+void InputLayoutPool_DX12::SetLayout(uint32_t index, const InputElementTable& elementTable)
 {
 	if (index >= m_layouts.size())
 		m_layouts.resize(index + 1);
@@ -42,7 +42,7 @@ void InputLayoutPool::SetLayout(uint32_t index, const InputElementTable& element
 	}
 }
 
-InputLayout InputLayoutPool::CreateLayout(const InputElementTable& elementTable)
+InputLayout InputLayoutPool_DX12::CreateLayout(const InputElementTable& elementTable)
 {
 	const auto index = static_cast<uint32_t>(m_layouts.size());
 
@@ -51,7 +51,7 @@ InputLayout InputLayoutPool::CreateLayout(const InputElementTable& elementTable)
 	return GetLayout(index);
 }
 
-InputLayout InputLayoutPool::GetLayout(uint32_t index) const
+InputLayout InputLayoutPool_DX12::GetLayout(uint32_t index) const
 {
 	return index < m_layouts.size() ? m_layouts[index] : nullptr;
 }

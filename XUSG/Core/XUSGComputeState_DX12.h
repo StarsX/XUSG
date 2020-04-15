@@ -17,7 +17,7 @@ namespace XUSG
 		};
 
 		class State_DX12 :
-			public State
+			public virtual State
 		{
 		public:
 			State_DX12();
@@ -37,7 +37,7 @@ namespace XUSG
 		};
 
 		class PipelineCache_DX12 :
-			public PipelineCache
+			public virtual PipelineCache
 		{
 		public:
 			PipelineCache_DX12();

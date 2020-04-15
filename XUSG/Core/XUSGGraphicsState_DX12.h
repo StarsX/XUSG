@@ -27,7 +27,7 @@ namespace XUSG
 		};
 
 		class State_DX12 :
-			public State
+			public virtual State
 		{
 		public:
 			State_DX12();
@@ -63,7 +63,7 @@ namespace XUSG
 		};
 
 		class PipelineCache_DX12 :
-			public PipelineCache
+			public virtual PipelineCache
 		{
 		public:
 			PipelineCache_DX12();
@@ -90,7 +90,7 @@ namespace XUSG
 
 			Device m_device;
 
-			InputLayoutPool	m_inputLayoutPool;
+			InputLayoutPool_DX12 m_inputLayoutPool;
 
 			std::unordered_map<std::string, Pipeline> m_pipelines;
 			Blend			m_blends[NUM_BLEND_PRESET];

@@ -9,7 +9,7 @@
 namespace XUSG
 {
 	class ShaderPool_DX12:
-		public ShaderPool
+		public virtual ShaderPool
 	{
 	public:
 		ShaderPool_DX12();
