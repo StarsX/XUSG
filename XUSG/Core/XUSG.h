@@ -514,8 +514,8 @@ namespace XUSG
 		//ConstantBuffer();
 		virtual ~ConstantBuffer() {};
 
-		virtual bool Create(const Device& device, uint64_t byteWidth, uint32_t numCBVs = 1,
-			const uint32_t* offsets = nullptr, MemoryType memoryType = MemoryType::UPLOAD,
+		virtual bool Create(const Device& device, size_t byteWidth, uint32_t numCBVs = 1,
+			const size_t* offsets = nullptr, MemoryType memoryType = MemoryType::UPLOAD,
 			const wchar_t* name = nullptr) = 0;
 		virtual bool Upload(CommandList* pCommandList, Resource& uploader, const void* pData,
 			size_t size, uint32_t cbvIndex = 0, ResourceState srcState = ResourceState::COMMON,
@@ -748,20 +748,20 @@ namespace XUSG
 		//RawBuffer();
 		virtual ~RawBuffer() {};
 
-		virtual bool Create(const Device& device, uint64_t byteWidth, ResourceFlag resourceFlags = ResourceFlag::NONE,
+		virtual bool Create(const Device& device, size_t byteWidth, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			MemoryType memoryType = MemoryType::DEFAULT, uint32_t numSRVs = 1,
 			const uint32_t* firstSRVElements = nullptr, uint32_t numUAVs = 1,
 			const uint32_t* firstUAVElements = nullptr, const wchar_t* name = nullptr) = 0;
 		virtual bool Upload(CommandList* pCommandList, Resource& uploader, const void* pData, size_t size,
 			uint32_t descriptorIndex = 0, ResourceState dstState = ResourceState::COMMON) = 0;
-		virtual bool CreateSRVs(uint64_t byteWidth, const uint32_t* firstElements = nullptr,
+		virtual bool CreateSRVs(size_t byteWidth, const uint32_t* firstElements = nullptr,
 			uint32_t numDescriptors = 1) = 0;
-		virtual bool CreateUAVs(uint64_t byteWidth, const uint32_t* firstElements = nullptr,
+		virtual bool CreateUAVs(size_t byteWidth, const uint32_t* firstElements = nullptr,
 			uint32_t numDescriptors = 1) = 0;
 
 		virtual Descriptor GetUAV(uint32_t index = 0) const = 0;
 
-		virtual void* Map(uint32_t descriptorIndex = 0, size_t readBegin = 0, size_t readEnd = 0) = 0;
+		virtual void* Map(uint32_t descriptorIndex = 0, uintptr_t readBegin = 0, uintptr_t readEnd = 0) = 0;
 		virtual void* Map(const Range* pReadRange, uint32_t descriptorIndex = 0) = 0;
 		virtual void Unmap() = 0;
 
@@ -786,13 +786,13 @@ namespace XUSG
 			ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
 			uint32_t numSRVs = 1, const uint32_t* firstSRVElements = nullptr,
 			uint32_t numUAVs = 1, const uint32_t* firstUAVElements = nullptr,
-			const wchar_t* name = nullptr, const uint64_t* counterOffsetsInBytes = nullptr) = 0;
+			const wchar_t* name = nullptr, const size_t* counterOffsetsInBytes = nullptr) = 0;
 
 		virtual bool CreateSRVs(uint32_t numElements, uint32_t stride,
 			const uint32_t* firstElements = nullptr, uint32_t numDescriptors = 1) = 0;
 		virtual bool CreateUAVs(uint32_t numElements, uint32_t stride,
 			const uint32_t* firstElements = nullptr, uint32_t numDescriptors = 1,
-			const uint64_t* counterOffsetsInBytes = nullptr) = 0;
+			const size_t* counterOffsetsInBytes = nullptr) = 0;
 
 		virtual void SetCounter(const Resource& counter) = 0;
 		virtual Resource& GetCounter() = 0;
@@ -877,10 +877,10 @@ namespace XUSG
 		//IndexBuffer();
 		virtual ~IndexBuffer() {};
 
-		virtual bool Create(const Device& device, uint64_t byteWidth, Format format = Format::R32_UINT,
+		virtual bool Create(const Device& device, size_t byteWidth, Format format = Format::R32_UINT,
 			ResourceFlag resourceFlags = ResourceFlag::DENY_SHADER_RESOURCE,
 			MemoryType memoryType = MemoryType::DEFAULT,
-			uint32_t numIBVs = 1, const uint32_t* offsets = nullptr,
+			uint32_t numIBVs = 1, const size_t* offsets = nullptr,
 			uint32_t numSRVs = 1, const uint32_t* firstSRVElements = nullptr,
 			uint32_t numUAVs = 1, const uint32_t* firstUAVElements = nullptr,
 			const wchar_t* name = nullptr) = 0;

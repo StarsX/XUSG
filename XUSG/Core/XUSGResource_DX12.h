@@ -18,8 +18,8 @@ namespace XUSG
 		ConstantBuffer_DX12();
 		virtual ~ConstantBuffer_DX12();
 
-		bool Create(const Device& device, uint64_t byteWidth, uint32_t numCBVs = 1,
-			const uint32_t* offsets = nullptr, MemoryType memoryType = MemoryType::UPLOAD,
+		bool Create(const Device& device, size_t byteWidth, uint32_t numCBVs = 1,
+			const size_t* offsets = nullptr, MemoryType memoryType = MemoryType::UPLOAD,
 			const wchar_t* name = nullptr);
 		bool Upload(CommandList* pCommandList, Resource& uploader, const void* pData,
 			size_t size, uint32_t cbvIndex = 0, ResourceState srcState = ResourceState::COMMON,
@@ -39,7 +39,7 @@ namespace XUSG
 		Resource		m_resource;
 		std::vector<DescriptorPool>	m_cbvPools;
 		std::vector<Descriptor>	m_cbvs;
-		std::vector<uint32_t> m_cbvOffsets;
+		std::vector<size_t> m_cbvOffsets;
 
 		void* m_pDataBegin;
 	};
@@ -274,29 +274,29 @@ namespace XUSG
 		RawBuffer_DX12();
 		virtual ~RawBuffer_DX12();
 
-		bool Create(const Device& device, uint64_t byteWidth, ResourceFlag resourceFlags = ResourceFlag::NONE,
+		bool Create(const Device& device, size_t byteWidth, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			MemoryType memoryType = MemoryType::DEFAULT, uint32_t numSRVs = 1,
 			const uint32_t* firstSRVElements = nullptr, uint32_t numUAVs = 1,
 			const uint32_t* firstUAVElements = nullptr, const wchar_t* name = nullptr);
 		bool Upload(CommandList* pCommandList, Resource& uploader, const void* pData, size_t size,
 			uint32_t descriptorIndex = 0, ResourceState dstState = ResourceState::COMMON);
-		bool CreateSRVs(uint64_t byteWidth, const uint32_t* firstElements = nullptr,
+		bool CreateSRVs(size_t byteWidth, const uint32_t* firstElements = nullptr,
 			uint32_t numDescriptors = 1);
-		bool CreateUAVs(uint64_t byteWidth, const uint32_t* firstElements = nullptr,
+		bool CreateUAVs(size_t byteWidth, const uint32_t* firstElements = nullptr,
 			uint32_t numDescriptors = 1);
 
 		Descriptor GetUAV(uint32_t index = 0) const;
 
-		void* Map(uint32_t descriptorIndex = 0, size_t readBegin = 0, size_t readEnd = 0);
+		void* Map(uint32_t descriptorIndex = 0, uintptr_t readBegin = 0, uintptr_t readEnd = 0);
 		void* Map(const Range* pReadRange, uint32_t descriptorIndex = 0);
 		void Unmap();
 
 	protected:
-		bool create(const Device& device, uint64_t byteWidth, ResourceFlag resourceFlags,
+		bool create(const Device& device, size_t byteWidth, ResourceFlag resourceFlags,
 			MemoryType memoryType, uint32_t numSRVs, uint32_t numUAVs, const wchar_t* name);
 
 		std::vector<Descriptor>	m_uavs;
-		std::vector<uint32_t>	m_srvOffsets;
+		std::vector<size_t>	m_srvOffsets;
 
 		void* m_pDataBegin;
 	};
@@ -316,13 +316,13 @@ namespace XUSG
 			ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
 			uint32_t numSRVs = 1, const uint32_t* firstSRVElements = nullptr,
 			uint32_t numUAVs = 1, const uint32_t* firstUAVElements = nullptr,
-			const wchar_t* name = nullptr, const uint64_t* counterOffsetsInBytes = nullptr);
+			const wchar_t* name = nullptr, const size_t* counterOffsetsInBytes = nullptr);
 
 		bool CreateSRVs(uint32_t numElements, uint32_t stride,
 			const uint32_t* firstElements = nullptr, uint32_t numDescriptors = 1);
 		bool CreateUAVs(uint32_t numElements, uint32_t stride,
 			const uint32_t* firstElements = nullptr, uint32_t numDescriptors = 1,
-			const uint64_t* counterOffsetsInBytes = nullptr);
+			const size_t* counterOffsetsInBytes = nullptr);
 
 		void SetCounter(const Resource& counter);
 		Resource& GetCounter();
@@ -401,10 +401,10 @@ namespace XUSG
 		IndexBuffer_DX12();
 		virtual ~IndexBuffer_DX12();
 
-		bool Create(const Device& device, uint64_t byteWidth, Format format = Format::R32_UINT,
+		bool Create(const Device& device, size_t byteWidth, Format format = Format::R32_UINT,
 			ResourceFlag resourceFlags = ResourceFlag::DENY_SHADER_RESOURCE,
 			MemoryType memoryType = MemoryType::DEFAULT,
-			uint32_t numIBVs = 1, const uint32_t* offsets = nullptr,
+			uint32_t numIBVs = 1, const size_t* offsets = nullptr,
 			uint32_t numSRVs = 1, const uint32_t* firstSRVElements = nullptr,
 			uint32_t numUAVs = 1, const uint32_t* firstUAVElements = nullptr,
 			const wchar_t* name = nullptr);

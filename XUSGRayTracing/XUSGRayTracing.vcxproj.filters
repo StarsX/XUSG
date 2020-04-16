@@ -1,0 +1,93 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="RayTracing">
+      <UniqueIdentifier>{efbbe720-a849-4206-b487-ace2e2550b5c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="RayTracing\Header Files">
+      <UniqueIdentifier>{ae454c9a-9d91-4455-86a0-05f43bb5a880}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="RayTracing\Source Files">
+      <UniqueIdentifier>{4e2ab7ec-80b8-458b-b414-f168aa8bec12}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core">
+      <UniqueIdentifier>{1ad7eef2-f612-47a1-84fa-91d28996090e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Common">
+      <UniqueIdentifier>{aae4d1cc-2eee-458b-94fd-beda7f12dac4}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="RayTracing\XUSGRayTracing.h">
+      <Filter>RayTracing\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="stdafx.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\D3D12RaytracingHelpers.hpp">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="RayTracing\XUSGRayTracing_DX12.h">
+      <Filter>RayTracing\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="RayTracing\XUSGAccelerationStructure_DX12.h">
+      <Filter>RayTracing\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="RayTracing\XUSGRayTracingCommand_DX12.h">
+      <Filter>RayTracing\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="RayTracing\XUSGRayTracingPipelineLayout_DX12.h">
+      <Filter>RayTracing\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="RayTracing\XUSGRayTracingState_DX12.h">
+      <Filter>RayTracing\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="RayTracing\XUSGShaderTable_DX12.h">
+      <Filter>RayTracing\Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="RayTracing\XUSGRayTracing.cpp">
+      <Filter>RayTracing\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="stdafx.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSG\Core\XUSG_DX12.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSG\Core\XUSGCommand_DX12.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSG\Core\XUSGPipelineLayout_DX12.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="RayTracing\XUSGAccelerationStructure_DX12.cpp">
+      <Filter>RayTracing\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="RayTracing\XUSGRayTracingCommand_DX12.cpp">
+      <Filter>RayTracing\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="RayTracing\XUSGRayTracingPipelineLayout_DX12.cpp">
+      <Filter>RayTracing\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="RayTracing\XUSGRayTracingState_DX12.cpp">
+      <Filter>RayTracing\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="RayTracing\XUSGShaderTable_DX12.cpp">
+      <Filter>RayTracing\Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>
