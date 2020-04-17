@@ -53,16 +53,16 @@ namespace XUSG
 			BottomLevelAS_DX12();
 			virtual ~BottomLevelAS_DX12();
 
-			bool PreBuild(const RayTracing::Device& device, uint32_t numDescs, Geometry* geometries,
+			bool PreBuild(const RayTracing::Device& device, uint32_t numDescs, const Geometry* pGeometries,
 				uint32_t descriptorIndex, BuildFlags flags = BuildFlags::PREFER_FAST_TRACE);
 			void Build(const RayTracing::CommandList* pCommandList, const Resource& scratch,
 				const DescriptorPool& descriptorPool, bool update = false);
 
-			static void SetTriangleGeometries(Geometry* geometries, uint32_t numGeometries, Format vertexFormat,
-				const VertexBufferView* pVBs, const IndexBufferView* pIBs = nullptr,
-				const GeometryFlags* geometryFlags = nullptr, const ResourceView* pTransforms = nullptr);
-			static void SetAABBGeometries(Geometry* geometries, uint32_t numGeometries,
-				const VertexBufferView* pVBs, const GeometryFlags* geometryFlags = nullptr);
+			static void SetTriangleGeometries(Geometry* pGeometries, uint32_t numGeometries,
+				Format vertexFormat, const VertexBufferView* pVBs, const IndexBufferView* pIBs = nullptr,
+				const GeometryFlags* pGeometryFlags = nullptr, const ResourceView* pTransforms = nullptr);
+			static void SetAABBGeometries(Geometry* pGeometries, uint32_t numGeometries,
+				const VertexBufferView* pVBs, const GeometryFlags* pGeometryFlags = nullptr);
 		};
 
 		class TopLevelAS_DX12 :
@@ -79,7 +79,7 @@ namespace XUSG
 				const Resource& instanceDescs, const DescriptorPool& descriptorPool, bool update = false);
 
 			static void SetInstances(const RayTracing::Device& device, Resource& instances,
-				uint32_t numInstances, const BottomLevelAS** pBottomLevelASs, float* const* transforms);
+				uint32_t numInstances, const BottomLevelAS** ppBottomLevelASs, float* const* transforms);
 		};
 	}
 }

@@ -56,17 +56,17 @@ namespace XUSG
 			//BottomLevelAS();
 			virtual ~BottomLevelAS() {}
 
-			virtual bool PreBuild(const RayTracing::Device& device, uint32_t numDescs, Geometry* geometries,
+			virtual bool PreBuild(const RayTracing::Device& device, uint32_t numDescs, const Geometry* pGeometries,
 				uint32_t descriptorIndex, BuildFlags flags = BuildFlags::PREFER_FAST_TRACE) = 0;
 			virtual void Build(const RayTracing::CommandList* pCommandList, const Resource& scratch,
 				const DescriptorPool& descriptorPool, bool update = false) = 0;
 
-			static void SetTriangleGeometries(Geometry* geometries, uint32_t numGeometries, Format vertexFormat,
+			static void SetTriangleGeometries(Geometry* pGeometries, uint32_t numGeometries, Format vertexFormat,
 				const VertexBufferView* pVBs, const IndexBufferView* pIBs = nullptr,
-				const GeometryFlags* geometryFlags = nullptr, const ResourceView* pTransforms = nullptr,
+				const GeometryFlags* pGeometryFlags = nullptr, const ResourceView* pTransforms = nullptr,
 				XUSG::API api = XUSG::API::DIRECTX_12);
-			static void SetAABBGeometries(Geometry* geometries, uint32_t numGeometries,
-				const VertexBufferView* pVBs, const GeometryFlags* geometryFlags = nullptr,
+			static void SetAABBGeometries(Geometry* pGeometries, uint32_t numGeometries,
+				const VertexBufferView* pVBs, const GeometryFlags* pGeometryFlags = nullptr,
 				XUSG::API api = XUSG::API::DIRECTX_12);
 
 			using uptr = std::unique_ptr<BottomLevelAS>;
@@ -92,7 +92,7 @@ namespace XUSG
 				const Resource& instanceDescs, const DescriptorPool& descriptorPool, bool update = false) = 0;
 
 			static void SetInstances(const RayTracing::Device& device, Resource& instances,
-				uint32_t numInstances, const BottomLevelAS** pBottomLevelASs,
+				uint32_t numInstances, const BottomLevelAS** ppBottomLevelASs,
 				float* const* transforms, XUSG::API api = XUSG::API::DIRECTX_12);
 
 			using uptr = std::unique_ptr<TopLevelAS>;

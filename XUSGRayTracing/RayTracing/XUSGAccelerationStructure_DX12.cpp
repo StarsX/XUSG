@@ -149,7 +149,7 @@ BottomLevelAS_DX12::~BottomLevelAS_DX12()
 }
 
 bool BottomLevelAS_DX12::PreBuild(const RayTracing::Device& device, uint32_t numDescs,
-	Geometry* geometries, uint32_t descriptorIndex, BuildFlags flags)
+	const Geometry* pGeometries, uint32_t descriptorIndex, BuildFlags flags)
 {
 	m_buildDesc = {};
 	auto& inputs = m_buildDesc.Inputs;
@@ -157,7 +157,7 @@ bool BottomLevelAS_DX12::PreBuild(const RayTracing::Device& device, uint32_t num
 	inputs.Flags = static_cast<decltype(inputs.Flags)>(flags);
 	inputs.NumDescs = numDescs;
 	inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
-	inputs.pGeometryDescs = geometries;
+	inputs.pGeometryDescs = pGeometries;
 
 	// Get required sizes for an acceleration structure.
 	return preBuild(device, descriptorIndex);
@@ -187,13 +187,13 @@ void BottomLevelAS_DX12::Build(const RayTracing::CommandList* pCommandList, cons
 	pCommandList->Barrier(1, &ResourceBarrier::UAV(m_results[m_currentFrame]->GetResource().get()));
 }
 
-void BottomLevelAS_DX12::SetTriangleGeometries(Geometry* geometries, uint32_t numGeometries, Format vertexFormat,
-	const VertexBufferView* pVBs, const IndexBufferView* pIBs, const GeometryFlags* geometryFlags,
-	const ResourceView* pTransforms)
+void BottomLevelAS_DX12::SetTriangleGeometries(Geometry* pGeometries, uint32_t numGeometries,
+	Format vertexFormat, const VertexBufferView* pVBs, const IndexBufferView* pIBs,
+	const GeometryFlags* pGeometryFlags, const ResourceView* pTransforms)
 {
 	for (auto i = 0u; i < numGeometries; ++i)
 	{
-		auto& geometryDesc = geometries[i];
+		auto& geometryDesc = pGeometries[i];
 		
 		auto strideIB = 0u;
 		if (pIBs)
@@ -216,15 +216,16 @@ void BottomLevelAS_DX12::SetTriangleGeometries(Geometry* geometries, uint32_t nu
 		// Mark the geometry as opaque. 
 		// PERFORMANCE TIP: mark geometry as opaque whenever applicable as it can enable important ray processing optimizations.
 		// Note: When rays encounter opaque geometry an any hit shader will not be executed whether it is present or not.
-		geometryDesc.Flags = static_cast<decltype(geometryDesc.Flags)>(geometryFlags ? geometryFlags[i] : GeometryFlags::FULL_OPAQUE);
+		geometryDesc.Flags = static_cast<decltype(geometryDesc.Flags)>(pGeometryFlags ? pGeometryFlags[i] : GeometryFlags::FULL_OPAQUE);
 	}
 }
 
-void BottomLevelAS_DX12::SetAABBGeometries(Geometry* geometries, uint32_t numGeometries, const VertexBufferView* pVBs, const GeometryFlags* geometryFlags)
+void BottomLevelAS_DX12::SetAABBGeometries(Geometry* pGeometries, uint32_t numGeometries,
+	const VertexBufferView* pVBs, const GeometryFlags* pGeometryFlags)
 {
 	for (auto i = 0u; i < numGeometries; ++i)
 	{
-		auto& geometryDesc = geometries[i];
+		auto& geometryDesc = pGeometries[i];
 
 		geometryDesc = {};
 		geometryDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_PROCEDURAL_PRIMITIVE_AABBS;
@@ -235,7 +236,7 @@ void BottomLevelAS_DX12::SetAABBGeometries(Geometry* geometries, uint32_t numGeo
 		// Mark the geometry as opaque. 
 		// PERFORMANCE TIP: mark geometry as opaque whenever applicable as it can enable important ray processing optimizations.
 		// Note: When rays encounter opaque geometry an any hit shader will not be executed whether it is present or not.
-		geometryDesc.Flags = static_cast<decltype(geometryDesc.Flags)>(geometryFlags ? geometryFlags[i] : GeometryFlags::FULL_OPAQUE);
+		geometryDesc.Flags = static_cast<decltype(geometryDesc.Flags)>(pGeometryFlags ? pGeometryFlags[i] : GeometryFlags::FULL_OPAQUE);
 	}
 }
 
@@ -289,7 +290,7 @@ void TopLevelAS_DX12::Build(const RayTracing::CommandList* pCommandList, const R
 }
 
 void TopLevelAS_DX12::SetInstances(const RayTracing::Device& device, Resource& instances,
-	uint32_t numInstances, const BottomLevelAS** pBottomLevelASs, float* const* transforms)
+	uint32_t numInstances, const BottomLevelAS** ppBottomLevelASs, float* const* transforms)
 {
 #if ENABLE_DXR_FALLBACK
 	// Note on Emulated GPU pointers (AKA Wrapped pointers) requirement in Fallback Layer:
@@ -309,7 +310,7 @@ void TopLevelAS_DX12::SetInstances(const RayTracing::Device& device, Resource& i
 		{
 			memcpy(instanceDescs[i].Transform, transforms[i], sizeof(instanceDescs[i].Transform));
 			instanceDescs[i].InstanceMask = 1;
-			instanceDescs[i].AccelerationStructure = pBottomLevelASs[i]->GetResultPointer();
+			instanceDescs[i].AccelerationStructure = ppBottomLevelASs[i]->GetResultPointer();
 		}
 
 		if (instances)
@@ -329,7 +330,7 @@ void TopLevelAS_DX12::SetInstances(const RayTracing::Device& device, Resource& i
 		{
 			memcpy(instanceDescs[i].Transform, transforms[i], sizeof(instanceDescs[i].Transform));
 			instanceDescs[i].InstanceMask = 1;
-			instanceDescs[i].AccelerationStructure = pBottomLevelASs[i]->GetResult()->GetResource()->GetGPUVirtualAddress();
+			instanceDescs[i].AccelerationStructure = ppBottomLevelASs[i]->GetResult()->GetResource()->GetGPUVirtualAddress();
 		}
 
 		if (instances)
