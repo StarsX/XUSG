@@ -63,11 +63,16 @@ namespace XUSG
 	using SwapChain = com_ptr<IDXGISwapChain3>;
 
 	// Command lists related
-	using BaseCommandList = ID3D12CommandList;
-	using GraphicsCommandList = com_ptr<ID3D12GraphicsCommandList>;
 	using CommandAllocator = com_ptr<ID3D12CommandAllocator>;
-	using CommandQueue = com_ptr<ID3D12CommandQueue>;
 	using Fence = com_ptr<ID3D12Fence>;
+
+	MIDL_INTERFACE("0ec870a6-5d7e-4c22-8cfc-5baae07616ed")
+		DLL_INTERFACE DX12CommandQueue : public ID3D12CommandQueue
+	{
+		void SubmitCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists);
+		void SubmitCommandList(CommandList* const pCommandList);
+	};
+	using CommandQueue = com_ptr<DX12CommandQueue>;
 
 	// Resources related
 	using Resource = com_ptr<ID3D12Resource>;
@@ -164,9 +169,11 @@ namespace XUSG
 	MIDL_INTERFACE("189819f1-1db6-4b57-be54-1821339b85f7")
 		DLL_INTERFACE DX12Device : public ID3D12Device
 	{
-		bool GetCommandQueue(CommandQueue & commandQueue, CommandListType type, CommandQueueFlag flags, int32_t priority = 0, uint32_t nodeMask = 0);
+		bool GetCommandQueue(CommandQueue& commandQueue, CommandListType type, CommandQueueFlag flags, int32_t priority = 0, uint32_t nodeMask = 0);
 		bool GetCommandAllocator(CommandAllocator& commandAllocator, CommandListType type);
-		bool GetCommandList(GraphicsCommandList& commandList, uint32_t nodeMask, CommandListType type,
+		bool GetCommandList(CommandList* pCommandList, uint32_t nodeMask, CommandListType type,
+			const CommandAllocator& commandAllocator, const Pipeline& pipeline);
+		bool GetCommandList(CommandList& commandList, uint32_t nodeMask, CommandListType type,
 			const CommandAllocator& commandAllocator, const Pipeline& pipeline);
 		bool GetFence(Fence& fence, uint64_t initialValue, FenceFlag flags);
 		bool CreateCommandLayout(CommandLayout& commandLayout, uint32_t byteStride, uint32_t numArguments,

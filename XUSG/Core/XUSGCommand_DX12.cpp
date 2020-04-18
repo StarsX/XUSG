@@ -16,26 +16,37 @@ bool DX12Device::GetCommandQueue(CommandQueue& commandQueue, CommandListType typ
 	queueDesc.NodeMask = nodeMask;
 
 	V_RETURN(CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&commandQueue)), std::cerr, false);
+
 	return true;
 }
 
 bool DX12Device::GetCommandAllocator(CommandAllocator& commandAllocator, CommandListType type)
 {
 	V_RETURN(CreateCommandAllocator(GetDX12CommandListType(type), IID_PPV_ARGS(&commandAllocator)), std::cerr, false);
+
 	return true;
 }
 
-bool DX12Device::GetCommandList(GraphicsCommandList& commandList, uint32_t nodeMask, CommandListType type,
+bool DX12Device::GetCommandList(CommandList* pCommandList, uint32_t nodeMask, CommandListType type,
 	const CommandAllocator& commandAllocator, const Pipeline& pipeline)
 {
+	return GetCommandList(*pCommandList, nodeMask, type, commandAllocator, pipeline);
+}
+
+bool DX12Device::GetCommandList(CommandList& commandList, uint32_t nodeMask, CommandListType type,
+	const CommandAllocator& commandAllocator, const Pipeline& pipeline)
+{
+	auto& pGraphicsCommandList = dynamic_cast<CommandList_DX12&>(commandList).GetGraphicsCommandList();
 	V_RETURN(CreateCommandList(nodeMask, GetDX12CommandListType(type), commandAllocator.get(),
-		pipeline.get(), IID_PPV_ARGS(&commandList)), std::cerr, false);
+		pipeline.get(), IID_PPV_ARGS(&pGraphicsCommandList)), std::cerr, false);
+
 	return true;
 }
 
 bool DX12Device::GetFence(Fence& fence, uint64_t initialValue, FenceFlag flags)
 {
 	V_RETURN(CreateFence(initialValue, GetDX12FenceFlags(flags), IID_PPV_ARGS(&fence)), std::cerr, false);
+
 	return true;
 }
 
@@ -49,7 +60,26 @@ bool DX12Device::CreateCommandLayout(CommandLayout& commandLayout, uint32_t byte
 	programDesc.NodeMask = nodeMask;
 
 	V_RETURN(CreateCommandSignature(&programDesc, nullptr, IID_PPV_ARGS(&commandLayout)), std::cerr, false);
+
 	return true;
+}
+
+//--------------------------------------------------------------------------------------
+
+void DX12CommandQueue::SubmitCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists)
+{
+	vector<ID3D12CommandList*> commandLists(numCommandLists);
+	for (auto i = 0u; i < numCommandLists; ++i)
+		commandLists[i] = dynamic_cast<CommandList_DX12*>(ppCommandLists[i])->GetGraphicsCommandList().get();
+	
+	ExecuteCommandLists(numCommandLists, commandLists.data());
+}
+
+void DX12CommandQueue::SubmitCommandList(CommandList* const pCommandList)
+{
+	ID3D12CommandList* const ppCommandLists[] =
+	{ dynamic_cast<CommandList_DX12*>(pCommandList)->GetGraphicsCommandList().get() };
+	ExecuteCommandLists(1, ppCommandLists);
 }
 
 //--------------------------------------------------------------------------------------
@@ -168,9 +198,9 @@ void CommandList_DX12::Barrier(uint32_t numBarriers, const ResourceBarrier* pBar
 	if (numBarriers > 0) m_commandList->ResourceBarrier(numBarriers, pBarriers);
 }
 
-void CommandList_DX12::ExecuteBundle(GraphicsCommandList& commandList) const
+void CommandList_DX12::ExecuteBundle(CommandList& commandList) const
 {
-	m_commandList->ExecuteBundle(commandList.get());
+	m_commandList->ExecuteBundle(dynamic_cast<CommandList_DX12&>(commandList).GetGraphicsCommandList().get());
 }
 
 void CommandList_DX12::SetDescriptorPools(uint32_t numDescriptorPools, const DescriptorPool* pDescriptorPools) const
@@ -336,7 +366,7 @@ void CommandList_DX12::ExecuteIndirect(CommandLayout commandlayout, uint32_t max
 		argumentBuffer.get(), argumentBufferOffset, countBuffer.get(), countBufferOffset);
 }
 
-GraphicsCommandList& CommandList_DX12::GetCommandList()
+com_ptr<ID3D12GraphicsCommandList>& CommandList_DX12::GetGraphicsCommandList()
 {
 	return m_commandList;
 }

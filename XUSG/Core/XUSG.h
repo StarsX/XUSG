@@ -35,6 +35,8 @@ namespace XUSG
 		REQ_TEXTURE1D_ARRAY_AXIS_DIMENSION,
 		REQ_TEXTURE2D_ARRAY_AXIS_DIMENSION
 	};
+
+	class CommandList;
 };
 
 #include "XUSG_DX12.h"
@@ -444,7 +446,7 @@ namespace XUSG
 		virtual void OMSetStencilRef(uint32_t stencilRef) const = 0;
 		virtual void SetPipelineState(const Pipeline& pipelineState) const = 0;
 		virtual void Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers) const = 0;
-		virtual void ExecuteBundle(GraphicsCommandList& commandList) const = 0;
+		virtual void ExecuteBundle(CommandList& commandList) const = 0;
 		virtual void SetDescriptorPools(uint32_t numDescriptorPools, const DescriptorPool* pDescriptorPools) const = 0;
 		virtual void SetComputePipelineLayout(const PipelineLayout& pipelineLayout) const = 0;
 		virtual void SetGraphicsPipelineLayout(const PipelineLayout& pipelineLayout) const = 0;
@@ -495,8 +497,6 @@ namespace XUSG
 		virtual void ExecuteIndirect(CommandLayout commandlayout, uint32_t maxCommandCount,
 			const Resource& argumentBuffer, uint64_t argumentBufferOffset = 0,
 			const Resource& countBuffer = nullptr, uint64_t countBufferOffset = 0) = 0;
-
-		virtual GraphicsCommandList& GetCommandList() = 0;
 
 		using uptr = std::unique_ptr<CommandList>;
 		using sptr = std::shared_ptr<CommandList>;

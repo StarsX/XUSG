@@ -53,7 +53,7 @@ namespace XUSG
 		void OMSetStencilRef(uint32_t stencilRef) const;
 		void SetPipelineState(const Pipeline& pipelineState) const;
 		void Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers) const;
-		void ExecuteBundle(GraphicsCommandList& commandList) const;
+		void ExecuteBundle(CommandList& commandList) const;
 		void SetDescriptorPools(uint32_t numDescriptorPools, const DescriptorPool* pDescriptorPools) const;
 		void SetComputePipelineLayout(const PipelineLayout& pipelineLayout) const;
 		void SetGraphicsPipelineLayout(const PipelineLayout& pipelineLayout) const;
@@ -105,9 +105,9 @@ namespace XUSG
 			const Resource& argumentBuffer, uint64_t argumentBufferOffset = 0,
 			const Resource& countBuffer = nullptr, uint64_t countBufferOffset = 0);
 
-		GraphicsCommandList& GetCommandList();
+		com_ptr<ID3D12GraphicsCommandList>& GetGraphicsCommandList();
 
 	protected:
-		GraphicsCommandList m_commandList;
+		com_ptr<ID3D12GraphicsCommandList> m_commandList;
 	};
 }
