@@ -92,7 +92,7 @@ namespace XUSG
 				const Resource& instanceDescs, const DescriptorPool& descriptorPool, bool update = false) = 0;
 
 			static void SetInstances(const RayTracing::Device& device, Resource& instances,
-				uint32_t numInstances, const BottomLevelAS** ppBottomLevelASs,
+				uint32_t numInstances, const BottomLevelAS* const* ppBottomLevelASs,
 				float* const* transforms, XUSG::API api = XUSG::API::DIRECTX_12);
 
 			using uptr = std::unique_ptr<TopLevelAS>;

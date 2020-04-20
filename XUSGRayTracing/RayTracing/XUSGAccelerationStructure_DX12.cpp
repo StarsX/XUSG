@@ -290,7 +290,7 @@ void TopLevelAS_DX12::Build(const RayTracing::CommandList* pCommandList, const R
 }
 
 void TopLevelAS_DX12::SetInstances(const RayTracing::Device& device, Resource& instances,
-	uint32_t numInstances, const BottomLevelAS** ppBottomLevelASs, float* const* transforms)
+	uint32_t numInstances, const BottomLevelAS* const* ppBottomLevelASs, float* const* transforms)
 {
 #if ENABLE_DXR_FALLBACK
 	// Note on Emulated GPU pointers (AKA Wrapped pointers) requirement in Fallback Layer:

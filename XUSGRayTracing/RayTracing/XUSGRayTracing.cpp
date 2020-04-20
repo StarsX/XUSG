@@ -74,7 +74,7 @@ BottomLevelAS::sptr BottomLevelAS::MakeShared(XUSG::API api)
 }
 
 void TopLevelAS::SetInstances(const Device& device, Resource& instances,
-	uint32_t numInstances, const BottomLevelAS** pBottomLevelASs,
+	uint32_t numInstances, const BottomLevelAS* const* pBottomLevelASs,
 	float* const* transforms, XUSG::API api)
 {
 	TopLevelAS_DX12::SetInstances(device, instances, numInstances, pBottomLevelASs, transforms);

@@ -79,7 +79,7 @@ namespace XUSG
 				const Resource& instanceDescs, const DescriptorPool& descriptorPool, bool update = false);
 
 			static void SetInstances(const RayTracing::Device& device, Resource& instances,
-				uint32_t numInstances, const BottomLevelAS** ppBottomLevelASs, float* const* transforms);
+				uint32_t numInstances, const BottomLevelAS* const* ppBottomLevelASs, float* const* transforms);
 		};
 	}
 }
