@@ -61,9 +61,9 @@ namespace XUSG
 	}
 
 	//--------------------------------------------------------------------------------------
-	// Meshlet pipeline state
+	// Mesh-shader pipeline state
 	//--------------------------------------------------------------------------------------
-	namespace Meshlet
+	namespace MeshShader
 	{
 		using BlendPreset = Graphics::BlendPreset;
 		using RasterizerPreset = Graphics::RasterizerPreset;

@@ -28,7 +28,7 @@ CommandList_DX12::~CommandList_DX12()
 
 bool CommandList_DX12::CreateInterface()
 {
-	if (m_commandList) return false;
+	if (!m_commandList) return false;
 	const auto hr = m_commandList->QueryInterface(IID_PPV_ARGS(&m_commandListU));
 
 	if (FAILED(hr))

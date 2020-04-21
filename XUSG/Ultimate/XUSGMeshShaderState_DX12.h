@@ -8,7 +8,7 @@
 
 namespace XUSG
 {
-	namespace Meshlet
+	namespace MeshShader
 	{
 		enum Stage
 		{

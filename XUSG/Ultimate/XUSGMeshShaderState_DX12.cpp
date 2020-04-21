@@ -3,11 +3,11 @@
 //--------------------------------------------------------------------------------------
 
 #include "Core/XUSGGraphicsState_DX12.h"
-#include "XUSGMeshletState_DX12.h"
+#include "XUSGMeshShaderState_DX12.h"
 
 using namespace std;
 using namespace XUSG;
-using namespace Meshlet;
+using namespace MeshShader;
 
 State_DX12::State_DX12()
 {
