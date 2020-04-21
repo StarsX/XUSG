@@ -166,7 +166,7 @@ PipelineCache_DX12::PipelineCache_DX12() :
 	m_pfnRasterizers[RasterizerPreset::CULL_BACK] = CullBack;
 	m_pfnRasterizers[RasterizerPreset::CULL_NONE] = CullNone;
 	m_pfnRasterizers[RasterizerPreset::CULL_FRONT] = CullFront;
-	m_pfnRasterizers[RasterizerPreset::FILL_WIREFRAME] = CullWireframe;
+	m_pfnRasterizers[RasterizerPreset::FILL_WIREFRAME] = FillWireframe;
 
 	// Depth stencil states
 	m_pfnDepthStencils[DepthStencilPreset::DEFAULT_LESS] = DepthStencilDefault;

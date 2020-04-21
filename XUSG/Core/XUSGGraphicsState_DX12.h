@@ -138,7 +138,7 @@ namespace XUSG
 			static Rasterizer CullBack();
 			static Rasterizer CullNone();
 			static Rasterizer CullFront();
-			static Rasterizer CullWireframe();
+			static Rasterizer FillWireframe();
 		};
 	}
 }

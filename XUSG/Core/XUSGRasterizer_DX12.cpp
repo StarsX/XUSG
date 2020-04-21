@@ -47,7 +47,7 @@ Rasterizer PipelineCache_DX12::CullFront()
 	return rasterizer;
 }
 
-Rasterizer PipelineCache_DX12::CullWireframe()
+Rasterizer PipelineCache_DX12::FillWireframe()
 {
 	auto rasterizer = RasterizerDefault();
 	rasterizer.Fill = FillMode::WIREFRAME;
