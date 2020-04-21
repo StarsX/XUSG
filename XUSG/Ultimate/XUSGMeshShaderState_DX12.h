@@ -23,14 +23,19 @@ namespace XUSG
 		{
 			void* PipelineLayout;
 			void* Shaders[NUM_STAGE];
-			void* Blend;
-			void* Rasterizer;
-			void* DepthStencil;
+			const void* Blend;
+			const void* Rasterizer;
+			const void* DepthStencil;
+			const void* CachedPipeline;
+			size_t CachedPipelineSize;
 			PrimitiveTopologyType PrimTopologyType;
 			uint8_t	NumRenderTargets;
 			Format RTVFormats[8];
 			Format	DSVFormat;
 			uint8_t	SampleCount;
+			uint8_t SampleQuality;
+			uint32_t SampleMask;
+			uint32_t NodeMask;
 		};
 
 		class State_DX12 :
@@ -42,12 +47,15 @@ namespace XUSG
 
 			void SetPipelineLayout(const PipelineLayout& layout);
 			void SetShader(Shader::Stage stage, Blob shader);
+			void SetCachedPipeline(const void* pCachedBlob, size_t size);
+			void SetNodeMask(uint32_t nodeMask);
 
-			void OMSetBlendState(const Blend& blend);
+			void OMSetBlendState(const Blend& blend, uint32_t sampleMask = UINT_MAX);
 			void RSSetState(const Rasterizer& rasterizer);
 			void DSSetState(const DepthStencil& depthStencil);
 
-			void OMSetBlendState(BlendPreset preset, PipelineCache& pipelineCache, uint8_t numColorRTs = 1);
+			void OMSetBlendState(BlendPreset preset, PipelineCache& pipelineCache,
+				uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX);
 			void RSSetState(RasterizerPreset preset, PipelineCache& pipelineCache);
 			void DSSetState(DepthStencilPreset preset, PipelineCache& pipelineCache);
 
@@ -55,6 +63,7 @@ namespace XUSG
 			void OMSetRTVFormat(uint8_t i, Format format);
 			void OMSetRTVFormats(const Format* formats, uint8_t n);
 			void OMSetDSVFormat(Format format);
+			void OMSetSample(uint8_t count, uint8_t quality = 0);
 
 			Pipeline CreatePipeline(PipelineCache& pipelineCache, const wchar_t* name = nullptr) const;
 			Pipeline GetPipeline(PipelineCache& pipelineCache, const wchar_t* name = nullptr) const;

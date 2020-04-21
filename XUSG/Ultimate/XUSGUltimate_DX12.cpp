@@ -41,6 +41,11 @@ bool CommandList_DX12::CreateInterface()
 	return true;
 }
 
+void CommandList_DX12::SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions)
+{
+	m_commandListU->SetSamplePositions(numSamplesPerPixel, numPixels, reinterpret_cast<D3D12_SAMPLE_POSITION*>(pPositions));
+}
+
 void CommandList_DX12::RSSetShadingRate(ShadingRate baseShadingRate, const ShadingRateCombiner* pCombiners)
 {
 	m_commandListU->RSSetShadingRate(D3D12_SHADING_RATE(baseShadingRate),

@@ -13,6 +13,12 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	namespace Ultimate
 	{
+		struct SamplePosition
+		{
+			int8_t X;
+			int8_t Y;
+		};
+
 		enum class ShadingRate
 		{
 			_1X1 = 0,
@@ -42,6 +48,7 @@ namespace XUSG
 
 			virtual bool CreateInterface() = 0;
 
+			void SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions);
 			virtual void RSSetShadingRate(ShadingRate baseShadingRate,
 				const ShadingRateCombiner* pCombiners) = 0;
 			virtual void RSSetShadingRateImage(const Resource& shadingRateImage) = 0;
@@ -83,12 +90,15 @@ namespace XUSG
 
 			virtual void SetPipelineLayout(const PipelineLayout& layout) = 0;
 			virtual void SetShader(Shader::Stage stage, Blob shader) = 0;
+			virtual void SetCachedPipeline(const void* pCachedBlob, size_t size) = 0;
+			virtual void SetNodeMask(uint32_t nodeMask) = 0;
 
-			virtual void OMSetBlendState(const Blend& blend) = 0;
+			virtual void OMSetBlendState(const Blend& blend, uint32_t sampleMask = UINT_MAX) = 0;
 			virtual void RSSetState(const Rasterizer& rasterizer) = 0;
 			virtual void DSSetState(const DepthStencil& depthStencil) = 0;
 
-			virtual void OMSetBlendState(BlendPreset preset, PipelineCache& pipelineCache, uint8_t numColorRTs = 1) = 0;
+			virtual void OMSetBlendState(BlendPreset preset, PipelineCache& pipelineCache,
+				uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX) = 0;
 			virtual void RSSetState(RasterizerPreset preset, PipelineCache& pipelineCache) = 0;
 			virtual void DSSetState(DepthStencilPreset preset, PipelineCache& pipelineCache) = 0;
 
@@ -96,6 +106,7 @@ namespace XUSG
 			virtual void OMSetRTVFormat(uint8_t i, Format format) = 0;
 			virtual void OMSetRTVFormats(const Format* formats, uint8_t n) = 0;
 			virtual void OMSetDSVFormat(Format format) = 0;
+			virtual void OMSetSample(uint8_t count, uint8_t quality = 0) = 0;
 
 			virtual Pipeline CreatePipeline(PipelineCache& pipelineCache, const wchar_t* name = nullptr) const = 0;
 			virtual Pipeline GetPipeline(PipelineCache& pipelineCache, const wchar_t* name = nullptr) const = 0;

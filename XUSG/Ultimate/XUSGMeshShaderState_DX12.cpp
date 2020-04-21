@@ -16,6 +16,7 @@ State_DX12::State_DX12()
 	m_key.resize(sizeof(Key));
 	m_pKey = reinterpret_cast<Key*>(&m_key[0]);
 	memset(m_pKey, 0, sizeof(Key));
+	m_pKey->SampleMask = UINT32_MAX;
 	m_pKey->PrimTopologyType = PrimitiveTopologyType::TRIANGLE;
 	m_pKey->SampleCount = 1;
 }
@@ -35,9 +36,21 @@ void State_DX12::SetShader(Shader::Stage stage, Blob shader)
 	m_pKey->Shaders[stageIdx] = shader.get();
 }
 
-void State_DX12::OMSetBlendState(const Graphics::Blend& blend)
+void State_DX12::SetCachedPipeline(const void* pCachedBlob, size_t size)
+{
+	m_pKey->CachedPipeline = pCachedBlob;
+	m_pKey->CachedPipelineSize = size;
+}
+
+void State_DX12::SetNodeMask(uint32_t nodeMask)
+{
+	m_pKey->NodeMask = nodeMask;
+}
+
+void State_DX12::OMSetBlendState(const Graphics::Blend& blend, uint32_t sampleMask)
 {
 	m_pKey->Blend = blend.get();
+	m_pKey->SampleMask = sampleMask;
 }
 
 void State_DX12::RSSetState(const Graphics::Rasterizer& rasterizer)
@@ -50,9 +63,10 @@ void State_DX12::DSSetState(const DepthStencil& depthStencil)
 	m_pKey->DepthStencil = depthStencil.get();
 }
 
-void State_DX12::OMSetBlendState(BlendPreset preset, PipelineCache& pipelineCache, uint8_t numColorRTs)
+void State_DX12::OMSetBlendState(BlendPreset preset, PipelineCache& pipelineCache,
+	uint8_t numColorRTs, uint32_t sampleMask)
 {
-	OMSetBlendState(pipelineCache.GetBlend(preset, numColorRTs));
+	OMSetBlendState(pipelineCache.GetBlend(preset, numColorRTs), sampleMask);
 }
 
 void State_DX12::RSSetState(RasterizerPreset preset, PipelineCache& pipelineCache)
@@ -86,6 +100,12 @@ void State_DX12::OMSetRTVFormats(const Format* formats, uint8_t n)
 void State_DX12::OMSetDSVFormat(Format format)
 {
 	m_pKey->DSVFormat = format;
+}
+
+void State_DX12::OMSetSample(uint8_t count, uint8_t quality)
+{
+	m_pKey->SampleCount = count;
+	m_pKey->SampleQuality = quality;
 }
 
 Pipeline State_DX12::CreatePipeline(PipelineCache& pipelineCache, const wchar_t* name) const
@@ -142,14 +162,14 @@ Pipeline PipelineCache_DX12::createPipeline(const Key* pKey, const wchar_t* name
 	if (pKey->Shaders[PS])
 		psoDesc.PS = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pKey->Shaders[PS]));
 
-	const auto blend = static_cast<decltype(psoDesc.BlendState)*>(pKey->Blend);
+	const auto blend = static_cast<const D3D12_BLEND_DESC*>(pKey->Blend);
 	psoDesc.BlendState = *(blend ? blend : GetBlend(BlendPreset::DEFAULT_OPAQUE).get());
-	psoDesc.SampleMask = UINT_MAX;
-	psoDesc.SampleDesc = DefaultSampleDesc();
+	psoDesc.SampleMask = pKey->SampleMask;
 
-	const auto rasterizer = static_cast<decltype(psoDesc.RasterizerState)*>(pKey->Rasterizer);
-	const auto depthStencil = static_cast<decltype(psoDesc.DepthStencilState)*>(pKey->DepthStencil);
+	const auto rasterizer = static_cast<const D3D12_RASTERIZER_DESC*>(pKey->Rasterizer);
+	const auto depthStencil = static_cast<const D3D12_DEPTH_STENCIL_DESC*>(pKey->DepthStencil);
 	psoDesc.RasterizerState = *(rasterizer ? rasterizer : GetRasterizer(RasterizerPreset::CULL_BACK).get());
+	psoDesc.RasterizerState.MultisampleEnable = pKey->SampleCount > 1 ? TRUE : FALSE;
 	psoDesc.DepthStencilState = *(depthStencil ? depthStencil : GetDepthStencil(DepthStencilPreset::DEFAULT_LESS).get());
 	psoDesc.PrimitiveTopologyType = GetDX12PrimitiveTopologyType(pKey->PrimTopologyType);
 	psoDesc.NumRenderTargets = pKey->NumRenderTargets;
@@ -158,6 +178,11 @@ Pipeline PipelineCache_DX12::createPipeline(const Key* pKey, const wchar_t* name
 		psoDesc.RTVFormats[i] = GetDXGIFormat(pKey->RTVFormats[i]);
 	psoDesc.DSVFormat = GetDXGIFormat(pKey->DSVFormat);
 	psoDesc.SampleDesc.Count = pKey->SampleCount;
+	psoDesc.SampleDesc.Quality = pKey->SampleQuality;
+
+	psoDesc.CachedPSO.pCachedBlob = pKey->CachedPipeline;
+	psoDesc.CachedPSO.CachedBlobSizeInBytes = pKey->CachedPipelineSize;
+	psoDesc.NodeMask = pKey->NodeMask;
 
 	CD3DX12_PIPELINE_MESH_STATE_STREAM psoStream(psoDesc);
 	D3D12_PIPELINE_STATE_STREAM_DESC streamDesc;

@@ -21,6 +21,7 @@ namespace XUSG
 
 			bool CreateInterface();
 
+			void SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions);
 			void RSSetShadingRate(ShadingRate baseShadingRate,
 				const ShadingRateCombiner* pCombiners);
 			void RSSetShadingRateImage(const Resource& shadingRateImage);

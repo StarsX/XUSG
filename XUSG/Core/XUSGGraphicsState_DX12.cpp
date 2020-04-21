@@ -15,6 +15,7 @@ State_DX12::State_DX12()
 	m_key.resize(sizeof(Key));
 	m_pKey = reinterpret_cast<Key*>(&m_key[0]);
 	memset(m_pKey, 0, sizeof(Key));
+	m_pKey->SampleMask = UINT32_MAX;
 	m_pKey->PrimTopologyType = PrimitiveTopologyType::TRIANGLE;
 	m_pKey->SampleCount = 1;
 }
@@ -33,9 +34,21 @@ void State_DX12::SetShader(Shader::Stage stage, Blob shader)
 	m_pKey->Shaders[stage] = shader.get();
 }
 
-void State_DX12::OMSetBlendState(const Blend& blend)
+void State_DX12::SetCachedPipeline(const void* pCachedBlob, size_t size)
+{
+	m_pKey->CachedPipeline = pCachedBlob;
+	m_pKey->CachedPipelineSize = size;
+}
+
+void State_DX12::SetNodeMask(uint32_t nodeMask)
+{
+	m_pKey->NodeMask = nodeMask;
+}
+
+void State_DX12::OMSetBlendState(const Blend& blend, uint32_t sampleMask)
 {
 	m_pKey->Blend = blend.get();
+	m_pKey->SampleMask = sampleMask;
 }
 
 void State_DX12::RSSetState(const Rasterizer& rasterizer)
@@ -48,9 +61,10 @@ void State_DX12::DSSetState(const DepthStencil& depthStencil)
 	m_pKey->DepthStencil = depthStencil.get();
 }
 
-void State_DX12::OMSetBlendState(BlendPreset preset, PipelineCache& pipelineCache, uint8_t numColorRTs)
+void State_DX12::OMSetBlendState(BlendPreset preset, PipelineCache& pipelineCache,
+	uint8_t numColorRTs, uint32_t sampleMask)
 {
-	OMSetBlendState(pipelineCache.GetBlend(preset, numColorRTs));
+	OMSetBlendState(pipelineCache.GetBlend(preset, numColorRTs), sampleMask);
 }
 
 void State_DX12::RSSetState(RasterizerPreset preset, PipelineCache& pipelineCache)
@@ -71,6 +85,12 @@ void State_DX12::IASetInputLayout(const InputLayout& layout)
 void State_DX12::IASetPrimitiveTopologyType(PrimitiveTopologyType type)
 {
 	m_pKey->PrimTopologyType = type;
+}
+
+void State_DX12::IASetIndexBufferStripCutValue(uint32_t ibStripCutValue)
+{
+	assert(ibStripCutValue == 0 || ibStripCutValue == 0xffff || ibStripCutValue == 0xffffffff);
+	m_pKey->IBStripCutValue = ibStripCutValue;
 }
 
 void State_DX12::OMSetNumRenderTargets(uint8_t n)
@@ -94,6 +114,12 @@ void State_DX12::OMSetRTVFormats(const Format* formats, uint8_t n)
 void State_DX12::OMSetDSVFormat(Format format)
 {
 	m_pKey->DSVFormat = format;
+}
+
+void State_DX12::OMSetSample(uint8_t count, uint8_t quality)
+{
+	m_pKey->SampleCount = count;
+	m_pKey->SampleQuality = quality;
 }
 
 Pipeline State_DX12::CreatePipeline(PipelineCache& pipelineCache, const wchar_t* name) const
@@ -238,16 +264,16 @@ Pipeline PipelineCache_DX12::createPipeline(const Key* pKey, const wchar_t* name
 	if (pKey->Shaders[Shader::Stage::GS])
 		desc.GS = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pKey->Shaders[Shader::Stage::GS]));
 
-	const auto blend = static_cast<decltype(desc.BlendState)*>(pKey->Blend);
+	const auto blend = static_cast<const D3D12_BLEND_DESC*>(pKey->Blend);
 	desc.BlendState = *(blend ? blend : GetBlend(BlendPreset::DEFAULT_OPAQUE).get());
-	desc.SampleMask = UINT_MAX;
+	desc.SampleMask = pKey->SampleMask;
 
-	const auto rasterizer = static_cast<decltype(desc.RasterizerState)*>(pKey->Rasterizer);
-	const auto depthStencil = static_cast<decltype(desc.DepthStencilState)*>(pKey->DepthStencil);
+	const auto rasterizer = static_cast<const D3D12_RASTERIZER_DESC*>(pKey->Rasterizer);
+	const auto depthStencil = static_cast<const D3D12_DEPTH_STENCIL_DESC*>(pKey->DepthStencil);
 	desc.RasterizerState = *(rasterizer ? rasterizer : GetRasterizer(RasterizerPreset::CULL_BACK).get());
+	desc.RasterizerState.MultisampleEnable = pKey->SampleCount > 1 ? TRUE : FALSE;
 	desc.DepthStencilState = *(depthStencil ? depthStencil : GetDepthStencil(DepthStencilPreset::DEFAULT_LESS).get());
-	if (pKey->InputLayout)
-		desc.InputLayout = *static_cast<decltype(desc.InputLayout)*>(pKey->InputLayout);
+	if (pKey->InputLayout) desc.InputLayout = *static_cast<const D3D12_INPUT_LAYOUT_DESC*>(pKey->InputLayout);
 	desc.PrimitiveTopologyType = GetDX12PrimitiveTopologyType(pKey->PrimTopologyType);
 	desc.NumRenderTargets = pKey->NumRenderTargets;
 
@@ -255,6 +281,23 @@ Pipeline PipelineCache_DX12::createPipeline(const Key* pKey, const wchar_t* name
 		desc.RTVFormats[i] = GetDXGIFormat(pKey->RTVFormats[i]);
 	desc.DSVFormat = GetDXGIFormat(pKey->DSVFormat);
 	desc.SampleDesc.Count = pKey->SampleCount;
+	desc.SampleDesc.Quality = pKey->SampleQuality;
+
+	desc.CachedPSO.pCachedBlob = pKey->CachedPipeline;
+	desc.CachedPSO.CachedBlobSizeInBytes = pKey->CachedPipelineSize;
+	desc.NodeMask = pKey->NodeMask;
+
+	switch (pKey->IBStripCutValue)
+	{
+	case 0xffff:
+		desc.IBStripCutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_0xFFFF;
+		break;
+	case 0xffffffff:
+		desc.IBStripCutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_0xFFFF;
+		break;
+	default:
+		assert(desc.IBStripCutValue == D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_DISABLED);
+	}
 
 	// Create pipeline
 	Pipeline pipeline;
