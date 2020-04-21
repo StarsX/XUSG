@@ -29,7 +29,7 @@ namespace XUSG
 		void Unmap();
 
 		const Resource& GetResource() const;
-		Descriptor		GetCBV(uint32_t index = 0) const;
+		const Descriptor& GetCBV(uint32_t index = 0) const;
 
 	protected:
 		Descriptor allocateCbvPool(const wchar_t* name);
@@ -59,7 +59,7 @@ namespace XUSG
 			BarrierFlag flags = BarrierFlag::NONE);
 
 		const Resource& GetResource() const;
-		Descriptor		GetSRV(uint32_t index = 0) const;
+		const Descriptor& GetSRV(uint32_t index = 0) const;
 
 		ResourceBarrier	Transition(ResourceState dstState, uint32_t subresource = BARRIER_ALL_SUBRESOURCES,
 			BarrierFlag flag = BarrierFlag::NONE);
@@ -99,7 +99,7 @@ namespace XUSG
 			uint8_t numMips = 1, uint8_t sampleCount = 1, MemoryType memoryType = MemoryType::DEFAULT,
 			bool isCubeMap = false, const wchar_t* name = nullptr);
 		bool Upload(CommandList* pCommandList, Resource& uploader,
-			SubresourceData* pSubresourceData, uint32_t numSubresources = 1,
+			const SubresourceData* pSubresourceData, uint32_t numSubresources = 1,
 			ResourceState dstState = ResourceState::COMMON, uint32_t firstSubresource = 0);
 		bool Upload(CommandList* pCommandList, Resource& uploader, const void* pData,
 			uint8_t stride = sizeof(float), ResourceState dstState = ResourceState::COMMON);
@@ -134,9 +134,9 @@ namespace XUSG
 			const DescriptorTable* pSrvTables = nullptr, uint32_t srvSlot = 0, uint8_t baseMip = 1,
 			uint8_t numMips = 0, uint32_t baseSlice = 0, uint32_t numSlices = 0);
 
-		Descriptor GetUAV(uint8_t index = 0) const;
-		Descriptor GetPackedUAV(uint8_t index = 0) const;
-		Descriptor GetSRVLevel(uint8_t level) const;
+		const Descriptor& GetUAV(uint8_t index = 0) const;
+		const Descriptor& GetPackedUAV(uint8_t index = 0) const;
+		const Descriptor& GetSRVLevel(uint8_t level) const;
 
 		uint32_t GetHeight() const;
 
@@ -183,7 +183,7 @@ namespace XUSG
 			uint32_t numBarriers = 0, uint8_t baseMip = 1, uint8_t numMips = 0, uint32_t baseSlice = 0,
 			uint32_t numSlices = 0, uint32_t offsetForSliceId = 0, uint32_t cbSlot = 2);
 
-		Descriptor	GetRTV(uint32_t slice = 0, uint8_t mipLevel = 0) const;
+		const Descriptor& GetRTV(uint32_t slice = 0, uint8_t mipLevel = 0) const;
 		uint32_t	GetArraySize() const;
 		uint8_t		GetNumMips(uint32_t slice = 0) const;
 
@@ -219,8 +219,8 @@ namespace XUSG
 			uint8_t numMips = 1, uint8_t sampleCount = 1, float clearDepth = 1.0f,
 			uint8_t clearStencil = 0, bool isCubeMap = false, const wchar_t* name = nullptr);
 
-		Descriptor GetDSV(uint32_t slice = 0, uint8_t mipLevel = 0) const;
-		Descriptor GetReadOnlyDSV(uint32_t slice = 0, uint8_t mipLevel = 0) const;
+		const Descriptor& GetDSV(uint32_t slice = 0, uint8_t mipLevel = 0) const;
+		const Descriptor& GetReadOnlyDSV(uint32_t slice = 0, uint8_t mipLevel = 0) const;
 		const Descriptor& GetStencilSRV() const;
 
 		uint32_t	GetArraySize() const;
@@ -283,7 +283,7 @@ namespace XUSG
 		bool CreateUAVs(size_t byteWidth, const uint32_t* firstElements = nullptr,
 			uint32_t numDescriptors = 1);
 
-		Descriptor GetUAV(uint32_t index = 0) const;
+		const Descriptor& GetUAV(uint32_t index = 0) const;
 
 		void* Map(uint32_t descriptorIndex = 0, uintptr_t readBegin = 0, uintptr_t readEnd = 0);
 		void* Map(const Range* pReadRange, uint32_t descriptorIndex = 0);
@@ -352,7 +352,7 @@ namespace XUSG
 			const uint32_t* firstElements = nullptr, uint32_t numDescriptors = 1,
 			std::vector<Descriptor>* pUavs = nullptr);
 
-		Descriptor GetPackedUAV(uint32_t index = 0) const;
+		const Descriptor& GetPackedUAV(uint32_t index = 0) const;
 
 	protected:
 		std::vector<Descriptor>	m_packedUavs;
@@ -382,7 +382,7 @@ namespace XUSG
 			uint32_t numUAVs = 1, const uint32_t* firstUAVElements = nullptr,
 			const wchar_t* name = nullptr);
 
-		VertexBufferView GetVBV(uint32_t index = 0) const;
+		const VertexBufferView& GetVBV(uint32_t index = 0) const;
 
 	protected:
 		std::vector<VertexBufferView> m_vbvs;
@@ -407,7 +407,7 @@ namespace XUSG
 			uint32_t numUAVs = 1, const uint32_t* firstUAVElements = nullptr,
 			const wchar_t* name = nullptr);
 
-		IndexBufferView GetIBV(uint32_t index = 0) const;
+		const IndexBufferView& GetIBV(uint32_t index = 0) const;
 
 	protected:
 		std::vector<IndexBufferView> m_ibvs;

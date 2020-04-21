@@ -91,7 +91,7 @@ Pipeline PipelineCache_DX12::createPipeline(const Key* pKey, const wchar_t* name
 		desc.pRootSignature = static_cast<decltype(desc.pRootSignature)>(pKey->PipelineLayout);
 
 	if (pKey->Shader)
-		desc.CS = Shader::ByteCode(static_cast<BlobType*>(pKey->Shader));
+		desc.CS = Shader::ByteCode(static_cast<ID3DBlob*>(pKey->Shader));
 
 	// Create pipeline
 	Pipeline pipeline;

@@ -131,7 +131,7 @@ bool ConstantBuffer_DX12::Upload(CommandList* pCommandList, Resource& uploader, 
 	size_t size, uint32_t cbvIndex, ResourceState srcState, ResourceState dstState)
 {
 	const auto offset = m_cbvOffsets.empty() ? 0 : m_cbvOffsets[cbvIndex];
-	SubresourceData subresourceData;
+	D3D12_SUBRESOURCE_DATA subresourceData;
 	subresourceData.pData = pData;
 	subresourceData.RowPitch = static_cast<uint32_t>(size);
 	subresourceData.SlicePitch = static_cast<uint32_t>(m_resource->GetDesc().Width);
@@ -170,7 +170,7 @@ void* ConstantBuffer_DX12::Map(uint32_t cbvIndex)
 	{
 		// Map and initialize the constant buffer. We don't unmap this until the
 		// app closes. Keeping things mapped for the lifetime of the resource is okay.
-		Range readRange(0, 0);	// We do not intend to read from this resource on the CPU.
+		CD3DX12_RANGE readRange(0, 0);	// We do not intend to read from this resource on the CPU.
 		V_RETURN(m_resource->Map(0, &readRange, &m_pDataBegin), cerr, nullptr);
 	}
 
@@ -191,9 +191,10 @@ const Resource& ConstantBuffer_DX12::GetResource() const
 	return m_resource;
 }
 
-Descriptor ConstantBuffer_DX12::GetCBV(uint32_t index) const
+const Descriptor& ConstantBuffer_DX12::GetCBV(uint32_t index) const
 {
-	return m_cbvs.size() > index ? m_cbvs[index] : D3D12_DEFAULT;
+	assert(m_cbvs.size() > index);
+	return m_cbvs[index];
 }
 
 Descriptor ConstantBuffer_DX12::allocateCbvPool(const wchar_t* name)
@@ -241,9 +242,10 @@ const Resource& ResourceBase_DX12::GetResource() const
 	return m_resource;
 }
 
-Descriptor ResourceBase_DX12::GetSRV(uint32_t index) const
+const Descriptor& ResourceBase_DX12::GetSRV(uint32_t index) const
 {
-	return m_srvs.size() > index ? m_srvs[index] : D3D12_DEFAULT;
+	assert(m_srvs.size() > index);
+	return m_srvs[index];
 }
 
 ResourceBarrier ResourceBase_DX12::Transition(ResourceState dstState,
@@ -377,7 +379,7 @@ bool Texture2D_DX12::Create(const Device& device, uint32_t width, uint32_t heigh
 }
 
 bool Texture2D_DX12::Upload(CommandList* pCommandList, Resource& uploader,
-	SubresourceData* pSubresourceData, uint32_t numSubresources,
+	const SubresourceData* pSubresourceData, uint32_t numSubresources,
 	ResourceState dstState, uint32_t firstSubresource)
 {
 	N_RETURN(pSubresourceData, false);
@@ -404,7 +406,8 @@ bool Texture2D_DX12::Upload(CommandList* pCommandList, Resource& uploader,
 	if (m_states[0] != ResourceState::COMMON) pCommandList->Barrier(numBarriers, &barrier);
 	const auto pGraphicsCommandList = dynamic_cast<CommandList_DX12*>(pCommandList)->GetGraphicsCommandList().get();
 	M_RETURN(UpdateSubresources(pGraphicsCommandList, m_resource.get(), uploader.get(), 0, firstSubresource,
-		numSubresources, pSubresourceData) <= 0, clog, "Failed to upload the resource.", false);
+		numSubresources, reinterpret_cast<const D3D12_SUBRESOURCE_DATA*>(pSubresourceData)) <= 0,
+		clog, "Failed to upload the resource.", false);
 	const bool decay = m_resource->GetDesc().Flags & D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS;
 	if (dstState != ResourceState::COMMON || !decay)
 	{
@@ -708,19 +711,22 @@ uint32_t Texture2D_DX12::GenerateMips(const CommandList* pCommandList, ResourceB
 	return numBarriers;
 }
 
-Descriptor Texture2D_DX12::GetUAV(uint8_t index) const
+const Descriptor& Texture2D_DX12::GetUAV(uint8_t index) const
 {
-	return m_uavs.size() > index ? m_uavs[index] : D3D12_DEFAULT;
+	assert(m_uavs.size() > index);
+	return m_uavs[index];
 }
 
-Descriptor Texture2D_DX12::GetPackedUAV(uint8_t index) const
+const Descriptor& Texture2D_DX12::GetPackedUAV(uint8_t index) const
 {
-	return m_packedUavs.size() > index ? m_packedUavs[index] : D3D12_DEFAULT;
+	assert(m_packedUavs.size() > index);
+	return m_packedUavs[index];
 }
 
-Descriptor Texture2D_DX12::GetSRVLevel(uint8_t level) const
+const Descriptor& Texture2D_DX12::GetSRVLevel(uint8_t level) const
 {
-	return m_srvLevels.size() > level ? m_srvLevels[level] : D3D12_DEFAULT;
+	assert(m_srvLevels.size() > level);
+	return m_srvLevels[level];
 }
 
 uint32_t Texture2D_DX12::GetHeight() const
@@ -993,10 +999,10 @@ uint32_t RenderTarget_DX12::GenerateMips(const CommandList* pCommandList, Resour
 	return numBarriers;
 }
 
-Descriptor RenderTarget_DX12::GetRTV(uint32_t slice, uint8_t mipLevel) const
+const Descriptor& RenderTarget_DX12::GetRTV(uint32_t slice, uint8_t mipLevel) const
 {
-	return m_rtvs.size() > slice && m_rtvs[slice].size() > mipLevel ?
-		m_rtvs[slice][mipLevel] : D3D12_DEFAULT;
+	assert(m_rtvs.size() > slice && m_rtvs[slice].size() > mipLevel);
+	return m_rtvs[slice][mipLevel];
 }
 
 uint32_t RenderTarget_DX12::GetArraySize() const
@@ -1006,7 +1012,8 @@ uint32_t RenderTarget_DX12::GetArraySize() const
 
 uint8_t RenderTarget_DX12::GetNumMips(uint32_t slice) const
 {
-	return m_rtvs.size() > slice ? static_cast<uint8_t>(m_rtvs[slice].size()) : 0;
+	assert(m_rtvs.size() > slice);
+	return static_cast<uint8_t>(m_rtvs[slice].size());
 }
 
 bool RenderTarget_DX12::create(const Device& device, uint32_t width, uint32_t height,
@@ -1246,16 +1253,16 @@ bool DepthStencil_DX12::CreateArray(const Device& device, uint32_t width, uint32
 	return true;
 }
 
-Descriptor DepthStencil_DX12::GetDSV(uint32_t slice, uint8_t mipLevel) const
+const Descriptor& DepthStencil_DX12::GetDSV(uint32_t slice, uint8_t mipLevel) const
 {
-	return m_dsvs.size() > slice && m_dsvs[slice].size() > mipLevel ?
-		m_dsvs[slice][mipLevel] : D3D12_DEFAULT;
+	assert(m_dsvs.size() > slice && m_dsvs[slice].size() > mipLevel);
+	return m_dsvs[slice][mipLevel];
 }
 
-Descriptor DepthStencil_DX12::GetReadOnlyDSV(uint32_t slice, uint8_t mipLevel) const
+const Descriptor& DepthStencil_DX12::GetReadOnlyDSV(uint32_t slice, uint8_t mipLevel) const
 {
-	return m_readOnlyDsvs.size() > slice && m_readOnlyDsvs[slice].size() > mipLevel ?
-		m_readOnlyDsvs[slice][mipLevel] : D3D12_DEFAULT;
+	assert(m_readOnlyDsvs.size() > slice && m_readOnlyDsvs[slice].size() > mipLevel);
+	return m_readOnlyDsvs[slice][mipLevel];
 }
 
 const Descriptor& DepthStencil_DX12::GetStencilSRV() const
@@ -1738,9 +1745,10 @@ bool RawBuffer_DX12::CreateUAVs(size_t byteWidth, const uint32_t* firstElements,
 	return true;
 }
 
-Descriptor RawBuffer_DX12::GetUAV(uint32_t index) const
+const Descriptor& RawBuffer_DX12::GetUAV(uint32_t index) const
 {
-	return m_uavs.size() > index ? m_uavs[index] : D3D12_DEFAULT;
+	assert(m_uavs.size() > index);
+	return m_uavs[index];
 }
 
 void* RawBuffer_DX12::Map(uint32_t descriptorIndex, uintptr_t readBegin, uintptr_t readEnd)
@@ -1752,7 +1760,7 @@ void* RawBuffer_DX12::Map(const Range* pReadRange, uint32_t descriptorIndex)
 {
 	// Map and initialize the buffer.
 	if (m_pDataBegin == nullptr)
-		V_RETURN(m_resource->Map(0, pReadRange, &m_pDataBegin), cerr, nullptr);
+		V_RETURN(m_resource->Map(0, reinterpret_cast<const D3D12_RANGE*>(pReadRange), &m_pDataBegin), cerr, nullptr);
 
 	const auto offset = !descriptorIndex ? 0 : m_srvOffsets[descriptorIndex];
 
@@ -2010,9 +2018,10 @@ bool TypedBuffer_DX12::CreateUAVs(uint32_t numElements, Format format, uint32_t 
 	return true;
 }
 
-Descriptor TypedBuffer_DX12::GetPackedUAV(uint32_t index) const
+const Descriptor& TypedBuffer_DX12::GetPackedUAV(uint32_t index) const
 {
-	return m_packedUavs.size() > index ? m_packedUavs[index] : D3D12_DEFAULT;
+	assert(m_packedUavs.size() > index);
+	return m_packedUavs[index];
 }
 
 //--------------------------------------------------------------------------------------
@@ -2079,9 +2088,10 @@ bool VertexBuffer_DX12::CreateAsRaw(const Device& device, uint32_t numVertices, 
 	return true;
 }
 
-VertexBufferView VertexBuffer_DX12::GetVBV(uint32_t index) const
+const VertexBufferView& VertexBuffer_DX12::GetVBV(uint32_t index) const
 {
-	return m_vbvs.size() > index ? m_vbvs[index] : VertexBufferView();
+	assert(m_vbvs.size() > index);
+	return m_vbvs[index];
 }
 
 //--------------------------------------------------------------------------------------
@@ -2127,7 +2137,8 @@ bool IndexBuffer_DX12::Create(const Device& device, size_t byteWidth, Format for
 	return true;
 }
 
-IndexBufferView IndexBuffer_DX12::GetIBV(uint32_t index) const
+const IndexBufferView& IndexBuffer_DX12::GetIBV(uint32_t index) const
 {
-	return m_ibvs.size() > index ? m_ibvs[index] : IndexBufferView();
+	assert(m_ibvs.size() > index);
+	return m_ibvs[index];
 }

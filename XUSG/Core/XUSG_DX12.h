@@ -56,8 +56,7 @@ namespace XUSG
 	}
 
 	// Swapchain and blobs
-	using BlobType = ID3DBlob;
-	using Blob = com_ptr<BlobType>;
+	using Blob = com_ptr<ID3DBlob>;
 	using SwapChain = com_ptr<IDXGISwapChain3>;
 
 	// Command lists related
@@ -79,15 +78,6 @@ namespace XUSG
 	using StreamOutBufferView = D3D12_STREAM_OUTPUT_BUFFER_VIEW;
 	using Sampler = D3D12_SAMPLER_DESC;
 	using ResourceBarrier = CD3DX12_RESOURCE_BARRIER;
-
-	using SubresourceData = D3D12_SUBRESOURCE_DATA;
-	using TextureCopyLocation = CD3DX12_TEXTURE_COPY_LOCATION;
-	using Viewport = CD3DX12_VIEWPORT;
-	using Range = CD3DX12_RANGE;
-	using RectRange = CD3DX12_RECT;
-	using BoxRange = CD3DX12_BOX;
-	using TiledResourceCoord = CD3DX12_TILED_RESOURCE_COORDINATE;
-	using TileRegionSize = D3D12_TILE_REGION_SIZE;
 	using TileCopyFlags = D3D12_TILE_COPY_FLAGS;
 
 	// Descriptors related
@@ -106,17 +96,6 @@ namespace XUSG
 	using DescriptorRangeList = std::vector<CD3DX12_DESCRIPTOR_RANGE1>;
 
 	// Input layouts related
-	struct InputElementDesc
-	{
-		const char* SemanticName;
-		uint32_t SemanticIndex;
-		Format Format;
-		uint32_t InputSlot;
-		uint32_t AlignedByteOffset;
-		InputClassification InputSlotClass;
-		uint32_t InstanceDataStepRate;
-	};
-	using InputElementTable = std::vector<InputElementDesc>;
 	struct InputLayoutDesc : public D3D12_INPUT_LAYOUT_DESC
 	{
 		std::vector<D3D12_INPUT_ELEMENT_DESC> Elements;
@@ -131,36 +110,6 @@ namespace XUSG
 	using DescriptorTableLayout = std::shared_ptr<RootParameter>;
 
 	using Pipeline = com_ptr<ID3D12PipelineState>;
-
-	struct IndirectArgument
-	{
-		IndirectArgumentType Type;
-		union
-		{
-			struct
-			{
-				uint32_t Slot;
-			} VertexBuffer;
-			struct
-			{
-				uint32_t Index;
-				uint32_t DestOffsetIn32BitValues;
-				uint32_t Num32BitValuesToSet;
-			} Constant;
-			struct
-			{
-				uint32_t Index;
-			} ConstantBufferView;
-			struct
-			{
-				uint32_t Index;
-			} ShaderResourceView;
-			struct
-			{
-				uint32_t Index;
-			} UnorderedAccessView;
-		};
-	};
 	using CommandLayout = com_ptr<ID3D12CommandSignature>;
 
 	// Device

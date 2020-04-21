@@ -37,6 +37,172 @@ namespace XUSG
 	};
 
 	class CommandList;
+
+	struct SubresourceData
+	{
+		const void* pData;
+		intptr_t RowPitch;
+		intptr_t SlicePitch;
+	};
+
+	struct Viewport
+	{
+		Viewport() = default;
+		Viewport(float topLeftX, float topLeftY, float width, float height, float minDepth = 0.0f, float maxDepth = 1.0f)
+		{
+			TopLeftX = topLeftX;
+			TopLeftY = topLeftY;
+			Width = width;
+			Height = height;
+			MinDepth = minDepth;
+			MaxDepth = maxDepth;
+		}
+
+		float TopLeftX;
+		float TopLeftY;
+		float Width;
+		float Height;
+		float MinDepth;
+		float MaxDepth;
+	};
+
+	struct Range
+	{
+		Range() = default;
+		Range(uintptr_t begin, uintptr_t end)
+		{
+			Begin = begin;
+			End = end;
+		}
+
+		uintptr_t Begin;
+		uintptr_t End;
+	};
+
+	struct RectRange
+	{
+		RectRange() = default;
+		RectRange(long left, long top, long right, long bottom)
+		{
+			Left = left;
+			Top = top;
+			Right = right;
+			Bottom = bottom;
+		}
+
+		long Left;
+		long Top;
+		long Right;
+		long Bottom;
+	};
+
+	struct BoxRange
+	{
+		BoxRange() = default;
+		BoxRange(long left, long right)
+		{
+			Left = static_cast<uint32_t>(left);
+			Top = 0;
+			Front = 0;
+			Right = static_cast<uint32_t>(right);
+			Bottom = 1;
+			Back = 1;
+		}
+		BoxRange(long left, long top, long right, long bottom)
+		{
+			Left = static_cast<uint32_t>(left);
+			Top = static_cast<uint32_t>(top);
+			Front = 0;
+			Right = static_cast<uint32_t>(right);
+			Bottom = static_cast<uint32_t>(bottom);
+			Back = 1;
+		}
+		BoxRange(long left, long top, long front, long right, long bottom, long back)
+		{
+			Left = static_cast<uint32_t>(left);
+			Top = static_cast<uint32_t>(top);
+			Front = static_cast<uint32_t>(front);
+			Right = static_cast<uint32_t>(right);
+			Bottom = static_cast<uint32_t>(bottom);
+			Back = static_cast<uint32_t>(back);
+		}
+
+		uint32_t Left;
+		uint32_t Top;
+		uint32_t Front;
+		uint32_t Right;
+		uint32_t Bottom;
+		uint32_t Back;
+	};
+
+	struct TiledResourceCoord
+	{
+		TiledResourceCoord() = default;
+		TiledResourceCoord(uint32_t x, uint32_t y, uint32_t z, uint32_t subresource)
+		{
+			X = x;
+			Y = y;
+			Z = z;
+			Subresource = subresource;
+		}
+
+		uint32_t X;
+		uint32_t Y;
+		uint32_t Z;
+		UINT Subresource;
+	};
+
+	struct TileRegionSize
+	{
+		uint32_t NumTiles;
+		bool UseBox;
+		uint32_t Width;
+		uint16_t Height;
+		uint16_t Depth;
+	};
+
+	// Input layouts related
+	struct InputElementDesc
+	{
+		const char* SemanticName;
+		uint32_t SemanticIndex;
+		Format Format;
+		uint32_t InputSlot;
+		uint32_t AlignedByteOffset;
+		InputClassification InputSlotClass;
+		uint32_t InstanceDataStepRate;
+	};
+	using InputElementTable = std::vector<InputElementDesc>;
+
+	struct IndirectArgument
+	{
+		IndirectArgumentType Type;
+		union
+		{
+			struct
+			{
+				uint32_t Slot;
+			} VertexBuffer;
+			struct
+			{
+				uint32_t Index;
+				uint32_t DestOffsetIn32BitValues;
+				uint32_t Num32BitValuesToSet;
+			} Constant;
+			struct
+			{
+				uint32_t Index;
+			} ConstantBufferView;
+			struct
+			{
+				uint32_t Index;
+			} ShaderResourceView;
+			struct
+			{
+				uint32_t Index;
+			} UnorderedAccessView;
+		};
+	};
 };
 
 #include "XUSG_DX12.h"
@@ -399,6 +565,19 @@ namespace XUSG
 
 	DEFINE_ENUM_FLAG_OPERATORS(FenceFlag);
 
+	struct TextureCopyLocation
+	{
+		TextureCopyLocation() = default;
+		TextureCopyLocation(const Resource& res, uint32_t sub)
+		{
+			TextureResource = res;
+			SubresourceIndex = sub;
+		}
+
+		Resource TextureResource;
+		uint32_t SubresourceIndex;
+	};
+
 	//--------------------------------------------------------------------------------------
 	// Command list
 	//--------------------------------------------------------------------------------------
@@ -525,7 +704,7 @@ namespace XUSG
 		virtual void Unmap() = 0;
 
 		virtual const Resource& GetResource() const = 0;
-		virtual Descriptor		GetCBV(uint32_t index = 0) const = 0;
+		virtual const Descriptor& GetCBV(uint32_t index = 0) const = 0;
 
 		using uptr = std::unique_ptr<ConstantBuffer>;
 		using sptr = std::shared_ptr<ConstantBuffer>;
@@ -548,7 +727,7 @@ namespace XUSG
 			BarrierFlag flags = BarrierFlag::NONE) = 0;
 
 		virtual const Resource& GetResource() const = 0;
-		virtual Descriptor		GetSRV(uint32_t index = 0) const = 0;
+		virtual const Descriptor& GetSRV(uint32_t index = 0) const = 0;
 
 		virtual ResourceBarrier	Transition(ResourceState dstState, uint32_t subresource = BARRIER_ALL_SUBRESOURCES,
 			BarrierFlag flag = BarrierFlag::NONE) = 0;
@@ -579,7 +758,7 @@ namespace XUSG
 			uint8_t numMips = 1, uint8_t sampleCount = 1, MemoryType memoryType = MemoryType::DEFAULT,
 			bool isCubeMap = false, const wchar_t* name = nullptr) = 0;
 		virtual bool Upload(CommandList* pCommandList, Resource& uploader,
-			SubresourceData* pSubresourceData, uint32_t numSubresources = 1,
+			const SubresourceData* pSubresourceData, uint32_t numSubresources = 1,
 			ResourceState dstState = ResourceState::COMMON, uint32_t firstSubresource = 0) = 0;
 		virtual bool Upload(CommandList* pCommandList, Resource& uploader, const void* pData,
 			uint8_t stride = sizeof(float), ResourceState dstState = ResourceState::COMMON) = 0;
@@ -614,9 +793,9 @@ namespace XUSG
 			const DescriptorTable* pSrvTables = nullptr, uint32_t srvSlot = 0, uint8_t baseMip = 1,
 			uint8_t numMips = 0, uint32_t baseSlice = 0, uint32_t numSlices = 0) = 0;
 
-		virtual Descriptor GetUAV(uint8_t index = 0) const = 0;
-		virtual Descriptor GetPackedUAV(uint8_t index = 0) const = 0;
-		virtual Descriptor GetSRVLevel(uint8_t level) const = 0;
+		virtual const Descriptor& GetUAV(uint8_t index = 0) const = 0;
+		virtual const Descriptor& GetPackedUAV(uint8_t index = 0) const = 0;
+		virtual const Descriptor& GetSRVLevel(uint8_t level) const = 0;
 
 		virtual uint32_t GetHeight() const = 0;
 
@@ -665,7 +844,7 @@ namespace XUSG
 			uint32_t numBarriers = 0, uint8_t baseMip = 1, uint8_t numMips = 0, uint32_t baseSlice = 0,
 			uint32_t numSlices = 0, uint32_t offsetForSliceId = 0, uint32_t cbSlot = 2) = 0;
 
-		virtual Descriptor	GetRTV(uint32_t slice = 0, uint8_t mipLevel = 0) const = 0;
+		virtual const Descriptor& GetRTV(uint32_t slice = 0, uint8_t mipLevel = 0) const = 0;
 		virtual uint32_t	GetArraySize() const = 0;
 		virtual uint8_t		GetNumMips(uint32_t slice = 0) const = 0;
 
@@ -696,8 +875,8 @@ namespace XUSG
 			uint8_t numMips = 1, uint8_t sampleCount = 1, float clearDepth = 1.0f,
 			uint8_t clearStencil = 0, bool isCubeMap = false, const wchar_t* name = nullptr) = 0;
 
-		virtual Descriptor GetDSV(uint32_t slice = 0, uint8_t mipLevel = 0) const = 0;
-		virtual Descriptor GetReadOnlyDSV(uint32_t slice = 0, uint8_t mipLevel = 0) const = 0;
+		virtual const Descriptor& GetDSV(uint32_t slice = 0, uint8_t mipLevel = 0) const = 0;
+		virtual const Descriptor& GetReadOnlyDSV(uint32_t slice = 0, uint8_t mipLevel = 0) const = 0;
 		virtual const Descriptor& GetStencilSRV() const = 0;
 
 		virtual uint32_t	GetArraySize() const = 0;
@@ -758,7 +937,7 @@ namespace XUSG
 		virtual bool CreateUAVs(size_t byteWidth, const uint32_t* firstElements = nullptr,
 			uint32_t numDescriptors = 1) = 0;
 
-		virtual Descriptor GetUAV(uint32_t index = 0) const = 0;
+		virtual const Descriptor& GetUAV(uint32_t index = 0) const = 0;
 
 		virtual void* Map(uint32_t descriptorIndex = 0, uintptr_t readBegin = 0, uintptr_t readEnd = 0) = 0;
 		virtual void* Map(const Range* pReadRange, uint32_t descriptorIndex = 0) = 0;
@@ -825,7 +1004,7 @@ namespace XUSG
 			const uint32_t* firstElements = nullptr, uint32_t numDescriptors = 1,
 			std::vector<Descriptor>* pUavs = nullptr) = 0;
 
-		virtual Descriptor GetPackedUAV(uint32_t index = 0) const = 0;
+		virtual const Descriptor& GetPackedUAV(uint32_t index = 0) const = 0;
 
 		using uptr = std::unique_ptr<TypedBuffer>;
 		using sptr = std::shared_ptr<TypedBuffer>;
@@ -857,7 +1036,7 @@ namespace XUSG
 			uint32_t numUAVs = 1, const uint32_t* firstUAVElements = nullptr,
 			const wchar_t* name = nullptr) = 0;
 
-		virtual VertexBufferView GetVBV(uint32_t index = 0) const = 0;
+		virtual const VertexBufferView& GetVBV(uint32_t index = 0) const = 0;
 
 		using uptr = std::unique_ptr<VertexBuffer>;
 		using sptr = std::shared_ptr<VertexBuffer>;
@@ -884,7 +1063,7 @@ namespace XUSG
 			uint32_t numUAVs = 1, const uint32_t* firstUAVElements = nullptr,
 			const wchar_t* name = nullptr) = 0;
 
-		virtual IndexBufferView GetIBV(uint32_t index = 0) const = 0;
+		virtual const IndexBufferView& GetIBV(uint32_t index = 0) const = 0;
 
 		using uptr = std::unique_ptr<IndexBuffer>;
 		using sptr = std::shared_ptr<IndexBuffer>;

@@ -140,7 +140,10 @@ void CommandList_DX12::CopyTextureRegion(const TextureCopyLocation& dst,
 	uint32_t dstX, uint32_t dstY, uint32_t dstZ, const TextureCopyLocation& src,
 	const BoxRange* pSrcBox) const
 {
-	m_commandList->CopyTextureRegion(&dst, dstX, dstY, dstZ, &src, pSrcBox);
+	m_commandList->CopyTextureRegion(
+		&CD3DX12_TEXTURE_COPY_LOCATION(dst.TextureResource.get(), dst.SubresourceIndex), dstX, dstY, dstZ,
+		&CD3DX12_TEXTURE_COPY_LOCATION(src.TextureResource.get(), src.SubresourceIndex),
+		reinterpret_cast<const D3D12_BOX*>(pSrcBox));
 }
 
 void CommandList_DX12::CopyResource(const Resource& dstResource, const Resource& srcResource) const
@@ -152,7 +155,9 @@ void CommandList_DX12::CopyTiles(const Resource& tiledResource, const TiledResou
 	const TileRegionSize* pTileRegionSize, const Resource& buffer, uint64_t bufferStartOffsetInBytes,
 	TileCopyFlags flags) const
 {
-	m_commandList->CopyTiles(tiledResource.get(), pTileRegionStartCoord, pTileRegionSize,
+	m_commandList->CopyTiles(tiledResource.get(),
+		reinterpret_cast<const D3D12_TILED_RESOURCE_COORDINATE*>(pTileRegionStartCoord),
+		reinterpret_cast<const D3D12_TILE_REGION_SIZE*>(pTileRegionSize),
 		buffer.get(), bufferStartOffsetInBytes, flags);
 }
 
@@ -170,12 +175,12 @@ void CommandList_DX12::IASetPrimitiveTopology(PrimitiveTopology primitiveTopolog
 
 void CommandList_DX12::RSSetViewports(uint32_t numViewports, const Viewport* pViewports) const
 {
-	m_commandList->RSSetViewports(numViewports, pViewports);
+	m_commandList->RSSetViewports(numViewports, reinterpret_cast<const D3D12_VIEWPORT*>(pViewports));
 }
 
 void CommandList_DX12::RSSetScissorRects(uint32_t numRects, const RectRange* pRects) const
 {
-	m_commandList->RSSetScissorRects(numRects, pRects);
+	m_commandList->RSSetScissorRects(numRects, reinterpret_cast<const D3D12_RECT*>(pRects));
 }
 
 void CommandList_DX12::OMSetBlendFactor(const float blendFactor[4]) const
@@ -322,25 +327,27 @@ void CommandList_DX12::ClearDepthStencilView(const Descriptor& depthStencilView,
 	uint8_t stencil, uint32_t numRects, const RectRange* pRects) const
 {
 	m_commandList->ClearDepthStencilView(depthStencilView, GetDX12ClearFlags(clearFlags),
-		depth, stencil, numRects, pRects);
+		depth, stencil, numRects, reinterpret_cast<const D3D12_RECT*>(pRects));
 }
 
 void CommandList_DX12::ClearRenderTargetView(const Descriptor& renderTargetView, const float colorRGBA[4],
 	uint32_t numRects, const RectRange* pRects) const
 {
-	m_commandList->ClearRenderTargetView(renderTargetView, colorRGBA, numRects, pRects);
+	m_commandList->ClearRenderTargetView(renderTargetView, colorRGBA, numRects, reinterpret_cast<const D3D12_RECT*>(pRects));
 }
 
 void CommandList_DX12::ClearUnorderedAccessViewUint(const DescriptorTable& descriptorTable, const Descriptor& descriptor,
 	const Resource& resource, const uint32_t values[4], uint32_t numRects, const RectRange* pRects) const
 {
-	m_commandList->ClearUnorderedAccessViewUint(*descriptorTable, descriptor, resource.get(), values, numRects, pRects);
+	m_commandList->ClearUnorderedAccessViewUint(*descriptorTable, descriptor, resource.get(), values,
+		numRects, reinterpret_cast<const D3D12_RECT*>(pRects));
 }
 
 void CommandList_DX12::ClearUnorderedAccessViewFloat(const DescriptorTable& descriptorTable, const Descriptor& descriptor,
 	const Resource& resource, const float values[4], uint32_t numRects, const RectRange* pRects) const
 {
-	m_commandList->ClearUnorderedAccessViewFloat(*descriptorTable, descriptor, resource.get(), values, numRects, pRects);
+	m_commandList->ClearUnorderedAccessViewFloat(*descriptorTable, descriptor, resource.get(), values,
+		numRects, reinterpret_cast<const D3D12_RECT*>(pRects));
 }
 
 void CommandList_DX12::SetMarker(uint32_t metaData, const void* pData, uint32_t size) const
