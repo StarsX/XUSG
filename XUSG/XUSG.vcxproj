@@ -25,6 +25,7 @@
     <ClInclude Include="Core\XUSGCommand_DX12.h" />
     <ClInclude Include="Core\XUSGComputeState_DX12.h" />
     <ClInclude Include="Core\XUSGDescriptor_DX12.h" />
+    <ClInclude Include="Core\XUSGEnum_DX12.h" />
     <ClInclude Include="Core\XUSGGraphicsState_DX12.h" />
     <ClInclude Include="Core\XUSGInputLayout_DX12.h" />
     <ClInclude Include="Core\XUSGPipelineLayout_DX12.h" />

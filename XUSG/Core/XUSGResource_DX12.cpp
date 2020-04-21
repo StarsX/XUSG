@@ -5,6 +5,7 @@
 #include "DXFrameworkHelper.h"
 #include "XUSGResource_DX12.h"
 #include "XUSGCommand_DX12.h"
+#include "XUSGEnum_DX12.h"
 
 using namespace std;
 using namespace XUSG;
@@ -121,7 +122,7 @@ bool ConstantBuffer_DX12::Create(const Device& device, size_t byteWidth, uint32_
 
 		// Create a constant buffer view
 		m_cbvs[i] = allocateCbvPool(name);
-		m_device->CreateConstantBufferView(&desc, m_cbvs[i]);
+		m_device->CreateConstantBufferView(&desc, { m_cbvs[i] });
 	}
 
 	return true;
@@ -203,10 +204,10 @@ Descriptor ConstantBuffer_DX12::allocateCbvPool(const wchar_t* name)
 	auto& cbvPool = m_cbvPools.back();
 
 	D3D12_DESCRIPTOR_HEAP_DESC desc = { D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1 };
-	V_RETURN(m_device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&cbvPool)), cerr, D3D12_DEFAULT);
+	V_RETURN(m_device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&cbvPool)), cerr, 0);
 	if (name) cbvPool->SetName((wstring(name) + L".CbvPool").c_str());
 
-	return Descriptor(cbvPool->GetCPUDescriptorHandleForHeapStart());
+	return cbvPool->GetCPUDescriptorHandleForHeapStart().ptr;
 }
 
 //--------------------------------------------------------------------------------------
@@ -297,10 +298,10 @@ Descriptor ResourceBase_DX12::allocateSrvUavPool()
 	auto& srvUavPool = m_srvUavPools.back();
 
 	D3D12_DESCRIPTOR_HEAP_DESC desc = { D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1 };
-	V_RETURN(m_device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&srvUavPool)), cerr, D3D12_DEFAULT);
+	V_RETURN(m_device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&srvUavPool)), cerr, 0);
 	if (!m_name.empty()) srvUavPool->SetName((m_name + L".SrvUavPool").c_str());
 
-	return Descriptor(srvUavPool->GetCPUDescriptorHandleForHeapStart());
+	return srvUavPool->GetCPUDescriptorHandleForHeapStart().ptr;
 }
 
 //--------------------------------------------------------------------------------------
@@ -490,8 +491,8 @@ bool Texture2D_DX12::CreateSRVs(uint32_t arraySize, Format format, uint8_t numMi
 
 		// Create a shader resource view
 		descriptor = allocateSrvUavPool();
-		N_RETURN(descriptor.ptr, false);
-		m_device->CreateShaderResourceView(m_resource.get(), &desc, descriptor);
+		N_RETURN(descriptor, false);
+		m_device->CreateShaderResourceView(m_resource.get(), &desc, { descriptor });
 	}
 
 	return true;
@@ -545,8 +546,8 @@ bool Texture2D_DX12::CreateSRVLevels(uint32_t arraySize, uint8_t numMips, Format
 
 			// Create a shader resource view
 			descriptor = allocateSrvUavPool();
-			N_RETURN(descriptor.ptr, false);
-			m_device->CreateShaderResourceView(m_resource.get(), &desc, descriptor);
+			N_RETURN(descriptor, false);
+			m_device->CreateShaderResourceView(m_resource.get(), &desc, { descriptor });
 		}
 	}
 
@@ -580,8 +581,8 @@ bool Texture2D_DX12::CreateUAVs(uint32_t arraySize, Format format, uint8_t numMi
 
 		// Create an unordered access view
 		descriptor = allocateSrvUavPool();
-		N_RETURN(descriptor.ptr, false);
-		m_device->CreateUnorderedAccessView(m_resource.get(), nullptr, &desc, descriptor);
+		N_RETURN(descriptor, false);
+		m_device->CreateUnorderedAccessView(m_resource.get(), nullptr, &desc, { descriptor });
 	}
 
 	return true;
@@ -799,8 +800,8 @@ bool RenderTarget_DX12::Create(const Device& device, uint32_t width, uint32_t he
 
 			// Create a render target view
 			descriptor = allocateRtvPool();
-			N_RETURN(descriptor.ptr, false);
-			m_device->CreateRenderTargetView(m_resource.get(), &desc, descriptor);
+			N_RETURN(descriptor, false);
+			m_device->CreateRenderTargetView(m_resource.get(), &desc, { descriptor });
 		}
 	}
 
@@ -840,8 +841,8 @@ bool RenderTarget_DX12::CreateArray(const Device& device, uint32_t width, uint32
 
 		// Create a render target view
 		descriptor = allocateRtvPool();
-		N_RETURN(descriptor.ptr, false);
-		m_device->CreateRenderTargetView(m_resource.get(), &desc, descriptor);
+		N_RETURN(descriptor, false);
+		m_device->CreateRenderTargetView(m_resource.get(), &desc, { descriptor });
 	}
 
 	return true;
@@ -866,8 +867,8 @@ bool RenderTarget_DX12::CreateFromSwapChain(const Device& device, const SwapChai
 	m_rtvs.resize(1);
 	m_rtvs[0].resize(1);
 	m_rtvs[0][0] = allocateRtvPool();
-	N_RETURN(m_rtvs[0][0].ptr, false);
-	m_device->CreateRenderTargetView(m_resource.get(), nullptr, m_rtvs[0][0]);
+	N_RETURN(m_rtvs[0][0], false);
+	m_device->CreateRenderTargetView(m_resource.get(), nullptr, { m_rtvs[0][0] });
 
 	switch (m_resource->GetDesc().Format)
 	{
@@ -1077,10 +1078,10 @@ Descriptor RenderTarget_DX12::allocateRtvPool()
 	auto& rtvPool = m_rtvPools.back();
 
 	D3D12_DESCRIPTOR_HEAP_DESC desc = { D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1 };
-	V_RETURN(m_device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&rtvPool)), cerr, D3D12_DEFAULT);
+	V_RETURN(m_device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&rtvPool)), cerr, 0);
 	if (!m_name.empty()) rtvPool->SetName((m_name + L".RtvPool").c_str());
 
-	return Descriptor(rtvPool->GetCPUDescriptorHandleForHeapStart());
+	return rtvPool->GetCPUDescriptorHandleForHeapStart().ptr;
 }
 
 //--------------------------------------------------------------------------------------
@@ -1092,7 +1093,7 @@ DepthStencil_DX12::DepthStencil_DX12() :
 	m_dsvPools(),
 	m_dsvs(0),
 	m_readOnlyDsvs(0),
-	m_stencilSrv(D3D12_DEFAULT)
+	m_stencilSrv(0)
 {
 }
 
@@ -1158,8 +1159,8 @@ bool DepthStencil_DX12::Create(const Device& device, uint32_t width, uint32_t he
 
 			// Create a depth stencil view
 			dsv = allocateDsvPool();
-			N_RETURN(dsv.ptr, false);
-			m_device->CreateDepthStencilView(m_resource.get(), &desc, dsv);
+			N_RETURN(dsv, false);
+			m_device->CreateDepthStencilView(m_resource.get(), &desc, { dsv });
 
 			// Read-only depth stencil
 			if (hasSRV)
@@ -1170,8 +1171,8 @@ bool DepthStencil_DX12::Create(const Device& device, uint32_t width, uint32_t he
 
 				// Create a depth stencil view
 				readOnlyDsv = allocateDsvPool();
-				N_RETURN(readOnlyDsv.ptr, false);
-				m_device->CreateDepthStencilView(m_resource.get(), &desc, readOnlyDsv);
+				N_RETURN(readOnlyDsv, false);
+				m_device->CreateDepthStencilView(m_resource.get(), &desc, { readOnlyDsv });
 			}
 			else readOnlyDsv = dsv;
 		}
@@ -1232,8 +1233,8 @@ bool DepthStencil_DX12::CreateArray(const Device& device, uint32_t width, uint32
 
 		// Create a depth stencil view
 		dsv = allocateDsvPool();
-		N_RETURN(dsv.ptr, false);
-		m_device->CreateDepthStencilView(m_resource.get(), &desc, dsv);
+		N_RETURN(dsv, false);
+		m_device->CreateDepthStencilView(m_resource.get(), &desc, { dsv });
 
 		// Read-only depth stencil
 		if (hasSRV)
@@ -1244,8 +1245,8 @@ bool DepthStencil_DX12::CreateArray(const Device& device, uint32_t width, uint32
 
 			// Create a depth stencil view
 			readOnlyDsv = allocateDsvPool();
-			N_RETURN(readOnlyDsv.ptr, false);
-			m_device->CreateDepthStencilView(m_resource.get(), &desc, readOnlyDsv);
+			N_RETURN(readOnlyDsv, false);
+			m_device->CreateDepthStencilView(m_resource.get(), &desc, { readOnlyDsv });
 		}
 		else readOnlyDsv = dsv;
 	}
@@ -1405,8 +1406,8 @@ bool DepthStencil_DX12::create(const Device& device, uint32_t width, uint32_t he
 
 			// Create a shader resource view
 			m_stencilSrv = allocateSrvUavPool();
-			N_RETURN(m_stencilSrv.ptr, false);
-			m_device->CreateShaderResourceView(m_resource.get(), &desc, m_stencilSrv);
+			N_RETURN(m_stencilSrv, false);
+			m_device->CreateShaderResourceView(m_resource.get(), &desc, { m_stencilSrv });
 		}
 	}
 
@@ -1419,10 +1420,10 @@ Descriptor DepthStencil_DX12::allocateDsvPool()
 	auto& dsvPool = m_dsvPools.back();
 
 	D3D12_DESCRIPTOR_HEAP_DESC desc = { D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1 };
-	V_RETURN(m_device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&dsvPool)), cerr, D3D12_DEFAULT);
+	V_RETURN(m_device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&dsvPool)), cerr, 0);
 	if (!m_name.empty()) dsvPool->SetName((m_name + L".DsvPool").c_str());
 
-	return Descriptor(dsvPool->GetCPUDescriptorHandleForHeapStart());
+	return dsvPool->GetCPUDescriptorHandleForHeapStart().ptr;
 }
 
 //--------------------------------------------------------------------------------------
@@ -1516,8 +1517,8 @@ bool Texture3D_DX12::CreateSRVs(Format format, uint8_t numMips)
 
 		// Create a shader resource view
 		descriptor = allocateSrvUavPool();
-		N_RETURN(descriptor.ptr, false);
-		m_device->CreateShaderResourceView(m_resource.get(), &desc, descriptor);
+		N_RETURN(descriptor, false);
+		m_device->CreateShaderResourceView(m_resource.get(), &desc, { descriptor });
 	}
 
 	return true;
@@ -1543,8 +1544,8 @@ bool Texture3D_DX12::CreateSRVLevels(uint8_t numMips, Format format)
 
 			// Create a shader resource view
 			descriptor = allocateSrvUavPool();
-			N_RETURN(descriptor.ptr, false);
-			m_device->CreateShaderResourceView(m_resource.get(), &desc, descriptor);
+			N_RETURN(descriptor, false);
+			m_device->CreateShaderResourceView(m_resource.get(), &desc, { descriptor });
 		}
 	}
 
@@ -1572,8 +1573,8 @@ bool Texture3D_DX12::CreateUAVs(Format format, uint8_t numMips, vector<Descripto
 
 		// Create an unordered access view
 		descriptor = allocateSrvUavPool();
-		N_RETURN(descriptor.ptr, false);
-		m_device->CreateUnorderedAccessView(m_resource.get(), nullptr, &desc, descriptor);
+		N_RETURN(descriptor, false);
+		m_device->CreateUnorderedAccessView(m_resource.get(), nullptr, &desc, { descriptor });
 	}
 
 	return true;
@@ -1685,8 +1686,8 @@ bool RawBuffer_DX12::CreateSRVs(size_t byteWidth, const uint32_t* firstElements,
 
 		// Create a shader resource view
 		m_srvs[0] = allocateSrvUavPool();
-		N_RETURN(m_srvs[0].ptr, false);
-		m_device->CreateShaderResourceView(nullptr, &desc, m_srvs[0]);
+		N_RETURN(m_srvs[0], false);
+		m_device->CreateShaderResourceView(nullptr, &desc, { m_srvs[0] });
 	}
 	else
 	{
@@ -1710,8 +1711,8 @@ bool RawBuffer_DX12::CreateSRVs(size_t byteWidth, const uint32_t* firstElements,
 
 			// Create a shader resource view
 			m_srvs[i] = allocateSrvUavPool();
-			N_RETURN(m_srvs[i].ptr, false);
-			m_device->CreateShaderResourceView(m_resource.get(), &desc, m_srvs[i]);
+			N_RETURN(m_srvs[i], false);
+			m_device->CreateShaderResourceView(m_resource.get(), &desc, { m_srvs[i] });
 		}
 	}
 
@@ -1738,8 +1739,8 @@ bool RawBuffer_DX12::CreateUAVs(size_t byteWidth, const uint32_t* firstElements,
 
 		// Create an unordered access view
 		m_uavs[i] = allocateSrvUavPool();
-		N_RETURN(m_uavs[i].ptr, false);
-		m_device->CreateUnorderedAccessView(m_resource.get(), nullptr, &desc, m_uavs[i]);
+		N_RETURN(m_uavs[i], false);
+		m_device->CreateUnorderedAccessView(m_resource.get(), nullptr, &desc, { m_uavs[i] });
 	}
 
 	return true;
@@ -1874,8 +1875,8 @@ bool StructuredBuffer_DX12::CreateSRVs(uint32_t numElements, uint32_t stride,
 
 		// Create a shader resource view
 		m_srvs[i] = allocateSrvUavPool();
-		N_RETURN(m_srvs[i].ptr, false);
-		m_device->CreateShaderResourceView(m_resource.get(), &desc, m_srvs[i]);
+		N_RETURN(m_srvs[i], false);
+		m_device->CreateShaderResourceView(m_resource.get(), &desc, { m_srvs[i] });
 	}
 
 	return true;
@@ -1901,8 +1902,8 @@ bool StructuredBuffer_DX12::CreateUAVs(uint32_t numElements, uint32_t stride,
 
 		// Create an unordered access view
 		m_uavs[i] = allocateSrvUavPool();
-		N_RETURN(m_uavs[i].ptr, false);
-		m_device->CreateUnorderedAccessView(m_resource.get(), m_counter.get(), &desc, m_uavs[i]);
+		N_RETURN(m_uavs[i], false);
+		m_device->CreateUnorderedAccessView(m_resource.get(), m_counter.get(), &desc, { m_uavs[i] });
 	}
 
 	return true;
@@ -1986,8 +1987,8 @@ bool TypedBuffer_DX12::CreateSRVs(uint32_t numElements, Format format, uint32_t 
 
 		// Create a shader resource view
 		m_srvs[i] = allocateSrvUavPool();
-		N_RETURN(m_srvs[i].ptr, false);
-		m_device->CreateShaderResourceView(m_resource.get(), &desc, m_srvs[i]);
+		N_RETURN(m_srvs[i], false);
+		m_device->CreateShaderResourceView(m_resource.get(), &desc, { m_srvs[i] });
 	}
 
 	return true;
@@ -2011,8 +2012,8 @@ bool TypedBuffer_DX12::CreateUAVs(uint32_t numElements, Format format, uint32_t 
 
 		// Create an unordered access view
 		pUavs->at(i) = allocateSrvUavPool();
-		N_RETURN(pUavs->at(i).ptr, false);
-		m_device->CreateUnorderedAccessView(m_resource.get(), nullptr, &desc, pUavs->at(i));
+		N_RETURN(pUavs->at(i), false);
+		m_device->CreateUnorderedAccessView(m_resource.get(), nullptr, &desc, { pUavs->at(i) });
 	}
 
 	return true;

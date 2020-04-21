@@ -86,12 +86,12 @@ Pipeline PipelineCache_DX12::GetPipeline(const State& state, const wchar_t* name
 Pipeline PipelineCache_DX12::createPipeline(const Key* pKey, const wchar_t* name)
 {
 	// Fill desc
-	PipelineDesc desc = {};
+	D3D12_COMPUTE_PIPELINE_STATE_DESC desc = {};
 	if (pKey->PipelineLayout)
 		desc.pRootSignature = static_cast<decltype(desc.pRootSignature)>(pKey->PipelineLayout);
 
 	if (pKey->Shader)
-		desc.CS = Shader::ByteCode(static_cast<ID3DBlob*>(pKey->Shader));
+		desc.CS = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pKey->Shader));
 
 	// Create pipeline
 	Pipeline pipeline;

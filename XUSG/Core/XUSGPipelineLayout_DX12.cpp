@@ -3,6 +3,7 @@
 //--------------------------------------------------------------------------------------
 
 #include "XUSGPipelineLayout_DX12.h"
+#include "XUSGEnum_DX12.h"
 
 using namespace std;
 using namespace XUSG;

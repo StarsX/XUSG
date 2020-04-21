@@ -31,12 +31,12 @@ void Util::DescriptorTable_DX12::SetDescriptors(uint32_t start, uint32_t num,
 void Util::DescriptorTable_DX12::SetSamplers(uint32_t start, uint32_t num, const SamplerPreset* presets,
 	DescriptorTableCache& descriptorTableCache, uint8_t descriptorPoolIndex)
 {
-	const auto size = sizeof(Sampler*) * (start + num) + 1;
+	const auto size = sizeof(D3D12_SAMPLER_DESC*) * (start + num) + 1;
 	if (size > m_key.size())
 		m_key.resize(size);
 
 	m_key[0] = descriptorPoolIndex;
-	const auto descriptors = reinterpret_cast<const Sampler**>(&m_key[1]);
+	const auto descriptors = reinterpret_cast<const D3D12_SAMPLER_DESC**>(&m_key[1]);
 
 	for (auto i = 0u; i < num; ++i)
 		descriptors[start + i] = descriptorTableCache.GetSampler(presets[i]).get();
@@ -207,10 +207,10 @@ const DescriptorPool& DescriptorTableCache_DX12::GetDescriptorPool(DescriptorPoo
 	return m_descriptorPools[type][index];
 }
 
-const shared_ptr<Sampler>& DescriptorTableCache_DX12::GetSampler(SamplerPreset preset)
+const Sampler& DescriptorTableCache_DX12::GetSampler(SamplerPreset preset)
 {
 	if (m_samplerPresets[preset] == nullptr)
-		m_samplerPresets[preset] = make_shared<Sampler>(m_pfnSamplers[preset]());
+		m_samplerPresets[preset] = m_pfnSamplers[preset]();
 
 	return m_samplerPresets[preset];
 }
@@ -336,22 +336,22 @@ DescriptorTable DescriptorTableCache_DX12::createCbvSrvUavTable(const string& ke
 	{
 		const auto& index = key[0];
 		const auto numDescriptors = static_cast<uint32_t>(key.size() / sizeof(Descriptor));
-		const auto descriptors = reinterpret_cast<const Descriptor*>(&key[1]);
+		const auto pSrc = reinterpret_cast<const D3D12_CPU_DESCRIPTOR_HANDLE*>(&key[1]);
 
 		// Compute start addresses for CPU and GPU handles
 		const auto& descriptorPool = m_descriptorPools[CBV_SRV_UAV_POOL][index];
 		const auto& descriptorStride = m_descriptorStrides[CBV_SRV_UAV_POOL];
-		Descriptor descriptor(descriptorPool->GetCPUDescriptorHandleForHeapStart());
+		CD3DX12_CPU_DESCRIPTOR_HANDLE dst(descriptorPool->GetCPUDescriptorHandleForHeapStart());
 
-		if (table && table->ptr)
-			descriptor.Offset(static_cast<int>(table->ptr - descriptorPool->GetGPUDescriptorHandleForHeapStart().ptr));
+		if (table && *table)
+			dst.Offset(static_cast<int>(*table - descriptorPool->GetGPUDescriptorHandleForHeapStart().ptr));
 		else
 		{
 			auto& descriptorCount = m_descriptorCounts[CBV_SRV_UAV_POOL][index];
-			table = make_shared<CD3DX12_GPU_DESCRIPTOR_HANDLE>(
+			table = make_shared<uint64_t>(CD3DX12_GPU_DESCRIPTOR_HANDLE(
 				descriptorPool->GetGPUDescriptorHandleForHeapStart(),
-				descriptorCount, descriptorStride);
-			descriptor.Offset(descriptorCount, descriptorStride);
+				descriptorCount, descriptorStride).ptr);
+			dst.Offset(descriptorCount, descriptorStride);
 			descriptorCount += numDescriptors;
 		}
 
@@ -359,8 +359,8 @@ DescriptorTable DescriptorTableCache_DX12::createCbvSrvUavTable(const string& ke
 		for (auto i = 0u; i < numDescriptors; ++i)
 		{
 			// Copy a descriptor
-			m_device->CopyDescriptorsSimple(1, descriptor, descriptors[i], D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-			descriptor.Offset(descriptorStride);
+			m_device->CopyDescriptorsSimple(1, dst, pSrc[i], D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+			dst.Offset(descriptorStride);
 		}
 
 		return table;
@@ -380,7 +380,7 @@ DescriptorTable DescriptorTableCache_DX12::getCbvSrvUavTable(const string& key, 
 		{
 			const auto& index = key[0];
 			auto& descriptorKeyPtrs = m_descriptorKeyPtrs[CBV_SRV_UAV_POOL][index];
-			if (table && table->ptr)
+			if (table && *table)
 			{
 				for (auto mIt = m_cbvSrvUavTables.cbegin(); mIt != m_cbvSrvUavTables.cend(); ++mIt)
 				{
@@ -419,23 +419,23 @@ DescriptorTable DescriptorTableCache_DX12::createSamplerTable(const string& key,
 	if (key.size() > 0)
 	{
 		const auto& index = key[0];
-		const auto numDescriptors = static_cast<uint32_t>(key.size() / sizeof(Sampler*));
-		const auto descriptors = reinterpret_cast<const Sampler* const*>(&key[1]);
+		const auto numDescriptors = static_cast<uint32_t>(key.size() / sizeof(uintptr_t));
+		const auto pSamplers = reinterpret_cast<const D3D12_SAMPLER_DESC* const*>(&key[1]);
 
 		// Compute start addresses for CPU and GPU handles
 		const auto& descriptorPool = m_descriptorPools[SAMPLER_POOL][index];
 		const auto& descriptorStride = m_descriptorStrides[SAMPLER_POOL];
-		Descriptor descriptor(descriptorPool->GetCPUDescriptorHandleForHeapStart());
+		CD3DX12_CPU_DESCRIPTOR_HANDLE dst(descriptorPool->GetCPUDescriptorHandleForHeapStart());
 
-		if (table && table->ptr)
-			descriptor.Offset(static_cast<int>(table->ptr - descriptorPool->GetGPUDescriptorHandleForHeapStart().ptr));
+		if (table && *table)
+			dst.Offset(static_cast<int>(*table - descriptorPool->GetGPUDescriptorHandleForHeapStart().ptr));
 		else
 		{
 			auto& descriptorCount = m_descriptorCounts[SAMPLER_POOL][index];
-			table = make_shared<CD3DX12_GPU_DESCRIPTOR_HANDLE>(
+			table = make_shared<uint64_t>(CD3DX12_GPU_DESCRIPTOR_HANDLE(
 				descriptorPool->GetGPUDescriptorHandleForHeapStart(),
-				descriptorCount, descriptorStride);
-			descriptor.Offset(descriptorCount, descriptorStride);
+				descriptorCount, descriptorStride).ptr);
+			dst.Offset(descriptorCount, descriptorStride);
 			descriptorCount += numDescriptors;
 		}
 
@@ -443,8 +443,8 @@ DescriptorTable DescriptorTableCache_DX12::createSamplerTable(const string& key,
 		for (auto i = 0u; i < numDescriptors; ++i)
 		{
 			// Copy a descriptor
-			m_device->CreateSampler(descriptors[i], descriptor);
-			descriptor.Offset(descriptorStride);
+			m_device->CreateSampler(pSamplers[i], dst);
+			dst.Offset(descriptorStride);
 		}
 
 		return table;
@@ -464,7 +464,7 @@ DescriptorTable DescriptorTableCache_DX12::getSamplerTable(const string& key, De
 		{
 			const auto& index = key[0];
 			auto& descriptorKeyPtrs = m_descriptorKeyPtrs[SAMPLER_POOL][index];
-			if (table && table->ptr)
+			if (table && *table)
 			{
 				for (auto mIt = m_samplerTables.cbegin(); mIt != m_samplerTables.cend(); ++mIt)
 				{
@@ -508,33 +508,33 @@ Framebuffer DescriptorTableCache_DX12::createFramebuffer(const string& key,
 	{
 		const auto& index = key[0];
 		framebuffer.NumRenderTargetDescriptors = static_cast<uint32_t>(key.size() / sizeof(Descriptor));
-		const auto descriptors = reinterpret_cast<const Descriptor*>(&key[1]);
+		const auto pSrc = reinterpret_cast<const D3D12_CPU_DESCRIPTOR_HANDLE*>(&key[1]);
 
 		// Compute start addresses for CPU and GPU handles
 		const auto& descriptorPool = m_descriptorPools[RTV_POOL][index];
 		const auto& descriptorStride = m_descriptorStrides[RTV_POOL];
-		Descriptor descriptor(descriptorPool->GetCPUDescriptorHandleForHeapStart());
+		CD3DX12_CPU_DESCRIPTOR_HANDLE dst(descriptorPool->GetCPUDescriptorHandleForHeapStart());
 
 		if (pFramebuffer && pFramebuffer->RenderTargetViews)
 		{
-			descriptor = *pFramebuffer->RenderTargetViews;
+			dst = { *pFramebuffer->RenderTargetViews };
 			framebuffer = *pFramebuffer;
 		}
 		else
 		{
 			auto& descriptorCount = m_descriptorCounts[RTV_POOL][index];
-			descriptor.Offset(descriptorCount, descriptorStride);
+			dst.Offset(descriptorCount, descriptorStride);
 			descriptorCount += framebuffer.NumRenderTargetDescriptors;
 			framebuffer.RenderTargetViews = make_shared<Descriptor>();
-			*framebuffer.RenderTargetViews = descriptor;
+			*framebuffer.RenderTargetViews = dst.ptr;
 		}
 
 		// Create a descriptor table
 		for (auto i = 0u; i < framebuffer.NumRenderTargetDescriptors; ++i)
 		{
 			// Copy a descriptor
-			m_device->CopyDescriptorsSimple(1, descriptor, descriptors[i], D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-			descriptor.Offset(descriptorStride);
+			m_device->CopyDescriptorsSimple(1, dst, pSrc[i], D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+			dst.Offset(descriptorStride);
 		}
 	}
 

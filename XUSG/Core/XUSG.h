@@ -5,24 +5,21 @@
 #pragma once
 #pragma warning(disable:4250)
 
+#define C_RETURN(x, r)		if (x) return r
+#define N_RETURN(x, r)		C_RETURN(!(x), r)
+#define X_RETURN(x, f, r)	{ x = f; N_RETURN(x, r); }
+
+#define DIV_UP(x, n)		(((x) - 1) / (n) + 1)
+#define SizeOfInUint32(obj)	DIV_UP(sizeof(obj), sizeof(uint32_t))
+
+#define APPEND_ALIGNED_ELEMENT 0xffffffff
+
 namespace XUSG
 {
 	enum class Format : uint32_t;
 	enum class CommandListType : uint8_t;
-	enum class InputClassification : uint8_t;
-	enum class MemoryType : uint8_t;
-	enum class PrimitiveTopologyType : uint8_t;
-	enum class PrimitiveTopology : uint8_t;
-	enum class ResourceDimension : uint8_t;
 	enum class IndirectArgumentType : uint8_t;
-
 	enum class CommandQueueFlag : uint8_t;
-	enum class ResourceFlag : uint32_t;
-	enum class ResourceState : uint32_t;
-	enum class BarrierFlag : uint8_t;
-	enum class DescriptorFlag : uint8_t;
-	enum class PipelineLayoutFlag : uint8_t;
-	enum class ClearFlag : uint8_t;
 	enum class FenceFlag : uint8_t;
 
 	enum Requirement : uint32_t
@@ -37,142 +34,6 @@ namespace XUSG
 	};
 
 	class CommandList;
-
-	struct SubresourceData
-	{
-		const void* pData;
-		intptr_t RowPitch;
-		intptr_t SlicePitch;
-	};
-
-	struct Viewport
-	{
-		Viewport() = default;
-		Viewport(float topLeftX, float topLeftY, float width, float height, float minDepth = 0.0f, float maxDepth = 1.0f)
-		{
-			TopLeftX = topLeftX;
-			TopLeftY = topLeftY;
-			Width = width;
-			Height = height;
-			MinDepth = minDepth;
-			MaxDepth = maxDepth;
-		}
-
-		float TopLeftX;
-		float TopLeftY;
-		float Width;
-		float Height;
-		float MinDepth;
-		float MaxDepth;
-	};
-
-	struct Range
-	{
-		Range() = default;
-		Range(uintptr_t begin, uintptr_t end)
-		{
-			Begin = begin;
-			End = end;
-		}
-
-		uintptr_t Begin;
-		uintptr_t End;
-	};
-
-	struct RectRange
-	{
-		RectRange() = default;
-		RectRange(long left, long top, long right, long bottom)
-		{
-			Left = left;
-			Top = top;
-			Right = right;
-			Bottom = bottom;
-		}
-
-		long Left;
-		long Top;
-		long Right;
-		long Bottom;
-	};
-
-	struct BoxRange
-	{
-		BoxRange() = default;
-		BoxRange(long left, long right)
-		{
-			Left = static_cast<uint32_t>(left);
-			Top = 0;
-			Front = 0;
-			Right = static_cast<uint32_t>(right);
-			Bottom = 1;
-			Back = 1;
-		}
-		BoxRange(long left, long top, long right, long bottom)
-		{
-			Left = static_cast<uint32_t>(left);
-			Top = static_cast<uint32_t>(top);
-			Front = 0;
-			Right = static_cast<uint32_t>(right);
-			Bottom = static_cast<uint32_t>(bottom);
-			Back = 1;
-		}
-		BoxRange(long left, long top, long front, long right, long bottom, long back)
-		{
-			Left = static_cast<uint32_t>(left);
-			Top = static_cast<uint32_t>(top);
-			Front = static_cast<uint32_t>(front);
-			Right = static_cast<uint32_t>(right);
-			Bottom = static_cast<uint32_t>(bottom);
-			Back = static_cast<uint32_t>(back);
-		}
-
-		uint32_t Left;
-		uint32_t Top;
-		uint32_t Front;
-		uint32_t Right;
-		uint32_t Bottom;
-		uint32_t Back;
-	};
-
-	struct TiledResourceCoord
-	{
-		TiledResourceCoord() = default;
-		TiledResourceCoord(uint32_t x, uint32_t y, uint32_t z, uint32_t subresource)
-		{
-			X = x;
-			Y = y;
-			Z = z;
-			Subresource = subresource;
-		}
-
-		uint32_t X;
-		uint32_t Y;
-		uint32_t Z;
-		UINT Subresource;
-	};
-
-	struct TileRegionSize
-	{
-		uint32_t NumTiles;
-		bool UseBox;
-		uint32_t Width;
-		uint16_t Height;
-		uint16_t Depth;
-	};
-
-	// Input layouts related
-	struct InputElementDesc
-	{
-		const char* SemanticName;
-		uint32_t SemanticIndex;
-		Format Format;
-		uint32_t InputSlot;
-		uint32_t AlignedByteOffset;
-		InputClassification InputSlotClass;
-		uint32_t InstanceDataStepRate;
-	};
-	using InputElementTable = std::vector<InputElementDesc>;
 
 	struct IndirectArgument
 	{
@@ -203,18 +64,9 @@ namespace XUSG
 			} UnorderedAccessView;
 		};
 	};
-};
+}
 
 #include "XUSG_DX12.h"
-
-#define C_RETURN(x, r)		if (x) return r
-#define N_RETURN(x, r)		C_RETURN(!(x), r)
-#define X_RETURN(x, f, r)	{ x = f; N_RETURN(x, r); }
-
-#define DIV_UP(x, n)		(((x) - 1) / (n) + 1)
-#define SizeOfInUint32(obj)	DIV_UP(sizeof(obj), sizeof(uint32_t))
-
-#define APPEND_ALIGNED_ELEMENT 0xffffffff
 
 namespace XUSG
 {
@@ -546,15 +398,6 @@ namespace XUSG
 
 	DEFINE_ENUM_FLAG_OPERATORS(CommandQueueFlag);
 
-	enum class ClearFlag : uint8_t
-	{
-		NONE = 0,
-		DEPTH = (1 << 0),
-		STENCIL = (1 << 1)
-	};
-
-	DEFINE_ENUM_FLAG_OPERATORS(ClearFlag);
-
 	enum class FenceFlag : uint8_t
 	{
 		NONE = 0,
@@ -564,6 +407,113 @@ namespace XUSG
 	};
 
 	DEFINE_ENUM_FLAG_OPERATORS(FenceFlag);
+
+	enum class ClearFlag : uint8_t
+	{
+		NONE = 0,
+		DEPTH = (1 << 0),
+		STENCIL = (1 << 1)
+	};
+
+	DEFINE_ENUM_FLAG_OPERATORS(ClearFlag);
+
+	// Resources related
+	struct SubresourceData
+	{
+		const void* pData;
+		intptr_t RowPitch;
+		intptr_t SlicePitch;
+	};
+
+	struct Viewport
+	{
+		Viewport() = default;
+		Viewport(float topLeftX, float topLeftY, float width, float height, float minDepth = 0.0f, float maxDepth = 1.0f)
+		{
+			TopLeftX = topLeftX;
+			TopLeftY = topLeftY;
+			Width = width;
+			Height = height;
+			MinDepth = minDepth;
+			MaxDepth = maxDepth;
+		}
+
+		float TopLeftX;
+		float TopLeftY;
+		float Width;
+		float Height;
+		float MinDepth;
+		float MaxDepth;
+	};
+
+	struct Range
+	{
+		Range() = default;
+		Range(uintptr_t begin, uintptr_t end)
+		{
+			Begin = begin;
+			End = end;
+		}
+
+		uintptr_t Begin;
+		uintptr_t End;
+	};
+
+	struct RectRange
+	{
+		RectRange() = default;
+		RectRange(long left, long top, long right, long bottom)
+		{
+			Left = left;
+			Top = top;
+			Right = right;
+			Bottom = bottom;
+		}
+
+		long Left;
+		long Top;
+		long Right;
+		long Bottom;
+	};
+
+	struct BoxRange
+	{
+		BoxRange() = default;
+		BoxRange(long left, long right)
+		{
+			Left = static_cast<uint32_t>(left);
+			Top = 0;
+			Front = 0;
+			Right = static_cast<uint32_t>(right);
+			Bottom = 1;
+			Back = 1;
+		}
+		BoxRange(long left, long top, long right, long bottom)
+		{
+			Left = static_cast<uint32_t>(left);
+			Top = static_cast<uint32_t>(top);
+			Front = 0;
+			Right = static_cast<uint32_t>(right);
+			Bottom = static_cast<uint32_t>(bottom);
+			Back = 1;
+		}
+		BoxRange(long left, long top, long front, long right, long bottom, long back)
+		{
+			Left = static_cast<uint32_t>(left);
+			Top = static_cast<uint32_t>(top);
+			Front = static_cast<uint32_t>(front);
+			Right = static_cast<uint32_t>(right);
+			Bottom = static_cast<uint32_t>(bottom);
+			Back = static_cast<uint32_t>(back);
+		}
+
+		uint32_t Left;
+		uint32_t Top;
+		uint32_t Front;
+		uint32_t Right;
+		uint32_t Bottom;
+		uint32_t Back;
+	};
 
 	struct TextureCopyLocation
 	{
@@ -577,6 +527,63 @@ namespace XUSG
 		Resource TextureResource;
 		uint32_t SubresourceIndex;
 	};
+
+	struct TiledResourceCoord
+	{
+		TiledResourceCoord() = default;
+		TiledResourceCoord(uint32_t x, uint32_t y, uint32_t z, uint32_t subresource)
+		{
+			X = x;
+			Y = y;
+			Z = z;
+			Subresource = subresource;
+		}
+
+		uint32_t X;
+		uint32_t Y;
+		uint32_t Z;
+		UINT Subresource;
+	};
+
+	struct TileRegionSize
+	{
+		uint32_t NumTiles;
+		bool UseBox;
+		uint32_t Width;
+		uint16_t Height;
+		uint16_t Depth;
+	};
+
+	// Descriptors related
+	using Descriptor = uintptr_t;
+	using DescriptorTable = std::shared_ptr<uint64_t>;
+	struct Framebuffer
+	{
+		uint32_t NumRenderTargetDescriptors;
+		std::shared_ptr<Descriptor> RenderTargetViews;
+		Descriptor DepthStencilView;
+	};
+
+	// Input layouts related
+	struct InputElementDesc
+	{
+		const char* SemanticName;
+		uint32_t SemanticIndex;
+		Format Format;
+		uint32_t InputSlot;
+		uint32_t AlignedByteOffset;
+		InputClassification InputSlotClass;
+		uint32_t InstanceDataStepRate;
+	};
+	using InputElementTable = std::vector<InputElementDesc>;
+
+	struct InputLayoutDesc
+	{
+		const InputElementDesc* pInputElementDescs;
+		uint32_t NumElements;
+		std::vector<InputElementDesc> Elements;
+	};
+	using InputLayout = std::shared_ptr<InputLayoutDesc>;
 
 	//--------------------------------------------------------------------------------------
 	// Command list
@@ -1173,7 +1180,7 @@ namespace XUSG
 
 		virtual const DescriptorPool& GetDescriptorPool(DescriptorPoolType type, uint8_t index = 0) const = 0;
 
-		virtual const std::shared_ptr<Sampler>& GetSampler(SamplerPreset preset) = 0;
+		virtual const Sampler& GetSampler(SamplerPreset preset) = 0;
 
 		virtual uint32_t GetDescriptorStride(DescriptorPoolType type) const = 0;
 

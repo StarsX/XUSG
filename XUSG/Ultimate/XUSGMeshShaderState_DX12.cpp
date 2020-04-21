@@ -3,6 +3,7 @@
 //--------------------------------------------------------------------------------------
 
 #include "Core/XUSGGraphicsState_DX12.h"
+#include "Core/XUSGEnum_DX12.h"
 #include "XUSGMeshShaderState_DX12.h"
 
 using namespace std;
@@ -135,11 +136,11 @@ Pipeline PipelineCache_DX12::createPipeline(const Key* pKey, const wchar_t* name
 	if (pKey->PipelineLayout)
 		psoDesc.pRootSignature = static_cast<decltype(psoDesc.pRootSignature)>(pKey->PipelineLayout);
 	if (pKey->Shaders[AS])
-		psoDesc.AS = Shader::ByteCode(static_cast<ID3DBlob*>(pKey->Shaders[AS]));
+		psoDesc.AS = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pKey->Shaders[AS]));
 	if (pKey->Shaders[MS])
-		psoDesc.MS = Shader::ByteCode(static_cast<ID3DBlob*>(pKey->Shaders[MS]));
+		psoDesc.MS = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pKey->Shaders[MS]));
 	if (pKey->Shaders[PS])
-		psoDesc.PS = Shader::ByteCode(static_cast<ID3DBlob*>(pKey->Shaders[PS]));
+		psoDesc.PS = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pKey->Shaders[PS]));
 
 	const auto blend = static_cast<decltype(psoDesc.BlendState)*>(pKey->Blend);
 	psoDesc.BlendState = *(blend ? blend : GetBlend(BlendPreset::DEFAULT_OPAQUE).get());

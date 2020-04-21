@@ -3,6 +3,7 @@
 //--------------------------------------------------------------------------------------
 
 #include "XUSGGraphicsState_DX12.h"
+#include "XUSGEnum_DX12.h"
 
 using namespace std;
 using namespace XUSG;
@@ -222,20 +223,20 @@ const Graphics::DepthStencil& PipelineCache_DX12::GetDepthStencil(DepthStencilPr
 Pipeline PipelineCache_DX12::createPipeline(const Key* pKey, const wchar_t* name)
 {
 	// Fill desc
-	PipelineDesc desc = {};
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC desc = {};
 	if (pKey->PipelineLayout)
 		desc.pRootSignature = static_cast<decltype(desc.pRootSignature)>(pKey->PipelineLayout);
 
 	if (pKey->Shaders[Shader::Stage::VS])
-		desc.VS = Shader::ByteCode(static_cast<ID3DBlob*>(pKey->Shaders[Shader::Stage::VS]));
+		desc.VS = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pKey->Shaders[Shader::Stage::VS]));
 	if (pKey->Shaders[Shader::Stage::PS])
-		desc.PS = Shader::ByteCode(static_cast<ID3DBlob*>(pKey->Shaders[Shader::Stage::PS]));
+		desc.PS = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pKey->Shaders[Shader::Stage::PS]));
 	if (pKey->Shaders[Shader::Stage::DS])
-		desc.DS = Shader::ByteCode(static_cast<ID3DBlob*>(pKey->Shaders[Shader::Stage::DS]));
+		desc.DS = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pKey->Shaders[Shader::Stage::DS]));
 	if (pKey->Shaders[Shader::Stage::HS])
-		desc.HS = Shader::ByteCode(static_cast<ID3DBlob*>(pKey->Shaders[Shader::Stage::HS]));
+		desc.HS = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pKey->Shaders[Shader::Stage::HS]));
 	if (pKey->Shaders[Shader::Stage::GS])
-		desc.GS = Shader::ByteCode(static_cast<ID3DBlob*>(pKey->Shaders[Shader::Stage::GS]));
+		desc.GS = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pKey->Shaders[Shader::Stage::GS]));
 
 	const auto blend = static_cast<decltype(desc.BlendState)*>(pKey->Blend);
 	desc.BlendState = *(blend ? blend : GetBlend(BlendPreset::DEFAULT_OPAQUE).get());

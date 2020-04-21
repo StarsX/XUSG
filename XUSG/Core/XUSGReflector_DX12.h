@@ -20,7 +20,7 @@ namespace XUSG
 		uint32_t GetResourceBindingPointByName(const char* name, uint32_t defaultVal = UINT32_MAX) const;
 
 	protected:
-		Shader::Reflection		m_shaderReflection;
-		Shader::LibReflection	m_libraryReflection;
+		com_ptr<ID3D12ShaderReflection> m_shaderReflection;
+		com_ptr<ID3D12LibraryReflection> m_libraryReflection;
 	};
 }

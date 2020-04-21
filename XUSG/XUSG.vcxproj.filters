@@ -85,6 +85,9 @@
     <ClInclude Include="Ultimate\XUSGMeshShaderState_DX12.h">
       <Filter>Ultimate\Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Core\XUSGEnum_DX12.h">
+      <Filter>Core\Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">

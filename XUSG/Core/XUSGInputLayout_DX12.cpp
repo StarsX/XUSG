@@ -3,6 +3,7 @@
 //--------------------------------------------------------------------------------------
 
 #include "XUSGInputLayout_DX12.h"
+#include "XUSGEnum_DX12.h"
 
 using namespace std;
 using namespace XUSG;
@@ -34,10 +35,10 @@ void InputLayoutPool_DX12::SetLayout(uint32_t index, const InputElementTable& el
 
 		elementDX12.SemanticName = element.SemanticName;
 		elementDX12.SemanticIndex = element.SemanticIndex;
-		elementDX12.Format = GetDXGIFormat(element.Format);
+		elementDX12.Format = static_cast<Format>(GetDXGIFormat(element.Format));
 		elementDX12.InputSlot = element.InputSlot;
 		elementDX12.AlignedByteOffset  = element.AlignedByteOffset != APPEND_ALIGNED_ELEMENT ? element.AlignedByteOffset : D3D12_APPEND_ALIGNED_ELEMENT;
-		elementDX12.InputSlotClass = GetDX12InputClassification(element.InputSlotClass);
+		elementDX12.InputSlotClass = static_cast<InputClassification>(GetDX12InputClassification(element.InputSlotClass));
 		elementDX12.InstanceDataStepRate = element.InstanceDataStepRate;
 	}
 }

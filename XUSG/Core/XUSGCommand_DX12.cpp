@@ -3,6 +3,7 @@
 //--------------------------------------------------------------------------------------
 
 #include "XUSGCommand_DX12.h"
+#include "XUSGEnum_DX12.h"
 
 using namespace std;
 using namespace XUSG;
@@ -210,11 +211,7 @@ void CommandList_DX12::ExecuteBundle(CommandList& commandList) const
 
 void CommandList_DX12::SetDescriptorPools(uint32_t numDescriptorPools, const DescriptorPool* pDescriptorPools) const
 {
-	vector<DescriptorPool::element_type*> ppDescriptorPools(numDescriptorPools);
-	for (auto i = 0u; i < numDescriptorPools; ++i)
-		ppDescriptorPools[i] = pDescriptorPools[i].get();
-
-	m_commandList->SetDescriptorHeaps(numDescriptorPools, ppDescriptorPools.data());
+	m_commandList->SetDescriptorHeaps(numDescriptorPools, reinterpret_cast<ID3D12DescriptorHeap* const*>(pDescriptorPools));
 }
 
 void CommandList_DX12::SetComputePipelineLayout(const PipelineLayout& pipelineLayout) const
@@ -229,12 +226,12 @@ void CommandList_DX12::SetGraphicsPipelineLayout(const PipelineLayout& pipelineL
 
 void CommandList_DX12::SetComputeDescriptorTable(uint32_t index, const DescriptorTable& descriptorTable) const
 {
-	m_commandList->SetComputeRootDescriptorTable(index, *descriptorTable);
+	m_commandList->SetComputeRootDescriptorTable(index, { *descriptorTable });
 }
 
 void CommandList_DX12::SetGraphicsDescriptorTable(uint32_t index, const DescriptorTable& descriptorTable) const
 {
-	m_commandList->SetGraphicsRootDescriptorTable(index, *descriptorTable);
+	m_commandList->SetGraphicsRootDescriptorTable(index, { *descriptorTable });
 }
 
 void CommandList_DX12::SetCompute32BitConstant(uint32_t index, uint32_t srcData, uint32_t destOffsetIn32BitValues) const
@@ -306,15 +303,17 @@ void CommandList_DX12::SOSetTargets(uint32_t startSlot, uint32_t numViews, const
 
 void CommandList_DX12::OMSetFramebuffer(const Framebuffer& framebuffer) const
 {
-	m_commandList->OMSetRenderTargets(framebuffer.NumRenderTargetDescriptors, framebuffer.RenderTargetViews.get(),
-		true, framebuffer.DepthStencilView.ptr ? &framebuffer.DepthStencilView : nullptr);
+	m_commandList->OMSetRenderTargets(framebuffer.NumRenderTargetDescriptors,
+		reinterpret_cast<const D3D12_CPU_DESCRIPTOR_HANDLE*>(framebuffer.RenderTargetViews.get()), true,
+		framebuffer.DepthStencilView ? reinterpret_cast<const D3D12_CPU_DESCRIPTOR_HANDLE*>(&framebuffer.DepthStencilView) : nullptr);
 }
 
 void CommandList_DX12::OMSetRenderTargets(uint32_t numRenderTargetDescriptors, const Descriptor* pRenderTargetViews,
 	const Descriptor* pDepthStencilView, bool rtsSingleHandleToDescriptorRange) const
 {
-	m_commandList->OMSetRenderTargets(numRenderTargetDescriptors, pRenderTargetViews,
-		rtsSingleHandleToDescriptorRange, pDepthStencilView);
+	m_commandList->OMSetRenderTargets(numRenderTargetDescriptors,
+		reinterpret_cast<const D3D12_CPU_DESCRIPTOR_HANDLE*>(pRenderTargetViews), rtsSingleHandleToDescriptorRange,
+		reinterpret_cast<const D3D12_CPU_DESCRIPTOR_HANDLE*>(pDepthStencilView));
 }
 
 void CommandList_DX12::ClearDepthStencilView(const Framebuffer& framebuffer, ClearFlag clearFlags, float depth,
@@ -326,28 +325,28 @@ void CommandList_DX12::ClearDepthStencilView(const Framebuffer& framebuffer, Cle
 void CommandList_DX12::ClearDepthStencilView(const Descriptor& depthStencilView, ClearFlag clearFlags, float depth,
 	uint8_t stencil, uint32_t numRects, const RectRange* pRects) const
 {
-	m_commandList->ClearDepthStencilView(depthStencilView, GetDX12ClearFlags(clearFlags),
+	m_commandList->ClearDepthStencilView({ depthStencilView }, GetDX12ClearFlags(clearFlags),
 		depth, stencil, numRects, reinterpret_cast<const D3D12_RECT*>(pRects));
 }
 
 void CommandList_DX12::ClearRenderTargetView(const Descriptor& renderTargetView, const float colorRGBA[4],
 	uint32_t numRects, const RectRange* pRects) const
 {
-	m_commandList->ClearRenderTargetView(renderTargetView, colorRGBA, numRects, reinterpret_cast<const D3D12_RECT*>(pRects));
+	m_commandList->ClearRenderTargetView({ renderTargetView }, colorRGBA, numRects, reinterpret_cast<const D3D12_RECT*>(pRects));
 }
 
 void CommandList_DX12::ClearUnorderedAccessViewUint(const DescriptorTable& descriptorTable, const Descriptor& descriptor,
 	const Resource& resource, const uint32_t values[4], uint32_t numRects, const RectRange* pRects) const
 {
-	m_commandList->ClearUnorderedAccessViewUint(*descriptorTable, descriptor, resource.get(), values,
-		numRects, reinterpret_cast<const D3D12_RECT*>(pRects));
+	m_commandList->ClearUnorderedAccessViewUint({ *descriptorTable }, { descriptor }, resource.get(),
+		values, numRects, reinterpret_cast<const D3D12_RECT*>(pRects));
 }
 
 void CommandList_DX12::ClearUnorderedAccessViewFloat(const DescriptorTable& descriptorTable, const Descriptor& descriptor,
 	const Resource& resource, const float values[4], uint32_t numRects, const RectRange* pRects) const
 {
-	m_commandList->ClearUnorderedAccessViewFloat(*descriptorTable, descriptor, resource.get(), values,
-		numRects, reinterpret_cast<const D3D12_RECT*>(pRects));
+	m_commandList->ClearUnorderedAccessViewFloat({ *descriptorTable }, { descriptor },
+		resource.get(), values, numRects, reinterpret_cast<const D3D12_RECT*>(pRects));
 }
 
 void CommandList_DX12::SetMarker(uint32_t metaData, const void* pData, uint32_t size) const
