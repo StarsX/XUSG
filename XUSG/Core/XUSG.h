@@ -805,7 +805,9 @@ namespace XUSG
 		virtual const Descriptor& GetPackedUAV(uint8_t index = 0) const = 0;
 		virtual const Descriptor& GetSRVLevel(uint8_t level) const = 0;
 
-		virtual uint32_t GetHeight() const = 0;
+		virtual uint32_t	GetHeight() const = 0;
+		virtual uint32_t	GetArraySize() const = 0;
+		virtual uint8_t		GetNumMips() const = 0;
 
 		Texture2D* AsTexture2D();
 
@@ -853,8 +855,6 @@ namespace XUSG
 			uint32_t numSlices = 0, uint32_t offsetForSliceId = 0, uint32_t cbSlot = 2) = 0;
 
 		virtual const Descriptor& GetRTV(uint32_t slice = 0, uint8_t mipLevel = 0) const = 0;
-		virtual uint32_t	GetArraySize() const = 0;
-		virtual uint8_t		GetNumMips(uint32_t slice = 0) const = 0;
 
 		using uptr = std::unique_ptr<RenderTarget>;
 		using sptr = std::shared_ptr<RenderTarget>;

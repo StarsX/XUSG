@@ -738,6 +738,16 @@ uint32_t Texture2D_DX12::GetHeight() const
 	return m_resource->GetDesc().Height;
 }
 
+uint32_t Texture2D_DX12::GetArraySize() const
+{
+	return m_resource->GetDesc().DepthOrArraySize;
+}
+
+uint8_t Texture2D_DX12::GetNumMips() const
+{
+	return static_cast<uint8_t>(m_resource->GetDesc().MipLevels);
+}
+
 //--------------------------------------------------------------------------------------
 // Render target
 //--------------------------------------------------------------------------------------
@@ -1007,17 +1017,6 @@ const Descriptor& RenderTarget_DX12::GetRTV(uint32_t slice, uint8_t mipLevel) co
 {
 	assert(m_rtvs.size() > slice && m_rtvs[slice].size() > mipLevel);
 	return m_rtvs[slice][mipLevel];
-}
-
-uint32_t RenderTarget_DX12::GetArraySize() const
-{
-	return static_cast<uint32_t>(m_rtvs.size());
-}
-
-uint8_t RenderTarget_DX12::GetNumMips(uint32_t slice) const
-{
-	assert(m_rtvs.size() > slice);
-	return static_cast<uint8_t>(m_rtvs[slice].size());
 }
 
 bool RenderTarget_DX12::create(const Device& device, uint32_t width, uint32_t height,

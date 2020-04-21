@@ -138,7 +138,9 @@ namespace XUSG
 		const Descriptor& GetPackedUAV(uint8_t index = 0) const;
 		const Descriptor& GetSRVLevel(uint8_t level) const;
 
-		uint32_t GetHeight() const;
+		uint32_t	GetHeight() const;
+		uint32_t	GetArraySize() const;
+		uint8_t		GetNumMips() const;
 
 	protected:
 		std::vector<Descriptor>	m_uavs;
@@ -184,8 +186,6 @@ namespace XUSG
 			uint32_t numSlices = 0, uint32_t offsetForSliceId = 0, uint32_t cbSlot = 2);
 
 		const Descriptor& GetRTV(uint32_t slice = 0, uint8_t mipLevel = 0) const;
-		uint32_t	GetArraySize() const;
-		uint8_t		GetNumMips(uint32_t slice = 0) const;
 
 	protected:
 		bool create(const Device& device, uint32_t width, uint32_t height,
