@@ -58,6 +58,9 @@ namespace XUSG
 				ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
 				bool isCubeMap = false, const wchar_t* name = nullptr);
 			bool CreateUAV(const Resource& target);
+
+		protected:
+			com_ptr<ID3D12Device8> m_deviceU;
 		};
 
 		D3D12_SHADING_RATE_COMBINER GetDX12ShadingRateCombiner(ShadingRateCombiner combiner);

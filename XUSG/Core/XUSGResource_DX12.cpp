@@ -491,8 +491,7 @@ bool Texture2D_DX12::CreateSRVs(uint32_t arraySize, Format format, uint8_t numMi
 		}
 
 		// Create a shader resource view
-		descriptor = allocateSrvUavPool();
-		N_RETURN(descriptor, false);
+		X_RETURN(descriptor, allocateSrvUavPool(), false);
 		m_device->CreateShaderResourceView(m_resource.get(), &desc, { descriptor });
 	}
 
@@ -547,8 +546,7 @@ bool Texture2D_DX12::CreateSRVLevels(uint32_t arraySize, uint8_t numMips, Format
 			}
 
 			// Create a shader resource view
-			descriptor = allocateSrvUavPool();
-			N_RETURN(descriptor, false);
+			X_RETURN(descriptor, allocateSrvUavPool(), false);
 			m_device->CreateShaderResourceView(m_resource.get(), &desc, { descriptor });
 		}
 	}
@@ -582,8 +580,7 @@ bool Texture2D_DX12::CreateUAVs(uint32_t arraySize, Format format, uint8_t numMi
 		}
 
 		// Create an unordered access view
-		descriptor = allocateSrvUavPool();
-		N_RETURN(descriptor, false);
+		X_RETURN(descriptor, allocateSrvUavPool(), false);
 		m_device->CreateUnorderedAccessView(m_resource.get(), nullptr, &desc, { descriptor });
 	}
 
@@ -811,8 +808,7 @@ bool RenderTarget_DX12::Create(const Device& device, uint32_t width, uint32_t he
 			}
 
 			// Create a render target view
-			descriptor = allocateRtvPool();
-			N_RETURN(descriptor, false);
+			X_RETURN(descriptor, allocateRtvPool(), false);
 			m_device->CreateRenderTargetView(m_resource.get(), &desc, { descriptor });
 		}
 	}
@@ -852,8 +848,7 @@ bool RenderTarget_DX12::CreateArray(const Device& device, uint32_t width, uint32
 		}
 
 		// Create a render target view
-		descriptor = allocateRtvPool();
-		N_RETURN(descriptor, false);
+		X_RETURN(descriptor, allocateRtvPool(), false);
 		m_device->CreateRenderTargetView(m_resource.get(), &desc, { descriptor });
 	}
 
@@ -1517,8 +1512,7 @@ bool Texture3D_DX12::CreateSRVs(Format format, uint8_t numMips)
 		desc.Texture3D.MostDetailedMip = mipLevel++;
 
 		// Create a shader resource view
-		descriptor = allocateSrvUavPool();
-		N_RETURN(descriptor, false);
+		X_RETURN(descriptor, allocateSrvUavPool(), false);
 		m_device->CreateShaderResourceView(m_resource.get(), &desc, { descriptor });
 	}
 
@@ -1544,8 +1538,7 @@ bool Texture3D_DX12::CreateSRVLevels(uint8_t numMips, Format format)
 			desc.Texture3D.MipLevels = 1;
 
 			// Create a shader resource view
-			descriptor = allocateSrvUavPool();
-			N_RETURN(descriptor, false);
+			X_RETURN(descriptor, allocateSrvUavPool(), false);
 			m_device->CreateShaderResourceView(m_resource.get(), &desc, { descriptor });
 		}
 	}
@@ -1573,8 +1566,7 @@ bool Texture3D_DX12::CreateUAVs(Format format, uint8_t numMips, vector<Descripto
 		desc.Texture3D.MipSlice = mipLevel++;
 
 		// Create an unordered access view
-		descriptor = allocateSrvUavPool();
-		N_RETURN(descriptor, false);
+		X_RETURN(descriptor, allocateSrvUavPool(), false);
 		m_device->CreateUnorderedAccessView(m_resource.get(), nullptr, &desc, { descriptor });
 	}
 

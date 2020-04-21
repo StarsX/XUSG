@@ -102,6 +102,7 @@ bool SamplerFeedBack_DX12::Create(const Device& device, const Texture2D& target,
 {
 	M_RETURN(!device, cerr, "The device is NULL.", false);
 	setDevice(device);
+	V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&m_deviceU)), cerr, false);
 
 	if (name) m_name = name;
 
@@ -136,9 +137,7 @@ bool SamplerFeedBack_DX12::Create(const Device& device, const Texture2D& target,
 			state = ResourceState::COMMON;
 	}
 
-	com_ptr<ID3D12Device8> dxDevice;
-	V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&dxDevice)), cerr, false);
-	V_RETURN(dxDevice->CreateCommittedResource2(&heapProperties, D3D12_HEAP_FLAG_NONE, &desc,
+	V_RETURN(m_deviceU->CreateCommittedResource2(&heapProperties, D3D12_HEAP_FLAG_NONE, &desc,
 		GetDX12ResourceStates(m_states[0]), nullptr, nullptr,  IID_PPV_ARGS(&m_resource)), clog, false);
 	if (!m_name.empty()) m_resource->SetName((m_name + L".Resource").c_str());
 
@@ -151,9 +150,14 @@ bool SamplerFeedBack_DX12::Create(const Device& device, const Texture2D& target,
 	return true;
 }
 
-bool XUSG::Ultimate::SamplerFeedBack_DX12::CreateUAV(const Resource& target)
+bool SamplerFeedBack_DX12::CreateUAV(const Resource& target)
 {
-	return false;
+	// Create an unordered access view
+	m_uavs.resize(1);
+	X_RETURN(m_uavs[0], allocateSrvUavPool(), false);
+	m_deviceU->CreateSamplerFeedbackUnorderedAccessView(target.get(), m_resource.get(), { m_uavs[0] });
+
+	return true;
 }
 
 //--------------------------------------------------------------------------------------
