@@ -404,19 +404,22 @@ bool Texture2D_DX12::Upload(CommandList* pCommandList, Resource& uploader,
 
 	// Copy data to the intermediate upload heap and then schedule a copy 
 	// from the upload heap to the Texture2D.
+	const bool decay = m_resource->GetDesc().Flags & D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS;
 	ResourceBarrier barrier;
-	auto numBarriers = SetBarrier(&barrier, ResourceState::COPY_DEST);
-	if (m_states[0] != ResourceState::COMMON) pCommandList->Barrier(numBarriers, &barrier);
+	uint32_t numBarriers;
+	if (m_states[0] != ResourceState::COMMON || !decay)
+	{
+		numBarriers = SetBarrier(&barrier, ResourceState::COPY_DEST);
+		if (m_states[0] != ResourceState::COMMON) pCommandList->Barrier(numBarriers, &barrier);
+	}
+
 	const auto pGraphicsCommandList = dynamic_cast<CommandList_DX12*>(pCommandList)->GetGraphicsCommandList().get();
 	M_RETURN(UpdateSubresources(pGraphicsCommandList, m_resource.get(), uploader.get(), 0, firstSubresource,
 		numSubresources, reinterpret_cast<const D3D12_SUBRESOURCE_DATA*>(pSubresourceData)) <= 0,
 		clog, "Failed to upload the resource.", false);
-	const bool decay = m_resource->GetDesc().Flags & D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS;
-	if (dstState != ResourceState::COMMON || !decay)
-	{
-		numBarriers = SetBarrier(&barrier, dstState);
-		pCommandList->Barrier(numBarriers, &barrier);
-	}
+
+	numBarriers = SetBarrier(&barrier, dstState);
+	if (dstState != ResourceState::COMMON || !decay) pCommandList->Barrier(numBarriers, &barrier);
 
 	return true;
 }
@@ -1649,16 +1652,19 @@ bool RawBuffer_DX12::Upload(CommandList* pCommandList, Resource& uploader, const
 	// Copy data to the intermediate upload heap and then schedule a copy 
 	// from the upload heap to the buffer.
 	ResourceBarrier barrier;
-	auto numBarriers = SetBarrier(&barrier, ResourceState::COPY_DEST);
-	if (m_states[0] != ResourceState::COMMON) pCommandList->Barrier(numBarriers, &barrier);
+	uint32_t numBarriers;
+	if (m_states[0] != ResourceState::COMMON)
+	{
+		numBarriers = SetBarrier(&barrier, ResourceState::COPY_DEST);
+		pCommandList->Barrier(numBarriers, &barrier);
+	}
+
 	const auto pGraphicsCommandList = dynamic_cast<CommandList_DX12*>(pCommandList)->GetGraphicsCommandList().get();
 	M_RETURN(UpdateSubresources(pGraphicsCommandList, m_resource.get(), uploader.get(), offset, 0, 1, &subresourceData) <= 0,
 		clog, "Failed to upload the resource.", false);
-	if (dstState != ResourceState::COMMON)
-	{
-		numBarriers = SetBarrier(&barrier, dstState);
-		pCommandList->Barrier(numBarriers, &barrier);
-	}
+
+	numBarriers = SetBarrier(&barrier, dstState);
+	if (dstState != ResourceState::COMMON) pCommandList->Barrier(numBarriers, &barrier);
 
 	return true;
 }

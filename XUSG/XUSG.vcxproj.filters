@@ -32,6 +32,15 @@
     <Filter Include="Ultimate\Source Files">
       <UniqueIdentifier>{f9007116-5d0f-4c98-9102-8505d53a4ed1}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Advanced">
+      <UniqueIdentifier>{e22856b2-72b2-4226-83a4-5b124cf87339}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Advanced\Header Files">
+      <UniqueIdentifier>{5dd65f7e-2c94-4199-80e2-87c2cfc21190}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Advanced\Source Files">
+      <UniqueIdentifier>{370c352c-4d93-4a7a-ab4b-7fe853657441}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\XUSG.h">
@@ -87,6 +96,12 @@
     </ClInclude>
     <ClInclude Include="Core\XUSGEnum_DX12.h">
       <Filter>Core\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Advanced\XUSGDDSLoader.h">
+      <Filter>Advanced\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\dds.h">
+      <Filter>Common</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -146,6 +161,9 @@
     </ClCompile>
     <ClCompile Include="Ultimate\XUSGMeshShaderState_DX12.cpp">
       <Filter>Ultimate\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Advanced\XUSGDDSLoader.cpp">
+      <Filter>Advanced\Source Files</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
