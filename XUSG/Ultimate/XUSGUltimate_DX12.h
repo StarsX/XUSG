@@ -10,6 +10,9 @@ namespace XUSG
 {
 	namespace Ultimate
 	{
+		//--------------------------------------------------------------------------------------
+		// Command list
+		//--------------------------------------------------------------------------------------
 		class CommandList_DX12 :
 			public virtual CommandList,
 			public virtual XUSG::CommandList_DX12
@@ -37,6 +40,24 @@ namespace XUSG
 
 		protected:
 			com_ptr<ID3D12GraphicsCommandList6> m_commandListU;
+		};
+
+		//--------------------------------------------------------------------------------------
+		// Sampler feedback
+		//--------------------------------------------------------------------------------------
+		class SamplerFeedBack_DX12 :
+			public virtual SamplerFeedBack,
+			public virtual Texture2D_DX12
+		{
+		public:
+			SamplerFeedBack_DX12();
+			~SamplerFeedBack_DX12();
+
+			bool Create(const Device& device, const Texture2D& target, Format format,
+				uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
+				ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
+				bool isCubeMap = false, const wchar_t* name = nullptr);
+			bool CreateUAV(const Resource& target);
 		};
 
 		D3D12_SHADING_RATE_COMBINER GetDX12ShadingRateCombiner(ShadingRateCombiner combiner);

@@ -49,6 +49,9 @@ namespace XUSG
 			COMBINER_SUM
 		};
 
+		//--------------------------------------------------------------------------------------
+		// Command list
+		//--------------------------------------------------------------------------------------
 		class DLL_INTERFACE CommandList :
 			public virtual XUSG::CommandList
 		{
@@ -77,6 +80,29 @@ namespace XUSG
 			static sptr MakeShared(API api = API::DIRECTX_12);
 			static uptr MakeUnique(XUSG::CommandList& commandList, API api = API::DIRECTX_12);
 			static sptr MakeShared(XUSG::CommandList& commandList, API api = API::DIRECTX_12);
+		};
+
+		//--------------------------------------------------------------------------------------
+		// Sampler feedback
+		//--------------------------------------------------------------------------------------
+		class DLL_INTERFACE SamplerFeedBack :
+			public virtual Texture2D
+		{
+		public:
+			//SamplerFeedBack();
+			virtual ~SamplerFeedBack() {};
+
+			virtual bool Create(const Device& device, const Texture2D& target, Format format,
+				uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
+				ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
+				bool isCubeMap = false, const wchar_t* name = nullptr) = 0;
+			virtual bool CreateUAV(const Resource& target) = 0;
+
+			using uptr = std::unique_ptr<SamplerFeedBack>;
+			using sptr = std::shared_ptr<SamplerFeedBack>;
+
+			static uptr MakeUnique(API api = API::DIRECTX_12);
+			static sptr MakeShared(API api = API::DIRECTX_12);
 		};
 	}
 

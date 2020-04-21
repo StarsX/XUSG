@@ -3,10 +3,16 @@
 //--------------------------------------------------------------------------------------
 
 #include "Core/XUSGCommand_DX12.h"
+#include "Core/XUSGResource_DX12.h"
+#include "Core/XUSGEnum_DX12.h"
 #include "XUSGUltimate_DX12.h"
 
 using namespace std;
 using namespace XUSG::Ultimate;
+
+//--------------------------------------------------------------------------------------
+// Command list
+//--------------------------------------------------------------------------------------
 
 CommandList_DX12::CommandList_DX12() :
 	XUSG::CommandList_DX12()
@@ -76,6 +82,83 @@ XUSG::com_ptr<ID3D12GraphicsCommandList6>& CommandList_DX12::GetGraphicsCommandL
 {
 	return m_commandListU;
 }
+
+//--------------------------------------------------------------------------------------
+// Sampler feedback
+//--------------------------------------------------------------------------------------
+
+SamplerFeedBack_DX12::SamplerFeedBack_DX12() :
+	XUSG::Texture2D_DX12()
+{
+}
+
+SamplerFeedBack_DX12::~SamplerFeedBack_DX12()
+{
+}
+
+bool SamplerFeedBack_DX12::Create(const Device& device, const Texture2D& target, Format format,
+	uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
+	ResourceFlag resourceFlags, MemoryType memoryType, bool isCubeMap, const wchar_t* name)
+{
+	M_RETURN(!device, cerr, "The device is NULL.", false);
+	setDevice(device);
+
+	if (name) m_name = name;
+
+	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
+
+	// Get paired properties
+	const auto arraySize = target.GetArraySize();
+	const auto numMips = target.GetNumMips();
+
+	// Setup the texture description.
+	assert(format == Format::MIN_MIP_OPAQUE || format == Format::MIP_REGION_USED_OPAQUE);
+	const CD3DX12_HEAP_PROPERTIES heapProperties(GetDX12HeapType(memoryType));
+	const auto desc = CD3DX12_RESOURCE_DESC1::Tex2D(GetDXGIFormat(format),
+		target.GetWidth(), target.GetHeight(), arraySize, numMips, 1, 0,
+		GetDX12ResourceFlags(ResourceFlag::ALLOW_UNORDERED_ACCESS | resourceFlags),
+		D3D12_TEXTURE_LAYOUT_UNKNOWN, 0, mipRegionWidth, mipRegionHeight, mipRegionDepth);
+
+	// Determine initial state
+	m_states.resize(arraySize * numMips);
+	switch (memoryType)
+	{
+	case MemoryType::UPLOAD:
+		for (auto& state : m_states)
+			state = ResourceState::GENERAL_READ;
+		break;
+	case MemoryType::READBACK:
+		for (auto& state : m_states)
+			state = ResourceState::COPY_DEST;
+		break;
+	default:
+		for (auto& state : m_states)
+			state = ResourceState::COMMON;
+	}
+
+	com_ptr<ID3D12Device8> dxDevice;
+	V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&dxDevice)), cerr, false);
+	V_RETURN(dxDevice->CreateCommittedResource2(&heapProperties, D3D12_HEAP_FLAG_NONE, &desc,
+		GetDX12ResourceStates(m_states[0]), nullptr, nullptr,  IID_PPV_ARGS(&m_resource)), clog, false);
+	if (!m_name.empty()) m_resource->SetName((m_name + L".Resource").c_str());
+
+	// Create SRV
+	if (hasSRV) N_RETURN(CreateSRVs(arraySize, format, numMips, 1, isCubeMap), false);
+
+	// Create UAVs
+	N_RETURN(CreateUAV(target.GetResource()), false);
+
+	return true;
+}
+
+bool XUSG::Ultimate::SamplerFeedBack_DX12::CreateUAV(const Resource& target)
+{
+	return false;
+}
+
+//--------------------------------------------------------------------------------------
+// DX12 enum transfer functions
+//--------------------------------------------------------------------------------------
 
 D3D12_SHADING_RATE_COMBINER XUSG::Ultimate::GetDX12ShadingRateCombiner(ShadingRateCombiner combiner)
 {
