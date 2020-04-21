@@ -23,11 +23,11 @@ namespace XUSG
 		{
 			void* PipelineLayout;
 			void* Shaders[NUM_STAGE];
-			const void* Blend;
-			const void* Rasterizer;
-			const void* DepthStencil;
-			const void* CachedPipeline;
-			size_t CachedPipelineSize;
+			const Blend* pBlend;
+			const Rasterizer* pRasterizer;
+			const DepthStencil* pDepthStencil;
+			const void* pCachedBlob;
+			size_t CachedBlobSize;
 			PrimitiveTopologyType PrimTopologyType;
 			uint8_t	NumRenderTargets;
 			Format RTVFormats[8];
@@ -50,9 +50,9 @@ namespace XUSG
 			void SetCachedPipeline(const void* pCachedBlob, size_t size);
 			void SetNodeMask(uint32_t nodeMask);
 
-			void OMSetBlendState(const Blend& blend, uint32_t sampleMask = UINT_MAX);
-			void RSSetState(const Rasterizer& rasterizer);
-			void DSSetState(const DepthStencil& depthStencil);
+			void OMSetBlendState(const Blend* pBlend, uint32_t sampleMask = UINT_MAX);
+			void RSSetState(const Rasterizer* pRasterizer);
+			void DSSetState(const DepthStencil* pDepthStencil);
 
 			void OMSetBlendState(BlendPreset preset, PipelineCache& pipelineCache,
 				uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX);

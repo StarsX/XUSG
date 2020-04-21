@@ -10,40 +10,53 @@ using namespace Graphics;
 
 Graphics::DepthStencil PipelineCache_DX12::DepthStencilDefault()
 {
-	return make_shared<D3D12_DEPTH_STENCIL_DESC>(CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT));
+	DepthStencil depthStencil;
+	depthStencil.DepthEnable = true;
+	depthStencil.DepthWriteMask = true;
+	depthStencil.DepthFunc = ComparisonFunc::LESS;
+	depthStencil.StencilEnable = false;
+	depthStencil.StencilReadMask = 0xff;
+	depthStencil.StencilWriteMask = 0xff;
+
+	const DepthStencilOp defaultStencilOp =
+	{ StencilOp::KEEP, StencilOp::KEEP, StencilOp::KEEP, ComparisonFunc::ALWAYS };
+	depthStencil.FrontFace = defaultStencilOp;
+	depthStencil.BackFace = defaultStencilOp;
+
+	return depthStencil;
 }
 
 Graphics::DepthStencil PipelineCache_DX12::DepthStencilNone()
 {
-	const auto depthStencil = DepthStencilDefault();
-	depthStencil->DepthEnable = FALSE;
-	depthStencil->DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+	auto depthStencil = DepthStencilDefault();
+	depthStencil.DepthEnable = false;
+	depthStencil.DepthWriteMask = false;
 
 	return depthStencil;
 }
 
 Graphics::DepthStencil PipelineCache_DX12::DepthRead()
 {
-	const auto depthStencil = DepthStencilDefault();
-	depthStencil->DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+	auto depthStencil = DepthStencilDefault();
+	depthStencil.DepthWriteMask = false;
 
 	return depthStencil;
 }
 
 Graphics::DepthStencil PipelineCache_DX12::DepthReadLessEqual()
 {
-	const auto depthStencil = DepthStencilDefault();
-	depthStencil->DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
-	depthStencil->DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+	auto depthStencil = DepthStencilDefault();
+	depthStencil.DepthWriteMask = false;
+	depthStencil.DepthFunc = ComparisonFunc::LESS_EQUAL;
 
 	return depthStencil;
 }
 
 Graphics::DepthStencil PipelineCache_DX12::DepthReadEqual()
 {
-	const auto depthStencil = DepthStencilDefault();
-	depthStencil->DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
-	depthStencil->DepthFunc = D3D12_COMPARISON_FUNC_EQUAL;
+	auto depthStencil = DepthStencilDefault();
+	depthStencil.DepthWriteMask = false;
+	depthStencil.DepthFunc = ComparisonFunc::EQUAL;
 
 	return depthStencil;
 }

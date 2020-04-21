@@ -256,6 +256,29 @@ D3D_PRIMITIVE_TOPOLOGY XUSG::GetDX12PrimitiveTopology(PrimitiveTopology primitiv
 	return primitiveTopologies[static_cast<uint32_t>(primitiveTopology)];
 }
 
+D3D12_FILL_MODE XUSG::GetDX12FillMode(FillMode fillMode)
+{
+	static const D3D12_FILL_MODE fillModes[] =
+	{
+		D3D12_FILL_MODE_WIREFRAME,
+		D3D12_FILL_MODE_SOLID
+	};
+
+	return fillModes[static_cast<uint32_t>(fillMode)];
+}
+
+D3D12_CULL_MODE XUSG::GetDX12CullMode(CullMode cullMode)
+{
+	static const D3D12_CULL_MODE cullModes[] =
+	{
+		D3D12_CULL_MODE_NONE,
+		D3D12_CULL_MODE_FRONT,
+		D3D12_CULL_MODE_BACK
+	};
+
+	return cullModes[static_cast<uint32_t>(cullMode)];
+}
+
 D3D12_INDIRECT_ARGUMENT_TYPE XUSG::GetDX12IndirectArgumentType(IndirectArgumentType indirectArgumentType)
 {
 	static const D3D12_INDIRECT_ARGUMENT_TYPE indirectArgumentTypes[] =
@@ -585,6 +608,119 @@ D3D12_FENCE_FLAGS XUSG::GetDX12FenceFlags(FenceFlag fenceFlags)
 	flags |= APPEND_FENCE_FLAG(fenceFlags, NON_MONITORED);
 
 	return flags;
+}
+
+D3D12_BLEND XUSG::GetDX12Blend(BlendFactor blend)
+{
+	static const D3D12_BLEND blends[] =
+	{
+		D3D12_BLEND_ZERO,
+		D3D12_BLEND_ONE,
+		D3D12_BLEND_SRC_COLOR,
+		D3D12_BLEND_INV_SRC_COLOR,
+		D3D12_BLEND_SRC_ALPHA,
+		D3D12_BLEND_INV_SRC_ALPHA,
+		D3D12_BLEND_DEST_ALPHA,
+		D3D12_BLEND_INV_DEST_ALPHA,
+		D3D12_BLEND_DEST_COLOR,
+		D3D12_BLEND_INV_DEST_COLOR,
+		D3D12_BLEND_SRC_ALPHA_SAT,
+		D3D12_BLEND_BLEND_FACTOR,
+		D3D12_BLEND_INV_BLEND_FACTOR,
+		D3D12_BLEND_SRC1_COLOR,
+		D3D12_BLEND_INV_SRC1_COLOR,
+		D3D12_BLEND_SRC1_ALPHA,
+		D3D12_BLEND_INV_SRC1_ALPHA
+	};
+
+	return blends[static_cast<uint32_t>(blend)];
+}
+
+D3D12_BLEND_OP XUSG::GetDX12BlendOp(BlendOperator blendOp)
+{
+	static const D3D12_BLEND_OP blendOps[] =
+	{
+		D3D12_BLEND_OP_ADD,
+		D3D12_BLEND_OP_SUBTRACT,
+		D3D12_BLEND_OP_REV_SUBTRACT,
+		D3D12_BLEND_OP_MIN,
+		D3D12_BLEND_OP_MAX
+	};
+
+	return blendOps[static_cast<uint32_t>(blendOp)];
+}
+
+D3D12_LOGIC_OP XUSG::GetDX12LogicOp(LogicOperator logicOp)
+{
+	static const D3D12_LOGIC_OP logicOps[] =
+	{
+		D3D12_LOGIC_OP_CLEAR,
+		D3D12_LOGIC_OP_SET,
+		D3D12_LOGIC_OP_COPY,
+		D3D12_LOGIC_OP_COPY_INVERTED,
+		D3D12_LOGIC_OP_NOOP,
+		D3D12_LOGIC_OP_INVERT,
+		D3D12_LOGIC_OP_AND,
+		D3D12_LOGIC_OP_NAND,
+		D3D12_LOGIC_OP_OR,
+		D3D12_LOGIC_OP_NOR,
+		D3D12_LOGIC_OP_XOR,
+		D3D12_LOGIC_OP_EQUIV,
+		D3D12_LOGIC_OP_AND_REVERSE,
+		D3D12_LOGIC_OP_AND_INVERTED,
+		D3D12_LOGIC_OP_OR_REVERSE,
+		D3D12_LOGIC_OP_OR_INVERTED
+	};
+
+	return logicOps[static_cast<uint32_t>(logicOp)];
+}
+
+D3D12_COLOR_WRITE_ENABLE XUSG::GetDX12ColorWrite(ColorWrite writeMask)
+{
+	static const D3D12_COLOR_WRITE_ENABLE writeMasks[] =
+	{
+		D3D12_COLOR_WRITE_ENABLE_RED,
+		D3D12_COLOR_WRITE_ENABLE_GREEN,
+		D3D12_COLOR_WRITE_ENABLE_BLUE,
+		D3D12_COLOR_WRITE_ENABLE_ALPHA,
+		D3D12_COLOR_WRITE_ENABLE_ALL
+	};
+
+	return writeMasks[static_cast<uint32_t>(writeMask)];
+}
+
+D3D12_COMPARISON_FUNC XUSG::GetDX12ComparisonFunc(ComparisonFunc comparisonFunc)
+{
+	static const D3D12_COMPARISON_FUNC comparisonFuncs[] =
+	{
+		D3D12_COMPARISON_FUNC_NEVER,
+		D3D12_COMPARISON_FUNC_LESS,
+		D3D12_COMPARISON_FUNC_EQUAL,
+		D3D12_COMPARISON_FUNC_LESS_EQUAL,
+		D3D12_COMPARISON_FUNC_GREATER,
+		D3D12_COMPARISON_FUNC_NOT_EQUAL,
+		D3D12_COMPARISON_FUNC_GREATER_EQUAL,
+		D3D12_COMPARISON_FUNC_ALWAYS
+	};
+
+	return comparisonFuncs[static_cast<uint32_t>(comparisonFunc)];
+}
+
+D3D12_STENCIL_OP XUSG::GetDX12StencilOp(StencilOp stencilOp)
+{
+	static const D3D12_STENCIL_OP stencilOps[] =
+	{
+		D3D12_STENCIL_OP_KEEP,
+		D3D12_STENCIL_OP_ZERO,
+		D3D12_STENCIL_OP_REPLACE,
+		D3D12_STENCIL_OP_INCR_SAT,
+		D3D12_STENCIL_OP_DECR_SAT,
+		D3D12_STENCIL_OP_INVERT,
+		D3D12_STENCIL_OP_INCR,
+		D3D12_STENCIL_OP_DECR
+	};
+
+	return stencilOps[static_cast<uint32_t>(stencilOp)];
 }
 
 uint32_t XUSG::GetDX12Requirement(Requirement requirement)

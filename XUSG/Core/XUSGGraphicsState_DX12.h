@@ -15,12 +15,12 @@ namespace XUSG
 		{
 			void* PipelineLayout;
 			void* Shaders[Shader::Stage::NUM_GRAPHICS];
-			const void* Blend;
-			const void* Rasterizer;
-			const void* DepthStencil;
-			const void* InputLayout;
-			const void* CachedPipeline;
-			size_t CachedPipelineSize;
+			const Blend* pBlend;
+			const Rasterizer* pRasterizer;
+			const DepthStencil* pDepthStencil;
+			const InputLayout* pInputLayout;
+			const void* pCachedBlob;
+			size_t CachedBlobSize;
 			PrimitiveTopologyType PrimTopologyType;
 			uint8_t	NumRenderTargets;
 			Format RTVFormats[8];
@@ -28,7 +28,7 @@ namespace XUSG
 			uint8_t	SampleCount;
 			uint8_t SampleQuality;
 			uint32_t SampleMask;
-			uint32_t IBStripCutValue;
+			uint8_t IBStripCutValue;
 			uint32_t NodeMask;
 		};
 
@@ -44,18 +44,18 @@ namespace XUSG
 			void SetCachedPipeline(const void* pCachedBlob, size_t size);
 			void SetNodeMask(uint32_t nodeMask);
 
-			void OMSetBlendState(const Blend& blend, uint32_t sampleMask = UINT_MAX);
-			void RSSetState(const Rasterizer& rasterizer);
-			void DSSetState(const DepthStencil& depthStencil);
+			void OMSetBlendState(const Blend* pBlend, uint32_t sampleMask = UINT_MAX);
+			void RSSetState(const Rasterizer* pRasterizer);
+			void DSSetState(const DepthStencil* pDepthStencil);
 
 			void OMSetBlendState(BlendPreset preset, PipelineCache& pipelineCache,
 				uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX);
 			void RSSetState(RasterizerPreset preset, PipelineCache& pipelineCache);
 			void DSSetState(DepthStencilPreset preset, PipelineCache& pipelineCache);
 
-			void IASetInputLayout(const InputLayout& layout);
+			void IASetInputLayout(const InputLayout* pLayout);
 			void IASetPrimitiveTopologyType(PrimitiveTopologyType type);
-			void IASetIndexBufferStripCutValue(uint32_t ibStripCutValue);
+			void IASetIndexBufferStripCutValue(IBStripCutValue ibStripCutValue);
 
 			void OMSetNumRenderTargets(uint8_t n);
 			void OMSetRTVFormat(uint8_t i, Format format);
@@ -84,16 +84,16 @@ namespace XUSG
 			void SetDevice(const Device& device);
 			void SetPipeline(const std::string& key, const Pipeline& pipeline);
 
-			void SetInputLayout(uint32_t index, const InputElementTable& elementTable);
-			InputLayout GetInputLayout(uint32_t index) const;
-			InputLayout CreateInputLayout(const InputElementTable& elementTable);
+			void SetInputLayout(uint32_t index, const InputElement* pElements, uint32_t numElements);
+			const InputLayout* GetInputLayout(uint32_t index) const;
+			const InputLayout* CreateInputLayout(const InputElement* pElements, uint32_t numElements);
 
 			Pipeline CreatePipeline(const State& state, const wchar_t* name = nullptr);
 			Pipeline GetPipeline(const State& state, const wchar_t* name = nullptr);
 
-			const Blend& GetBlend(BlendPreset preset, uint8_t numColorRTs = 1);
-			const Rasterizer& GetRasterizer(RasterizerPreset preset);
-			const DepthStencil& GetDepthStencil(DepthStencilPreset preset);
+			const Blend* GetBlend(BlendPreset preset, uint8_t numColorRTs = 1);
+			const Rasterizer* GetRasterizer(RasterizerPreset preset);
+			const DepthStencil* GetDepthStencil(DepthStencilPreset preset);
 
 		protected:
 			Pipeline createPipeline(const Key* pKey, const wchar_t* name);
@@ -104,9 +104,9 @@ namespace XUSG
 			InputLayoutPool_DX12 m_inputLayoutPool;
 
 			std::unordered_map<std::string, Pipeline> m_pipelines;
-			Blend			m_blends[NUM_BLEND_PRESET];
-			Rasterizer		m_rasterizers[NUM_RS_PRESET];
-			DepthStencil	m_depthStencils[NUM_DS_PRESET];
+			std::unique_ptr<Blend>			m_blends[NUM_BLEND_PRESET];
+			std::unique_ptr<Rasterizer>		m_rasterizers[NUM_RS_PRESET];
+			std::unique_ptr<DepthStencil>	m_depthStencils[NUM_DS_PRESET];
 
 			std::function<Blend(uint8_t)>	m_pfnBlends[NUM_BLEND_PRESET];
 			std::function<Rasterizer()>		m_pfnRasterizers[NUM_RS_PRESET];

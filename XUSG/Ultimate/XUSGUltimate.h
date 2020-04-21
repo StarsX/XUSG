@@ -48,7 +48,7 @@ namespace XUSG
 
 			virtual bool CreateInterface() = 0;
 
-			void SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions);
+			virtual void SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions) = 0;
 			virtual void RSSetShadingRate(ShadingRate baseShadingRate,
 				const ShadingRateCombiner* pCombiners) = 0;
 			virtual void RSSetShadingRateImage(const Resource& shadingRateImage) = 0;
@@ -93,9 +93,9 @@ namespace XUSG
 			virtual void SetCachedPipeline(const void* pCachedBlob, size_t size) = 0;
 			virtual void SetNodeMask(uint32_t nodeMask) = 0;
 
-			virtual void OMSetBlendState(const Blend& blend, uint32_t sampleMask = UINT_MAX) = 0;
-			virtual void RSSetState(const Rasterizer& rasterizer) = 0;
-			virtual void DSSetState(const DepthStencil& depthStencil) = 0;
+			virtual void OMSetBlendState(const Blend* pBlend, uint32_t sampleMask = UINT_MAX) = 0;
+			virtual void RSSetState(const Rasterizer* pRasterizer) = 0;
+			virtual void DSSetState(const DepthStencil* pDepthStencil) = 0;
 
 			virtual void OMSetBlendState(BlendPreset preset, PipelineCache& pipelineCache,
 				uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX) = 0;

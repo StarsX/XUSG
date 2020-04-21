@@ -38,8 +38,8 @@ void State_DX12::SetShader(Shader::Stage stage, Blob shader)
 
 void State_DX12::SetCachedPipeline(const void* pCachedBlob, size_t size)
 {
-	m_pKey->CachedPipeline = pCachedBlob;
-	m_pKey->CachedPipelineSize = size;
+	m_pKey->pCachedBlob = pCachedBlob;
+	m_pKey->CachedBlobSize = size;
 }
 
 void State_DX12::SetNodeMask(uint32_t nodeMask)
@@ -47,20 +47,20 @@ void State_DX12::SetNodeMask(uint32_t nodeMask)
 	m_pKey->NodeMask = nodeMask;
 }
 
-void State_DX12::OMSetBlendState(const Graphics::Blend& blend, uint32_t sampleMask)
+void State_DX12::OMSetBlendState(const Graphics::Blend* pBlend, uint32_t sampleMask)
 {
-	m_pKey->Blend = blend.get();
+	m_pKey->pBlend = pBlend;
 	m_pKey->SampleMask = sampleMask;
 }
 
-void State_DX12::RSSetState(const Graphics::Rasterizer& rasterizer)
+void State_DX12::RSSetState(const Graphics::Rasterizer* pRasterizer)
 {
-	m_pKey->Rasterizer = rasterizer.get();
+	m_pKey->pRasterizer = pRasterizer;
 }
 
-void State_DX12::DSSetState(const DepthStencil& depthStencil)
+void State_DX12::DSSetState(const DepthStencil* pDepthStencil)
 {
-	m_pKey->DepthStencil = depthStencil.get();
+	m_pKey->pDepthStencil = pDepthStencil;
 }
 
 void State_DX12::OMSetBlendState(BlendPreset preset, PipelineCache& pipelineCache,
@@ -162,15 +162,58 @@ Pipeline PipelineCache_DX12::createPipeline(const Key* pKey, const wchar_t* name
 	if (pKey->Shaders[PS])
 		psoDesc.PS = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pKey->Shaders[PS]));
 
-	const auto blend = static_cast<const D3D12_BLEND_DESC*>(pKey->Blend);
-	psoDesc.BlendState = *(blend ? blend : GetBlend(BlendPreset::DEFAULT_OPAQUE).get());
+	// Blend state
+	const auto pBlend = pKey->pBlend ? pKey->pBlend : GetBlend(BlendPreset::DEFAULT_OPAQUE);
+	psoDesc.BlendState.AlphaToCoverageEnable = pBlend->AlphaToCoverageEnable ? TRUE : FALSE;
+	psoDesc.BlendState.IndependentBlendEnable = pBlend->IndependentBlendEnable ? TRUE : FALSE;
+	for (auto i = 0ui8; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
+	{
+		const auto& src = pBlend->RenderTargets[i];
+		auto& dst = psoDesc.BlendState.RenderTarget[i];
+		dst.BlendEnable = src.BlendEnable ? TRUE : FALSE;
+		dst.LogicOpEnable = src.LogicOpEnable ? TRUE : FALSE;
+		dst.SrcBlend = GetDX12Blend(src.SrcBlend);
+		dst.DestBlend = GetDX12Blend(src.DestBlend);
+		dst.BlendOp = GetDX12BlendOp(src.BlendOp);
+		dst.SrcBlendAlpha = GetDX12Blend(src.SrcBlendAlpha);
+		dst.DestBlendAlpha = GetDX12Blend(src.DestBlendAlpha);
+		dst.BlendOpAlpha = GetDX12BlendOp(src.BlendOpAlpha);
+		dst.LogicOp = GetDX12LogicOp(src.LogicOp);
+		dst.RenderTargetWriteMask = GetDX12ColorWrite(src.WriteMask);
+	}
 	psoDesc.SampleMask = pKey->SampleMask;
 
-	const auto rasterizer = static_cast<const D3D12_RASTERIZER_DESC*>(pKey->Rasterizer);
-	const auto depthStencil = static_cast<const D3D12_DEPTH_STENCIL_DESC*>(pKey->DepthStencil);
-	psoDesc.RasterizerState = *(rasterizer ? rasterizer : GetRasterizer(RasterizerPreset::CULL_BACK).get());
-	psoDesc.RasterizerState.MultisampleEnable = pKey->SampleCount > 1 ? TRUE : FALSE;
-	psoDesc.DepthStencilState = *(depthStencil ? depthStencil : GetDepthStencil(DepthStencilPreset::DEFAULT_LESS).get());
+	// Rasterizer state
+	const auto pRasterizer = pKey->pRasterizer ? pKey->pRasterizer : GetRasterizer(RasterizerPreset::CULL_BACK);
+	psoDesc.RasterizerState.FillMode = GetDX12FillMode(pRasterizer->Fill);
+	psoDesc.RasterizerState.CullMode = GetDX12CullMode(pRasterizer->Cull);
+	psoDesc.RasterizerState.FrontCounterClockwise = pRasterizer->FrontCounterClockwise;
+	psoDesc.RasterizerState.DepthBias = pRasterizer->DepthBias;
+	psoDesc.RasterizerState.DepthBiasClamp = pRasterizer->DepthBiasClamp;
+	psoDesc.RasterizerState.SlopeScaledDepthBias = pRasterizer->SlopeScaledDepthBias;
+	psoDesc.RasterizerState.DepthClipEnable = pRasterizer->DepthClipEnable;
+	psoDesc.RasterizerState.MultisampleEnable = pRasterizer->MultisampleEnable;
+	psoDesc.RasterizerState.AntialiasedLineEnable = pRasterizer->AntialiasedLineEnable;
+	psoDesc.RasterizerState.ForcedSampleCount = pRasterizer->ForcedSampleCount;
+	psoDesc.RasterizerState.ConservativeRaster = pRasterizer->ConservativeRaster ? D3D12_CONSERVATIVE_RASTERIZATION_MODE_ON : D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
+
+	// Depth-stencil state
+	const auto pDepthStencil = pKey->pDepthStencil ? pKey->pDepthStencil : GetDepthStencil(DepthStencilPreset::DEFAULT_LESS);
+	psoDesc.DepthStencilState.DepthEnable = pDepthStencil->DepthEnable ? TRUE : FALSE;
+	psoDesc.DepthStencilState.DepthWriteMask = pDepthStencil->DepthWriteMask ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
+	psoDesc.DepthStencilState.DepthFunc = GetDX12ComparisonFunc(pDepthStencil->DepthFunc);
+	psoDesc.DepthStencilState.StencilEnable = pDepthStencil->StencilEnable ? TRUE : FALSE;
+	psoDesc.DepthStencilState.StencilReadMask = pDepthStencil->StencilReadMask;
+	psoDesc.DepthStencilState.StencilWriteMask = pDepthStencil->StencilWriteMask;
+	psoDesc.DepthStencilState.FrontFace.StencilFailOp = GetDX12StencilOp(pDepthStencil->FrontFace.StencilFailOp);
+	psoDesc.DepthStencilState.FrontFace.StencilDepthFailOp = GetDX12StencilOp(pDepthStencil->FrontFace.StencilDepthFailOp);
+	psoDesc.DepthStencilState.FrontFace.StencilPassOp = GetDX12StencilOp(pDepthStencil->FrontFace.StencilPassOp);
+	psoDesc.DepthStencilState.FrontFace.StencilFunc = GetDX12ComparisonFunc(pDepthStencil->FrontFace.StencilFunc);
+	psoDesc.DepthStencilState.BackFace.StencilFailOp = GetDX12StencilOp(pDepthStencil->BackFace.StencilFailOp);
+	psoDesc.DepthStencilState.BackFace.StencilDepthFailOp = GetDX12StencilOp(pDepthStencil->BackFace.StencilDepthFailOp);
+	psoDesc.DepthStencilState.BackFace.StencilPassOp = GetDX12StencilOp(pDepthStencil->BackFace.StencilPassOp);
+	psoDesc.DepthStencilState.BackFace.StencilFunc = GetDX12ComparisonFunc(pDepthStencil->BackFace.StencilFunc);
+
 	psoDesc.PrimitiveTopologyType = GetDX12PrimitiveTopologyType(pKey->PrimTopologyType);
 	psoDesc.NumRenderTargets = pKey->NumRenderTargets;
 
@@ -180,8 +223,8 @@ Pipeline PipelineCache_DX12::createPipeline(const Key* pKey, const wchar_t* name
 	psoDesc.SampleDesc.Count = pKey->SampleCount;
 	psoDesc.SampleDesc.Quality = pKey->SampleQuality;
 
-	psoDesc.CachedPSO.pCachedBlob = pKey->CachedPipeline;
-	psoDesc.CachedPSO.CachedBlobSizeInBytes = pKey->CachedPipelineSize;
+	psoDesc.CachedPSO.pCachedBlob = pKey->pCachedBlob;
+	psoDesc.CachedPSO.CachedBlobSizeInBytes = pKey->CachedBlobSize;
 	psoDesc.NodeMask = pKey->NodeMask;
 
 	CD3DX12_PIPELINE_MESH_STATE_STREAM psoStream(psoDesc);

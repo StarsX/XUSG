@@ -12,6 +12,8 @@ namespace XUSG
 	D3D12_HEAP_TYPE GetDX12HeapType(MemoryType memoryType);
 	D3D12_PRIMITIVE_TOPOLOGY_TYPE GetDX12PrimitiveTopologyType(PrimitiveTopologyType primitiveTopologyType);
 	D3D_PRIMITIVE_TOPOLOGY GetDX12PrimitiveTopology(PrimitiveTopology primitiveTopology);
+	D3D12_FILL_MODE GetDX12FillMode(FillMode fillMode);
+	D3D12_CULL_MODE GetDX12CullMode(CullMode cullMode);
 	D3D12_INDIRECT_ARGUMENT_TYPE GetDX12IndirectArgumentType(IndirectArgumentType indirectArgumentType);
 	D3D12_RESOURCE_DIMENSION GetDX12ResourceDimension(ResourceDimension resourceDimension);
 
@@ -41,4 +43,12 @@ namespace XUSG
 
 	D3D12_FENCE_FLAGS GetDX12FenceFlag(FenceFlag fenceFlag);
 	D3D12_FENCE_FLAGS GetDX12FenceFlags(FenceFlag fenceFlags);
+
+	D3D12_BLEND GetDX12Blend(BlendFactor blend);
+	D3D12_BLEND_OP GetDX12BlendOp(BlendOperator blendOp);
+	D3D12_LOGIC_OP GetDX12LogicOp(LogicOperator logicOp);
+	D3D12_COLOR_WRITE_ENABLE GetDX12ColorWrite(ColorWrite writeMask);
+
+	D3D12_COMPARISON_FUNC GetDX12ComparisonFunc(ComparisonFunc comparisonFunc);
+	D3D12_STENCIL_OP GetDX12StencilOp(StencilOp stencilOp);
 }

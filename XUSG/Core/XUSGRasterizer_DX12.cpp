@@ -10,7 +10,20 @@ using namespace Graphics;
 
 Rasterizer PipelineCache_DX12::RasterizerDefault()
 {
-	return make_shared<D3D12_RASTERIZER_DESC>(CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT));
+	Rasterizer rasterizer;
+	rasterizer.Fill = FillMode::SOLID;
+	rasterizer.Cull = CullMode::BACK;
+	rasterizer.FrontCounterClockwise = false;
+	rasterizer.DepthBias = 0;
+	rasterizer.DepthBiasClamp = 0.0f;
+	rasterizer.SlopeScaledDepthBias = 0.0f;
+	rasterizer.DepthClipEnable = true;
+	rasterizer.MultisampleEnable = false;
+	rasterizer.AntialiasedLineEnable = false;
+	rasterizer.ForcedSampleCount = 0;
+	rasterizer.ConservativeRaster = false;
+
+	return rasterizer;
 }
 
 Rasterizer PipelineCache_DX12::CullBack()
@@ -20,24 +33,24 @@ Rasterizer PipelineCache_DX12::CullBack()
 
 Rasterizer PipelineCache_DX12::CullNone()
 {
-	const auto rasterizer = RasterizerDefault();
-	rasterizer->CullMode = D3D12_CULL_MODE_NONE;
+	auto rasterizer = RasterizerDefault();
+	rasterizer.Cull = CullMode::NONE;
 
 	return rasterizer;
 }
 
 Rasterizer PipelineCache_DX12::CullFront()
 {
-	const auto rasterizer = RasterizerDefault();
-	rasterizer->CullMode = D3D12_CULL_MODE_FRONT;
+	auto rasterizer = RasterizerDefault();
+	rasterizer.Cull = CullMode::FRONT;
 
 	return rasterizer;
 }
 
 Rasterizer PipelineCache_DX12::CullWireframe()
 {
-	const auto rasterizer = RasterizerDefault();
-	rasterizer->FillMode = D3D12_FILL_MODE_WIREFRAME;
+	auto rasterizer = RasterizerDefault();
+	rasterizer.Fill = FillMode::WIREFRAME;
 
 	return rasterizer;
 }

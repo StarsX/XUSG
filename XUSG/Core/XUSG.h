@@ -283,6 +283,19 @@ namespace XUSG
 		CONTROL_POINT32_PATCHLIST
 	};
 
+	enum class FillMode
+	{
+		WIREFRAME,
+		SOLID
+	};
+
+	enum class CullMode
+	{
+		NONE,
+		FRONT,
+		BACK
+	};
+
 	enum class ResourceDimension : uint8_t
 	{
 		UNKNOWN,
@@ -417,6 +430,96 @@ namespace XUSG
 	};
 
 	DEFINE_ENUM_FLAG_OPERATORS(ClearFlag);
+
+	enum class BlendFactor : uint8_t
+	{
+		ZERO,
+		ONE,
+		SRC_COLOR,
+		INV_SRC_COLOR,
+		SRC_ALPHA,
+		INV_SRC_ALPHA,
+		DEST_ALPHA,
+		INV_DEST_ALPHA,
+		DEST_COLOR,
+		INV_DEST_COLOR,
+		SRC_ALPHA_SAT,
+		BLEND_FACTOR,
+		INV_BLEND_FACTOR,
+		SRC1_COLOR,
+		INV_SRC1_COLOR,
+		SRC1_ALPHA,
+		INV_SRC1_ALPHA
+	};
+
+	enum class BlendOperator : uint8_t
+	{
+		ADD,
+		SUBTRACT,
+		REV_SUBTRACT,
+		MIN,
+		MAX
+	};
+
+	enum class LogicOperator : uint8_t
+	{
+		CLEAR,
+		SET,
+		COPY,
+		COPY_INVERTED,
+		NOOP,
+		INVERT,
+		AND,
+		NAND,
+		OR,
+		NOR,
+		XOR,
+		EQUIV,
+		AND_REVERSE,
+		AND_INVERTED,
+		OR_REVERSE,
+		OR_INVERTED
+	};
+
+	enum class ColorWrite : uint8_t
+	{
+		RED,
+		GREEN,
+		BLUE,
+		ALPHA,
+		ALL
+	};
+
+	enum class ComparisonFunc : uint8_t
+	{
+		NEVER,
+		LESS,
+		EQUAL,
+		LESS_EQUAL,
+		GREATER,
+		NOT_EQUAL,
+		GREATER_EQUAL,
+		ALWAYS
+	};
+
+	enum class StencilOp : uint8_t
+	{
+		KEEP,
+		ZERO,
+		REPLACE,
+		INCR_SAT,
+		DECR_SAT,
+		INVERT,
+		INCR,
+		DECR
+	};
+
+	enum class IBStripCutValue : uint8_t
+	{
+		DISABLED,
+		FFFF,
+		FFFFFFFF
+	};
 
 	// Resources related
 	struct SubresourceData
@@ -566,7 +669,7 @@ namespace XUSG
 	};
 
 	// Input layouts related
-	struct InputElementDesc
+	struct InputElement
 	{
 		const char* SemanticName;
 		uint32_t SemanticIndex;
@@ -576,15 +679,7 @@ namespace XUSG
 		InputClassification InputSlotClass;
 		uint32_t InstanceDataStepRate;
 	};
-	using InputElementTable = std::vector<InputElementDesc>;
-
-	struct InputLayoutDesc
-	{
-		const InputElementDesc* pInputElementDescs;
-		uint32_t NumElements;
-		std::vector<InputElementDesc> Elements;
-	};
-	using InputLayout = std::shared_ptr<InputLayoutDesc>;
+	using InputLayout = std::vector<InputElement>;
 
 	//--------------------------------------------------------------------------------------
 	// Command list
@@ -1393,6 +1488,62 @@ namespace XUSG
 			NUM_DS_PRESET
 		};
 
+		struct RenderTargetBlend
+		{
+			bool BlendEnable;
+			bool LogicOpEnable;
+			BlendFactor SrcBlend;
+			BlendFactor DestBlend;
+			BlendOperator BlendOp;
+			BlendFactor SrcBlendAlpha;
+			BlendFactor DestBlendAlpha;
+			BlendOperator BlendOpAlpha;
+			LogicOperator LogicOp;
+			ColorWrite WriteMask;
+		};
+
+		struct Blend
+		{
+			bool AlphaToCoverageEnable;
+			bool IndependentBlendEnable;
+			RenderTargetBlend RenderTargets[8];
+		};
+
+		struct Rasterizer
+		{
+			FillMode Fill;
+			CullMode Cull;
+			bool FrontCounterClockwise;
+			int DepthBias;
+			float DepthBiasClamp;
+			float SlopeScaledDepthBias;
+			bool DepthClipEnable;
+			bool MultisampleEnable;
+			bool AntialiasedLineEnable;
+			uint8_t ForcedSampleCount;
+			bool ConservativeRaster;
+		};
+
+		struct DepthStencilOp
+		{
+			StencilOp StencilFailOp;
+			StencilOp StencilDepthFailOp;
+			StencilOp StencilPassOp;
+			ComparisonFunc StencilFunc;
+		};
+
+		struct DepthStencil
+		{
+			bool DepthEnable;
+			bool DepthWriteMask;
+			ComparisonFunc DepthFunc;
+			bool StencilEnable;
+			uint8_t StencilReadMask;
+			uint8_t StencilWriteMask;
+			DepthStencilOp FrontFace;
+			DepthStencilOp BackFace;
+		};
+
 		class PipelineCache;
 		
 		class DLL_INTERFACE State
@@ -1406,18 +1557,18 @@ namespace XUSG
 			virtual void SetCachedPipeline(const void* pCachedBlob, size_t size) = 0;
 			virtual void SetNodeMask(uint32_t nodeMask) = 0;
 
-			virtual void OMSetBlendState(const Blend& blend, uint32_t sampleMask = UINT_MAX) = 0;
-			virtual void RSSetState(const Rasterizer& rasterizer) = 0;
-			virtual void DSSetState(const DepthStencil& depthStencil) = 0;
+			virtual void OMSetBlendState(const Blend* pBlend, uint32_t sampleMask = UINT_MAX) = 0;
+			virtual void RSSetState(const Rasterizer* pRasterizer) = 0;
+			virtual void DSSetState(const DepthStencil* DepthStencil) = 0;
 
 			virtual void OMSetBlendState(BlendPreset preset, PipelineCache& pipelineCache,
 				uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX) = 0;
 			virtual void RSSetState(RasterizerPreset preset, PipelineCache& pipelineCache) = 0;
 			virtual void DSSetState(DepthStencilPreset preset, PipelineCache& pipelineCache) = 0;
 
-			virtual void IASetInputLayout(const InputLayout& layout) = 0;
+			virtual void IASetInputLayout(const InputLayout* pLayout) = 0;
 			virtual void IASetPrimitiveTopologyType(PrimitiveTopologyType type) = 0;
-			virtual void IASetIndexBufferStripCutValue(uint32_t ibStripCutValue) = 0;
+			virtual void IASetIndexBufferStripCutValue(IBStripCutValue ibStripCutValue) = 0;
 
 			virtual void OMSetNumRenderTargets(uint8_t n) = 0;
 			virtual void OMSetRTVFormat(uint8_t i, Format format) = 0;
@@ -1447,16 +1598,16 @@ namespace XUSG
 			virtual void SetDevice(const Device& device) = 0;
 			virtual void SetPipeline(const std::string& key, const Pipeline& pipeline) = 0;
 
-			virtual void SetInputLayout(uint32_t index, const InputElementTable& elementTable) = 0;
-			virtual InputLayout GetInputLayout(uint32_t index) const = 0;
-			virtual InputLayout CreateInputLayout(const InputElementTable& elementTable) = 0;
+			virtual void SetInputLayout(uint32_t index, const InputElement* pElements, uint32_t numElements) = 0;
+			virtual const InputLayout* GetInputLayout(uint32_t index) const = 0;
+			virtual const InputLayout* CreateInputLayout(const InputElement* pElements, uint32_t numElements) = 0;
 
 			virtual Pipeline CreatePipeline(const State& state, const wchar_t* name = nullptr) = 0;
 			virtual Pipeline GetPipeline(const State& state, const wchar_t* name = nullptr) = 0;
 
-			virtual const Blend& GetBlend(BlendPreset preset, uint8_t numColorRTs = 1) = 0;
-			virtual const Rasterizer& GetRasterizer(RasterizerPreset preset) = 0;
-			virtual const DepthStencil& GetDepthStencil(DepthStencilPreset preset) = 0;
+			virtual const Blend* GetBlend(BlendPreset preset, uint8_t numColorRTs = 1) = 0;
+			virtual const Rasterizer* GetRasterizer(RasterizerPreset preset) = 0;
+			virtual const DepthStencil* GetDepthStencil(DepthStencilPreset preset) = 0;
 
 			using uptr = std::unique_ptr<PipelineCache>;
 			using sptr = std::shared_ptr<PipelineCache>;

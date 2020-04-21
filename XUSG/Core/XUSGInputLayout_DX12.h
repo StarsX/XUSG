@@ -14,11 +14,11 @@ namespace XUSG
 		InputLayoutPool_DX12();
 		virtual ~InputLayoutPool_DX12();
 
-		void SetLayout(uint32_t index, const InputElementTable& elementTable);
+		void SetLayout(uint32_t index, const InputElement* pElements, uint32_t numElements);
 
-		InputLayout CreateLayout(const InputElementTable& elementTable);
+		const InputLayout* CreateLayout(const InputElement* pElements, uint32_t numElements);
 
-		InputLayout GetLayout(uint32_t index) const;
+		const InputLayout* GetLayout(uint32_t index) const;
 
 	protected:
 		std::vector<InputLayout> m_layouts;

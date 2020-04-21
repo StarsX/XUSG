@@ -113,14 +113,6 @@ namespace XUSG
 	};
 	using Device = com_ptr<DX12Device>;
 
-	// Graphics pipelines related
-	namespace Graphics
-	{
-		using Blend = std::shared_ptr<D3D12_BLEND_DESC>;
-		using Rasterizer = std::shared_ptr<D3D12_RASTERIZER_DESC>;
-		using DepthStencil = std::shared_ptr<D3D12_DEPTH_STENCIL_DESC>;
-	}
-
 	// DX12 format transfer function
 	DLL_INTERFACE DXGI_FORMAT GetDXGIFormat(Format format);
 
