@@ -230,10 +230,10 @@ bool Reflector_DX12::SetShader(const Blob& shader)
 		DxcCreateInstance = GetDxcCreateInstanceProc(L"dxil.dll");
 		if (DxcCreateInstance)
 		{
-			com_ptr<IDxcValidator> validator;
+			com_ptr<IDxcValidator> validator = nullptr;
 			V_RETURN(DxcCreateInstance(CLSID_DxcValidator, IID_PPV_ARGS(&validator)), cerr, false);
 
-			com_ptr<IDxcOperationResult> result;
+			com_ptr<IDxcOperationResult> result = nullptr;
 			V_RETURN(validator->Validate(blob.get(), DxcValidatorFlags_InPlaceEdit, &result), cerr, false);
 
 			HRESULT hr;
@@ -242,9 +242,9 @@ bool Reflector_DX12::SetShader(const Blob& shader)
 			{
 				cout << "The DXIL container failed validation." << endl;
 
-				com_ptr<IDxcBlobEncoding> printBlob, printBlobUtf8;
+				com_ptr<IDxcBlobEncoding> printBlob = nullptr, printBlobUtf8 = nullptr;
 				V_RETURN(result->GetErrorBuffer(&printBlob), cerr, false);
-				V_RETURN(library->GetBlobAsUtf8(printBlob.get(), printBlobUtf8.GetAddressOf()), cerr, false);
+				V_RETURN(library->GetBlobAsUtf8(printBlob.get(), &printBlobUtf8), cerr, false);
 
 				string error;
 				if (printBlobUtf8) error = reinterpret_cast<const char*>(printBlobUtf8->GetBufferPointer());

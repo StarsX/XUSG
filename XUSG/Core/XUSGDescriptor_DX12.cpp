@@ -252,6 +252,7 @@ bool DescriptorTableCache_DX12::allocateDescriptorPool(DescriptorPoolType type, 
 	desc.NumDescriptors = numDescriptors;
 	desc.Type = heapTypes[type];
 	if (type != D3D12_DESCRIPTOR_HEAP_TYPE_RTV) desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	m_descriptorPools[type][index] = nullptr;
 	V_RETURN(m_device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&m_descriptorPools[type][index])), cerr, false);
 	if (!m_name.empty()) m_descriptorPools[type][index]->SetName((m_name + poolNames[type]).c_str());
 

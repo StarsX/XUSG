@@ -14,31 +14,29 @@
 
 namespace XUSG
 {
+#if _HAS_CXX17
+	template <typename T>
+	class com_ptr :
+		public winrt::com_ptr<T>
+	{
+	public:
+		using element_type = T;
+		using winrt::com_ptr<T>::com_ptr;
+
+		element_type** operator&() noexcept { return this->put(); }
+	};
+#else
 	template <typename T>
 	class com_ptr :
 		public Microsoft::WRL::ComPtr<T>
 	{
 	public:
 		using element_type = T;
+		using Microsoft::WRL::ComPtr<T>::ComPtr;
 
-		com_ptr() : Microsoft::WRL::ComPtr<T>::ComPtr() {}
-		com_ptr(decltype(__nullptr) null) : Microsoft::WRL::ComPtr<T>::ComPtr(null) {}
-
-		template<class U>
-		com_ptr(U* other) : Microsoft::WRL::ComPtr<T>::ComPtr(other) {}
-		com_ptr(const Microsoft::WRL::ComPtr<T>& other) : Microsoft::WRL::ComPtr<T>::ComPtr(other) {}
-
-		template<class U>
-		com_ptr(const Microsoft::WRL::ComPtr<U>& other, typename Microsoft::WRL::Details::EnableIf<__is_convertible_to(U*, T*), void*>::type* t = 0) :
-			Microsoft::WRL::ComPtr<T>::ComPtr(other, t) {}
-		com_ptr(Microsoft::WRL::ComPtr<T>&& other) : Microsoft::WRL::ComPtr<T>::ComPtr(other) {}
-
-		template<class U>
-		com_ptr(Microsoft::WRL::ComPtr<U>&& other, typename Microsoft::WRL::Details::EnableIf<__is_convertible_to(U*, T*), void*>::type* t = 0) :
-			Microsoft::WRL::ComPtr<T>::ComPtr(other, t) {}
-
-		T* get() const { return Microsoft::WRL::ComPtr<T>::Get(); }
+		element_type* get() const throw() { return this->Get(); }
 	};
+#endif
 
 	__forceinline uint8_t Log2(uint32_t value)
 	{
