@@ -166,7 +166,7 @@ Pipeline PipelineCache_DX12::createPipeline(const Key* pKey, const wchar_t* name
 	const auto pBlend = pKey->pBlend ? pKey->pBlend : GetBlend(BlendPreset::DEFAULT_OPAQUE);
 	psoDesc.BlendState.AlphaToCoverageEnable = pBlend->AlphaToCoverageEnable ? TRUE : FALSE;
 	psoDesc.BlendState.IndependentBlendEnable = pBlend->IndependentBlendEnable ? TRUE : FALSE;
-	for (auto i = 0ui8; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
+	for (uint8_t i = 0; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
 	{
 		const auto& src = pBlend->RenderTargets[i];
 		auto& dst = psoDesc.BlendState.RenderTarget[i];
@@ -217,7 +217,7 @@ Pipeline PipelineCache_DX12::createPipeline(const Key* pKey, const wchar_t* name
 	psoDesc.PrimitiveTopologyType = GetDX12PrimitiveTopologyType(pKey->PrimTopologyType);
 	psoDesc.NumRenderTargets = pKey->NumRenderTargets;
 
-	for (auto i = 0; i < 8; ++i)
+	for (auto i = 0; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
 		psoDesc.RTVFormats[i] = GetDXGIFormat(pKey->RTVFormats[i]);
 	psoDesc.DSVFormat = GetDXGIFormat(pKey->DSVFormat);
 	psoDesc.SampleDesc.Count = pKey->SampleCount;

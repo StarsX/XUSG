@@ -113,7 +113,7 @@ Blend PipelineCache_DX12::NonPremultipliedRT0(uint8_t n)
 	renderTarget.WriteMask = ColorWrite::ALL;
 
 	// Default
-	for (auto i = 1ui8; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
+	for (uint8_t i = 1; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
 	{
 		auto& renderTarget = blend.RenderTargets[i];
 		renderTarget.BlendEnable = false;
@@ -266,7 +266,7 @@ Blend PipelineCache_DX12::WeightedPremulPerRT(uint8_t n)
 	assert(n < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT);
 
 	// Accumulations
-	for (auto i = 0ui8; i < n; ++i)
+	for (uint8_t i = 0; i < n; ++i)
 	{
 		auto& renderTarget = blend.RenderTargets[i];
 		renderTarget.BlendEnable = true;
@@ -322,7 +322,7 @@ Blend PipelineCache_DX12::WeightedPerRT(uint8_t n)
 	assert(n < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT);
 
 	// Accumulations
-	for (auto i = 0ui8; i < n; ++i)
+	for (uint8_t i = 0; i < n; ++i)
 	{
 		auto& renderTarget = blend.RenderTargets[i];
 		renderTarget.BlendEnable = true;

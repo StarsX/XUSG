@@ -678,7 +678,7 @@ static bool CreateTexture(const Device& device, CommandList* pCommandList,
 		unique_ptr<SubresourceData[]> initData(new SubresourceData[subresourceCount]);
 		F_RETURN(!initData, cerr, E_OUTOFMEMORY, false);
 
-		auto skipMip = 0ui8;
+		uint8_t skipMip = 0;
 		auto twidth = 0u;
 		auto theight = 0u;
 		auto tdepth = 0u;

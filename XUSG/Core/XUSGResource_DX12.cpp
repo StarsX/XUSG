@@ -441,8 +441,8 @@ bool Texture2D_DX12::CreateSRVs(uint32_t arraySize, Format format, uint8_t numMi
 	desc.Format = format != Format::UNKNOWN ? GetDXGIFormat(format) : m_resource->GetDesc().Format;
 	desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 
-	auto mipLevel = 0ui8;
-	m_srvs.resize(sampleCount > 1 ? 1 : (max)(numMips, 1ui8));
+	uint8_t mipLevel = 0;
+	m_srvs.resize(sampleCount > 1 ? 1 : max<uint8_t>(numMips, 1));
 
 	for (auto& descriptor : m_srvs)
 	{
@@ -508,7 +508,7 @@ bool Texture2D_DX12::CreateSRVLevels(uint32_t arraySize, uint8_t numMips, Format
 		desc.Format = format != Format::UNKNOWN ? GetDXGIFormat(format) : m_resource->GetDesc().Format;
 		desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 
-		auto mipLevel = 0ui8;
+		uint8_t mipLevel = 0;
 		m_srvLevels.resize(numMips);
 
 		for (auto& descriptor : m_srvLevels)
@@ -560,9 +560,9 @@ bool Texture2D_DX12::CreateUAVs(uint32_t arraySize, Format format, uint8_t numMi
 	D3D12_UNORDERED_ACCESS_VIEW_DESC desc = {};
 	desc.Format = format != Format::UNKNOWN ? GetDXGIFormat(format) : m_resource->GetDesc().Format;
 
-	auto mipLevel = 0ui8;
+	uint8_t mipLevel = 0;
 	pUavs = pUavs ? pUavs : &m_uavs;
-	pUavs->resize((max)(numMips, 1ui8));
+	pUavs->resize(max<uint8_t>(numMips, 1));
 
 	for (auto& descriptor : *pUavs)
 	{
@@ -676,7 +676,7 @@ uint32_t Texture2D_DX12::GenerateMips(const CommandList* pCommandList, ResourceB
 	if (!numSlices) numSlices = desc.DepthOrArraySize - baseSlice;
 	if (!numMips) numMips = desc.MipLevels - baseMip;
 
-	for (auto i = 0ui8; i < numMips; ++i)
+	for (uint8_t i = 0u; i < numMips; ++i)
 	{
 		const auto j = baseMip + i;
 		const auto prevBarriers = numBarriers;
@@ -770,11 +770,11 @@ bool RenderTarget_DX12::Create(const Device& device, uint32_t width, uint32_t he
 	D3D12_RENDER_TARGET_VIEW_DESC desc = {};
 	desc.Format = GetDXGIFormat(m_format);
 
-	numMips = (max)(numMips, 1ui8);
+	numMips = max<uint8_t>(numMips, 1);
 	m_rtvs.resize(arraySize);
 	for (auto i = 0u; i < arraySize; ++i)
 	{
-		auto mipLevel = 0ui8;
+		uint8_t mipLevel = 0;
 		m_rtvs[i].resize(numMips);
 
 		for (auto& descriptor : m_rtvs[i])
@@ -829,9 +829,9 @@ bool RenderTarget_DX12::CreateArray(const Device& device, uint32_t width, uint32
 	desc.Format = GetDXGIFormat(m_format);
 
 	m_rtvs.resize(1);
-	m_rtvs[0].resize((max)(numMips, 1ui8));
+	m_rtvs[0].resize(max<uint8_t>(numMips, 1));
 
-	auto mipLevel = 0ui8;
+	uint8_t mipLevel = 0;
 	for (auto& descriptor : m_rtvs[0])
 	{
 		// Setup the description of the render target view.
@@ -977,7 +977,7 @@ uint32_t RenderTarget_DX12::GenerateMips(const CommandList* pCommandList, Resour
 	if (!numSlices) numSlices = desc.DepthOrArraySize - baseSlice;
 	if (!numMips) numMips = desc.MipLevels - baseMip;
 
-	for (auto i = 0ui8; i < numMips; ++i)
+	for (uint8_t i = 0; i < numMips; ++i)
 	{
 		const auto j = baseMip + i;
 		const auto prevBarriers = numBarriers;
@@ -1110,17 +1110,17 @@ bool DepthStencil_DX12::Create(const Device& device, uint32_t width, uint32_t he
 	D3D12_DEPTH_STENCIL_VIEW_DESC desc = {};
 	desc.Format = GetDXGIFormat(m_format);
 
-	numMips = (max)(numMips, 1ui8);
+	numMips = max<uint8_t>(numMips, 1);
 	m_dsvs.resize(arraySize);
 	m_readOnlyDsvs.resize(arraySize);
 
 	for (auto i = 0u; i < arraySize; ++i)
 	{
-		auto mipLevel = 0ui8;
+		uint8_t mipLevel = 0;
 		m_dsvs[i].resize(numMips);
 		m_readOnlyDsvs[i].resize(numMips);
 
-		for (auto j = 0ui8; j < numMips; ++j)
+		for (uint8_t j = 0; j < numMips; ++j)
 		{
 			auto& dsv = m_dsvs[i][j];
 			auto& readOnlyDsv = m_readOnlyDsvs[i][j];
@@ -1190,13 +1190,13 @@ bool DepthStencil_DX12::CreateArray(const Device& device, uint32_t width, uint32
 	D3D12_DEPTH_STENCIL_VIEW_DESC desc = {};
 	desc.Format = GetDXGIFormat(m_format);
 
-	numMips = (max)(numMips, 1ui8);
+	numMips = max<uint8_t>(numMips, 1);
 	m_dsvs.resize(1);
 	m_dsvs[0].resize(numMips);
 	m_readOnlyDsvs.resize(1);
 	m_readOnlyDsvs[0].resize(numMips);
 
-	for (auto i = 0ui8; i < numMips; ++i)
+	for (uint8_t i = 0; i < numMips; ++i)
 	{
 		auto& dsv = m_dsvs[0][i];
 		auto& readOnlyDsv = m_readOnlyDsvs[0][i];
@@ -1502,8 +1502,8 @@ bool Texture3D_DX12::CreateSRVs(Format format, uint8_t numMips)
 	desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE3D;
 
-	auto mipLevel = 0ui8;
-	m_srvs.resize((max)(numMips, 1ui8));
+	uint8_t mipLevel = 0;
+	m_srvs.resize(max<uint8_t>(numMips, 1));
 
 	for (auto& descriptor : m_srvs)
 	{
@@ -1528,7 +1528,7 @@ bool Texture3D_DX12::CreateSRVLevels(uint8_t numMips, Format format)
 		desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 		desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE3D;
 
-		auto mipLevel = 0ui8;
+		uint8_t mipLevel = 0;
 		m_srvLevels.resize(numMips);
 
 		for (auto& descriptor : m_srvLevels)
@@ -1555,7 +1555,7 @@ bool Texture3D_DX12::CreateUAVs(Format format, uint8_t numMips, vector<Descripto
 	desc.Format = format != Format::UNKNOWN ? GetDXGIFormat(format) : txDesc.Format;
 	desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE3D;
 
-	auto mipLevel = 0ui8;
+	uint8_t mipLevel = 0;
 	pUavs = pUavs ? pUavs : &m_uavs;
 	pUavs->resize(numMips);
 
