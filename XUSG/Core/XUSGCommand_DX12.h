@@ -92,12 +92,13 @@ namespace XUSG
 		void ClearUnorderedAccessViewFloat(const DescriptorTable& descriptorTable,
 			const Descriptor& descriptor, const Resource& resource, const float values[4],
 			uint32_t numRects = 0, const RectRange* pRects = nullptr) const;
-		//void DiscardResource(const Resource &resource, const D3D12_DISCARD_REGION* pRegion) const;
-		//void BeginQuery(ID3D12QueryHeap* pQueryHeap, D3D12_QUERY_TYPE type, uint32_t index) const;
-		//void EndQuery(ID3D12QueryHeap* pQueryHeap, D3D12_QUERY_TYPE Type, uint32_t index) const;
-		//void ResolveQueryData(ID3D12QueryHeap* pQueryHeap, D3D12_QUERY_TYPE type, uint32_t startIndex,
-			//uint32_t numQueries, const Resource &dstBuffer, uint64_t alignedDstBufferOffset) const;
-		//void SetPredication(const Resource &buffer, uint64_t alignedBufferOffset, D3D12_PREDICATION_OP op)const;
+		void DiscardResource(const Resource& resource, uint32_t numRects, const RectRange* pRects,
+			uint32_t firstSubresource, uint32_t numSubresources) const;
+		void BeginQuery(const QueryPool& queryPool, QueryType type, uint32_t index) const;
+		void EndQuery(const QueryPool& queryPool, QueryType type, uint32_t index) const;
+		void ResolveQueryData(const QueryPool& queryPool, QueryType type, uint32_t startIndex,
+			uint32_t numQueries, const Resource& dstBuffer, uint64_t alignedDstBufferOffset) const;
+		void SetPredication(const Resource &buffer, uint64_t alignedBufferOffset, bool opEqualZero)const;
 		void SetMarker(uint32_t metaData, const void* pData, uint32_t size) const;
 		void BeginEvent(uint32_t metaData, const void* pData, uint32_t size) const;
 		void EndEvent();

@@ -113,6 +113,9 @@ namespace XUSG
 	};
 	using Device = com_ptr<DX12Device>;
 
+	// Query
+	using QueryPool = com_ptr<ID3D12QueryHeap>;
+
 	// DX12 format transfer function
 	DLL_INTERFACE DXGI_FORMAT GetDXGIFormat(Format format);
 

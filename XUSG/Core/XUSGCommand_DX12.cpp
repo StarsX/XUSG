@@ -348,6 +348,37 @@ void CommandList_DX12::ClearUnorderedAccessViewFloat(const DescriptorTable& desc
 		resource.get(), values, numRects, reinterpret_cast<const D3D12_RECT*>(pRects));
 }
 
+void CommandList_DX12::DiscardResource(const Resource& resource, uint32_t numRects, const RectRange* pRects,
+	uint32_t firstSubresource, uint32_t numSubresources) const
+{
+	const D3D12_DISCARD_REGION region =
+	{ numRects, reinterpret_cast<const D3D12_RECT*>(pRects), firstSubresource, numSubresources };
+	m_commandList->DiscardResource(resource.get(), &region);
+}
+
+void CommandList_DX12::BeginQuery(const QueryPool& queryPool, QueryType type, uint32_t index) const
+{
+	m_commandList->BeginQuery(queryPool.get(), GetDX12QueryType(type), index);
+}
+
+void CommandList_DX12::EndQuery(const QueryPool& queryPool, QueryType type, uint32_t index) const
+{
+	m_commandList->EndQuery(queryPool.get(), GetDX12QueryType(type), index);
+}
+
+void CommandList_DX12::ResolveQueryData(const QueryPool& queryPool, QueryType type, uint32_t startIndex,
+	uint32_t numQueries, const Resource& dstBuffer, uint64_t alignedDstBufferOffset) const
+{
+	m_commandList->ResolveQueryData(queryPool.get(), GetDX12QueryType(type),
+		startIndex, numQueries, dstBuffer.get(), alignedDstBufferOffset);
+}
+
+void CommandList_DX12::SetPredication(const Resource& buffer, uint64_t alignedBufferOffset, bool opEqualZero) const
+{
+	m_commandList->SetPredication(buffer.get(), alignedBufferOffset, opEqualZero ?
+		D3D12_PREDICATION_OP_EQUAL_ZERO : D3D12_PREDICATION_OP_NOT_EQUAL_ZERO);
+}
+
 void CommandList_DX12::SetMarker(uint32_t metaData, const void* pData, uint32_t size) const
 {
 	m_commandList->SetMarker(metaData, pData, size);

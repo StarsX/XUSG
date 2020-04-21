@@ -19,6 +19,16 @@ namespace XUSG
 			int8_t Y;
 		};
 
+		enum class ResolveMode
+		{
+			DECOMPRESS,
+			MIN,
+			MAX,
+			AVERAGE,
+			ENCODE_SAMPLER_FEEDBACK,
+			DECODE_SAMPLER_FEEDBACK
+		};
+
 		enum class ShadingRate
 		{
 			_1X1 = 0,
@@ -48,14 +58,17 @@ namespace XUSG
 
 			virtual bool CreateInterface() = 0;
 
-			virtual void SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions) = 0;
-			virtual void RSSetShadingRate(ShadingRate baseShadingRate,
-				const ShadingRateCombiner* pCombiners) = 0;
-			virtual void RSSetShadingRateImage(const Resource& shadingRateImage) = 0;
+			virtual void SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions) const = 0;
+			virtual void ResolveSubresourceRegion(const Resource& dstResource, uint32_t dstSubresource,
+				uint32_t dstX, uint32_t dstY, const Resource& srcResource, uint32_t srcSubresource,
+				RectRange* pSrcRect, Format format, ResolveMode resolveMode) const = 0;
+
+			virtual void RSSetShadingRate(ShadingRate baseShadingRate, const ShadingRateCombiner* pCombiners) const = 0;
+			virtual void RSSetShadingRateImage(const Resource& shadingRateImage) const = 0;
 			virtual void DispatchMesh(
 				uint32_t ThreadGroupCountX,
 				uint32_t ThreadGroupCountY,
-				uint32_t ThreadGroupCountZ) = 0;
+				uint32_t ThreadGroupCountZ) const = 0;
 
 			using uptr = std::unique_ptr<CommandList>;
 			using sptr = std::shared_ptr<CommandList>;

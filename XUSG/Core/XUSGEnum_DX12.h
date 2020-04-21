@@ -51,4 +51,6 @@ namespace XUSG
 
 	D3D12_COMPARISON_FUNC GetDX12ComparisonFunc(ComparisonFunc comparisonFunc);
 	D3D12_STENCIL_OP GetDX12StencilOp(StencilOp stencilOp);
+
+	D3D12_QUERY_TYPE GetDX12QueryType(QueryType type);
 }
