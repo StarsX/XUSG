@@ -57,7 +57,7 @@ bool DX12Device::CreateCommandLayout(CommandLayout& commandLayout, uint32_t byte
 	D3D12_COMMAND_SIGNATURE_DESC programDesc;
 	programDesc.ByteStride = byteStride;
 	programDesc.NumArgumentDescs = numArguments;
-	programDesc.pArgumentDescs = reinterpret_cast<decltype(programDesc.pArgumentDescs)>(pArguments);
+	programDesc.pArgumentDescs = reinterpret_cast<const D3D12_INDIRECT_ARGUMENT_DESC*>(pArguments);
 	programDesc.NodeMask = nodeMask;
 
 	V_RETURN(CreateCommandSignature(&programDesc, nullptr, IID_PPV_ARGS(&commandLayout)), std::cerr, false);

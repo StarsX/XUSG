@@ -18,7 +18,7 @@ namespace XUSG
 {
 	enum class Format : uint32_t;
 	enum class CommandListType : uint8_t;
-	enum class IndirectArgumentType : uint8_t;
+	enum class IndirectArgumentType : uint32_t;
 	enum class CommandQueueFlag : uint8_t;
 	enum class FenceFlag : uint8_t;
 
@@ -291,7 +291,7 @@ namespace XUSG
 		TEXTURE3D
 	};
 
-	enum class IndirectArgumentType : uint8_t
+	enum class IndirectArgumentType : uint32_t
 	{
 		DRAW,
 		DRAW_INDEXED,
