@@ -406,12 +406,8 @@ bool Texture2D_DX12::Upload(CommandList* pCommandList, Resource& uploader,
 	// from the upload heap to the Texture2D.
 	const bool decay = m_resource->GetDesc().Flags & D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS;
 	ResourceBarrier barrier;
-	uint32_t numBarriers;
-	if (m_states[0] != ResourceState::COMMON || !decay)
-	{
-		numBarriers = SetBarrier(&barrier, ResourceState::COPY_DEST);
-		if (m_states[0] != ResourceState::COMMON) pCommandList->Barrier(numBarriers, &barrier);
-	}
+	auto numBarriers = SetBarrier(&barrier, ResourceState::COPY_DEST);
+	if (m_states[0] != ResourceState::COMMON || !decay) pCommandList->Barrier(numBarriers, &barrier);
 
 	const auto pGraphicsCommandList = dynamic_cast<CommandList_DX12*>(pCommandList)->GetGraphicsCommandList().get();
 	M_RETURN(UpdateSubresources(pGraphicsCommandList, m_resource.get(), uploader.get(), 0, firstSubresource,
@@ -1652,12 +1648,8 @@ bool RawBuffer_DX12::Upload(CommandList* pCommandList, Resource& uploader, const
 	// Copy data to the intermediate upload heap and then schedule a copy 
 	// from the upload heap to the buffer.
 	ResourceBarrier barrier;
-	uint32_t numBarriers;
-	if (m_states[0] != ResourceState::COMMON)
-	{
-		numBarriers = SetBarrier(&barrier, ResourceState::COPY_DEST);
-		pCommandList->Barrier(numBarriers, &barrier);
-	}
+	auto numBarriers = SetBarrier(&barrier, ResourceState::COPY_DEST);
+	if (m_states[0] != ResourceState::COMMON) pCommandList->Barrier(numBarriers, &barrier);
 
 	const auto pGraphicsCommandList = dynamic_cast<CommandList_DX12*>(pCommandList)->GetGraphicsCommandList().get();
 	M_RETURN(UpdateSubresources(pGraphicsCommandList, m_resource.get(), uploader.get(), offset, 0, 1, &subresourceData) <= 0,

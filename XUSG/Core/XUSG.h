@@ -1389,7 +1389,7 @@ namespace XUSG
 			virtual void SetConstants(uint32_t index, uint32_t num32BitValues, uint32_t binding,
 				uint32_t space = 0, Shader::Stage stage = Shader::Stage::ALL) = 0;
 			virtual void SetRootSRV(uint32_t index, uint32_t binding, uint32_t space = 0,
-				DescriptorFlag flags = DescriptorFlag::DATA_STATIC_WHILE_SET_AT_EXECUTE, Shader::Stage stage = Shader::Stage::ALL) = 0;
+				DescriptorFlag flags = DescriptorFlag::NONE, Shader::Stage stage = Shader::Stage::ALL) = 0;
 			virtual void SetRootUAV(uint32_t index, uint32_t binding, uint32_t space = 0,
 				DescriptorFlag flags = DescriptorFlag::DATA_STATIC_WHILE_SET_AT_EXECUTE, Shader::Stage stage = Shader::Stage::ALL) = 0;
 			virtual void SetRootCBV(uint32_t index, uint32_t binding, uint32_t space = 0,
