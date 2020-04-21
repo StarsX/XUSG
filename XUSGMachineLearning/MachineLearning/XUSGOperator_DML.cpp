@@ -22,7 +22,7 @@ Operator_DML::~Operator_DML()
 
 bool Operator_DML::Create(const Device& device, const OperatorDesc& desc, ExecutionFlag flags)
 {
-	com_ptr<IDMLOperator> dmlOperator;
+	com_ptr<IDMLOperator> dmlOperator = nullptr;
 	V_RETURN(device->CreateOperator(&desc, IID_PPV_ARGS(&dmlOperator)), cerr, false);
 
 	// Compile the operator into an object that can be dispatched to the GPU. In this step, DirectML performs operator
@@ -77,7 +77,7 @@ bool OperatorInitializer_DML::Create(const Device& device, const Operator::sptr*
 		dmlCompiledOperators[i] = compiledOperators[i].get();
 	}
 
-	com_ptr<IDMLOperatorInitializer> dmlOperatorInitializer;
+	com_ptr<IDMLOperatorInitializer> dmlOperatorInitializer = nullptr;
 	V_RETURN(device->CreateOperatorInitializer(numOperators, dmlCompiledOperators.data(),
 		IID_PPV_ARGS(&dmlOperatorInitializer)), cerr, false);
 	m_dispatchable = dmlOperatorInitializer;
