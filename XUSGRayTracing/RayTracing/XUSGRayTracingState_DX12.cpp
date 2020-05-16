@@ -180,7 +180,7 @@ RayTracing::Pipeline PipelineCache_DX12::createPipeline(const string& key, const
 
 	// DXIL library
 	auto lib = pDesc.CreateSubobject<CD3D12_DXIL_LIBRARY_SUBOBJECT>();
-	auto libdxil = Shader::ByteCode(static_cast<BlobType*>(keyHeader.ShaderLib));
+	auto libdxil = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(keyHeader.ShaderLib));
 	lib->SetDXILLibrary(&libdxil);
 	// Use default shader exports for a DXIL library/collection subobject ~ surface all shaders.
 

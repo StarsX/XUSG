@@ -26,15 +26,15 @@ bool Binding_DML::Create(const ML::Device& device, const Operator& dispatchable,
 	device->GetParentDevice(IID_PPV_ARGS(&parent));
 	m_descriptorStride = parent->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-	Descriptor descriptor(descriptorPool->GetCPUDescriptorHandleForHeapStart());
-	DescriptorTable::element_type descriptorHandle(descriptorPool->GetGPUDescriptorHandleForHeapStart());
-	descriptor.Offset(descriptorOffset, m_descriptorStride);
-	descriptorHandle.Offset(descriptorOffset, m_descriptorStride);
+	CD3DX12_CPU_DESCRIPTOR_HANDLE hCpuDescriptor(descriptorPool->GetCPUDescriptorHandleForHeapStart());
+	CD3DX12_GPU_DESCRIPTOR_HANDLE hGpuDescriptor(descriptorPool->GetGPUDescriptorHandleForHeapStart());
+	hCpuDescriptor.Offset(descriptorOffset, m_descriptorStride);
+	hGpuDescriptor.Offset(descriptorOffset, m_descriptorStride);
 
 	DML_BINDING_TABLE_DESC dmlBindingTableDesc = {};
 	dmlBindingTableDesc.Dispatchable = dispatchable.GetDispatchable().get();
-	dmlBindingTableDesc.CPUDescriptorHandle = descriptor;
-	dmlBindingTableDesc.GPUDescriptorHandle = descriptorHandle;
+	dmlBindingTableDesc.CPUDescriptorHandle = hCpuDescriptor;
+	dmlBindingTableDesc.GPUDescriptorHandle = hGpuDescriptor;
 	dmlBindingTableDesc.SizeInDescriptors = descriptorCount;
 
 	V_RETURN(device->CreateBindingTable(&dmlBindingTableDesc, IID_PPV_ARGS(&m_bindingTable)), cerr, false);
@@ -46,15 +46,15 @@ bool Binding_DML::Create(const ML::Device& device, const Operator& dispatchable,
 bool Binding_DML::Reset(const Operator& dispatchable, const DescriptorPool& descriptorPool,
 	uint32_t descriptorCount, int32_t descriptorOffset)
 {
-	Descriptor descriptor(descriptorPool->GetCPUDescriptorHandleForHeapStart());
-	DescriptorTable::element_type descriptorHandle(descriptorPool->GetGPUDescriptorHandleForHeapStart());
-	descriptor.Offset(descriptorOffset, m_descriptorStride);
-	descriptorHandle.Offset(descriptorOffset, m_descriptorStride);
+	CD3DX12_CPU_DESCRIPTOR_HANDLE hCpuDescriptor(descriptorPool->GetCPUDescriptorHandleForHeapStart());
+	CD3DX12_GPU_DESCRIPTOR_HANDLE hGpuDescriptor(descriptorPool->GetGPUDescriptorHandleForHeapStart());
+	hCpuDescriptor.Offset(descriptorOffset, m_descriptorStride);
+	hGpuDescriptor.Offset(descriptorOffset, m_descriptorStride);
 
 	DML_BINDING_TABLE_DESC dmlBindingTableDesc = {};
 	dmlBindingTableDesc.Dispatchable = dispatchable.GetDispatchable().get();
-	dmlBindingTableDesc.CPUDescriptorHandle = descriptor;
-	dmlBindingTableDesc.GPUDescriptorHandle = descriptorHandle;
+	dmlBindingTableDesc.CPUDescriptorHandle = hCpuDescriptor;
+	dmlBindingTableDesc.GPUDescriptorHandle = hGpuDescriptor;
 	dmlBindingTableDesc.SizeInDescriptors = descriptorCount;
 
 	V_RETURN(m_bindingTable->Reset(&dmlBindingTableDesc), cerr, false);
