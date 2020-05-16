@@ -35,42 +35,36 @@ RayTracing::CommandList_DX12::CommandList_DX12(XUSG::CommandList& commandList)
 #if ENABLE_DXR_FALLBACK
 bool RayTracing::CommandList_DX12::CreateInterface(const RayTracing::Device& device)
 {
-	m_raytracingAPI = device.RaytracingAPI;
+	device.Derived->QueryRaytracingCommandList(m_commandList.get(), IID_PPV_ARGS(&m_commandListR));
 
-	if (m_raytracingAPI == API::FallbackLayer)
-		device.Fallback->QueryRaytracingCommandList(m_commandList.get(), IID_PPV_ARGS(&m_fallback));
-	else // DirectX Raytracing
+	return true;
+}
 #else
 bool RayTracing::CommandList_DX12::CreateInterface()
 {
-#endif
+	const auto hr = m_commandList->QueryInterface(IID_PPV_ARGS(&m_commandListR));
+	if (FAILED(hr))
 	{
-		const auto hr = m_commandList->QueryInterface(IID_PPV_ARGS(&m_native));
-		if (FAILED(hr))
-		{
-			OutputDebugString(L"Couldn't get DirectX Raytracing interface for the command list.\n");
+		OutputDebugString(L"Couldn't get DirectX Raytracing interface for the command list.\n");
 
-			return false;
-		}
+		return false;
 	}
 
 	return true;
 }
+#endif
 
 void RayTracing::CommandList_DX12::BuildRaytracingAccelerationStructure(const BuildDesc* pDesc, uint32_t numPostbuildInfoDescs,
 	const PostbuildInfo* pPostbuildInfoDescs, const DescriptorPool& descriptorPool) const
 {
 #if ENABLE_DXR_FALLBACK
-	if (m_raytracingAPI == API::FallbackLayer)
-	{
-		// Set the descriptor heaps to be used during acceleration structure build for the Fallback Layer.
-		m_fallback->SetDescriptorHeaps(1, descriptorPool.GetAddressOf());
-		m_fallback->BuildRaytracingAccelerationStructure(pDesc, numPostbuildInfoDescs,
-			pPostbuildInfoDescs, AccelerationStructure::GetUAVCount());
-	}
-	else // DirectX Raytracing
+	// Set the descriptor heaps to be used during acceleration structure build for the Fallback Layer.
+	m_commandListR->SetDescriptorHeaps(1, descriptorPool.GetAddressOf());
+	m_commandListR->BuildRaytracingAccelerationStructure(pDesc, numPostbuildInfoDescs,
+		pPostbuildInfoDescs, AccelerationStructure::GetUAVCount());
+#else // DirectX Raytracing
+	m_commandListR->BuildRaytracingAccelerationStructure(pDesc, numPostbuildInfoDescs, pPostbuildInfoDescs);
 #endif
-		m_native->BuildRaytracingAccelerationStructure(pDesc, numPostbuildInfoDescs, pPostbuildInfoDescs);
 }
 
 void RayTracing::CommandList_DX12::SetDescriptorPools(uint32_t numDescriptorPools, const DescriptorPool* pDescriptorPools) const
@@ -79,22 +73,16 @@ void RayTracing::CommandList_DX12::SetDescriptorPools(uint32_t numDescriptorPool
 	for (auto i = 0u; i < numDescriptorPools; ++i)
 		ppDescriptorPools[i] = pDescriptorPools[i].get();
 
-#if ENABLE_DXR_FALLBACK
-	if (m_raytracingAPI == API::FallbackLayer)
-		m_fallback->SetDescriptorHeaps(numDescriptorPools, ppDescriptorPools.data());
-	else // DirectX Raytracing
-#endif
-		m_commandList->SetDescriptorHeaps(numDescriptorPools, ppDescriptorPools.data());
+	m_commandListR->SetDescriptorHeaps(numDescriptorPools, ppDescriptorPools.data());
 }
 
 void RayTracing::CommandList_DX12::SetTopLevelAccelerationStructure(uint32_t index, const TopLevelAS& topLevelAS) const
 {
 #if ENABLE_DXR_FALLBACK
-	if (m_raytracingAPI == API::FallbackLayer)
-		m_fallback->SetTopLevelAccelerationStructure(index, topLevelAS.GetResultPointer());
-	else // DirectX Raytracing
+	m_commandListR->SetTopLevelAccelerationStructure(index, topLevelAS.GetResultPointer());
+#else // DirectX Raytracing
+	XUSG::CommandList_DX12::SetComputeRootShaderResourceView(index, const_cast<TopLevelAS&>(topLevelAS).GetResult()->GetResource());
 #endif
-		XUSG::CommandList_DX12::SetComputeRootShaderResourceView(index, const_cast<TopLevelAS&>(topLevelAS).GetResult()->GetResource());
 }
 
 void RayTracing::CommandList_DX12::DispatchRays(const RayTracing::Pipeline& pipeline,
@@ -122,10 +110,5 @@ void RayTracing::CommandList_DX12::DispatchRays(const RayTracing::Pipeline& pipe
 	};
 
 	D3D12_DISPATCH_RAYS_DESC dispatchDesc = {};
-#if ENABLE_DXR_FALLBACK
-	if (m_raytracingAPI == API::FallbackLayer)
-		dispatchRays(m_fallback.get(), pipeline.Fallback.get(), &dispatchDesc);
-	else // DirectX Raytracing
-#endif
-		dispatchRays(m_native.get(), pipeline.Native.get(), &dispatchDesc);
+	dispatchRays(m_commandListR.get(), pipeline.get(), &dispatchDesc);
 }

@@ -14,15 +14,12 @@ ShaderRecord_DX12::ShaderRecord_DX12(const RayTracing::Device& device, const Ray
 	m_localDescriptorArgs(pLocalDescriptorArgs, localDescriptorArgSize)
 {
 #if ENABLE_DXR_FALLBACK
-	if (device.RaytracingAPI == RayTracing::API::FallbackLayer)
-		m_shaderID.Ptr = pipeline.Fallback->GetShaderIdentifier(reinterpret_cast<const wchar_t*>(shader));
-	else // DirectX Raytracing
+	m_shaderID.Ptr = pipeline->GetShaderIdentifier(reinterpret_cast<const wchar_t*>(shader));
+#else // DirectX Raytracing
+	ComPtr<ID3D12StateObjectProperties> stateObjectProperties;
+	ThrowIfFailed(pipeline->QueryInterface(IID_PPV_ARGS(&stateObjectProperties)));
+	m_shaderID.Ptr = stateObjectProperties->GetShaderIdentifier(reinterpret_cast<const wchar_t*>(shader));
 #endif
-	{
-		ComPtr<ID3D12StateObjectProperties> stateObjectProperties;
-		ThrowIfFailed(pipeline.Native.As(&stateObjectProperties));
-		m_shaderID.Ptr = stateObjectProperties->GetShaderIdentifier(reinterpret_cast<const wchar_t*>(shader));
-	}
 
 	m_shaderID.Size = GetShaderIDSize(device);
 }
@@ -50,8 +47,8 @@ void ShaderRecord_DX12::CopyTo(void* dest) const
 uint32_t ShaderRecord_DX12::GetShaderIDSize(const RayTracing::Device& device)
 {
 #if ENABLE_DXR_FALLBACK
-	const auto shaderIDSize = device.RaytracingAPI == RayTracing::API::FallbackLayer ?
-		device.Fallback->GetShaderIdentifierSize() : D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES;
+	const auto shaderIDSize = device.Derived->UsingRaytracingDriver() ?
+		D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES : device.Derived->GetShaderIdentifierSize();
 #else
 	const auto shaderIDSize = D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES;
 #endif
@@ -141,7 +138,7 @@ bool ShaderTable_DX12::allocate(const RayTracing::Device& device, uint32_t byteW
 	const auto heapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
 	const auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(byteWidth);
 
-	V_RETURN(device.Common->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE,
+	V_RETURN(device.Base->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE,
 		&bufferDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
 		IID_PPV_ARGS(&m_resource)), cerr, false);
 	m_resource->SetName(name);

@@ -245,23 +245,15 @@ RayTracing::Pipeline PipelineCache_DX12::createPipeline(const string& key, const
 	//PrintStateObjectDesc(desc);
 
 	// Create pipeline
-	Pipeline pipeline = {};
-#if ENABLE_DXR_FALLBACK
-	if (m_device.RaytracingAPI == RayTracing::API::FallbackLayer)
-		H_RETURN(m_device.Fallback->CreateStateObject(pDesc, IID_PPV_ARGS(&pipeline.Fallback)), cerr,
-			L"Couldn't create DirectX Raytracing state object.\n", pipeline)
-	else // DirectX Raytracing
-#endif
-		H_RETURN(m_device.Native->CreateStateObject(pDesc, IID_PPV_ARGS(&pipeline.Native)), cerr,
-			L"Couldn't create DirectX Raytracing state object.\n", pipeline);
+	Pipeline pipeline = nullptr;
+	H_RETURN(m_device.Derived->CreateStateObject(pDesc, IID_PPV_ARGS(&pipeline)), cerr,
+		L"Couldn't create DirectX Raytracing state object.\n", pipeline);
 
-	if (name)
-	{
-		if (pipeline.Native) pipeline.Native->SetName(name);
 #if ENABLE_DXR_FALLBACK
-		if (pipeline.Fallback) pipeline.Fallback->GetStateObject()->SetName(name);
+	if (name) pipeline->GetStateObject()->SetName(name);
+#else
+	if (name) pipeline->SetName(name);
 #endif
-	}
 
 	return pipeline;
 }

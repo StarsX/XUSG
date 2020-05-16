@@ -41,12 +41,9 @@ namespace XUSG
 
 		protected:
 #if ENABLE_DXR_FALLBACK
-			FallbackCommandList m_fallback;
-#endif
-			NativeCommandList m_native;
-
-#if ENABLE_DXR_FALLBACK
-			API m_raytracingAPI;
+			com_ptr<ID3D12RaytracingFallbackCommandList> m_commandListR;
+#else
+			com_ptr<ID3D12GraphicsCommandList4> m_commandListR;
 #endif
 		};
 	}

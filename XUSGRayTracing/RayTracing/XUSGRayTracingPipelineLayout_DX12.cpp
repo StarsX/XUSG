@@ -37,21 +37,14 @@ XUSG::PipelineLayout RayTracing::PipelineLayout_DX12::CreatePipelineLayout(const
 	XUSG::PipelineLayout layout;
 	Blob signature, error;
 #if ENABLE_DXR_FALLBACK
-	if (device.RaytracingAPI == RayTracing::API::FallbackLayer)
-	{
-		H_RETURN(device.Fallback->D3D12SerializeRootSignature(&layoutDesc.Desc_1_0, D3D_ROOT_SIGNATURE_VERSION_1, &signature,
-			&error, AccelerationStructure::GetUAVCount()), cerr, reinterpret_cast<wchar_t*>(error->GetBufferPointer()), nullptr);
-		V_RETURN(device.Fallback->CreateRootSignature(1, signature->GetBufferPointer(), signature->GetBufferSize(),
-			IID_PPV_ARGS(&layout)), cerr, nullptr);
-	}
-	else // DirectX Raytracing
+	H_RETURN(device.Derived->D3D12SerializeRootSignature(&layoutDesc.Desc_1_0, D3D_ROOT_SIGNATURE_VERSION_1, &signature,
+		&error, AccelerationStructure::GetUAVCount()), cerr, reinterpret_cast<wchar_t*>(error->GetBufferPointer()), nullptr);
+#else // DirectX Raytracing
+	H_RETURN(D3D12SerializeRootSignature(&layoutDesc.Desc_1_0, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error),
+		cerr, reinterpret_cast<wchar_t*>(error->GetBufferPointer()), nullptr);
 #endif
-	{
-		H_RETURN(D3D12SerializeRootSignature(&layoutDesc.Desc_1_0, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error),
-			cerr, reinterpret_cast<wchar_t*>(error->GetBufferPointer()), nullptr);
-		V_RETURN(device.Native->CreateRootSignature(1, signature->GetBufferPointer(), signature->GetBufferSize(),
-			IID_PPV_ARGS(&layout)), cerr, nullptr);
-	}
+	V_RETURN(device.Derived->CreateRootSignature(1, signature->GetBufferPointer(), signature->GetBufferSize(),
+		IID_PPV_ARGS(&layout)), cerr, nullptr);
 	if (name) layout->SetName(name);
 
 	return layout;
