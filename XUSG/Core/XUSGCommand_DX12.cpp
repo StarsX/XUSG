@@ -141,10 +141,9 @@ void CommandList_DX12::CopyTextureRegion(const TextureCopyLocation& dst,
 	uint32_t dstX, uint32_t dstY, uint32_t dstZ, const TextureCopyLocation& src,
 	const BoxRange* pSrcBox) const
 {
-	m_commandList->CopyTextureRegion(
-		&CD3DX12_TEXTURE_COPY_LOCATION(dst.TextureResource.get(), dst.SubresourceIndex), dstX, dstY, dstZ,
-		&CD3DX12_TEXTURE_COPY_LOCATION(src.TextureResource.get(), src.SubresourceIndex),
-		reinterpret_cast<const D3D12_BOX*>(pSrcBox));
+	const CD3DX12_TEXTURE_COPY_LOCATION dstCopy(dst.TextureResource.get(), dst.SubresourceIndex);
+	const CD3DX12_TEXTURE_COPY_LOCATION srcCopy(src.TextureResource.get(), src.SubresourceIndex);
+	m_commandList->CopyTextureRegion(&dstCopy, dstX, dstY, dstZ, &srcCopy, reinterpret_cast<const D3D12_BOX*>(pSrcBox));
 }
 
 void CommandList_DX12::CopyResource(const Resource& dstResource, const Resource& srcResource) const

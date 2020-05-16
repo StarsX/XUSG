@@ -95,34 +95,33 @@ bool ConstantBuffer_DX12::Create(const Device& device, size_t byteWidth, uint32_
 		byteWidth = cbvSize * numCBVs;
 	}
 
-	const auto strideCbv = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	const CD3DX12_HEAP_PROPERTIES heapProperties(GetDX12HeapType(memoryType));
+	const auto desc = CD3DX12_RESOURCE_DESC::Buffer(byteWidth, D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE);
 
-	V_RETURN(m_device->CreateCommittedResource(
-		&CD3DX12_HEAP_PROPERTIES(GetDX12HeapType(memoryType)),
-		D3D12_HEAP_FLAG_NONE,
-		&CD3DX12_RESOURCE_DESC::Buffer(byteWidth, D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE),
+	V_RETURN(m_device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &desc,
 		memoryType == MemoryType::DEFAULT ? D3D12_RESOURCE_STATE_COMMON : D3D12_RESOURCE_STATE_GENERIC_READ,
-		nullptr,
-		IID_PPV_ARGS(&m_resource)), clog, false);
+		nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
 	if (name) m_resource->SetName((wstring(name) + L".Resource").c_str());
 
 	// Describe and create a constant buffer view.
-	D3D12_CONSTANT_BUFFER_VIEW_DESC desc;
-
-	m_cbvs.resize(numCBVs);
-	m_cbvOffsets.resize(numCBVs);
-	const auto maxSize = static_cast<uint32_t>(byteWidth);
-	for (auto i = 0u; i < numCBVs; ++i)
 	{
-		const auto& offset = offsets[i];
-		desc.BufferLocation = m_resource->GetGPUVirtualAddress() + offset;
-		desc.SizeInBytes = static_cast<uint32_t>((i + 1 >= numCBVs ? maxSize : offsets[i + 1]) - offset);
+		D3D12_CONSTANT_BUFFER_VIEW_DESC desc;
 
-		m_cbvOffsets[i] = offset;
+		m_cbvs.resize(numCBVs);
+		m_cbvOffsets.resize(numCBVs);
+		const auto maxSize = static_cast<uint32_t>(byteWidth);
+		for (auto i = 0u; i < numCBVs; ++i)
+		{
+			const auto& offset = offsets[i];
+			desc.BufferLocation = m_resource->GetGPUVirtualAddress() + offset;
+			desc.SizeInBytes = static_cast<uint32_t>((i + 1 >= numCBVs ? maxSize : offsets[i + 1]) - offset);
 
-		// Create a constant buffer view
-		m_cbvs[i] = allocateCbvPool(name);
-		m_device->CreateConstantBufferView(&desc, { m_cbvs[i] });
+			m_cbvOffsets[i] = offset;
+
+			// Create a constant buffer view
+			m_cbvs[i] = allocateCbvPool(name);
+			m_device->CreateConstantBufferView(&desc, { m_cbvs[i] });
+		}
 	}
 
 	return true;
@@ -136,31 +135,36 @@ bool ConstantBuffer_DX12::Upload(CommandList* pCommandList, Resource& uploader, 
 	subresourceData.pData = pData;
 	subresourceData.RowPitch = static_cast<uint32_t>(size);
 	subresourceData.SlicePitch = static_cast<uint32_t>(m_resource->GetDesc().Width);
-
 	// Create the GPU upload buffer.
 	if (!uploader)
 	{
+		const CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_UPLOAD);
 		const auto cbSize = static_cast<uint32_t>(size + offset);
-		V_RETURN(m_device->CreateCommittedResource(
-			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-			D3D12_HEAP_FLAG_NONE,
-			&CD3DX12_RESOURCE_DESC::Buffer(CalculateConstantBufferByteSize(cbSize)),
-			D3D12_RESOURCE_STATE_GENERIC_READ,
-			nullptr,
-			IID_PPV_ARGS(&uploader)), clog, false);
+		const auto desc = CD3DX12_RESOURCE_DESC::Buffer(CalculateConstantBufferByteSize(cbSize));
+
+		V_RETURN(m_device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &desc,
+			D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&uploader)), clog, false);
 	}
 
 	// Copy data to the intermediate upload heap and then schedule a copy 
 	// from the upload heap to the buffer.
 	if (srcState != ResourceState::COMMON)
-		pCommandList->Barrier(1, &ResourceBarrier::Transition(m_resource.get(),
-			GetDX12ResourceStates(srcState), D3D12_RESOURCE_STATE_COPY_DEST));
+	{
+		const auto barrier = ResourceBarrier::Transition(m_resource.get(),
+			GetDX12ResourceStates(srcState), D3D12_RESOURCE_STATE_COPY_DEST);
+		pCommandList->Barrier(1, &barrier);
+	}
+
 	const auto pGraphicsCommandList = dynamic_cast<CommandList_DX12*>(pCommandList)->GetGraphicsCommandList().get();
 	M_RETURN(UpdateSubresources(pGraphicsCommandList, m_resource.get(), uploader.get(), offset, 0, 1, &subresourceData) <= 0,
 		clog, "Failed to upload the resource.", false);
+
 	if (dstState != ResourceState::COMMON)
-		pCommandList->Barrier(1, &ResourceBarrier::Transition(m_resource.get(),
-			D3D12_RESOURCE_STATE_COPY_DEST, GetDX12ResourceStates(dstState)));
+	{
+		const auto barrier = ResourceBarrier::Transition(m_resource.get(),
+			D3D12_RESOURCE_STATE_COPY_DEST, GetDX12ResourceStates(dstState));
+		pCommandList->Barrier(1, &barrier);
+	}
 
 	return true;
 }
@@ -338,6 +342,7 @@ bool Texture2D_DX12::Create(const Device& device, uint32_t width, uint32_t heigh
 	const auto formatUAV = needPackedUAV ? MapToPackedFormat(format) : format;
 
 	// Setup the texture description.
+	const CD3DX12_HEAP_PROPERTIES heapProperties(GetDX12HeapType(memoryType));
 	const auto desc = CD3DX12_RESOURCE_DESC::Tex2D(GetDXGIFormat(format),
 		width, height, arraySize, numMips, sampleCount, 0, GetDX12ResourceFlags(resourceFlags));
 
@@ -357,10 +362,9 @@ bool Texture2D_DX12::Create(const Device& device, uint32_t width, uint32_t heigh
 		for (auto& state : m_states)
 			state = ResourceState::COMMON;
 	}
-	
-	V_RETURN(m_device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(GetDX12HeapType(memoryType)),
-		D3D12_HEAP_FLAG_NONE, &desc, GetDX12ResourceStates(m_states[0]), nullptr,
-		IID_PPV_ARGS(&m_resource)), clog, false);
+
+	V_RETURN(m_device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &desc,
+		GetDX12ResourceStates(m_states[0]), nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
 	if (!m_name.empty()) m_resource->SetName((m_name + L".Resource").c_str());
 
 	// Create SRV
@@ -388,15 +392,13 @@ bool Texture2D_DX12::Upload(CommandList* pCommandList, Resource& uploader,
 	// Create the GPU upload buffer.
 	if (!uploader)
 	{
+		const CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_UPLOAD);
 		const auto uploadBufferSize = GetRequiredIntermediateSize(m_resource.get(),
 			firstSubresource, numSubresources);
-		V_RETURN(m_device->CreateCommittedResource(
-			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-			D3D12_HEAP_FLAG_NONE,
-			&CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize),
-			D3D12_RESOURCE_STATE_GENERIC_READ,
-			nullptr,
-			IID_PPV_ARGS(&uploader)), clog, false);
+		const auto desc = CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize);
+
+		V_RETURN(m_device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &desc,
+			D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&uploader)), clog, false);
 		if (!m_name.empty()) uploader->SetName((m_name + L".UploaderResource").c_str());
 	}
 
@@ -988,7 +990,7 @@ uint32_t RenderTarget_DX12::GenerateMips(const CommandList* pCommandList, Resour
 		pCommandList->Barrier(numBarriers, pBarriers);
 		numBarriers = 0;
 
-		if(numSlices > 1) pCommandList->SetGraphics32BitConstant(cbSlot, 0, offsetForSliceId);
+		if (numSlices > 1) pCommandList->SetGraphics32BitConstant(cbSlot, 0, offsetForSliceId);
 		Blit(pCommandList, pSrcSrvTables[i], srcSlot, j, baseSlice, numSlices,
 			nullptr, samplerSlot, nullptr, offsetForSliceId, cbSlot);
 	}
@@ -1037,6 +1039,7 @@ bool RenderTarget_DX12::create(const Device& device, uint32_t width, uint32_t he
 	const auto formatUAV = needPackedUAV ? MapToPackedFormat(format) : format;
 
 	// Setup the texture description.
+	const CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_DEFAULT);
 	const auto desc = CD3DX12_RESOURCE_DESC::Tex2D(GetDXGIFormat(format),
 		width, height, arraySize, numMips, sampleCount, 0,
 		GetDX12ResourceFlags(ResourceFlag::ALLOW_RENDER_TARGET | resourceFlags));
@@ -1050,9 +1053,8 @@ bool RenderTarget_DX12::create(const Device& device, uint32_t width, uint32_t he
 	if (pClearColor) memcpy(clearValue.Color, pClearColor, sizeof(clearValue.Color));
 
 	// Create the render target texture.
-	V_RETURN(m_device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-		D3D12_HEAP_FLAG_NONE, &desc, GetDX12ResourceStates(m_states[0]), &clearValue,
-		IID_PPV_ARGS(&m_resource)), clog, false);
+	V_RETURN(m_device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &desc,
+		GetDX12ResourceStates(m_states[0]), &clearValue, IID_PPV_ARGS(&m_resource)), clog, false);
 	if (!m_name.empty()) m_resource->SetName((m_name + L".Resource").c_str());
 
 	// Create SRV
@@ -1292,7 +1294,7 @@ bool DepthStencil_DX12::create(const Device& device, uint32_t width, uint32_t he
 	if (name) m_name = name;
 
 	hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
-	
+
 	// Map formats
 	m_format = format;
 	auto formatDepth = Format::UNKNOWN;
@@ -1329,6 +1331,7 @@ bool DepthStencil_DX12::create(const Device& device, uint32_t width, uint32_t he
 
 	// Setup the render depth stencil description.
 	{
+		const CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_DEFAULT);
 		const auto desc = CD3DX12_RESOURCE_DESC::Tex2D(GetDXGIFormat(format),
 			width, height, arraySize, numMips, sampleCount, 0,
 			GetDX12ResourceFlags(ResourceFlag::ALLOW_DEPTH_STENCIL | resourceFlags));
@@ -1343,9 +1346,8 @@ bool DepthStencil_DX12::create(const Device& device, uint32_t width, uint32_t he
 		clearValue.DepthStencil.Stencil = clearStencil;
 
 		// Create the depth stencil texture.
-		V_RETURN(m_device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-			D3D12_HEAP_FLAG_NONE, &desc, GetDX12ResourceStates(m_states[0]), &clearValue,
-			IID_PPV_ARGS(&m_resource)), clog, false);
+		V_RETURN(m_device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &desc,
+			GetDX12ResourceStates(m_states[0]), &clearValue, IID_PPV_ARGS(&m_resource)), clog, false);
 		if (!m_name.empty()) m_resource->SetName((m_name + L".Resource").c_str());
 	}
 
@@ -1457,6 +1459,7 @@ bool Texture3D_DX12::Create(const Device& device, uint32_t width, uint32_t heigh
 	const auto formatUAV = needPackedUAV ? MapToPackedFormat(format) : format;
 
 	// Setup the texture description.
+	const CD3DX12_HEAP_PROPERTIES heapProperties(GetDX12HeapType(memoryType));
 	const auto desc = CD3DX12_RESOURCE_DESC::Tex3D(GetDXGIFormat(format),
 		width, height, depth, numMips, GetDX12ResourceFlags(resourceFlags));
 
@@ -1476,10 +1479,9 @@ bool Texture3D_DX12::Create(const Device& device, uint32_t width, uint32_t heigh
 		for (auto& state : m_states)
 			state = ResourceState::COMMON;
 	}
-	
-	V_RETURN(m_device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(GetDX12HeapType(memoryType)),
-		D3D12_HEAP_FLAG_NONE, &desc, GetDX12ResourceStates(m_states[0]), nullptr,
-		IID_PPV_ARGS(&m_resource)), clog, false);
+
+	V_RETURN(m_device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &desc,
+		GetDX12ResourceStates(m_states[0]), nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
 	if (!m_name.empty()) m_resource->SetName((m_name + L".Resource").c_str());
 
 	// Create SRV
@@ -1636,13 +1638,11 @@ bool RawBuffer_DX12::Upload(CommandList* pCommandList, Resource& uploader, const
 	// Create the GPU upload buffer.
 	if (!uploader)
 	{
-		V_RETURN(m_device->CreateCommittedResource(
-			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-			D3D12_HEAP_FLAG_NONE,
-			&CD3DX12_RESOURCE_DESC::Buffer(offset + size),
-			D3D12_RESOURCE_STATE_GENERIC_READ,
-			nullptr,
-			IID_PPV_ARGS(&uploader)), clog, false);
+		const CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_UPLOAD);
+		const auto desc = CD3DX12_RESOURCE_DESC::Buffer(offset + size);
+
+		V_RETURN(m_device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &desc,
+			D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&uploader)), clog, false);
 		if (!m_name.empty()) uploader->SetName((m_name + L".UploaderResource").c_str());
 	}
 
@@ -1673,7 +1673,7 @@ bool RawBuffer_DX12::CreateSRVs(size_t byteWidth, const uint32_t* firstElements,
 	{
 		m_srvOffsets.resize(1);
 		m_srvs.resize(1);
-		
+
 		m_srvOffsets[0] = firstElements ? firstElements[0] : 0;
 		desc.Format = DXGI_FORMAT_UNKNOWN;
 		//desc.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
@@ -1754,7 +1754,9 @@ const Descriptor& RawBuffer_DX12::GetUAV(uint32_t index) const
 
 void* RawBuffer_DX12::Map(uint32_t descriptorIndex, uintptr_t readBegin, uintptr_t readEnd)
 {
-	return Map(&Range(readBegin, readEnd), descriptorIndex);
+	const Range range(readBegin, readEnd);
+
+	return Map(&range, descriptorIndex);
 }
 
 void* RawBuffer_DX12::Map(const Range* pReadRange, uint32_t descriptorIndex)
@@ -1788,6 +1790,7 @@ bool RawBuffer_DX12::create(const Device& device, size_t byteWidth, ResourceFlag
 	const auto isRaytracingAS = (resourceFlags & ResourceFlag::ACCELERATION_STRUCTURE) == ResourceFlag::ACCELERATION_STRUCTURE;
 
 	// Setup the buffer description.
+	const CD3DX12_HEAP_PROPERTIES heapProperties(GetDX12HeapType(memoryType));
 	const auto desc = CD3DX12_RESOURCE_DESC::Buffer(byteWidth, GetDX12ResourceFlags(resourceFlags));
 
 	// Determine initial state
@@ -1809,9 +1812,8 @@ bool RawBuffer_DX12::create(const Device& device, size_t byteWidth, ResourceFlag
 			state = ResourceState::COMMON;
 	}
 
-	V_RETURN(m_device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(GetDX12HeapType(memoryType)),
-		D3D12_HEAP_FLAG_NONE, &desc, GetDX12ResourceStates(m_states[0]), nullptr,
-		IID_PPV_ARGS(&m_resource)), clog, false);
+	V_RETURN(m_device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &desc,
+		GetDX12ResourceStates(m_states[0]), nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
 	if (!m_name.empty()) m_resource->SetName((m_name + L".Resource").c_str());
 
 	return true;

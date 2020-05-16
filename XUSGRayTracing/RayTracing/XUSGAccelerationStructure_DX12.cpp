@@ -98,7 +98,7 @@ bool AccelerationStructure_DX12::preBuild(const Device& device, uint32_t descrip
 
 	// Allocate resources for acceleration structures.
 	// Acceleration structures can only be placed in resources that are created in the default heap (or custom heap equivalent). 
-	// Default heap is OK since the application doesn’t need CPU read/write access to them. 
+	// Default heap is OK since the application doesn't need CPU read/write access to them. 
 	// The resources that will contain acceleration structures must be created in the state D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE, 
 	// and must have resource flag D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS. The ALLOW_UNORDERED_ACCESS requirement simply acknowledges both: 
 	//  - the system will be doing this type of access in its implementation of acceleration structure builds behind the scenes.
@@ -179,7 +179,8 @@ void BottomLevelAS_DX12::Build(const CommandList* pCommandList, const Resource& 
 	pCommandList->BuildRaytracingAccelerationStructure(&m_buildDesc, 0, nullptr, descriptorPool);
 
 	// Resource barrier
-	pCommandList->Barrier(1, &ResourceBarrier::UAV(m_results[m_currentFrame]->GetResource().get()));
+	const auto barrier = ResourceBarrier::UAV(m_results[m_currentFrame]->GetResource().get());
+	pCommandList->Barrier(1, &barrier);
 }
 
 #if !ENABLE_DXR_FALLBACK
@@ -198,7 +199,7 @@ void BottomLevelAS_DX12::SetTriangleGeometries(Geometry* pGeometries, uint32_t n
 	for (auto i = 0u; i < numGeometries; ++i)
 	{
 		auto& geometryDesc = pGeometries[i];
-		
+
 		auto strideIB = 0u;
 		if (pIBs)
 		{
@@ -208,7 +209,7 @@ void BottomLevelAS_DX12::SetTriangleGeometries(Geometry* pGeometries, uint32_t n
 
 		geometryDesc = {};
 		geometryDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
-		geometryDesc.Triangles.Transform3x4 = pTransforms ? pTransforms[i].resource->GetGPUVirtualAddress() + pTransforms[i].offset: 0;
+		geometryDesc.Triangles.Transform3x4 = pTransforms ? pTransforms[i].resource->GetGPUVirtualAddress() + pTransforms[i].offset : 0;
 		geometryDesc.Triangles.IndexFormat = pIBs ? pIBs[i].Format : DXGI_FORMAT_UNKNOWN;
 		geometryDesc.Triangles.VertexFormat = static_cast<decltype(geometryDesc.Triangles.VertexFormat)>(vertexFormat);
 		geometryDesc.Triangles.IndexCount = pIBs ? pIBs[i].SizeInBytes / strideIB : 0;
