@@ -82,7 +82,7 @@ namespace XUSG
 			void Build(const CommandList* pCommandList, const Resource& scratch,
 				const Resource& instanceDescs, const DescriptorPool& descriptorPool, bool update = false);
 #if !ENABLE_DXR_FALLBACK
-			void Build(CommandList* pCommandList, const Resource& scratch,
+			void Build(XUSG::CommandList* pCommandList, const Resource& scratch,
 				const Resource& instanceDescs, const DescriptorPool& descriptorPool, bool update = false);
 #endif
 

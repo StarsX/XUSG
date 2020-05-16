@@ -83,7 +83,7 @@ bool AccelerationStructure_DX12::AllocateUploadBuffer(const XUSG::Device& device
 	return true;
 }
 
-bool AccelerationStructure_DX12::preBuild(const RayTracing::Device& device, uint32_t descriptorIndex, uint32_t numSRVs)
+bool AccelerationStructure_DX12::preBuild(const Device& device, uint32_t descriptorIndex, uint32_t numSRVs)
 {
 	const auto& inputs = m_buildDesc.Inputs;
 
@@ -143,7 +143,7 @@ BottomLevelAS_DX12::~BottomLevelAS_DX12()
 {
 }
 
-bool BottomLevelAS_DX12::PreBuild(const RayTracing::Device& device, uint32_t numDescs,
+bool BottomLevelAS_DX12::PreBuild(const Device& device, uint32_t numDescs,
 	const Geometry* pGeometries, uint32_t descriptorIndex, BuildFlags flags)
 {
 	m_buildDesc = {};
@@ -158,7 +158,7 @@ bool BottomLevelAS_DX12::PreBuild(const RayTracing::Device& device, uint32_t num
 	return preBuild(device, descriptorIndex);
 }
 
-void BottomLevelAS_DX12::Build(const RayTracing::CommandList* pCommandList, const Resource& scratch,
+void BottomLevelAS_DX12::Build(const CommandList* pCommandList, const Resource& scratch,
 	const DescriptorPool& descriptorPool, bool update)
 {
 	// Complete Acceleration Structure desc
@@ -186,7 +186,7 @@ void BottomLevelAS_DX12::Build(const RayTracing::CommandList* pCommandList, cons
 void BottomLevelAS_DX12::Build(XUSG::CommandList* pCommandList, const Resource& scratch,
 	const DescriptorPool& descriptorPool, bool update)
 {
-	const auto commandList = RayTracing::CommandList::MakeUnique(*pCommandList);
+	const auto commandList = CommandList::MakeUnique(*pCommandList);
 	Build(commandList.get(), scratch, descriptorPool, update);
 }
 #endif
@@ -257,7 +257,7 @@ TopLevelAS_DX12::~TopLevelAS_DX12()
 {
 }
 
-bool TopLevelAS_DX12::PreBuild(const RayTracing::Device& device, uint32_t numDescs,
+bool TopLevelAS_DX12::PreBuild(const Device& device, uint32_t numDescs,
 	uint32_t descriptorIndex, BuildFlags flags)
 {
 	m_buildDesc = {};
@@ -271,7 +271,7 @@ bool TopLevelAS_DX12::PreBuild(const RayTracing::Device& device, uint32_t numDes
 	return preBuild(device, descriptorIndex, 1);
 }
 
-void TopLevelAS_DX12::Build(const RayTracing::CommandList* pCommandList, const Resource& scratch,
+void TopLevelAS_DX12::Build(const CommandList* pCommandList, const Resource& scratch,
 	const Resource& instanceDescs, const DescriptorPool& descriptorPool, bool update)
 {
 	// Complete Acceleration Structure desc
@@ -297,7 +297,7 @@ void TopLevelAS_DX12::Build(const RayTracing::CommandList* pCommandList, const R
 void TopLevelAS_DX12::Build(XUSG::CommandList* pCommandList, const Resource& scratch,
 	const Resource& instanceDescs, const DescriptorPool& descriptorPool, bool update)
 {
-	const auto commandList = RayTracing::CommandList::MakeUnique(*pCommandList);
+	const auto commandList = CommandList::MakeUnique(*pCommandList);
 	Build(commandList.get(), scratch, instanceDescs, descriptorPool, update);
 }
 #endif
