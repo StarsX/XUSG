@@ -21,6 +21,10 @@ https://github.com/StarsX/FluidX12
 
 https://github.com/StarsX/ParticleEmitter
 
+Using XUSGCore and partially open-source XUSGAdvanced
+
+https://github.com/StarsX/Character12
+
 Using XUSGDXRFallback:
 
 https://github.com/StarsX/RayTracedGGX (test only, actually GGX has not been completed yet.)
