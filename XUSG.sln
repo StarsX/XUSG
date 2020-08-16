@@ -15,6 +15,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "XUSGDXRFallback", "XUSGDXRF
 		{E9AAF02C-9572-4FDA-992E-C1B2371C8D02} = {E9AAF02C-9572-4FDA-992E-C1B2371C8D02}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "XUSGMachineLearning", "XUSGMachineLearning\XUSGMachineLearning.vcxproj", "{2BB2CB36-7B1C-4ED9-8837-42448DC46545}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -47,6 +49,14 @@ Global
 		{FA515BAE-5AD1-420E-9B88-259FA0AF702F}.Release|x64.Build.0 = Release|x64
 		{FA515BAE-5AD1-420E-9B88-259FA0AF702F}.Release|x86.ActiveCfg = Release|Win32
 		{FA515BAE-5AD1-420E-9B88-259FA0AF702F}.Release|x86.Build.0 = Release|Win32
+		{2BB2CB36-7B1C-4ED9-8837-42448DC46545}.Debug|x64.ActiveCfg = Debug|x64
+		{2BB2CB36-7B1C-4ED9-8837-42448DC46545}.Debug|x64.Build.0 = Debug|x64
+		{2BB2CB36-7B1C-4ED9-8837-42448DC46545}.Debug|x86.ActiveCfg = Debug|Win32
+		{2BB2CB36-7B1C-4ED9-8837-42448DC46545}.Debug|x86.Build.0 = Debug|Win32
+		{2BB2CB36-7B1C-4ED9-8837-42448DC46545}.Release|x64.ActiveCfg = Release|x64
+		{2BB2CB36-7B1C-4ED9-8837-42448DC46545}.Release|x64.Build.0 = Release|x64
+		{2BB2CB36-7B1C-4ED9-8837-42448DC46545}.Release|x86.ActiveCfg = Release|Win32
+		{2BB2CB36-7B1C-4ED9-8837-42448DC46545}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

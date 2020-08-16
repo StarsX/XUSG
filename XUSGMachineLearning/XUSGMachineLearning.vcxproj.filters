@@ -1,0 +1,90 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="MachineLearning">
+      <UniqueIdentifier>{3405e6b9-5e95-4e94-adef-b3e130da8834}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="MachineLearning\Header Files">
+      <UniqueIdentifier>{e922b95f-841c-41cc-b55f-932579f968c3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="MachineLearning\Source Files">
+      <UniqueIdentifier>{c53c3632-3fb3-4282-893c-efd11a928ce4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Common">
+      <UniqueIdentifier>{3579f037-941d-43b8-8273-50d1de1f1cf0}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="stdafx.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\Float16Compressor.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="MachineLearning\XUSGMachineLearning.h">
+      <Filter>MachineLearning\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="MachineLearning\XUSGMachineLearningUtil.h">
+      <Filter>MachineLearning\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="MachineLearning\XUSGMachineLearning_DML.h">
+      <Filter>MachineLearning\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="MachineLearning\XUSGTensor_DML.h">
+      <Filter>MachineLearning\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="MachineLearning\XUSGOperator_DML.h">
+      <Filter>MachineLearning\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="MachineLearning\XUSGBinding_DML.h">
+      <Filter>MachineLearning\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="MachineLearning\XUSGCommandRecorder_DML.h">
+      <Filter>MachineLearning\Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="stdafx.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MachineLearning\XUSGMachineLearningUtil.cpp">
+      <Filter>MachineLearning\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MachineLearning\XUSGMachineLearning_DML.cpp">
+      <Filter>MachineLearning\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MachineLearning\XUSGMachineLearning.cpp">
+      <Filter>MachineLearning\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSG\Core\XUSGCommand_DX12.cpp">
+      <Filter>MachineLearning\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSG\Core\XUSG_DX12.cpp">
+      <Filter>MachineLearning\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MachineLearning\XUSGTensor_DML.cpp">
+      <Filter>MachineLearning\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MachineLearning\XUSGOperator_DML.cpp">
+      <Filter>MachineLearning\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MachineLearning\XUSGBinding_DML.cpp">
+      <Filter>MachineLearning\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MachineLearning\XUSGCommandRecorder_DML.cpp">
+      <Filter>MachineLearning\Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

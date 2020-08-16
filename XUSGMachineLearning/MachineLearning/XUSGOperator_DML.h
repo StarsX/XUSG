@@ -1,0 +1,56 @@
+//--------------------------------------------------------------------------------------
+// Copyright (c) XU, Tianchen. All rights reserved.
+//--------------------------------------------------------------------------------------
+
+#pragma once
+
+#include "XUSGMachineLearning.h"
+
+namespace XUSG
+{
+	namespace ML
+	{
+		//--------------------------------------------------------------------------------------
+		// Operator
+		//--------------------------------------------------------------------------------------
+		class Operator_DML :
+			public virtual Operator
+		{
+		public:
+			Operator_DML();
+			virtual ~Operator_DML();
+
+			bool Create(const Device& device, const OperatorDesc& desc, ExecutionFlag flags = ExecutionFlag::NONE);
+
+			const Dispatchable& GetDispatchable() const;
+
+			uint32_t GetDescriptorCount() const;
+			uint64_t GetTemporaryResourceSize() const;
+			uint64_t GetPersistentResourceSize() const;
+
+		protected:
+			Dispatchable m_dispatchable;
+		};
+
+		//--------------------------------------------------------------------------------------
+		// Operator initializer
+		//--------------------------------------------------------------------------------------
+		class OperatorInitializer_DML :
+			public virtual OperatorInitializer,
+			public virtual Operator_DML
+		{
+		public:
+			OperatorInitializer_DML();
+			virtual ~OperatorInitializer_DML();
+
+			bool Create(const Device& device, const Operator::sptr* pOperators, uint32_t numOperators);
+
+			uint32_t GetDescriptorCount() const;
+			uint64_t GetTemporaryResourceSize() const;
+
+		protected:
+			uint32_t m_descriptorCount;
+			uint64_t m_temporaryResourceSize;
+		};
+	}
+}
