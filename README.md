@@ -32,6 +32,10 @@ https://github.com/StarsX/RayTracedGGX (test only, actually GGX has not been com
 
 https://github.com/StarsX/DXRVoxelizer
 
+Using XUSGRayTracing:
+
+https://github.com/StarsX/SparseVolumeDXR (DXR fallback layer has a bug on IgnoreHit() to implement the algorithm, but the partial demo can run without DXR.)
+
 Using XUSGMachineLearning:
 
 https://github.com/StarsX/SuperResolution (reproducing DML SuperResolution sample)
