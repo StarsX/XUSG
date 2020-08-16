@@ -16,6 +16,9 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "XUSGDXRFallback", "XUSGDXRF
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "XUSGMachineLearning", "XUSGMachineLearning\XUSGMachineLearning.vcxproj", "{2BB2CB36-7B1C-4ED9-8837-42448DC46545}"
+	ProjectSection(ProjectDependencies) = postProject
+		{E9AAF02C-9572-4FDA-992E-C1B2371C8D02} = {E9AAF02C-9572-4FDA-992E-C1B2371C8D02}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
