@@ -206,7 +206,7 @@ namespace XUSG
 	}
 
 	// DX12 enum transfer functions
-	DXGI_FORMAT GetDXGIFormat(Format format);
+	DLL_INTERFACE DXGI_FORMAT GetDXGIFormat(Format format);
 
 	D3D12_COMMAND_LIST_TYPE GetDX12CommandListType(CommandListType commandListType);
 	D3D12_INPUT_CLASSIFICATION GetDX12InputClassification(InputClassification inputClassification);

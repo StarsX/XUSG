@@ -223,13 +223,12 @@ namespace XUSG
 		Descriptor GetReadOnlyDSV(uint32_t slice = 0, uint8_t mipLevel = 0) const;
 		const Descriptor& GetStencilSRV() const;
 
-		Format		GetDSVFormat() const;
 		uint32_t	GetArraySize() const;
 		uint8_t		GetNumMips() const;
 
 	protected:
 		bool create(const Device& device, uint32_t width, uint32_t height, uint32_t arraySize,
-			uint8_t numMips, uint8_t sampleCount, Format& format, ResourceFlag resourceFlags,
+			uint8_t numMips, uint8_t sampleCount, Format format, ResourceFlag resourceFlags,
 			float clearDepth, uint8_t clearStencil, bool& hasSRV, Format& formatStencil,
 			bool isCubeMap, const wchar_t* name);
 		Descriptor allocateDsvPool();
@@ -238,7 +237,6 @@ namespace XUSG
 		std::vector<std::vector<Descriptor>> m_dsvs;
 		std::vector<std::vector<Descriptor>> m_readOnlyDsvs;
 		Descriptor	m_stencilSrv;
-		Format		m_dsvFormat;
 	};
 
 	//--------------------------------------------------------------------------------------

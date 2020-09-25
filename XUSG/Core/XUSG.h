@@ -700,7 +700,6 @@ namespace XUSG
 		virtual Descriptor GetReadOnlyDSV(uint32_t slice = 0, uint8_t mipLevel = 0) const = 0;
 		virtual const Descriptor& GetStencilSRV() const = 0;
 
-		virtual Format		GetDSVFormat() const = 0;
 		virtual uint32_t	GetArraySize() const = 0;
 		virtual uint8_t		GetNumMips() const = 0;
 
