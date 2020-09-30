@@ -1661,27 +1661,50 @@ bool RawBuffer_DX12::CreateSRVs(size_t byteWidth, const uint32_t* firstElements,
 	D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
 	desc.Format = DXGI_FORMAT_R32_TYPELESS;
 	desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-	desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
 
-	const auto stride = sizeof(uint32_t);
-	const auto numElements = static_cast<uint32_t>(byteWidth / stride);
-
-	m_srvOffsets.resize(numDescriptors);
-	m_srvs.resize(numDescriptors);
-	for (auto i = 0u; i < numDescriptors; ++i)
+	if (m_states[0] == ResourceState::RAYTRACING_ACCELERATION_STRUCTURE)
 	{
-		const auto firstElement = firstElements ? firstElements[i] : 0;
-		desc.Buffer.FirstElement = firstElement;
-		desc.Buffer.NumElements = (!firstElements || i + 1 >= numDescriptors ?
-			numElements : firstElements[i + 1]) - firstElement;
-
-		m_srvOffsets[i] = stride * firstElement;
+		m_srvOffsets.resize(1);
+		m_srvs.resize(1);
+		
+		m_srvOffsets[0] = firstElements ? firstElements[0] : 0;
+		//desc.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
+		//desc.RaytracingAccelerationStructure.Location = m_resource->GetGPUVirtualAddress();
+		//desc.RaytracingAccelerationStructure.Location += m_srvOffsets[0];
+		// To compatible with the old d3d12.h in the compile time
+		desc.ViewDimension = D3D12_SRV_DIMENSION(11);
+		desc.Buffer.FirstElement = m_resource->GetGPUVirtualAddress();
+		desc.Buffer.FirstElement += m_srvOffsets[0];
 
 		// Create a shader resource view
-		m_srvs[i] = allocateSrvUavPool();
-		N_RETURN(m_srvs[i].ptr, false);
-		m_device->CreateShaderResourceView(m_resource.get(), &desc, m_srvs[i]);
+		m_srvs[0] = allocateSrvUavPool();
+		N_RETURN(m_srvs[0].ptr, false);
+		m_device->CreateShaderResourceView(m_resource.get(), &desc, m_srvs[0]);
+	}
+	else
+	{
+		desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+		desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
+
+		const auto stride = sizeof(uint32_t);
+		const auto numElements = static_cast<uint32_t>(byteWidth / stride);
+
+		m_srvOffsets.resize(numDescriptors);
+		m_srvs.resize(numDescriptors);
+		for (auto i = 0u; i < numDescriptors; ++i)
+		{
+			const auto firstElement = firstElements ? firstElements[i] : 0;
+			desc.Buffer.FirstElement = firstElement;
+			desc.Buffer.NumElements = (!firstElements || i + 1 >= numDescriptors ?
+				numElements : firstElements[i + 1]) - firstElement;
+
+			m_srvOffsets[i] = stride * firstElement;
+
+			// Create a shader resource view
+			m_srvs[i] = allocateSrvUavPool();
+			N_RETURN(m_srvs[i].ptr, false);
+			m_device->CreateShaderResourceView(m_resource.get(), &desc, m_srvs[i]);
+		}
 	}
 
 	return true;
