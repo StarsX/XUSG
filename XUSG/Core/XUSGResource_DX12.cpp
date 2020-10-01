@@ -1659,7 +1659,6 @@ bool RawBuffer_DX12::CreateSRVs(size_t byteWidth, const uint32_t* firstElements,
 	uint32_t numDescriptors)
 {
 	D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
-	desc.Format = DXGI_FORMAT_R32_TYPELESS;
 	desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 
 	if (m_states[0] == ResourceState::RAYTRACING_ACCELERATION_STRUCTURE)
@@ -1668,6 +1667,7 @@ bool RawBuffer_DX12::CreateSRVs(size_t byteWidth, const uint32_t* firstElements,
 		m_srvs.resize(1);
 		
 		m_srvOffsets[0] = firstElements ? firstElements[0] : 0;
+		desc.Format = DXGI_FORMAT_UNKNOWN;
 		//desc.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
 		//desc.RaytracingAccelerationStructure.Location = m_resource->GetGPUVirtualAddress();
 		//desc.RaytracingAccelerationStructure.Location += m_srvOffsets[0];
@@ -1679,10 +1679,11 @@ bool RawBuffer_DX12::CreateSRVs(size_t byteWidth, const uint32_t* firstElements,
 		// Create a shader resource view
 		m_srvs[0] = allocateSrvUavPool();
 		N_RETURN(m_srvs[0].ptr, false);
-		m_device->CreateShaderResourceView(m_resource.get(), &desc, m_srvs[0]);
+		m_device->CreateShaderResourceView(nullptr, &desc, m_srvs[0]);
 	}
 	else
 	{
+		desc.Format = DXGI_FORMAT_R32_TYPELESS;
 		desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
 		desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
 
