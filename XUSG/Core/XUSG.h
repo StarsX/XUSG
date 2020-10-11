@@ -1034,8 +1034,8 @@ namespace XUSG
 	{
 		enum Stage : uint8_t
 		{
-			VS,
 			PS,
+			VS,
 			DS,
 			HS,
 			GS,
@@ -1043,6 +1043,10 @@ namespace XUSG
 			ALL = CS,
 
 			NUM_GRAPHICS = ALL,
+
+			MS,
+			AS,
+
 			NUM_STAGE,
 		};
 	}

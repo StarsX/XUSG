@@ -23,6 +23,15 @@
     <Filter Include="Common">
       <UniqueIdentifier>{c39791cb-2121-4ed8-8ea0-2f3e1b0c2e98}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Ultimate">
+      <UniqueIdentifier>{9386f39c-964a-452f-81ee-44ebfb632fc2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Ultimate\Header Files">
+      <UniqueIdentifier>{f318ea50-d0cf-489c-ade0-17fb27b9adcf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Ultimate\Source Files">
+      <UniqueIdentifier>{f9007116-5d0f-4c98-9102-8505d53a4ed1}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\XUSG.h">
@@ -66,6 +75,15 @@
     </ClInclude>
     <ClInclude Include="Core\XUSGShader_DX12.h">
       <Filter>Core\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Ultimate\XUSGMeshletState_DX12.h">
+      <Filter>Ultimate\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Ultimate\XUSGUltimate.h">
+      <Filter>Ultimate\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Ultimate\XUSGUltimate_DX12.h">
+      <Filter>Ultimate\Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -116,6 +134,15 @@
     </ClCompile>
     <ClCompile Include="Core\XUSGShader_DX12.cpp">
       <Filter>Core\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Ultimate\XUSGMeshletState_DX12.cpp">
+      <Filter>Ultimate\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Ultimate\XUSGUltimate.cpp">
+      <Filter>Ultimate\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Ultimate\XUSGUltimate_DX12.cpp">
+      <Filter>Ultimate\Source Files</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

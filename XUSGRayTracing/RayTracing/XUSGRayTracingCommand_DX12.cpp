@@ -18,14 +18,31 @@ RayTracing::CommandList_DX12::~CommandList_DX12()
 {
 }
 
-bool RayTracing::CommandList_DX12::CreateRaytracingInterfaces(const RayTracing::Device& device)
-{
 #if ENABLE_DXR_FALLBACK
+RayTracing::CommandList_DX12::CommandList_DX12(XUSG::CommandList& commandList, const RayTracing::Device& device)
+{
+	m_commandList = dynamic_cast<XUSG::CommandList_DX12&>(commandList).GetGraphicsCommandList();
+	CreateInterface(device);
+}
+#else
+RayTracing::CommandList_DX12::CommandList_DX12(XUSG::CommandList& commandList)
+{
+	m_commandList = dynamic_cast<XUSG::CommandList_DX12&>(commandList).GetGraphicsCommandList();
+	CreateInterface();
+}
+#endif
+
+#if ENABLE_DXR_FALLBACK
+bool RayTracing::CommandList_DX12::CreateInterface(const RayTracing::Device& device)
+{
 	m_raytracingAPI = device.RaytracingAPI;
 
 	if (m_raytracingAPI == API::FallbackLayer)
 		device.Fallback->QueryRaytracingCommandList(m_commandList.get(), IID_PPV_ARGS(&m_fallback));
 	else // DirectX Raytracing
+#else
+bool RayTracing::CommandList_DX12::CreateInterface()
+{
 #endif
 	{
 		const auto hr = m_commandList->QueryInterface(IID_PPV_ARGS(&m_native));

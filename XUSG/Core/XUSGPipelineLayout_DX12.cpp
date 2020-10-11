@@ -271,12 +271,14 @@ DescriptorTableLayout PipelineLayoutCache_DX12::createDescriptorTableLayout(cons
 	{
 		const auto stage = static_cast<Shader::Stage>(key[0]);
 		D3D12_SHADER_VISIBILITY visibilities[Shader::NUM_STAGE];
-		visibilities[Shader::Stage::VS] = D3D12_SHADER_VISIBILITY_VERTEX;
-		visibilities[Shader::Stage::PS] = D3D12_SHADER_VISIBILITY_PIXEL;
-		visibilities[Shader::Stage::DS] = D3D12_SHADER_VISIBILITY_DOMAIN;
-		visibilities[Shader::Stage::HS] = D3D12_SHADER_VISIBILITY_HULL;
-		visibilities[Shader::Stage::GS] = D3D12_SHADER_VISIBILITY_GEOMETRY;
-		visibilities[Shader::Stage::ALL] = D3D12_SHADER_VISIBILITY_ALL;
+		visibilities[Shader::VS] = D3D12_SHADER_VISIBILITY_VERTEX;
+		visibilities[Shader::PS] = D3D12_SHADER_VISIBILITY_PIXEL;
+		visibilities[Shader::DS] = D3D12_SHADER_VISIBILITY_DOMAIN;
+		visibilities[Shader::HS] = D3D12_SHADER_VISIBILITY_HULL;
+		visibilities[Shader::GS] = D3D12_SHADER_VISIBILITY_GEOMETRY;
+		visibilities[Shader::ALL] = D3D12_SHADER_VISIBILITY_ALL;
+		visibilities[Shader::AS] = D3D12_SHADER_VISIBILITY_AMPLIFICATION;
+		visibilities[Shader::MS] = D3D12_SHADER_VISIBILITY_MESH;
 
 		const auto pRanges = reinterpret_cast<const DescriptorRange*>(&key[1]);
 		switch (pRanges->ViewType)

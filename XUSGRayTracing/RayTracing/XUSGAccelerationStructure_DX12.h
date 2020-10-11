@@ -57,6 +57,10 @@ namespace XUSG
 				uint32_t descriptorIndex, BuildFlags flags = BuildFlags::PREFER_FAST_TRACE);
 			void Build(const RayTracing::CommandList* pCommandList, const Resource& scratch,
 				const DescriptorPool& descriptorPool, bool update = false);
+#if !ENABLE_DXR_FALLBACK
+			void Build(XUSG::CommandList* pCommandList, const Resource& scratch,
+				const DescriptorPool& descriptorPool, bool update = false);
+#endif
 
 			static void SetTriangleGeometries(Geometry* pGeometries, uint32_t numGeometries,
 				Format vertexFormat, const VertexBufferView* pVBs, const IndexBufferView* pIBs = nullptr,
@@ -77,6 +81,10 @@ namespace XUSG
 				BuildFlags flags = BuildFlags::PREFER_FAST_TRACE);
 			void Build(const RayTracing::CommandList* pCommandList, const Resource& scratch,
 				const Resource& instanceDescs, const DescriptorPool& descriptorPool, bool update = false);
+#if !ENABLE_DXR_FALLBACK
+			void Build(XUSG::CommandList* pCommandList, const Resource& scratch,
+				const Resource& instanceDescs, const DescriptorPool& descriptorPool, bool update = false);
+#endif
 
 			static void SetInstances(const RayTracing::Device& device, Resource& instances,
 				uint32_t numInstances, const BottomLevelAS* const* ppBottomLevelASs, float* const* transforms);

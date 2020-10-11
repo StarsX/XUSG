@@ -60,6 +60,10 @@ namespace XUSG
 				uint32_t descriptorIndex, BuildFlags flags = BuildFlags::PREFER_FAST_TRACE) = 0;
 			virtual void Build(const RayTracing::CommandList* pCommandList, const Resource& scratch,
 				const DescriptorPool& descriptorPool, bool update = false) = 0;
+#if !ENABLE_DXR_FALLBACK
+			virtual void Build(XUSG::CommandList* pCommandList, const Resource& scratch,
+				const DescriptorPool& descriptorPool, bool update = false) = 0;
+#endif
 
 			static void SetTriangleGeometries(Geometry* pGeometries, uint32_t numGeometries, Format vertexFormat,
 				const VertexBufferView* pVBs, const IndexBufferView* pIBs = nullptr,
@@ -90,6 +94,10 @@ namespace XUSG
 				BuildFlags flags = BuildFlags::PREFER_FAST_TRACE) = 0;
 			virtual void Build(const RayTracing::CommandList* pCommandList, const Resource& scratch,
 				const Resource& instanceDescs, const DescriptorPool& descriptorPool, bool update = false) = 0;
+#if !ENABLE_DXR_FALLBACK
+			virtual void Build(XUSG::CommandList* pCommandList, const Resource& scratch,
+				const Resource& instanceDescs, const DescriptorPool& descriptorPool, bool update = false) = 0;
+#endif
 
 			static void SetInstances(const RayTracing::Device& device, Resource& instances,
 				uint32_t numInstances, const BottomLevelAS* const* ppBottomLevelASs,
@@ -171,7 +179,11 @@ namespace XUSG
 			//CommandList();
 			virtual ~CommandList() {}
 
-			virtual bool CreateRaytracingInterfaces(const Device& device) = 0;
+#if ENABLE_DXR_FALLBACK
+			virtual bool CreateInterface(const Device& device) = 0;
+#else
+			virtual bool CreateInterface() = 0;
+#endif
 
 			virtual void BuildRaytracingAccelerationStructure(const BuildDesc* pDesc,
 				uint32_t numPostbuildInfoDescs,
@@ -188,6 +200,8 @@ namespace XUSG
 
 			static uptr MakeUnique(XUSG::API api = XUSG::API::DIRECTX_12);
 			static sptr MakeShared(XUSG::API api = XUSG::API::DIRECTX_12);
+			static uptr MakeUnique(XUSG::CommandList& commandList, XUSG::API api = XUSG::API::DIRECTX_12);
+			static sptr MakeShared(XUSG::CommandList& commandList, XUSG::API api = XUSG::API::DIRECTX_12);
 		};
 
 		//--------------------------------------------------------------------------------------

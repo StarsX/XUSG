@@ -139,6 +139,16 @@ RayTracing::CommandList::sptr RayTracing::CommandList::MakeShared(XUSG::API api)
 	return make_shared<RayTracing::CommandList_DX12>();
 }
 
+RayTracing::CommandList::uptr RayTracing::CommandList::MakeUnique(XUSG::CommandList& commandList, XUSG::API api)
+{
+	return make_unique<RayTracing::CommandList_DX12>(commandList);
+}
+
+RayTracing::CommandList::sptr RayTracing::CommandList::MakeShared(XUSG::CommandList& commandList, XUSG::API api)
+{
+	return make_shared<RayTracing::CommandList_DX12>(commandList);
+}
+
 RayTracing::PipelineLayout::uptr RayTracing::PipelineLayout::MakeUnique(XUSG::API api)
 {
 	return make_unique<RayTracing::PipelineLayout_DX12>();

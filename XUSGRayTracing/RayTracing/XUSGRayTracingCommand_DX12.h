@@ -16,9 +16,18 @@ namespace XUSG
 		{
 		public:
 			CommandList_DX12();
+#if ENABLE_DXR_FALLBACK
+			CommandList_DX12(XUSG::CommandList& commandList, const Device& device);
+#else
+			CommandList_DX12(XUSG::CommandList& commandList);
+#endif
 			virtual ~CommandList_DX12();
 
-			bool CreateRaytracingInterfaces(const Device& device);
+#if ENABLE_DXR_FALLBACK
+			bool CreateInterface(const Device& device);
+#else
+			bool CreateInterface();
+#endif
 
 			void BuildRaytracingAccelerationStructure(const BuildDesc* pDesc,
 				uint32_t numPostbuildInfoDescs,
