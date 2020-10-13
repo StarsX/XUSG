@@ -30,16 +30,13 @@ namespace FallbackLayer
         rootParameters[GlobalDescriptorHeap].InitAsDescriptorTable(1, &globalDescriptorHeapRange);
 
         auto rootSignatureDesc = CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC(ARRAYSIZE(rootParameters), rootParameters);
-        CreateRootSignatureHelper(pDevice, rootSignatureDesc, &m_pRootSignatures[Level::Top]);
+        CreateRootSignatureHelper(pDevice, rootSignatureDesc, &m_pRootSignature);
 
-        rootSignatureDesc = CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC(ARRAYSIZE(rootParameters) - 1, rootParameters);
-        CreateRootSignatureHelper(pDevice, rootSignatureDesc, &m_pRootSignatures[Level::Bottom]);
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pTopLevelComputeAABBs), &m_pComputeAABBs[Level::Top]);
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pTopLevelPrepareForComputeAABBs), &m_pPrepareForComputeAABBs[Level::Top]);
 
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignatures[Level::Top], COMPILED_SHADER(g_pTopLevelComputeAABBs), &m_pComputeAABBs[Level::Top]);
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignatures[Level::Top], COMPILED_SHADER(g_pTopLevelPrepareForComputeAABBs), &m_pPrepareForComputeAABBs[Level::Top]);
-
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignatures[Level::Bottom], COMPILED_SHADER(g_pBottomLevelComputeAABBs), &m_pComputeAABBs[Level::Bottom]);
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignatures[Level::Bottom], COMPILED_SHADER(g_pBottomLevelPrepareForComputeAABBs), &m_pPrepareForComputeAABBs[Level::Bottom]);
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pBottomLevelComputeAABBs), &m_pComputeAABBs[Level::Bottom]);
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pBottomLevelPrepareForComputeAABBs), &m_pPrepareForComputeAABBs[Level::Bottom]);
     }
 
     void ConstructAABBPass::ConstructAABB(ID3D12GraphicsCommandList *pCommandList,
@@ -61,7 +58,7 @@ namespace FallbackLayer
         constants.NumberOfElements = numElements;
         constants.UpdateFlags = ((UINT) prepareUpdate) | (performUpdate << 1);
 
-        pCommandList->SetComputeRootSignature(m_pRootSignatures[level]);
+        pCommandList->SetComputeRootSignature(m_pRootSignature);
         pCommandList->SetComputeRoot32BitConstants(InputRootConstants, SizeOfInUint32(InputConstants), &constants, 0);
         pCommandList->SetComputeRootUnorderedAccessView(OutputBVHRootUAVParam, outputVH);
         if (!isEmptyAccelerationStructure)
@@ -96,4 +93,5 @@ namespace FallbackLayer
         pCommandList->Dispatch(dispatchWidth, 1, 1);
         pCommandList->ResourceBarrier(1, &uavBarrier);
     }
+
 }

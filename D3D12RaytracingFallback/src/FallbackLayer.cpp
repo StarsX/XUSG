@@ -212,14 +212,14 @@ namespace FallbackLayer
             UINT CbvSrvUavParamterCount = 0;
             D3D12_DESCRIPTOR_RANGE_TYPE descriptorTypes[] =
             {
-                D3D12_DESCRIPTOR_RANGE_TYPE_UAV,
                 D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
                 D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
+                D3D12_DESCRIPTOR_RANGE_TYPE_UAV,
 
                 D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER
             };
 
-            const UINT descriptorCounts[] = { 1024, numUAVs, numCBVs, UINT8_MAX };
+            const UINT descriptorCounts[] = { 1024, numCBVs, numUAVs, UINT8_MAX };
 
             for (auto descriptorType : descriptorTypes)
             {
@@ -324,7 +324,7 @@ namespace FallbackLayer
     void STDMETHODCALLTYPE D3D12RaytracingCommandList::BuildRaytracingAccelerationStructure(
         _In_  const D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC *pDesc,
         _In_  UINT NumPostbuildInfoDescs,
-        _In_reads_opt_(NumPostbuildInfoDescs)  const D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_DESC *pPostbuildInfoDescs,
+        _In_reads_opt_(NumPostbuildInfoDescs) const D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_DESC *pPostbuildInfoDescs,
         _In_ UINT NumUAVs)
     {
 #if USE_PIX_MARKERS
@@ -544,7 +544,7 @@ namespace FallbackLayer
     void STDMETHODCALLTYPE D3D12RaytracingCommandList::EmitRaytracingAccelerationStructurePostbuildInfo(
         _In_  const D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_DESC *pDesc,
         _In_  UINT NumSourceAccelerationStructures,
-        _In_reads_(NumSourceAccelerationStructures)  const D3D12_GPU_VIRTUAL_ADDRESS *pSourceAccelerationStructureData,
+        _In_reads_(NumSourceAccelerationStructures) const D3D12_GPU_VIRTUAL_ADDRESS *pSourceAccelerationStructureData,
         _In_ UINT NumUAVs)
     {
         if (pDesc->InfoType != D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_COMPACTED_SIZE ||
@@ -670,7 +670,6 @@ namespace FallbackLayer
     {
         return m_spProgram->GetShaderStackSize(pExportName);
     }
-
 
     UINT STDMETHODCALLTYPE RaytracingDevice::GetShaderIdentifierSize(void)
     {

@@ -76,13 +76,16 @@ namespace FallbackLayer
             if (!bFirstPass)
             {
                 pCommandList->SetComputeRootUnorderedAccessView(InputAABBBuffer, scratchBuffers[inputScratchBufferIndex]);
-				pCommandList->SetPipelineState(m_pCalculateSceneAABBFromAABBs);
             }
             const UINT dispatchWidth = DivideAndRoundUp<UINT>(threadsNeeded, THREAD_GROUP_1D_WIDTH);
             pCommandList->Dispatch(dispatchWidth, 1, 1);
             pCommandList->ResourceBarrier(1, &uavBarrier);
 
             std::swap(outputScratchBufferIndex, inputScratchBufferIndex);
+            if (bFirstPass)
+            {
+                pCommandList->SetPipelineState(m_pCalculateSceneAABBFromAABBs);
+            }
         }
     }
 

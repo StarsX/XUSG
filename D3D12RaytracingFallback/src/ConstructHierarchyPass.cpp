@@ -25,14 +25,11 @@ namespace FallbackLayer
         rootParameters[GlobalDescriptorHeap].InitAsDescriptorTable(1, &globalDescriptorHeapRange);
 
         auto rootSignatureDesc = CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC(ARRAYSIZE(rootParameters), rootParameters);
-        CreateRootSignatureHelper(pDevice, rootSignatureDesc, &m_pRootSignatures[Level::Top]);
+        CreateRootSignatureHelper(pDevice, rootSignatureDesc, &m_pRootSignature);
 
-        rootSignatureDesc = CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC(ARRAYSIZE(rootParameters) - 1, rootParameters);
-        CreateRootSignatureHelper(pDevice, rootSignatureDesc, &m_pRootSignatures[Level::Bottom]);
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pTopLevelBuildBVHSplits), &m_pBuildSplits[Level::Top]);
 
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignatures[Level::Top], COMPILED_SHADER(g_pTopLevelBuildBVHSplits), &m_pBuildSplits[Level::Top]);
-
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignatures[Level::Bottom], COMPILED_SHADER(g_pBottomLevelBuildBVHSplits), &m_pBuildSplits[Level::Bottom]);
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pBottomLevelBuildBVHSplits), &m_pBuildSplits[Level::Bottom]);
     }
 
     void ConstructHierarchyPass::ConstructHierarchy(ID3D12GraphicsCommandList *pCommandList,
@@ -48,7 +45,7 @@ namespace FallbackLayer
 
         InputConstants constants = { numElements };
 
-        pCommandList->SetComputeRootSignature(m_pRootSignatures[level]);
+        pCommandList->SetComputeRootSignature(m_pRootSignature);
         pCommandList->SetComputeRoot32BitConstants(InputRootConstants, SizeOfInUint32(InputConstants), &constants, 0);
         pCommandList->SetComputeRootUnorderedAccessView(MortonCodesBufferParam, mortonCodeBuffer);
         pCommandList->SetComputeRootUnorderedAccessView(HierarchyUAVParam, hierarchyBuffer);
@@ -65,4 +62,5 @@ namespace FallbackLayer
         pCommandList->Dispatch(dispatchWidth, 1, 1);
         pCommandList->ResourceBarrier(1, &uavBarrier);
     }
+
 }

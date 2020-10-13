@@ -189,21 +189,6 @@
     <FxCompile Include="*Lib.hlsl" />
     <FxCompile Include="*Lib.hlsl" />
     <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AccelerationStructureBuilderFactory.cpp">
@@ -451,6 +436,7 @@
     <ClInclude Include="DxbcParser.h">
       <Filter>Headers</Filter>
     </ClInclude>
+    <ClInclude Include="..\Include\D3D12RaytracingFallback.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="BitonicSortCommon.hlsli">

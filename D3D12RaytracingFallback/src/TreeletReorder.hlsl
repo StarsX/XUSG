@@ -54,7 +54,7 @@ void FormTreelet(in uint groupThreadId)
             float largestSurfaceArea = 0.0;
             uint nodeIndexToTraverse = 0;
             uint indexOfNodeIndexToTraverse = 0;
-            //[unroll]
+            [unroll]
             for (uint i = 0; i < treeletSize; i++)
             {
                 uint treeletNodeIndex = treeletToReorder[i];
