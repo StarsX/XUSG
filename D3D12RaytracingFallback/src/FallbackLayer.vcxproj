@@ -113,7 +113,6 @@ PrebuildCheck.bat</Command>
     <ClInclude Include="ConstructHierarchyPass.h" />
     <ClInclude Include="DebugLog.h" />
     <ClInclude Include="DxbcParser.h" />
-    <ClInclude Include="ExperimentalRaytracing.h" />
     <ClInclude Include="FallbackDebug.h" />
     <ClInclude Include="EmulatedPointer.hlsli" />
     <ClInclude Include="EmulatedPointerIntrinsics.hlsli" />

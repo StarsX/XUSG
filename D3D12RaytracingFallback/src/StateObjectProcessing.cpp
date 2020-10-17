@@ -177,23 +177,6 @@ HRESULT CStateObjectInfo::ParseStateObject(
                 AddRaytracingPipelineConfig((const D3D12_RAYTRACING_PIPELINE_CONFIG*)pDesc,pEnclosingSubobject);
                 break;
             case D3D12_STATE_SUBOBJECT_TYPE_HIT_GROUP:
-                if(m_bUsePrototypeInterface)
-                {
-                    D3D12_HIT_GROUP_DESC TranslatedHitGroup = {}; // delete once prototype interface no longer needed
-                    auto pExperimental = (const D3D12_EXPERIMENTAL_HIT_GROUP_DESC*)pDesc;
-                    const void* pHitGroupDescToUse = pDesc;
-                    if(pExperimental)
-                    {
-                        TranslatedHitGroup.HitGroupExport = pExperimental->HitGroupExport;
-                        TranslatedHitGroup.AnyHitShaderImport = pExperimental->AnyHitShaderImport;
-                        TranslatedHitGroup.ClosestHitShaderImport = pExperimental->ClosestHitShaderImport;
-                        TranslatedHitGroup.IntersectionShaderImport = pExperimental->IntersectionShaderImport;
-                        TranslatedHitGroup.Type = pExperimental->IntersectionShaderImport ? D3D12_HIT_GROUP_TYPE_PROCEDURAL_PRIMITIVE : D3D12_HIT_GROUP_TYPE_TRIANGLES;
-                        pHitGroupDescToUse = &TranslatedHitGroup;
-                    }                    
-                    AddHitGroup((const D3D12_HIT_GROUP_DESC*)pHitGroupDescToUse,this);
-                    break;
-                }
                 AddHitGroup((const D3D12_HIT_GROUP_DESC*)pDesc,this);
                 break;
             default:

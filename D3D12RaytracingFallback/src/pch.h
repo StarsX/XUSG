@@ -27,7 +27,6 @@
 #include <deque>
 #include <string>
 #include <strsafe.h>
-#include "d3d12_1.h"
 #include "d3dx12.h"
 #include "dxc\dxcapi.h"
 #include "dxc\dxcapi.use.h"
@@ -52,7 +51,6 @@
 #include "ComObject.h"
 
 #include "NativeRaytracing.h"
-#include "ExperimentalRaytracing.h"
 
 #include "FallbackDxil.h"
 #include "RaytracingHlslCompat.h"

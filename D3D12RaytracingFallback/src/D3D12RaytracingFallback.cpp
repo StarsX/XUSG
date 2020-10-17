@@ -25,7 +25,6 @@ HRESULT D3D12CreateRaytracingFallbackDevice(
     enum DXRSupportType
     {
         OfficialAPI,
-        ExperimentalAPI,
         None
     } supportType = None;
     
@@ -38,21 +37,12 @@ HRESULT D3D12CreateRaytracingFallbackDevice(
         {
             supportType = OfficialAPI;
         }
-
-        CComPtr<ID3D12DeviceRaytracingPrototype> pRaytracingDevice;
-        if (supportType == None && SUCCEEDED(pDevice->QueryInterface(&pRaytracingDevice)) && pRaytracingDevice)
-        {
-            supportType = ExperimentalAPI;
-        }
     }
     
     switch (supportType)
     {
     case OfficialAPI:
         *ppDevice = new NativeRaytracingDevice(pDevice);
-        break;
-    case ExperimentalAPI:
-        *ppDevice = new ExperimentalRaytracingDevice(pDevice);
         break;
     case None:
     default:

@@ -180,7 +180,7 @@ public:
             ThrowFailure(E_INVALIDARG, L"Null ppStateObject passed in or invalid riid");
         }
 
-        CComPtr<ID3D12StateObjectPrototype> pStateObject;
+        CComPtr<ID3D12StateObject> pStateObject;
         HRESULT hr = m_pDevice->CreateStateObject(pDesc, IID_PPV_ARGS(&pStateObject));
 
         if (SUCCEEDED(hr))

@@ -92,11 +92,6 @@ public:
     //==============================================================================================================================
 
     //------------------------------------------------------------------------------------------------------------------------------
-    // UseExperimentalInterface: Use interfaces from the DXR prototype (this functionality is to be deleted once not needed)
-    //------------------------------------------------------------------------------------------------------------------------------
-    void UseExperimentalInterface() {m_bUsePrototypeInterface = true;} // Call before ParseStateObject
-
-    //------------------------------------------------------------------------------------------------------------------------------
     // SetDefaultNodeMask: Default NodeMask to use (0x1 if not called)
     //------------------------------------------------------------------------------------------------------------------------------
     void SetDefaultNodeMask(UINT NodeMask) {m_NodeMask.NodeMask = NodeMask;} // Call before ParseStateObject
@@ -348,7 +343,6 @@ private:
     bool m_bStateObjectSet = false;
     bool m_bStateObjectTypeSelected = false;
     bool m_bPreparedForReflection = false;
-    bool m_bUsePrototypeInterface = false; // delete when not needed any longer
     PFN_CALLBACK_GET_STATE_OBJECT_INFO_FOR_EXISTING_COLLECTION m_pfnGetStateObjectInfoForExistingCollection = nullptr;
     PFN_CALLBACK_GET_DXIL_RUNTIME_DATA m_pfnGetDxilRuntimeData = nullptr;
     D3D12_STATE_OBJECT_TYPE m_SOType;
