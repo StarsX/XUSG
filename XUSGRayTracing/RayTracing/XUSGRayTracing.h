@@ -200,8 +200,13 @@ namespace XUSG
 
 			static uptr MakeUnique(XUSG::API api = XUSG::API::DIRECTX_12);
 			static sptr MakeShared(XUSG::API api = XUSG::API::DIRECTX_12);
+#if ENABLE_DXR_FALLBACK
+			static uptr MakeUnique(XUSG::CommandList& commandList, const RayTracing::Device& device, XUSG::API api = XUSG::API::DIRECTX_12);
+			static sptr MakeShared(XUSG::CommandList& commandList, const RayTracing::Device& device, XUSG::API api = XUSG::API::DIRECTX_12);
+#else
 			static uptr MakeUnique(XUSG::CommandList& commandList, XUSG::API api = XUSG::API::DIRECTX_12);
 			static sptr MakeShared(XUSG::CommandList& commandList, XUSG::API api = XUSG::API::DIRECTX_12);
+#endif
 		};
 
 		//--------------------------------------------------------------------------------------
