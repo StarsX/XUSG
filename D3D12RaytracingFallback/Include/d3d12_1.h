@@ -3660,6 +3660,7 @@ typedef struct D3D12_FEATURE_DATA_FORMAT_AND_GUID_SUPPORT
     _Out_  D3D12_FORMAT_SUPPORT2 Support2;
     }     D3D12_FEATURE_DATA_FORMAT_AND_GUID_SUPPORT;
 
+#ifndef __d3d12_h__
 typedef struct D3D12_RESOURCE_DESC1
     {
     D3D12_RESOURCE_DIMENSION Dimension;
@@ -3673,8 +3674,7 @@ typedef struct D3D12_RESOURCE_DESC1
     GUID Layout;
     D3D12_RESOURCE_FLAGS Flags;
     }     D3D12_RESOURCE_DESC1;
-
-
+#endif
 
 extern RPC_IF_HANDLE __MIDL_itf_d3d12_1_0000_0014_v0_0_c_ifspec;
 extern RPC_IF_HANDLE __MIDL_itf_d3d12_1_0000_0014_v0_0_s_ifspec;

@@ -212,14 +212,15 @@ namespace FallbackLayer
             UINT CbvSrvUavParamterCount = 0;
             D3D12_DESCRIPTOR_RANGE_TYPE descriptorTypes[] =
             {
+                D3D12_DESCRIPTOR_RANGE_TYPE_UAV,
                 D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
                 D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
-                D3D12_DESCRIPTOR_RANGE_TYPE_UAV,
 
                 D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER
             };
 
-            const UINT descriptorCounts[] = { 1024, numCBVs, numUAVs, UINT8_MAX };
+            // SRV, UAV, CBV, and sampler
+            const UINT descriptorCounts[] = { 1024, numUAVs, numCBVs, UINT8_MAX };
 
             for (auto descriptorType : descriptorTypes)
             {

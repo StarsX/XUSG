@@ -482,4 +482,7 @@
       <UniqueIdentifier>{5ccb8222-9ccd-43d6-bcff-54bb21ec76ae}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="*Lib.hlsl" />
+  </ItemGroup>
 </Project>
