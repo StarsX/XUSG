@@ -28,8 +28,8 @@ namespace FallbackLayer
             NumParameters
         };
 
-        CComPtr<ID3D12RootSignature> m_pRootSignature;
-        CComPtr<ID3D12PipelineState> m_pCalcuateMortonCodesForPrimitivesPSO;
-        CComPtr<ID3D12PipelineState> m_pCalcuateMortonCodesForAABBsPSO;
+        Microsoft::WRL::ComPtr<ID3D12RootSignature> m_pRootSignature;
+        Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pCalcuateMortonCodesForPrimitivesPSO;
+        Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pCalcuateMortonCodesForAABBsPSO;
     };
 }

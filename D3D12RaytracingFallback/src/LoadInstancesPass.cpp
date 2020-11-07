@@ -31,8 +31,8 @@ namespace FallbackLayer
         auto rootSignatureDesc = CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC(ARRAYSIZE(parameters), parameters);
         CreateRootSignatureHelper(pDevice, rootSignatureDesc, &m_pRootSignature);
 
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pTopLevelLoadAABBsFromArrayOfPointers), &m_pLoadAABBsFromArrayOfPointersPSO);
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pTopLevelLoadAABBsFromArrayOfInstances), &m_pLoadAABBsFromArrayOfInstancesPSO);
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pTopLevelLoadAABBsFromArrayOfPointers), &m_pLoadAABBsFromArrayOfPointersPSO);
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pTopLevelLoadAABBsFromArrayOfInstances), &m_pLoadAABBsFromArrayOfInstancesPSO);
     }
 
     void LoadInstancesPass::LoadInstances(ID3D12GraphicsCommandList *pCommandList, 
@@ -47,15 +47,15 @@ namespace FallbackLayer
 
         const bool performUpdate = cachedSortBuffer != 0;
 
-        pCommandList->SetComputeRootSignature(m_pRootSignature);
+        pCommandList->SetComputeRootSignature(m_pRootSignature.Get());
         ID3D12PipelineState *pLoadAABBPSO = nullptr;
         switch (instanceDescLayout)
         {
         case D3D12_ELEMENTS_LAYOUT_ARRAY:
-            pLoadAABBPSO = m_pLoadAABBsFromArrayOfInstancesPSO;
+            pLoadAABBPSO = m_pLoadAABBsFromArrayOfInstancesPSO.Get();
             break;
         case D3D12_ELEMENTS_LAYOUT_ARRAY_OF_POINTERS:
-            pLoadAABBPSO = m_pLoadAABBsFromArrayOfPointersPSO;
+            pLoadAABBPSO = m_pLoadAABBsFromArrayOfPointersPSO.Get();
             break;
         default:
             ThrowFailure(E_INVALIDARG, L"Unrecognized D3D12_ELEMENTS_LAYOUT provided");
@@ -79,7 +79,4 @@ namespace FallbackLayer
         auto uavBarrier = CD3DX12_RESOURCE_BARRIER::UAV(nullptr);
         pCommandList->ResourceBarrier(1, &uavBarrier);
     }
-
-
 }
-

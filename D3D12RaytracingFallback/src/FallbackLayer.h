@@ -83,12 +83,12 @@ namespace FallbackLayer
             }
         }
 
-        CComPtr<ID3D12RaytracingFallbackStateObject> m_pStateObject;
+        Microsoft::WRL::ComPtr<ID3D12RaytracingFallbackStateObject> m_pStateObject;
         std::unordered_map<UINT, WRAPPED_GPU_POINTER> m_BoundAccelerationStructures;
         ID3D12DescriptorHeap *m_pBoundDescriptorHeaps[DescriptorHeapType::NumTypes] = {};
-        ATL::CComPtr<ID3D12GraphicsCommandList> m_pCommandList;
+        Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> m_pCommandList;
         RaytracingDevice &m_device;
-        COM_IMPLEMENTATION_WITH_QUERYINTERFACE(m_pCommandList.p);
+        COM_IMPLEMENTATION_WITH_QUERYINTERFACE(m_pCommandList.Get());
     };
 
     class RaytracingStateObject : public ID3D12RaytracingFallbackStateObject
@@ -199,12 +199,12 @@ namespace FallbackLayer
         ShaderAssociations ProcessAssociations(_In_ LPCWSTR exportName, _Inout_ RaytracingStateObject &rayTracingStateObject);
 
         friend D3D12RaytracingCommandList;
-        CComPtr<ID3D12Device> m_pDevice;
+        Microsoft::WRL::ComPtr<ID3D12Device> m_pDevice;
         AccelerationStructureBuilderFactory m_AccelerationStructureBuilderFactory;
         RaytracingProgramFactory m_RaytracingProgramFactory;
         DWORD m_flags;
 
-        COM_IMPLEMENTATION_WITH_QUERYINTERFACE(m_pDevice.p)
+        COM_IMPLEMENTATION_WITH_QUERYINTERFACE(m_pDevice.Get())
 
 #if ENABLE_ACCELERATION_STRUCTURE_VISUALIZATION
     public:

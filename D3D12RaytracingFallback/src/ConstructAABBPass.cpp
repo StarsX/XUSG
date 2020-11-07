@@ -32,11 +32,11 @@ namespace FallbackLayer
         auto rootSignatureDesc = CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC(ARRAYSIZE(rootParameters), rootParameters);
         CreateRootSignatureHelper(pDevice, rootSignatureDesc, &m_pRootSignature);
 
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pTopLevelComputeAABBs), &m_pComputeAABBs[Level::Top]);
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pTopLevelPrepareForComputeAABBs), &m_pPrepareForComputeAABBs[Level::Top]);
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pTopLevelComputeAABBs), &m_pComputeAABBs[Level::Top]);
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pTopLevelPrepareForComputeAABBs), &m_pPrepareForComputeAABBs[Level::Top]);
 
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pBottomLevelComputeAABBs), &m_pComputeAABBs[Level::Bottom]);
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pBottomLevelPrepareForComputeAABBs), &m_pPrepareForComputeAABBs[Level::Bottom]);
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pBottomLevelComputeAABBs), &m_pComputeAABBs[Level::Bottom]);
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pBottomLevelPrepareForComputeAABBs), &m_pPrepareForComputeAABBs[Level::Bottom]);
     }
 
     void ConstructAABBPass::ConstructAABB(ID3D12GraphicsCommandList *pCommandList,
@@ -58,7 +58,7 @@ namespace FallbackLayer
         constants.NumberOfElements = numElements;
         constants.UpdateFlags = ((UINT) prepareUpdate) | (performUpdate << 1);
 
-        pCommandList->SetComputeRootSignature(m_pRootSignature);
+        pCommandList->SetComputeRootSignature(m_pRootSignature.Get());
         pCommandList->SetComputeRoot32BitConstants(InputRootConstants, SizeOfInUint32(InputConstants), &constants, 0);
         pCommandList->SetComputeRootUnorderedAccessView(OutputBVHRootUAVParam, outputVH);
         if (!isEmptyAccelerationStructure)
@@ -82,14 +82,14 @@ namespace FallbackLayer
         const UINT dispatchWidth = isEmptyAccelerationStructure ? 1 : DivideAndRoundUp<UINT>(numElements, THREAD_GROUP_1D_WIDTH);
         auto uavBarrier = CD3DX12_RESOURCE_BARRIER::UAV(nullptr);
 
-        pCommandList->SetPipelineState(m_pPrepareForComputeAABBs[level]);
+        pCommandList->SetPipelineState(m_pPrepareForComputeAABBs[level].Get());
         pCommandList->Dispatch(dispatchWidth, 1, 1);
         pCommandList->ResourceBarrier(1, &uavBarrier);
 
         if (isEmptyAccelerationStructure) return;
 
         // Build the AABBs from the bottom-up
-        pCommandList->SetPipelineState(m_pComputeAABBs[level]);
+        pCommandList->SetPipelineState(m_pComputeAABBs[level].Get());
         pCommandList->Dispatch(dispatchWidth, 1, 1);
         pCommandList->ResourceBarrier(1, &uavBarrier);
     }

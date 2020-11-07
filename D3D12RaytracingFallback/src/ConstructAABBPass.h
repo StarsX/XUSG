@@ -47,8 +47,8 @@ namespace FallbackLayer
             NumLevels
         };
 
-        CComPtr<ID3D12RootSignature> m_pRootSignature;
-        CComPtr<ID3D12PipelineState> m_pPrepareForComputeAABBs[Level::NumLevels];
-        CComPtr<ID3D12PipelineState> m_pComputeAABBs[Level::NumLevels];
+        Microsoft::WRL::ComPtr<ID3D12RootSignature> m_pRootSignature;
+        Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pPrepareForComputeAABBs[Level::NumLevels];
+        Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pComputeAABBs[Level::NumLevels];
     };
 }

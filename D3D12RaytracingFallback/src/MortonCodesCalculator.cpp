@@ -27,8 +27,8 @@ namespace FallbackLayer
         auto rootSignatureDesc = CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC(ARRAYSIZE(parameters), parameters);
         CreateRootSignatureHelper(pDevice, rootSignatureDesc, &m_pRootSignature);
 
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pCalculateMortonCodesForPrimitives), &m_pCalcuateMortonCodesForPrimitivesPSO);
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pCalculateMortonCodesForAABBs), &m_pCalcuateMortonCodesForAABBsPSO);
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pCalculateMortonCodesForPrimitives), &m_pCalcuateMortonCodesForPrimitivesPSO);
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pCalculateMortonCodesForAABBs), &m_pCalcuateMortonCodesForAABBsPSO);
     }
 
 
@@ -36,14 +36,14 @@ namespace FallbackLayer
     {
         if (numElements == 0) return;
 
-        pCommandList->SetComputeRootSignature(m_pRootSignature);
+        pCommandList->SetComputeRootSignature(m_pRootSignature.Get());
         switch (sceneType)
         {
         case SceneType::Triangles:
-            pCommandList->SetPipelineState(m_pCalcuateMortonCodesForPrimitivesPSO);
+            pCommandList->SetPipelineState(m_pCalcuateMortonCodesForPrimitivesPSO.Get());
             break;
         case SceneType::BottomLevelBVHs:
-            pCommandList->SetPipelineState(m_pCalcuateMortonCodesForAABBsPSO);
+            pCommandList->SetPipelineState(m_pCalcuateMortonCodesForAABBsPSO.Get());
             break;
         default:
             assert(false);
@@ -63,5 +63,4 @@ namespace FallbackLayer
         auto uavBarrier = CD3DX12_RESOURCE_BARRIER::UAV(nullptr);
         pCommandList->ResourceBarrier(1, &uavBarrier);
     }
-
 }

@@ -49,10 +49,10 @@ BitonicSort::BitonicSort(ID3D12Device *pDevice, UINT nodeMask)
     auto rootSignatureDesc = CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC(ARRAYSIZE(parameters), parameters);
     CreateRootSignatureHelper(pDevice, rootSignatureDesc, &m_pRootSignature);
 
-    CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pBitonicIndirectArgsCS),&m_pBitonicIndirectArgsCS);
-    CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pBitonicInnerSortCS), &m_pBitonicInnerSortCS);
-    CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pBitonicOuterSortCS), &m_pBitonicOuterSortCS);
-    CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pBitonicPreSortCS),   &m_pBitonicPreSortCS);
+    CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pBitonicIndirectArgsCS),&m_pBitonicIndirectArgsCS);
+    CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pBitonicInnerSortCS), &m_pBitonicInnerSortCS);
+    CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pBitonicOuterSortCS), &m_pBitonicOuterSortCS);
+    CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pBitonicPreSortCS),   &m_pBitonicPreSortCS);
     
     D3D12_INDIRECT_ARGUMENT_DESC indirectArgDesc = {};
     indirectArgDesc.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH;
@@ -77,7 +77,7 @@ void BitonicSort::Sort(
     const uint32_t AlignedNumElements = AlignPowerOfTwo(ElementCount);
     const uint32_t MaxIterations = Log2(std::max(2048u, AlignedNumElements)) - 10;
 
-    pCommandList->SetComputeRootSignature(m_pRootSignature);
+    pCommandList->SetComputeRootSignature(m_pRootSignature.Get());
 
     struct InputConstants
     {
@@ -88,9 +88,9 @@ void BitonicSort::Sort(
     pCommandList->SetComputeRoot32BitConstants(GenericConstants, SizeOfInUint32(InputConstants), &constants, 0);
     
     // Generate execute indirect arguments
-    pCommandList->SetPipelineState(m_pBitonicIndirectArgsCS);
+    pCommandList->SetPipelineState(m_pBitonicIndirectArgsCS.Get());
 
-    auto argToUAVTransition = CD3DX12_RESOURCE_BARRIER::Transition(m_pDispatchArgs, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+    auto argToUAVTransition = CD3DX12_RESOURCE_BARRIER::Transition(m_pDispatchArgs.Get(), D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
     pCommandList->ResourceBarrier(1, &argToUAVTransition);
 
     pCommandList->SetComputeRoot32BitConstant(ShaderSpecificConstants, MaxIterations, 0);
@@ -100,15 +100,15 @@ void BitonicSort::Sort(
 
     // Pre-Sort the buffer up to k = 2048.  This also pads the list with invalid indices
     // that will drift to the end of the sorted list.
-    auto argToIndirectArgTransition = CD3DX12_RESOURCE_BARRIER::Transition(m_pDispatchArgs, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
+    auto argToIndirectArgTransition = CD3DX12_RESOURCE_BARRIER::Transition(m_pDispatchArgs.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
     pCommandList->ResourceBarrier(1, &argToIndirectArgTransition);
     pCommandList->SetComputeRootUnorderedAccessView(OutputUAV, SortKeyBuffer);
 
     auto uavBarrier = CD3DX12_RESOURCE_BARRIER::UAV(nullptr);
     if (!IsPartiallyPreSorted)
     {
-        pCommandList->SetPipelineState(m_pBitonicPreSortCS);
-        pCommandList->ExecuteIndirect(m_pCommandSignature, 1, m_pDispatchArgs, 0, nullptr, 0);
+        pCommandList->SetPipelineState(m_pBitonicPreSortCS.Get());
+        pCommandList->ExecuteIndirect(m_pCommandSignature.Get(), 1, m_pDispatchArgs.Get(), 0, nullptr, 0);
         pCommandList->ResourceBarrier(1, &uavBarrier);
     }
 
@@ -120,7 +120,7 @@ void BitonicSort::Sort(
 
     for (uint32_t k = 4096; k <= AlignedNumElements; k *= 2)
     {
-        pCommandList->SetPipelineState(m_pBitonicOuterSortCS);
+        pCommandList->SetPipelineState(m_pBitonicOuterSortCS.Get());
 
         for (uint32_t j = k / 2; j >= 2048; j /= 2)
         {
@@ -131,13 +131,13 @@ void BitonicSort::Sort(
             } constants { k, j };
 
             pCommandList->SetComputeRoot32BitConstants(ShaderSpecificConstants, SizeOfInUint32(OuterSortConstants), &constants, 0);
-            pCommandList->ExecuteIndirect(m_pCommandSignature, 1, m_pDispatchArgs, IndirectArgsOffset, nullptr, 0);
+            pCommandList->ExecuteIndirect(m_pCommandSignature.Get(), 1, m_pDispatchArgs.Get(), IndirectArgsOffset, nullptr, 0);
             pCommandList->ResourceBarrier(1, &uavBarrier);
             IndirectArgsOffset += cIndirectArgStride;
         }
 
-        pCommandList->SetPipelineState(m_pBitonicInnerSortCS);
-        pCommandList->ExecuteIndirect(m_pCommandSignature, 1, m_pDispatchArgs, IndirectArgsOffset, nullptr, 0);
+        pCommandList->SetPipelineState(m_pBitonicInnerSortCS.Get());
+        pCommandList->ExecuteIndirect(m_pCommandSignature.Get(), 1, m_pDispatchArgs.Get(), IndirectArgsOffset, nullptr, 0);
         pCommandList->ResourceBarrier(1, &uavBarrier);
         IndirectArgsOffset += cIndirectArgStride;
     }

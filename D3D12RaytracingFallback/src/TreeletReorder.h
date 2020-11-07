@@ -30,10 +30,10 @@ namespace FallbackLayer
         static UINT RequiredSizeForAABBBuffer(UINT numElements);
         static UINT RequiredSizeForBaseTreeletBuffers(UINT numElements);
     private:
-        CComPtr<ID3D12RootSignature> m_pRootSignature;
-        CComPtr<ID3D12PipelineState> m_pClearBuffersPSO;
-        CComPtr<ID3D12PipelineState> m_pFindTreeletsPSO;
-        CComPtr<ID3D12PipelineState> m_pTreeletReorderPSO;
+        Microsoft::WRL::ComPtr<ID3D12RootSignature> m_pRootSignature;
+        Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pClearBuffersPSO;
+        Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pFindTreeletsPSO;
+        Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pTreeletReorderPSO;
 
         enum RootParameterSlot
         {

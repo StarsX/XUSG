@@ -29,8 +29,8 @@ namespace FallbackLayer
         auto rootSignatureDesc = CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC(ARRAYSIZE(parameters), parameters);
         CreateRootSignatureHelper(pDevice, rootSignatureDesc, &m_pRootSignature);
 
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pRearrangeTriangles), &m_pRearrangeTrianglesPSO);
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pRearrangeBVHs), &m_pRearrangeBVHsPSO);
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pRearrangeTriangles), &m_pRearrangeTrianglesPSO);
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pRearrangeBVHs), &m_pRearrangeBVHsPSO);
     }
 
     void RearrangeElementsPass::Rearrange(
@@ -51,14 +51,14 @@ namespace FallbackLayer
         constants.NumberOfTriangles = numTriangles;
         constants.UpdatesAllowed = (UINT) (updatesAllowed);
 
-        pCommandList->SetComputeRootSignature(m_pRootSignature);
+        pCommandList->SetComputeRootSignature(m_pRootSignature.Get());
         switch (sceneType)
         {
         case SceneType::Triangles:
-            pCommandList->SetPipelineState(m_pRearrangeTrianglesPSO);
+            pCommandList->SetPipelineState(m_pRearrangeTrianglesPSO.Get());
             break;
         case SceneType::BottomLevelBVHs:
-            pCommandList->SetPipelineState(m_pRearrangeBVHsPSO);
+            pCommandList->SetPipelineState(m_pRearrangeBVHsPSO.Get());
             break;
         default:
             assert(false);

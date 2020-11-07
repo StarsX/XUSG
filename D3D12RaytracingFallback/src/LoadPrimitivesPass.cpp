@@ -15,6 +15,8 @@
 #include "CompiledShaders/LoadTrianglesNoIndexBuffer.h"
 #include "CompiledShaders/LoadProceduralGeometry.h"
 
+using namespace Microsoft::WRL;
+
 namespace FallbackLayer
 {
     LoadPrimitivesPass::LoadPrimitivesPass(ID3D12Device *pDevice, UINT nodeMask)
@@ -31,10 +33,10 @@ namespace FallbackLayer
         auto rootSignatureDesc = CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC(ARRAYSIZE(rootParameters), rootParameters);
         CreateRootSignatureHelper(pDevice, rootSignatureDesc, &m_pRootSignature);
 
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pLoadTrianglesFromR16IndexBuffer), &m_pLoadTrianglesPSOs[Index16Bit]);
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pLoadTrianglesFromR32IndexBuffer), &m_pLoadTrianglesPSOs[Index32Bit]);
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pLoadTrianglesNoIndexBuffer), &m_pLoadTrianglesPSOs[NoIndexBuffer]);
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pLoadProceduralGeometry), &m_pLoadProceduralGeometryPSO);
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pLoadTrianglesFromR16IndexBuffer), &m_pLoadTrianglesPSOs[Index16Bit]);
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pLoadTrianglesFromR32IndexBuffer), &m_pLoadTrianglesPSOs[Index32Bit]);
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pLoadTrianglesNoIndexBuffer), &m_pLoadTrianglesPSOs[NoIndexBuffer]);
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pLoadProceduralGeometry), &m_pLoadProceduralGeometryPSO);
     }
 
     LoadPrimitivesPass::IndexBufferType LoadPrimitivesPass::GetIndexBufferType(DXGI_FORMAT format)
@@ -62,9 +64,9 @@ namespace FallbackLayer
     {
         const bool performUpdate = cachedSortBuffer != 0;
 
-        CComPtr<ID3D12Device> pDevice;
+        ComPtr<ID3D12Device> pDevice;
         pCommandList->GetDevice(IID_PPV_ARGS(&pDevice));
-        pCommandList->SetComputeRootSignature(m_pRootSignature);
+        pCommandList->SetComputeRootSignature(m_pRootSignature.Get());
 
         UINT numPrimitivesLoaded = 0;
         for (UINT elementIndex = 0; elementIndex < buildDesc.NumDescs; elementIndex++)
@@ -119,7 +121,7 @@ namespace FallbackLayer
                     pCommandList->SetComputeRootShaderResourceView(TransformsBuffer, triangles.Transform3x4);
                 }
 
-                pCommandList->SetPipelineState(m_pLoadTrianglesPSOs[GetIndexBufferType(triangles.IndexFormat)]);
+                pCommandList->SetPipelineState(m_pLoadTrianglesPSOs[GetIndexBufferType(triangles.IndexFormat)].Get());
             }
             else
             {
@@ -149,7 +151,7 @@ namespace FallbackLayer
 
                 pCommandList->SetComputeRoot32BitConstants(InputRootConstants, SizeOfInUint32(LoadPrimitivesInputConstants), &constants, 0);
                 pCommandList->SetComputeRootShaderResourceView(ElementBufferSRV, aabbs.AABBs.StartAddress);
-                pCommandList->SetPipelineState(m_pLoadProceduralGeometryPSO);
+                pCommandList->SetPipelineState(m_pLoadProceduralGeometryPSO.Get());
             }
 
             if(performUpdate) 

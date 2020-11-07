@@ -42,9 +42,9 @@ namespace FallbackLayer
             NumParameters
         };
 
-        CComPtr<ID3D12RootSignature> m_pRootSignature;
-        CComPtr<ID3D12PipelineState> m_pRearrangeTrianglesPSO;
-        CComPtr<ID3D12PipelineState> m_pRearrangeBVHsPSO;
+        Microsoft::WRL::ComPtr<ID3D12RootSignature> m_pRootSignature;
+        Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pRearrangeTrianglesPSO;
+        Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pRearrangeBVHsPSO;
     };
 
 }

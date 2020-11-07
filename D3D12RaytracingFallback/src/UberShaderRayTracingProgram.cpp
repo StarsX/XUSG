@@ -11,6 +11,8 @@
 #include "pch.h"
 #include "CompiledShaders\StateMachineLib.h"
 
+using namespace Microsoft::WRL;
+
 namespace FallbackLayer
 {
     void CompilePSO(ID3D12Device *pDevice, D3D12_SHADER_BYTECODE shaderByteCode, const StateObjectCollection &stateObjectCollection, ID3D12PipelineState **ppPipelineState)
@@ -60,7 +62,7 @@ namespace FallbackLayer
             numShaders += lib.NumExports;
         }
 
-        std::vector<CComPtr<IDxcBlob>> patchedBlobList;
+        std::vector<ComPtr<IDxcBlob>> patchedBlobList;
 
         UINT cbvSrvUavHandleSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
         UINT samplerHandleSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
@@ -70,7 +72,7 @@ namespace FallbackLayer
         ViewKey UAVViewsList[FallbackLayerNumDescriptorHeapSpacesPerView];
         UINT UAVsUsed = 0;
         
-        CComPtr<IDxcBlob> pAppLibrariesBlob;
+        ComPtr<IDxcBlob> pAppLibrariesBlob;
         {
             std::vector<DxilLibraryInfo> libraryInfo;
             for (UINT i = 0; i < numLibraries; i++)
@@ -85,7 +87,7 @@ namespace FallbackLayer
 
         std::vector<DxilLibraryInfo> librariesInfo;
         DxilLibraryInfo outputLibInfo((void *)pAppLibrariesBlob->GetBufferPointer(), (UINT)pAppLibrariesBlob->GetBufferSize());
-        CComPtr<IDxcBlob> pOutputBlob;
+        ComPtr<IDxcBlob> pOutputBlob;
         std::vector<LPCWSTR> exportNames;
         for (auto &associationPair : stateObjectCollection.m_shaderAssociations)
         {
@@ -95,9 +97,9 @@ namespace FallbackLayer
 
             if (shaderAssociation.m_pRootSignature)
             {
-                CComPtr<ID3D12VersionedRootSignatureDeserializer> pDeserializer;
+                ComPtr<ID3D12VersionedRootSignatureDeserializer> pDeserializer;
                 ShaderInfo shaderInfo;
-                shaderInfo.pRootSignatureDesc = GetDescFromRootSignature(shaderAssociation.m_pRootSignature, pDeserializer);
+                shaderInfo.pRootSignatureDesc = GetDescFromRootSignature(shaderAssociation.m_pRootSignature, pDeserializer.Get());
                 shaderInfo.pSRVRegisterSpaceArray = SRVViewsList;
                 shaderInfo.pNumSRVSpaces = &SRVsUsed;
                 shaderInfo.pUAVRegisterSpaceArray = UAVViewsList;
@@ -110,7 +112,7 @@ namespace FallbackLayer
                     shaderInfo.ShaderRecordIdentifierSizeInBytes = sizeof(ShaderIdentifier);
                     shaderInfo.ExportName = exportName.c_str();
 
-                    CComPtr<IDxcBlob> pPatchedBlob;
+                    ComPtr<IDxcBlob> pPatchedBlob;
                     m_DxilShaderPatcher.PatchShaderBindingTables(
                         (const BYTE *)outputLibInfo.pByteCode,
                         (UINT)outputLibInfo.BytecodeLength,
@@ -134,7 +136,7 @@ namespace FallbackLayer
             librariesInfo.emplace_back((void *)g_pStateMachineLib, ARRAYSIZE(g_pStateMachineLib));
         }
 
-        CComPtr<IDxcBlob> pCollectionBlob;
+        ComPtr<IDxcBlob> pCollectionBlob;
         std::vector<DxcShaderInfo> shaderInfo;
         m_DxilShaderPatcher.LinkCollection(stateObjectCollection.m_maxAttributeSizeInBytes, librariesInfo, exportNames, shaderInfo, &pCollectionBlob);
 
@@ -176,8 +178,8 @@ namespace FallbackLayer
         }
 
         UINT stackSize = stateObjectCollection.m_config.MaxTraceRecursionDepth * m_largestNonRayGenStackSize + m_largestRayGenStackSize;
-        CComPtr<IDxcBlob> pLinkedBlob;
-        m_DxilShaderPatcher.LinkStateObject(stateObjectCollection.m_maxAttributeSizeInBytes, stackSize, pCollectionBlob, exportNames, shaderInfo, &pLinkedBlob);
+        ComPtr<IDxcBlob> pLinkedBlob;
+        m_DxilShaderPatcher.LinkStateObject(stateObjectCollection.m_maxAttributeSizeInBytes, stackSize, pCollectionBlob.Get(), exportNames, shaderInfo, &pLinkedBlob);
 
         CompilePSO(
             pDevice, 
@@ -268,7 +270,7 @@ namespace FallbackLayer
         UINT dispatchWidth = DivideAndRoundUp<UINT>(desc.Width, THREAD_GROUP_WIDTH);
         UINT dispatchHeight = DivideAndRoundUp<UINT>(desc.Height, THREAD_GROUP_HEIGHT);
 
-        pCommandList->SetPipelineState(m_pRayTracePSO);
+        pCommandList->SetPipelineState(m_pRayTracePSO.Get());
         pCommandList->Dispatch(dispatchWidth, dispatchHeight, 1);
     }
 }

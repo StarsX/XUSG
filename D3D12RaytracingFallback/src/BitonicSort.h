@@ -117,14 +117,14 @@ private:
         NumParameters
     };
 
-    CComPtr<ID3D12RootSignature> m_pRootSignature;
-    CComPtr<ID3D12Resource> m_pDispatchArgs;
+    Microsoft::WRL::ComPtr<ID3D12RootSignature> m_pRootSignature;
+    Microsoft::WRL::ComPtr<ID3D12Resource> m_pDispatchArgs;
 
-    CComPtr<ID3D12CommandSignature> m_pCommandSignature;
+    Microsoft::WRL::ComPtr<ID3D12CommandSignature> m_pCommandSignature;
     const UINT cIndirectArgStride = 12;
 
-    CComPtr<ID3D12PipelineState> m_pBitonicIndirectArgsCS;
-    CComPtr<ID3D12PipelineState> m_pBitonicPreSortCS;
-    CComPtr<ID3D12PipelineState> m_pBitonicInnerSortCS;
-    CComPtr<ID3D12PipelineState> m_pBitonicOuterSortCS;
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pBitonicIndirectArgsCS;
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pBitonicPreSortCS;
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pBitonicInnerSortCS;
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pBitonicOuterSortCS;
 };

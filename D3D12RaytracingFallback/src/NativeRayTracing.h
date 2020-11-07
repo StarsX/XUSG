@@ -15,7 +15,7 @@ class NativeRaytracingStateObject : public ID3D12RaytracingFallbackStateObject
 public:
     NativeRaytracingStateObject(ID3D12StateObject *pStateObject) : m_pStateObject(pStateObject)
     {
-        ThrowFailure(m_pStateObject->QueryInterface(&m_pStateObjectProperties));
+        ThrowFailure(m_pStateObject->QueryInterface(IID_PPV_ARGS(&m_pStateObjectProperties)));
     }
 
     virtual ~NativeRaytracingStateObject() {}
@@ -43,12 +43,12 @@ public:
 
     virtual ID3D12StateObject *GetStateObject()
     {
-        return m_pStateObject;
+        return m_pStateObject.Get();
     }
 private:
-    CComPtr<ID3D12StateObjectProperties> m_pStateObjectProperties;
-    CComPtr<ID3D12StateObject> m_pStateObject;
-    COM_IMPLEMENTATION_WITH_QUERYINTERFACE(m_pStateObject.p);
+    Microsoft::WRL::ComPtr<ID3D12StateObjectProperties> m_pStateObjectProperties;
+    Microsoft::WRL::ComPtr<ID3D12StateObject> m_pStateObject;
+    COM_IMPLEMENTATION_WITH_QUERYINTERFACE(m_pStateObject.Get());
 };
 
 class NativeRaytracingCommandList : public ID3D12RaytracingFallbackCommandList
@@ -56,7 +56,7 @@ class NativeRaytracingCommandList : public ID3D12RaytracingFallbackCommandList
 public:
     NativeRaytracingCommandList(ID3D12GraphicsCommandList *pCommandList) 
     {
-        ThrowFailure(pCommandList->QueryInterface(&m_pCommandList), 
+        ThrowFailure(pCommandList->QueryInterface(IID_PPV_ARGS(&m_pCommandList)),
             L"QueryInterface for ID3D12GraphicsCommandList4 failed");
     }
 
@@ -126,8 +126,8 @@ public:
         m_pCommandList->SetPipelineState1(pNativeStateObject->GetStateObject());
     }
 private:
-    CComPtr<ID3D12GraphicsCommandList4> m_pCommandList;
-    COM_IMPLEMENTATION_WITH_QUERYINTERFACE(m_pCommandList.p);
+    Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList4> m_pCommandList;
+    COM_IMPLEMENTATION_WITH_QUERYINTERFACE(m_pCommandList.Get());
 };
 
 class NativeRaytracingDevice : public ID3D12RaytracingFallbackDevice
@@ -136,7 +136,7 @@ class NativeRaytracingDevice : public ID3D12RaytracingFallbackDevice
 public:
     NativeRaytracingDevice(ID3D12Device *pDevice)
     {
-        ThrowFailure(pDevice->QueryInterface(&m_pDevice));
+        ThrowFailure(pDevice->QueryInterface(IID_PPV_ARGS(&m_pDevice)));
     }
 
     virtual ~NativeRaytracingDevice() {}
@@ -180,12 +180,12 @@ public:
             ThrowFailure(E_INVALIDARG, L"Null ppStateObject passed in or invalid riid");
         }
 
-        CComPtr<ID3D12StateObject> pStateObject;
+        Microsoft::WRL::ComPtr<ID3D12StateObject> pStateObject;
         HRESULT hr = m_pDevice->CreateStateObject(pDesc, IID_PPV_ARGS(&pStateObject));
 
         if (SUCCEEDED(hr))
         {
-            *ppStateObject = new NativeRaytracingStateObject(pStateObject);
+            *ppStateObject = new NativeRaytracingStateObject(pStateObject.Get());
             hr = *ppStateObject ? S_OK : E_OUTOFMEMORY;
         }
 
@@ -246,6 +246,6 @@ public:
         return ::D3D12SerializeRootSignature(pRootSignature, Version, ppBlob, ppErrorBlob);
     }
 private:
-    CComPtr<ID3D12Device5> m_pDevice;
-    COM_IMPLEMENTATION_WITH_QUERYINTERFACE(m_pDevice.p);
+    Microsoft::WRL::ComPtr<ID3D12Device5> m_pDevice;
+    COM_IMPLEMENTATION_WITH_QUERYINTERFACE(m_pDevice.Get());
 };

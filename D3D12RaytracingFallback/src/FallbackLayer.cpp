@@ -10,6 +10,8 @@
 //*********************************************************
 #include "pch.h"
 
+using namespace Microsoft::WRL;
+
 namespace FallbackLayer
 {
     GUID FallbackLayerBlobPrivateDataGUID = { 0xf0545791, 0x860b, 0x472e, 0x9c, 0xc5, 0x84, 0x2c, 0xf1, 0x4e, 0x37, 0x60 };
@@ -116,7 +118,7 @@ namespace FallbackLayer
         hr = m_pDevice->CreateRootSignature(nodeMask, pBlobWithRootSignature, blobLengthInBytes, riid, ppvRootSignature);
 
         ID3D12Object *pRootSignatureObject = (ID3D12Object*)*ppvRootSignature;
-        CComPtr<ID3D12VersionedRootSignatureDeserializer> pDeserializer;
+        ComPtr<ID3D12VersionedRootSignatureDeserializer> pDeserializer;
         bool IsGlobalRootSignature = false;
         {
             if (SUCCEEDED(hr))
@@ -329,18 +331,18 @@ namespace FallbackLayer
         _In_ UINT NumUAVs)
     {
 #if USE_PIX_MARKERS
-        PIXScopedEvent(m_pCommandList.p, FallbackPixColor, L"BuildRaytracingAccelerationStructure");
+        PIXScopedEvent(m_pCommandList.Get(), FallbackPixColor, L"BuildRaytracingAccelerationStructure");
 #endif
         auto &accelerationStructureBuilder = m_device.m_AccelerationStructureBuilderFactory.GetAccelerationStructureBuilder(NumUAVs);
         accelerationStructureBuilder.BuildRaytracingAccelerationStructure(
-            m_pCommandList,
+            m_pCommandList.Get(),
             pDesc,
             m_pBoundDescriptorHeaps[SrvUavCbvType]);
 
         if (NumPostbuildInfoDescs)
         {
             accelerationStructureBuilder.EmitRaytracingAccelerationStructurePostbuildInfo(
-                m_pCommandList,
+                m_pCommandList.Get(),
                 pPostbuildInfoDescs,
                 NumPostbuildInfoDescs,
                 &pDesc->DestAccelerationStructureData);
@@ -557,11 +559,11 @@ namespace FallbackLayer
             );
         }
 #if USE_PIX_MARKERS
-        PIXScopedEvent(m_pCommandList.p, FallbackPixColor, L"EmitRaytracingAccelerationStructurePostBuildInfo");
+        PIXScopedEvent(m_pCommandList.Get(), FallbackPixColor, L"EmitRaytracingAccelerationStructurePostBuildInfo");
 #endif
 
         m_device.GetAccelerationStructureBuilderFactory().GetAccelerationStructureBuilder(NumUAVs).EmitRaytracingAccelerationStructurePostbuildInfo(
-            m_pCommandList,
+            m_pCommandList.Get(),
             pDesc,
             NumSourceAccelerationStructures,
             pSourceAccelerationStructureData);
@@ -574,10 +576,10 @@ namespace FallbackLayer
         _In_ UINT NumUAVs)
     {
 #if USE_PIX_MARKERS
-        PIXScopedEvent(m_pCommandList.p, FallbackPixColor, L"CopyRaytracingAccelerationStructure");
+        PIXScopedEvent(m_pCommandList.Get(), FallbackPixColor, L"CopyRaytracingAccelerationStructure");
 #endif
         m_device.GetAccelerationStructureBuilderFactory().GetAccelerationStructureBuilder(NumUAVs).CopyRaytracingAccelerationStructure(
-            m_pCommandList,
+            m_pCommandList.Get(),
             DestAccelerationStructureData,
             SourceAccelerationStructureData,
             Mode
@@ -618,7 +620,7 @@ namespace FallbackLayer
         // A view-type descriptor heap is required to be bound since the Top-Level 
         // Acceleration Structure will have emulated-SRV-pointers to Bottom-Level 
         // structures
-        RaytracingStateObject *pRaytracingPipelineState = static_cast<RaytracingStateObject *>(m_pStateObject.p);
+        RaytracingStateObject *pRaytracingPipelineState = static_cast<RaytracingStateObject*>(m_pStateObject.Get());
         if (!pDesc || (!m_pBoundDescriptorHeaps[SrvUavCbvType]))
         {
             ThrowFailure(E_INVALIDARG, 
@@ -641,10 +643,10 @@ namespace FallbackLayer
         m_device.ResetLog(m_pCommandList);
 #endif
 #if USE_PIX_MARKERS
-        PIXScopedEvent(m_pCommandList.p, FallbackPixColor, L"DispatchRays(%d, %d)", pDesc->Width, pDesc->Height);
+        PIXScopedEvent(m_pCommandList.Get(), FallbackPixColor, L"DispatchRays(%d, %d)", pDesc->Width, pDesc->Height);
 #endif
         pRaytracingPipelineState->m_spProgram->DispatchRays(
-            m_pCommandList,
+            m_pCommandList.Get(),
             m_pBoundDescriptorHeaps[SrvUavCbvType],
             m_pBoundDescriptorHeaps[SamplerType],
             m_BoundAccelerationStructures,

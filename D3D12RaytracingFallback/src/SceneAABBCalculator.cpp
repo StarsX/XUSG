@@ -27,9 +27,9 @@ namespace FallbackLayer
         auto rootSignatureDesc = CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC(ARRAYSIZE(parameters), parameters);
         CreateRootSignatureHelper(pDevice, rootSignatureDesc, &m_pRootSignature);
 
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pCalculateSceneAABBFromAABBs), &m_pCalculateSceneAABBFromAABBs);
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pCalculateSceneAABBFromPrimitives), &m_pCalculateSceneAABBFromPrimitives);
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pCalculateSceneAABBFromBVHs), &m_pCalculateSceneAABBFromBVHs);
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pCalculateSceneAABBFromAABBs), &m_pCalculateSceneAABBFromAABBs);
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pCalculateSceneAABBFromPrimitives), &m_pCalculateSceneAABBFromPrimitives);
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pCalculateSceneAABBFromBVHs), &m_pCalculateSceneAABBFromBVHs);
     }
 
 
@@ -37,14 +37,14 @@ namespace FallbackLayer
     {
         if (numElements == 0) return;
 
-        pCommandList->SetComputeRootSignature(m_pRootSignature);
+        pCommandList->SetComputeRootSignature(m_pRootSignature.Get());
         switch (sceneType)
         {
         case SceneType::Triangles:
-            pCommandList->SetPipelineState(m_pCalculateSceneAABBFromPrimitives);
+            pCommandList->SetPipelineState(m_pCalculateSceneAABBFromPrimitives.Get());
             break;
         case SceneType::BottomLevelBVHs:
-            pCommandList->SetPipelineState(m_pCalculateSceneAABBFromBVHs);
+            pCommandList->SetPipelineState(m_pCalculateSceneAABBFromBVHs.Get());
             break;
         default:
             assert(false);
@@ -84,7 +84,7 @@ namespace FallbackLayer
             std::swap(outputScratchBufferIndex, inputScratchBufferIndex);
             if (bFirstPass)
             {
-                pCommandList->SetPipelineState(m_pCalculateSceneAABBFromAABBs);
+                pCommandList->SetPipelineState(m_pCalculateSceneAABBFromAABBs.Get());
             }
         }
     }

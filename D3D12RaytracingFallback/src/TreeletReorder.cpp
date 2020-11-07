@@ -30,9 +30,9 @@ namespace FallbackLayer
         auto rootSignatureDesc = CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC(ARRAYSIZE(parameters), parameters);
         CreateRootSignatureHelper(pDevice, rootSignatureDesc, &m_pRootSignature);
         
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pClearBuffers), &m_pClearBuffersPSO);
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pFindTreelets), &m_pFindTreeletsPSO);
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pTreeletReorder), &m_pTreeletReorderPSO);
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pClearBuffers), &m_pClearBuffersPSO);
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pFindTreelets), &m_pFindTreeletsPSO);
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pTreeletReorder), &m_pTreeletReorderPSO);
     }
 
     void TreeletReorder::Optimize(
@@ -52,7 +52,7 @@ namespace FallbackLayer
         constants.NumberOfElements = numElements;
         constants.MinTrianglesPerTreelet = FullTreeletSize;
 
-        pCommandList->SetComputeRootSignature(m_pRootSignature);
+        pCommandList->SetComputeRootSignature(m_pRootSignature.Get());
         pCommandList->SetComputeRootUnorderedAccessView(HierarchyBufferSlot, hierarchyBuffer);
         pCommandList->SetComputeRootUnorderedAccessView(TriangleCountBufferSlot, triangleCountBuffer);
         pCommandList->SetComputeRootUnorderedAccessView(AABBBufferSlot, aabbBuffer);
@@ -92,15 +92,15 @@ namespace FallbackLayer
             UINT numGroupsForElements = DivideAndRoundUp<UINT>(numElements, THREAD_GROUP_1D_WIDTH);
             UINT maxNumTreelets = MaxNumTreelets(numElements, constants.MinTrianglesPerTreelet);
 
-            pCommandList->SetPipelineState(m_pClearBuffersPSO);
+            pCommandList->SetPipelineState(m_pClearBuffersPSO.Get());
             pCommandList->Dispatch(numGroupsForElements, 1, 1);
             pCommandList->ResourceBarrier(1, &uavBarrier);
 
-            pCommandList->SetPipelineState(m_pFindTreeletsPSO);
+            pCommandList->SetPipelineState(m_pFindTreeletsPSO.Get());
             pCommandList->Dispatch(numGroupsForElements, 1, 1);
             pCommandList->ResourceBarrier(1, &uavBarrier);
                 
-            pCommandList->SetPipelineState(m_pTreeletReorderPSO);
+            pCommandList->SetPipelineState(m_pTreeletReorderPSO.Get());
             pCommandList->Dispatch(maxNumTreelets, 1, 1);
             pCommandList->ResourceBarrier(1, &uavBarrier);
 

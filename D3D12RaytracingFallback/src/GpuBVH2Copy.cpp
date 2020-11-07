@@ -27,7 +27,7 @@ GpuBvh2Copy::GpuBvh2Copy(ID3D12Device *pDevice, UINT totalLaneCount, UINT nodeMa
     auto rootSignatureDesc = CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC(ARRAYSIZE(rootParameters), rootParameters);
     CreateRootSignatureHelper(pDevice, rootSignatureDesc, &m_pRootSignature);
 
-    CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pGpuBvh2Copy), &m_pPSO);
+    CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pGpuBvh2Copy), &m_pPSO);
 }
 
 void GpuBvh2Copy::CopyRaytracingAccelerationStructure(
@@ -35,8 +35,8 @@ void GpuBvh2Copy::CopyRaytracingAccelerationStructure(
     _In_  D3D12_GPU_VIRTUAL_ADDRESS DestAccelerationStructureData,
     _In_  D3D12_GPU_VIRTUAL_ADDRESS SourceAccelerationStructureData)
 {
-    pCommandList->SetComputeRootSignature(m_pRootSignature);
-    pCommandList->SetPipelineState(m_pPSO);
+    pCommandList->SetComputeRootSignature(m_pRootSignature.Get());
+    pCommandList->SetPipelineState(m_pPSO.Get());
     pCommandList->SetComputeRootUnorderedAccessView(DestBvh, DestAccelerationStructureData);
     pCommandList->SetComputeRootUnorderedAccessView(SourceBvh, SourceAccelerationStructureData);
     pCommandList->SetComputeRoot32BitConstant(Constants, m_OptimalDispatchWidth, 0);

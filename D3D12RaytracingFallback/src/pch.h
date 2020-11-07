@@ -17,7 +17,6 @@
 #include <DirectXMath.h>
 #include <assert.h>
 #include <comdef.h>
-#include <atlbase.h>
 #include <memory>
 #include <vector>
 #include <algorithm>

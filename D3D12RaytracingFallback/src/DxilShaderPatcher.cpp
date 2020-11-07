@@ -11,6 +11,7 @@
 #include "pch.h"
 
 using namespace hlsl;
+using namespace Microsoft::WRL;
 #define SPEW_SHADERS 0
 namespace FallbackLayer
 {
@@ -20,7 +21,7 @@ namespace FallbackLayer
         ThrowInternalFailure(pResult->GetStatus(&hr));
         if (FAILED(hr))
         {
-            CComPtr<IDxcBlobEncoding> pErrorText;
+            ComPtr<IDxcBlobEncoding> pErrorText;
             pResult->GetErrorBuffer(&pErrorText);
             OutputDebugStringA((char *)pErrorText->GetBufferPointer());
         }
@@ -38,7 +39,7 @@ namespace FallbackLayer
 
     void DxilShaderPatcher::LinkCollection(UINT maxAttributeSize, const std::vector<DxilLibraryInfo> &dxilLibraries, const std::vector<LPCWSTR>& exportNames, std::vector<DxcShaderInfo>& shaderInfo, IDxcBlob** ppOutputBlob)
     {
-        CComPtr<IDxcDxrFallbackCompiler> pFallbackCompiler;
+        ComPtr<IDxcDxrFallbackCompiler> pFallbackCompiler;
         CreateFallbackCompiler(&pFallbackCompiler);
 
         std::vector<DxcShaderBytecode> pLibBlobPtrs(dxilLibraries.size());
@@ -48,29 +49,29 @@ namespace FallbackLayer
         }
 
         shaderInfo.resize(exportNames.size());
-        CComPtr<IDxcOperationResult> pResult;
+        ComPtr<IDxcOperationResult> pResult;
         pFallbackCompiler->Compile(pLibBlobPtrs.data(), (UINT32)pLibBlobPtrs.size(), exportNames.data(), shaderInfo.data(), (UINT32)exportNames.size(), maxAttributeSize, &pResult);
 
-        VerifyResult(pResult);
+        VerifyResult(pResult.Get());
         ThrowInternalFailure(pResult->GetResult(ppOutputBlob));
     }
 
     void DxilShaderPatcher::LinkStateObject(UINT maxAttributeSize, UINT stackSize, IDxcBlob* pLinkedBlob, const std::vector<LPCWSTR>& exportNames, std::vector<DxcShaderInfo>& shaderInfo, IDxcBlob** ppOutputBlob)
     {
-        CComPtr<IDxcDxrFallbackCompiler> pFallbackCompiler;
+        ComPtr<IDxcDxrFallbackCompiler> pFallbackCompiler;
         CreateFallbackCompiler(&pFallbackCompiler);
 
         shaderInfo.resize(exportNames.size());
-        CComPtr<IDxcOperationResult> pResult;
+        ComPtr<IDxcOperationResult> pResult;
         pFallbackCompiler->Link(L"main", &pLinkedBlob, 1, exportNames.data(), shaderInfo.data(), (UINT32)exportNames.size(), maxAttributeSize, stackSize, &pResult);
 
-        VerifyResult(pResult);
+        VerifyResult(pResult.Get());
         ThrowInternalFailure(pResult->GetResult(ppOutputBlob));
 #ifdef DEBUG
         {
-            //CComPtr<IDxcOperationResult> pValidatorResult;
+            //ComPtr<IDxcOperationResult> pValidatorResult;
             //GetValidator().Validate(*ppOutputBlob, DxcValidatorFlags_Default, &pValidatorResult);
-            //VerifyResult(pValidatorResult);
+            //VerifyResult(pValidatorResult.Get());
         }
 
 #if SPEW_SHADERS
@@ -86,10 +87,10 @@ namespace FallbackLayer
 
     void DxilShaderPatcher::RenameAndLink(const std::vector<DxilLibraryInfo> &dxilLibraries, std::vector<DxcExportDesc> exports, IDxcBlob** ppOutputBlob)
     {
-        CComPtr<IDxcDxrFallbackCompiler> pFallbackCompiler;
+        ComPtr<IDxcDxrFallbackCompiler> pFallbackCompiler;
         CreateFallbackCompiler(&pFallbackCompiler);
 
-        CComPtr<IDxcOperationResult> pResult;
+        ComPtr<IDxcOperationResult> pResult;
         std::vector<DxcShaderBytecode> pLibBlobPtrs(dxilLibraries.size());
         for (size_t i = 0; i < dxilLibraries.size(); ++i)
         {
@@ -98,21 +99,21 @@ namespace FallbackLayer
 
         pFallbackCompiler->RenameAndLink(pLibBlobPtrs.data(), (UINT)pLibBlobPtrs.size(), exports.data(), (UINT)exports.size(), &pResult);
 
-        VerifyResult(pResult);
+        VerifyResult(pResult.Get());
         ThrowInternalFailure(pResult->GetResult(ppOutputBlob));
     }
 
 
     void DxilShaderPatcher::PatchShaderBindingTables(const BYTE *pShaderBytecode, UINT bytecodeLength, ShaderInfo *pShaderInfo, IDxcBlob** ppOutputBlob)
     {
-        CComPtr<IDxcDxrFallbackCompiler> pFallbackCompiler;
+        ComPtr<IDxcDxrFallbackCompiler> pFallbackCompiler;
         CreateFallbackCompiler(&pFallbackCompiler);
 
-        CComPtr<IDxcOperationResult> pResult;
+        ComPtr<IDxcOperationResult> pResult;
         DxcShaderBytecode shaderBytecode = { (LPBYTE)pShaderBytecode, bytecodeLength };
         pFallbackCompiler->PatchShaderBindingTables(pShaderInfo->ExportName, &shaderBytecode, pShaderInfo, &pResult);
 
-        VerifyResult(pResult);
+        VerifyResult(pResult.Get());
         ThrowInternalFailure(pResult->GetResult(ppOutputBlob));
     }
 }

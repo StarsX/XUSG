@@ -24,7 +24,7 @@ PostBuildInfoQuery::PostBuildInfoQuery(ID3D12Device *pDevice, UINT nodeMask)
     auto rootSignatureDesc = CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC(ARRAYSIZE(parameters), parameters);
     CreateRootSignatureHelper(pDevice, rootSignatureDesc, &m_pRootSignature);
 
-    CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pGetBVHCompactedSize), &m_pPSO);
+    CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pGetBVHCompactedSize), &m_pPSO);
 }
 
 void PostBuildInfoQuery::GetCompactedBVHSizes(
@@ -33,8 +33,8 @@ void PostBuildInfoQuery::GetCompactedBVHSizes(
     _In_  UINT NumSourceAccelerationStructures,
     _In_reads_(NumSourceAccelerationStructures) const D3D12_GPU_VIRTUAL_ADDRESS *pSourceAccelerationStructureData)
 {
-    pCommandList->SetComputeRootSignature(m_pRootSignature);
-    pCommandList->SetPipelineState(m_pPSO);
+    pCommandList->SetComputeRootSignature(m_pRootSignature.Get());
+    pCommandList->SetPipelineState(m_pPSO.Get());
 
     UINT NumAccelerationStructuresProcessed = 0;
     D3D12_GPU_VIRTUAL_ADDRESS outputCountAddress = DestBuffer;

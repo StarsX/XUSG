@@ -12,7 +12,7 @@
 #pragma once
 #include <list>
 #include <vector>
-#include <atlbase.h>
+#include <wrl.h>
 
 class CD3D12_STATE_OBJECT_DESC
 {
@@ -291,7 +291,7 @@ private:
     }
     void* Data() { return &m_Desc; }
     D3D12_EXISTING_COLLECTION_DESC m_Desc;
-    CComPtr<ID3D12StateObject> m_CollectionRef;
+    Microsoft::WRL::ComPtr<ID3D12StateObject> m_CollectionRef;
     CD3D12_STATE_OBJECT_DESC::StringContainer m_Strings;
     std::vector<D3D12_EXPORT_DESC> m_Exports;
 };
@@ -501,15 +501,15 @@ public:
     }
     D3D12_STATE_SUBOBJECT_TYPE Type() { return D3D12_STATE_SUBOBJECT_TYPE_GLOBAL_ROOT_SIGNATURE; }
     operator const D3D12_STATE_SUBOBJECT&() const { return *m_pSubobject; }
-    operator ID3D12RootSignature*() const { return m_pRootSig; }
+    operator ID3D12RootSignature*() const { return m_pRootSig.Get(); }
 private:
     void Init()
     {
         SUBOBJECT_HELPER_BASE::Init();
         m_pRootSig = nullptr;
     }
-    void* Data() { return &m_pRootSig; }
-    CComPtr<ID3D12RootSignature> m_pRootSig;
+    void* Data() { return m_pRootSig.GetAddressOf(); }
+    Microsoft::WRL::ComPtr<ID3D12RootSignature> m_pRootSig;
 };
 
 class CD3D12_LOCAL_ROOT_SIGNATURE_SUBOBJECT : public CD3D12_STATE_OBJECT_DESC::SUBOBJECT_HELPER_BASE
@@ -530,15 +530,15 @@ public:
     }
     D3D12_STATE_SUBOBJECT_TYPE Type() { return D3D12_STATE_SUBOBJECT_TYPE_LOCAL_ROOT_SIGNATURE; }
     operator const D3D12_STATE_SUBOBJECT&() const { return *m_pSubobject; }
-    operator ID3D12RootSignature*() const { return m_pRootSig; }
+    operator ID3D12RootSignature*() const { return m_pRootSig.Get(); }
 private:
     void Init()
     {
         SUBOBJECT_HELPER_BASE::Init();
         m_pRootSig = nullptr;
     }
-    void* Data() { return &m_pRootSig; }
-    CComPtr<ID3D12RootSignature> m_pRootSig;
+    void* Data() { return m_pRootSig.GetAddressOf(); }
+    Microsoft::WRL::ComPtr<ID3D12RootSignature> m_pRootSig;
 };
 
 class CD3D12_STATE_OBJECT_CONFIG_SUBOBJECT : public CD3D12_STATE_OBJECT_DESC::SUBOBJECT_HELPER_BASE

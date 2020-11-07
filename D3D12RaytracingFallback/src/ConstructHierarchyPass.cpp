@@ -27,9 +27,9 @@ namespace FallbackLayer
         auto rootSignatureDesc = CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC(ARRAYSIZE(rootParameters), rootParameters);
         CreateRootSignatureHelper(pDevice, rootSignatureDesc, &m_pRootSignature);
 
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pTopLevelBuildBVHSplits), &m_pBuildSplits[Level::Top]);
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pTopLevelBuildBVHSplits), &m_pBuildSplits[Level::Top]);
 
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature, COMPILED_SHADER(g_pBottomLevelBuildBVHSplits), &m_pBuildSplits[Level::Bottom]);
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pBottomLevelBuildBVHSplits), &m_pBuildSplits[Level::Bottom]);
     }
 
     void ConstructHierarchyPass::ConstructHierarchy(ID3D12GraphicsCommandList *pCommandList,
@@ -45,7 +45,7 @@ namespace FallbackLayer
 
         InputConstants constants = { numElements };
 
-        pCommandList->SetComputeRootSignature(m_pRootSignature);
+        pCommandList->SetComputeRootSignature(m_pRootSignature.Get());
         pCommandList->SetComputeRoot32BitConstants(InputRootConstants, SizeOfInUint32(InputConstants), &constants, 0);
         pCommandList->SetComputeRootUnorderedAccessView(MortonCodesBufferParam, mortonCodeBuffer);
         pCommandList->SetComputeRootUnorderedAccessView(HierarchyUAVParam, hierarchyBuffer);
@@ -58,9 +58,8 @@ namespace FallbackLayer
         const UINT dispatchWidth = DivideAndRoundUp<UINT>(numElements, THREAD_GROUP_1D_WIDTH);
         auto uavBarrier = CD3DX12_RESOURCE_BARRIER::UAV(nullptr);
 
-        pCommandList->SetPipelineState(m_pBuildSplits[level]);
+        pCommandList->SetPipelineState(m_pBuildSplits[level].Get());
         pCommandList->Dispatch(dispatchWidth, 1, 1);
         pCommandList->ResourceBarrier(1, &uavBarrier);
     }
-
 }

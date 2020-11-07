@@ -51,7 +51,7 @@ template <typename T> T AlignPowerOfTwo(T value)
 
 static void CreateRootSignatureHelper(ID3D12Device *pDevice, D3D12_VERSIONED_ROOT_SIGNATURE_DESC &desc, ID3D12RootSignature **ppRootSignature)
 {
-    CComPtr<ID3DBlob> pRootSignatureBlob;
+    Microsoft::WRL::ComPtr<ID3DBlob> pRootSignatureBlob;
     ThrowInternalFailure(::D3D12SerializeVersionedRootSignature(&desc, &pRootSignatureBlob, nullptr));
 
     ThrowInternalFailure(pDevice->CreateRootSignature(1, pRootSignatureBlob->GetBufferPointer(), pRootSignatureBlob->GetBufferSize(),

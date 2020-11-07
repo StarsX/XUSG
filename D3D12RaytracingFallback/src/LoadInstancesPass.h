@@ -33,8 +33,8 @@ namespace FallbackLayer
             NumRootParameters,
         };
 
-        CComPtr<ID3D12RootSignature> m_pRootSignature;
-        CComPtr<ID3D12PipelineState> m_pLoadAABBsFromArrayOfPointersPSO;
-        CComPtr<ID3D12PipelineState> m_pLoadAABBsFromArrayOfInstancesPSO;
+        Microsoft::WRL::ComPtr<ID3D12RootSignature> m_pRootSignature;
+        Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pLoadAABBsFromArrayOfPointersPSO;
+        Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pLoadAABBsFromArrayOfInstancesPSO;
     };
 }

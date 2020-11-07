@@ -45,7 +45,7 @@ namespace FallbackLayer
         ShaderData *GetShaderData(LPCWSTR pExportName);
 
         std::unordered_map<std::wstring, ShaderData> m_ExportNameToShaderData;
-        CComPtr<ID3D12PipelineState> m_pRayTracePSO;
+        Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pRayTracePSO;
         UINT m_patchRootSignatureParameterStart;
 
         UINT m_largestNonRayGenStackSize = 0;
