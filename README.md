@@ -4,6 +4,7 @@ XUSG, XU's supreme graphics lib, is a handy wrapper currently for DirectX 12. XU
 * XUSG core (XUSGCore), the wrapper of the core functions in graphics API (currently DirectX 12).
 * XUSG ray-tracing (XUSGRayTracing), the wrapper of the ray-tracing functions in graphics API (currently native DXR).
 * XUSG DXR with fallback layer (XUSGDXRFallback), the wrapper of the ray-tracing functions through [DXR fallback layer](https://github.com/Microsoft/DirectX-Graphics-Samples/tree/master/Libraries/D3D12RaytracingFallback), which supports both native DXR and compute emulation. The hardware requirement of DXR fallback layer is backward-compatible to Tier 2 (official Microsoft DXR fallback layer needs Tier 3).
+* XUSG core with ultimate extensions, the wrapper of the extension functions in graphics API (currently DirectX 12 Ultimate).
 * XUSG machine learning, the wrapper of the machine learning functions, currently based on DirectML (DML).
 
 # Samples
@@ -25,6 +26,12 @@ https://github.com/StarsX/ParticleEmitter
 Using XUSGCore and partially open-source XUSGAdvanced:
 
 https://github.com/StarsX/Character12
+
+Using XUSGCore with ultimate extensions (mesh shader related):
+
+https://github.com/StarsX/MeshShader
+
+https://github.com/StarsX/MSFallback
 
 Using XUSGDXRFallback:
 
