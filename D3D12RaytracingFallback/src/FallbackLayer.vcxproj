@@ -44,14 +44,14 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>$(ProjectDir)..\include;$(SolutionDir)Build_VS15\$(Platform)\$(Configuration)\Output\$(ProjectName);$(IncludePath)</IncludePath>
-    <OutDir>$(SolutionDir)Build_VS15\$(Platform)\$(Configuration)\Output\$(ProjectName)\</OutDir>
-    <IntDir>$(SolutionDir)Build_VS15\$(Platform)\$(Configuration)\Intermediate\$(ProjectName)\</IntDir>
+    <IncludePath>$(ProjectDir)..\include;$(SolutionDir)Build\$(Platform)\$(Configuration)\Output\$(ProjectName);$(IncludePath)</IncludePath>
+    <OutDir>$(SolutionDir)Build\$(Platform)\$(Configuration)\Output\$(ProjectName)\</OutDir>
+    <IntDir>$(SolutionDir)Build\$(Platform)\$(Configuration)\Intermediate\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>$(ProjectDir)..\include;$(SolutionDir)Build_VS15\$(Platform)\$(Configuration)\Output\$(ProjectName);$(IncludePath)</IncludePath>
-    <OutDir>$(SolutionDir)Build_VS15\$(Platform)\$(Configuration)\Output\$(ProjectName)\</OutDir>
-    <IntDir>$(SolutionDir)Build_VS15\$(Platform)\$(Configuration)\Intermediate\$(ProjectName)\</IntDir>
+    <IncludePath>$(ProjectDir)..\include;$(SolutionDir)Build\$(Platform)\$(Configuration)\Output\$(ProjectName);$(IncludePath)</IncludePath>
+    <OutDir>$(SolutionDir)Build\$(Platform)\$(Configuration)\Output\$(ProjectName)\</OutDir>
+    <IntDir>$(SolutionDir)Build\$(Platform)\$(Configuration)\Intermediate\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
@@ -72,14 +72,14 @@
     </Manifest>
     <FxCompile>
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">-Zpr %(AdditionalOptions)</AdditionalOptions>
-      <HeaderFileOutput Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(SolutionDir)Build_VS15\$(Platform)\$(Configuration)\Output\$(ProjectName)\CompiledShaders\%(Filename).h</HeaderFileOutput>
-      <ObjectFileOutput Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(SolutionDir)Build_VS15\$(Platform)\$(Configuration)\Output\$(ProjectName)\Shaders\%(Filename).cso</ObjectFileOutput>
+      <HeaderFileOutput Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(SolutionDir)Build\$(Platform)\$(Configuration)\Output\$(ProjectName)\CompiledShaders\%(Filename).h</HeaderFileOutput>
+      <ObjectFileOutput Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(SolutionDir)Build\$(Platform)\$(Configuration)\Output\$(ProjectName)\Shaders\%(Filename).cso</ObjectFileOutput>
     </FxCompile>
     <FxCompile />
     <FxCompile>
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">-Zpr %(AdditionalOptions)</AdditionalOptions>
-      <HeaderFileOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(SolutionDir)Build_VS15\$(Platform)\$(Configuration)\Output\$(ProjectName)\CompiledShaders\%(Filename).h</HeaderFileOutput>
-      <ObjectFileOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(SolutionDir)Build_VS15\$(Platform)\$(Configuration)\Output\$(ProjectName)\Shaders\%(Filename).cso</ObjectFileOutput>
+      <HeaderFileOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(SolutionDir)Build\$(Platform)\$(Configuration)\Output\$(ProjectName)\CompiledShaders\%(Filename).h</HeaderFileOutput>
+      <ObjectFileOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(SolutionDir)Build\$(Platform)\$(Configuration)\Output\$(ProjectName)\Shaders\%(Filename).cso</ObjectFileOutput>
     </FxCompile>
     <PreBuildEvent>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">cd "$(SolutionDir)tools\x64\"
@@ -345,8 +345,8 @@ PrebuildCheck.bat</Command>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Library</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.3</ShaderModel>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">6.3</ShaderModel>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(SolutionDir)Build_VS15\$(Platform)\$(Configuration)\Output\$(ProjectName)\CompiledShaders\%(Filename).h</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(SolutionDir)Build_VS15\$(Platform)\$(Configuration)\Output\$(ProjectName)\CompiledShaders\%(Filename).h</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(SolutionDir)Build\$(Platform)\$(Configuration)\Output\$(ProjectName)\CompiledShaders\%(Filename).h</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(SolutionDir)Build\$(Platform)\$(Configuration)\Output\$(ProjectName)\CompiledShaders\%(Filename).h</Outputs>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Building DXC Library</Message>
       <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Building DXC Library</Message>
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> -HV 2017 -O3 %(AdditionalOptions)</AdditionalOptions>
@@ -356,8 +356,12 @@ PrebuildCheck.bat</Command>
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
       </EntryPointName>
       <FileType>Document</FileType>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">"$(ProjectDir)..\dxc.exe" /Fh"$(SolutionDir)Build_VS15\$(Platform)\$(Configuration)\Output\$(ProjectName)\CompiledShaders\%(Filename).h" /Fo"$(SolutionDir)Build_VS15\$(Platform)\$(Configuration)\Output\$(ProjectName)\Shaders\%(Filename).cso" /T"lib_6_3" /Vn"g_p%(Filename)" /HV2017 /O3 /nologo "%(FullPath)"</Command>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">"$(ProjectDir)..\dxc.exe" /Zi /Od /Fh"$(SolutionDir)Build_VS15\$(Platform)\$(Configuration)\Output\$(ProjectName)\CompiledShaders\%(Filename).h" /Fo"$(SolutionDir)Build_VS15\$(Platform)\$(Configuration)\Output\$(ProjectName)\Shaders\%(Filename).cso" /T"lib_6_3" /Vn"g_p%(Filename)" /HV2017 /O3 /nologo "%(FullPath)"</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">md "$(SolutionDir)Build\$(Platform)\$(Configuration)\Output\$(ProjectName)\Shaders
+md "$(SolutionDir)Build\$(Platform)\$(Configuration)\Output\$(ProjectName)\CompiledShaders
+"$(ProjectDir)..\dxc.exe" /Fh"$(SolutionDir)Build\$(Platform)\$(Configuration)\Output\$(ProjectName)\CompiledShaders\%(Filename).h" /Fo"$(SolutionDir)Build\$(Platform)\$(Configuration)\Output\$(ProjectName)\Shaders\%(Filename).cso" /T"lib_6_3" /Vn"g_p%(Filename)" /HV2017 /O3 /nologo "%(FullPath)"</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">md "$(SolutionDir)Build\$(Platform)\$(Configuration)\Output\$(ProjectName)\Shaders
+md "$(SolutionDir)Build\$(Platform)\$(Configuration)\Output\$(ProjectName)\CompiledShaders
+"$(ProjectDir)..\dxc.exe" /Zi /Od /Fh"$(SolutionDir)Build\$(Platform)\$(Configuration)\Output\$(ProjectName)\CompiledShaders\%(Filename).h" /Fo"$(SolutionDir)Build\$(Platform)\$(Configuration)\Output\$(ProjectName)\Shaders\%(Filename).cso" /T"lib_6_3" /Vn"g_p%(Filename)" /HV2017 /O3 /nologo "%(FullPath)"</Command>
     </CustomBuild>
     <FxCompile Include="TopLevelLoadAABBsFromArrayOfPointers.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>

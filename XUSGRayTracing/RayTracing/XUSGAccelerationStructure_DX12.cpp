@@ -53,25 +53,25 @@ const WRAPPED_GPU_POINTER& AccelerationStructure_DX12::GetResultPointer() const
 }
 #endif
 
-bool AccelerationStructure_DX12::AllocateUAVBuffer(const RayTracing::Device& device, Resource& resource,
+bool AccelerationStructure_DX12::AllocateUAVBuffer(const XUSG::Device& device, Resource& resource,
 	size_t byteWidth, ResourceState dstState)
 {
 	const auto heapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
 	const auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(byteWidth, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
 
-	V_RETURN(device.Base->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &bufferDesc,
+	V_RETURN(device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &bufferDesc,
 		static_cast<D3D12_RESOURCE_STATES>(dstState), nullptr, IID_PPV_ARGS(&resource)), cerr, false);
 
 	return true;
 }
 
-bool AccelerationStructure_DX12::AllocateUploadBuffer(const RayTracing::Device& device, Resource& resource,
+bool AccelerationStructure_DX12::AllocateUploadBuffer(const XUSG::Device& device, Resource& resource,
 	size_t byteWidth, void* pData)
 {
 	const auto heapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
 	const auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(byteWidth);
 
-	V_RETURN(device.Base->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE,
+	V_RETURN(device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE,
 		&bufferDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
 		IID_PPV_ARGS(&resource)), cerr, false);
 
@@ -115,8 +115,7 @@ bool AccelerationStructure_DX12::preBuild(const RayTracing::Device& device, uint
 	for (auto& result : m_results)
 	{
 		result = RawBuffer::MakeShared();
-		N_RETURN(result->Create(device.Base, GetResultDataMaxSize(),
-			resourceFlags, MemoryType::DEFAULT, numSRVs), false);
+		N_RETURN(result->Create(device, GetResultDataMaxSize(), resourceFlags, MemoryType::DEFAULT, numSRVs), false);
 	}
 
 #if ENABLE_DXR_FALLBACK

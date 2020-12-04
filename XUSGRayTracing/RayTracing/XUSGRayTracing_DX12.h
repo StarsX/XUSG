@@ -12,6 +12,8 @@ namespace XUSG
 	{
 		struct Device
 		{
+			operator const XUSG::Device& () const { return Base; }
+			operator XUSG::Device& () { return Base; }
 			XUSG::Device Base;
 #if ENABLE_DXR_FALLBACK
 			com_ptr<ID3D12RaytracingFallbackDevice> Derived;

@@ -56,9 +56,9 @@ namespace XUSG
 			//BottomLevelAS();
 			virtual ~BottomLevelAS() {}
 
-			virtual bool PreBuild(const RayTracing::Device& device, uint32_t numDescs, const Geometry* pGeometries,
+			virtual bool PreBuild(const Device& device, uint32_t numDescs, const Geometry* pGeometries,
 				uint32_t descriptorIndex, BuildFlags flags = BuildFlags::PREFER_FAST_TRACE) = 0;
-			virtual void Build(const RayTracing::CommandList* pCommandList, const Resource& scratch,
+			virtual void Build(const CommandList* pCommandList, const Resource& scratch,
 				const DescriptorPool& descriptorPool, bool update = false) = 0;
 #if !ENABLE_DXR_FALLBACK
 			virtual void Build(XUSG::CommandList* pCommandList, const Resource& scratch,
@@ -90,16 +90,16 @@ namespace XUSG
 			//TopLevelAS();
 			virtual ~TopLevelAS() {}
 
-			virtual bool PreBuild(const RayTracing::Device& device, uint32_t numDescs, uint32_t descriptorIndex,
+			virtual bool PreBuild(const Device& device, uint32_t numDescs, uint32_t descriptorIndex,
 				BuildFlags flags = BuildFlags::PREFER_FAST_TRACE) = 0;
-			virtual void Build(const RayTracing::CommandList* pCommandList, const Resource& scratch,
+			virtual void Build(const CommandList* pCommandList, const Resource& scratch,
 				const Resource& instanceDescs, const DescriptorPool& descriptorPool, bool update = false) = 0;
 #if !ENABLE_DXR_FALLBACK
 			virtual void Build(XUSG::CommandList* pCommandList, const Resource& scratch,
 				const Resource& instanceDescs, const DescriptorPool& descriptorPool, bool update = false) = 0;
 #endif
 
-			static void SetInstances(const RayTracing::Device& device, Resource& instances,
+			static void SetInstances(const Device& device, Resource& instances,
 				uint32_t numInstances, const BottomLevelAS* const* ppBottomLevelASs,
 				float* const* transforms, XUSG::API api = XUSG::API::DIRECTX_12);
 
@@ -150,7 +150,7 @@ namespace XUSG
 			//ShaderTable();
 			virtual ~ShaderTable() {}
 
-			virtual bool Create(const Device& device, uint32_t numShaderRecords, uint32_t shaderRecordSize,
+			virtual bool Create(const XUSG::Device& device, uint32_t numShaderRecords, uint32_t shaderRecordSize,
 				const wchar_t* name = nullptr) = 0;
 
 			virtual bool AddShaderRecord(const ShaderRecord& shaderRecord) = 0;

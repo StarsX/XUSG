@@ -9,7 +9,7 @@ using namespace std;
 using namespace XUSG;
 using namespace XUSG::RayTracing;
 
-ShaderRecord_DX12::ShaderRecord_DX12(const RayTracing::Device& device, const RayTracing::Pipeline& pipeline,
+ShaderRecord_DX12::ShaderRecord_DX12(const Device& device, const RayTracing::Pipeline& pipeline,
 	const void* shader, const void* pLocalDescriptorArgs, uint32_t localDescriptorArgSize) :
 	m_localDescriptorArgs(pLocalDescriptorArgs, localDescriptorArgSize)
 {
@@ -44,7 +44,7 @@ void ShaderRecord_DX12::CopyTo(void* dest) const
 		memcpy(byteDest + m_shaderID.Size, m_localDescriptorArgs.Ptr, m_localDescriptorArgs.Size);
 }
 
-uint32_t ShaderRecord_DX12::GetShaderIDSize(const RayTracing::Device& device)
+uint32_t ShaderRecord_DX12::GetShaderIDSize(const Device& device)
 {
 #if ENABLE_DXR_FALLBACK
 	const auto shaderIDSize = device.Derived->UsingRaytracingDriver() ?
@@ -69,7 +69,7 @@ ShaderTable_DX12::~ShaderTable_DX12()
 	if (m_resource) Unmap();
 }
 
-bool ShaderTable_DX12::Create(const RayTracing::Device& device, uint32_t numShaderRecords,
+bool ShaderTable_DX12::Create(const XUSG::Device& device, uint32_t numShaderRecords,
 	uint32_t shaderRecordSize, const wchar_t* name)
 {
 	if (m_resource) Unmap();
@@ -133,12 +133,12 @@ uint32_t ShaderTable_DX12::GetShaderRecordSize() const
 	return m_shaderRecordSize;
 }
 
-bool ShaderTable_DX12::allocate(const RayTracing::Device& device, uint32_t byteWidth, const wchar_t* name)
+bool ShaderTable_DX12::allocate(const XUSG::Device& device, uint32_t byteWidth, const wchar_t* name)
 {
 	const auto heapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
 	const auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(byteWidth);
 
-	V_RETURN(device.Base->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE,
+	V_RETURN(device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE,
 		&bufferDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
 		IID_PPV_ARGS(&m_resource)), cerr, false);
 	m_resource->SetName(name);

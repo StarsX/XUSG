@@ -44,7 +44,7 @@ namespace XUSG
 			ShaderTable_DX12();
 			virtual ~ShaderTable_DX12();
 
-			bool Create(const Device& device, uint32_t numShaderRecords, uint32_t shaderRecordSize,
+			bool Create(const XUSG::Device& device, uint32_t numShaderRecords, uint32_t shaderRecordSize,
 				const wchar_t* name = nullptr);
 
 			bool AddShaderRecord(const ShaderRecord& shaderRecord);
@@ -57,7 +57,7 @@ namespace XUSG
 			uint32_t GetShaderRecordSize() const;
 
 		protected:
-			bool allocate(const Device& device, uint32_t byteWidth, const wchar_t* name);
+			bool allocate(const XUSG::Device& device, uint32_t byteWidth, const wchar_t* name);
 
 			Resource m_resource;
 
