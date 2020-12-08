@@ -536,6 +536,7 @@ bool Texture2D_DX12::CreateSRVLevels(uint32_t arraySize, uint8_t numMips, Format
 			else if (arraySize > 1)
 			{
 				desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
+				desc.Texture2DArray.ArraySize = arraySize;
 				desc.Texture2DArray.MostDetailedMip = mipLevel++;
 				desc.Texture2DArray.MipLevels = 1;
 			}
