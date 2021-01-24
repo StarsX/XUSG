@@ -4,11 +4,11 @@
 
 #pragma once
 
-#define H_RETURN(x, o, m, r)		{ const auto hr = x; if (FAILED(hr)) { o << m << std::endl; return r; } }
-#define V_RETURN(x, o, r)			H_RETURN(x, o, XUSG::HrToString(hr), r)
+#define H_RETURN(x, o, m, r)		{ const auto hr = x; if (FAILED(hr)) { o << m << std::endl; assert(!m); return r; } }
+#define V_RETURN(x, o, r)			H_RETURN(x, o, XUSG::HrToString(hr).c_str(), r)
 
-#define M_RETURN(x, o, m, r)		if (x) { o << m << std::endl; return r; }
-#define F_RETURN(x, o, h, r)		M_RETURN(x, o, XUSG::HrToString(h), r)
+#define M_RETURN(x, o, m, r)		if (x) { o << m << std::endl; assert(!m); return r; }
+#define F_RETURN(x, o, h, r)		M_RETURN(x, o, XUSG::HrToString(h).c_str(), r)
 
 #define BARRIER_ALL_SUBRESOURCES	D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES
 
