@@ -923,10 +923,12 @@ namespace XUSG
 		//RenderTarget();
 		virtual ~RenderTarget() {};
 
+		// Create() will create multiple RTVs (1 slice per RTV)
 		virtual bool Create(const Device& device, uint32_t width, uint32_t height, Format format,
 			uint32_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, const float* pClearColor = nullptr,
 			bool isCubeMap = false, const wchar_t* name = nullptr) = 0;
+		// CreateArray() will create a single array RTV of n slices
 		virtual bool CreateArray(const Device& device, uint32_t width, uint32_t height, uint32_t arraySize,
 			Format format, ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			uint8_t sampleCount = 1, const float* pClearColor = nullptr, bool isCubeMap = false,
@@ -1387,11 +1389,11 @@ namespace XUSG
 			virtual void SetConstants(uint32_t index, uint32_t num32BitValues, uint32_t binding,
 				uint32_t space = 0, Shader::Stage stage = Shader::Stage::ALL) = 0;
 			virtual void SetRootSRV(uint32_t index, uint32_t binding, uint32_t space = 0,
-				DescriptorFlag flags = DescriptorFlag::DATA_STATIC, Shader::Stage stage = Shader::Stage::ALL) = 0;
+				DescriptorFlag flags = DescriptorFlag::DATA_STATIC_WHILE_SET_AT_EXECUTE, Shader::Stage stage = Shader::Stage::ALL) = 0;
 			virtual void SetRootUAV(uint32_t index, uint32_t binding, uint32_t space = 0,
-				DescriptorFlag flags = DescriptorFlag::NONE, Shader::Stage stage = Shader::Stage::ALL) = 0;
+				DescriptorFlag flags = DescriptorFlag::DATA_STATIC_WHILE_SET_AT_EXECUTE, Shader::Stage stage = Shader::Stage::ALL) = 0;
 			virtual void SetRootCBV(uint32_t index, uint32_t binding, uint32_t space = 0,
-				DescriptorFlag flags = DescriptorFlag::NONE, Shader::Stage stage = Shader::Stage::ALL) = 0;
+				DescriptorFlag flags = DescriptorFlag::DATA_STATIC, Shader::Stage stage = Shader::Stage::ALL) = 0;
 
 			virtual XUSG::PipelineLayout CreatePipelineLayout(PipelineLayoutCache& pipelineLayoutCache, PipelineLayoutFlag flags,
 				const wchar_t* name = nullptr) = 0;
