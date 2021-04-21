@@ -1786,8 +1786,14 @@ void* RawBuffer_DX12::Map(const Range* pReadRange, uint32_t descriptorIndex)
 	// Map and initialize the buffer.
 	if (m_pDataBegin == nullptr)
 	{
-		const D3D12_RANGE range = { pReadRange->Begin, pReadRange->End };
-		V_RETURN(m_resource->Map(0, &range, &m_pDataBegin), cerr, nullptr);
+		D3D12_RANGE range;
+		if (pReadRange)
+		{
+			range.Begin = pReadRange->Begin;
+			range.End = pReadRange->End;
+		}
+
+		V_RETURN(m_resource->Map(0, pReadRange ? &range : nullptr, &m_pDataBegin), cerr, nullptr);
 	}
 
 	const auto offset = !descriptorIndex ? 0 : m_srvOffsets[descriptorIndex];
