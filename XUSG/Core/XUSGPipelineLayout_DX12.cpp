@@ -74,10 +74,9 @@ void Util::PipelineLayout_DX12::SetRootUAV(uint32_t index, uint32_t binding, uin
 	SetShaderStage(index, stage);
 }
 
-void Util::PipelineLayout_DX12::SetRootCBV(uint32_t index, uint32_t binding, uint32_t space,
-	DescriptorFlag flags, Shader::Stage stage)
+void Util::PipelineLayout_DX12::SetRootCBV(uint32_t index, uint32_t binding, uint32_t space, Shader::Stage stage)
 {
-	SetRange(index, DescriptorType::ROOT_CBV, 1, binding, space, flags);
+	SetRange(index, DescriptorType::ROOT_CBV, 1, binding, space, DescriptorFlag::DATA_STATIC);
 	SetShaderStage(index, stage);
 }
 

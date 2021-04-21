@@ -30,6 +30,7 @@ namespace XUSG
 
 		const Resource& GetResource() const;
 		const Descriptor& GetCBV(uint32_t index = 0) const;
+		uint32_t GetCBVOffset(uint32_t index) const;
 
 	protected:
 		Descriptor allocateCbvPool(const wchar_t* name);

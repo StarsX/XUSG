@@ -202,6 +202,11 @@ const Descriptor& ConstantBuffer_DX12::GetCBV(uint32_t index) const
 	return m_cbvs[index];
 }
 
+uint32_t ConstantBuffer_DX12::GetCBVOffset(uint32_t index) const
+{
+	return static_cast<uint32_t>(m_cbvOffsets[index]);
+}
+
 Descriptor ConstantBuffer_DX12::allocateCbvPool(const wchar_t* name)
 {
 	m_cbvPools.emplace_back();
