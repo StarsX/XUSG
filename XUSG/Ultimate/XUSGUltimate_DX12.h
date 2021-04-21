@@ -55,8 +55,8 @@ namespace XUSG
 
 			bool Create(const Device* pDevice, const Texture2D* pTarget, Format format,
 				uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
-				ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
-				bool isCubeMap = false, const wchar_t* name = nullptr);
+				ResourceFlag resourceFlags = ResourceFlag::NONE, bool isCubeMap = false,
+				MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr);
 			bool CreateUAV(const Resource* pTarget);
 
 		protected:

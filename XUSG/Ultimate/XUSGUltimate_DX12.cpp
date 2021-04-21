@@ -113,7 +113,7 @@ SamplerFeedBack_DX12::~SamplerFeedBack_DX12()
 
 bool SamplerFeedBack_DX12::Create(const Device* pDevice, const Texture2D* pTarget, Format format,
 	uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
-	ResourceFlag resourceFlags, MemoryType memoryType, bool isCubeMap, const wchar_t* name)
+	ResourceFlag resourceFlags, bool isCubeMap, MemoryFlag memoryFlags, const wchar_t* name)
 {
 	N_RETURN(setDevice(pDevice), false);
 	V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&m_deviceU)), cerr, false);
@@ -128,30 +128,16 @@ bool SamplerFeedBack_DX12::Create(const Device* pDevice, const Texture2D* pTarge
 
 	// Setup the texture description.
 	assert(format == Format::MIN_MIP_OPAQUE || format == Format::MIP_REGION_USED_OPAQUE);
-	const CD3DX12_HEAP_PROPERTIES heapProperties(GetDX12HeapType(memoryType));
+	const CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_DEFAULT);
 	const auto desc = CD3DX12_RESOURCE_DESC1::Tex2D(GetDXGIFormat(format),
 		pTarget->GetWidth(), pTarget->GetHeight(), arraySize, numMips, 1, 0,
 		GetDX12ResourceFlags(ResourceFlag::ALLOW_UNORDERED_ACCESS | resourceFlags),
 		D3D12_TEXTURE_LAYOUT_UNKNOWN, 0, mipRegionWidth, mipRegionHeight, mipRegionDepth);
 
 	// Determine initial state
-	m_states.resize(arraySize * numMips);
-	switch (memoryType)
-	{
-	case MemoryType::UPLOAD:
-		for (auto& state : m_states)
-			state = ResourceState::GENERAL_READ;
-		break;
-	case MemoryType::READBACK:
-		for (auto& state : m_states)
-			state = ResourceState::COPY_DEST;
-		break;
-	default:
-		for (auto& state : m_states)
-			state = ResourceState::COMMON;
-	}
+	m_states.resize(arraySize * numMips, ResourceState::COMMON);
 
-	V_RETURN(m_deviceU->CreateCommittedResource2(&heapProperties, D3D12_HEAP_FLAG_NONE, &desc,
+	V_RETURN(m_deviceU->CreateCommittedResource2(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
 		GetDX12ResourceStates(m_states[0]), nullptr, nullptr,  IID_PPV_ARGS(&m_resource)), clog, false);
 	if (!m_name.empty()) m_resource->SetName((m_name + L".Resource").c_str());
 

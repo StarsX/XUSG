@@ -52,6 +52,11 @@ uint32_t Device_DX12::GetDeviceRemovedReason() const
 	return m_device->GetDeviceRemovedReason();
 }
 
+void Device_DX12::Create(void* pHandle)
+{
+	m_device = static_cast<ID3D12Device*>(pHandle);
+}
+
 void* Device_DX12::GetHandle() const
 {
 	return m_device.get();

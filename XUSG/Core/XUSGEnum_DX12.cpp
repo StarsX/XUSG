@@ -12,6 +12,7 @@ using namespace XUSG;
 
 #define APPEND_FLAG(type, dx12Type, flags, flag, none) (static_cast<bool>(flags & type::flag) ? dx12Type##_##flag : dx12Type##_##none)
 #define APPEND_COMMAND_QUEUE_FLAG(flags, flag) APPEND_FLAG(CommandQueueFlag, D3D12_COMMAND_QUEUE_FLAG, flags, flag, NONE)
+#define APPEND_HEAP_FLAG(flags, flag) APPEND_FLAG(MemoryFlag, D3D12_HEAP_FLAG, flags, flag, NONE)
 #define APPEND_RESOURCE_FLAG(flags, flag) APPEND_FLAG(ResourceFlag, D3D12_RESOURCE_FLAG, flags, flag, NONE)
 #define APPEND_RESOURCE_STATE(states, state) APPEND_FLAG(ResourceState, D3D12_RESOURCE_STATE, states, state, COMMON)
 #define APPEND_BARRIER_FLAG(flags, flag) APPEND_FLAG(BarrierFlag, D3D12_RESOURCE_BARRIER_FLAG, flags, flag, NONE)
@@ -334,6 +335,48 @@ D3D12_COMMAND_QUEUE_FLAGS XUSG::GetDX12CommandQueueFlags(CommandQueueFlag comman
 	auto flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
 	flags |= APPEND_COMMAND_QUEUE_FLAG(commandQueueFlags, DISABLE_GPU_TIMEOUT);
 	
+	return flags;
+}
+
+D3D12_HEAP_FLAGS XUSG::GetDX12HeapFlag(MemoryFlag memoryFlag)
+{
+	static const D3D12_HEAP_FLAGS heapFlags[] =
+	{
+		D3D12_HEAP_FLAG_SHARED,
+		D3D12_HEAP_FLAG_DENY_BUFFERS,
+		D3D12_HEAP_FLAG_ALLOW_DISPLAY,
+		D3D12_HEAP_FLAG_SHARED_CROSS_ADAPTER,
+		D3D12_HEAP_FLAG_DENY_RT_DS_TEXTURES,
+		D3D12_HEAP_FLAG_DENY_NON_RT_DS_TEXTURES,
+		D3D12_HEAP_FLAG_HARDWARE_PROTECTED,
+		D3D12_HEAP_FLAG_ALLOW_WRITE_WATCH,
+		D3D12_HEAP_FLAG_ALLOW_SHADER_ATOMICS,
+		D3D12_HEAP_FLAG_CREATE_NOT_RESIDENT,
+		D3D12_HEAP_FLAG_CREATE_NOT_ZEROED
+	};
+
+	if (memoryFlag == MemoryFlag::NONE) return D3D12_HEAP_FLAG_NONE;
+
+	const auto index = Log2(static_cast<uint32_t>(memoryFlag));
+
+	return heapFlags[index];
+}
+
+D3D12_HEAP_FLAGS XUSG::GetDX12HeapFlags(MemoryFlag memoryFlags)
+{
+	auto flags = D3D12_HEAP_FLAG_NONE;
+	flags |= APPEND_HEAP_FLAG(memoryFlags, SHARED);
+	flags |= APPEND_HEAP_FLAG(memoryFlags, DENY_BUFFERS);
+	flags |= APPEND_HEAP_FLAG(memoryFlags, ALLOW_DISPLAY);
+	flags |= APPEND_HEAP_FLAG(memoryFlags, SHARED_CROSS_ADAPTER);
+	flags |= APPEND_HEAP_FLAG(memoryFlags, DENY_RT_DS_TEXTURES);
+	flags |= APPEND_HEAP_FLAG(memoryFlags, DENY_NON_RT_DS_TEXTURES);
+	flags |= APPEND_HEAP_FLAG(memoryFlags, HARDWARE_PROTECTED);
+	flags |= APPEND_HEAP_FLAG(memoryFlags, ALLOW_WRITE_WATCH);
+	flags |= APPEND_HEAP_FLAG(memoryFlags, ALLOW_SHADER_ATOMICS);
+	flags |= APPEND_HEAP_FLAG(memoryFlags, CREATE_NOT_RESIDENT);
+	flags |= APPEND_HEAP_FLAG(memoryFlags, CREATE_NOT_ZEROED);
+
 	return flags;
 }
 

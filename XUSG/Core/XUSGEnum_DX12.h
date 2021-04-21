@@ -22,6 +22,9 @@ namespace XUSG
 	D3D12_COMMAND_QUEUE_FLAGS GetDX12CommandQueueFlag(CommandQueueFlag commandQueueFlag);
 	D3D12_COMMAND_QUEUE_FLAGS GetDX12CommandQueueFlags(CommandQueueFlag commandQueueFlags);
 
+	D3D12_HEAP_FLAGS GetDX12HeapFlag(MemoryFlag memoryFlag);
+	D3D12_HEAP_FLAGS GetDX12HeapFlags(MemoryFlag memoryFlags);
+
 	D3D12_RESOURCE_FLAGS GetDX12ResourceFlag(ResourceFlag resourceFlag);
 	D3D12_RESOURCE_FLAGS GetDX12ResourceFlags(ResourceFlag resourceFlags);
 

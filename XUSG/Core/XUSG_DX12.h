@@ -42,6 +42,8 @@ namespace XUSG
 		uint32_t Create(void* pAdapter, uint32_t minFeatureLevel);
 		uint32_t GetDeviceRemovedReason() const;
 
+		void Create(void* pHandle);
+
 		void* GetHandle() const;
 
 	protected:
