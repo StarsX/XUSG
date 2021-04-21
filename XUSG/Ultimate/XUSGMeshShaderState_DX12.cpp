@@ -2,6 +2,7 @@
 // Copyright (c) XU, Tianchen. All rights reserved.
 //--------------------------------------------------------------------------------------
 
+#include "Core/XUSG_DX12.h"
 #include "Core/XUSGGraphicsState_DX12.h"
 #include "Core/XUSGEnum_DX12.h"
 #include "XUSGMeshShaderState_DX12.h"
@@ -63,20 +64,20 @@ void State_DX12::DSSetState(const DepthStencil* pDepthStencil)
 	m_pKey->pDepthStencil = pDepthStencil;
 }
 
-void State_DX12::OMSetBlendState(BlendPreset preset, PipelineCache& pipelineCache,
+void State_DX12::OMSetBlendState(BlendPreset preset, PipelineCache* pPipelineCache,
 	uint8_t numColorRTs, uint32_t sampleMask)
 {
-	OMSetBlendState(pipelineCache.GetBlend(preset, numColorRTs), sampleMask);
+	OMSetBlendState(pPipelineCache->GetBlend(preset, numColorRTs), sampleMask);
 }
 
-void State_DX12::RSSetState(RasterizerPreset preset, PipelineCache& pipelineCache)
+void State_DX12::RSSetState(RasterizerPreset preset, PipelineCache* pPipelineCache)
 {
-	RSSetState(pipelineCache.GetRasterizer(preset));
+	RSSetState(pPipelineCache->GetRasterizer(preset));
 }
 
-void State_DX12::DSSetState(DepthStencilPreset preset, PipelineCache& pipelineCache)
+void State_DX12::DSSetState(DepthStencilPreset preset, PipelineCache* pPipelineCache)
 {
-	DSSetState(pipelineCache.GetDepthStencil(preset));
+	DSSetState(pPipelineCache->GetDepthStencil(preset));
 }
 
 void State_DX12::OMSetNumRenderTargets(uint8_t n)
@@ -108,14 +109,14 @@ void State_DX12::OMSetSample(uint8_t count, uint8_t quality)
 	m_pKey->SampleQuality = quality;
 }
 
-Pipeline State_DX12::CreatePipeline(PipelineCache& pipelineCache, const wchar_t* name) const
+Pipeline State_DX12::CreatePipeline(PipelineCache* pPipelineCache, const wchar_t* name) const
 {
-	return pipelineCache.CreatePipeline(*this, name);
+	return pPipelineCache->CreatePipeline(this, name);
 }
 
-Pipeline State_DX12::GetPipeline(PipelineCache& pipelineCache, const wchar_t* name) const
+Pipeline State_DX12::GetPipeline(PipelineCache* pPipelineCache, const wchar_t* name) const
 {
-	return pipelineCache.GetPipeline(*this, name);
+	return pPipelineCache->GetPipeline(this, name);
 }
 
 const string& State_DX12::GetKey() const
@@ -130,8 +131,8 @@ PipelineCache_DX12::PipelineCache_DX12() :
 {
 }
 
-PipelineCache_DX12::PipelineCache_DX12(const Device& device) :
-	Graphics::PipelineCache_DX12(device)
+PipelineCache_DX12::PipelineCache_DX12(const Device* pDevice) :
+	Graphics::PipelineCache_DX12(pDevice)
 {
 }
 
@@ -139,14 +140,14 @@ PipelineCache_DX12::~PipelineCache_DX12()
 {
 }
 
-Pipeline PipelineCache_DX12::CreatePipeline(const State& state, const wchar_t* name)
+Pipeline PipelineCache_DX12::CreatePipeline(const State* pState, const wchar_t* name)
 {
-	return createPipeline(state.GetKey(), name);
+	return createPipeline(pState->GetKey(), name);
 }
 
-Pipeline PipelineCache_DX12::GetPipeline(const State& state, const wchar_t* name)
+Pipeline PipelineCache_DX12::GetPipeline(const State* pState, const wchar_t* name)
 {
-	return getPipeline(state.GetKey(), name);
+	return getPipeline(pState->GetKey(), name);
 }
 
 Pipeline PipelineCache_DX12::createPipeline(const string& key, const wchar_t* name)

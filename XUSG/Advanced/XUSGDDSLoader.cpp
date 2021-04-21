@@ -2,9 +2,9 @@
 // Copyright (c) XU, Tianchen. All rights reserved.
 //--------------------------------------------------------------------------------------
 
+#include "XUSGDDSLoader.h"
 #include "Core/XUSG_DX12.h"
 #include "Core/XUSGEnum_DX12.h"
-#include "XUSGDDSLoader.h"
 #include "dds.h"
 
 using namespace std;
@@ -694,7 +694,7 @@ static bool CreateTexture(const Device* pDevice, CommandList* pCommandList,
 			if (texture3D) // Texture3D can be a Texture2D, so it goes first.
 			{
 				const auto fmt = forceSRGB ? MakeSRGB(format) : format;
-				success = texture3D->Create(*pDevice, twidth, theight, tdepth, fmt, ResourceFlag::NONE,
+				success = texture3D->Create(pDevice, twidth, theight, tdepth, fmt, ResourceFlag::NONE,
 					mipCount - skipMip, MemoryType::DEFAULT, name);
 				if (success) success = texture3D->Upload(pCommandList, uploader, initData.get(),
 					subresourceCount, state);
@@ -702,7 +702,7 @@ static bool CreateTexture(const Device* pDevice, CommandList* pCommandList,
 			else if (texture2D)
 			{
 				const auto fmt = forceSRGB ? MakeSRGB(format) : format;
-				success = texture2D->Create(*pDevice, twidth, theight, fmt, arraySize, ResourceFlag::NONE,
+				success = texture2D->Create(pDevice, twidth, theight, fmt, arraySize, ResourceFlag::NONE,
 					mipCount - skipMip, 1, MemoryType::DEFAULT, isCubeMap, name);
 				if (success) success = texture2D->Upload(pCommandList, uploader, initData.get(),
 					subresourceCount, state);
@@ -723,7 +723,7 @@ static bool CreateTexture(const Device* pDevice, CommandList* pCommandList,
 					{
 						const auto fmt = forceSRGB ? MakeSRGB(format) : format;
 						texture = Texture3D::MakeUnique();
-						success = texture3D->Create(*pDevice, width, height, depth, fmt, ResourceFlag::NONE,
+						success = texture3D->Create(pDevice, width, height, depth, fmt, ResourceFlag::NONE,
 							mipCount, MemoryType::DEFAULT, name);
 						if (success) success = texture3D->Upload(pCommandList, uploader, initData.get(),
 							subresourceCount, state);
@@ -732,7 +732,7 @@ static bool CreateTexture(const Device* pDevice, CommandList* pCommandList,
 					{
 						const auto fmt = forceSRGB ? MakeSRGB(format) : format;
 						texture = Texture2D::MakeUnique();
-						success = texture2D->Create(*pDevice, width, height, fmt, arraySize, ResourceFlag::NONE,
+						success = texture2D->Create(pDevice, width, height, fmt, arraySize, ResourceFlag::NONE,
 							mipCount, 1, MemoryType::DEFAULT, isCubeMap, name);
 						if (success) success = texture2D->Upload(pCommandList, uploader, initData.get(),
 							subresourceCount, state);

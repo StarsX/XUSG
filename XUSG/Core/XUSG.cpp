@@ -2,6 +2,7 @@
 // Copyright (c) XU, Tianchen. All rights reserved.
 //--------------------------------------------------------------------------------------
 
+#include "XUSG_DX12.h"
 #include "XUSGCommand_DX12.h"
 #include "XUSGResource_DX12.h"
 #include "XUSGDescriptor_DX12.h"
@@ -14,14 +15,14 @@
 using namespace std;
 using namespace XUSG;
 
-Device::uptr Device::MakeUnique(void* handle, API api)
+Device::uptr Device::MakeUnique(API api)
 {
-	return make_unique<Device_DX12>(handle);
+	return make_unique<Device_DX12>();
 }
 
-Device::sptr Device::MakeShared(void* handle, API api)
+Device::sptr Device::MakeShared(API api)
 {
-	return make_shared<Device_DX12>(handle);
+	return make_shared<Device_DX12>();
 }
 
 Fence::uptr Fence::MakeUnique(API api)
@@ -229,14 +230,14 @@ DescriptorTableCache::sptr DescriptorTableCache::MakeShared(API api)
 	return make_shared<DescriptorTableCache_DX12>();
 }
 
-DescriptorTableCache::uptr DescriptorTableCache::MakeUnique(const Device& device, const wchar_t* name, API api)
+DescriptorTableCache::uptr DescriptorTableCache::MakeUnique(const Device* pDevice, const wchar_t* name, API api)
 {
-	return make_unique<DescriptorTableCache_DX12>(device, name);
+	return make_unique<DescriptorTableCache_DX12>(pDevice, name);
 }
 
-DescriptorTableCache::sptr DescriptorTableCache::MakeShared(const Device& device, const wchar_t* name, API api)
+DescriptorTableCache::sptr DescriptorTableCache::MakeShared(const Device* pDevice, const wchar_t* name, API api)
 {
-	return make_shared<DescriptorTableCache_DX12>(device, name);
+	return make_shared<DescriptorTableCache_DX12>(pDevice, name);
 }
 
 Reflector::uptr Reflector::MakeUnique(API api)
@@ -295,14 +296,14 @@ PipelineLayoutCache::sptr PipelineLayoutCache::MakeShared(API api)
 	return make_shared<PipelineLayoutCache_DX12>();
 }
 
-PipelineLayoutCache::uptr PipelineLayoutCache::MakeUnique(const Device& device, API api)
+PipelineLayoutCache::uptr PipelineLayoutCache::MakeUnique(const Device* pDevice, API api)
 {
-	return make_unique<PipelineLayoutCache_DX12>(device);
+	return make_unique<PipelineLayoutCache_DX12>(pDevice);
 }
 
-PipelineLayoutCache::sptr PipelineLayoutCache::MakeShared(const Device& device, API api)
+PipelineLayoutCache::sptr PipelineLayoutCache::MakeShared(const Device* pDevice, API api)
 {
-	return make_shared<PipelineLayoutCache_DX12>(device);
+	return make_shared<PipelineLayoutCache_DX12>(pDevice);
 }
 
 Graphics::State::uptr Graphics::State::MakeUnique(API api)
@@ -325,14 +326,14 @@ Graphics::PipelineCache::sptr Graphics::PipelineCache::MakeShared(API api)
 	return make_shared<PipelineCache_DX12>();
 }
 
-Graphics::PipelineCache::uptr Graphics::PipelineCache::MakeUnique(const Device& device, API api)
+Graphics::PipelineCache::uptr Graphics::PipelineCache::MakeUnique(const Device* pDevice, API api)
 {
-	return make_unique<PipelineCache_DX12>(device);
+	return make_unique<PipelineCache_DX12>(pDevice);
 }
 
-Graphics::PipelineCache::sptr Graphics::PipelineCache::MakeShared(const Device& device, API api)
+Graphics::PipelineCache::sptr Graphics::PipelineCache::MakeShared(const Device* pDevice, API api)
 {
-	return make_shared<PipelineCache_DX12>(device);
+	return make_shared<PipelineCache_DX12>(pDevice);
 }
 
 Compute::State::uptr Compute::State::MakeUnique(API api)
@@ -355,12 +356,12 @@ Compute::PipelineCache::sptr Compute::PipelineCache::MakeShared(API api)
 	return make_shared<PipelineCache_DX12>();
 }
 
-Compute::PipelineCache::uptr Compute::PipelineCache::MakeUnique(const Device& device, API api)
+Compute::PipelineCache::uptr Compute::PipelineCache::MakeUnique(const Device* pDevice, API api)
 {
-	return make_unique<PipelineCache_DX12>(device);
+	return make_unique<PipelineCache_DX12>(pDevice);
 }
 
-Compute::PipelineCache::sptr Compute::PipelineCache::MakeShared(const Device& device, API api)
+Compute::PipelineCache::sptr Compute::PipelineCache::MakeShared(const Device* pDevice, API api)
 {
-	return make_shared<PipelineCache_DX12>(device);
+	return make_shared<PipelineCache_DX12>(pDevice);
 }

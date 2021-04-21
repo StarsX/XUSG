@@ -2,6 +2,7 @@
 // Copyright (c) XU, Tianchen. All rights reserved.
 //--------------------------------------------------------------------------------------
 
+#include "Core/XUSG_DX12.h"
 #include "XUSGRayTracingState_DX12.h"
 
 using namespace std;
@@ -26,7 +27,7 @@ State_DX12::~State_DX12()
 void State_DX12::SetShaderLibrary(Blob shaderLib)
 {
 	m_isComplete = false;
-	m_pKeyHeader->ShaderLib = shaderLib.get();
+	m_pKeyHeader->ShaderLib = shaderLib;
 }
 
 void State_DX12::SetHitGroup(uint32_t index, const void* hitGroup, const void* closestHitShader,
@@ -60,7 +61,7 @@ void State_DX12::SetLocalPipelineLayout(uint32_t index, const XUSG::PipelineLayo
 		m_keyLocalPipelineLayouts.resize(index + 1);
 
 	auto& keyLocalPipelineLayout = m_keyLocalPipelineLayouts[index];
-	keyLocalPipelineLayout.Header.PipelineLayout = layout.get();
+	keyLocalPipelineLayout.Header.PipelineLayout = layout;
 	keyLocalPipelineLayout.Header.NumShaders = numShaders;
 
 	keyLocalPipelineLayout.Shaders.resize(numShaders);
@@ -70,7 +71,7 @@ void State_DX12::SetLocalPipelineLayout(uint32_t index, const XUSG::PipelineLayo
 void State_DX12::SetGlobalPipelineLayout(const XUSG::PipelineLayout& layout)
 {
 	m_isComplete = false;
-	m_pKeyHeader->GlobalPipelineLayout = layout.get();
+	m_pKeyHeader->GlobalPipelineLayout = layout;
 }
 
 void State_DX12::SetMaxRecursionDepth(uint32_t depth)
@@ -79,12 +80,12 @@ void State_DX12::SetMaxRecursionDepth(uint32_t depth)
 	m_pKeyHeader->MaxRecursionDepth = depth;
 }
 
-RayTracing::Pipeline State_DX12::CreatePipeline(PipelineCache& pipelineCache, const wchar_t* name)
+Pipeline State_DX12::CreatePipeline(PipelineCache& pipelineCache, const wchar_t* name)
 {
 	return pipelineCache.CreatePipeline(*this, name);
 }
 
-RayTracing::Pipeline State_DX12::GetPipeline(PipelineCache& pipelineCache, const wchar_t* name)
+Pipeline State_DX12::GetPipeline(PipelineCache& pipelineCache, const wchar_t* name)
 {
 	return pipelineCache.GetPipeline(*this, name);
 }
@@ -136,42 +137,51 @@ void State_DX12::complete()
 //--------------------------------------------------------------------------------------
 
 PipelineCache_DX12::PipelineCache_DX12() :
-	//m_device(nullptr),
-	m_pipelines()
+	m_device(nullptr),
+	m_stateObjects()
 {
 }
 
-PipelineCache_DX12::PipelineCache_DX12(const RayTracing::Device& device) :
+PipelineCache_DX12::PipelineCache_DX12(const RayTracing::Device* pDevice) :
 	PipelineCache()
 {
-	SetDevice(device);
+	SetDevice(pDevice);
 }
 
 PipelineCache_DX12::~PipelineCache_DX12()
 {
 }
 
-void PipelineCache_DX12::SetDevice(const RayTracing::Device& device)
+void PipelineCache_DX12::SetDevice(const RayTracing::Device* pDevice)
 {
-	m_device = device;
+#if ENABLE_DXR_FALLBACK
+	m_device = static_cast<ID3D12RaytracingFallbackDevice*>(pDevice->GetRTHandle());
+#else
+	m_device = static_cast<ID3D12Device5*>(pDevice->GetRTHandle());
+#endif
+	assert(m_device);
 }
 
-void PipelineCache_DX12::SetPipeline(const string& key, const RayTracing::Pipeline& pipeline)
+void PipelineCache_DX12::SetPipeline(const string& key, const Pipeline& pipeline)
 {
-	m_pipelines[key] = pipeline;
+#if ENABLE_DXR_FALLBACK
+	m_stateObjects[key] = static_cast<ID3D12RaytracingFallbackStateObject*>(pipeline);
+#else // DirectX Raytracing
+	m_stateObjects[key] = static_cast<ID3D12StateObject*>(pipeline);
+#endif
 }
 
-RayTracing::Pipeline PipelineCache_DX12::CreatePipeline(State& state, const wchar_t* name)
+Pipeline PipelineCache_DX12::CreatePipeline(State& state, const wchar_t* name)
 {
 	return createPipeline(state.GetKey(), name);
 }
 
-RayTracing::Pipeline PipelineCache_DX12::GetPipeline(State& state, const wchar_t* name)
+Pipeline PipelineCache_DX12::GetPipeline(State& state, const wchar_t* name)
 {
 	return getPipeline(state.GetKey(), name);
 }
 
-RayTracing::Pipeline PipelineCache_DX12::createPipeline(const string& key, const wchar_t* name)
+Pipeline PipelineCache_DX12::createPipeline(const string& key, const wchar_t* name)
 {
 	// Get header
 	const auto& keyHeader = reinterpret_cast<const State_DX12::KeyHeader&>(key[0]);
@@ -245,31 +255,30 @@ RayTracing::Pipeline PipelineCache_DX12::createPipeline(const string& key, const
 	//PrintStateObjectDesc(desc);
 
 	// Create pipeline
-	Pipeline pipeline = nullptr;
-	H_RETURN(m_device.Derived->CreateStateObject(pDesc, IID_PPV_ARGS(&pipeline)), cerr,
-		L"Couldn't create DirectX Raytracing state object.\n", pipeline);
+#if ENABLE_DXR_FALLBACK
+	com_ptr<ID3D12RaytracingFallbackStateObject> stateObject = nullptr;
+#else // DirectX Raytracing
+	com_ptr<ID3D12StateObject> stateObject = nullptr;
+#endif
+	H_RETURN(m_device->CreateStateObject(pDesc, IID_PPV_ARGS(&stateObject)), cerr,
+		L"Couldn't create DirectX Raytracing state object.\n", stateObject.get());
 
 #if ENABLE_DXR_FALLBACK
-	if (name) pipeline->GetStateObject()->SetName(name);
+	if (name) stateObject->GetStateObject()->SetName(name);
 #else
-	if (name) pipeline->SetName(name);
+	if (name) stateObject->SetName(name);
 #endif
+	m_stateObjects[key] = stateObject;
 
-	return pipeline;
+	return stateObject.get();
 }
 
-RayTracing::Pipeline PipelineCache_DX12::getPipeline(const string& key, const wchar_t* name)
+Pipeline PipelineCache_DX12::getPipeline(const string& key, const wchar_t* name)
 {
-	const auto pPipeline = m_pipelines.find(key);
+	const auto pStateObject = m_stateObjects.find(key);
 
 	// Create one, if it does not exist
-	if (pPipeline == m_pipelines.end())
-	{
-		const auto pipeline = createPipeline(key, name);
-		m_pipelines[key] = pipeline;
+	if (pStateObject == m_stateObjects.end()) return createPipeline(key, name);
 
-		return pipeline;
-	}
-
-	return pPipeline->second;
+	return pStateObject->second.get();
 }

@@ -26,13 +26,13 @@ namespace XUSG
 			const WRAPPED_GPU_POINTER& GetResultPointer() const;
 #endif
 
-			static bool AllocateUAVBuffer(const XUSG::Device& device, Resource& resource,
+			static bool AllocateUAVBuffer(const XUSG::Device* pDevice, Resource* pResource,
 				size_t byteWidth, ResourceState dstState = ResourceState::UNORDERED_ACCESS);
-			static bool AllocateUploadBuffer(const XUSG::Device& device, Resource& resource,
+			static bool AllocateUploadBuffer(const XUSG::Device* pDevice, Resource* pResource,
 				size_t byteWidth, void* pData);
 
 		protected:
-			bool preBuild(const Device& device, uint32_t descriptorIndex, uint32_t numSRVs = 0);
+			bool preBuild(const Device* pDevice, uint32_t descriptorIndex, uint32_t numSRVs = 0);
 
 			BuildDesc		m_buildDesc;
 			PrebuildInfo	m_prebuildInfo;
@@ -53,12 +53,12 @@ namespace XUSG
 			BottomLevelAS_DX12();
 			virtual ~BottomLevelAS_DX12();
 
-			bool PreBuild(const Device& device, uint32_t numDescs, const Geometry* pGeometries,
+			bool PreBuild(const Device* pDevice, uint32_t numDescs, const Geometry* pGeometries,
 				uint32_t descriptorIndex, BuildFlags flags = BuildFlags::PREFER_FAST_TRACE);
-			void Build(const CommandList* pCommandList, const Resource& scratch,
+			void Build(const CommandList* pCommandList, const Resource* pScratch,
 				const DescriptorPool& descriptorPool, bool update = false);
 #if !ENABLE_DXR_FALLBACK
-			void Build(XUSG::CommandList* pCommandList, const Resource& scratch,
+			void Build(XUSG::CommandList* pCommandList, const Resource* pScratch,
 				const DescriptorPool& descriptorPool, bool update = false);
 #endif
 
@@ -77,16 +77,16 @@ namespace XUSG
 			TopLevelAS_DX12();
 			virtual ~TopLevelAS_DX12();
 
-			bool PreBuild(const Device& device, uint32_t numDescs, uint32_t descriptorIndex,
+			bool PreBuild(const Device* pDevice, uint32_t numDescs, uint32_t descriptorIndex,
 				BuildFlags flags = BuildFlags::PREFER_FAST_TRACE);
-			void Build(const CommandList* pCommandList, const Resource& scratch,
-				const Resource& instanceDescs, const DescriptorPool& descriptorPool, bool update = false);
+			void Build(const CommandList* pCommandList, const Resource* pScratch,
+				const Resource* pInstanceDescs, const DescriptorPool& descriptorPool, bool update = false);
 #if !ENABLE_DXR_FALLBACK
-			void Build(XUSG::CommandList* pCommandList, const Resource& scratch,
-				const Resource& instanceDescs, const DescriptorPool& descriptorPool, bool update = false);
+			void Build(XUSG::CommandList* pCommandList, const Resource* pScratch,
+				const Resource* pInstanceDescs, const DescriptorPool& descriptorPool, bool update = false);
 #endif
 
-			static void SetInstances(const Device& device, Resource& instances, uint32_t numInstances,
+			static void SetInstances(const Device* pDevice, Resource* pInstances, uint32_t numInstances,
 				const BottomLevelAS* const* ppBottomLevelASs, float* const* transforms);
 		};
 	}

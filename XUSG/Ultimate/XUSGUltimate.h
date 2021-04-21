@@ -62,12 +62,12 @@ namespace XUSG
 			virtual bool CreateInterface() = 0;
 
 			virtual void SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions) const = 0;
-			virtual void ResolveSubresourceRegion(const Resource& dstResource, uint32_t dstSubresource,
-				uint32_t dstX, uint32_t dstY, const Resource& srcResource, uint32_t srcSubresource,
-				RectRange* pSrcRect, Format format, ResolveMode resolveMode) const = 0;
+			virtual void ResolveSubresourceRegion(const Resource* pDstResource, uint32_t dstSubresource,
+				uint32_t dstX, uint32_t dstY, const Resource* pSrcResource, uint32_t srcSubresource,
+				const RectRange& srcRect, Format format, ResolveMode resolveMode) const = 0;
 
 			virtual void RSSetShadingRate(ShadingRate baseShadingRate, const ShadingRateCombiner* pCombiners) const = 0;
-			virtual void RSSetShadingRateImage(const Resource& shadingRateImage) const = 0;
+			virtual void RSSetShadingRateImage(const Resource* pShadingRateImage) const = 0;
 			virtual void DispatchMesh(
 				uint32_t ThreadGroupCountX,
 				uint32_t ThreadGroupCountY,
@@ -92,11 +92,11 @@ namespace XUSG
 			//SamplerFeedBack();
 			virtual ~SamplerFeedBack() {};
 
-			virtual bool Create(const Device& device, const Texture2D& target, Format format,
+			virtual bool Create(const Device* pDevice, const Texture2D* pTarget, Format format,
 				uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
 				ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
 				bool isCubeMap = false, const wchar_t* name = nullptr) = 0;
-			virtual bool CreateUAV(const Resource& target) = 0;
+			virtual bool CreateUAV(const Resource* pTarget) = 0;
 
 			using uptr = std::unique_ptr<SamplerFeedBack>;
 			using sptr = std::shared_ptr<SamplerFeedBack>;
@@ -136,10 +136,10 @@ namespace XUSG
 			virtual void RSSetState(const Rasterizer* pRasterizer) = 0;
 			virtual void DSSetState(const DepthStencil* pDepthStencil) = 0;
 
-			virtual void OMSetBlendState(BlendPreset preset, PipelineCache& pipelineCache,
+			virtual void OMSetBlendState(BlendPreset preset, PipelineCache* pPipelineCache,
 				uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX) = 0;
-			virtual void RSSetState(RasterizerPreset preset, PipelineCache& pipelineCache) = 0;
-			virtual void DSSetState(DepthStencilPreset preset, PipelineCache& pipelineCache) = 0;
+			virtual void RSSetState(RasterizerPreset preset, PipelineCache* pPipelineCache) = 0;
+			virtual void DSSetState(DepthStencilPreset preset, PipelineCache* pPipelineCache) = 0;
 
 			virtual void OMSetNumRenderTargets(uint8_t n) = 0;
 			virtual void OMSetRTVFormat(uint8_t i, Format format) = 0;
@@ -147,8 +147,8 @@ namespace XUSG
 			virtual void OMSetDSVFormat(Format format) = 0;
 			virtual void OMSetSample(uint8_t count, uint8_t quality = 0) = 0;
 
-			virtual Pipeline CreatePipeline(PipelineCache& pipelineCache, const wchar_t* name = nullptr) const = 0;
-			virtual Pipeline GetPipeline(PipelineCache& pipelineCache, const wchar_t* name = nullptr) const = 0;
+			virtual Pipeline CreatePipeline(PipelineCache* pPipelineCache, const wchar_t* name = nullptr) const = 0;
+			virtual Pipeline GetPipeline(PipelineCache* pPipelineCache, const wchar_t* name = nullptr) const = 0;
 
 			virtual const std::string& GetKey() const = 0;
 
@@ -164,19 +164,19 @@ namespace XUSG
 		{
 		public:
 			//PipelineCache();
-			//PipelineCache(const Device& device);
+			//PipelineCache(const Device* pDevice);
 			virtual ~PipelineCache() {};
 
-			virtual Pipeline CreatePipeline(const State& state, const wchar_t* name = nullptr) = 0;
-			virtual Pipeline GetPipeline(const State& state, const wchar_t* name = nullptr) = 0;
+			virtual Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr) = 0;
+			virtual Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr) = 0;
 
 			using uptr = std::unique_ptr<PipelineCache>;
 			using sptr = std::shared_ptr<PipelineCache>;
 
 			static uptr MakeUnique(API api = API::DIRECTX_12);
 			static sptr MakeShared(API api = API::DIRECTX_12);
-			static uptr MakeUnique(const Device& device, API api = API::DIRECTX_12);
-			static sptr MakeShared(const Device& device, API api = API::DIRECTX_12);
+			static uptr MakeUnique(const Device* pDevice, API api = API::DIRECTX_12);
+			static sptr MakeShared(const Device* pDevice, API api = API::DIRECTX_12);
 		};
 	}
 }

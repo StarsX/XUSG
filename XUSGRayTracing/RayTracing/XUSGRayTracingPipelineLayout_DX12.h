@@ -18,9 +18,9 @@ namespace XUSG
 			PipelineLayout_DX12();
 			virtual ~PipelineLayout_DX12();
 
-			XUSG::PipelineLayout CreatePipelineLayout(const Device& device, PipelineLayoutCache& pipelineLayoutCache,
+			XUSG::PipelineLayout CreatePipelineLayout(const Device* pDevice, PipelineLayoutCache* pPipelineLayoutCache,
 				PipelineLayoutFlag flags, const wchar_t* name = nullptr);
-			XUSG::PipelineLayout GetPipelineLayout(const Device& device, PipelineLayoutCache& pipelineLayoutCache,
+			XUSG::PipelineLayout GetPipelineLayout(const Device* pDevice, PipelineLayoutCache* pPipelineLayoutCache,
 				PipelineLayoutFlag flags, const wchar_t* name = nullptr);
 		};
 	}

@@ -14,7 +14,7 @@ namespace XUSG
 			public virtual ShaderRecord
 		{
 		public:
-			ShaderRecord_DX12(const Device& device, const Pipeline& pipeline, const void* shader,
+			ShaderRecord_DX12(const Device* pDevice, const Pipeline& pipeline, const void* shader,
 				const void* pLocalDescriptorArgs = nullptr, uint32_t localDescriptorArgSize = 0);
 			ShaderRecord_DX12(void* pShaderID, uint32_t shaderIDSize,
 				const void* pLocalDescriptorArgs = nullptr, uint32_t localDescriptorArgSize = 0);
@@ -22,7 +22,7 @@ namespace XUSG
 
 			void CopyTo(void* dest) const;
 
-			static uint32_t GetShaderIDSize(const Device& device);
+			static uint32_t GetShaderIDSize(const Device* pDevice);
 
 		protected:
 			struct PointerWithSize
@@ -44,22 +44,22 @@ namespace XUSG
 			ShaderTable_DX12();
 			virtual ~ShaderTable_DX12();
 
-			bool Create(const XUSG::Device& device, uint32_t numShaderRecords, uint32_t shaderRecordSize,
+			bool Create(const XUSG::Device* pDevice, uint32_t numShaderRecords, uint32_t shaderRecordSize,
 				const wchar_t* name = nullptr);
 
-			bool AddShaderRecord(const ShaderRecord& shaderRecord);
+			bool AddShaderRecord(const ShaderRecord* pShaderRecord);
 
 			void* Map();
 			void Unmap();
 			void Reset();
 
-			const Resource& GetResource() const;
+			const Resource* GetResource() const;
 			uint32_t GetShaderRecordSize() const;
 
 		protected:
-			bool allocate(const XUSG::Device& device, uint32_t byteWidth, const wchar_t* name);
+			bool allocate(const XUSG::Device* pDevice, uint32_t byteWidth, const wchar_t* name);
 
-			Resource m_resource;
+			Resource::uptr m_resource;
 
 			//std::vector<ShaderRecord> m_shaderRecords;
 

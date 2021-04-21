@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "XUSG_DX12.h"
+#include "XUSG.h"
 
 namespace XUSG
 {
@@ -31,8 +31,8 @@ namespace XUSG
 			void SetCachedPipeline(const void* pCachedBlob, size_t size);
 			void SetNodeMask(uint32_t nodeMask);
 
-			Pipeline CreatePipeline(PipelineCache& pipelineCache, const wchar_t* name = nullptr) const;
-			Pipeline GetPipeline(PipelineCache& pipelineCache, const wchar_t* name = nullptr) const;
+			Pipeline CreatePipeline(PipelineCache* pPipelineCache, const wchar_t* name = nullptr) const;
+			Pipeline GetPipeline(PipelineCache* pPipelineCache, const wchar_t* name = nullptr) const;
 
 			const std::string& GetKey() const;
 
@@ -46,14 +46,14 @@ namespace XUSG
 		{
 		public:
 			PipelineCache_DX12();
-			PipelineCache_DX12(const Device& device);
+			PipelineCache_DX12(const Device* pDevice);
 			virtual ~PipelineCache_DX12();
 
-			void SetDevice(const Device& device);
+			void SetDevice(const Device* pDevice);
 			void SetPipeline(const std::string& key, const Pipeline& pipeline);
 
-			Pipeline CreatePipeline(const State& state, const wchar_t* name = nullptr);
-			Pipeline GetPipeline(const State& state, const wchar_t* name = nullptr);
+			Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr);
+			Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr);
 
 		protected:
 			Pipeline createPipeline(const std::string& key, const wchar_t* name);

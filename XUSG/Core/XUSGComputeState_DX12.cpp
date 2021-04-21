@@ -2,6 +2,7 @@
 // Copyright (c) XU, Tianchen. All rights reserved.
 //--------------------------------------------------------------------------------------
 
+#include "XUSG_DX12.h"
 #include "XUSGComputeState_DX12.h"
 
 using namespace std;
@@ -41,14 +42,14 @@ void State_DX12::SetNodeMask(uint32_t nodeMask)
 	m_pKey->NodeMask = nodeMask;
 }
 
-Pipeline State_DX12::CreatePipeline(PipelineCache& pipelineCache, const wchar_t* name) const
+Pipeline State_DX12::CreatePipeline(PipelineCache* pPipelineCache, const wchar_t* name) const
 {
-	return pipelineCache.CreatePipeline(*this, name);
+	return pPipelineCache->CreatePipeline(this, name);
 }
 
-Pipeline State_DX12::GetPipeline(PipelineCache& pipelineCache, const wchar_t* name) const
+Pipeline State_DX12::GetPipeline(PipelineCache* pPipelineCache, const wchar_t* name) const
 {
-	return pipelineCache.GetPipeline(*this, name);
+	return pPipelineCache->GetPipeline(this, name);
 }
 
 const string& State_DX12::GetKey() const
@@ -64,19 +65,19 @@ PipelineCache_DX12::PipelineCache_DX12() :
 {
 }
 
-PipelineCache_DX12::PipelineCache_DX12(const Device& device) :
+PipelineCache_DX12::PipelineCache_DX12(const Device* pDevice) :
 	PipelineCache_DX12()
 {
-	SetDevice(device);
+	SetDevice(pDevice);
 }
 
 PipelineCache_DX12::~PipelineCache_DX12()
 {
 }
 
-void PipelineCache_DX12::SetDevice(const Device& device)
+void PipelineCache_DX12::SetDevice(const Device* pDevice)
 {
-	m_device = static_cast<ID3D12Device*>(device.GetHandle());
+	m_device = static_cast<ID3D12Device*>(pDevice->GetHandle());
 	assert(m_device);
 }
 
@@ -85,14 +86,14 @@ void PipelineCache_DX12::SetPipeline(const string& key, const Pipeline& pipeline
 	m_pipelines[key] = static_cast<ID3D12PipelineState*>(pipeline);
 }
 
-Pipeline PipelineCache_DX12::CreatePipeline(const State& state, const wchar_t* name)
+Pipeline PipelineCache_DX12::CreatePipeline(const State* pState, const wchar_t* name)
 {
-	return createPipeline(state.GetKey(), name);
+	return createPipeline(pState->GetKey(), name);
 }
 
-Pipeline PipelineCache_DX12::GetPipeline(const State& state, const wchar_t* name)
+Pipeline PipelineCache_DX12::GetPipeline(const State* pState, const wchar_t* name)
 {
-	return getPipeline(state.GetKey(), name);
+	return getPipeline(pState->GetKey(), name);
 }
 
 Pipeline PipelineCache_DX12::createPipeline(const string& key, const wchar_t* name)
@@ -124,12 +125,7 @@ Pipeline PipelineCache_DX12::getPipeline(const string& key, const wchar_t* name)
 	const auto pPipeline = m_pipelines.find(key);
 
 	// Create one, if it does not exist
-	if (pPipeline == m_pipelines.end())
-	{
-		const auto pipeline = createPipeline(key, name);
-
-		return pipeline;
-	}
+	if (pPipeline == m_pipelines.end()) return createPipeline(key, name);
 
 	return pPipeline->second.get();
 }

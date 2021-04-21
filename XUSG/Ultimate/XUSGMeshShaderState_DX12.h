@@ -54,10 +54,10 @@ namespace XUSG
 			void RSSetState(const Rasterizer* pRasterizer);
 			void DSSetState(const DepthStencil* pDepthStencil);
 
-			void OMSetBlendState(BlendPreset preset, PipelineCache& pipelineCache,
+			void OMSetBlendState(BlendPreset preset, PipelineCache* pPipelineCache,
 				uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX);
-			void RSSetState(RasterizerPreset preset, PipelineCache& pipelineCache);
-			void DSSetState(DepthStencilPreset preset, PipelineCache& pipelineCache);
+			void RSSetState(RasterizerPreset preset, PipelineCache* pPipelineCache);
+			void DSSetState(DepthStencilPreset preset, PipelineCache* pPipelineCache);
 
 			void OMSetNumRenderTargets(uint8_t n);
 			void OMSetRTVFormat(uint8_t i, Format format);
@@ -65,8 +65,8 @@ namespace XUSG
 			void OMSetDSVFormat(Format format);
 			void OMSetSample(uint8_t count, uint8_t quality = 0);
 
-			Pipeline CreatePipeline(PipelineCache& pipelineCache, const wchar_t* name = nullptr) const;
-			Pipeline GetPipeline(PipelineCache& pipelineCache, const wchar_t* name = nullptr) const;
+			Pipeline CreatePipeline(PipelineCache* pPipelineCache, const wchar_t* name = nullptr) const;
+			Pipeline GetPipeline(PipelineCache* pPipelineCache, const wchar_t* name = nullptr) const;
 
 			const std::string& GetKey() const;
 
@@ -81,11 +81,11 @@ namespace XUSG
 		{
 		public:
 			PipelineCache_DX12();
-			PipelineCache_DX12(const Device& device);
+			PipelineCache_DX12(const Device* pDevice);
 			virtual ~PipelineCache_DX12();
 
-			Pipeline CreatePipeline(const State& state, const wchar_t* name = nullptr);
-			Pipeline GetPipeline(const State& state, const wchar_t* name = nullptr);
+			Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr);
+			Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr);
 
 		protected:
 			Pipeline createPipeline(const std::string& key, const wchar_t* name);

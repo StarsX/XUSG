@@ -81,10 +81,10 @@ namespace XUSG
 		{
 		public:
 			PipelineCache_DX12();
-			PipelineCache_DX12(const Device& device);
+			PipelineCache_DX12(const Device* pDevice);
 			virtual ~PipelineCache_DX12();
 
-			void SetDevice(const Device& device);
+			void SetDevice(const Device* pDevice);
 			void SetPipeline(const std::string& key, const Pipeline& pipeline);
 
 			Pipeline CreatePipeline(State& state, const wchar_t* name = nullptr);
@@ -94,9 +94,15 @@ namespace XUSG
 			Pipeline createPipeline(const std::string& key, const wchar_t* name);
 			Pipeline getPipeline(const std::string& key, const wchar_t* name);
 
-			Device m_device;
+#if ENABLE_DXR_FALLBACK
+			com_ptr<ID3D12RaytracingFallbackDevice> m_device;
 
-			std::unordered_map<std::string, Pipeline> m_pipelines;
+			std::unordered_map<std::string, com_ptr<ID3D12RaytracingFallbackStateObject>> m_stateObjects;
+#else
+			com_ptr<ID3D12Device5> m_device;
+
+			std::unordered_map<std::string, com_ptr<ID3D12StateObject>> m_stateObjects;
+#endif
 		};
 	}
 }

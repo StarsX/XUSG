@@ -25,12 +25,12 @@ namespace XUSG
 			bool CreateInterface();
 
 			void SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions) const;
-			void ResolveSubresourceRegion(const Resource& dstResource, uint32_t dstSubresource,
-				uint32_t dstX, uint32_t dstY, const Resource& srcResource, uint32_t srcSubresource,
-				RectRange* pSrcRect, Format format, ResolveMode resolveMode) const;
+			void ResolveSubresourceRegion(const Resource* pDstResource, uint32_t dstSubresource,
+				uint32_t dstX, uint32_t dstY, const Resource* pSrcResource, uint32_t srcSubresource,
+				const RectRange& srcRect, Format format, ResolveMode resolveMode) const;
 
 			void RSSetShadingRate(ShadingRate baseShadingRate, const ShadingRateCombiner* pCombiners) const;
-			void RSSetShadingRateImage(const Resource& shadingRateImage) const;
+			void RSSetShadingRateImage(const Resource* pShadingRateImage) const;
 			void DispatchMesh(
 				uint32_t ThreadGroupCountX,
 				uint32_t ThreadGroupCountY,
@@ -53,11 +53,11 @@ namespace XUSG
 			SamplerFeedBack_DX12();
 			~SamplerFeedBack_DX12();
 
-			bool Create(const Device& device, const Texture2D& target, Format format,
+			bool Create(const Device* pDevice, const Texture2D* pTarget, Format format,
 				uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
 				ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
 				bool isCubeMap = false, const wchar_t* name = nullptr);
-			bool CreateUAV(const Resource& target);
+			bool CreateUAV(const Resource* pTarget);
 
 		protected:
 			com_ptr<ID3D12Device8> m_deviceU;

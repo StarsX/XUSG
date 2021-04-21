@@ -65,15 +65,6 @@
     <ClCompile Include="stdafx.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\XUSG\Core\XUSG_DX12.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="..\XUSG\Core\XUSGCommand_DX12.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="..\XUSG\Core\XUSGPipelineLayout_DX12.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
     <ClCompile Include="RayTracing\XUSGAccelerationStructure_DX12.cpp">
       <Filter>RayTracing\Source Files</Filter>
     </ClCompile>
@@ -87,6 +78,24 @@
       <Filter>RayTracing\Source Files</Filter>
     </ClCompile>
     <ClCompile Include="RayTracing\XUSGShaderTable_DX12.cpp">
+      <Filter>RayTracing\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSG\Core\XUSGEnum_DX12.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSG\Core\XUSGCommand_DX12.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSG\Core\XUSGPipelineLayout_DX12.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSG\Core\XUSG_DX12.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSG\Core\XUSGResource_DX12.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="RayTracing\XUSGRayTracing_DX12.cpp">
       <Filter>RayTracing\Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -2,6 +2,7 @@
 // Copyright (c) XU, Tianchen. All rights reserved.
 //--------------------------------------------------------------------------------------
 
+#include "XUSG_DX12.h"
 #include "XUSGDescriptor_DX12.h"
 
 using namespace std;
@@ -29,7 +30,7 @@ void Util::DescriptorTable_DX12::SetDescriptors(uint32_t start, uint32_t num,
 }
 
 void Util::DescriptorTable_DX12::SetSamplers(uint32_t start, uint32_t num, const SamplerPreset* presets,
-	DescriptorTableCache& descriptorTableCache, uint8_t descriptorPoolIndex)
+	DescriptorTableCache* pDescriptorTableCache, uint8_t descriptorPoolIndex)
 {
 	const auto size = sizeof(SamplerDesc*) * (start + num) + 1;
 	if (size > m_key.size())
@@ -39,39 +40,39 @@ void Util::DescriptorTable_DX12::SetSamplers(uint32_t start, uint32_t num, const
 	const auto descriptors = reinterpret_cast<const SamplerDesc**>(&m_key[1]);
 
 	for (auto i = 0u; i < num; ++i)
-		descriptors[start + i] = descriptorTableCache.GetSampler(presets[i]).get();
+		descriptors[start + i] = pDescriptorTableCache->GetSampler(presets[i]).get();
 }
 
-DescriptorTable Util::DescriptorTable_DX12::CreateCbvSrvUavTable(DescriptorTableCache& descriptorTableCache, const XUSG::DescriptorTable& table)
+DescriptorTable Util::DescriptorTable_DX12::CreateCbvSrvUavTable(DescriptorTableCache* pDescriptorTableCache, const XUSG::DescriptorTable& table)
 {
-	return dynamic_cast<DescriptorTableCache_DX12&>(descriptorTableCache).createCbvSrvUavTable(m_key, table);
+	return dynamic_cast<DescriptorTableCache_DX12*>(pDescriptorTableCache)->createCbvSrvUavTable(m_key, table);
 }
 
-DescriptorTable Util::DescriptorTable_DX12::GetCbvSrvUavTable(DescriptorTableCache& descriptorTableCache, const XUSG::DescriptorTable& table)
+DescriptorTable Util::DescriptorTable_DX12::GetCbvSrvUavTable(DescriptorTableCache* pDescriptorTableCache, const XUSG::DescriptorTable& table)
 {
-	return dynamic_cast<DescriptorTableCache_DX12&>(descriptorTableCache).getCbvSrvUavTable(m_key, table);
+	return dynamic_cast<DescriptorTableCache_DX12*>(pDescriptorTableCache)->getCbvSrvUavTable(m_key, table);
 }
 
-DescriptorTable Util::DescriptorTable_DX12::CreateSamplerTable(DescriptorTableCache& descriptorTableCache, const XUSG::DescriptorTable& table)
+DescriptorTable Util::DescriptorTable_DX12::CreateSamplerTable(DescriptorTableCache* pDescriptorTableCache, const XUSG::DescriptorTable& table)
 {
-	return dynamic_cast<DescriptorTableCache_DX12&>(descriptorTableCache).createSamplerTable(m_key, table);
+	return dynamic_cast<DescriptorTableCache_DX12*>(pDescriptorTableCache)->createSamplerTable(m_key, table);
 }
 
-DescriptorTable Util::DescriptorTable_DX12::GetSamplerTable(DescriptorTableCache& descriptorTableCache, const XUSG::DescriptorTable& table)
+DescriptorTable Util::DescriptorTable_DX12::GetSamplerTable(DescriptorTableCache* pDescriptorTableCache, const XUSG::DescriptorTable& table)
 {
-	return dynamic_cast<DescriptorTableCache_DX12&>(descriptorTableCache).getSamplerTable(m_key, table);
+	return dynamic_cast<DescriptorTableCache_DX12*>(pDescriptorTableCache)->getSamplerTable(m_key, table);
 }
 
-Framebuffer Util::DescriptorTable_DX12::CreateFramebuffer(DescriptorTableCache& descriptorTableCache,
+Framebuffer Util::DescriptorTable_DX12::CreateFramebuffer(DescriptorTableCache* pDescriptorTableCache,
 	const Descriptor* pDsv, const Framebuffer* pFramebuffer)
 {
-	return dynamic_cast<DescriptorTableCache_DX12&>(descriptorTableCache).createFramebuffer(m_key, pDsv, pFramebuffer);
+	return dynamic_cast<DescriptorTableCache_DX12*>(pDescriptorTableCache)->createFramebuffer(m_key, pDsv, pFramebuffer);
 }
 
-Framebuffer Util::DescriptorTable_DX12::GetFramebuffer(DescriptorTableCache& descriptorTableCache,
+Framebuffer Util::DescriptorTable_DX12::GetFramebuffer(DescriptorTableCache* pDescriptorTableCache,
 	const Descriptor* pDsv, const Framebuffer* pFramebuffer)
 {
-	return dynamic_cast<DescriptorTableCache_DX12&>(descriptorTableCache).getFramebuffer(m_key, pDsv, pFramebuffer);
+	return dynamic_cast<DescriptorTableCache_DX12*>(pDescriptorTableCache)->getFramebuffer(m_key, pDsv, pFramebuffer);
 }
 
 const string& Util::DescriptorTable_DX12::GetKey() const
@@ -112,10 +113,10 @@ DescriptorTableCache_DX12::DescriptorTableCache_DX12() :
 	m_pfnSamplers[SamplerPreset::ANISOTROPIC_LESS_EQUAL] = SamplerAnisotropicLessEqual;
 }
 
-DescriptorTableCache_DX12::DescriptorTableCache_DX12(const Device& device, const wchar_t* name) :
+DescriptorTableCache_DX12::DescriptorTableCache_DX12(const Device* pDevice, const wchar_t* name) :
 	DescriptorTableCache_DX12()
 {
-	SetDevice(device);
+	SetDevice(pDevice);
 	SetName(name);
 }
 
@@ -123,9 +124,9 @@ DescriptorTableCache_DX12::~DescriptorTableCache_DX12()
 {
 }
 
-void DescriptorTableCache_DX12::SetDevice(const Device& device)
+void DescriptorTableCache_DX12::SetDevice(const Device* pDevice)
 {
-	m_device = static_cast<ID3D12Device*>(device.GetHandle());
+	m_device = static_cast<ID3D12Device*>(pDevice->GetHandle());
 
 	assert(m_device);
 	m_descriptorStrides[CBV_SRV_UAV_POOL] = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -171,36 +172,36 @@ bool DescriptorTableCache_DX12::AllocateDescriptorPool(DescriptorPoolType type, 
 	return allocateDescriptorPool(type, numDescriptors, index);
 }
 
-DescriptorTable DescriptorTableCache_DX12::CreateCbvSrvUavTable(const Util::DescriptorTable& util, const DescriptorTable& table)
+DescriptorTable DescriptorTableCache_DX12::CreateCbvSrvUavTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table)
 {
-	return createCbvSrvUavTable(util.GetKey(), table);
+	return createCbvSrvUavTable(pUtil->GetKey(), table);
 }
 
-DescriptorTable DescriptorTableCache_DX12::GetCbvSrvUavTable(const Util::DescriptorTable& util, const DescriptorTable& table)
+DescriptorTable DescriptorTableCache_DX12::GetCbvSrvUavTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table)
 {
-	return getCbvSrvUavTable(util.GetKey(), table);
+	return getCbvSrvUavTable(pUtil->GetKey(), table);
 }
 
-DescriptorTable DescriptorTableCache_DX12::CreateSamplerTable(const Util::DescriptorTable& util, const DescriptorTable& table)
+DescriptorTable DescriptorTableCache_DX12::CreateSamplerTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table)
 {
-	return createSamplerTable(util.GetKey(), table);
+	return createSamplerTable(pUtil->GetKey(), table);
 }
 
-DescriptorTable DescriptorTableCache_DX12::GetSamplerTable(const Util::DescriptorTable& util, const DescriptorTable& table)
+DescriptorTable DescriptorTableCache_DX12::GetSamplerTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table)
 {
-	return getSamplerTable(util.GetKey(), table);
+	return getSamplerTable(pUtil->GetKey(), table);
 }
 
-Framebuffer DescriptorTableCache_DX12::CreateFramebuffer(const Util::DescriptorTable& util,
+Framebuffer DescriptorTableCache_DX12::CreateFramebuffer(const Util::DescriptorTable* pUtil,
 	const Descriptor* pDsv, const Framebuffer* pFramebuffer)
 {
-	return createFramebuffer(util.GetKey(), pDsv, pFramebuffer);
+	return createFramebuffer(pUtil->GetKey(), pDsv, pFramebuffer);
 }
 
-Framebuffer DescriptorTableCache_DX12::GetFramebuffer(const Util::DescriptorTable& util,
+Framebuffer DescriptorTableCache_DX12::GetFramebuffer(const Util::DescriptorTable* pUtil,
 	const Descriptor* pDsv, const Framebuffer* pFramebuffer)
 {
-	return getFramebuffer(util.GetKey(), pDsv, pFramebuffer);
+	return getFramebuffer(pUtil->GetKey(), pDsv, pFramebuffer);
 }
 
 DescriptorPool DescriptorTableCache_DX12::GetDescriptorPool(DescriptorPoolType type, uint8_t index) const

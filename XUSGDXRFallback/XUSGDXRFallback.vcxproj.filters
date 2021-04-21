@@ -57,6 +57,15 @@
     <ClCompile Include="..\XUSGRayTracing\RayTracing\XUSGShaderTable_DX12.cpp">
       <Filter>RayTracing\Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\XUSG\Core\XUSGEnum_DX12.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSG\Core\XUSGResource_DX12.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSGRayTracing\RayTracing\XUSGRayTracing_DX12.cpp">
+      <Filter>RayTracing\Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">

@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "XUSG_DX12.h"
+#include "XUSG.h"
 
 namespace XUSG
 {
@@ -28,13 +28,13 @@ namespace XUSG
 				DescriptorFlag flags = DescriptorFlag::DATA_STATIC_WHILE_SET_AT_EXECUTE, Shader::Stage stage = Shader::Stage::ALL);
 			void SetRootCBV(uint32_t index, uint32_t binding, uint32_t space = 0, Shader::Stage stage = Shader::Stage::ALL);
 
-			XUSG::PipelineLayout CreatePipelineLayout(PipelineLayoutCache& pipelineLayoutCache, PipelineLayoutFlag flags,
+			XUSG::PipelineLayout CreatePipelineLayout(PipelineLayoutCache* pPipelineLayoutCache, PipelineLayoutFlag flags,
 				const wchar_t* name = nullptr);
-			XUSG::PipelineLayout GetPipelineLayout(PipelineLayoutCache& pipelineLayoutCache, PipelineLayoutFlag flags,
+			XUSG::PipelineLayout GetPipelineLayout(PipelineLayoutCache* pPipelineLayoutCache, PipelineLayoutFlag flags,
 				const wchar_t* name = nullptr);
 
-			DescriptorTableLayout CreateDescriptorTableLayout(uint32_t index, PipelineLayoutCache& pipelineLayoutCache) const;
-			DescriptorTableLayout GetDescriptorTableLayout(uint32_t index, PipelineLayoutCache& pipelineLayoutCache) const;
+			DescriptorTableLayout CreateDescriptorTableLayout(uint32_t index, PipelineLayoutCache* pPipelineLayoutCache) const;
+			DescriptorTableLayout GetDescriptorTableLayout(uint32_t index, PipelineLayoutCache* pPipelineLayoutCache) const;
 
 			const std::vector<std::string>& GetDescriptorTableLayoutKeys() const;
 			std::string& GetPipelineLayoutKey(PipelineLayoutCache* pPipelineLayoutCache);
@@ -54,19 +54,22 @@ namespace XUSG
 	{
 	public:
 		PipelineLayoutCache_DX12();
-		PipelineLayoutCache_DX12(const Device& device);
+		PipelineLayoutCache_DX12(const Device* pDevice);
 		virtual ~PipelineLayoutCache_DX12();
 
-		void SetDevice(const Device& device);
+		void SetDevice(const Device* pDevice);
 		void SetPipelineLayout(const std::string& key, const PipelineLayout& pipelineLayout);
+		void GetRootParameter(CD3DX12_ROOT_PARAMETER1& rootParam,
+			std::vector<CD3DX12_DESCRIPTOR_RANGE1>& descriptorRanges,
+			const DescriptorTableLayout& descriptorTableLayout) const;
 
-		PipelineLayout CreatePipelineLayout(Util::PipelineLayout& util, PipelineLayoutFlag flags,
+		PipelineLayout CreatePipelineLayout(Util::PipelineLayout* pUtil, PipelineLayoutFlag flags,
 			const wchar_t* name = nullptr);
-		PipelineLayout GetPipelineLayout(Util::PipelineLayout& util, PipelineLayoutFlag flags,
+		PipelineLayout GetPipelineLayout(Util::PipelineLayout* pUtil, PipelineLayoutFlag flags,
 			const wchar_t* name = nullptr, bool create = true);
 
-		DescriptorTableLayout CreateDescriptorTableLayout(uint32_t index, const Util::PipelineLayout& util);
-		DescriptorTableLayout GetDescriptorTableLayout(uint32_t index, const Util::PipelineLayout& util);
+		DescriptorTableLayout CreateDescriptorTableLayout(uint32_t index, const Util::PipelineLayout* pUtil);
+		DescriptorTableLayout GetDescriptorTableLayout(uint32_t index, const Util::PipelineLayout* pUtil);
 
 	protected:
 		PipelineLayout createPipelineLayout(const std::string& key, const wchar_t* name);
@@ -74,10 +77,6 @@ namespace XUSG
 
 		DescriptorTableLayout createDescriptorTableLayout(const std::string& key);
 		DescriptorTableLayout getDescriptorTableLayout(const std::string& key);
-
-		void getRootParameter(CD3DX12_ROOT_PARAMETER1& rootParam,
-			std::vector<CD3DX12_DESCRIPTOR_RANGE1>& descriptorRanges,
-			const DescriptorTableLayout& descriptorTableLayout) const;
 
 		com_ptr<ID3D12Device> m_device;
 

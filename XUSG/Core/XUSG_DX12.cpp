@@ -10,36 +10,40 @@
 using namespace std;
 using namespace XUSG;
 
-Device_DX12::Device_DX12(void* handle)
+Device_DX12::Device_DX12()
 {
-	m_device = static_cast<ID3D12Device*>(handle);
 }
 
 Device_DX12::~Device_DX12()
 {
 }
 
-bool Device_DX12::GetCommandQueue(CommandQueue& commandQueue, CommandListType type,
+bool Device_DX12::GetCommandQueue(CommandQueue* pCommandQueue, CommandListType type,
 	CommandQueueFlag flags, int32_t priority, uint32_t nodeMask, const wchar_t* name)
 {
-	return commandQueue.Create(*this, type, flags, priority, nodeMask, name);
+	return pCommandQueue->Create(this, type, flags, priority, nodeMask, name);
 }
 
-bool Device_DX12::GetCommandAllocator(CommandAllocator& commandAllocator,
+bool Device_DX12::GetCommandAllocator(CommandAllocator* pCommandAllocator,
 	CommandListType type, const wchar_t* name)
 {
-	return commandAllocator.Create(*this, type, name);
+	return pCommandAllocator->Create(this, type, name);
 }
 
-bool Device_DX12::GetCommandList(CommandList& commandList, uint32_t nodeMask, CommandListType type,
-	const CommandAllocator& commandAllocator, const Pipeline& pipeline, const wchar_t* name)
+bool Device_DX12::GetCommandList(CommandList* pCommandList, uint32_t nodeMask, CommandListType type,
+	const CommandAllocator* pCommandAllocator, const Pipeline& pipeline, const wchar_t* name)
 {
-	return commandList.Create(*this, nodeMask, type, commandAllocator, pipeline, name);
+	return pCommandList->Create(this, nodeMask, type, pCommandAllocator, pipeline, name);
 }
 
-bool Device_DX12::GetFence(Fence& fence, uint64_t initialValue, FenceFlag flags, const wchar_t* name)
+bool Device_DX12::GetFence(Fence* pFence, uint64_t initialValue, FenceFlag flags, const wchar_t* name)
 {
-	return fence.Create(*this, initialValue, flags, name);
+	return pFence->Create(this, initialValue, flags, name);
+}
+
+uint32_t Device_DX12::Create(void* pAdapter, uint32_t featureLevel)
+{
+	return D3D12CreateDevice(static_cast<IUnknown*>(pAdapter), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&m_device));
 }
 
 uint32_t Device_DX12::GetDeviceRemovedReason() const
@@ -62,12 +66,12 @@ Fence_DX12::~Fence_DX12()
 {
 }
 
-bool Fence_DX12::Create(const Device& device, uint64_t initialValue, FenceFlag flags, const wchar_t* name)
+bool Fence_DX12::Create(const Device* pDevice, uint64_t initialValue, FenceFlag flags, const wchar_t* name)
 {
-	const auto pDevice = static_cast<ID3D12Device*>(device.GetHandle());
+	const auto pDxDevice = static_cast<ID3D12Device*>(pDevice->GetHandle());
 
-	assert(pDevice);
-	V_RETURN(pDevice->CreateFence(initialValue, GetDX12FenceFlags(flags), IID_PPV_ARGS(&m_fence)), cerr, false);
+	assert(pDxDevice);
+	V_RETURN(pDxDevice->CreateFence(initialValue, GetDX12FenceFlags(flags), IID_PPV_ARGS(&m_fence)), cerr, false);
 	if (name) m_fence->SetName(name);
 
 	return true;
@@ -107,7 +111,7 @@ CommandLayout_DX12::~CommandLayout_DX12()
 {
 }
 
-bool CommandLayout_DX12::Create(const Device& device, uint32_t byteStride, uint32_t numArguments,
+bool CommandLayout_DX12::Create(const Device* pDevice, uint32_t byteStride, uint32_t numArguments,
 	const IndirectArgument* pArguments, uint32_t nodeMask, const wchar_t* name)
 {
 	D3D12_COMMAND_SIGNATURE_DESC desc;
@@ -116,10 +120,10 @@ bool CommandLayout_DX12::Create(const Device& device, uint32_t byteStride, uint3
 	desc.pArgumentDescs = reinterpret_cast<const D3D12_INDIRECT_ARGUMENT_DESC*>(pArguments);
 	desc.NodeMask = nodeMask;
 
-	const auto pDevice = static_cast<ID3D12Device*>(device.GetHandle());
+	const auto pDxDevice = static_cast<ID3D12Device*>(pDevice->GetHandle());
 
-	assert(pDevice);
-	V_RETURN(pDevice->CreateCommandSignature(&desc, nullptr, IID_PPV_ARGS(&m_commandSignature)), cerr, false);
+	assert(pDxDevice);
+	V_RETURN(pDxDevice->CreateCommandSignature(&desc, nullptr, IID_PPV_ARGS(&m_commandSignature)), cerr, false);
 	if (name) m_commandSignature->SetName(name);
 
 	return true;
@@ -140,7 +144,7 @@ SwapChain_DX12::~SwapChain_DX12()
 {
 }
 
-bool SwapChain_DX12::Create(void* factory, void* hWnd, const CommandQueue& commandQueue,
+bool SwapChain_DX12::Create(void* pFactory, void* hWnd, const CommandQueue* pCommandQueue,
 	uint8_t bufferCount, uint32_t width, uint32_t height, Format format, uint8_t sampleCount)
 {
 	// Describe and create the swap chain.
@@ -154,8 +158,8 @@ bool SwapChain_DX12::Create(void* factory, void* hWnd, const CommandQueue& comma
 	swapChainDesc.SampleDesc.Count = sampleCount;
 
 	com_ptr<IDXGISwapChain1> swapChain = nullptr;
-	V_RETURN(static_cast<IDXGIFactory4*>(factory)->CreateSwapChainForHwnd(
-		static_cast<ID3D12CommandQueue*>(commandQueue.GetHandle()),	// Swap chain needs the queue so that it can force a flush on it.
+	V_RETURN(static_cast<IDXGIFactory4*>(pFactory)->CreateSwapChainForHwnd(
+		static_cast<ID3D12CommandQueue*>(pCommandQueue->GetHandle()),	// Swap chain needs the queue so that it can force a flush on it.
 		static_cast<HWND>(hWnd),
 		&swapChainDesc,
 		nullptr,
@@ -176,9 +180,9 @@ bool SwapChain_DX12::Present(uint8_t syncInterval, uint32_t flags)
 	return true;
 }
 
-bool SwapChain_DX12::GetBuffer(uint8_t buffer, Resource& resource) const
+bool SwapChain_DX12::GetBuffer(uint8_t buffer, Resource* pResource) const
 {
-	V_RETURN(m_swapChain->GetBuffer(buffer, IID_PPV_ARGS(&dynamic_cast<Resource_DX12&>(resource).GetResource())), cerr, false);
+	V_RETURN(m_swapChain->GetBuffer(buffer, IID_PPV_ARGS(&dynamic_cast<Resource_DX12*>(pResource)->GetResource())), cerr, false);
 
 	return true;
 }

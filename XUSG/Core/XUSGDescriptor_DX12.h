@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "XUSG_DX12.h"
+#include "XUSG.h"
 
 namespace XUSG
 {
@@ -20,21 +20,21 @@ namespace XUSG
 			void SetDescriptors(uint32_t start, uint32_t num, const Descriptor* srcDescriptors,
 				uint8_t descriptorPoolIndex = 0);
 			void SetSamplers(uint32_t start, uint32_t num, const SamplerPreset* presets,
-				DescriptorTableCache& descriptorTableCache, uint8_t descriptorPoolIndex = 0);
+				DescriptorTableCache* pDescriptorTableCache, uint8_t descriptorPoolIndex = 0);
 
-			XUSG::DescriptorTable CreateCbvSrvUavTable(DescriptorTableCache& descriptorTableCache,
+			XUSG::DescriptorTable CreateCbvSrvUavTable(DescriptorTableCache* pDescriptorTableCache,
 				const XUSG::DescriptorTable& table = nullptr);
-			XUSG::DescriptorTable GetCbvSrvUavTable(DescriptorTableCache& descriptorTableCache,
-				const XUSG::DescriptorTable& table = nullptr);
-
-			XUSG::DescriptorTable CreateSamplerTable(DescriptorTableCache& descriptorTableCache,
-				const XUSG::DescriptorTable& table = nullptr);
-			XUSG::DescriptorTable GetSamplerTable(DescriptorTableCache& descriptorTableCache,
+			XUSG::DescriptorTable GetCbvSrvUavTable(DescriptorTableCache* pDescriptorTableCache,
 				const XUSG::DescriptorTable& table = nullptr);
 
-			Framebuffer CreateFramebuffer(DescriptorTableCache& descriptorTableCache,
+			XUSG::DescriptorTable CreateSamplerTable(DescriptorTableCache* pDescriptorTableCache,
+				const XUSG::DescriptorTable& table = nullptr);
+			XUSG::DescriptorTable GetSamplerTable(DescriptorTableCache* pDescriptorTableCache,
+				const XUSG::DescriptorTable& table = nullptr);
+
+			Framebuffer CreateFramebuffer(DescriptorTableCache* pDescriptorTableCache,
 				const Descriptor* pDsv = nullptr, const Framebuffer* pFramebuffer = nullptr);
-			Framebuffer GetFramebuffer(DescriptorTableCache& descriptorTableCache,
+			Framebuffer GetFramebuffer(DescriptorTableCache* pDescriptorTableCache,
 				const Descriptor* pDsv = nullptr, const Framebuffer* pFramebuffer = nullptr);
 
 			const std::string& GetKey() const;
@@ -49,24 +49,24 @@ namespace XUSG
 	{
 	public:
 		DescriptorTableCache_DX12();
-		DescriptorTableCache_DX12(const Device& device, const wchar_t* name = nullptr);
+		DescriptorTableCache_DX12(const Device* pDevice, const wchar_t* name = nullptr);
 		virtual ~DescriptorTableCache_DX12();
 
-		void SetDevice(const Device& device);
+		void SetDevice(const Device* pDevice);
 		void SetName(const wchar_t* name);
 		void ResetDescriptorPool(DescriptorPoolType type, uint8_t index);
 
 		bool AllocateDescriptorPool(DescriptorPoolType type, uint32_t numDescriptors, uint8_t index = 0);
 
-		DescriptorTable CreateCbvSrvUavTable(const Util::DescriptorTable& util, const DescriptorTable& table = nullptr);
-		DescriptorTable GetCbvSrvUavTable(const Util::DescriptorTable& util, const DescriptorTable& table = nullptr);
+		DescriptorTable CreateCbvSrvUavTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table = nullptr);
+		DescriptorTable GetCbvSrvUavTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table = nullptr);
 
-		DescriptorTable CreateSamplerTable(const Util::DescriptorTable& util, const DescriptorTable& table = nullptr);
-		DescriptorTable GetSamplerTable(const Util::DescriptorTable& util, const DescriptorTable& table = nullptr);
+		DescriptorTable CreateSamplerTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table = nullptr);
+		DescriptorTable GetSamplerTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table = nullptr);
 
-		Framebuffer CreateFramebuffer(const Util::DescriptorTable& util,
+		Framebuffer CreateFramebuffer(const Util::DescriptorTable* pUtil,
 			const Descriptor* pDsv = nullptr, const Framebuffer* pFramebuffer = nullptr);
-		Framebuffer GetFramebuffer(const Util::DescriptorTable& util,
+		Framebuffer GetFramebuffer(const Util::DescriptorTable* pUtil,
 			const Descriptor* pDsv = nullptr, const Framebuffer* pFramebuffer = nullptr);
 
 		DescriptorPool GetDescriptorPool(DescriptorPoolType type, uint8_t index = 0) const;

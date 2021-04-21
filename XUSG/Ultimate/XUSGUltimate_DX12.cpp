@@ -2,6 +2,7 @@
 // Copyright (c) XU, Tianchen. All rights reserved.
 //--------------------------------------------------------------------------------------
 
+#include "Core/XUSG_DX12.h"
 #include "Core/XUSGCommand_DX12.h"
 #include "Core/XUSGResource_DX12.h"
 #include "Core/XUSGEnum_DX12.h"
@@ -49,15 +50,29 @@ bool CommandList_DX12::CreateInterface()
 
 void CommandList_DX12::SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions) const
 {
-	m_commandListU->SetSamplePositions(numSamplesPerPixel, numPixels, reinterpret_cast<D3D12_SAMPLE_POSITION*>(pPositions));
+	assert(
+		numSamplesPerPixel == 1 ||
+		numSamplesPerPixel == 2 ||
+		numSamplesPerPixel == 4 ||
+		numSamplesPerPixel == 8 ||
+		numSamplesPerPixel == 16);
+	D3D12_SAMPLE_POSITION positions[16];
+	for (uint8_t i = 0; i < numSamplesPerPixel; ++i)
+	{
+		positions[i].X = pPositions[i].X;
+		positions[i].Y = pPositions[i].Y;
+	}
+
+	m_commandListU->SetSamplePositions(numSamplesPerPixel, numPixels, positions);
 }
 
-void CommandList_DX12::ResolveSubresourceRegion(const Resource& dstResource, uint32_t dstSubresource, uint32_t dstX, uint32_t dstY,
-	const Resource& srcResource, uint32_t srcSubresource, RectRange* pSrcRect, Format format, ResolveMode resolveMode) const
+void CommandList_DX12::ResolveSubresourceRegion(const Resource* pDstResource, uint32_t dstSubresource, uint32_t dstX, uint32_t dstY,
+	const Resource* pSrcResource, uint32_t srcSubresource, const RectRange& srcRect, Format format, ResolveMode resolveMode) const
 {
-	m_commandListU->ResolveSubresourceRegion(static_cast<ID3D12Resource*>(dstResource.GetHandle()), dstSubresource,
-		dstX, dstY, static_cast<ID3D12Resource*>(srcResource.GetHandle()), srcSubresource,
-		reinterpret_cast<D3D12_RECT*>(pSrcRect), GetDXGIFormat(format), GetDX12ResolveMode(resolveMode));
+	D3D12_RECT rect = { srcRect.Left, srcRect.Top, srcRect.Right, srcRect.Bottom };
+	m_commandListU->ResolveSubresourceRegion(static_cast<ID3D12Resource*>(pDstResource->GetHandle()),
+		dstSubresource, dstX, dstY, static_cast<ID3D12Resource*>(pSrcResource->GetHandle()), srcSubresource,
+		&rect, GetDXGIFormat(format), GetDX12ResolveMode(resolveMode));
 }
 
 void CommandList_DX12::RSSetShadingRate(ShadingRate baseShadingRate, const ShadingRateCombiner* pCombiners) const
@@ -68,9 +83,9 @@ void CommandList_DX12::RSSetShadingRate(ShadingRate baseShadingRate, const Shadi
 	m_commandListU->RSSetShadingRate(D3D12_SHADING_RATE(baseShadingRate), combiners);
 }
 
-void CommandList_DX12::RSSetShadingRateImage(const Resource& shadingRateImage)  const
+void CommandList_DX12::RSSetShadingRateImage(const Resource* pShadingRateImage)  const
 {
-	m_commandListU->RSSetShadingRateImage(static_cast<ID3D12Resource*>(shadingRateImage.GetHandle()));
+	m_commandListU->RSSetShadingRateImage(static_cast<ID3D12Resource*>(pShadingRateImage->GetHandle()));
 }
 
 void CommandList_DX12::DispatchMesh(uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ)  const
@@ -96,11 +111,11 @@ SamplerFeedBack_DX12::~SamplerFeedBack_DX12()
 {
 }
 
-bool SamplerFeedBack_DX12::Create(const Device& device, const Texture2D& target, Format format,
+bool SamplerFeedBack_DX12::Create(const Device* pDevice, const Texture2D* pTarget, Format format,
 	uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
 	ResourceFlag resourceFlags, MemoryType memoryType, bool isCubeMap, const wchar_t* name)
 {
-	N_RETURN(setDevice(device), false);
+	N_RETURN(setDevice(pDevice), false);
 	V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&m_deviceU)), cerr, false);
 
 	if (name) m_name = name;
@@ -108,14 +123,14 @@ bool SamplerFeedBack_DX12::Create(const Device& device, const Texture2D& target,
 	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
 
 	// Get paired properties
-	const auto arraySize = target.GetArraySize();
-	const auto numMips = target.GetNumMips();
+	const auto arraySize = pTarget->GetArraySize();
+	const auto numMips = pTarget->GetNumMips();
 
 	// Setup the texture description.
 	assert(format == Format::MIN_MIP_OPAQUE || format == Format::MIP_REGION_USED_OPAQUE);
 	const CD3DX12_HEAP_PROPERTIES heapProperties(GetDX12HeapType(memoryType));
 	const auto desc = CD3DX12_RESOURCE_DESC1::Tex2D(GetDXGIFormat(format),
-		target.GetWidth(), target.GetHeight(), arraySize, numMips, 1, 0,
+		pTarget->GetWidth(), pTarget->GetHeight(), arraySize, numMips, 1, 0,
 		GetDX12ResourceFlags(ResourceFlag::ALLOW_UNORDERED_ACCESS | resourceFlags),
 		D3D12_TEXTURE_LAYOUT_UNKNOWN, 0, mipRegionWidth, mipRegionHeight, mipRegionDepth);
 
@@ -144,17 +159,17 @@ bool SamplerFeedBack_DX12::Create(const Device& device, const Texture2D& target,
 	if (hasSRV) N_RETURN(CreateSRVs(arraySize, format, numMips, 1, isCubeMap), false);
 
 	// Create UAVs
-	N_RETURN(CreateUAV(target), false);
+	N_RETURN(CreateUAV(pTarget), false);
 
 	return true;
 }
 
-bool SamplerFeedBack_DX12::CreateUAV(const Resource& target)
+bool SamplerFeedBack_DX12::CreateUAV(const Resource* pTarget)
 {
 	// Create an unordered access view
 	m_uavs.resize(1);
 	X_RETURN(m_uavs[0], allocateSrvUavHeap(), false);
-	m_deviceU->CreateSamplerFeedbackUnorderedAccessView(static_cast<ID3D12Resource*>(target.GetHandle()),
+	m_deviceU->CreateSamplerFeedbackUnorderedAccessView(static_cast<ID3D12Resource*>(pTarget->GetHandle()),
 		m_resource.get(), { m_uavs[0] });
 
 	return true;

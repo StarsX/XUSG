@@ -19,6 +19,7 @@ using namespace XUSG;
 #define APPEND_ROOT_DESCRIPTOR_FLAG(flags, flag) APPEND_FLAG(DescriptorFlag, D3D12_ROOT_DESCRIPTOR_FLAG, flags, flag, NONE)
 #define APPEND_ROOT_SIGNATURE_FLAG(flags, flag) APPEND_FLAG(PipelineLayoutFlag, D3D12_ROOT_SIGNATURE_FLAG, flags, flag, NONE)
 #define APPEND_FENCE_FLAG(flags, flag) APPEND_FLAG(FenceFlag, D3D12_FENCE_FLAG, flags, flag, NONE)
+#define APPEND_TILE_COPY_FLAG(flags, flag) APPEND_FLAG(TileCopyFlag, D3D12_TILE_COPY_FLAG, flags, flag, NONE)
 
 DXGI_FORMAT XUSG::GetDXGIFormat(Format format)
 {
@@ -742,6 +743,32 @@ D3D12_QUERY_TYPE XUSG::GetDX12QueryType(QueryType type)
 	};
 
 	return types[static_cast<uint32_t>(type)];
+}
+
+D3D12_TILE_COPY_FLAGS XUSG::GetDX12TileCopyFlag(TileCopyFlag tileCopyFlag)
+{
+	static const D3D12_TILE_COPY_FLAGS fenceFlags[] =
+	{
+		D3D12_TILE_COPY_FLAG_NO_HAZARD,
+		D3D12_TILE_COPY_FLAG_LINEAR_BUFFER_TO_SWIZZLED_TILED_RESOURCE,
+		D3D12_TILE_COPY_FLAG_SWIZZLED_TILED_RESOURCE_TO_LINEAR_BUFFER
+	};
+
+	if (tileCopyFlag == TileCopyFlag::NONE) return D3D12_TILE_COPY_FLAG_NONE;
+
+	const auto index = Log2(static_cast<uint32_t>(tileCopyFlag));
+
+	return fenceFlags[index];
+}
+
+D3D12_TILE_COPY_FLAGS XUSG::GetDX12TileCopyFlags(TileCopyFlag tileCopyFlags)
+{
+	auto flags = D3D12_TILE_COPY_FLAG_NONE;
+	flags |= APPEND_TILE_COPY_FLAG(tileCopyFlags, NO_HAZARD);
+	flags |= APPEND_TILE_COPY_FLAG(tileCopyFlags, LINEAR_BUFFER_TO_SWIZZLED_TILED_RESOURCE);
+	flags |= APPEND_TILE_COPY_FLAG(tileCopyFlags, SWIZZLED_TILED_RESOURCE_TO_LINEAR_BUFFER);
+
+	return flags;
 }
 
 uint32_t XUSG::GetDX12Requirement(Requirement requirement)

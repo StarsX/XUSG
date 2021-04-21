@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "XUSG_DX12.h"
+#include "XUSG.h"
 
 namespace XUSG
 {
@@ -53,7 +53,7 @@ namespace XUSG
 		ConstantBuffer_DX12();
 		virtual ~ConstantBuffer_DX12();
 
-		bool Create(const Device& device, size_t byteWidth, uint32_t numCBVs = 1,
+		bool Create(const Device* pDevice, size_t byteWidth, uint32_t numCBVs = 1,
 			const size_t* offsets = nullptr, MemoryType memoryType = MemoryType::UPLOAD,
 			const wchar_t* name = nullptr);
 		bool Upload(CommandList* pCommandList, Resource::sptr& uploader, const void* pData,
@@ -92,7 +92,7 @@ namespace XUSG
 		Format GetFormat() const;
 
 	protected:
-		bool setDevice(const Device& device);
+		bool setDevice(const Device* pDevice);
 		Descriptor allocateSrvUavHeap();
 
 		Format m_format;
@@ -111,7 +111,7 @@ namespace XUSG
 		Texture2D_DX12();
 		virtual ~Texture2D_DX12();
 
-		bool Create(const Device& device, uint32_t width, uint32_t height, Format format,
+		bool Create(const Device* pDevice, uint32_t width, uint32_t height, Format format,
 			uint32_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, MemoryType memoryType = MemoryType::DEFAULT,
 			bool isCubeMap = false, const wchar_t* name = nullptr);
@@ -176,15 +176,15 @@ namespace XUSG
 		RenderTarget_DX12();
 		virtual ~RenderTarget_DX12();
 
-		bool Create(const Device& device, uint32_t width, uint32_t height, Format format,
+		bool Create(const Device* pDevice, uint32_t width, uint32_t height, Format format,
 			uint32_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, const float* pClearColor = nullptr,
 			bool isCubeMap = false, const wchar_t* name = nullptr);
-		bool CreateArray(const Device& device, uint32_t width, uint32_t height, uint32_t arraySize,
+		bool CreateArray(const Device* pDevice, uint32_t width, uint32_t height, uint32_t arraySize,
 			Format format, ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			uint8_t sampleCount = 1, const float* pClearColor = nullptr, bool isCubeMap = false,
 			const wchar_t* name = nullptr);
-		bool CreateFromSwapChain(const Device& device, const SwapChain& swapChain, uint32_t bufferIndex);
+		bool CreateFromSwapChain(const Device* pDevice, const SwapChain* pSwapChain, uint32_t bufferIndex);
 
 		void Blit(const CommandList* pCommandList, const DescriptorTable& srcSrvTable,
 			uint32_t srcSlot = 0, uint8_t mipLevel = 0, uint32_t baseSlice = 0,
@@ -205,7 +205,7 @@ namespace XUSG
 		const Descriptor& GetRTV(uint32_t slice = 0, uint8_t mipLevel = 0) const;
 
 	protected:
-		bool create(const Device& device, uint32_t width, uint32_t height,
+		bool create(const Device* pDevice, uint32_t width, uint32_t height,
 			uint32_t arraySize, Format format, uint8_t numMips, uint8_t sampleCount,
 			ResourceFlag resourceFlags, const float* pClearColor, bool isCubeMap,
 			const wchar_t* name);
@@ -226,12 +226,12 @@ namespace XUSG
 		DepthStencil_DX12();
 		virtual ~DepthStencil_DX12();
 
-		bool Create(const Device& device, uint32_t width, uint32_t height,
+		bool Create(const Device* pDevice, uint32_t width, uint32_t height,
 			Format format = Format::UNKNOWN, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint32_t arraySize = 1, uint8_t numMips = 1, uint8_t sampleCount = 1,
 			float clearDepth = 1.0f, uint8_t clearStencil = 0, bool isCubeMap = false,
 			const wchar_t* name = nullptr);
-		bool CreateArray(const Device& device, uint32_t width, uint32_t height, uint32_t arraySize,
+		bool CreateArray(const Device* pDevice, uint32_t width, uint32_t height, uint32_t arraySize,
 			Format format = Format::UNKNOWN, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, float clearDepth = 1.0f,
 			uint8_t clearStencil = 0, bool isCubeMap = false, const wchar_t* name = nullptr);
@@ -244,7 +244,7 @@ namespace XUSG
 		uint8_t		GetNumMips() const;
 
 	protected:
-		bool create(const Device& device, uint32_t width, uint32_t height, uint32_t arraySize,
+		bool create(const Device* pDevice, uint32_t width, uint32_t height, uint32_t arraySize,
 			uint8_t numMips, uint8_t sampleCount, Format format, ResourceFlag resourceFlags,
 			float clearDepth, uint8_t clearStencil, bool& hasSRV, Format& formatStencil,
 			bool isCubeMap, const wchar_t* name);
@@ -267,7 +267,7 @@ namespace XUSG
 		Texture3D_DX12();
 		virtual ~Texture3D_DX12();
 
-		bool Create(const Device& device, uint32_t width, uint32_t height, uint32_t depth,
+		bool Create(const Device* pDevice, uint32_t width, uint32_t height, uint32_t depth,
 			Format format, ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			MemoryType memoryType = MemoryType::DEFAULT, const wchar_t* name = nullptr);
 		bool CreateSRVs(Format format = Format::UNKNOWN, uint8_t numMips = 1);
@@ -289,7 +289,7 @@ namespace XUSG
 		RawBuffer_DX12();
 		virtual ~RawBuffer_DX12();
 
-		bool Create(const Device& device, size_t byteWidth, ResourceFlag resourceFlags = ResourceFlag::NONE,
+		bool Create(const Device* pDevice, size_t byteWidth, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			MemoryType memoryType = MemoryType::DEFAULT, uint32_t numSRVs = 1,
 			const uint32_t* firstSRVElements = nullptr, uint32_t numUAVs = 1,
 			const uint32_t* firstUAVElements = nullptr, const wchar_t* name = nullptr);
@@ -307,7 +307,7 @@ namespace XUSG
 		void Unmap();
 
 	protected:
-		bool create(const Device& device, size_t byteWidth, ResourceFlag resourceFlags,
+		bool create(const Device* pDevice, size_t byteWidth, ResourceFlag resourceFlags,
 			MemoryType memoryType, uint32_t numSRVs, uint32_t numUAVs, const wchar_t* name);
 
 		std::vector<Descriptor>	m_uavs;
@@ -327,7 +327,7 @@ namespace XUSG
 		StructuredBuffer_DX12();
 		virtual ~StructuredBuffer_DX12();
 
-		bool Create(const Device& device, uint32_t numElements, uint32_t stride,
+		bool Create(const Device* pDevice, uint32_t numElements, uint32_t stride,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
 			uint32_t numSRVs = 1, const uint32_t* firstSRVElements = nullptr,
 			uint32_t numUAVs = 1, const uint32_t* firstUAVElements = nullptr,
@@ -357,7 +357,7 @@ namespace XUSG
 		TypedBuffer_DX12();
 		virtual ~TypedBuffer_DX12();
 
-		bool Create(const Device& device, uint32_t numElements, uint32_t stride, Format format,
+		bool Create(const Device* pDevice, uint32_t numElements, uint32_t stride, Format format,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
 			uint32_t numSRVs = 1, const uint32_t* firstSRVElements = nullptr,
 			uint32_t numUAVs = 1, const uint32_t* firstUAVElements = nullptr,
@@ -386,13 +386,13 @@ namespace XUSG
 		VertexBuffer_DX12();
 		virtual ~VertexBuffer_DX12();
 
-		bool Create(const Device& device, uint32_t numVertices, uint32_t stride,
+		bool Create(const Device* pDevice, uint32_t numVertices, uint32_t stride,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
 			uint32_t numVBVs = 1, const uint32_t* firstVertices = nullptr,
 			uint32_t numSRVs = 1, const uint32_t* firstSRVElements = nullptr,
 			uint32_t numUAVs = 1, const uint32_t* firstUAVElements = nullptr,
 			const wchar_t* name = nullptr);
-		bool CreateAsRaw(const Device& device, uint32_t numVertices, uint32_t stride,
+		bool CreateAsRaw(const Device* pDevice, uint32_t numVertices, uint32_t stride,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
 			uint32_t numVBVs = 1, const uint32_t* firstVertices = nullptr,
 			uint32_t numSRVs = 1, const uint32_t* firstSRVElements = nullptr,
@@ -416,7 +416,7 @@ namespace XUSG
 		IndexBuffer_DX12();
 		virtual ~IndexBuffer_DX12();
 
-		bool Create(const Device& device, size_t byteWidth, Format format = Format::R32_UINT,
+		bool Create(const Device* pDevice, size_t byteWidth, Format format = Format::R32_UINT,
 			ResourceFlag resourceFlags = ResourceFlag::DENY_SHADER_RESOURCE,
 			MemoryType memoryType = MemoryType::DEFAULT,
 			uint32_t numIBVs = 1, const size_t* offsets = nullptr,

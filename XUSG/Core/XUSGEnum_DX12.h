@@ -56,5 +56,8 @@ namespace XUSG
 
 	D3D12_QUERY_TYPE GetDX12QueryType(QueryType type);
 
+	D3D12_TILE_COPY_FLAGS GetDX12TileCopyFlag(TileCopyFlag tileCopyFlag);
+	D3D12_TILE_COPY_FLAGS GetDX12TileCopyFlags(TileCopyFlag tileCopyFlags);
+
 	uint32_t GetDX12Requirement(Requirement requirement);
 }

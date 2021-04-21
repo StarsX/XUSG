@@ -45,9 +45,6 @@ namespace XUSG
 #endif
 #endif
 
-	// Resources related
-	using TileCopyFlags = D3D12_TILE_COPY_FLAGS;
-
 	// Enumerations
 	enum class API
 	{
@@ -528,6 +525,37 @@ namespace XUSG
 		VIDEO_DECODE_STATISTICS
 	};
 
+	enum class TileCopyFlag : uint8_t
+	{
+		NONE = 0,
+		NO_HAZARD = (1 << 0),
+		LINEAR_BUFFER_TO_SWIZZLED_TILED_RESOURCE = (1 << 1),
+		SWIZZLED_TILED_RESOURCE_TO_LINEAR_BUFFER = (1 << 2)
+	};
+
+	DEFINE_ENUM_FLAG_OPERATORS(TileCopyFlag);
+
+	namespace Shader
+	{
+		enum Stage : uint8_t
+		{
+			PS,
+			VS,
+			DS,
+			HS,
+			GS,
+			CS,
+			ALL = CS,
+
+			NUM_GRAPHICS = ALL,
+
+			MS,
+			AS,
+
+			NUM_STAGE,
+		};
+	}
+
 	enum DescriptorPoolType : uint8_t
 	{
 		CBV_SRV_UAV_POOL,
@@ -601,7 +629,7 @@ namespace XUSG
 	{
 		uint64_t BufferLocation;
 		uint32_t SizeInBytes;
-		Format ViewFormat;
+		Format Format;
 	};
 
 	struct StreamOutBufferView
@@ -836,17 +864,18 @@ namespace XUSG
 		//Device();
 		virtual ~Device() {};
 
-		virtual bool GetCommandQueue(CommandQueue& commandQueue, CommandListType type,
+		virtual bool GetCommandQueue(CommandQueue* pCommandQueue, CommandListType type,
 			CommandQueueFlag flags, int32_t priority = 0, uint32_t nodeMask = 0,
 			const wchar_t* name = nullptr) = 0;
-		virtual bool GetCommandAllocator(CommandAllocator& commandAllocator,
+		virtual bool GetCommandAllocator(CommandAllocator* pCommandAllocator,
 			CommandListType type, const wchar_t* name = nullptr) = 0;
-		virtual bool GetCommandList(CommandList& commandList, uint32_t nodeMask, CommandListType type,
-			const CommandAllocator& commandAllocator, const Pipeline & pipeline,
+		virtual bool GetCommandList(CommandList* pCommandList, uint32_t nodeMask, CommandListType type,
+			const CommandAllocator* pCommandAllocator, const Pipeline& pipeline,
 			const wchar_t* name = nullptr) = 0;
-		virtual bool GetFence(Fence& fence, uint64_t initialValue, FenceFlag flags,
+		virtual bool GetFence(Fence* pFence, uint64_t initialValue, FenceFlag flags,
 			const wchar_t* name = nullptr) = 0;
 
+		virtual uint32_t Create(void* pAdapter, uint32_t featureLevel) = 0;
 		virtual uint32_t GetDeviceRemovedReason() const = 0;
 
 		virtual void* GetHandle() const = 0;
@@ -854,8 +883,8 @@ namespace XUSG
 		using uptr = std::unique_ptr<Device>;
 		using sptr = std::shared_ptr<Device>;
 
-		static uptr MakeUnique(void* handle, API api = API::DIRECTX_12);
-		static sptr MakeShared(void* handle, API api = API::DIRECTX_12);
+		static uptr MakeUnique(API api = API::DIRECTX_12);
+		static sptr MakeShared(API api = API::DIRECTX_12);
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -867,7 +896,7 @@ namespace XUSG
 		//Fence();
 		virtual ~Fence() {};
 
-		virtual bool Create(const Device& device, uint64_t initialValue,
+		virtual bool Create(const Device* pDevice, uint64_t initialValue,
 			FenceFlag flags, const wchar_t* name = nullptr) = 0;
 		virtual bool SetEventOnCompletion(uint64_t value, void* hEvent) = 0;
 		virtual bool Signal(uint64_t value) = 0;
@@ -898,7 +927,7 @@ namespace XUSG
 		//CommandLayout();
 		virtual ~CommandLayout() {};
 
-		virtual bool Create(const Device& device, uint32_t byteStride, uint32_t numArguments,
+		virtual bool Create(const Device* pDevice, uint32_t byteStride, uint32_t numArguments,
 			const IndirectArgument* pArguments, uint32_t nodeMask = 0, const wchar_t* name = nullptr) = 0;
 
 		virtual void* GetHandle() const = 0;
@@ -919,7 +948,7 @@ namespace XUSG
 		//CommandAllocator();
 		virtual ~CommandAllocator() {};
 
-		virtual bool Create(const Device& device, CommandListType type, const wchar_t* name = nullptr) = 0;
+		virtual bool Create(const Device* pDevice, CommandListType type, const wchar_t* name = nullptr) = 0;
 		virtual bool Reset() = 0;
 
 		virtual void* GetHandle() const = 0;
@@ -940,11 +969,11 @@ namespace XUSG
 		//CommandList();
 		virtual ~CommandList() {};
 
-		virtual bool Create(const Device& device, uint32_t nodeMask, CommandListType type,
-			const CommandAllocator& commandAllocator, const Pipeline& pipeline,
+		virtual bool Create(const Device* pDevice, uint32_t nodeMask, CommandListType type,
+			const CommandAllocator* pAllocator, const Pipeline& pipeline,
 			const wchar_t* name = nullptr) = 0;
 		virtual bool Close() const = 0;
-		virtual bool Reset(const CommandAllocator& allocator,
+		virtual bool Reset(const CommandAllocator* pAllocator,
 			const Pipeline& initialState) const = 0;
 
 		virtual void ClearState(const Pipeline& initialState) const = 0;
@@ -963,17 +992,17 @@ namespace XUSG
 			uint32_t threadGroupCountX,
 			uint32_t threadGroupCountY,
 			uint32_t threadGroupCountZ) const = 0;
-		virtual void CopyBufferRegion(const Resource& dstBuffer, uint64_t dstOffset,
-			const Resource& srcBuffer, uint64_t srcOffset, uint64_t numBytes) const = 0;
+		virtual void CopyBufferRegion(const Resource* pDstBuffer, uint64_t dstOffset,
+			const Resource* pSrcBuffer, uint64_t srcOffset, uint64_t numBytes) const = 0;
 		virtual void CopyTextureRegion(const TextureCopyLocation& dst,
 			uint32_t dstX, uint32_t dstY, uint32_t dstZ,
 			const TextureCopyLocation& src, const BoxRange* pSrcBox = nullptr) const = 0;
-		virtual void CopyResource(const Resource& dstResource, const Resource& srcResource) const = 0;
-		virtual void CopyTiles(const Resource& tiledResource, const TiledResourceCoord* pTileRegionStartCoord,
-			const TileRegionSize* pTileRegionSize, const Resource& buffer, uint64_t bufferStartOffsetInBytes,
-			TileCopyFlags flags) const = 0;
-		virtual void ResolveSubresource(const Resource& dstResource, uint32_t dstSubresource,
-			const Resource& srcResource, uint32_t srcSubresource, Format format) const = 0;
+		virtual void CopyResource(const Resource* pDstResource, const Resource* pSrcResource) const = 0;
+		virtual void CopyTiles(const Resource* pTiledResource, const TiledResourceCoord* pTileRegionStartCoord,
+			const TileRegionSize* pTileRegionSize, const Resource* pBuffer, uint64_t bufferStartOffsetInBytes,
+			TileCopyFlag flags) const = 0;
+		virtual void ResolveSubresource(const Resource* pDstResource, uint32_t dstSubresource,
+			const Resource* pSrcResource, uint32_t srcSubresource, Format format) const = 0;
 		virtual void IASetPrimitiveTopology(PrimitiveTopology primitiveTopology) const = 0;
 		virtual void RSSetViewports(uint32_t numViewports, const Viewport* pViewports) const = 0;
 		virtual void RSSetScissorRects(uint32_t numRects, const RectRange* pRects) const = 0;
@@ -993,12 +1022,12 @@ namespace XUSG
 			const void* pSrcData, uint32_t destOffsetIn32BitValues = 0) const = 0;
 		virtual void SetGraphics32BitConstants(uint32_t index, uint32_t num32BitValuesToSet,
 			const void* pSrcData, uint32_t destOffsetIn32BitValues = 0) const = 0;
-		virtual void SetComputeRootConstantBufferView(uint32_t index, const Resource& resource, int offset = 0) const = 0;
-		virtual void SetGraphicsRootConstantBufferView(uint32_t index, const Resource& resource, int offset = 0) const = 0;
-		virtual void SetComputeRootShaderResourceView(uint32_t index, const Resource& resource, int offset = 0) const = 0;
-		virtual void SetGraphicsRootShaderResourceView(uint32_t index, const Resource& resource, int offset = 0) const = 0;
-		virtual void SetComputeRootUnorderedAccessView(uint32_t index, const Resource& resource, int offset = 0) const = 0;
-		virtual void SetGraphicsRootUnorderedAccessView(uint32_t index, const Resource& resource, int offset = 0) const = 0;
+		virtual void SetComputeRootConstantBufferView(uint32_t index, const Resource* pResource, int offset = 0) const = 0;
+		virtual void SetGraphicsRootConstantBufferView(uint32_t index, const Resource* pResource, int offset = 0) const = 0;
+		virtual void SetComputeRootShaderResourceView(uint32_t index, const Resource* pResource, int offset = 0) const = 0;
+		virtual void SetGraphicsRootShaderResourceView(uint32_t index, const Resource* pResource, int offset = 0) const = 0;
+		virtual void SetComputeRootUnorderedAccessView(uint32_t index, const Resource* pResource, int offset = 0) const = 0;
+		virtual void SetGraphicsRootUnorderedAccessView(uint32_t index, const Resource* pResource, int offset = 0) const = 0;
 		virtual void IASetIndexBuffer(const IndexBufferView& view) const = 0;
 		virtual void IASetVertexBuffers(uint32_t startSlot, uint32_t numViews, const VertexBufferView* pViews) const = 0;
 		virtual void SOSetTargets(uint32_t startSlot, uint32_t numViews, const StreamOutBufferView* pViews) const = 0;
@@ -1015,23 +1044,23 @@ namespace XUSG
 		virtual void ClearRenderTargetView(const Descriptor& renderTargetView, const float colorRGBA[4],
 			uint32_t numRects = 0, const RectRange* pRects = nullptr) const = 0;
 		virtual void ClearUnorderedAccessViewUint(const DescriptorTable& descriptorTable,
-			const Descriptor& descriptor, const Resource& resource, const uint32_t values[4],
+			const Descriptor& descriptor, const Resource* pResource, const uint32_t values[4],
 			uint32_t numRects = 0, const RectRange* pRects = nullptr) const = 0;
 		virtual void ClearUnorderedAccessViewFloat(const DescriptorTable& descriptorTable,
-			const Descriptor& descriptor, const Resource& resource, const float values[4],
+			const Descriptor& descriptor, const Resource* pResource, const float values[4],
 			uint32_t numRects = 0, const RectRange* pRects = nullptr) const = 0;
-		virtual void DiscardResource(const Resource &resource, uint32_t numRects, const RectRange* pRects,
+		virtual void DiscardResource(const Resource*pResource, uint32_t numRects, const RectRange* pRects,
 			uint32_t firstSubresource, uint32_t numSubresources) const = 0;
 		virtual void BeginQuery(const QueryPool& queryPool, QueryType type, uint32_t index) const = 0;
 		virtual void EndQuery(const QueryPool& queryPool, QueryType type, uint32_t index) const = 0;
 		virtual void ResolveQueryData(const QueryPool& queryPool, QueryType type, uint32_t startIndex,
-			uint32_t numQueries, const Resource &dstBuffer, uint64_t alignedDstBufferOffset) const = 0;
-		virtual void SetPredication(const Resource &buffer, uint64_t alignedBufferOffset, bool opEqualZero)const = 0;
+			uint32_t numQueries, const Resource* pDstBuffer, uint64_t alignedDstBufferOffset) const = 0;
+		virtual void SetPredication(const Resource* pBuffer, uint64_t alignedBufferOffset, bool opEqualZero)const = 0;
 		virtual void SetMarker(uint32_t metaData, const void* pData, uint32_t size) const = 0;
 		virtual void BeginEvent(uint32_t metaData, const void* pData, uint32_t size) const = 0;
 		virtual void EndEvent() = 0;
 		virtual void ExecuteIndirect(const CommandLayout& commandlayout, uint32_t maxCommandCount,
-			const Resource& argumentBuffer, uint64_t argumentBufferOffset = 0,
+			const Resource* pArgumentBuffer, uint64_t argumentBufferOffset = 0,
 			const Resource* pCountBuffer = nullptr, uint64_t countBufferOffset = 0) = 0;
 
 		using uptr = std::unique_ptr<CommandList>;
@@ -1050,7 +1079,7 @@ namespace XUSG
 		//CommandQueue();
 		virtual ~CommandQueue() {};
 
-		virtual bool Create(const Device& device, CommandListType type, CommandQueueFlag flags,
+		virtual bool Create(const Device* pDevice, CommandListType type, CommandQueueFlag flags,
 			int32_t priority = 0, uint32_t nodeMask = 0, const wchar_t* name = nullptr) = 0;
 
 		virtual bool SubmitCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists,
@@ -1059,8 +1088,8 @@ namespace XUSG
 		virtual bool SubmitCommandList(CommandList* const pCommandList,
 			const Semaphore* pWaits = nullptr, uint32_t numWaits = 0,
 			const Semaphore* pSignals = nullptr, uint32_t numSignals = 0) = 0;
-		virtual bool Wait(const Fence& fence, uint64_t value) = 0;
-		virtual bool Signal(const Fence& fence, uint64_t value) = 0;
+		virtual bool Wait(const Fence* pFence, uint64_t value) = 0;
+		virtual bool Signal(const Fence* pFence, uint64_t value) = 0;
 
 		virtual void ExecuteCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists) = 0;
 		virtual void ExecuteCommandList(CommandList* const pCommandList) = 0;
@@ -1085,11 +1114,11 @@ namespace XUSG
 		//SwapChain();
 		virtual ~SwapChain() {};
 
-		virtual bool Create(void* factory, void* hWnd, const CommandQueue& commandQueue,
+		virtual bool Create(void* pFactory, void* hWnd, const CommandQueue* pCommandQueue,
 			uint8_t bufferCount, uint32_t width, uint32_t height, Format format,
 			uint8_t sampleCount = 1) = 0;
 		virtual bool Present(uint8_t syncInterval = 0, uint32_t flags = 0) = 0;
-		virtual bool GetBuffer(uint8_t buffer, Resource& resource) const = 0;
+		virtual bool GetBuffer(uint8_t buffer, Resource* pResource) const = 0;
 
 		virtual uint32_t ResizeBuffers(uint8_t bufferCount, uint32_t width,
 			uint32_t height, Format format, uint8_t flag = 0) = 0;
@@ -1143,7 +1172,7 @@ namespace XUSG
 		//ConstantBuffer();
 		virtual ~ConstantBuffer() {};
 
-		virtual bool Create(const Device& device, size_t byteWidth, uint32_t numCBVs = 1,
+		virtual bool Create(const Device* pDevice, size_t byteWidth, uint32_t numCBVs = 1,
 			const size_t* offsets = nullptr, MemoryType memoryType = MemoryType::UPLOAD,
 			const wchar_t* name = nullptr) = 0;
 		virtual bool Upload(CommandList* pCommandList, Resource::sptr& uploader, const void* pData,
@@ -1194,7 +1223,7 @@ namespace XUSG
 		//Texture2D();
 		virtual ~Texture2D() {};
 
-		virtual bool Create(const Device& device, uint32_t width, uint32_t height, Format format,
+		virtual bool Create(const Device* pDevice, uint32_t width, uint32_t height, Format format,
 			uint32_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, MemoryType memoryType = MemoryType::DEFAULT,
 			bool isCubeMap = false, const wchar_t* name = nullptr) = 0;
@@ -1262,16 +1291,16 @@ namespace XUSG
 		virtual ~RenderTarget() {};
 
 		// Create() will create multiple RTVs (1 slice per RTV)
-		virtual bool Create(const Device& device, uint32_t width, uint32_t height, Format format,
+		virtual bool Create(const Device* pDevice, uint32_t width, uint32_t height, Format format,
 			uint32_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, const float* pClearColor = nullptr,
 			bool isCubeMap = false, const wchar_t* name = nullptr) = 0;
 		// CreateArray() will create a single array RTV of n slices
-		virtual bool CreateArray(const Device& device, uint32_t width, uint32_t height, uint32_t arraySize,
+		virtual bool CreateArray(const Device* pDevice, uint32_t width, uint32_t height, uint32_t arraySize,
 			Format format, ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			uint8_t sampleCount = 1, const float* pClearColor = nullptr, bool isCubeMap = false,
 			const wchar_t* name = nullptr) = 0;
-		virtual bool CreateFromSwapChain(const Device& device, const SwapChain& swapChain, uint32_t bufferIndex) = 0;
+		virtual bool CreateFromSwapChain(const Device* pDevice, const SwapChain* pSwapChain, uint32_t bufferIndex) = 0;
 
 		virtual void Blit(const CommandList* pCommandList, const DescriptorTable& srcSrvTable,
 			uint32_t srcSlot = 0, uint8_t mipLevel = 0, uint32_t baseSlice = 0,
@@ -1308,12 +1337,12 @@ namespace XUSG
 		//DepthStencil();
 		virtual ~DepthStencil() {};
 
-		virtual bool Create(const Device& device, uint32_t width, uint32_t height,
+		virtual bool Create(const Device* pDevice, uint32_t width, uint32_t height,
 			Format format = Format::UNKNOWN, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint32_t arraySize = 1, uint8_t numMips = 1, uint8_t sampleCount = 1,
 			float clearDepth = 1.0f, uint8_t clearStencil = 0, bool isCubeMap = false,
 			const wchar_t* name = nullptr) = 0;
-		virtual bool CreateArray(const Device& device, uint32_t width, uint32_t height, uint32_t arraySize,
+		virtual bool CreateArray(const Device* pDevice, uint32_t width, uint32_t height, uint32_t arraySize,
 			Format format = Format::UNKNOWN, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, float clearDepth = 1.0f,
 			uint8_t clearStencil = 0, bool isCubeMap = false, const wchar_t* name = nullptr) = 0;
@@ -1342,7 +1371,7 @@ namespace XUSG
 		//Texture3D();
 		virtual ~Texture3D() {};
 
-		virtual bool Create(const Device& device, uint32_t width, uint32_t height, uint32_t depth,
+		virtual bool Create(const Device* pDevice, uint32_t width, uint32_t height, uint32_t depth,
 			Format format, ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			MemoryType memoryType = MemoryType::DEFAULT, const wchar_t* name = nullptr) = 0;
 		virtual bool CreateSRVs(Format format = Format::UNKNOWN, uint8_t numMips = 1) = 0;
@@ -1369,7 +1398,7 @@ namespace XUSG
 		//RawBuffer();
 		virtual ~RawBuffer() {};
 
-		virtual bool Create(const Device& device, size_t byteWidth, ResourceFlag resourceFlags = ResourceFlag::NONE,
+		virtual bool Create(const Device* pDevice, size_t byteWidth, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			MemoryType memoryType = MemoryType::DEFAULT, uint32_t numSRVs = 1,
 			const uint32_t* firstSRVElements = nullptr, uint32_t numUAVs = 1,
 			const uint32_t* firstUAVElements = nullptr, const wchar_t* name = nullptr) = 0;
@@ -1403,7 +1432,7 @@ namespace XUSG
 		//StructuredBuffer();
 		virtual ~StructuredBuffer() {};
 
-		virtual bool Create(const Device& device, uint32_t numElements, uint32_t stride,
+		virtual bool Create(const Device* pDevice, uint32_t numElements, uint32_t stride,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
 			uint32_t numSRVs = 1, const uint32_t* firstSRVElements = nullptr,
 			uint32_t numUAVs = 1, const uint32_t* firstUAVElements = nullptr,
@@ -1435,7 +1464,7 @@ namespace XUSG
 		//TypedBuffer();
 		virtual ~TypedBuffer() {};
 
-		virtual bool Create(const Device& device, uint32_t numElements, uint32_t stride, Format format,
+		virtual bool Create(const Device* pDevice, uint32_t numElements, uint32_t stride, Format format,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
 			uint32_t numSRVs = 1, const uint32_t* firstSRVElements = nullptr,
 			uint32_t numUAVs = 1, const uint32_t* firstUAVElements = nullptr,
@@ -1466,13 +1495,13 @@ namespace XUSG
 		//VertexBuffer();
 		virtual ~VertexBuffer() {};
 
-		virtual bool Create(const Device& device, uint32_t numVertices, uint32_t stride,
+		virtual bool Create(const Device* pDevice, uint32_t numVertices, uint32_t stride,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
 			uint32_t numVBVs = 1, const uint32_t* firstVertices = nullptr,
 			uint32_t numSRVs = 1, const uint32_t* firstSRVElements = nullptr,
 			uint32_t numUAVs = 1, const uint32_t* firstUAVElements = nullptr,
 			const wchar_t* name = nullptr) = 0;
-		virtual bool CreateAsRaw(const Device& device, uint32_t numVertices, uint32_t stride,
+		virtual bool CreateAsRaw(const Device* pDevice, uint32_t numVertices, uint32_t stride,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
 			uint32_t numVBVs = 1, const uint32_t* firstVertices = nullptr,
 			uint32_t numSRVs = 1, const uint32_t* firstSRVElements = nullptr,
@@ -1498,7 +1527,7 @@ namespace XUSG
 		//IndexBuffer();
 		virtual ~IndexBuffer() {};
 
-		virtual bool Create(const Device& device, size_t byteWidth, Format format = Format::R32_UINT,
+		virtual bool Create(const Device* pDevice, size_t byteWidth, Format format = Format::R32_UINT,
 			ResourceFlag resourceFlags = ResourceFlag::DENY_SHADER_RESOURCE,
 			MemoryType memoryType = MemoryType::DEFAULT,
 			uint32_t numIBVs = 1, const size_t* offsets = nullptr,
@@ -1531,21 +1560,21 @@ namespace XUSG
 			virtual void SetDescriptors(uint32_t start, uint32_t num, const Descriptor* srcDescriptors,
 				uint8_t descriptorPoolIndex = 0) = 0;
 			virtual void SetSamplers(uint32_t start, uint32_t num, const SamplerPreset* presets,
-				DescriptorTableCache& descriptorTableCache, uint8_t descriptorPoolIndex = 0) = 0;
+				DescriptorTableCache* pDescriptorTableCache, uint8_t descriptorPoolIndex = 0) = 0;
 
-			virtual XUSG::DescriptorTable CreateCbvSrvUavTable(DescriptorTableCache& descriptorTableCache,
+			virtual XUSG::DescriptorTable CreateCbvSrvUavTable(DescriptorTableCache* pDescriptorTableCache,
 				const XUSG::DescriptorTable& table = nullptr) = 0;
-			virtual XUSG::DescriptorTable GetCbvSrvUavTable(DescriptorTableCache& descriptorTableCache,
-				const XUSG::DescriptorTable& table = nullptr) = 0;
-
-			virtual XUSG::DescriptorTable CreateSamplerTable(DescriptorTableCache& descriptorTableCache,
-				const XUSG::DescriptorTable& table = nullptr) = 0;
-			virtual XUSG::DescriptorTable GetSamplerTable(DescriptorTableCache& descriptorTableCache,
+			virtual XUSG::DescriptorTable GetCbvSrvUavTable(DescriptorTableCache* pDescriptorTableCache,
 				const XUSG::DescriptorTable& table = nullptr) = 0;
 
-			virtual Framebuffer CreateFramebuffer(DescriptorTableCache& descriptorTableCache,
+			virtual XUSG::DescriptorTable CreateSamplerTable(DescriptorTableCache* pDescriptorTableCache,
+				const XUSG::DescriptorTable& table = nullptr) = 0;
+			virtual XUSG::DescriptorTable GetSamplerTable(DescriptorTableCache* pDescriptorTableCache,
+				const XUSG::DescriptorTable& table = nullptr) = 0;
+
+			virtual Framebuffer CreateFramebuffer(DescriptorTableCache* pDescriptorTableCache,
 				const Descriptor* pDsv = nullptr, const Framebuffer* pFramebuffer = nullptr) = 0;
-			virtual Framebuffer GetFramebuffer(DescriptorTableCache& descriptorTableCache,
+			virtual Framebuffer GetFramebuffer(DescriptorTableCache* pDescriptorTableCache,
 				const Descriptor* pDsv = nullptr, const Framebuffer* pFramebuffer = nullptr) = 0;
 
 			virtual const std::string& GetKey() const = 0;
@@ -1562,24 +1591,24 @@ namespace XUSG
 	{
 	public:
 		//DescriptorTableCache();
-		//DescriptorTableCache(const Device& device, const wchar_t* name = nullptr);
+		//DescriptorTableCache(const Device* pDevice, const wchar_t* name = nullptr);
 		virtual ~DescriptorTableCache() {};
 
-		virtual void SetDevice(const Device& device) = 0;
+		virtual void SetDevice(const Device* pDevice) = 0;
 		virtual void SetName(const wchar_t* name) = 0;
 		virtual void ResetDescriptorPool(DescriptorPoolType type, uint8_t index) = 0;
 
 		virtual bool AllocateDescriptorPool(DescriptorPoolType type, uint32_t numDescriptors, uint8_t index = 0) = 0;
 
-		virtual DescriptorTable CreateCbvSrvUavTable(const Util::DescriptorTable& util, const DescriptorTable& table = nullptr) = 0;
-		virtual DescriptorTable GetCbvSrvUavTable(const Util::DescriptorTable& util, const DescriptorTable& table = nullptr) = 0;
+		virtual DescriptorTable CreateCbvSrvUavTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table = nullptr) = 0;
+		virtual DescriptorTable GetCbvSrvUavTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table = nullptr) = 0;
 
-		virtual DescriptorTable CreateSamplerTable(const Util::DescriptorTable& util, const DescriptorTable& table = nullptr) = 0;
-		virtual DescriptorTable GetSamplerTable(const Util::DescriptorTable& util, const DescriptorTable& table = nullptr) = 0;
+		virtual DescriptorTable CreateSamplerTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table = nullptr) = 0;
+		virtual DescriptorTable GetSamplerTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table = nullptr) = 0;
 
-		virtual Framebuffer CreateFramebuffer(const Util::DescriptorTable& util,
+		virtual Framebuffer CreateFramebuffer(const Util::DescriptorTable* pUtil,
 			const Descriptor* pDsv = nullptr, const Framebuffer* pFramebuffer = nullptr) = 0;
-		virtual Framebuffer GetFramebuffer(const Util::DescriptorTable& util,
+		virtual Framebuffer GetFramebuffer(const Util::DescriptorTable* pUtil,
 			const Descriptor* pDsv = nullptr, const Framebuffer* pFramebuffer = nullptr) = 0;
 
 		virtual DescriptorPool GetDescriptorPool(DescriptorPoolType type, uint8_t index = 0) const = 0;
@@ -1593,8 +1622,8 @@ namespace XUSG
 
 		static uptr MakeUnique(API api = API::DIRECTX_12);
 		static sptr MakeShared(API api = API::DIRECTX_12);
-		static uptr MakeUnique(const Device& device, const wchar_t* name = nullptr, API api = API::DIRECTX_12);
-		static sptr MakeShared(const Device& device, const wchar_t* name = nullptr, API api = API::DIRECTX_12);
+		static uptr MakeUnique(const Device* pDevice, const wchar_t* name = nullptr, API api = API::DIRECTX_12);
+		static sptr MakeShared(const Device* pDevice, const wchar_t* name = nullptr, API api = API::DIRECTX_12);
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -1620,27 +1649,6 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Shader
 	//--------------------------------------------------------------------------------------
-	namespace Shader
-	{
-		enum Stage : uint8_t
-		{
-			PS,
-			VS,
-			DS,
-			HS,
-			GS,
-			CS,
-			ALL = CS,
-
-			NUM_GRAPHICS = ALL,
-
-			MS,
-			AS,
-
-			NUM_STAGE,
-		};
-	}
-
 	class DLL_INTERFACE ShaderPool
 	{
 	public:
@@ -1686,13 +1694,13 @@ namespace XUSG
 				DescriptorFlag flags = DescriptorFlag::DATA_STATIC_WHILE_SET_AT_EXECUTE, Shader::Stage stage = Shader::Stage::ALL) = 0;
 			virtual void SetRootCBV(uint32_t index, uint32_t binding, uint32_t space = 0, Shader::Stage stage = Shader::Stage::ALL) = 0;
 
-			virtual XUSG::PipelineLayout CreatePipelineLayout(PipelineLayoutCache& pipelineLayoutCache, PipelineLayoutFlag flags,
+			virtual XUSG::PipelineLayout CreatePipelineLayout(PipelineLayoutCache* pPipelineLayoutCache, PipelineLayoutFlag flags,
 				const wchar_t* name = nullptr) = 0;
-			virtual XUSG::PipelineLayout GetPipelineLayout(PipelineLayoutCache& pipelineLayoutCache, PipelineLayoutFlag flags,
+			virtual XUSG::PipelineLayout GetPipelineLayout(PipelineLayoutCache* pPipelineLayoutCache, PipelineLayoutFlag flags,
 				const wchar_t* name = nullptr) = 0;
 
-			virtual DescriptorTableLayout CreateDescriptorTableLayout(uint32_t index, PipelineLayoutCache& pipelineLayoutCache) const = 0;
-			virtual DescriptorTableLayout GetDescriptorTableLayout(uint32_t index, PipelineLayoutCache& pipelineLayoutCache) const = 0;
+			virtual DescriptorTableLayout CreateDescriptorTableLayout(uint32_t index, PipelineLayoutCache* pPipelineLayoutCache) const = 0;
+			virtual DescriptorTableLayout GetDescriptorTableLayout(uint32_t index, PipelineLayoutCache* pPipelineLayoutCache) const = 0;
 
 			virtual const std::vector<std::string>& GetDescriptorTableLayoutKeys() const = 0;
 			virtual std::string& GetPipelineLayoutKey(PipelineLayoutCache* pPipelineLayoutCache) = 0;
@@ -1711,27 +1719,27 @@ namespace XUSG
 	{
 	public:
 		//PipelineLayoutCache();
-		//PipelineLayoutCache(const Device& device) = 0;
+		//PipelineLayoutCache(const Device* pDevice) = 0;
 		virtual ~PipelineLayoutCache() {};
 
-		virtual void SetDevice(const Device& device) = 0;
+		virtual void SetDevice(const Device* pDevice) = 0;
 		virtual void SetPipelineLayout(const std::string& key, const PipelineLayout& pipelineLayout) = 0;
 
-		virtual PipelineLayout CreatePipelineLayout(Util::PipelineLayout& util, PipelineLayoutFlag flags,
+		virtual PipelineLayout CreatePipelineLayout(Util::PipelineLayout* pUtil, PipelineLayoutFlag flags,
 			const wchar_t* name = nullptr) = 0;
-		virtual PipelineLayout GetPipelineLayout(Util::PipelineLayout& util, PipelineLayoutFlag flags,
+		virtual PipelineLayout GetPipelineLayout(Util::PipelineLayout* pUtil, PipelineLayoutFlag flags,
 			const wchar_t* name = nullptr, bool create = true) = 0;
 
-		virtual DescriptorTableLayout CreateDescriptorTableLayout(uint32_t index, const Util::PipelineLayout& util) = 0;
-		virtual DescriptorTableLayout GetDescriptorTableLayout(uint32_t index, const Util::PipelineLayout& util) = 0;
+		virtual DescriptorTableLayout CreateDescriptorTableLayout(uint32_t index, const Util::PipelineLayout* pUtil) = 0;
+		virtual DescriptorTableLayout GetDescriptorTableLayout(uint32_t index, const Util::PipelineLayout* pUtil) = 0;
 
 		using uptr = std::unique_ptr<PipelineLayoutCache>;
 		using sptr = std::shared_ptr<PipelineLayoutCache>;
 
 		static uptr MakeUnique(API api = API::DIRECTX_12);
 		static sptr MakeShared(API api = API::DIRECTX_12);
-		static uptr MakeUnique(const Device& device, API api = API::DIRECTX_12);
-		static sptr MakeShared(const Device& device, API api = API::DIRECTX_12);
+		static uptr MakeUnique(const Device* pDevice, API api = API::DIRECTX_12);
+		static sptr MakeShared(const Device* pDevice, API api = API::DIRECTX_12);
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -1854,10 +1862,10 @@ namespace XUSG
 			virtual void RSSetState(const Rasterizer* pRasterizer) = 0;
 			virtual void DSSetState(const DepthStencil* DepthStencil) = 0;
 
-			virtual void OMSetBlendState(BlendPreset preset, PipelineCache& pipelineCache,
+			virtual void OMSetBlendState(BlendPreset preset, PipelineCache* pPipelineCache,
 				uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX) = 0;
-			virtual void RSSetState(RasterizerPreset preset, PipelineCache& pipelineCache) = 0;
-			virtual void DSSetState(DepthStencilPreset preset, PipelineCache& pipelineCache) = 0;
+			virtual void RSSetState(RasterizerPreset preset, PipelineCache* pPipelineCache) = 0;
+			virtual void DSSetState(DepthStencilPreset preset, PipelineCache* pPipelineCache) = 0;
 
 			virtual void IASetInputLayout(const InputLayout* pLayout) = 0;
 			virtual void IASetPrimitiveTopologyType(PrimitiveTopologyType type) = 0;
@@ -1869,8 +1877,8 @@ namespace XUSG
 			virtual void OMSetDSVFormat(Format format) = 0;
 			virtual void OMSetSample(uint8_t count, uint8_t quality = 0) = 0;
 
-			virtual Pipeline CreatePipeline(PipelineCache& pipelineCache, const wchar_t* name = nullptr) const = 0;
-			virtual Pipeline GetPipeline(PipelineCache& pipelineCache, const wchar_t* name = nullptr) const = 0;
+			virtual Pipeline CreatePipeline(PipelineCache* pPipelineCache, const wchar_t* name = nullptr) const = 0;
+			virtual Pipeline GetPipeline(PipelineCache* pPipelineCache, const wchar_t* name = nullptr) const = 0;
 
 			virtual const std::string& GetKey() const = 0;
 
@@ -1885,18 +1893,18 @@ namespace XUSG
 		{
 		public:
 			//PipelineCache();
-			//PipelineCache(const Device& device);
+			//PipelineCache(const Device* pDevice);
 			virtual ~PipelineCache() {};
 
-			virtual void SetDevice(const Device& device) = 0;
+			virtual void SetDevice(const Device* pDevice) = 0;
 			virtual void SetPipeline(const std::string& key, const Pipeline& pipeline) = 0;
 
 			virtual void SetInputLayout(uint32_t index, const InputElement* pElements, uint32_t numElements) = 0;
 			virtual const InputLayout* GetInputLayout(uint32_t index) const = 0;
 			virtual const InputLayout* CreateInputLayout(const InputElement* pElements, uint32_t numElements) = 0;
 
-			virtual Pipeline CreatePipeline(const State& state, const wchar_t* name = nullptr) = 0;
-			virtual Pipeline GetPipeline(const State& state, const wchar_t* name = nullptr) = 0;
+			virtual Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr) = 0;
+			virtual Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr) = 0;
 
 			virtual const Blend* GetBlend(BlendPreset preset, uint8_t numColorRTs = 1) = 0;
 			virtual const Rasterizer* GetRasterizer(RasterizerPreset preset) = 0;
@@ -1907,8 +1915,8 @@ namespace XUSG
 
 			static uptr MakeUnique(API api = API::DIRECTX_12);
 			static sptr MakeShared(API api = API::DIRECTX_12);
-			static uptr MakeUnique(const Device& device, API api = API::DIRECTX_12);
-			static sptr MakeShared(const Device& device, API api = API::DIRECTX_12);
+			static uptr MakeUnique(const Device* pDevice, API api = API::DIRECTX_12);
+			static sptr MakeShared(const Device* pDevice, API api = API::DIRECTX_12);
 		};
 	}
 
@@ -1930,8 +1938,8 @@ namespace XUSG
 			virtual void SetCachedPipeline(const void* pCachedBlob, size_t size) = 0;
 			virtual void SetNodeMask(uint32_t nodeMask) = 0;
 
-			virtual Pipeline CreatePipeline(PipelineCache& pipelineCache, const wchar_t* name = nullptr) const = 0;
-			virtual Pipeline GetPipeline(PipelineCache& pipelineCache, const wchar_t* name = nullptr) const = 0;
+			virtual Pipeline CreatePipeline(PipelineCache* pPipelineCache, const wchar_t* name = nullptr) const = 0;
+			virtual Pipeline GetPipeline(PipelineCache* pPipelineCache, const wchar_t* name = nullptr) const = 0;
 
 			virtual const std::string& GetKey() const = 0;
 
@@ -1946,22 +1954,22 @@ namespace XUSG
 		{
 		public:
 			//PipelineCache();
-			//PipelineCache(const Device& device);
+			//PipelineCache(const Device* pDevice);
 			virtual ~PipelineCache() {};
 
-			virtual void SetDevice(const Device& device) = 0;
+			virtual void SetDevice(const Device* pDevice) = 0;
 			virtual void SetPipeline(const std::string& key, const Pipeline& pipeline) = 0;
 
-			virtual Pipeline CreatePipeline(const State& state, const wchar_t* name = nullptr) = 0;
-			virtual Pipeline GetPipeline(const State& state, const wchar_t* name = nullptr) = 0;
+			virtual Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr) = 0;
+			virtual Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr) = 0;
 
 			using uptr = std::unique_ptr<PipelineCache>;
 			using sptr = std::shared_ptr<PipelineCache>;
 
 			static uptr MakeUnique(API api = API::DIRECTX_12);
 			static sptr MakeShared(API api = API::DIRECTX_12);
-			static uptr MakeUnique(const Device& device, API api = API::DIRECTX_12);
-			static sptr MakeShared(const Device& device, API api = API::DIRECTX_12);
+			static uptr MakeUnique(const Device* pDevice, API api = API::DIRECTX_12);
+			static sptr MakeShared(const Device* pDevice, API api = API::DIRECTX_12);
 		};
 	}
 

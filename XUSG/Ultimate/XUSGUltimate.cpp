@@ -61,12 +61,12 @@ MeshShader::PipelineCache::sptr MeshShader::PipelineCache::MakeShared(API api)
 	return make_shared<PipelineCache_DX12>();
 }
 
-MeshShader::PipelineCache::uptr MeshShader::PipelineCache::MakeUnique(const Device& device, API api)
+MeshShader::PipelineCache::uptr MeshShader::PipelineCache::MakeUnique(const Device* pDevice, API api)
 {
-	return make_unique<PipelineCache_DX12>(device);
+	return make_unique<PipelineCache_DX12>(pDevice);
 }
 
-MeshShader::PipelineCache::sptr MeshShader::PipelineCache::MakeShared(const Device& device, API api)
+MeshShader::PipelineCache::sptr MeshShader::PipelineCache::MakeShared(const Device* pDevice, API api)
 {
-	return make_shared<PipelineCache_DX12>(device);
+	return make_shared<PipelineCache_DX12>(pDevice);
 }
