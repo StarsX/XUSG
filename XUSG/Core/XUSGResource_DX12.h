@@ -30,6 +30,8 @@ namespace XUSG
 
 		uint64_t GetVirtualAddress(int offset = 0) const;
 
+		void Create(void* pDeviceHandle, void* pResourceHandle, const wchar_t* name = nullptr);
+
 		void* GetHandle() const;
 
 		com_ptr<ID3D12Resource>& GetResource();

@@ -901,10 +901,10 @@ namespace XUSG
 		virtual bool GetFence(Fence* pFence, uint64_t initialValue, FenceFlag flags,
 			const wchar_t* name = nullptr) = 0;
 
-		virtual uint32_t Create(void* pAdapter, uint32_t minFeatureLevel) = 0;
+		virtual uint32_t Create(void* pAdapter, uint32_t minFeatureLevel, const wchar_t* name = nullptr) = 0;
 		virtual uint32_t GetDeviceRemovedReason() const = 0;
 
-		virtual void Create(void* pHandle) = 0;
+		virtual void Create(void* pHandle, const wchar_t* name = nullptr) = 0;
 
 		virtual void* GetHandle() const = 0;
 
@@ -1184,6 +1184,8 @@ namespace XUSG
 		virtual uint32_t GetWidth() const = 0;
 
 		virtual uint64_t GetVirtualAddress(int offset = 0) const = 0;
+
+		virtual void Create(void* pDeviceHandle, void* pResourceHandle, const wchar_t* name = nullptr) = 0;
 
 		virtual void* GetHandle() const = 0;
 

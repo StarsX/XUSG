@@ -41,10 +41,13 @@ bool Device_DX12::GetFence(Fence* pFence, uint64_t initialValue, FenceFlag flags
 	return pFence->Create(this, initialValue, flags, name);
 }
 
-uint32_t Device_DX12::Create(void* pAdapter, uint32_t minFeatureLevel)
+uint32_t Device_DX12::Create(void* pAdapter, uint32_t minFeatureLevel, const wchar_t* name)
 {
-	return D3D12CreateDevice(static_cast<IUnknown*>(pAdapter),
+	const auto hr = D3D12CreateDevice(static_cast<IUnknown*>(pAdapter),
 		static_cast<D3D_FEATURE_LEVEL>(minFeatureLevel), IID_PPV_ARGS(&m_device));
+	if (name) m_device->SetName(name);
+
+	return hr;
 }
 
 uint32_t Device_DX12::GetDeviceRemovedReason() const
@@ -52,9 +55,10 @@ uint32_t Device_DX12::GetDeviceRemovedReason() const
 	return m_device->GetDeviceRemovedReason();
 }
 
-void Device_DX12::Create(void* pHandle)
+void Device_DX12::Create(void* pHandle, const wchar_t* name)
 {
 	m_device = static_cast<ID3D12Device*>(pHandle);
+	if (name) m_device->SetName(name);
 }
 
 void* Device_DX12::GetHandle() const

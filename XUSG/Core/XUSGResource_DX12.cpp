@@ -109,6 +109,17 @@ uint64_t Resource_DX12::GetVirtualAddress(int offset) const
 	return m_resource->GetGPUVirtualAddress() + offset;
 }
 
+void Resource_DX12::Create(void* pDeviceHandle, void* pResourceHandle, const wchar_t* name)
+{
+	m_device = static_cast<ID3D12Device*>(pDeviceHandle);
+	m_resource = static_cast<ID3D12Resource*>(pResourceHandle);
+
+	const auto desc = m_resource->GetDesc();
+	m_states.resize(desc.MipLevels * desc.DepthOrArraySize, ResourceState::COMMON);
+
+	if (name) m_resource->SetName((wstring(name) + L".Resource").c_str());
+}
+
 void* Resource_DX12::GetHandle() const
 {
 	return m_resource.get();

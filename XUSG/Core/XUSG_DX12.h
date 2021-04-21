@@ -39,10 +39,10 @@ namespace XUSG
 		bool GetFence(Fence* pFence, uint64_t initialValue, FenceFlag flags,
 			const wchar_t* name = nullptr);
 
-		uint32_t Create(void* pAdapter, uint32_t minFeatureLevel);
+		uint32_t Create(void* pAdapter, uint32_t minFeatureLevel, const wchar_t* name = nullptr);
 		uint32_t GetDeviceRemovedReason() const;
 
-		void Create(void* pHandle);
+		void Create(void* pHandle, const wchar_t* name = nullptr);
 
 		void* GetHandle() const;
 
