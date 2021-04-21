@@ -531,6 +531,12 @@ void CommandList_DX12::ExecuteIndirect(const CommandLayout* pCommandlayout, uint
 		countBufferOffset);
 }
 
+void CommandList_DX12::Create(void* pHandle, const wchar_t* name)
+{
+	m_commandList = static_cast<ID3D12GraphicsCommandList*>(pHandle);
+	if (name) m_commandList->SetName(name);
+}
+
 void* CommandList_DX12::GetHandle() const
 {
 	return m_commandList.get();

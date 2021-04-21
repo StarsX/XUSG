@@ -1091,6 +1091,8 @@ namespace XUSG
 			const Resource* pArgumentBuffer, uint64_t argumentBufferOffset = 0,
 			const Resource* pCountBuffer = nullptr, uint64_t countBufferOffset = 0) = 0;
 
+		virtual void Create(void* pHandle, const wchar_t* name = nullptr) = 0;
+
 		virtual void* GetHandle() const = 0;
 
 		using uptr = std::unique_ptr<CommandList>;

@@ -125,6 +125,8 @@ namespace XUSG
 			const Resource* pArgumentBuffer, uint64_t argumentBufferOffset = 0,
 			const Resource* pCountBuffer = nullptr, uint64_t countBufferOffset = 0);
 
+		void Create(void* pHandle, const wchar_t* name = nullptr);
+
 		void* GetHandle() const;
 
 		com_ptr<ID3D12GraphicsCommandList>& GetGraphicsCommandList();
