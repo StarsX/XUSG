@@ -905,11 +905,6 @@ void RenderTarget_DX12::Blit(const CommandList* pCommandList, const DescriptorTa
 	const DescriptorTable& samplerTable, uint32_t samplerSlot, const Pipeline& pipeline,
 	uint32_t offsetForSliceId, uint32_t cbSlot)
 {
-	// Set render target
-	const auto desc = m_resource->GetDesc();
-	if (numSlices == 0) numSlices = desc.DepthOrArraySize - baseSlice;
-	pCommandList->OMSetRenderTargets(1, &GetRTV(baseSlice, mipLevel));
-
 	// Set pipeline layout and descriptor tables
 	if (srcSrvTable) pCommandList->SetGraphicsDescriptorTable(srcSlot, srcSrvTable);
 	if (samplerTable) pCommandList->SetGraphicsDescriptorTable(samplerSlot, samplerTable);
@@ -918,6 +913,7 @@ void RenderTarget_DX12::Blit(const CommandList* pCommandList, const DescriptorTa
 	if (pipeline) pCommandList->SetPipelineState(pipeline);
 
 	// Set viewport
+	const auto desc = m_resource->GetDesc();
 	const auto width = (max)(static_cast<uint32_t>(desc.Width >> mipLevel), 1u);
 	const auto height = (max)(desc.Height >> mipLevel, 1u);
 	const Viewport viewport(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height));
@@ -926,10 +922,11 @@ void RenderTarget_DX12::Blit(const CommandList* pCommandList, const DescriptorTa
 	pCommandList->RSSetScissorRects(1, &rect);
 
 	// Draw quads
+	if (numSlices == 0) numSlices = desc.DepthOrArraySize - baseSlice;
 	pCommandList->IASetPrimitiveTopology(PrimitiveTopology::TRIANGLELIST);
-	pCommandList->Draw(3, 1, 0, 0);
-	for (auto i = 1u; i < numSlices; ++i)
+	for (auto i = 0u; i < numSlices; ++i)
 	{
+		// Set render target
 		pCommandList->OMSetRenderTargets(1, &GetRTV(baseSlice + i, mipLevel));
 		pCommandList->SetGraphics32BitConstant(cbSlot, i, offsetForSliceId);
 		pCommandList->Draw(3, 1, 0, 0);
