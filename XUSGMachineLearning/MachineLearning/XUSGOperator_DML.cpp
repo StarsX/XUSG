@@ -2,6 +2,7 @@
 // Copyright (c) XU, Tianchen. All rights reserved.
 //--------------------------------------------------------------------------------------
 
+#include "Core/XUSG_DX12.h"
 #include "XUSGOperator_DML.h"
 
 using namespace std;

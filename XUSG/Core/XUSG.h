@@ -5,14 +5,13 @@
 #pragma once
 #pragma warning(disable:4250)
 
-#define VOID_RETURN
-#define M_RETURN(x, o, m, r)	if (x) { o << m << std::endl; assert(!m); return r; }
-#define C_RETURN(x, r)			if (x) return r
-#define N_RETURN(x, r)			C_RETURN(!(x), r)
-#define X_RETURN(x, f, r)		{ x = f; N_RETURN(x, r); }
+#define M_RETURN(x, o, m, r)		if (x) { o << m << std::endl; assert(!m); return r; }
+#define C_RETURN(x, r)				if (x) return r
+#define N_RETURN(x, r)				C_RETURN(!(x), r)
+#define X_RETURN(x, f, r)			{ x = f; N_RETURN(x, r); }
 
-#define DIV_UP(x, n)		(((x) - 1) / (n) + 1)
-#define SizeOfInUint32(obj)	DIV_UP(sizeof(obj), sizeof(uint32_t))
+#define DIV_UP(x, n)				(((x) - 1) / (n) + 1)
+#define SizeOfInUint32(obj)			DIV_UP(sizeof(obj), sizeof(uint32_t))
 
 #define APPEND_ALIGNED_ELEMENT		0xffffffff
 #define BARRIER_ALL_SUBRESOURCES	0xffffffff
@@ -1063,7 +1062,7 @@ namespace XUSG
 		virtual void SetMarker(uint32_t metaData, const void* pData, uint32_t size) const = 0;
 		virtual void BeginEvent(uint32_t metaData, const void* pData, uint32_t size) const = 0;
 		virtual void EndEvent() = 0;
-		virtual void ExecuteIndirect(const CommandLayout& commandlayout, uint32_t maxCommandCount,
+		virtual void ExecuteIndirect(const CommandLayout* pCommandlayout, uint32_t maxCommandCount,
 			const Resource* pArgumentBuffer, uint64_t argumentBufferOffset = 0,
 			const Resource* pCountBuffer = nullptr, uint64_t countBufferOffset = 0) = 0;
 

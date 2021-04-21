@@ -121,7 +121,7 @@ namespace XUSG
 		void SetMarker(uint32_t metaData, const void* pData, uint32_t size) const;
 		void BeginEvent(uint32_t metaData, const void* pData, uint32_t size) const;
 		void EndEvent();
-		void ExecuteIndirect(const CommandLayout& commandlayout, uint32_t maxCommandCount,
+		void ExecuteIndirect(const CommandLayout* pCommandlayout, uint32_t maxCommandCount,
 			const Resource* pArgumentBuffer, uint64_t argumentBufferOffset = 0,
 			const Resource* pCountBuffer = nullptr, uint64_t countBufferOffset = 0);
 

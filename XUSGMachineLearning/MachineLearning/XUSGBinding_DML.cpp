@@ -2,6 +2,7 @@
 // Copyright (c) XU, Tianchen. All rights reserved.
 //--------------------------------------------------------------------------------------
 
+#include "Core/XUSG_DX12.h"
 #include "XUSGBinding_DML.h"
 
 using namespace std;
@@ -26,8 +27,9 @@ bool Binding_DML::Create(const ML::Device& device, const Operator& dispatchable,
 	device->GetParentDevice(IID_PPV_ARGS(&parent));
 	m_descriptorStride = parent->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-	CD3DX12_CPU_DESCRIPTOR_HANDLE hCpuDescriptor(descriptorPool->GetCPUDescriptorHandleForHeapStart());
-	CD3DX12_GPU_DESCRIPTOR_HANDLE hGpuDescriptor(descriptorPool->GetGPUDescriptorHandleForHeapStart());
+	const auto pDescriptorHeap = static_cast<ID3D12DescriptorHeap*>(descriptorPool);
+	CD3DX12_CPU_DESCRIPTOR_HANDLE hCpuDescriptor(pDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+	CD3DX12_GPU_DESCRIPTOR_HANDLE hGpuDescriptor(pDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 	hCpuDescriptor.Offset(descriptorOffset, m_descriptorStride);
 	hGpuDescriptor.Offset(descriptorOffset, m_descriptorStride);
 
@@ -46,8 +48,9 @@ bool Binding_DML::Create(const ML::Device& device, const Operator& dispatchable,
 bool Binding_DML::Reset(const Operator& dispatchable, const DescriptorPool& descriptorPool,
 	uint32_t descriptorCount, int32_t descriptorOffset)
 {
-	CD3DX12_CPU_DESCRIPTOR_HANDLE hCpuDescriptor(descriptorPool->GetCPUDescriptorHandleForHeapStart());
-	CD3DX12_GPU_DESCRIPTOR_HANDLE hGpuDescriptor(descriptorPool->GetGPUDescriptorHandleForHeapStart());
+	const auto pDescriptorHeap = static_cast<ID3D12DescriptorHeap*>(descriptorPool);
+	CD3DX12_CPU_DESCRIPTOR_HANDLE hCpuDescriptor(pDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+	CD3DX12_GPU_DESCRIPTOR_HANDLE hGpuDescriptor(pDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 	hCpuDescriptor.Offset(descriptorOffset, m_descriptorStride);
 	hGpuDescriptor.Offset(descriptorOffset, m_descriptorStride);
 
@@ -63,15 +66,10 @@ bool Binding_DML::Reset(const Operator& dispatchable, const DescriptorPool& desc
 	return true;
 }
 
-void Binding_DML::BindInput(uint32_t i, const ResourceBase& buffer, uint64_t size, uint64_t offset)
+void Binding_DML::BindInput(uint32_t i, const Resource* pResource, uint64_t size, uint64_t offset)
 {
-	BindInput(i, buffer.GetResource(), size, offset);
-}
-
-void Binding_DML::BindInput(uint32_t i, const Resource& resource, uint64_t size, uint64_t offset)
-{
-	BindInputBuffer(i, resource, size, offset);
-	BindInput(i, resource ? static_cast<size_t>(i) : -1);
+	BindInputBuffer(i, pResource, size, offset);
+	BindInput(i, pResource ? static_cast<size_t>(i) : -1);
 }
 
 void Binding_DML::BindInput(uint32_t i, size_t bindingIndex, uint32_t bindingCount)
@@ -102,15 +100,10 @@ void Binding_DML::BindInput(uint32_t i, size_t bindingIndex, uint32_t bindingCou
 	}
 }
 
-void Binding_DML::BindOutput(uint32_t i, const ResourceBase& buffer, uint64_t size, uint64_t offset)
+void Binding_DML::BindOutput(uint32_t i, const Resource* pResource, uint64_t size, uint64_t offset)
 {
-	BindOutput(i, buffer.GetResource(), size, offset);
-}
-
-void Binding_DML::BindOutput(uint32_t i, const Resource& resource, uint64_t size, uint64_t offset)
-{
-	BindOutputBuffer(i, resource, size, offset);
-	BindOutput(i, resource ? static_cast<size_t>(i) : -1);
+	BindOutputBuffer(i, pResource, size, offset);
+	BindOutput(i, pResource ? static_cast<size_t>(i) : -1);
 }
 
 void Binding_DML::BindOutput(uint32_t i, size_t bindingIndex, uint32_t bindingCount)
@@ -142,14 +135,9 @@ void Binding_DML::BindOutput(uint32_t i, size_t bindingIndex, uint32_t bindingCo
 	}
 }
 
-void Binding_DML::AppendInput(const ResourceBase& buffer, uint64_t size, uint64_t offset)
+void Binding_DML::AppendInput(const Resource* pResource, uint64_t size, uint64_t offset)
 {
-	AppendInput(buffer.GetResource(), size, offset);
-}
-
-void Binding_DML::AppendInput(const Resource& resource, uint64_t size, uint64_t offset)
-{
-	BindInput(static_cast<uint32_t>(m_inputBindings.size()), resource, size, offset);
+	BindInput(static_cast<uint32_t>(m_inputBindings.size()), pResource, size, offset);
 }
 
 void Binding_DML::AppendInput(size_t bindingIndex, uint32_t bindingCount)
@@ -157,14 +145,9 @@ void Binding_DML::AppendInput(size_t bindingIndex, uint32_t bindingCount)
 	BindInput(static_cast<uint32_t>(m_inputBindings.size()), bindingIndex, bindingCount);
 }
 
-void Binding_DML::AppendOutput(const ResourceBase& buffer, uint64_t size, uint64_t offset)
+void Binding_DML::AppendOutput(const Resource* pResource, uint64_t size, uint64_t offset)
 {
-	AppendOutput(buffer.GetResource(), size, offset);
-}
-
-void Binding_DML::AppendOutput(const Resource& resource, uint64_t size, uint64_t offset)
-{
-	BindOutput(static_cast<uint32_t>(m_outputBindings.size()), resource, size, offset);
+	BindOutput(static_cast<uint32_t>(m_outputBindings.size()), pResource, size, offset);
 }
 
 void Binding_DML::AppendOutput(size_t bindingIndex, uint32_t bindingCount)
@@ -172,69 +155,49 @@ void Binding_DML::AppendOutput(size_t bindingIndex, uint32_t bindingCount)
 	BindOutput(static_cast<uint32_t>(m_outputBindings.size()), bindingIndex, bindingCount);
 }
 
-void Binding_DML::BindInputBuffer(uint32_t i, const ResourceBase& buffer, uint64_t size, uint64_t offset)
-{
-	BindInputBuffer(i, buffer.GetResource(), size, offset);
-}
-
-void Binding_DML::BindInputBuffer(uint32_t i, const Resource& resource, uint64_t size, uint64_t offset)
+void Binding_DML::BindInputBuffer(uint32_t i, const Resource* pResource, uint64_t size, uint64_t offset)
 {
 	if (i >= m_inputBufferBindings.size())
 		m_inputBufferBindings.resize(i + 1);
 
-	size = !resource || size > 0 ? size : resource->GetDesc().Width;
-	m_inputBufferBindings[i].Buffer = resource.get();
+	size = !pResource || size > 0 ? size : pResource->GetWidth();
+	m_inputBufferBindings[i].Buffer = static_cast<ID3D12Resource*>(pResource->GetHandle());
 	m_inputBufferBindings[i].Offset = offset;
 	m_inputBufferBindings[i].SizeInBytes = size;
 }
 
-void Binding_DML::BindOutputBuffer(uint32_t i, const ResourceBase& buffer, uint64_t size, uint64_t offset)
-{
-	BindOutputBuffer(i, buffer.GetResource(), size, offset);
-}
-
-void Binding_DML::BindOutputBuffer(uint32_t i, const Resource& resource, uint64_t size, uint64_t offset)
+void Binding_DML::BindOutputBuffer(uint32_t i, const Resource* pResource, uint64_t size, uint64_t offset)
 {
 	if (i >= m_outputBufferBindings.size())
 		m_outputBufferBindings.resize(i + 1);
 
-	size = !resource || size > 0 ? size : resource->GetDesc().Width;
-	m_outputBufferBindings[i].Buffer = resource.get();
+	size = !pResource || size > 0 ? size : pResource->GetWidth();
+	m_outputBufferBindings[i].Buffer = static_cast<ID3D12Resource*>(pResource->GetHandle());
 	m_outputBufferBindings[i].Offset = offset;
 	m_outputBufferBindings[i].SizeInBytes = size;
 }
 
-void Binding_DML::BindTemporary(const ResourceBase& buffer, uint64_t size, uint64_t offset)
+void Binding_DML::BindTemporary(const Resource* pResource, uint64_t size, uint64_t offset)
 {
-	BindTemporary(buffer.GetResource(), size, offset);
-}
-
-void Binding_DML::BindTemporary(const Resource& resource, uint64_t size, uint64_t offset)
-{
-	size = !resource || size > 0 ? size : resource->GetDesc().Width;
-	const DML_BUFFER_BINDING bufferBinding = { resource.get(), offset, size };
+	size = !pResource || size > 0 ? size : pResource->GetWidth();
+	const DML_BUFFER_BINDING bufferBinding = { static_cast<ID3D12Resource*>(pResource->GetHandle()), offset, size };
 	const DML_BINDING_DESC bindingDesc =
 	{
-		resource ? DML_BINDING_TYPE_BUFFER : DML_BINDING_TYPE_NONE,
-		resource ? &bufferBinding : nullptr
+		pResource ? DML_BINDING_TYPE_BUFFER : DML_BINDING_TYPE_NONE,
+		pResource ? &bufferBinding : nullptr
 	};
 
 	m_bindingTable->BindTemporaryResource(&bindingDesc);
 }
 
-void Binding_DML::BindPersistent(const ResourceBase& buffer, uint64_t size, uint64_t offset)
+void Binding_DML::BindPersistent(const Resource* pResource, uint64_t size, uint64_t offset)
 {
-	BindPersistent(buffer.GetResource(), size, offset);
-}
-
-void Binding_DML::BindPersistent(const Resource& resource, uint64_t size, uint64_t offset)
-{
-	size = !resource || size > 0 ? size : resource->GetDesc().Width;
-	const DML_BUFFER_BINDING bufferBinding = { resource.get(), offset, size };
+	size = !pResource || size > 0 ? size : pResource->GetWidth();
+	const DML_BUFFER_BINDING bufferBinding = { static_cast<ID3D12Resource*>(pResource->GetHandle()), offset, size };
 	const DML_BINDING_DESC bindingDesc =
 	{
-		resource ? DML_BINDING_TYPE_BUFFER : DML_BINDING_TYPE_NONE,
-		resource ? &bufferBinding : nullptr
+		pResource ? DML_BINDING_TYPE_BUFFER : DML_BINDING_TYPE_NONE,
+		pResource ? &bufferBinding : nullptr
 	};
 
 	m_bindingTable->BindPersistentResource(&bindingDesc);

@@ -171,6 +171,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\XUSG\Common\d3d12.h" />
+    <ClInclude Include="..\XUSG\Common\d3dx12.h" />
+    <ClInclude Include="..\XUSG\Core\XUSGCommand_DX12.h" />
+    <ClInclude Include="..\XUSG\Core\XUSGEnum_DX12.h" />
+    <ClInclude Include="..\XUSG\Core\XUSGResource_DX12.h" />
+    <ClInclude Include="..\XUSG\Core\XUSG_DX12.h" />
     <ClInclude Include="Common\Float16Compressor.h" />
     <ClInclude Include="MachineLearning\XUSGBinding_DML.h" />
     <ClInclude Include="MachineLearning\XUSGMachineLearning.h" />
@@ -188,7 +194,7 @@
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h</ForcedIncludeFiles>
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdafx.h</ForcedIncludeFiles>
     </ClCompile>
-    <ClCompile Include="..\XUSG\Core\XUSG_DX12.cpp">
+    <ClCompile Include="..\XUSG\Core\XUSGEnum_DX12.cpp">
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">stdafx.h</ForcedIncludeFiles>
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdafx.h</ForcedIncludeFiles>
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h</ForcedIncludeFiles>

@@ -234,28 +234,20 @@ namespace XUSG
 			virtual bool Reset(const Operator& dispatchable, const DescriptorPool& descriptorPool,
 				uint32_t descriptorCount, int32_t descriptorOffset = 0) = 0;
 
-			virtual void BindInput(uint32_t i, const ResourceBase& buffer, uint64_t size = 0, uint64_t offset = 0) = 0;
-			virtual void BindInput(uint32_t i, const Resource& resource, uint64_t size = 0, uint64_t offset = 0) = 0;
+			virtual void BindInput(uint32_t i, const Resource* pResource, uint64_t size = 0, uint64_t offset = 0) = 0;
 			virtual void BindInput(uint32_t i, size_t bindingIndex, uint32_t bindingCount = 1) = 0;
-			virtual void BindOutput(uint32_t i, const ResourceBase& buffer, uint64_t size = 0, uint64_t offset = 0) = 0;
-			virtual void BindOutput(uint32_t i, const Resource& resource, uint64_t size = 0, uint64_t offset = 0) = 0;
+			virtual void BindOutput(uint32_t i, const Resource* pResource, uint64_t size = 0, uint64_t offset = 0) = 0;
 			virtual void BindOutput(uint32_t i, size_t bindingIndex, uint32_t bindingCount = 1) = 0;
-			virtual void AppendInput(const ResourceBase& buffer, uint64_t size = 0, uint64_t offset = 0) = 0;
-			virtual void AppendInput(const Resource& resource, uint64_t size = 0, uint64_t offset = 0) = 0;
+			virtual void AppendInput(const Resource* pResource, uint64_t size = 0, uint64_t offset = 0) = 0;
 			virtual void AppendInput(size_t bindingIndex, uint32_t bindingCount = 1) = 0;
-			virtual void AppendOutput(const ResourceBase& buffer, uint64_t size = 0, uint64_t offset = 0) = 0;
-			virtual void AppendOutput(const Resource& resource, uint64_t size = 0, uint64_t offset = 0) = 0;
+			virtual void AppendOutput(const Resource* pResource, uint64_t size = 0, uint64_t offset = 0) = 0;
 			virtual void AppendOutput(size_t bindingIndex, uint32_t bindingCount = 1) = 0;
 
-			virtual void BindInputBuffer(uint32_t i, const ResourceBase& buffer, uint64_t size = 0, uint64_t offset = 0) = 0;
-			virtual void BindInputBuffer(uint32_t i, const Resource& resource, uint64_t size = 0, uint64_t offset = 0) = 0;
-			virtual void BindOutputBuffer(uint32_t i, const ResourceBase& buffer, uint64_t size = 0, uint64_t offset = 0) = 0;
-			virtual void BindOutputBuffer(uint32_t i, const Resource& resource, uint64_t size = 0, uint64_t offset = 0) = 0;
+			virtual void BindInputBuffer(uint32_t i, const Resource* pResource, uint64_t size = 0, uint64_t offset = 0) = 0;
+			virtual void BindOutputBuffer(uint32_t i, const Resource* pResource, uint64_t size = 0, uint64_t offset = 0) = 0;
 
-			virtual void BindTemporary(const ResourceBase& buffer, uint64_t size = 0, uint64_t offset = 0) = 0;
-			virtual void BindTemporary(const Resource& resource, uint64_t size = 0, uint64_t offset = 0) = 0;
-			virtual void BindPersistent(const ResourceBase& buffer, uint64_t size = 0, uint64_t offset = 0) = 0;
-			virtual void BindPersistent(const Resource& resource, uint64_t size = 0, uint64_t offset = 0) = 0;
+			virtual void BindTemporary(const Resource* pResource, uint64_t size = 0, uint64_t offset = 0) = 0;
+			virtual void BindPersistent(const Resource* pResource, uint64_t size = 0, uint64_t offset = 0) = 0;
 
 			virtual const BindingTable& GetBindingTable() const = 0;
 			virtual const BindingTable& GetDispatchableBindingTable() = 0;

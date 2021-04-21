@@ -54,6 +54,24 @@
     <ClInclude Include="MachineLearning\XUSGCommandRecorder_DML.h">
       <Filter>MachineLearning\Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\XUSG\Core\XUSG_DX12.h">
+      <Filter>MachineLearning\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Core\XUSGEnum_DX12.h">
+      <Filter>MachineLearning\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Core\XUSGCommand_DX12.h">
+      <Filter>MachineLearning\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Core\XUSGResource_DX12.h">
+      <Filter>MachineLearning\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Common\d3d12.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Common\d3dx12.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -71,9 +89,6 @@
     <ClCompile Include="..\XUSG\Core\XUSGCommand_DX12.cpp">
       <Filter>MachineLearning\Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\XUSG\Core\XUSG_DX12.cpp">
-      <Filter>MachineLearning\Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="MachineLearning\XUSGTensor_DML.cpp">
       <Filter>MachineLearning\Source Files</Filter>
     </ClCompile>
@@ -84,6 +99,9 @@
       <Filter>MachineLearning\Source Files</Filter>
     </ClCompile>
     <ClCompile Include="MachineLearning\XUSGCommandRecorder_DML.cpp">
+      <Filter>MachineLearning\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSG\Core\XUSGEnum_DX12.cpp">
       <Filter>MachineLearning\Source Files</Filter>
     </ClCompile>
   </ItemGroup>

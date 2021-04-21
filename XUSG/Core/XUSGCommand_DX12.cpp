@@ -517,11 +517,11 @@ void CommandList_DX12::EndEvent()
 	m_commandList->EndEvent();
 }
 
-void CommandList_DX12::ExecuteIndirect(const CommandLayout& commandlayout, uint32_t maxCommandCount,
+void CommandList_DX12::ExecuteIndirect(const CommandLayout* pCommandlayout, uint32_t maxCommandCount,
 	const Resource* pArgumentBuffer, uint64_t argumentBufferOffset,
 	const Resource* pCountBuffer, uint64_t countBufferOffset)
 {
-	m_commandList->ExecuteIndirect(static_cast<ID3D12CommandSignature*>(commandlayout.GetHandle()),
+	m_commandList->ExecuteIndirect(static_cast<ID3D12CommandSignature*>(pCommandlayout->GetHandle()),
 		maxCommandCount, static_cast<ID3D12Resource*>(pArgumentBuffer->GetHandle()), argumentBufferOffset,
 		pCountBuffer ? static_cast<ID3D12Resource*>(pCountBuffer->GetHandle()) : nullptr,
 		countBufferOffset);
