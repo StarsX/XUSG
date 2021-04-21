@@ -5,6 +5,10 @@
 #pragma once
 #pragma warning(disable:4250)
 
+#ifndef DLL_INTERFACE
+#define DLL_INTERFACE
+#endif
+
 #define M_RETURN(x, o, m, r)		if (x) { o << m << std::endl; assert(!m); return r; }
 #define C_RETURN(x, r)				if (x) return r
 #define N_RETURN(x, r)				C_RETURN(!(x), r)
