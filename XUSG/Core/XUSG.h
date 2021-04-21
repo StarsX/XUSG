@@ -6,9 +6,10 @@
 #pragma warning(disable:4250)
 
 #define VOID_RETURN
-#define C_RETURN(x, r)		if (x) return r
-#define N_RETURN(x, r)		C_RETURN(!(x), r)
-#define X_RETURN(x, f, r)	{ x = f; N_RETURN(x, r); }
+#define M_RETURN(x, o, m, r)	if (x) { o << m << std::endl; assert(!m); return r; }
+#define C_RETURN(x, r)			if (x) return r
+#define N_RETURN(x, r)			C_RETURN(!(x), r)
+#define X_RETURN(x, f, r)		{ x = f; N_RETURN(x, r); }
 
 #define DIV_UP(x, n)		(((x) - 1) / (n) + 1)
 #define SizeOfInUint32(obj)	DIV_UP(sizeof(obj), sizeof(uint32_t))
@@ -825,7 +826,7 @@ namespace XUSG
 
 		virtual const Resource& GetResource() const = 0;
 		virtual const Descriptor& GetCBV(uint32_t index = 0) const = 0;
-		virtual uint32_t GetCBVOffset(uint32_t index = 0) const = 0;
+		virtual uint32_t GetCBVOffset(uint32_t index) const = 0;
 
 		using uptr = std::unique_ptr<ConstantBuffer>;
 		using sptr = std::shared_ptr<ConstantBuffer>;

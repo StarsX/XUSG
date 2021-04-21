@@ -67,20 +67,35 @@ bool DX12Device::CreateCommandLayout(CommandLayout& commandLayout, uint32_t byte
 
 //--------------------------------------------------------------------------------------
 
-void DX12CommandQueue::SubmitCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists)
+bool DX12CommandQueue::SubmitCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists,
+	const Semaphore* pWaits, uint32_t numWaits, const Semaphore* pSignals, uint32_t numSignals)
 {
 	vector<ID3D12CommandList*> commandLists(numCommandLists);
 	for (auto i = 0u; i < numCommandLists; ++i)
 		commandLists[i] = dynamic_cast<CommandList_DX12*>(ppCommandLists[i])->GetGraphicsCommandList().get();
-	
+
+	for (auto i = 0u; i < numWaits; ++i)
+		V_RETURN(Wait(pWaits[i].Fence.get(), pWaits[i].Value), cerr, false);
 	ExecuteCommandLists(numCommandLists, commandLists.data());
+	for (auto i = 0u; i < numSignals; ++i)
+		V_RETURN(Signal(pSignals[i].Fence.get(), pSignals[i].Value), cerr, false);
+
+	return true;
 }
 
-void DX12CommandQueue::SubmitCommandList(CommandList* const pCommandList)
+bool DX12CommandQueue::SubmitCommandList(CommandList* const pCommandList,
+	const Semaphore* pWaits, uint32_t numWaits, const Semaphore* pSignals, uint32_t numSignals)
 {
 	ID3D12CommandList* const ppCommandLists[] =
 	{ dynamic_cast<CommandList_DX12*>(pCommandList)->GetGraphicsCommandList().get() };
+
+	for (auto i = 0u; i < numWaits; ++i)
+		V_RETURN(Wait(pWaits[i].Fence.get(), pWaits[i].Value), cerr, false);
 	ExecuteCommandLists(1, ppCommandLists);
+	for (auto i = 0u; i < numSignals; ++i)
+		V_RETURN(Signal(pSignals[i].Fence.get(), pSignals[i].Value), cerr, false);
+
+	return true;
 }
 
 //--------------------------------------------------------------------------------------

@@ -6,8 +6,6 @@
 
 #define H_RETURN(x, o, m, r)		{ const auto hr = x; if (FAILED(hr)) { o << m << std::endl; assert(!m); return r; } }
 #define V_RETURN(x, o, r)			H_RETURN(x, o, XUSG::HrToString(hr).c_str(), r)
-
-#define M_RETURN(x, o, m, r)		if (x) { o << m << std::endl; assert(!m); return r; }
 #define F_RETURN(x, o, h, r)		M_RETURN(x, o, XUSG::HrToString(h).c_str(), r)
 
 #define BARRIER_ALL_SUBRESOURCES	D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES
@@ -63,11 +61,21 @@ namespace XUSG
 	using CommandAllocator = com_ptr<ID3D12CommandAllocator>;
 	using Fence = com_ptr<ID3D12Fence>;
 
+	struct Semaphore
+	{
+		Fence Fence;
+		uint64_t Value;
+	};
+
 	MIDL_INTERFACE("0ec870a6-5d7e-4c22-8cfc-5baae07616ed")
 		DLL_INTERFACE DX12CommandQueue : public ID3D12CommandQueue
 	{
-		void SubmitCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists);
-		void SubmitCommandList(CommandList* const pCommandList);
+		bool SubmitCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists,
+			const Semaphore* pWaits = nullptr, uint32_t numWaits = 0,
+			const Semaphore* pSignals = nullptr, uint32_t numSignals = 0);
+		bool SubmitCommandList(CommandList* const pCommandList,
+			const Semaphore* pWaits = nullptr, uint32_t numWaits = 0,
+			const Semaphore* pSignals = nullptr, uint32_t numSignals = 0);
 	};
 	using CommandQueue = com_ptr<DX12CommandQueue>;
 
