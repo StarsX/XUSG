@@ -143,6 +143,10 @@ namespace XUSG
 		};
 
 		class CommandRecorder;
+
+		using Dispatchable = void*;
+		using CompiledOperator = void*;
+		using BindingTable = void*;
 	}
 }
 
@@ -186,7 +190,9 @@ namespace XUSG
 
 			virtual bool Create(const Device& device, const OperatorDesc& desc, ExecutionFlag flags = ExecutionFlag::NONE) = 0;
 
-			virtual const Dispatchable& GetDispatchable() const = 0;
+			virtual Dispatchable GetDispatchable() const = 0;
+
+			virtual CompiledOperator GetCompiled() = 0;
 
 			virtual uint32_t GetDescriptorCount() const = 0;
 			virtual uint64_t GetTemporaryResourceSize() const = 0;
@@ -249,8 +255,8 @@ namespace XUSG
 			virtual void BindTemporary(const Resource* pResource, uint64_t size = 0, uint64_t offset = 0) = 0;
 			virtual void BindPersistent(const Resource* pResource, uint64_t size = 0, uint64_t offset = 0) = 0;
 
-			virtual const BindingTable& GetBindingTable() const = 0;
-			virtual const BindingTable& GetDispatchableBindingTable() = 0;
+			virtual BindingTable GetBindingTable() const = 0;
+			virtual BindingTable GetDispatchableBindingTable() = 0;
 
 			using uptr = std::unique_ptr<Binding>;
 			using sptr = std::shared_ptr<Binding>;

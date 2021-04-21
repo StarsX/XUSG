@@ -23,13 +23,13 @@ namespace XUSG
 				uint32_t descriptorCount, int32_t descriptorOffset = 0);
 
 			void BindInput(uint32_t i, const Resource* pResource, uint64_t size = 0, uint64_t offset = 0);
-			void BindInput(uint32_t i, size_t bindingIndex, uint32_t bindingCount = 1);
+			void BindInput(uint32_t i, uintptr_t bindingIndex, uint32_t bindingCount = 1);
 			void BindOutput(uint32_t i, const Resource* pResource, uint64_t size = 0, uint64_t offset = 0);
-			void BindOutput(uint32_t i, size_t bindingIndex, uint32_t bindingCount = 1);
+			void BindOutput(uint32_t i, uintptr_t bindingIndex, uint32_t bindingCount = 1);
 			void AppendInput(const Resource* pResource, uint64_t size = 0, uint64_t offset = 0);
-			void AppendInput(size_t bindingIndex, uint32_t bindingCount = 1);
+			void AppendInput(uintptr_t bindingIndex, uint32_t bindingCount = 1);
 			void AppendOutput(const Resource* pResource, uint64_t size = 0, uint64_t offset = 0);
-			void AppendOutput(size_t bindingIndex, uint32_t bindingCount = 1);
+			void AppendOutput(uintptr_t bindingIndex, uint32_t bindingCount = 1);
 
 			void BindInputBuffer(uint32_t i, const Resource* pResource, uint64_t size = 0, uint64_t offset = 0);
 			void BindOutputBuffer(uint32_t i, const Resource* pResource, uint64_t size = 0, uint64_t offset = 0);
@@ -37,18 +37,18 @@ namespace XUSG
 			void BindTemporary(const Resource* pResource, uint64_t size = 0, uint64_t offset = 0);
 			void BindPersistent(const Resource* pResource, uint64_t size = 0, uint64_t offset = 0);
 
-			const BindingTable& GetBindingTable() const;
-			const BindingTable& GetDispatchableBindingTable();
+			BindingTable GetBindingTable() const;
+			BindingTable GetDispatchableBindingTable();
 
 		protected:
-			BindingTable m_bindingTable;
+			com_ptr<IDMLBindingTable> m_bindingTable;
 
-			std::vector<BufferBinding>	m_inputBufferBindings;
-			std::vector<BufferBinding>	m_outputBufferBindings;
-			std::vector<ArrayBinding>	m_inputArrayBindings;
-			std::vector<ArrayBinding>	m_outputArrayBindings;
-			std::vector<BindingDesc>	m_inputBindings;
-			std::vector<BindingDesc>	m_outputBindings;
+			std::vector<DML_BUFFER_BINDING>			m_inputBufferBindings;
+			std::vector<DML_BUFFER_BINDING>			m_outputBufferBindings;
+			std::vector<DML_BUFFER_ARRAY_BINDING>	m_inputArrayBindings;
+			std::vector<DML_BUFFER_ARRAY_BINDING>	m_outputArrayBindings;
+			std::vector<DML_BINDING_DESC>			m_inputBindings;
+			std::vector<DML_BINDING_DESC>			m_outputBindings;
 
 			uint32_t m_descriptorStride;
 

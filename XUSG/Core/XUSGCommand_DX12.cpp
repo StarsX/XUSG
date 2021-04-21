@@ -230,12 +230,22 @@ void CommandList_DX12::Barrier(uint32_t numBarriers, const ResourceBarrier* pBar
 		for (auto i = 0u; i < numBarriers; ++i)
 		{
 			const auto& barrier = pBarriers[i];
-			const auto resource = static_cast<ID3D12Resource*>(barrier.pResource->GetHandle());
-			barriers[i] = barrier.StateBefore == barrier.StateAfter && barrier.StateAfter == ResourceState::UNORDERED_ACCESS ?
-				CD3DX12_RESOURCE_BARRIER::UAV(resource) :
-				CD3DX12_RESOURCE_BARRIER::Transition(resource, GetDX12ResourceStates(barrier.StateBefore),
+			const auto pResourceAfter = barrier.pResourceAfter ? static_cast<ID3D12Resource*>(barrier.pResourceAfter->GetHandle()) : nullptr;
+
+			if (barrier.pResource)
+			{
+				const auto pResource = static_cast<ID3D12Resource*>(barrier.pResource->GetHandle());
+
+				if (barrier.StateBefore == barrier.StateAfter)
+					barriers[i] = barrier.StateAfter == ResourceState::UNORDERED_ACCESS ?
+						CD3DX12_RESOURCE_BARRIER::UAV(pResource) : CD3DX12_RESOURCE_BARRIER::Aliasing(pResource, pResourceAfter);
+				else barriers[i] = CD3DX12_RESOURCE_BARRIER::Transition(pResource, GetDX12ResourceStates(barrier.StateBefore),
 					GetDX12ResourceStates(barrier.StateAfter), barrier.Subresource, GetDX12BarrierFlags(barrier.Flags));
+			}
+			else barriers[i] = barrier.StateBefore == ResourceState::UNORDERED_ACCESS ?
+				CD3DX12_RESOURCE_BARRIER::UAV(nullptr) : CD3DX12_RESOURCE_BARRIER::Aliasing(nullptr, pResourceAfter);
 		}
+
 		m_commandList->ResourceBarrier(numBarriers, barriers.data());
 	}
 }

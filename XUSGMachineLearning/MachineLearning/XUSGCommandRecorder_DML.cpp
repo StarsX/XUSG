@@ -19,8 +19,8 @@ CommandRecorder_DML::~CommandRecorder_DML()
 
 void CommandRecorder_DML::Dispatch(CommandList* pCommandList, const Dispatchable& dispatchable, const BindingTable& bindings) const
 {
-	m_commandRecorder->RecordDispatch(dynamic_cast<CommandList_DX12*>(pCommandList)->GetGraphicsCommandList().get(),
-		dispatchable.get(), bindings.get());
+	m_commandRecorder->RecordDispatch(static_cast<ID3D12CommandList*>(pCommandList->GetHandle()),
+		static_cast<IDMLDispatchable*>(dispatchable), static_cast<IDMLBindingTable*>(bindings));
 }
 
 com_ptr<IDMLCommandRecorder>& CommandRecorder_DML::GetDMLCommandRecorder()

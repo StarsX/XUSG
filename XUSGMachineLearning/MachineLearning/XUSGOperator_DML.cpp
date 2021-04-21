@@ -35,9 +35,17 @@ bool Operator_DML::Create(const Device& device, const OperatorDesc& desc, Execut
 	return true;
 }
 
-const Dispatchable& Operator_DML::GetDispatchable() const
+Dispatchable Operator_DML::GetDispatchable() const
 {
-	return m_dispatchable;
+	return m_dispatchable.get();
+}
+
+CompiledOperator Operator_DML::GetCompiled()
+{
+	if (!m_compiledOperator)
+		V_RETURN(m_dispatchable->QueryInterface(IID_PPV_ARGS(&m_compiledOperator)), cerr, nullptr);
+
+	return m_compiledOperator.get();
 }
 
 uint32_t Operator_DML::GetDescriptorCount() const
@@ -70,24 +78,20 @@ OperatorInitializer_DML::~OperatorInitializer_DML()
 
 bool OperatorInitializer_DML::Create(const Device& device, const Operator::sptr* pOperators, uint32_t numOperators)
 {
-	vector<com_ptr<IDMLCompiledOperator>> compiledOperators(numOperators);
-	vector<IDMLCompiledOperator*> dmlCompiledOperators(numOperators);
+	vector<IDMLCompiledOperator*> compiledOperators(numOperators);
 	for (auto i = 0u; i < numOperators; ++i)
-	{
-		pOperators[i]->GetDispatchable()->QueryInterface(IID_PPV_ARGS(&compiledOperators[i]));
-		dmlCompiledOperators[i] = compiledOperators[i].get();
-	}
+		compiledOperators[i] = static_cast<IDMLCompiledOperator*>(pOperators[i]->GetCompiled());
 
-	com_ptr<IDMLOperatorInitializer> dmlOperatorInitializer = nullptr;
-	V_RETURN(device->CreateOperatorInitializer(numOperators, dmlCompiledOperators.data(),
-		IID_PPV_ARGS(&dmlOperatorInitializer)), cerr, false);
-	m_dispatchable = dmlOperatorInitializer;
+	com_ptr<IDMLOperatorInitializer> operatorInitializer = nullptr;
+	V_RETURN(device->CreateOperatorInitializer(numOperators, compiledOperators.data(),
+		IID_PPV_ARGS(&operatorInitializer)), cerr, false);
+	m_dispatchable = operatorInitializer;
 
 	// Query the operator for the required size (in descriptors) of its binding table.
 	// You need to initialize an operator exactly once before it can be executed, and
 	// the two stages require different numbers of descriptors for binding. For simplicity,
 	// we create a single descriptor heap that's large enough to satisfy them both.
-	const auto initializeBindingProperties = dmlOperatorInitializer->GetBindingProperties();
+	const auto initializeBindingProperties = operatorInitializer->GetBindingProperties();
 	m_descriptorCount = initializeBindingProperties.RequiredDescriptorCount;
 	m_temporaryResourceSize = initializeBindingProperties.TemporaryResourceSize;
 	for (auto i = 0u; i < numOperators; ++i)

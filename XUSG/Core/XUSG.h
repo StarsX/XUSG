@@ -619,6 +619,7 @@ namespace XUSG
 		ResourceState StateAfter;
 		uint32_t Subresource;
 		BarrierFlag Flags;
+		const Resource* pResourceAfter;
 	};
 
 	struct VertexBufferView

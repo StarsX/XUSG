@@ -28,8 +28,8 @@ namespace XUSG
 			uint64_t calcBufferTensorSize(TensorDataType dataType, uint32_t dimensionCount,
 				const uint32_t* pSizes, const uint32_t* pStrides);
 
-			BufferTensorDesc	m_bufferTensorDesc;
-			TensorDesc			m_tensorDesc;
+			DML_BUFFER_TENSOR_DESC	m_bufferTensorDesc;
+			TensorDesc				m_tensorDesc;
 		};
 	}
 }

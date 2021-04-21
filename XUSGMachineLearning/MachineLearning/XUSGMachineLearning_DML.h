@@ -30,14 +30,8 @@ namespace XUSG
 			bool GetCommandRecorder(CommandRecorder* pCommandRecorder);
 		};
 		using Device = com_ptr<DMLDevice>;
-		using Dispatchable = com_ptr<IDMLDispatchable>;
-		using BindingTable = com_ptr<IDMLBindingTable>;
 
-		using BufferTensorDesc = DML_BUFFER_TENSOR_DESC;
 		using TensorDesc = DML_TENSOR_DESC;
-		using BufferBinding = DML_BUFFER_BINDING;
-		using ArrayBinding = DML_BUFFER_ARRAY_BINDING;
-		using BindingDesc = DML_BINDING_DESC;
 
 		struct OperatorDesc : public DML_OPERATOR_DESC
 		{

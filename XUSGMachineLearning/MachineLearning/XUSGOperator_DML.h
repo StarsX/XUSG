@@ -22,14 +22,17 @@ namespace XUSG
 
 			bool Create(const Device& device, const OperatorDesc& desc, ExecutionFlag flags = ExecutionFlag::NONE);
 
-			const Dispatchable& GetDispatchable() const;
+			Dispatchable GetDispatchable() const;
+
+			CompiledOperator GetCompiled();
 
 			uint32_t GetDescriptorCount() const;
 			uint64_t GetTemporaryResourceSize() const;
 			uint64_t GetPersistentResourceSize() const;
 
 		protected:
-			Dispatchable m_dispatchable;
+			com_ptr<IDMLDispatchable>		m_dispatchable;
+			com_ptr<IDMLCompiledOperator>	m_compiledOperator;
 		};
 
 		//--------------------------------------------------------------------------------------
