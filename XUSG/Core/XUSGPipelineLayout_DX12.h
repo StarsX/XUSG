@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "XUSG.h"
+#include "XUSG_DX12.h"
 
 namespace XUSG
 {
@@ -40,7 +40,7 @@ namespace XUSG
 			std::string& GetPipelineLayoutKey(PipelineLayoutCache* pPipelineLayoutCache);
 
 		protected:
-			std::string& checkKeySpace(uint32_t index);
+			std::string& checkKeyStorage(uint32_t index);
 
 			std::vector<std::string> m_descriptorTableLayoutKeys;
 			std::string m_pipelineLayoutKey;
@@ -69,15 +69,19 @@ namespace XUSG
 		DescriptorTableLayout GetDescriptorTableLayout(uint32_t index, const Util::PipelineLayout& util);
 
 	protected:
-		PipelineLayout createPipelineLayout(const std::string& key, const wchar_t* name) const;
+		PipelineLayout createPipelineLayout(const std::string& key, const wchar_t* name);
 		PipelineLayout getPipelineLayout(const std::string& key, const wchar_t* name, bool create);
 
 		DescriptorTableLayout createDescriptorTableLayout(const std::string& key);
 		DescriptorTableLayout getDescriptorTableLayout(const std::string& key);
 
-		Device m_device;
+		void getRootParameter(CD3DX12_ROOT_PARAMETER1& rootParam,
+			std::vector<CD3DX12_DESCRIPTOR_RANGE1>& descriptorRanges,
+			const DescriptorTableLayout& descriptorTableLayout) const;
 
-		std::unordered_map<std::string, PipelineLayout> m_pipelineLayouts;
+		com_ptr<ID3D12Device> m_device;
+
+		std::unordered_map<std::string, com_ptr<ID3D12RootSignature>> m_rootSignatures;
 		std::unordered_map<std::string, DescriptorTableLayout> m_descriptorTableLayouts;
 	};
 }

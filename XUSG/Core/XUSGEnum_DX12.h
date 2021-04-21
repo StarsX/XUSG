@@ -7,6 +7,8 @@
 namespace XUSG
 {
 	// DX12 enum transfer functions
+	DXGI_FORMAT GetDXGIFormat(Format format);
+
 	D3D12_COMMAND_LIST_TYPE GetDX12CommandListType(CommandListType commandListType);
 	D3D12_INPUT_CLASSIFICATION GetDX12InputClassification(InputClassification inputClassification);
 	D3D12_HEAP_TYPE GetDX12HeapType(MemoryType memoryType);
@@ -53,4 +55,6 @@ namespace XUSG
 	D3D12_STENCIL_OP GetDX12StencilOp(StencilOp stencilOp);
 
 	D3D12_QUERY_TYPE GetDX12QueryType(QueryType type);
+
+	uint32_t GetDX12Requirement(Requirement requirement);
 }

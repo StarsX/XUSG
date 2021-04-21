@@ -204,7 +204,8 @@ Reflector_DX12::~Reflector_DX12()
 
 bool Reflector_DX12::SetShader(const Blob& shader)
 {
-	if (IsDxil(shader->GetBufferPointer(), shader->GetBufferSize()))
+	const auto pShader = reinterpret_cast<ID3DBlob*>(shader);
+	if (IsDxil(pShader->GetBufferPointer(), pShader->GetBufferSize()))
 	{
 		auto DxcCreateInstance = GetDxcCreateInstanceProc(L"dxcompiler.dll");
 		if (!DxcCreateInstance) return false;
@@ -212,8 +213,8 @@ bool Reflector_DX12::SetShader(const Blob& shader)
 		com_ptr<IDxcLibrary> library = nullptr;;
 		V_RETURN(DxcCreateInstance(CLSID_DxcLibrary, IID_PPV_ARGS(&library)), cerr, false);
 		com_ptr<IDxcBlobEncoding> blob = nullptr;
-		library->CreateBlobWithEncodingFromPinned(shader->GetBufferPointer(),
-			static_cast<uint32_t>(shader->GetBufferSize()), 0, &blob);
+		library->CreateBlobWithEncodingFromPinned(pShader->GetBufferPointer(),
+			static_cast<uint32_t>(pShader->GetBufferSize()), 0, &blob);
 
 		auto shaderIdx = ~0u;
 		com_ptr<IDxcContainerReflection> reflection = nullptr;
@@ -253,7 +254,7 @@ bool Reflector_DX12::SetShader(const Blob& shader)
 			}
 		}
 	}
-	else V_RETURN(D3DReflect(shader->GetBufferPointer(), shader->GetBufferSize(),
+	else V_RETURN(D3DReflect(pShader->GetBufferPointer(), pShader->GetBufferSize(),
 		IID_PPV_ARGS(&m_shaderReflection)), cerr, false);
 
 	return true;

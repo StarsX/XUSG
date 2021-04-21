@@ -31,12 +31,12 @@ void Util::DescriptorTable_DX12::SetDescriptors(uint32_t start, uint32_t num,
 void Util::DescriptorTable_DX12::SetSamplers(uint32_t start, uint32_t num, const SamplerPreset* presets,
 	DescriptorTableCache& descriptorTableCache, uint8_t descriptorPoolIndex)
 {
-	const auto size = sizeof(D3D12_SAMPLER_DESC*) * (start + num) + 1;
+	const auto size = sizeof(SamplerDesc*) * (start + num) + 1;
 	if (size > m_key.size())
 		m_key.resize(size);
 
 	m_key[0] = descriptorPoolIndex;
-	const auto descriptors = reinterpret_cast<const D3D12_SAMPLER_DESC**>(&m_key[1]);
+	const auto descriptors = reinterpret_cast<const SamplerDesc**>(&m_key[1]);
 
 	for (auto i = 0u; i < num; ++i)
 		descriptors[start + i] = descriptorTableCache.GetSampler(presets[i]).get();
@@ -125,8 +125,9 @@ DescriptorTableCache_DX12::~DescriptorTableCache_DX12()
 
 void DescriptorTableCache_DX12::SetDevice(const Device& device)
 {
-	m_device = device;
+	m_device = static_cast<ID3D12Device*>(device.GetHandle());
 
+	assert(m_device);
 	m_descriptorStrides[CBV_SRV_UAV_POOL] = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	m_descriptorStrides[SAMPLER_POOL] = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
 	m_descriptorStrides[RTV_POOL] = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
@@ -202,9 +203,9 @@ Framebuffer DescriptorTableCache_DX12::GetFramebuffer(const Util::DescriptorTabl
 	return getFramebuffer(util.GetKey(), pDsv, pFramebuffer);
 }
 
-const DescriptorPool& DescriptorTableCache_DX12::GetDescriptorPool(DescriptorPoolType type, uint8_t index) const
+DescriptorPool DescriptorTableCache_DX12::GetDescriptorPool(DescriptorPoolType type, uint8_t index) const
 {
-	return m_descriptorPools[type][index];
+	return m_descriptorPools[type][index].get();
 }
 
 const Sampler& DescriptorTableCache_DX12::GetSampler(SamplerPreset preset)

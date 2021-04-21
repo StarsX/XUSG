@@ -14,64 +14,40 @@
 #define DIV_UP(x, n)		(((x) - 1) / (n) + 1)
 #define SizeOfInUint32(obj)	DIV_UP(sizeof(obj), sizeof(uint32_t))
 
-#define APPEND_ALIGNED_ELEMENT 0xffffffff
+#define APPEND_ALIGNED_ELEMENT		0xffffffff
+#define BARRIER_ALL_SUBRESOURCES	0xffffffff
 
 namespace XUSG
 {
-	enum class Format : uint32_t;
-	enum class CommandListType : uint8_t;
-	enum class IndirectArgumentType : uint32_t;
-	enum class CommandQueueFlag : uint8_t;
-	enum class FenceFlag : uint8_t;
-
-	enum Requirement : uint32_t
+#if defined(WIN32) || (_WIN32)
+#if _HAS_CXX17
+	template <typename T>
+	class com_ptr :
+		public winrt::com_ptr<T>
 	{
-		REQ_MIP_LEVELS,
-		REQ_TEXTURECUBE_DIMENSION,
-		REQ_TEXTURE1D_U_DIMENSION,
-		REQ_TEXTURE2D_U_OR_V_DIMENSION,
-		REQ_TEXTURE3D_U_V_OR_W_DIMENSION,
-		REQ_TEXTURE1D_ARRAY_AXIS_DIMENSION,
-		REQ_TEXTURE2D_ARRAY_AXIS_DIMENSION
+	public:
+		using element_type = T;
+		using winrt::com_ptr<T>::com_ptr;
+
+		element_type** operator&() noexcept { return this->put(); }
 	};
-
-	class CommandList;
-
-	struct IndirectArgument
+#else
+	template <typename T>
+	class com_ptr :
+		public Microsoft::WRL::ComPtr<T>
 	{
-		IndirectArgumentType Type;
-		union
-		{
-			struct
-			{
-				uint32_t Slot;
-			} VertexBuffer;
-			struct
-			{
-				uint32_t Index;
-				uint32_t DestOffsetIn32BitValues;
-				uint32_t Num32BitValuesToSet;
-			} Constant;
-			struct
-			{
-				uint32_t Index;
-			} ConstantBufferView;
-			struct
-			{
-				uint32_t Index;
-			} ShaderResourceView;
-			struct
-			{
-				uint32_t Index;
-			} UnorderedAccessView;
-		};
+	public:
+		using element_type = T;
+		using Microsoft::WRL::ComPtr<T>::ComPtr;
+
+		element_type* get() const throw() { return this->Get(); }
 	};
-}
+#endif
+#endif
 
-#include "XUSG_DX12.h"
+	// Resources related
+	using TileCopyFlags = D3D12_TILE_COPY_FLAGS;
 
-namespace XUSG
-{
 	// Enumerations
 	enum class API
 	{
@@ -309,6 +285,20 @@ namespace XUSG
 		TEXTURE3D
 	};
 
+	enum class DescriptorType : uint8_t
+	{
+		SRV,
+		UAV,
+		CBV,
+		SAMPLER,
+		CONSTANT,
+		ROOT_SRV,
+		ROOT_UAV,
+		ROOT_CBV,
+
+		NUM
+	};
+
 	enum class IndirectArgumentType : uint32_t
 	{
 		DRAW,
@@ -538,7 +528,52 @@ namespace XUSG
 		VIDEO_DECODE_STATISTICS
 	};
 
+	enum DescriptorPoolType : uint8_t
+	{
+		CBV_SRV_UAV_POOL,
+		SAMPLER_POOL,
+		RTV_POOL,
+
+		NUM_DESCRIPTOR_POOL
+	};
+
+	enum SamplerPreset : uint8_t
+	{
+		POINT_WRAP,
+		POINT_MIRROR,
+		POINT_CLAMP,
+		POINT_BORDER,
+		POINT_LESS_EQUAL,
+
+		LINEAR_WRAP,
+		LINEAR_MIRROR,
+		LINEAR_CLAMP,
+		LINEAR_BORDER,
+		LINEAR_LESS_EQUAL,
+
+		ANISOTROPIC_WRAP,
+		ANISOTROPIC_MIRROR,
+		ANISOTROPIC_CLAMP,
+		ANISOTROPIC_BORDER,
+		ANISOTROPIC_LESS_EQUAL,
+
+		NUM_SAMPLER_PRESET
+	};
+
+	enum Requirement : uint32_t
+	{
+		REQ_MIP_LEVELS,
+		REQ_TEXTURECUBE_DIMENSION,
+		REQ_TEXTURE1D_U_DIMENSION,
+		REQ_TEXTURE2D_U_OR_V_DIMENSION,
+		REQ_TEXTURE3D_U_V_OR_W_DIMENSION,
+		REQ_TEXTURE1D_ARRAY_AXIS_DIMENSION,
+		REQ_TEXTURE2D_ARRAY_AXIS_DIMENSION
+	};
+
 	// Resources related
+	class Resource;
+
 	struct SubresourceData
 	{
 		const void* pData;
@@ -546,6 +581,53 @@ namespace XUSG
 		intptr_t SlicePitch;
 	};
 
+	struct ResourceBarrier
+	{
+		const Resource* pResource;
+		ResourceState StateBefore;
+		ResourceState StateAfter;
+		uint32_t Subresource;
+		BarrierFlag Flags;
+	};
+
+	struct VertexBufferView
+	{
+		uint64_t BufferLocation;
+		uint32_t SizeInBytes;
+		uint32_t StrideInBytes;
+	};
+
+	struct IndexBufferView
+	{
+		uint64_t BufferLocation;
+		uint32_t SizeInBytes;
+		Format ViewFormat;
+	};
+
+	struct StreamOutBufferView
+	{
+		uint64_t BufferLocation;
+		uint64_t SizeInBytes;
+		uint64_t BufferFilledSizeLocation;
+	};
+
+	struct SamplerDesc
+	{
+		int Filter;
+		int AddressU;
+		int AddressV;
+		int AddressW;
+		float MipLODBias;
+		uint32_t MaxAnisotropy;
+		int ComparisonFunc;
+		float BorderColor[4];
+		float MinLOD;
+		float MaxLOD;
+	};
+
+	using Sampler = std::shared_ptr<SamplerDesc>;
+
+	// Pipeline state related
 	struct Viewport
 	{
 		Viewport() = default;
@@ -636,16 +718,17 @@ namespace XUSG
 		uint32_t Back;
 	};
 
+	// Resource copy related
 	struct TextureCopyLocation
 	{
 		TextureCopyLocation() = default;
-		TextureCopyLocation(const Resource& res, uint32_t sub)
+		TextureCopyLocation(const Resource* pRes, uint32_t sub)
 		{
-			TextureResource = res;
+			pResource = pRes;
 			SubresourceIndex = sub;
 		}
 
-		Resource TextureResource;
+		const Resource* pResource;
 		uint32_t SubresourceIndex;
 	};
 
@@ -663,7 +746,7 @@ namespace XUSG
 		uint32_t X;
 		uint32_t Y;
 		uint32_t Z;
-		UINT Subresource;
+		uint32_t Subresource;
 	};
 
 	struct TileRegionSize
@@ -676,6 +759,16 @@ namespace XUSG
 	};
 
 	// Descriptors related
+	struct DescriptorRange
+	{
+		DescriptorType Type;
+		uint32_t NumDescriptors;
+		uint32_t BaseBinding;
+		uint32_t Space;
+		DescriptorFlag Flags;
+		uint32_t OffsetInDescriptors;
+	};
+
 	using Descriptor = uintptr_t;
 	using DescriptorTable = std::shared_ptr<uint64_t>;
 	struct Framebuffer
@@ -698,6 +791,146 @@ namespace XUSG
 	};
 	using InputLayout = std::vector<InputElement>;
 
+	// Indirect command related
+	struct IndirectArgument
+	{
+		IndirectArgumentType Type;
+		union
+		{
+			struct
+			{
+				uint32_t Slot;
+			} VertexBuffer;
+			struct
+			{
+				uint32_t Index;
+				uint32_t DestOffsetIn32BitValues;
+				uint32_t Num32BitValuesToSet;
+			} Constant;
+			struct
+			{
+				uint32_t Index;
+			} CbvSrvUav;
+		};
+	};
+
+	// Handles
+	using Pipeline = void*;
+	using PipelineLayout = void*;
+	using DescriptorTableLayout = const void*;
+	using DescriptorPool = void*;
+	using Blob = void*;
+	using QueryPool = void*;
+
+	//--------------------------------------------------------------------------------------
+	// Device
+	//--------------------------------------------------------------------------------------
+	class CommandAllocator;
+	class CommandList;
+	class CommandQueue;
+	class Fence;
+
+	class DLL_INTERFACE Device
+	{
+	public:
+		//Device();
+		virtual ~Device() {};
+
+		virtual bool GetCommandQueue(CommandQueue& commandQueue, CommandListType type,
+			CommandQueueFlag flags, int32_t priority = 0, uint32_t nodeMask = 0,
+			const wchar_t* name = nullptr) = 0;
+		virtual bool GetCommandAllocator(CommandAllocator& commandAllocator,
+			CommandListType type, const wchar_t* name = nullptr) = 0;
+		virtual bool GetCommandList(CommandList& commandList, uint32_t nodeMask, CommandListType type,
+			const CommandAllocator& commandAllocator, const Pipeline & pipeline,
+			const wchar_t* name = nullptr) = 0;
+		virtual bool GetFence(Fence& fence, uint64_t initialValue, FenceFlag flags,
+			const wchar_t* name = nullptr) = 0;
+
+		virtual uint32_t GetDeviceRemovedReason() const = 0;
+
+		virtual void* GetHandle() const = 0;
+
+		using uptr = std::unique_ptr<Device>;
+		using sptr = std::shared_ptr<Device>;
+
+		static uptr MakeUnique(void* handle, API api = API::DIRECTX_12);
+		static sptr MakeShared(void* handle, API api = API::DIRECTX_12);
+	};
+
+	//--------------------------------------------------------------------------------------
+	// Fence
+	//--------------------------------------------------------------------------------------
+	class DLL_INTERFACE Fence
+	{
+	public:
+		//Fence();
+		virtual ~Fence() {};
+
+		virtual bool Create(const Device& device, uint64_t initialValue,
+			FenceFlag flags, const wchar_t* name = nullptr) = 0;
+		virtual bool SetEventOnCompletion(uint64_t value, void* hEvent) = 0;
+		virtual bool Signal(uint64_t value) = 0;
+
+		virtual uint64_t GetCompletedValue() const = 0;
+
+		virtual void* GetHandle() const = 0;
+
+		using uptr = std::unique_ptr<Fence>;
+		using sptr = std::shared_ptr<Fence>;
+
+		static uptr MakeUnique(API api = API::DIRECTX_12);
+		static sptr MakeShared(API api = API::DIRECTX_12);
+	};
+
+	struct Semaphore
+	{
+		Fence::uptr Fence;
+		uint64_t Value;
+	};
+
+	//--------------------------------------------------------------------------------------
+	// Command layout
+	//--------------------------------------------------------------------------------------
+	class DLL_INTERFACE CommandLayout
+	{
+	public:
+		//CommandLayout();
+		virtual ~CommandLayout() {};
+
+		virtual bool Create(const Device& device, uint32_t byteStride, uint32_t numArguments,
+			const IndirectArgument* pArguments, uint32_t nodeMask = 0, const wchar_t* name = nullptr) = 0;
+
+		virtual void* GetHandle() const = 0;
+
+		using uptr = std::unique_ptr<CommandLayout>;
+		using sptr = std::shared_ptr<CommandLayout>;
+
+		static uptr MakeUnique(API api = API::DIRECTX_12);
+		static sptr MakeShared(API api = API::DIRECTX_12);
+	};
+
+	//--------------------------------------------------------------------------------------
+	// Command queue
+	//--------------------------------------------------------------------------------------
+	class DLL_INTERFACE CommandAllocator
+	{
+	public:
+		//CommandAllocator();
+		virtual ~CommandAllocator() {};
+
+		virtual bool Create(const Device& device, CommandListType type, const wchar_t* name = nullptr) = 0;
+		virtual bool Reset() = 0;
+
+		virtual void* GetHandle() const = 0;
+
+		using uptr = std::unique_ptr<CommandAllocator>;
+		using sptr = std::shared_ptr<CommandAllocator>;
+
+		static uptr MakeUnique(API api = API::DIRECTX_12);
+		static sptr MakeShared(API api = API::DIRECTX_12);
+	};
+
 	//--------------------------------------------------------------------------------------
 	// Command list
 	//--------------------------------------------------------------------------------------
@@ -707,6 +940,9 @@ namespace XUSG
 		//CommandList();
 		virtual ~CommandList() {};
 
+		virtual bool Create(const Device& device, uint32_t nodeMask, CommandListType type,
+			const CommandAllocator& commandAllocator, const Pipeline& pipeline,
+			const wchar_t* name = nullptr) = 0;
 		virtual bool Close() const = 0;
 		virtual bool Reset(const CommandAllocator& allocator,
 			const Pipeline& initialState) const = 0;
@@ -794,9 +1030,9 @@ namespace XUSG
 		virtual void SetMarker(uint32_t metaData, const void* pData, uint32_t size) const = 0;
 		virtual void BeginEvent(uint32_t metaData, const void* pData, uint32_t size) const = 0;
 		virtual void EndEvent() = 0;
-		virtual void ExecuteIndirect(CommandLayout commandlayout, uint32_t maxCommandCount,
+		virtual void ExecuteIndirect(const CommandLayout& commandlayout, uint32_t maxCommandCount,
 			const Resource& argumentBuffer, uint64_t argumentBufferOffset = 0,
-			const Resource& countBuffer = nullptr, uint64_t countBufferOffset = 0) = 0;
+			const Resource* pCountBuffer = nullptr, uint64_t countBufferOffset = 0) = 0;
 
 		using uptr = std::unique_ptr<CommandList>;
 		using sptr = std::shared_ptr<CommandList>;
@@ -806,9 +1042,102 @@ namespace XUSG
 	};
 
 	//--------------------------------------------------------------------------------------
+	// Command queue
+	//--------------------------------------------------------------------------------------
+	class DLL_INTERFACE CommandQueue
+	{
+	public:
+		//CommandQueue();
+		virtual ~CommandQueue() {};
+
+		virtual bool Create(const Device& device, CommandListType type, CommandQueueFlag flags,
+			int32_t priority = 0, uint32_t nodeMask = 0, const wchar_t* name = nullptr) = 0;
+
+		virtual bool SubmitCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists,
+			const Semaphore* pWaits = nullptr, uint32_t numWaits = 0,
+			const Semaphore* pSignals = nullptr, uint32_t numSignals = 0) = 0;
+		virtual bool SubmitCommandList(CommandList* const pCommandList,
+			const Semaphore* pWaits = nullptr, uint32_t numWaits = 0,
+			const Semaphore* pSignals = nullptr, uint32_t numSignals = 0) = 0;
+		virtual bool Wait(const Fence& fence, uint64_t value) = 0;
+		virtual bool Signal(const Fence& fence, uint64_t value) = 0;
+
+		virtual void ExecuteCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists) = 0;
+		virtual void ExecuteCommandList(CommandList* const pCommandList) = 0;
+
+		virtual void* GetHandle() const = 0;
+
+		using uptr = std::unique_ptr<CommandQueue>;
+		using sptr = std::shared_ptr<CommandQueue>;
+
+		static uptr MakeUnique(API api = API::DIRECTX_12);
+		static sptr MakeShared(API api = API::DIRECTX_12);
+	};
+
+	//--------------------------------------------------------------------------------------
+	// Swap chain
+	//--------------------------------------------------------------------------------------
+	class Resource;
+
+	class DLL_INTERFACE SwapChain
+	{
+	public:
+		//SwapChain();
+		virtual ~SwapChain() {};
+
+		virtual bool Create(void* factory, void* hWnd, const CommandQueue& commandQueue,
+			uint8_t bufferCount, uint32_t width, uint32_t height, Format format,
+			uint8_t sampleCount = 1) = 0;
+		virtual bool Present(uint8_t syncInterval = 0, uint32_t flags = 0) = 0;
+		virtual bool GetBuffer(uint8_t buffer, Resource& resource) const = 0;
+
+		virtual uint32_t ResizeBuffers(uint8_t bufferCount, uint32_t width,
+			uint32_t height, Format format, uint8_t flag = 0) = 0;
+
+		virtual void* GetHandle() const = 0;
+
+		virtual uint8_t GetCurrentBackBufferIndex() const = 0;
+
+		using uptr = std::unique_ptr<SwapChain>;
+		using sptr = std::shared_ptr<SwapChain>;
+
+		static uptr MakeUnique(API api = API::DIRECTX_12);
+		static sptr MakeShared(API api = API::DIRECTX_12);
+	};
+
+	//--------------------------------------------------------------------------------------
+	// Resource
+	//--------------------------------------------------------------------------------------
+	class DLL_INTERFACE Resource
+	{
+	public:
+		//Resource();
+		virtual ~Resource() {};
+
+		virtual uint32_t SetBarrier(ResourceBarrier* pBarriers, ResourceState dstState,
+			uint32_t numBarriers = 0, uint32_t subresource = BARRIER_ALL_SUBRESOURCES,
+			BarrierFlag flags = BarrierFlag::NONE) = 0;
+
+		virtual ResourceBarrier	Transition(ResourceState dstState, uint32_t subresource = BARRIER_ALL_SUBRESOURCES,
+			BarrierFlag flag = BarrierFlag::NONE) = 0;
+		virtual ResourceState	GetResourceState(uint32_t subresource = 0) const = 0;
+
+		virtual void* GetHandle() const = 0;
+
+		virtual uint32_t GetWidth() const = 0;
+
+		using uptr = std::unique_ptr<Resource>;
+		using sptr = std::shared_ptr<Resource>;
+
+		static uptr MakeUnique(API api = API::DIRECTX_12);
+		static sptr MakeShared(API api = API::DIRECTX_12);
+	};
+
+	//--------------------------------------------------------------------------------------
 	// Constant buffer
 	//--------------------------------------------------------------------------------------
-	class DLL_INTERFACE ConstantBuffer
+	class DLL_INTERFACE ConstantBuffer :
+		public virtual Resource
 	{
 	public:
 		//ConstantBuffer();
@@ -817,14 +1146,13 @@ namespace XUSG
 		virtual bool Create(const Device& device, size_t byteWidth, uint32_t numCBVs = 1,
 			const size_t* offsets = nullptr, MemoryType memoryType = MemoryType::UPLOAD,
 			const wchar_t* name = nullptr) = 0;
-		virtual bool Upload(CommandList* pCommandList, Resource& uploader, const void* pData,
+		virtual bool Upload(CommandList* pCommandList, Resource::sptr& uploader, const void* pData,
 			size_t size, uint32_t cbvIndex = 0, ResourceState srcState = ResourceState::COMMON,
 			ResourceState dstState = ResourceState::COMMON) = 0;
 
 		virtual void* Map(uint32_t cbvIndex = 0) = 0;
 		virtual void Unmap() = 0;
 
-		virtual const Resource& GetResource() const = 0;
 		virtual const Descriptor& GetCBV(uint32_t index = 0) const = 0;
 		virtual uint32_t GetCBVOffset(uint32_t index) const = 0;
 
@@ -838,28 +1166,19 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Resource base
 	//--------------------------------------------------------------------------------------
-	class DLL_INTERFACE ResourceBase
+	class DLL_INTERFACE ShaderResource :
+		public virtual Resource
 	{
 	public:
-		//ResourceBase();
-		virtual ~ResourceBase() {};
+		//ShaderResource();
+		virtual ~ShaderResource() {};
 
-		virtual uint32_t SetBarrier(ResourceBarrier* pBarriers, ResourceState dstState,
-			uint32_t numBarriers = 0, uint32_t subresource = BARRIER_ALL_SUBRESOURCES,
-			BarrierFlag flags = BarrierFlag::NONE) = 0;
-
-		virtual const Resource& GetResource() const = 0;
 		virtual const Descriptor& GetSRV(uint32_t index = 0) const = 0;
 
-		virtual ResourceBarrier	Transition(ResourceState dstState, uint32_t subresource = BARRIER_ALL_SUBRESOURCES,
-			BarrierFlag flag = BarrierFlag::NONE) = 0;
-		virtual ResourceState	GetResourceState(uint32_t subresource = 0) const = 0;
-
 		virtual Format GetFormat() const = 0;
-		virtual uint32_t GetWidth() const = 0;
 
-		using uptr = std::unique_ptr<ResourceBase>;
-		using sptr = std::shared_ptr<ResourceBase>;
+		using uptr = std::unique_ptr<ShaderResource>;
+		using sptr = std::shared_ptr<ShaderResource>;
 
 		static uptr MakeUnique(API api = API::DIRECTX_12);
 		static sptr MakeShared(API api = API::DIRECTX_12);
@@ -869,7 +1188,7 @@ namespace XUSG
 	// 2D Texture
 	//--------------------------------------------------------------------------------------
 	class DLL_INTERFACE Texture2D :
-		public virtual ResourceBase
+		public virtual ShaderResource
 	{
 	public:
 		//Texture2D();
@@ -879,10 +1198,10 @@ namespace XUSG
 			uint32_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, MemoryType memoryType = MemoryType::DEFAULT,
 			bool isCubeMap = false, const wchar_t* name = nullptr) = 0;
-		virtual bool Upload(CommandList* pCommandList, Resource& uploader,
+		virtual bool Upload(CommandList* pCommandList, Resource::sptr& uploader,
 			const SubresourceData* pSubresourceData, uint32_t numSubresources = 1,
 			ResourceState dstState = ResourceState::COMMON, uint32_t firstSubresource = 0) = 0;
-		virtual bool Upload(CommandList* pCommandList, Resource& uploader, const void* pData,
+		virtual bool Upload(CommandList* pCommandList, Resource::sptr& uploader, const void* pData,
 			uint8_t stride = sizeof(float), ResourceState dstState = ResourceState::COMMON) = 0;
 		virtual bool CreateSRVs(uint32_t arraySize, Format format = Format::UNKNOWN, uint8_t numMips = 1,
 			uint8_t sampleCount = 1, bool isCubeMap = false) = 0;
@@ -1044,7 +1363,7 @@ namespace XUSG
 	// Raw buffer
 	//--------------------------------------------------------------------------------------
 	class DLL_INTERFACE RawBuffer :
-		public virtual ResourceBase
+		public virtual ShaderResource
 	{
 	public:
 		//RawBuffer();
@@ -1054,7 +1373,7 @@ namespace XUSG
 			MemoryType memoryType = MemoryType::DEFAULT, uint32_t numSRVs = 1,
 			const uint32_t* firstSRVElements = nullptr, uint32_t numUAVs = 1,
 			const uint32_t* firstUAVElements = nullptr, const wchar_t* name = nullptr) = 0;
-		virtual bool Upload(CommandList* pCommandList, Resource& uploader, const void* pData, size_t size,
+		virtual bool Upload(CommandList* pCommandList, Resource::sptr& uploader, const void* pData, size_t size,
 			uint32_t descriptorIndex = 0, ResourceState dstState = ResourceState::COMMON) = 0;
 		virtual bool CreateSRVs(size_t byteWidth, const uint32_t* firstElements = nullptr,
 			uint32_t numDescriptors = 1) = 0;
@@ -1096,8 +1415,8 @@ namespace XUSG
 			const uint32_t* firstElements = nullptr, uint32_t numDescriptors = 1,
 			const size_t* counterOffsetsInBytes = nullptr) = 0;
 
-		virtual void SetCounter(const Resource& counter) = 0;
-		virtual Resource& GetCounter() = 0;
+		virtual void SetCounter(const Resource::sptr& counter) = 0;
+		virtual Resource::sptr GetCounter() const = 0;
 
 		using uptr = std::unique_ptr<StructuredBuffer>;
 		using sptr = std::shared_ptr<StructuredBuffer>;
@@ -1199,38 +1518,6 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Descriptor
 	//--------------------------------------------------------------------------------------
-	enum DescriptorPoolType : uint8_t
-	{
-		CBV_SRV_UAV_POOL,
-		SAMPLER_POOL,
-		RTV_POOL,
-
-		NUM_DESCRIPTOR_POOL
-	};
-
-	enum SamplerPreset : uint8_t
-	{
-		POINT_WRAP,
-		POINT_MIRROR,
-		POINT_CLAMP,
-		POINT_BORDER,
-		POINT_LESS_EQUAL,
-
-		LINEAR_WRAP,
-		LINEAR_MIRROR,
-		LINEAR_CLAMP,
-		LINEAR_BORDER,
-		LINEAR_LESS_EQUAL,
-
-		ANISOTROPIC_WRAP,
-		ANISOTROPIC_MIRROR,
-		ANISOTROPIC_CLAMP,
-		ANISOTROPIC_BORDER,
-		ANISOTROPIC_LESS_EQUAL,
-
-		NUM_SAMPLER_PRESET
-	};
-
 	class DescriptorTableCache;
 
 	namespace Util
@@ -1295,7 +1582,7 @@ namespace XUSG
 		virtual Framebuffer GetFramebuffer(const Util::DescriptorTable& util,
 			const Descriptor* pDsv = nullptr, const Framebuffer* pFramebuffer = nullptr) = 0;
 
-		virtual const DescriptorPool& GetDescriptorPool(DescriptorPoolType type, uint8_t index = 0) const = 0;
+		virtual DescriptorPool GetDescriptorPool(DescriptorPoolType type, uint8_t index = 0) const = 0;
 
 		virtual const Sampler& GetSampler(SamplerPreset preset) = 0;
 
@@ -1378,20 +1665,6 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Pipeline layout
 	//--------------------------------------------------------------------------------------
-	enum class DescriptorType : uint8_t
-	{
-		SRV,
-		UAV,
-		CBV,
-		SAMPLER,
-		CONSTANT,
-		ROOT_SRV,
-		ROOT_UAV,
-		ROOT_CBV,
-
-		NUM
-	};
-
 	class PipelineLayoutCache;
 
 	namespace Util
@@ -1573,7 +1846,7 @@ namespace XUSG
 			virtual ~State() {};
 
 			virtual void SetPipelineLayout(const PipelineLayout& layout) = 0;
-			virtual void SetShader(Shader::Stage stage, Blob shader) = 0;
+			virtual void SetShader(Shader::Stage stage, const Blob& shader) = 0;
 			virtual void SetCachedPipeline(const void* pCachedBlob, size_t size) = 0;
 			virtual void SetNodeMask(uint32_t nodeMask) = 0;
 
@@ -1653,7 +1926,7 @@ namespace XUSG
 			virtual ~State() {};
 
 			virtual void SetPipelineLayout(const PipelineLayout& layout) = 0;
-			virtual void SetShader(Blob shader) = 0;
+			virtual void SetShader(const Blob& shader) = 0;
 			virtual void SetCachedPipeline(const void* pCachedBlob, size_t size) = 0;
 			virtual void SetNodeMask(uint32_t nodeMask) = 0;
 
@@ -1690,5 +1963,18 @@ namespace XUSG
 			static uptr MakeUnique(const Device& device, API api = API::DIRECTX_12);
 			static sptr MakeShared(const Device& device, API api = API::DIRECTX_12);
 		};
+	}
+
+	__forceinline uint8_t Log2(uint32_t value)
+	{
+#if defined(WIN32) || (_WIN32)
+		unsigned long mssb; // most significant set bit
+
+		if (BitScanReverse(&mssb, value) > 0)
+			return static_cast<uint8_t>(mssb);
+		else return 0;
+#else
+		return static_cast<uint8_t>(log2(value));
+#endif
 	}
 }

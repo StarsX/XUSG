@@ -4,14 +4,14 @@
 
 #pragma once
 
-#include "XUSG.h"
+#include "XUSG_DX12.h"
 #include "XUSGInputLayout_DX12.h"
 
 namespace XUSG
 {
 	namespace Graphics
 	{
-		struct Key
+		struct PipelineDesc
 		{
 			void* PipelineLayout;
 			void* Shaders[Shader::Stage::NUM_GRAPHICS];
@@ -40,7 +40,7 @@ namespace XUSG
 			virtual ~State_DX12();
 
 			void SetPipelineLayout(const PipelineLayout& layout);
-			void SetShader(Shader::Stage stage, Blob shader);
+			void SetShader(Shader::Stage stage, const Blob& shader);
 			void SetCachedPipeline(const void* pCachedBlob, size_t size);
 			void SetNodeMask(uint32_t nodeMask);
 
@@ -69,7 +69,7 @@ namespace XUSG
 			const std::string& GetKey() const;
 
 		protected:
-			Key* m_pKey;
+			PipelineDesc* m_pKey;
 			std::string m_key;
 		};
 
@@ -96,14 +96,14 @@ namespace XUSG
 			const DepthStencil* GetDepthStencil(DepthStencilPreset preset);
 
 		protected:
-			Pipeline createPipeline(const Key* pKey, const wchar_t* name);
+			Pipeline createPipeline(const std::string& key, const wchar_t* name);
 			Pipeline getPipeline(const std::string& key, const wchar_t* name);
 
-			Device m_device;
+			com_ptr<ID3D12Device> m_device;
 
 			InputLayoutPool_DX12 m_inputLayoutPool;
 
-			std::unordered_map<std::string, Pipeline> m_pipelines;
+			std::unordered_map<std::string, com_ptr<ID3D12PipelineState>> m_pipelines;
 			std::unique_ptr<Blend>			m_blends[NUM_BLEND_PRESET];
 			std::unique_ptr<Rasterizer>		m_rasterizers[NUM_RS_PRESET];
 			std::unique_ptr<DepthStencil>	m_depthStencils[NUM_DS_PRESET];

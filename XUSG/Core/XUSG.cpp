@@ -14,6 +14,46 @@
 using namespace std;
 using namespace XUSG;
 
+Device::uptr Device::MakeUnique(void* handle, API api)
+{
+	return make_unique<Device_DX12>(handle);
+}
+
+Device::sptr Device::MakeShared(void* handle, API api)
+{
+	return make_shared<Device_DX12>(handle);
+}
+
+Fence::uptr Fence::MakeUnique(API api)
+{
+	return make_unique<Fence_DX12>();
+}
+
+Fence::sptr Fence::MakeShared(API api)
+{
+	return make_shared<Fence_DX12>();
+}
+
+CommandLayout::uptr CommandLayout::MakeUnique(API api)
+{
+	return make_unique<CommandLayout_DX12>();
+}
+
+CommandLayout::sptr CommandLayout::MakeShared(API api)
+{
+	return make_shared<CommandLayout_DX12>();
+}
+
+CommandAllocator::uptr CommandAllocator::MakeUnique(API api)
+{
+	return make_unique<CommandAllocator_DX12>();
+}
+
+CommandAllocator::sptr CommandAllocator::MakeShared(API api)
+{
+	return make_shared<CommandAllocator_DX12>();
+}
+
 CommandList::uptr CommandList::MakeUnique(API api)
 {
 	return make_unique<CommandList_DX12>();
@@ -22,6 +62,36 @@ CommandList::uptr CommandList::MakeUnique(API api)
 CommandList::sptr CommandList::MakeShared(API api)
 {
 	return make_shared<CommandList_DX12>();
+}
+
+CommandQueue::uptr CommandQueue::MakeUnique(API api)
+{
+	return make_unique<CommandQueue_DX12>();
+}
+
+CommandQueue::sptr CommandQueue::MakeShared(API api)
+{
+	return make_shared<CommandQueue_DX12>();
+}
+
+SwapChain::uptr SwapChain::MakeUnique(API api)
+{
+	return make_unique<SwapChain_DX12>();
+}
+
+SwapChain::sptr SwapChain::MakeShared(API api)
+{
+	return make_shared<SwapChain_DX12>();
+}
+
+Resource::uptr Resource::MakeUnique(API api)
+{
+	return make_unique<Resource_DX12>();
+}
+
+Resource::sptr Resource::MakeShared(API api)
+{
+	return make_shared<Resource_DX12>();
 }
 
 ConstantBuffer::uptr ConstantBuffer::MakeUnique(API api)
@@ -34,14 +104,14 @@ ConstantBuffer::sptr ConstantBuffer::MakeShared(API api)
 	return make_shared<ConstantBuffer_DX12>();
 }
 
-ResourceBase::uptr ResourceBase::MakeUnique(API api)
+ShaderResource::uptr ShaderResource::MakeUnique(API api)
 {
-	return make_unique<ResourceBase_DX12>();
+	return make_unique<ShaderResource_DX12>();
 }
 
-ResourceBase::sptr ResourceBase::MakeShared(API api)
+ShaderResource::sptr ShaderResource::MakeShared(API api)
 {
-	return make_shared<ResourceBase_DX12>();
+	return make_shared<ShaderResource_DX12>();
 }
 
 Texture2D* Texture2D::AsTexture2D()

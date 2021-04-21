@@ -55,22 +55,22 @@ void CommandList_DX12::SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t nu
 void CommandList_DX12::ResolveSubresourceRegion(const Resource& dstResource, uint32_t dstSubresource, uint32_t dstX, uint32_t dstY,
 	const Resource& srcResource, uint32_t srcSubresource, RectRange* pSrcRect, Format format, ResolveMode resolveMode) const
 {
-	m_commandListU->ResolveSubresourceRegion(dstResource.get(), dstSubresource, dstX, dstY,
-		srcResource.get(), srcSubresource, reinterpret_cast<D3D12_RECT*>(pSrcRect),
-		GetDXGIFormat(format), GetDX12ResolveMode(resolveMode));
+	m_commandListU->ResolveSubresourceRegion(static_cast<ID3D12Resource*>(dstResource.GetHandle()), dstSubresource,
+		dstX, dstY, static_cast<ID3D12Resource*>(srcResource.GetHandle()), srcSubresource,
+		reinterpret_cast<D3D12_RECT*>(pSrcRect), GetDXGIFormat(format), GetDX12ResolveMode(resolveMode));
 }
 
 void CommandList_DX12::RSSetShadingRate(ShadingRate baseShadingRate, const ShadingRateCombiner* pCombiners) const
 {
 	D3D12_SHADING_RATE_COMBINER combiners[D3D12_RS_SET_SHADING_RATE_COMBINER_COUNT];
-	for (auto i = 0ui8; i < D3D12_RS_SET_SHADING_RATE_COMBINER_COUNT; ++i)
+	for (uint8_t i = 0; i < D3D12_RS_SET_SHADING_RATE_COMBINER_COUNT; ++i)
 		combiners[i] = GetDX12ShadingRateCombiner(pCombiners[i]);
 	m_commandListU->RSSetShadingRate(D3D12_SHADING_RATE(baseShadingRate), combiners);
 }
 
 void CommandList_DX12::RSSetShadingRateImage(const Resource& shadingRateImage)  const
 {
-	m_commandListU->RSSetShadingRateImage(shadingRateImage.get());
+	m_commandListU->RSSetShadingRateImage(static_cast<ID3D12Resource*>(shadingRateImage.GetHandle()));
 }
 
 void CommandList_DX12::DispatchMesh(uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ)  const
@@ -100,8 +100,7 @@ bool SamplerFeedBack_DX12::Create(const Device& device, const Texture2D& target,
 	uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
 	ResourceFlag resourceFlags, MemoryType memoryType, bool isCubeMap, const wchar_t* name)
 {
-	M_RETURN(!device, cerr, "The device is NULL.", false);
-	setDevice(device);
+	N_RETURN(setDevice(device), false);
 	V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&m_deviceU)), cerr, false);
 
 	if (name) m_name = name;
@@ -145,7 +144,7 @@ bool SamplerFeedBack_DX12::Create(const Device& device, const Texture2D& target,
 	if (hasSRV) N_RETURN(CreateSRVs(arraySize, format, numMips, 1, isCubeMap), false);
 
 	// Create UAVs
-	N_RETURN(CreateUAV(target.GetResource()), false);
+	N_RETURN(CreateUAV(target), false);
 
 	return true;
 }
@@ -154,8 +153,9 @@ bool SamplerFeedBack_DX12::CreateUAV(const Resource& target)
 {
 	// Create an unordered access view
 	m_uavs.resize(1);
-	X_RETURN(m_uavs[0], allocateSrvUavPool(), false);
-	m_deviceU->CreateSamplerFeedbackUnorderedAccessView(target.get(), m_resource.get(), { m_uavs[0] });
+	X_RETURN(m_uavs[0], allocateSrvUavHeap(), false);
+	m_deviceU->CreateSamplerFeedbackUnorderedAccessView(static_cast<ID3D12Resource*>(target.GetHandle()),
+		m_resource.get(), { m_uavs[0] });
 
 	return true;
 }

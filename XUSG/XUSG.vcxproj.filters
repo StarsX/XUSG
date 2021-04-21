@@ -165,5 +165,8 @@
     <ClCompile Include="Advanced\XUSGDDSLoader.cpp">
       <Filter>Advanced\Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Core\XUSGEnum_DX12.cpp">
+      <Filter>Core\Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

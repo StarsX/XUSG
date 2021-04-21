@@ -4,10 +4,26 @@
 
 #pragma once
 
-#include "XUSG.h"
+#include "XUSG_DX12.h"
 
 namespace XUSG
 {
+	class CommandAllocator_DX12 :
+		public virtual CommandAllocator
+	{
+	public:
+		CommandAllocator_DX12();
+		virtual ~CommandAllocator_DX12();
+
+		bool Create(const Device& device, CommandListType type, const wchar_t* name = nullptr);
+		bool Reset();
+
+		void* GetHandle() const;
+
+	protected:
+		com_ptr<ID3D12CommandAllocator> m_commandAllocator;
+	};
+
 	class CommandList_DX12 :
 		public virtual CommandList
 	{
@@ -15,6 +31,9 @@ namespace XUSG
 		CommandList_DX12();
 		~CommandList_DX12();
 
+		bool Create(const Device& device, uint32_t nodeMask, CommandListType type,
+			const CommandAllocator& commandAllocator, const Pipeline& pipeline,
+			const wchar_t* name = nullptr);
 		bool Close() const;
 		bool Reset(const CommandAllocator& allocator,
 			const Pipeline& initialState) const;
@@ -102,13 +121,44 @@ namespace XUSG
 		void SetMarker(uint32_t metaData, const void* pData, uint32_t size) const;
 		void BeginEvent(uint32_t metaData, const void* pData, uint32_t size) const;
 		void EndEvent();
-		void ExecuteIndirect(CommandLayout commandlayout, uint32_t maxCommandCount,
+		void ExecuteIndirect(const CommandLayout& commandlayout, uint32_t maxCommandCount,
 			const Resource& argumentBuffer, uint64_t argumentBufferOffset = 0,
-			const Resource& countBuffer = nullptr, uint64_t countBufferOffset = 0);
+			const Resource* pCountBuffer = nullptr, uint64_t countBufferOffset = 0);
 
 		com_ptr<ID3D12GraphicsCommandList>& GetGraphicsCommandList();
 
 	protected:
 		com_ptr<ID3D12GraphicsCommandList> m_commandList;
+	};
+
+	class CommandQueue_DX12 :
+		public virtual CommandQueue
+	{
+	public:
+		CommandQueue_DX12();
+		virtual ~CommandQueue_DX12();
+
+		bool Create(const Device& device, CommandListType type, CommandQueueFlag flags,
+			int32_t priority = 0, uint32_t nodeMask = 0, const wchar_t* name = nullptr);
+
+		bool SubmitCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists,
+			const Semaphore* pWaits = nullptr, uint32_t numWaits = 0,
+			const Semaphore* pSignals = nullptr, uint32_t numSignals = 0);
+		bool SubmitCommandList(CommandList* const pCommandList,
+			const Semaphore* pWaits = nullptr, uint32_t numWaits = 0,
+			const Semaphore* pSignals = nullptr, uint32_t numSignals = 0);
+		bool Wait(const Fence& fence, uint64_t value);
+		bool Signal(const Fence& fence, uint64_t value);
+
+		void ExecuteCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists);
+		void ExecuteCommandList(CommandList* const pCommandList);
+
+		void* GetHandle() const;
+
+		com_ptr<ID3D12CommandQueue>& GetCommandQueue();
+
+	protected:
+
+		com_ptr<ID3D12CommandQueue> m_commandQueue;
 	};
 }

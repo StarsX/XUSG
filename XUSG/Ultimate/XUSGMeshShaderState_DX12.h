@@ -46,7 +46,7 @@ namespace XUSG
 			virtual ~State_DX12();
 
 			void SetPipelineLayout(const PipelineLayout& layout);
-			void SetShader(Shader::Stage stage, Blob shader);
+			void SetShader(Shader::Stage stage, const Blob& shader);
 			void SetCachedPipeline(const void* pCachedBlob, size_t size);
 			void SetNodeMask(uint32_t nodeMask);
 
@@ -88,8 +88,7 @@ namespace XUSG
 			Pipeline GetPipeline(const State& state, const wchar_t* name = nullptr);
 
 		protected:
-			Pipeline createPipeline(const Key* pKey, const wchar_t* name);
-			Pipeline getPipeline(const std::string& key, const wchar_t* name);
+			Pipeline createPipeline(const std::string& key, const wchar_t* name);
 		};
 	}
 }

@@ -21,7 +21,7 @@ ShaderPool_DX12::~ShaderPool_DX12()
 
 void ShaderPool_DX12::SetShader(Shader::Stage stage, uint32_t index, const Blob& shader)
 {
-	checkShaderStorage(stage, index) = shader;
+	checkShaderStorage(stage, index) = static_cast<ID3DBlob*>(shader);
 }
 
 void ShaderPool_DX12::SetShader(Shader::Stage stage, uint32_t index, const Blob& shader, const Reflector::sptr& reflector)
@@ -42,14 +42,14 @@ Blob ShaderPool_DX12::CreateShader(Shader::Stage stage, uint32_t index, const ws
 
 	auto& reflector = checkReflectorStorage(stage, index);
 	reflector = make_shared<Reflector_DX12>();
-	N_RETURN(reflector->SetShader(shader), nullptr);
+	N_RETURN(reflector->SetShader(shader.get()), nullptr);
 
-	return shader;
+	return shader.get();
 }
 
 Blob ShaderPool_DX12::GetShader(Shader::Stage stage, uint32_t index) const
 {
-	return index < m_shaders[stage].size() ? m_shaders[stage][index] : nullptr;
+	return index < m_shaders[stage].size() ? m_shaders[stage][index].get() : nullptr;
 }
 
 Reflector::sptr ShaderPool_DX12::GetReflector(Shader::Stage stage, uint32_t index) const
@@ -57,7 +57,7 @@ Reflector::sptr ShaderPool_DX12::GetReflector(Shader::Stage stage, uint32_t inde
 	return index < m_reflectors[stage].size() ? m_reflectors[stage][index] : nullptr;
 }
 
-Blob& ShaderPool_DX12::checkShaderStorage(Shader::Stage stage, uint32_t index)
+com_ptr<ID3DBlob>& ShaderPool_DX12::checkShaderStorage(Shader::Stage stage, uint32_t index)
 {
 	if (index >= m_shaders[stage].size())
 		m_shaders[stage].resize(index + 1);

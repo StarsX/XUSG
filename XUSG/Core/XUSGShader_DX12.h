@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "XUSG.h"
+#include "XUSG_DX12.h"
 
 namespace XUSG
 {
@@ -24,10 +24,10 @@ namespace XUSG
 		Reflector::sptr GetReflector(Shader::Stage stage, uint32_t index) const;
 
 	protected:
-		Blob& checkShaderStorage(Shader::Stage stage, uint32_t index);
+		com_ptr<ID3DBlob>& checkShaderStorage(Shader::Stage stage, uint32_t index);
 		Reflector::sptr& checkReflectorStorage(Shader::Stage stage, uint32_t index);
 
-		std::vector<Blob> m_shaders[Shader::NUM_STAGE];
+		std::vector<com_ptr<ID3DBlob>> m_shaders[Shader::NUM_STAGE];
 		std::vector<Reflector::sptr> m_reflectors[Shader::NUM_STAGE];
 	};
 }

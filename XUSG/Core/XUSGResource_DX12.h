@@ -4,15 +4,50 @@
 
 #pragma once
 
-#include "XUSG.h"
+#include "XUSG_DX12.h"
 
 namespace XUSG
 {
 	//--------------------------------------------------------------------------------------
+	// Resource
+	//--------------------------------------------------------------------------------------
+	class Resource_DX12 :
+		public virtual Resource
+	{
+	public:
+		Resource_DX12();
+		virtual ~Resource_DX12();
+
+		uint32_t SetBarrier(ResourceBarrier* pBarriers, ResourceState dstState,
+			uint32_t numBarriers = 0, uint32_t subresource = BARRIER_ALL_SUBRESOURCES,
+			BarrierFlag flags = BarrierFlag::NONE);
+
+		ResourceBarrier	Transition(ResourceState dstState, uint32_t subresource = BARRIER_ALL_SUBRESOURCES,
+			BarrierFlag flag = BarrierFlag::NONE);
+		ResourceState	GetResourceState(uint32_t subresource = 0) const;
+
+		void* GetHandle() const;
+
+		uint32_t GetWidth() const;
+
+		com_ptr<ID3D12Resource>& GetResource();
+
+		D3D12_GPU_VIRTUAL_ADDRESS GetGPUVirtualAddress(int offset = 0) const;
+
+	protected:
+		com_ptr<ID3D12Device>		m_device;
+		com_ptr<ID3D12Resource>		m_resource;
+		std::vector<ResourceState>	m_states;
+
+		std::wstring				m_name;
+	};
+
+	//--------------------------------------------------------------------------------------
 	// Constant buffer
 	//--------------------------------------------------------------------------------------
 	class ConstantBuffer_DX12 :
-		public virtual ConstantBuffer
+		public virtual ConstantBuffer,
+		public virtual Resource_DX12
 	{
 	public:
 		ConstantBuffer_DX12();
@@ -21,24 +56,20 @@ namespace XUSG
 		bool Create(const Device& device, size_t byteWidth, uint32_t numCBVs = 1,
 			const size_t* offsets = nullptr, MemoryType memoryType = MemoryType::UPLOAD,
 			const wchar_t* name = nullptr);
-		bool Upload(CommandList* pCommandList, Resource& uploader, const void* pData,
+		bool Upload(CommandList* pCommandList, Resource::sptr& uploader, const void* pData,
 			size_t size, uint32_t cbvIndex = 0, ResourceState srcState = ResourceState::COMMON,
 			ResourceState dstState = ResourceState::COMMON);
 
 		void* Map(uint32_t cbvIndex = 0);
 		void Unmap();
 
-		const Resource& GetResource() const;
 		const Descriptor& GetCBV(uint32_t index = 0) const;
 		uint32_t GetCBVOffset(uint32_t index) const;
 
 	protected:
-		Descriptor allocateCbvPool(const wchar_t* name);
+		Descriptor allocateCbvHeap(const wchar_t* name);
 
-		Device			m_device;
-
-		Resource		m_resource;
-		std::vector<DescriptorPool>	m_cbvPools;
+		std::vector<com_ptr<ID3D12DescriptorHeap>> m_cbvHeaps;
 		std::vector<Descriptor>	m_cbvs;
 		std::vector<size_t> m_cbvOffsets;
 
@@ -48,40 +79,25 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Resource base
 	//--------------------------------------------------------------------------------------
-	class ResourceBase_DX12 :
-		public virtual ResourceBase
+	class ShaderResource_DX12 :
+		public virtual ShaderResource,
+		public virtual Resource_DX12
 	{
 	public:
-		ResourceBase_DX12();
-		virtual ~ResourceBase_DX12();
+		ShaderResource_DX12();
+		virtual ~ShaderResource_DX12();
 
-		uint32_t SetBarrier(ResourceBarrier* pBarriers, ResourceState dstState,
-			uint32_t numBarriers = 0, uint32_t subresource = BARRIER_ALL_SUBRESOURCES,
-			BarrierFlag flags = BarrierFlag::NONE);
-
-		const Resource& GetResource() const;
 		const Descriptor& GetSRV(uint32_t index = 0) const;
 
-		ResourceBarrier	Transition(ResourceState dstState, uint32_t subresource = BARRIER_ALL_SUBRESOURCES,
-			BarrierFlag flag = BarrierFlag::NONE);
-		ResourceState	GetResourceState(uint32_t subresource = 0) const;
-
 		Format GetFormat() const;
-		uint32_t GetWidth() const;
 
 	protected:
-		void setDevice(const Device& device);
-		Descriptor allocateSrvUavPool();
+		bool setDevice(const Device& device);
+		Descriptor allocateSrvUavHeap();
 
-		Device			m_device;
-
-		Resource		m_resource;
-		Format			m_format;
-		std::vector<DescriptorPool>	m_srvUavPools;
+		Format m_format;
+		std::vector<com_ptr<ID3D12DescriptorHeap>> m_srvUavHeaps;
 		std::vector<Descriptor> m_srvs;
-		std::vector<ResourceState> m_states;
-
-		std::wstring	m_name;
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -89,7 +105,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	class Texture2D_DX12 :
 		public virtual Texture2D,
-		public virtual ResourceBase_DX12
+		public virtual ShaderResource_DX12
 	{
 	public:
 		Texture2D_DX12();
@@ -99,10 +115,10 @@ namespace XUSG
 			uint32_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, MemoryType memoryType = MemoryType::DEFAULT,
 			bool isCubeMap = false, const wchar_t* name = nullptr);
-		bool Upload(CommandList* pCommandList, Resource& uploader,
+		bool Upload(CommandList* pCommandList, Resource::sptr& uploader,
 			const SubresourceData* pSubresourceData, uint32_t numSubresources = 1,
 			ResourceState dstState = ResourceState::COMMON, uint32_t firstSubresource = 0);
-		bool Upload(CommandList* pCommandList, Resource& uploader, const void* pData,
+		bool Upload(CommandList* pCommandList, Resource::sptr& uploader, const void* pData,
 			uint8_t stride = sizeof(float), ResourceState dstState = ResourceState::COMMON);
 		bool CreateSRVs(uint32_t arraySize, Format format = Format::UNKNOWN, uint8_t numMips = 1,
 			uint8_t sampleCount = 1, bool isCubeMap = false);
@@ -193,9 +209,9 @@ namespace XUSG
 			uint32_t arraySize, Format format, uint8_t numMips, uint8_t sampleCount,
 			ResourceFlag resourceFlags, const float* pClearColor, bool isCubeMap,
 			const wchar_t* name);
-		Descriptor allocateRtvPool();
+		Descriptor allocateRtvHeap();
 
-		std::vector<DescriptorPool>	m_rtvPools;
+		std::vector<com_ptr<ID3D12DescriptorHeap>> m_rtvHeaps;
 		std::vector<std::vector<Descriptor>> m_rtvs;
 	};
 
@@ -232,9 +248,9 @@ namespace XUSG
 			uint8_t numMips, uint8_t sampleCount, Format format, ResourceFlag resourceFlags,
 			float clearDepth, uint8_t clearStencil, bool& hasSRV, Format& formatStencil,
 			bool isCubeMap, const wchar_t* name);
-		Descriptor allocateDsvPool();
+		Descriptor allocateDsvHeap();
 
-		std::vector<DescriptorPool> m_dsvPools;
+		std::vector<com_ptr<ID3D12DescriptorHeap>> m_dsvHeaps;
 		std::vector<std::vector<Descriptor>> m_dsvs;
 		std::vector<std::vector<Descriptor>> m_readOnlyDsvs;
 		Descriptor	m_stencilSrv;
@@ -267,7 +283,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	class RawBuffer_DX12 :
 		public virtual RawBuffer,
-		public virtual ResourceBase_DX12
+		public virtual ShaderResource_DX12
 	{
 	public:
 		RawBuffer_DX12();
@@ -277,7 +293,7 @@ namespace XUSG
 			MemoryType memoryType = MemoryType::DEFAULT, uint32_t numSRVs = 1,
 			const uint32_t* firstSRVElements = nullptr, uint32_t numUAVs = 1,
 			const uint32_t* firstUAVElements = nullptr, const wchar_t* name = nullptr);
-		bool Upload(CommandList* pCommandList, Resource& uploader, const void* pData, size_t size,
+		bool Upload(CommandList* pCommandList, Resource::sptr& uploader, const void* pData, size_t size,
 			uint32_t descriptorIndex = 0, ResourceState dstState = ResourceState::COMMON);
 		bool CreateSRVs(size_t byteWidth, const uint32_t* firstElements = nullptr,
 			uint32_t numDescriptors = 1);
@@ -323,11 +339,11 @@ namespace XUSG
 			const uint32_t* firstElements = nullptr, uint32_t numDescriptors = 1,
 			const size_t* counterOffsetsInBytes = nullptr);
 
-		void SetCounter(const Resource& counter);
-		Resource& GetCounter();
+		void SetCounter(const Resource::sptr& counter);
+		Resource::sptr GetCounter() const;
 
 	protected:
-		Resource m_counter;
+		std::shared_ptr<Resource> m_counter;
 	};
 
 	//--------------------------------------------------------------------------------------

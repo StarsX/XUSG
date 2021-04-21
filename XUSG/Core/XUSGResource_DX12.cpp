@@ -50,13 +50,81 @@ Format MapToPackedFormat(Format& format)
 }
 
 //--------------------------------------------------------------------------------------
+// Resource base
+//--------------------------------------------------------------------------------------
+
+Resource_DX12::Resource_DX12() :
+	m_device(nullptr),
+	m_resource(nullptr),
+	m_states()
+{
+}
+
+Resource_DX12::~Resource_DX12()
+{
+}
+
+uint32_t Resource_DX12::SetBarrier(ResourceBarrier* pBarriers, ResourceState dstState,
+	uint32_t numBarriers, uint32_t subresource, BarrierFlag flags)
+{
+	const auto& state = m_states[subresource == BARRIER_ALL_SUBRESOURCES ? 0 : subresource];
+	if (state != dstState || dstState == ResourceState::UNORDERED_ACCESS)
+		pBarriers[numBarriers++] = Transition(dstState, subresource, flags);
+
+	return numBarriers;
+}
+
+ResourceBarrier Resource_DX12::Transition(ResourceState dstState,
+	uint32_t subresource, BarrierFlag flags)
+{
+	ResourceState srcState;
+	if (subresource == BARRIER_ALL_SUBRESOURCES)
+	{
+		srcState = m_states[0];
+		if (flags != BarrierFlag::BEGIN_ONLY)
+			for (auto& state : m_states) state = dstState;
+	}
+	else
+	{
+		srcState = m_states[subresource];
+		m_states[subresource] = flags == BarrierFlag::BEGIN_ONLY ? srcState : dstState;
+	}
+
+	return { this, srcState, dstState, subresource, flags };
+}
+
+ResourceState Resource_DX12::GetResourceState(uint32_t subresource) const
+{
+	return m_states[subresource];
+}
+
+void* Resource_DX12::GetHandle() const
+{
+	return m_resource.get();
+}
+
+uint32_t Resource_DX12::GetWidth() const
+{
+	return static_cast<uint32_t>(m_resource->GetDesc().Width);
+}
+
+com_ptr<ID3D12Resource>& Resource_DX12::GetResource()
+{
+	return m_resource;
+}
+
+D3D12_GPU_VIRTUAL_ADDRESS Resource_DX12::GetGPUVirtualAddress(int offset) const
+{
+	return m_resource->GetGPUVirtualAddress() + offset;
+}
+
+//--------------------------------------------------------------------------------------
 // Constant buffer
 //--------------------------------------------------------------------------------------
 
 ConstantBuffer_DX12::ConstantBuffer_DX12() :
-	m_device(nullptr),
-	m_resource(nullptr),
-	m_cbvPools(0),
+	Resource_DX12(),
+	m_cbvHeaps(0),
 	m_cbvs(0),
 	m_cbvOffsets(0),
 	m_pDataBegin(nullptr)
@@ -71,9 +139,9 @@ ConstantBuffer_DX12::~ConstantBuffer_DX12()
 bool ConstantBuffer_DX12::Create(const Device& device, size_t byteWidth, uint32_t numCBVs,
 	const size_t* offsets, MemoryType memoryType, const wchar_t* name)
 {
-	M_RETURN(!device, cerr, "The device is NULL.", false);
-	m_device = device;
-	m_cbvPools.clear();
+	m_device = static_cast<ID3D12Device*>(device.GetHandle());
+	M_RETURN(!m_device, cerr, "The device is NULL.", false);
+	m_cbvHeaps.clear();
 
 	// Instanced CBVs
 	vector<size_t> offsetList;
@@ -119,7 +187,7 @@ bool ConstantBuffer_DX12::Create(const Device& device, size_t byteWidth, uint32_
 			m_cbvOffsets[i] = offset;
 
 			// Create a constant buffer view
-			m_cbvs[i] = allocateCbvPool(name);
+			m_cbvs[i] = allocateCbvHeap(name);
 			m_device->CreateConstantBufferView(&desc, { m_cbvs[i] });
 		}
 	}
@@ -127,7 +195,7 @@ bool ConstantBuffer_DX12::Create(const Device& device, size_t byteWidth, uint32_
 	return true;
 }
 
-bool ConstantBuffer_DX12::Upload(CommandList* pCommandList, Resource& uploader, const void* pData,
+bool ConstantBuffer_DX12::Upload(CommandList* pCommandList, Resource::sptr& uploader, const void* pData,
 	size_t size, uint32_t cbvIndex, ResourceState srcState, ResourceState dstState)
 {
 	const auto offset = m_cbvOffsets.empty() ? 0 : m_cbvOffsets[cbvIndex];
@@ -136,33 +204,35 @@ bool ConstantBuffer_DX12::Upload(CommandList* pCommandList, Resource& uploader, 
 	subresourceData.RowPitch = static_cast<uint32_t>(size);
 	subresourceData.SlicePitch = static_cast<uint32_t>(m_resource->GetDesc().Width);
 	// Create the GPU upload buffer.
-	if (!uploader)
+	const auto uploaderDX12 = make_shared<Resource_DX12>();
+	uploader = uploaderDX12;
+	auto& uploaderResource = uploaderDX12->GetResource();
+	if (!uploaderResource)
 	{
 		const CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_UPLOAD);
 		const auto cbSize = static_cast<uint32_t>(size + offset);
 		const auto desc = CD3DX12_RESOURCE_DESC::Buffer(CalculateConstantBufferByteSize(cbSize));
 
 		V_RETURN(m_device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &desc,
-			D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&uploader)), clog, false);
+			D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&uploaderResource)), clog, false);
+		if (!m_name.empty()) uploaderResource->SetName((m_name + L".UploaderResource").c_str());
 	}
 
 	// Copy data to the intermediate upload heap and then schedule a copy 
 	// from the upload heap to the buffer.
 	if (srcState != ResourceState::COMMON)
 	{
-		const auto barrier = ResourceBarrier::Transition(m_resource.get(),
-			GetDX12ResourceStates(srcState), D3D12_RESOURCE_STATE_COPY_DEST);
+		const ResourceBarrier barrier = { this, srcState, dstState, BARRIER_ALL_SUBRESOURCES };
 		pCommandList->Barrier(1, &barrier);
 	}
 
 	const auto pGraphicsCommandList = dynamic_cast<CommandList_DX12*>(pCommandList)->GetGraphicsCommandList().get();
-	M_RETURN(UpdateSubresources(pGraphicsCommandList, m_resource.get(), uploader.get(), offset, 0, 1, &subresourceData) <= 0,
+	M_RETURN(UpdateSubresources(pGraphicsCommandList, m_resource.get(), uploaderResource.get(), offset, 0, 1, &subresourceData) <= 0,
 		clog, "Failed to upload the resource.", false);
 
 	if (dstState != ResourceState::COMMON)
 	{
-		const auto barrier = ResourceBarrier::Transition(m_resource.get(),
-			D3D12_RESOURCE_STATE_COPY_DEST, GetDX12ResourceStates(dstState));
+		const ResourceBarrier barrier = { this, ResourceState::COPY_DEST, dstState, BARRIER_ALL_SUBRESOURCES };
 		pCommandList->Barrier(1, &barrier);
 	}
 
@@ -191,11 +261,6 @@ void ConstantBuffer_DX12::Unmap()
 	}
 }
 
-const Resource& ConstantBuffer_DX12::GetResource() const
-{
-	return m_resource;
-}
-
 const Descriptor& ConstantBuffer_DX12::GetCBV(uint32_t index) const
 {
 	assert(m_cbvs.size() > index);
@@ -207,10 +272,10 @@ uint32_t ConstantBuffer_DX12::GetCBVOffset(uint32_t index) const
 	return static_cast<uint32_t>(m_cbvOffsets[index]);
 }
 
-Descriptor ConstantBuffer_DX12::allocateCbvPool(const wchar_t* name)
+Descriptor ConstantBuffer_DX12::allocateCbvHeap(const wchar_t* name)
 {
-	m_cbvPools.emplace_back();
-	auto& cbvPool = m_cbvPools.back();
+	m_cbvHeaps.emplace_back();
+	auto& cbvPool = m_cbvHeaps.back();
 
 	D3D12_DESCRIPTOR_HEAP_DESC desc = { D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1 };
 	V_RETURN(m_device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&cbvPool)), cerr, 0);
@@ -223,88 +288,42 @@ Descriptor ConstantBuffer_DX12::allocateCbvPool(const wchar_t* name)
 // Resource base
 //--------------------------------------------------------------------------------------
 
-ResourceBase_DX12::ResourceBase_DX12() :
-	m_device(nullptr),
-	m_resource(nullptr),
+ShaderResource_DX12::ShaderResource_DX12() :
+	Resource_DX12(),
 	m_format(Format::UNKNOWN),
-	m_srvUavPools(0),
-	m_srvs(0),
-	m_states()
+	m_srvUavHeaps(0),
+	m_srvs(0)
 {
 }
 
-ResourceBase_DX12::~ResourceBase_DX12()
+ShaderResource_DX12::~ShaderResource_DX12()
 {
 }
 
-uint32_t ResourceBase_DX12::SetBarrier(ResourceBarrier* pBarriers, ResourceState dstState,
-	uint32_t numBarriers, uint32_t subresource, BarrierFlag flags)
-{
-	const auto& state = m_states[subresource == BARRIER_ALL_SUBRESOURCES ? 0 : subresource];
-	if (state != dstState || dstState == ResourceState::UNORDERED_ACCESS)
-		pBarriers[numBarriers++] = Transition(dstState, subresource, flags);
-
-	return numBarriers;
-}
-
-const Resource& ResourceBase_DX12::GetResource() const
-{
-	return m_resource;
-}
-
-const Descriptor& ResourceBase_DX12::GetSRV(uint32_t index) const
+const Descriptor& ShaderResource_DX12::GetSRV(uint32_t index) const
 {
 	assert(m_srvs.size() > index);
 	return m_srvs[index];
 }
 
-ResourceBarrier ResourceBase_DX12::Transition(ResourceState dstState,
-	uint32_t subresource, BarrierFlag flags)
-{
-	ResourceState srcState;
-	if (subresource == BARRIER_ALL_SUBRESOURCES)
-	{
-		srcState = m_states[0];
-		if (flags != BarrierFlag::BEGIN_ONLY)
-			for (auto& state : m_states) state = dstState;
-	}
-	else
-	{
-		srcState = m_states[subresource];
-		m_states[subresource] = flags == BarrierFlag::BEGIN_ONLY ? srcState : dstState;
-	}
-
-	return srcState == dstState && dstState == ResourceState::UNORDERED_ACCESS ?
-		ResourceBarrier::UAV(m_resource.get()) :
-		ResourceBarrier::Transition(m_resource.get(), GetDX12ResourceStates(srcState),
-			GetDX12ResourceStates(dstState), subresource, GetDX12BarrierFlags(flags));
-}
-
-ResourceState ResourceBase_DX12::GetResourceState(uint32_t subresource) const
-{
-	return m_states[subresource];
-}
-
-Format ResourceBase_DX12::GetFormat() const
+Format ShaderResource_DX12::GetFormat() const
 {
 	return m_format;
 }
 
-uint32_t ResourceBase_DX12::GetWidth() const
+bool ShaderResource_DX12::setDevice(const Device& device)
 {
-	return static_cast<uint32_t>(m_resource->GetDesc().Width);
+	m_device = static_cast<ID3D12Device*>(device.GetHandle());
+	M_RETURN(!m_device, cerr, "The device is NULL.", false);
+	m_srvUavHeaps.clear();
+
+	return true;
 }
 
-void ResourceBase_DX12::setDevice(const Device& device)
+Descriptor ShaderResource_DX12::allocateSrvUavHeap()
 {
-	m_device = device;
-	m_srvUavPools.clear();
-}
-
-Descriptor ResourceBase_DX12::allocateSrvUavPool()
-{
-	m_srvUavPools.emplace_back();
-	auto& srvUavPool = m_srvUavPools.back();
+	m_srvUavHeaps.emplace_back();
+	auto& srvUavPool = m_srvUavHeaps.back();
 
 	D3D12_DESCRIPTOR_HEAP_DESC desc = { D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1 };
 	V_RETURN(m_device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&srvUavPool)), cerr, 0);
@@ -318,7 +337,7 @@ Descriptor ResourceBase_DX12::allocateSrvUavPool()
 //--------------------------------------------------------------------------------------
 
 Texture2D_DX12::Texture2D_DX12() :
-	ResourceBase_DX12(),
+	ShaderResource_DX12(),
 	m_uavs(0),
 	m_packedUavs(0),
 	m_srvLevels(0)
@@ -333,8 +352,7 @@ bool Texture2D_DX12::Create(const Device& device, uint32_t width, uint32_t heigh
 	uint32_t arraySize, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount,
 	MemoryType memoryType, bool isCubeMap, const wchar_t* name)
 {
-	M_RETURN(!device, cerr, "The device is NULL.", false);
-	setDevice(device);
+	N_RETURN(setDevice(device), false);
 
 	if (name) m_name = name;
 
@@ -388,14 +406,17 @@ bool Texture2D_DX12::Create(const Device& device, uint32_t width, uint32_t heigh
 	return true;
 }
 
-bool Texture2D_DX12::Upload(CommandList* pCommandList, Resource& uploader,
+bool Texture2D_DX12::Upload(CommandList* pCommandList, Resource::sptr& uploader,
 	const SubresourceData* pSubresourceData, uint32_t numSubresources,
 	ResourceState dstState, uint32_t firstSubresource)
 {
 	N_RETURN(pSubresourceData, false);
 
 	// Create the GPU upload buffer.
-	if (!uploader)
+	const auto uploaderDX12 = make_shared<Resource_DX12>();
+	uploader = uploaderDX12;
+	auto& uploaderResource = uploaderDX12->GetResource();
+	if (!uploaderResource)
 	{
 		const CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_UPLOAD);
 		const auto uploadBufferSize = GetRequiredIntermediateSize(m_resource.get(),
@@ -403,8 +424,8 @@ bool Texture2D_DX12::Upload(CommandList* pCommandList, Resource& uploader,
 		const auto desc = CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize);
 
 		V_RETURN(m_device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &desc,
-			D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&uploader)), clog, false);
-		if (!m_name.empty()) uploader->SetName((m_name + L".UploaderResource").c_str());
+			D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&uploaderResource)), clog, false);
+		if (!m_name.empty()) uploaderResource->SetName((m_name + L".UploaderResource").c_str());
 	}
 
 	// Copy data to the intermediate upload heap and then schedule a copy 
@@ -415,7 +436,7 @@ bool Texture2D_DX12::Upload(CommandList* pCommandList, Resource& uploader,
 	if (m_states[0] != ResourceState::COMMON || !decay) pCommandList->Barrier(numBarriers, &barrier);
 
 	const auto pGraphicsCommandList = dynamic_cast<CommandList_DX12*>(pCommandList)->GetGraphicsCommandList().get();
-	M_RETURN(UpdateSubresources(pGraphicsCommandList, m_resource.get(), uploader.get(), 0, firstSubresource,
+	M_RETURN(UpdateSubresources(pGraphicsCommandList, m_resource.get(), uploaderResource.get(), 0, firstSubresource,
 		numSubresources, reinterpret_cast<const D3D12_SUBRESOURCE_DATA*>(pSubresourceData)) <= 0,
 		clog, "Failed to upload the resource.", false);
 
@@ -425,7 +446,7 @@ bool Texture2D_DX12::Upload(CommandList* pCommandList, Resource& uploader,
 	return true;
 }
 
-bool Texture2D_DX12::Upload(CommandList* pCommandList, Resource& uploader,
+bool Texture2D_DX12::Upload(CommandList* pCommandList, Resource::sptr& uploader,
 	const void* pData, uint8_t stride, ResourceState dstState)
 {
 	const auto desc = m_resource->GetDesc();
@@ -496,7 +517,7 @@ bool Texture2D_DX12::CreateSRVs(uint32_t arraySize, Format format, uint8_t numMi
 		}
 
 		// Create a shader resource view
-		X_RETURN(descriptor, allocateSrvUavPool(), false);
+		X_RETURN(descriptor, allocateSrvUavHeap(), false);
 		m_device->CreateShaderResourceView(m_resource.get(), &desc, { descriptor });
 	}
 
@@ -551,7 +572,7 @@ bool Texture2D_DX12::CreateSRVLevels(uint32_t arraySize, uint8_t numMips, Format
 			}
 
 			// Create a shader resource view
-			X_RETURN(descriptor, allocateSrvUavPool(), false);
+			X_RETURN(descriptor, allocateSrvUavHeap(), false);
 			m_device->CreateShaderResourceView(m_resource.get(), &desc, { descriptor });
 		}
 	}
@@ -585,7 +606,7 @@ bool Texture2D_DX12::CreateUAVs(uint32_t arraySize, Format format, uint8_t numMi
 		}
 
 		// Create an unordered access view
-		X_RETURN(descriptor, allocateSrvUavPool(), false);
+		X_RETURN(descriptor, allocateSrvUavHeap(), false);
 		m_device->CreateUnorderedAccessView(m_resource.get(), nullptr, &desc, { descriptor });
 	}
 
@@ -595,7 +616,7 @@ bool Texture2D_DX12::CreateUAVs(uint32_t arraySize, Format format, uint8_t numMi
 uint32_t Texture2D_DX12::SetBarrier(ResourceBarrier* pBarriers, ResourceState dstState,
 	uint32_t numBarriers, uint32_t subresource, BarrierFlag flags)
 {
-	return ResourceBase_DX12::SetBarrier(pBarriers, dstState, numBarriers, subresource, flags);
+	return ShaderResource_DX12::SetBarrier(pBarriers, dstState, numBarriers, subresource, flags);
 }
 
 uint32_t Texture2D_DX12::SetBarrier(ResourceBarrier* pBarriers, uint8_t mipLevel, ResourceState dstState,
@@ -646,8 +667,7 @@ uint32_t Texture2D_DX12::Blit(const CommandList* pCommandList, ResourceBarrier* 
 		const auto subresource = D3D12CalcSubresource(mipLevel, j, 0, desc.MipLevels, desc.DepthOrArraySize);
 		if (m_states[subresource] != ResourceState::UNORDERED_ACCESS)
 		{
-			const auto& srcState = GetDX12ResourceStates(m_states[subresource]);
-			pBarriers[numBarriers++] = ResourceBarrier::Transition(m_resource.get(), srcState, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, subresource);
+			pBarriers[numBarriers++] = { this, m_states[subresource], ResourceState::UNORDERED_ACCESS, subresource };
 			m_states[subresource] = ResourceState::UNORDERED_ACCESS;
 		}
 		numBarriers = SetBarrier(pBarriers, srcMipLevel, srcState, numBarriers, j);
@@ -692,8 +712,7 @@ uint32_t Texture2D_DX12::GenerateMips(const CommandList* pCommandList, ResourceB
 			auto subresource = D3D12CalcSubresource(j, n, 0, desc.MipLevels, desc.DepthOrArraySize);
 			if (m_states[subresource] != ResourceState::UNORDERED_ACCESS)
 			{
-				const auto& srcState = GetDX12ResourceStates(m_states[subresource]);
-				pBarriers[numBarriers++] = ResourceBarrier::Transition(m_resource.get(), srcState, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, subresource);
+				pBarriers[numBarriers++] = { this, m_states[subresource], ResourceState::UNORDERED_ACCESS, subresource };
 				m_states[subresource] = ResourceState::UNORDERED_ACCESS;
 			}
 
@@ -755,7 +774,7 @@ uint8_t Texture2D_DX12::GetNumMips() const
 
 RenderTarget_DX12::RenderTarget_DX12() :
 	Texture2D_DX12(),
-	m_rtvPools(0),
+	m_rtvHeaps(0),
 	m_rtvs(0)
 {
 }
@@ -813,7 +832,7 @@ bool RenderTarget_DX12::Create(const Device& device, uint32_t width, uint32_t he
 			}
 
 			// Create a render target view
-			X_RETURN(descriptor, allocateRtvPool(), false);
+			X_RETURN(descriptor, allocateRtvHeap(), false);
 			m_device->CreateRenderTargetView(m_resource.get(), &desc, { descriptor });
 		}
 	}
@@ -853,7 +872,7 @@ bool RenderTarget_DX12::CreateArray(const Device& device, uint32_t width, uint32
 		}
 
 		// Create a render target view
-		X_RETURN(descriptor, allocateRtvPool(), false);
+		X_RETURN(descriptor, allocateRtvHeap(), false);
 		m_device->CreateRenderTargetView(m_resource.get(), &desc, { descriptor });
 	}
 
@@ -862,9 +881,8 @@ bool RenderTarget_DX12::CreateArray(const Device& device, uint32_t width, uint32
 
 bool RenderTarget_DX12::CreateFromSwapChain(const Device& device, const SwapChain& swapChain, uint32_t bufferIndex)
 {
-	M_RETURN(!device, cerr, "The device is NULL.", false);
-	setDevice(device);
-	m_rtvPools.clear();
+	N_RETURN(setDevice(device), false);
+	m_rtvHeaps.clear();
 
 	m_name = L"SwapChain[" + to_wstring(bufferIndex) + L"]";
 
@@ -873,12 +891,12 @@ bool RenderTarget_DX12::CreateFromSwapChain(const Device& device, const SwapChai
 	m_states[0] = ResourceState::PRESENT;
 
 	// Get resource
-	V_RETURN(swapChain->GetBuffer(bufferIndex, IID_PPV_ARGS(&m_resource)), cerr, false);
+	N_RETURN(swapChain.GetBuffer(bufferIndex, *this), false);
 
 	// Create RTV
 	m_rtvs.resize(1);
 	m_rtvs[0].resize(1);
-	m_rtvs[0][0] = allocateRtvPool();
+	m_rtvs[0][0] = allocateRtvHeap();
 	N_RETURN(m_rtvs[0][0], false);
 	m_device->CreateRenderTargetView(m_resource.get(), nullptr, { m_rtvs[0][0] });
 
@@ -924,7 +942,13 @@ void RenderTarget_DX12::Blit(const CommandList* pCommandList, const DescriptorTa
 	// Draw quads
 	if (numSlices == 0) numSlices = desc.DepthOrArraySize - baseSlice;
 	pCommandList->IASetPrimitiveTopology(PrimitiveTopology::TRIANGLELIST);
-	for (auto i = 0u; i < numSlices; ++i)
+	if (numSlices == 1)
+	{
+		// Set render target
+		pCommandList->OMSetRenderTargets(1, &GetRTV(baseSlice, mipLevel));
+		pCommandList->Draw(3, 1, 0, 0);
+	}
+	else for (auto i = 0u; i < numSlices; ++i)
 	{
 		// Set render target
 		pCommandList->OMSetRenderTargets(1, &GetRTV(baseSlice + i, mipLevel));
@@ -1020,9 +1044,8 @@ bool RenderTarget_DX12::create(const Device& device, uint32_t width, uint32_t he
 	ResourceFlag resourceFlags, const float* pClearColor, bool isCubeMap,
 	const wchar_t* name)
 {
-	M_RETURN(!device, cerr, "The device is NULL.", false);
-	setDevice(device);
-	m_rtvPools.clear();
+	N_RETURN(setDevice(device), false);
+	m_rtvHeaps.clear();
 
 	if (name) m_name = name;
 
@@ -1070,10 +1093,10 @@ bool RenderTarget_DX12::create(const Device& device, uint32_t width, uint32_t he
 	return true;
 }
 
-Descriptor RenderTarget_DX12::allocateRtvPool()
+Descriptor RenderTarget_DX12::allocateRtvHeap()
 {
-	m_rtvPools.emplace_back();
-	auto& rtvPool = m_rtvPools.back();
+	m_rtvHeaps.emplace_back();
+	auto& rtvPool = m_rtvHeaps.back();
 
 	D3D12_DESCRIPTOR_HEAP_DESC desc = { D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1 };
 	V_RETURN(m_device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&rtvPool)), cerr, 0);
@@ -1088,7 +1111,7 @@ Descriptor RenderTarget_DX12::allocateRtvPool()
 
 DepthStencil_DX12::DepthStencil_DX12() :
 	Texture2D_DX12(),
-	m_dsvPools(),
+	m_dsvHeaps(),
 	m_dsvs(0),
 	m_readOnlyDsvs(0),
 	m_stencilSrv(0)
@@ -1156,7 +1179,7 @@ bool DepthStencil_DX12::Create(const Device& device, uint32_t width, uint32_t he
 			}
 
 			// Create a depth stencil view
-			dsv = allocateDsvPool();
+			dsv = allocateDsvHeap();
 			N_RETURN(dsv, false);
 			m_device->CreateDepthStencilView(m_resource.get(), &desc, { dsv });
 
@@ -1168,7 +1191,7 @@ bool DepthStencil_DX12::Create(const Device& device, uint32_t width, uint32_t he
 					D3D12_DSV_FLAG_READ_ONLY_STENCIL : D3D12_DSV_FLAG_READ_ONLY_DEPTH;
 
 				// Create a depth stencil view
-				readOnlyDsv = allocateDsvPool();
+				readOnlyDsv = allocateDsvHeap();
 				N_RETURN(readOnlyDsv, false);
 				m_device->CreateDepthStencilView(m_resource.get(), &desc, { readOnlyDsv });
 			}
@@ -1230,7 +1253,7 @@ bool DepthStencil_DX12::CreateArray(const Device& device, uint32_t width, uint32
 		}
 
 		// Create a depth stencil view
-		dsv = allocateDsvPool();
+		dsv = allocateDsvHeap();
 		N_RETURN(dsv, false);
 		m_device->CreateDepthStencilView(m_resource.get(), &desc, { dsv });
 
@@ -1242,7 +1265,7 @@ bool DepthStencil_DX12::CreateArray(const Device& device, uint32_t width, uint32
 				D3D12_DSV_FLAG_READ_ONLY_STENCIL : D3D12_DSV_FLAG_READ_ONLY_DEPTH;
 
 			// Create a depth stencil view
-			readOnlyDsv = allocateDsvPool();
+			readOnlyDsv = allocateDsvHeap();
 			N_RETURN(readOnlyDsv, false);
 			m_device->CreateDepthStencilView(m_resource.get(), &desc, { readOnlyDsv });
 		}
@@ -1283,9 +1306,8 @@ bool DepthStencil_DX12::create(const Device& device, uint32_t width, uint32_t he
 	uint8_t numMips, uint8_t sampleCount, Format format, ResourceFlag resourceFlags, float clearDepth,
 	uint8_t clearStencil, bool& hasSRV, Format& formatStencil, bool isCubeMap, const wchar_t* name)
 {
-	M_RETURN(!device, cerr, "The device is NULL.", false);
-	setDevice(device);
-	m_dsvPools.clear();
+	N_RETURN(setDevice(device), false);
+	m_dsvHeaps.clear();
 
 	if (name) m_name = name;
 
@@ -1403,7 +1425,7 @@ bool DepthStencil_DX12::create(const Device& device, uint32_t width, uint32_t he
 			}
 
 			// Create a shader resource view
-			m_stencilSrv = allocateSrvUavPool();
+			m_stencilSrv = allocateSrvUavHeap();
 			N_RETURN(m_stencilSrv, false);
 			m_device->CreateShaderResourceView(m_resource.get(), &desc, { m_stencilSrv });
 		}
@@ -1412,10 +1434,10 @@ bool DepthStencil_DX12::create(const Device& device, uint32_t width, uint32_t he
 	return true;
 }
 
-Descriptor DepthStencil_DX12::allocateDsvPool()
+Descriptor DepthStencil_DX12::allocateDsvHeap()
 {
-	m_dsvPools.emplace_back();
-	auto& dsvPool = m_dsvPools.back();
+	m_dsvHeaps.emplace_back();
+	auto& dsvPool = m_dsvHeaps.back();
 
 	D3D12_DESCRIPTOR_HEAP_DESC desc = { D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1 };
 	V_RETURN(m_device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&dsvPool)), cerr, 0);
@@ -1441,8 +1463,7 @@ bool Texture3D_DX12::Create(const Device& device, uint32_t width, uint32_t heigh
 	uint32_t depth, Format format, ResourceFlag resourceFlags, uint8_t numMips,
 	MemoryType memoryType, const wchar_t* name)
 {
-	M_RETURN(!device, cerr, "The device is NULL.", false);
-	setDevice(device);
+	N_RETURN(setDevice(device), false);
 
 	if (name) m_name = name;
 
@@ -1514,7 +1535,7 @@ bool Texture3D_DX12::CreateSRVs(Format format, uint8_t numMips)
 		desc.Texture3D.MostDetailedMip = mipLevel++;
 
 		// Create a shader resource view
-		X_RETURN(descriptor, allocateSrvUavPool(), false);
+		X_RETURN(descriptor, allocateSrvUavHeap(), false);
 		m_device->CreateShaderResourceView(m_resource.get(), &desc, { descriptor });
 	}
 
@@ -1540,7 +1561,7 @@ bool Texture3D_DX12::CreateSRVLevels(uint8_t numMips, Format format)
 			desc.Texture3D.MipLevels = 1;
 
 			// Create a shader resource view
-			X_RETURN(descriptor, allocateSrvUavPool(), false);
+			X_RETURN(descriptor, allocateSrvUavHeap(), false);
 			m_device->CreateShaderResourceView(m_resource.get(), &desc, { descriptor });
 		}
 	}
@@ -1568,7 +1589,7 @@ bool Texture3D_DX12::CreateUAVs(Format format, uint8_t numMips, vector<Descripto
 		desc.Texture3D.MipSlice = mipLevel++;
 
 		// Create an unordered access view
-		X_RETURN(descriptor, allocateSrvUavPool(), false);
+		X_RETURN(descriptor, allocateSrvUavHeap(), false);
 		m_device->CreateUnorderedAccessView(m_resource.get(), nullptr, &desc, { descriptor });
 	}
 
@@ -1585,7 +1606,7 @@ uint32_t Texture3D_DX12::GetDepth() const
 //--------------------------------------------------------------------------------------
 
 RawBuffer_DX12::RawBuffer_DX12() :
-	ResourceBase_DX12(),
+	ShaderResource_DX12(),
 	m_uavs(0),
 	m_srvOffsets(0),
 	m_pDataBegin(nullptr)
@@ -1619,7 +1640,7 @@ bool RawBuffer_DX12::Create(const Device& device, size_t byteWidth, ResourceFlag
 	return true;
 }
 
-bool RawBuffer_DX12::Upload(CommandList* pCommandList, Resource& uploader, const void* pData,
+bool RawBuffer_DX12::Upload(CommandList* pCommandList, Resource::sptr& uploader, const void* pData,
 	size_t size, uint32_t descriptorIndex, ResourceState dstState)
 {
 	const auto offset = m_srvOffsets.empty() ? 0 : m_srvOffsets[descriptorIndex];
@@ -1629,14 +1650,17 @@ bool RawBuffer_DX12::Upload(CommandList* pCommandList, Resource& uploader, const
 	subresourceData.SlicePitch = static_cast<uint32_t>(m_resource->GetDesc().Width);
 
 	// Create the GPU upload buffer.
-	if (!uploader)
+	const auto uploaderDX12 = make_shared<Resource_DX12>();
+	uploader = uploaderDX12;
+	auto& uploaderResource = uploaderDX12->GetResource();
+	if (!uploaderResource)
 	{
 		const CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_UPLOAD);
 		const auto desc = CD3DX12_RESOURCE_DESC::Buffer(offset + size);
 
 		V_RETURN(m_device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &desc,
-			D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&uploader)), clog, false);
-		if (!m_name.empty()) uploader->SetName((m_name + L".UploaderResource").c_str());
+			D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&uploaderResource)), clog, false);
+		if (!m_name.empty()) uploaderResource->SetName((m_name + L".UploaderResource").c_str());
 	}
 
 	// Copy data to the intermediate upload heap and then schedule a copy 
@@ -1646,7 +1670,7 @@ bool RawBuffer_DX12::Upload(CommandList* pCommandList, Resource& uploader, const
 	if (m_states[0] != ResourceState::COMMON) pCommandList->Barrier(numBarriers, &barrier);
 
 	const auto pGraphicsCommandList = dynamic_cast<CommandList_DX12*>(pCommandList)->GetGraphicsCommandList().get();
-	M_RETURN(UpdateSubresources(pGraphicsCommandList, m_resource.get(), uploader.get(), offset, 0, 1, &subresourceData) <= 0,
+	M_RETURN(UpdateSubresources(pGraphicsCommandList, m_resource.get(), uploaderResource.get(), offset, 0, 1, &subresourceData) <= 0,
 		clog, "Failed to upload the resource.", false);
 
 	numBarriers = SetBarrier(&barrier, dstState);
@@ -1677,7 +1701,7 @@ bool RawBuffer_DX12::CreateSRVs(size_t byteWidth, const uint32_t* firstElements,
 		desc.Buffer.FirstElement += m_srvOffsets[0];
 
 		// Create a shader resource view
-		m_srvs[0] = allocateSrvUavPool();
+		m_srvs[0] = allocateSrvUavHeap();
 		N_RETURN(m_srvs[0], false);
 		m_device->CreateShaderResourceView(nullptr, &desc, { m_srvs[0] });
 	}
@@ -1702,7 +1726,7 @@ bool RawBuffer_DX12::CreateSRVs(size_t byteWidth, const uint32_t* firstElements,
 			m_srvOffsets[i] = stride * firstElement;
 
 			// Create a shader resource view
-			m_srvs[i] = allocateSrvUavPool();
+			m_srvs[i] = allocateSrvUavHeap();
 			N_RETURN(m_srvs[i], false);
 			m_device->CreateShaderResourceView(m_resource.get(), &desc, { m_srvs[i] });
 		}
@@ -1730,7 +1754,7 @@ bool RawBuffer_DX12::CreateUAVs(size_t byteWidth, const uint32_t* firstElements,
 			numElements : firstElements[i + 1]) - firstElement;
 
 		// Create an unordered access view
-		m_uavs[i] = allocateSrvUavPool();
+		m_uavs[i] = allocateSrvUavHeap();
 		N_RETURN(m_uavs[i], false);
 		m_device->CreateUnorderedAccessView(m_resource.get(), nullptr, &desc, { m_uavs[i] });
 	}
@@ -1774,8 +1798,7 @@ void RawBuffer_DX12::Unmap()
 bool RawBuffer_DX12::create(const Device& device, size_t byteWidth, ResourceFlag resourceFlags,
 	MemoryType memoryType, uint32_t numSRVs, uint32_t numUAVs, const wchar_t* name)
 {
-	M_RETURN(!device, cerr, "The device is NULL.", false);
-	setDevice(device);
+	N_RETURN(setDevice(device), false);
 
 	if (name) m_name = name;
 
@@ -1868,7 +1891,7 @@ bool StructuredBuffer_DX12::CreateSRVs(uint32_t numElements, uint32_t stride,
 		m_srvOffsets[i] = stride * firstElement;
 
 		// Create a shader resource view
-		m_srvs[i] = allocateSrvUavPool();
+		m_srvs[i] = allocateSrvUavHeap();
 		N_RETURN(m_srvs[i], false);
 		m_device->CreateShaderResourceView(m_resource.get(), &desc, { m_srvs[i] });
 	}
@@ -1895,20 +1918,21 @@ bool StructuredBuffer_DX12::CreateUAVs(uint32_t numElements, uint32_t stride,
 		desc.Buffer.CounterOffsetInBytes = counterOffsetsInBytes ? counterOffsetsInBytes[i] : 0;
 
 		// Create an unordered access view
-		m_uavs[i] = allocateSrvUavPool();
+		m_uavs[i] = allocateSrvUavHeap();
 		N_RETURN(m_uavs[i], false);
-		m_device->CreateUnorderedAccessView(m_resource.get(), m_counter.get(), &desc, { m_uavs[i] });
+		const auto counterResource = m_counter ? static_cast<ID3D12Resource*>(m_counter->GetHandle()) : nullptr;
+		m_device->CreateUnorderedAccessView(m_resource.get(), counterResource, &desc, { m_uavs[i] });
 	}
 
 	return true;
 }
 
-void StructuredBuffer_DX12::SetCounter(const Resource& counter)
+void StructuredBuffer_DX12::SetCounter(const Resource::sptr& counter)
 {
 	m_counter = counter;
 }
 
-Resource& StructuredBuffer_DX12::GetCounter()
+Resource::sptr StructuredBuffer_DX12::GetCounter() const
 {
 	return m_counter;
 }
@@ -1980,7 +2004,7 @@ bool TypedBuffer_DX12::CreateSRVs(uint32_t numElements, Format format, uint32_t 
 		m_srvOffsets[i] = stride * firstElement;
 
 		// Create a shader resource view
-		m_srvs[i] = allocateSrvUavPool();
+		m_srvs[i] = allocateSrvUavHeap();
 		N_RETURN(m_srvs[i], false);
 		m_device->CreateShaderResourceView(m_resource.get(), &desc, { m_srvs[i] });
 	}
@@ -2005,7 +2029,7 @@ bool TypedBuffer_DX12::CreateUAVs(uint32_t numElements, Format format, uint32_t 
 			numElements : firstElements[i + 1]) - firstElement;
 
 		// Create an unordered access view
-		pUavs->at(i) = allocateSrvUavPool();
+		pUavs->at(i) = allocateSrvUavHeap();
 		N_RETURN(pUavs->at(i), false);
 		m_device->CreateUnorderedAccessView(m_resource.get(), nullptr, &desc, { pUavs->at(i) });
 	}
@@ -2126,7 +2150,7 @@ bool IndexBuffer_DX12::Create(const Device& device, size_t byteWidth, Format for
 		m_ibvs[i].BufferLocation = m_resource->GetGPUVirtualAddress() + offset;
 		m_ibvs[i].SizeInBytes = static_cast<uint32_t>((!offsets || i + 1 >= numIBVs ?
 			byteWidth : offsets[i + 1]) - offset);
-		m_ibvs[i].Format = GetDXGIFormat(format);
+		m_ibvs[i].ViewFormat = format;
 	}
 
 	return true;

@@ -9,7 +9,7 @@ using namespace XUSG;
 
 Sampler DescriptorTableCache_DX12::SamplerPointWrap()
 {
-	const auto sampler = make_shared<D3D12_SAMPLER_DESC>();
+	const auto sampler = make_shared<SamplerDesc>();
 	sampler->Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
 	sampler->AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
 	sampler->AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
@@ -23,7 +23,7 @@ Sampler DescriptorTableCache_DX12::SamplerPointWrap()
 
 Sampler DescriptorTableCache_DX12::SamplerPointMirror()
 {
-	const auto sampler = make_shared<D3D12_SAMPLER_DESC>();
+	const auto sampler = make_shared<SamplerDesc>();
 	sampler->Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
 	sampler->AddressU = D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
 	sampler->AddressV = D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
@@ -37,7 +37,7 @@ Sampler DescriptorTableCache_DX12::SamplerPointMirror()
 
 Sampler DescriptorTableCache_DX12::SamplerPointClamp()
 {
-	const auto sampler = make_shared<D3D12_SAMPLER_DESC>();
+	const auto sampler = make_shared<SamplerDesc>();
 	sampler->Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
 	sampler->AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
 	sampler->AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
@@ -51,7 +51,7 @@ Sampler DescriptorTableCache_DX12::SamplerPointClamp()
 
 Sampler DescriptorTableCache_DX12::SamplerPointBorder()
 {
-	const auto sampler = make_shared<D3D12_SAMPLER_DESC>();
+	const auto sampler = make_shared<SamplerDesc>();
 	sampler->Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
 	sampler->AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
 	sampler->AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
@@ -65,7 +65,7 @@ Sampler DescriptorTableCache_DX12::SamplerPointBorder()
 
 Sampler DescriptorTableCache_DX12::SamplerPointLessEqual()
 {
-	const auto sampler = make_shared<D3D12_SAMPLER_DESC>();
+	const auto sampler = make_shared<SamplerDesc>();
 	sampler->Filter = D3D12_FILTER_COMPARISON_MIN_MAG_MIP_POINT;
 	sampler->AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
 	sampler->AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
@@ -83,7 +83,7 @@ Sampler DescriptorTableCache_DX12::SamplerPointLessEqual()
 
 Sampler DescriptorTableCache_DX12::SamplerLinearWrap()
 {
-	const auto sampler = make_shared<D3D12_SAMPLER_DESC>();
+	const auto sampler = make_shared<SamplerDesc>();
 	sampler->Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
 	sampler->AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
 	sampler->AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
@@ -97,7 +97,7 @@ Sampler DescriptorTableCache_DX12::SamplerLinearWrap()
 
 Sampler DescriptorTableCache_DX12::SamplerLinearMirror()
 {
-	const auto sampler = make_shared<D3D12_SAMPLER_DESC>();
+	const auto sampler = make_shared<SamplerDesc>();
 	sampler->Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
 	sampler->AddressU = D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
 	sampler->AddressV = D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
@@ -111,7 +111,7 @@ Sampler DescriptorTableCache_DX12::SamplerLinearMirror()
 
 Sampler DescriptorTableCache_DX12::SamplerLinearClamp()
 {
-	const auto sampler = make_shared<D3D12_SAMPLER_DESC>();
+	const auto sampler = make_shared<SamplerDesc>();
 	sampler->Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
 	sampler->AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
 	sampler->AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
@@ -125,7 +125,7 @@ Sampler DescriptorTableCache_DX12::SamplerLinearClamp()
 
 Sampler DescriptorTableCache_DX12::SamplerLinearBorder()
 {
-	const auto sampler = make_shared<D3D12_SAMPLER_DESC>();
+	const auto sampler = make_shared<SamplerDesc>();
 	sampler->Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
 	sampler->AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
 	sampler->AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
@@ -139,7 +139,7 @@ Sampler DescriptorTableCache_DX12::SamplerLinearBorder()
 
 Sampler DescriptorTableCache_DX12::SamplerLinearLessEqual()
 {
-	const auto sampler = make_shared<D3D12_SAMPLER_DESC>();
+	const auto sampler = make_shared<SamplerDesc>();
 	sampler->Filter = D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT;
 	sampler->AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
 	sampler->AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
@@ -157,7 +157,7 @@ Sampler DescriptorTableCache_DX12::SamplerLinearLessEqual()
 
 Sampler DescriptorTableCache_DX12::SamplerAnisotropicWrap()
 {
-	const auto sampler = make_shared<D3D12_SAMPLER_DESC>();
+	const auto sampler = make_shared<SamplerDesc>();
 	sampler->Filter = D3D12_FILTER_ANISOTROPIC;
 	sampler->AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
 	sampler->AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
@@ -172,7 +172,7 @@ Sampler DescriptorTableCache_DX12::SamplerAnisotropicWrap()
 
 Sampler DescriptorTableCache_DX12::SamplerAnisotropicMirror()
 {
-	const auto sampler = make_shared<D3D12_SAMPLER_DESC>();
+	const auto sampler = make_shared<SamplerDesc>();
 	sampler->Filter = D3D12_FILTER_ANISOTROPIC;
 	sampler->AddressU = D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
 	sampler->AddressV = D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
@@ -187,7 +187,7 @@ Sampler DescriptorTableCache_DX12::SamplerAnisotropicMirror()
 
 Sampler DescriptorTableCache_DX12::SamplerAnisotropicClamp()
 {
-	const auto sampler = make_shared<D3D12_SAMPLER_DESC>();
+	const auto sampler = make_shared<SamplerDesc>();
 	sampler->Filter = D3D12_FILTER_ANISOTROPIC;
 	sampler->AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
 	sampler->AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
@@ -202,7 +202,7 @@ Sampler DescriptorTableCache_DX12::SamplerAnisotropicClamp()
 
 Sampler DescriptorTableCache_DX12::SamplerAnisotropicBorder()
 {
-	const auto sampler = make_shared<D3D12_SAMPLER_DESC>();
+	const auto sampler = make_shared<SamplerDesc>();
 	sampler->Filter = D3D12_FILTER_ANISOTROPIC;
 	sampler->AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
 	sampler->AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
@@ -217,7 +217,7 @@ Sampler DescriptorTableCache_DX12::SamplerAnisotropicBorder()
 
 Sampler DescriptorTableCache_DX12::SamplerAnisotropicLessEqual()
 {
-	const auto sampler = make_shared<D3D12_SAMPLER_DESC>();
+	const auto sampler = make_shared<SamplerDesc>();
 	sampler->Filter = D3D12_FILTER_COMPARISON_ANISOTROPIC;
 	sampler->AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
 	sampler->AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;

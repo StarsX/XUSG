@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "XUSG.h"
+#include "XUSG_DX12.h"
 
 namespace XUSG
 {

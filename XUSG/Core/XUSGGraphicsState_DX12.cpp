@@ -12,9 +12,9 @@ using namespace Graphics;
 State_DX12::State_DX12()
 {
 	// Default state
-	m_key.resize(sizeof(Key));
-	m_pKey = reinterpret_cast<Key*>(&m_key[0]);
-	memset(m_pKey, 0, sizeof(Key));
+	m_key.resize(sizeof(PipelineDesc));
+	m_pKey = reinterpret_cast<PipelineDesc*>(&m_key[0]);
+	memset(m_pKey, 0, sizeof(PipelineDesc));
 	m_pKey->SampleMask = UINT32_MAX;
 	m_pKey->PrimTopologyType = PrimitiveTopologyType::TRIANGLE;
 	m_pKey->SampleCount = 1;
@@ -26,12 +26,12 @@ State_DX12::~State_DX12()
 
 void State_DX12::SetPipelineLayout(const PipelineLayout& layout)
 {
-	m_pKey->PipelineLayout = layout.get();
+	m_pKey->PipelineLayout = layout;
 }
 
-void State_DX12::SetShader(Shader::Stage stage, Blob shader)
+void State_DX12::SetShader(Shader::Stage stage, const Blob& shader)
 {
-	m_pKey->Shaders[stage] = shader.get();
+	m_pKey->Shaders[stage] = shader;
 }
 
 void State_DX12::SetCachedPipeline(const void* pCachedBlob, size_t size)
@@ -188,12 +188,13 @@ PipelineCache_DX12::~PipelineCache_DX12()
 
 void PipelineCache_DX12::SetDevice(const Device& device)
 {
-	m_device = device;
+	m_device = static_cast<ID3D12Device*>(device.GetHandle());
+	assert(m_device);
 }
 
 void PipelineCache_DX12::SetPipeline(const string& key, const Pipeline& pipeline)
 {
-	m_pipelines[key] = pipeline;
+	m_pipelines[key] = static_cast<ID3D12PipelineState*>(pipeline);
 }
 
 void PipelineCache_DX12::SetInputLayout(uint32_t index, const InputElement* pElements, uint32_t numElements)
@@ -213,7 +214,7 @@ const InputLayout* PipelineCache_DX12::CreateInputLayout(const InputElement* pEl
 
 Pipeline PipelineCache_DX12::CreatePipeline(const State& state, const wchar_t* name)
 {
-	return createPipeline(reinterpret_cast<const Key*>(state.GetKey().data()), name);
+	return createPipeline(state.GetKey(), name);
 }
 
 Pipeline PipelineCache_DX12::GetPipeline(const State& state, const wchar_t* name)
@@ -245,26 +246,27 @@ const Graphics::DepthStencil* PipelineCache_DX12::GetDepthStencil(DepthStencilPr
 	return m_depthStencils[preset].get();
 }
 
-Pipeline PipelineCache_DX12::createPipeline(const Key* pKey, const wchar_t* name)
+Pipeline PipelineCache_DX12::createPipeline(const std::string& key, const wchar_t* name)
 {
 	// Fill desc
+	const auto pDesc = reinterpret_cast<const PipelineDesc*>(key.data());
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC desc = {};
-	if (pKey->PipelineLayout)
-		desc.pRootSignature = static_cast<decltype(desc.pRootSignature)>(pKey->PipelineLayout);
+	if (pDesc->PipelineLayout)
+		desc.pRootSignature = static_cast<ID3D12RootSignature*>(pDesc->PipelineLayout);
 
-	if (pKey->Shaders[Shader::Stage::VS])
-		desc.VS = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pKey->Shaders[Shader::Stage::VS]));
-	if (pKey->Shaders[Shader::Stage::PS])
-		desc.PS = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pKey->Shaders[Shader::Stage::PS]));
-	if (pKey->Shaders[Shader::Stage::DS])
-		desc.DS = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pKey->Shaders[Shader::Stage::DS]));
-	if (pKey->Shaders[Shader::Stage::HS])
-		desc.HS = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pKey->Shaders[Shader::Stage::HS]));
-	if (pKey->Shaders[Shader::Stage::GS])
-		desc.GS = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pKey->Shaders[Shader::Stage::GS]));
+	if (pDesc->Shaders[Shader::Stage::VS])
+		desc.VS = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pDesc->Shaders[Shader::Stage::VS]));
+	if (pDesc->Shaders[Shader::Stage::PS])
+		desc.PS = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pDesc->Shaders[Shader::Stage::PS]));
+	if (pDesc->Shaders[Shader::Stage::DS])
+		desc.DS = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pDesc->Shaders[Shader::Stage::DS]));
+	if (pDesc->Shaders[Shader::Stage::HS])
+		desc.HS = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pDesc->Shaders[Shader::Stage::HS]));
+	if (pDesc->Shaders[Shader::Stage::GS])
+		desc.GS = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pDesc->Shaders[Shader::Stage::GS]));
 
 	// Blend state
-	const auto pBlend = pKey->pBlend ? pKey->pBlend : GetBlend(BlendPreset::DEFAULT_OPAQUE);
+	const auto pBlend = pDesc->pBlend ? pDesc->pBlend : GetBlend(BlendPreset::DEFAULT_OPAQUE);
 	desc.BlendState.AlphaToCoverageEnable = pBlend->AlphaToCoverageEnable ? TRUE : FALSE;
 	desc.BlendState.IndependentBlendEnable = pBlend->IndependentBlendEnable ? TRUE : FALSE;
 	for (uint8_t i = 0; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
@@ -282,10 +284,10 @@ Pipeline PipelineCache_DX12::createPipeline(const Key* pKey, const wchar_t* name
 		dst.LogicOp = GetDX12LogicOp(src.LogicOp);
 		dst.RenderTargetWriteMask = GetDX12ColorWrite(src.WriteMask);
 	}
-	desc.SampleMask = pKey->SampleMask;
+	desc.SampleMask = pDesc->SampleMask;
 
 	// Rasterizer state
-	const auto pRasterizer = pKey->pRasterizer ? pKey->pRasterizer : GetRasterizer(RasterizerPreset::CULL_BACK);
+	const auto pRasterizer = pDesc->pRasterizer ? pDesc->pRasterizer : GetRasterizer(RasterizerPreset::CULL_BACK);
 	desc.RasterizerState.FillMode = GetDX12FillMode(pRasterizer->Fill);
 	desc.RasterizerState.CullMode = GetDX12CullMode(pRasterizer->Cull);
 	desc.RasterizerState.FrontCounterClockwise = pRasterizer->FrontCounterClockwise;
@@ -299,7 +301,7 @@ Pipeline PipelineCache_DX12::createPipeline(const Key* pKey, const wchar_t* name
 	desc.RasterizerState.ConservativeRaster = pRasterizer->ConservativeRaster ? D3D12_CONSERVATIVE_RASTERIZATION_MODE_ON : D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
 
 	// Depth-stencil state
-	const auto pDepthStencil = pKey->pDepthStencil ? pKey->pDepthStencil : GetDepthStencil(DepthStencilPreset::DEFAULT_LESS);
+	const auto pDepthStencil = pDesc->pDepthStencil ? pDesc->pDepthStencil : GetDepthStencil(DepthStencilPreset::DEFAULT_LESS);
 	desc.DepthStencilState.DepthEnable = pDepthStencil->DepthEnable ? TRUE : FALSE;
 	desc.DepthStencilState.DepthWriteMask = pDepthStencil->DepthWriteMask ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
 	desc.DepthStencilState.DepthFunc = GetDX12ComparisonFunc(pDepthStencil->DepthFunc);
@@ -317,14 +319,14 @@ Pipeline PipelineCache_DX12::createPipeline(const Key* pKey, const wchar_t* name
 
 	// Input layout
 	vector<D3D12_INPUT_ELEMENT_DESC> inputElements;
-	if (pKey->pInputLayout)
+	if (pDesc->pInputLayout)
 	{
-		desc.InputLayout.NumElements = static_cast<uint32_t>(pKey->pInputLayout->size());
+		desc.InputLayout.NumElements = static_cast<uint32_t>(pDesc->pInputLayout->size());
 		inputElements.resize(desc.InputLayout.NumElements);
 
 		for (auto i = 0u; i < desc.InputLayout.NumElements; ++i)
 		{
-			const auto& src = pKey->pInputLayout->at(i);
+			const auto& src = pDesc->pInputLayout->at(i);
 			auto& dst = inputElements[i];
 			dst.SemanticName = src.SemanticName;
 			dst.SemanticIndex = src.SemanticIndex;
@@ -338,20 +340,20 @@ Pipeline PipelineCache_DX12::createPipeline(const Key* pKey, const wchar_t* name
 		desc.InputLayout.pInputElementDescs = inputElements.data();
 	}
 
-	desc.PrimitiveTopologyType = GetDX12PrimitiveTopologyType(pKey->PrimTopologyType);
-	desc.NumRenderTargets = pKey->NumRenderTargets;
+	desc.PrimitiveTopologyType = GetDX12PrimitiveTopologyType(pDesc->PrimTopologyType);
+	desc.NumRenderTargets = pDesc->NumRenderTargets;
 
 	for (uint8_t i = 0; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
-		desc.RTVFormats[i] = GetDXGIFormat(pKey->RTVFormats[i]);
-	desc.DSVFormat = GetDXGIFormat(pKey->DSVFormat);
-	desc.SampleDesc.Count = pKey->SampleCount;
-	desc.SampleDesc.Quality = pKey->SampleQuality;
+		desc.RTVFormats[i] = GetDXGIFormat(pDesc->RTVFormats[i]);
+	desc.DSVFormat = GetDXGIFormat(pDesc->DSVFormat);
+	desc.SampleDesc.Count = pDesc->SampleCount;
+	desc.SampleDesc.Quality = pDesc->SampleQuality;
 
-	desc.CachedPSO.pCachedBlob = pKey->pCachedBlob;
-	desc.CachedPSO.CachedBlobSizeInBytes = pKey->CachedBlobSize;
-	desc.NodeMask = pKey->NodeMask;
+	desc.CachedPSO.pCachedBlob = pDesc->pCachedBlob;
+	desc.CachedPSO.CachedBlobSizeInBytes = pDesc->CachedBlobSize;
+	desc.NodeMask = pDesc->NodeMask;
 
-	switch (static_cast<IBStripCutValue>(pKey->IBStripCutValue))
+	switch (static_cast<IBStripCutValue>(pDesc->IBStripCutValue))
 	{
 	case IBStripCutValue::FFFF:
 		desc.IBStripCutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_0xFFFF;
@@ -364,11 +366,12 @@ Pipeline PipelineCache_DX12::createPipeline(const Key* pKey, const wchar_t* name
 	}
 
 	// Create pipeline
-	Pipeline pipeline;
+	com_ptr<ID3D12PipelineState> pipeline;
 	V_RETURN(m_device->CreateGraphicsPipelineState(&desc, IID_PPV_ARGS(&pipeline)), cerr, nullptr);
 	if (name) pipeline->SetName(name);
+	m_pipelines[key] = pipeline;
 
-	return pipeline;
+	return pipeline.get();
 }
 
 Pipeline PipelineCache_DX12::getPipeline(const string& key, const wchar_t* name)
@@ -378,12 +381,10 @@ Pipeline PipelineCache_DX12::getPipeline(const string& key, const wchar_t* name)
 	// Create one, if it does not exist
 	if (pPipeline == m_pipelines.end())
 	{
-		const auto pKey = reinterpret_cast<const Key*>(key.data());
-		const auto pipeline = createPipeline(pKey, name);
-		m_pipelines[key] = pipeline;
+		const auto pipeline = createPipeline(key, name);
 
 		return pipeline;
 	}
 
-	return pPipeline->second;
+	return pPipeline->second.get();
 }

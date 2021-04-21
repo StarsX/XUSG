@@ -128,7 +128,7 @@ namespace XUSG
 			virtual ~State() {};
 
 			virtual void SetPipelineLayout(const PipelineLayout& layout) = 0;
-			virtual void SetShader(Shader::Stage stage, Blob shader) = 0;
+			virtual void SetShader(Shader::Stage stage, const Blob& shader) = 0;
 			virtual void SetCachedPipeline(const void* pCachedBlob, size_t size) = 0;
 			virtual void SetNodeMask(uint32_t nodeMask) = 0;
 

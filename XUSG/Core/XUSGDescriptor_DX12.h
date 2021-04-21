@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "XUSG.h"
+#include "XUSG_DX12.h"
 
 namespace XUSG
 {
@@ -69,7 +69,7 @@ namespace XUSG
 		Framebuffer GetFramebuffer(const Util::DescriptorTable& util,
 			const Descriptor* pDsv = nullptr, const Framebuffer* pFramebuffer = nullptr);
 
-		const DescriptorPool& GetDescriptorPool(DescriptorPoolType type, uint8_t index = 0) const;
+		DescriptorPool GetDescriptorPool(DescriptorPoolType type, uint8_t index = 0) const;
 
 		const Sampler& GetSampler(SamplerPreset preset);
 
@@ -96,7 +96,7 @@ namespace XUSG
 
 		uint32_t calculateGrowth(uint32_t numDescriptors, DescriptorPoolType type, uint8_t index) const;
 
-		Device m_device;
+		com_ptr<ID3D12Device> m_device;
 
 		std::unordered_map<std::string, DescriptorTable> m_cbvSrvUavTables;
 		std::unordered_map<std::string, DescriptorTable> m_samplerTables;
@@ -104,8 +104,8 @@ namespace XUSG
 
 		std::vector<std::vector<const std::string*>> m_descriptorKeyPtrs[NUM_DESCRIPTOR_POOL];
 
-		std::vector<DescriptorPool>	m_descriptorPools[NUM_DESCRIPTOR_POOL];
-		std::vector<uint32_t>		m_descriptorCounts[NUM_DESCRIPTOR_POOL];
+		std::vector<com_ptr<ID3D12DescriptorHeap>> m_descriptorPools[NUM_DESCRIPTOR_POOL];
+		std::vector<uint32_t> m_descriptorCounts[NUM_DESCRIPTOR_POOL];
 		uint32_t m_descriptorStrides[NUM_DESCRIPTOR_POOL];
 
 		Sampler m_samplerPresets[NUM_SAMPLER_PRESET];

@@ -4,13 +4,13 @@
 
 #pragma once
 
-#include "XUSG.h"
+#include "XUSG_DX12.h"
 
 namespace XUSG
 {
 	namespace Compute
 	{
-		struct Key
+		struct PipelineDesc
 		{
 			void* PipelineLayout;
 			void* Shader;
@@ -27,7 +27,7 @@ namespace XUSG
 			virtual ~State_DX12();
 
 			void SetPipelineLayout(const PipelineLayout& layout);
-			void SetShader(Blob shader);
+			void SetShader(const Blob& shader);
 			void SetCachedPipeline(const void* pCachedBlob, size_t size);
 			void SetNodeMask(uint32_t nodeMask);
 
@@ -37,7 +37,7 @@ namespace XUSG
 			const std::string& GetKey() const;
 
 		protected:
-			Key* m_pKey;
+			PipelineDesc* m_pKey;
 			std::string m_key;
 		};
 
@@ -56,12 +56,12 @@ namespace XUSG
 			Pipeline GetPipeline(const State& state, const wchar_t* name = nullptr);
 
 		protected:
-			Pipeline createPipeline(const Key* pKey, const wchar_t* name);
+			Pipeline createPipeline(const std::string& key, const wchar_t* name);
 			Pipeline getPipeline(const std::string& key, const wchar_t* nam);
 
-			Device m_device;
+			com_ptr<ID3D12Device> m_device;
 
-			std::unordered_map<std::string, Pipeline> m_pipelines;
+			std::unordered_map<std::string, com_ptr<ID3D12PipelineState>> m_pipelines;
 		};
 	}
 }

@@ -27,13 +27,13 @@ State_DX12::~State_DX12()
 
 void State_DX12::SetPipelineLayout(const PipelineLayout& layout)
 {
-	m_pKey->PipelineLayout = layout.get();
+	m_pKey->PipelineLayout = layout;
 }
 
-void State_DX12::SetShader(Shader::Stage stage, Blob shader)
+void State_DX12::SetShader(Shader::Stage stage, const Blob& shader)
 {
 	const auto stageIdx = stage > Shader::NUM_GRAPHICS ? stage - Shader::NUM_GRAPHICS : stage;
-	m_pKey->Shaders[stageIdx] = shader.get();
+	m_pKey->Shaders[stageIdx] = shader;
 }
 
 void State_DX12::SetCachedPipeline(const void* pCachedBlob, size_t size)
@@ -141,7 +141,7 @@ PipelineCache_DX12::~PipelineCache_DX12()
 
 Pipeline PipelineCache_DX12::CreatePipeline(const State& state, const wchar_t* name)
 {
-	return createPipeline(reinterpret_cast<const Key*>(state.GetKey().data()), name);
+	return createPipeline(state.GetKey(), name);
 }
 
 Pipeline PipelineCache_DX12::GetPipeline(const State& state, const wchar_t* name)
@@ -149,12 +149,13 @@ Pipeline PipelineCache_DX12::GetPipeline(const State& state, const wchar_t* name
 	return getPipeline(state.GetKey(), name);
 }
 
-Pipeline PipelineCache_DX12::createPipeline(const Key* pKey, const wchar_t* name)
+Pipeline PipelineCache_DX12::createPipeline(const string& key, const wchar_t* name)
 {
 	// Fill desc
+	const auto pKey = reinterpret_cast<const Key*>(key.data());
 	D3DX12_MESH_SHADER_PIPELINE_STATE_DESC psoDesc = {};
 	if (pKey->PipelineLayout)
-		psoDesc.pRootSignature = static_cast<decltype(psoDesc.pRootSignature)>(pKey->PipelineLayout);
+		psoDesc.pRootSignature = static_cast<ID3D12RootSignature*>(pKey->PipelineLayout);
 	if (pKey->Shaders[AS])
 		psoDesc.AS = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pKey->Shaders[AS]));
 	if (pKey->Shaders[MS])
@@ -233,28 +234,12 @@ Pipeline PipelineCache_DX12::createPipeline(const Key* pKey, const wchar_t* name
 	streamDesc.SizeInBytes = sizeof(psoStream);
 
 	// Create pipeline
-	Pipeline pipeline;
+	com_ptr<ID3D12PipelineState> pipeline;
 	com_ptr<ID3D12Device2> dxDevice;
 	V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&dxDevice)), cerr, nullptr);
 	V_RETURN(dxDevice->CreatePipelineState(&streamDesc, IID_PPV_ARGS(&pipeline)), cerr, nullptr);
 	if (name) pipeline->SetName(name);
+	m_pipelines[key] = pipeline;
 
-	return pipeline;
-}
-
-Pipeline PipelineCache_DX12::getPipeline(const string& key, const wchar_t* name)
-{
-	const auto pPipeline = m_pipelines.find(key);
-
-	// Create one, if it does not exist
-	if (pPipeline == m_pipelines.end())
-	{
-		const auto pKey = reinterpret_cast<const Key*>(key.data());
-		const auto pipeline = createPipeline(pKey, name);
-		m_pipelines[key] = pipeline;
-
-		return pipeline;
-	}
-
-	return pPipeline->second;
+	return pipeline.get();
 }

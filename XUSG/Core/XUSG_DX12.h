@@ -2,49 +2,16 @@
 // Copyright (c) XU, Tianchen. All rights reserved.
 //--------------------------------------------------------------------------------------
 
+#include "XUSG.h"
+
 #pragma once
 
 #define H_RETURN(x, o, m, r)		{ const auto hr = x; if (FAILED(hr)) { o << m << std::endl; assert(!m); return r; } }
 #define V_RETURN(x, o, r)			H_RETURN(x, o, XUSG::HrToString(hr).c_str(), r)
 #define F_RETURN(x, o, h, r)		M_RETURN(x, o, XUSG::HrToString(h).c_str(), r)
 
-#define BARRIER_ALL_SUBRESOURCES	D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES
-
 namespace XUSG
 {
-#if _HAS_CXX17
-	template <typename T>
-	class com_ptr :
-		public winrt::com_ptr<T>
-	{
-	public:
-		using element_type = T;
-		using winrt::com_ptr<T>::com_ptr;
-
-		element_type** operator&() noexcept { return this->put(); }
-	};
-#else
-	template <typename T>
-	class com_ptr :
-		public Microsoft::WRL::ComPtr<T>
-	{
-	public:
-		using element_type = T;
-		using Microsoft::WRL::ComPtr<T>::ComPtr;
-
-		element_type* get() const throw() { return this->Get(); }
-	};
-#endif
-
-	__forceinline uint8_t Log2(uint32_t value)
-	{
-		unsigned long mssb; // most significant set bit
-
-		if (BitScanReverse(&mssb, value) > 0)
-			return static_cast<uint8_t>(mssb);
-		else return 0;
-	}
-
 	inline std::string HrToString(HRESULT hr)
 	{
 		char s_str[64] = {};
@@ -53,79 +20,89 @@ namespace XUSG
 		return std::string(s_str);
 	}
 
-	// Swapchain and blobs
-	using Blob = com_ptr<ID3DBlob>;
-	using SwapChain = com_ptr<IDXGISwapChain3>;
-
-	// Command lists related
-	using CommandAllocator = com_ptr<ID3D12CommandAllocator>;
-	using Fence = com_ptr<ID3D12Fence>;
-
-	struct Semaphore
-	{
-		Fence Fence;
-		uint64_t Value;
-	};
-
-	MIDL_INTERFACE("0ec870a6-5d7e-4c22-8cfc-5baae07616ed")
-		DLL_INTERFACE DX12CommandQueue : public ID3D12CommandQueue
-	{
-		bool SubmitCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists,
-			const Semaphore* pWaits = nullptr, uint32_t numWaits = 0,
-			const Semaphore* pSignals = nullptr, uint32_t numSignals = 0);
-		bool SubmitCommandList(CommandList* const pCommandList,
-			const Semaphore* pWaits = nullptr, uint32_t numWaits = 0,
-			const Semaphore* pSignals = nullptr, uint32_t numSignals = 0);
-	};
-	using CommandQueue = com_ptr<DX12CommandQueue>;
-
-	// Resources related
-	using Resource = com_ptr<ID3D12Resource>;
-	using VertexBufferView = D3D12_VERTEX_BUFFER_VIEW;
-	using IndexBufferView = D3D12_INDEX_BUFFER_VIEW;
-	using StreamOutBufferView = D3D12_STREAM_OUTPUT_BUFFER_VIEW;
-	using Sampler = std::shared_ptr<D3D12_SAMPLER_DESC>;
-	using ResourceBarrier = CD3DX12_RESOURCE_BARRIER;
-	using TileCopyFlags = D3D12_TILE_COPY_FLAGS;
-
-	// Descriptors related
-	using DescriptorPool = com_ptr<ID3D12DescriptorHeap>;
-
-	// Pipeline layouts related
-	using PipelineLayout = com_ptr<ID3D12RootSignature>;
-	using DescriptorRangeList = std::vector<CD3DX12_DESCRIPTOR_RANGE1>;
-
-	// Pipeline layouts related
-	struct RootParameter : public CD3DX12_ROOT_PARAMETER1
-	{
-		DescriptorRangeList ranges;
-	};
-	using DescriptorTableLayout = std::shared_ptr<RootParameter>;
-
-	using Pipeline = com_ptr<ID3D12PipelineState>;
-	using CommandLayout = com_ptr<ID3D12CommandSignature>;
-
 	// Device
-	MIDL_INTERFACE("189819f1-1db6-4b57-be54-1821339b85f7")
-		DLL_INTERFACE DX12Device : public ID3D12Device
+	class Device_DX12 :
+		public virtual Device
 	{
-		bool GetCommandQueue(CommandQueue& commandQueue, CommandListType type, CommandQueueFlag flags, int32_t priority = 0, uint32_t nodeMask = 0);
-		bool GetCommandAllocator(CommandAllocator& commandAllocator, CommandListType type);
-		bool GetCommandList(CommandList* pCommandList, uint32_t nodeMask, CommandListType type,
-			const CommandAllocator& commandAllocator, const Pipeline& pipeline);
+	public:
+		Device_DX12(void* handle);
+		virtual ~Device_DX12();
+
+		bool GetCommandQueue(CommandQueue& commandQueue, CommandListType type,
+			CommandQueueFlag flags, int32_t priority = 0, uint32_t nodeMask = 0,
+			const wchar_t* name = nullptr);
+		bool GetCommandAllocator(CommandAllocator& commandAllocator,
+			CommandListType type, const wchar_t* name = nullptr);
 		bool GetCommandList(CommandList& commandList, uint32_t nodeMask, CommandListType type,
-			const CommandAllocator& commandAllocator, const Pipeline& pipeline);
-		bool GetFence(Fence& fence, uint64_t initialValue, FenceFlag flags);
-		bool CreateCommandLayout(CommandLayout& commandLayout, uint32_t byteStride, uint32_t numArguments,
-			const IndirectArgument* pArguments, uint32_t nodeMask = 0);
+			const CommandAllocator& commandAllocator, const Pipeline& pipeline,
+			const wchar_t* name = nullptr);
+		bool GetFence(Fence& fence, uint64_t initialValue, FenceFlag flags,
+			const wchar_t* name = nullptr);
+
+		uint32_t GetDeviceRemovedReason() const;
+
+		void* GetHandle() const;
+
+	protected:
+		com_ptr<ID3D12Device> m_device;
 	};
-	using Device = com_ptr<DX12Device>;
 
-	// Query
-	using QueryPool = com_ptr<ID3D12QueryHeap>;
+	class Fence_DX12 :
+		public virtual Fence
+	{
+	public:
+		Fence_DX12();
+		virtual ~Fence_DX12();
 
-	// DX12 format transfer function
-	DLL_INTERFACE DXGI_FORMAT GetDXGIFormat(Format format);
+		bool Create(const Device& device, uint64_t initialValue,
+			FenceFlag flags, const wchar_t* name = nullptr);
+		bool SetEventOnCompletion(uint64_t value, void* hEvent);
+		bool Signal(uint64_t value);
 
-	uint32_t GetDX12Requirement(Requirement requirement);
+		virtual uint64_t GetCompletedValue() const;
+
+		void* GetHandle() const;
+
+	protected:
+		com_ptr<ID3D12Fence> m_fence;
+	};
+
+	class CommandLayout_DX12 :
+		public virtual CommandLayout
+	{
+	public:
+		CommandLayout_DX12();
+		virtual ~CommandLayout_DX12();
+
+		bool Create(const Device& device, uint32_t byteStride, uint32_t numArguments,
+			const IndirectArgument* pArguments, uint32_t nodeMask = 0, const wchar_t* name = nullptr);
+
+		void* GetHandle() const;
+
+	protected:
+		com_ptr<ID3D12CommandSignature> m_commandSignature;
+	};
+
+	class SwapChain_DX12 :
+		public virtual SwapChain
+	{
+	public:
+		SwapChain_DX12();
+		virtual ~SwapChain_DX12();
+
+		bool Create(void* factory, void* hWnd, const CommandQueue& commandQueue, uint8_t bufferCount,
+			uint32_t width, uint32_t height, Format format, uint8_t sampleCount = 1);
+		bool Present(uint8_t syncInterval = 0, uint32_t flags = 0);
+		bool GetBuffer(uint8_t buffer, Resource& resource) const;
+
+		uint32_t ResizeBuffers(uint8_t bufferCount, uint32_t width,
+			uint32_t height, Format format, uint8_t flag = 0);
+
+		void* GetHandle() const;
+
+		uint8_t GetCurrentBackBufferIndex() const;
+
+	protected:
+		com_ptr<IDXGISwapChain3> m_swapChain;
+	};
 }

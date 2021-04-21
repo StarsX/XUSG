@@ -8,15 +8,6 @@
 using namespace std;
 using namespace XUSG;
 
-struct DescriptorRange
-{
-	DescriptorType ViewType;
-	uint32_t NumDescriptors;
-	uint32_t BaseBinding;
-	uint32_t Space;
-	DescriptorFlag Flags;
-};
-
 Util::PipelineLayout_DX12::PipelineLayout_DX12() :
 	m_descriptorTableLayoutKeys(0),
 	m_isTableLayoutsCompleted(false)
@@ -30,27 +21,28 @@ Util::PipelineLayout_DX12::~PipelineLayout_DX12()
 
 void Util::PipelineLayout_DX12::SetShaderStage(uint32_t index, Shader::Stage stage)
 {
-	checkKeySpace(index)[0] = stage;
+	checkKeyStorage(index)[0] = stage;
 }
 
 void Util::PipelineLayout_DX12::SetRange(uint32_t index, DescriptorType type, uint32_t num, uint32_t baseBinding,
 	uint32_t space, DescriptorFlag flags)
 {
-	auto& key = checkKeySpace(index);
+	auto& key = checkKeyStorage(index);
 
 	// Append
 	const auto i = (key.size() - 1) / sizeof(DescriptorRange);
 	key.resize(key.size() + sizeof(DescriptorRange));
 
-	// Interpret key data as ranges
-	const auto pRanges = reinterpret_cast<DescriptorRange*>(&key[1]);
+	// Interpret key data as range
+	auto& range = reinterpret_cast<DescriptorRange*>(&key[1])[i];
 
 	// Fill key entries
-	pRanges[i].ViewType = type;
-	pRanges[i].NumDescriptors = num;
-	pRanges[i].BaseBinding = baseBinding;
-	pRanges[i].Space = space;
-	pRanges[i].Flags = flags;
+	range.Type = type;
+	range.NumDescriptors = num;
+	range.BaseBinding = baseBinding;
+	range.Space = space;
+	range.Flags = flags;
+	range.OffsetInDescriptors = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 }
 
 void Util::PipelineLayout_DX12::SetConstants(uint32_t index, uint32_t num32BitValues,
@@ -92,12 +84,14 @@ PipelineLayout Util::PipelineLayout_DX12::GetPipelineLayout(PipelineLayoutCache&
 	return pipelineLayoutCache.GetPipelineLayout(*this, flags, name);
 }
 
-DescriptorTableLayout Util::PipelineLayout_DX12::CreateDescriptorTableLayout(uint32_t index, PipelineLayoutCache& pipelineLayoutCache) const
+DescriptorTableLayout Util::PipelineLayout_DX12::CreateDescriptorTableLayout(uint32_t index,
+	PipelineLayoutCache& pipelineLayoutCache) const
 {
 	return pipelineLayoutCache.CreateDescriptorTableLayout(index, *this);
 }
 
-DescriptorTableLayout Util::PipelineLayout_DX12::GetDescriptorTableLayout(uint32_t index, PipelineLayoutCache& pipelineLayoutCache) const
+DescriptorTableLayout Util::PipelineLayout_DX12::GetDescriptorTableLayout(uint32_t index,
+	PipelineLayoutCache& pipelineLayoutCache) const
 {
 	return pipelineLayoutCache.GetDescriptorTableLayout(index, *this);
 }
@@ -111,12 +105,12 @@ string& Util::PipelineLayout_DX12::GetPipelineLayoutKey(PipelineLayoutCache* pPi
 {
 	if (!m_isTableLayoutsCompleted && pPipelineLayoutCache)
 	{
-		m_pipelineLayoutKey.resize(sizeof(void*) * m_descriptorTableLayoutKeys.size() + 1);
+		m_pipelineLayoutKey.resize(sizeof(DescriptorTableLayout) * m_descriptorTableLayoutKeys.size() + 1);
 
-		const auto descriptorTableLayouts = reinterpret_cast<const void**>(&m_pipelineLayoutKey[1]);
+		const auto pDescriptorTableLayouts = reinterpret_cast<DescriptorTableLayout*>(&m_pipelineLayoutKey[1]);
 
 		for (auto i = 0u; i < m_descriptorTableLayoutKeys.size(); ++i)
-			descriptorTableLayouts[i] = GetDescriptorTableLayout(i, *pPipelineLayoutCache).get();
+			pDescriptorTableLayouts[i] = GetDescriptorTableLayout(i, *pPipelineLayoutCache);
 
 		m_isTableLayoutsCompleted = true;
 	}
@@ -124,7 +118,7 @@ string& Util::PipelineLayout_DX12::GetPipelineLayoutKey(PipelineLayoutCache* pPi
 	return m_pipelineLayoutKey;
 }
 
-string& Util::PipelineLayout_DX12::checkKeySpace(uint32_t index)
+std::string& Util::PipelineLayout_DX12::checkKeyStorage(uint32_t index)
 {
 	m_isTableLayoutsCompleted = false;
 
@@ -132,9 +126,10 @@ string& Util::PipelineLayout_DX12::checkKeySpace(uint32_t index)
 		m_descriptorTableLayoutKeys.resize(index + 1);
 
 	if (m_descriptorTableLayoutKeys[index].empty())
+	{
 		m_descriptorTableLayoutKeys[index].resize(1);
-
-	m_descriptorTableLayoutKeys[index][0] = Shader::Stage::ALL;
+		m_descriptorTableLayoutKeys[index][0] = Shader::Stage::ALL;
+	}
 
 	return m_descriptorTableLayoutKeys[index];
 }
@@ -143,8 +138,7 @@ string& Util::PipelineLayout_DX12::checkKeySpace(uint32_t index)
 
 PipelineLayoutCache_DX12::PipelineLayoutCache_DX12() :
 	m_device(nullptr),
-	m_pipelineLayouts(0),
-	m_descriptorTableLayouts(0)
+	m_rootSignatures(0)
 {
 }
 
@@ -160,12 +154,13 @@ PipelineLayoutCache_DX12::~PipelineLayoutCache_DX12()
 
 void PipelineLayoutCache_DX12::SetDevice(const Device& device)
 {
-	m_device = device;
+	m_device = static_cast<ID3D12Device*>(device.GetHandle());
+	assert(m_device);
 }
 
 void PipelineLayoutCache_DX12::SetPipelineLayout(const string& key, const PipelineLayout& pipelineLayout)
 {
-	m_pipelineLayouts[key] = pipelineLayout;
+	m_rootSignatures[key] = static_cast<ID3D12RootSignature*>(pipelineLayout);
 }
 
 PipelineLayout PipelineLayoutCache_DX12::CreatePipelineLayout(Util::PipelineLayout& util,
@@ -190,17 +185,17 @@ DescriptorTableLayout PipelineLayoutCache_DX12::CreateDescriptorTableLayout(uint
 {
 	const auto& keys = util.GetDescriptorTableLayoutKeys();
 
-	return keys.size() > index ? createDescriptorTableLayout(util.GetDescriptorTableLayoutKeys()[index]) : nullptr;
+	return keys.size() > index ? createDescriptorTableLayout(keys[index]) : nullptr;
 }
 
 DescriptorTableLayout PipelineLayoutCache_DX12::GetDescriptorTableLayout(uint32_t index, const Util::PipelineLayout& util)
 {
 	const auto& keys = util.GetDescriptorTableLayoutKeys();
 
-	return keys.size() > index ? getDescriptorTableLayout(util.GetDescriptorTableLayoutKeys()[index]) : nullptr;
+	return keys.size() > index ? getDescriptorTableLayout(keys[index]) : nullptr;
 }
 
-PipelineLayout PipelineLayoutCache_DX12::createPipelineLayout(const string& key, const wchar_t* name) const
+PipelineLayout PipelineLayoutCache_DX12::createPipelineLayout(const string& key, const wchar_t* name)
 {
 	D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = {};
 
@@ -210,50 +205,77 @@ PipelineLayout PipelineLayoutCache_DX12::createPipelineLayout(const string& key,
 	if (FAILED(m_device->CheckFeatureSupport(D3D12_FEATURE_ROOT_SIGNATURE, &featureData, sizeof(featureData))))
 		featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
 
-	const auto numLayouts = static_cast<uint32_t>((key.size() - 1) / sizeof(void*));
+	const auto numRootParams = static_cast<uint32_t>((key.size() - 1) / sizeof(void*));
 	const auto flags = static_cast<PipelineLayoutFlag>(key[0]);
-	const auto pDescriptorTableLayoutPtrs = reinterpret_cast<DescriptorTableLayout::element_type* const*>(&key[1]);
+	const auto pDescriptorTableLayouts = reinterpret_cast<const DescriptorTableLayout*>(&key[1]);
 
-	vector<D3D12_ROOT_PARAMETER1> descriptorTableLayouts(numLayouts);
-	for (auto i = 0u; i < numLayouts; ++i)
-		descriptorTableLayouts[i] = *pDescriptorTableLayoutPtrs[i];
+	vector<CD3DX12_ROOT_PARAMETER1> rootParams(numRootParams);
+	vector<vector<CD3DX12_DESCRIPTOR_RANGE1>> descriptorRanges(numRootParams);
+	for (auto i = 0u; i < numRootParams; ++i)
+		getRootParameter(rootParams[i], descriptorRanges[i], pDescriptorTableLayouts[i]);
 
-	CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC layoutDesc;
-	layoutDesc.Init_1_1(numLayouts, descriptorTableLayouts.data(), 0, nullptr, GetDX12RootSignatureFlags(flags));
+	CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
+	rootSignatureDesc.Init_1_1(numRootParams, rootParams.data(), 0, nullptr, GetDX12RootSignatureFlags(flags));
 
-	Blob signature, error;
-	H_RETURN(D3DX12SerializeVersionedRootSignature(&layoutDesc, featureData.HighestVersion, &signature, &error),
+	com_ptr<ID3DBlob> signature, error;
+	H_RETURN(D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, featureData.HighestVersion, &signature, &error),
 		cerr, reinterpret_cast<wchar_t*>(error->GetBufferPointer()), nullptr);
 
-	PipelineLayout layout;
+	com_ptr<ID3D12RootSignature> rootSignature;
 	V_RETURN(m_device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(),
-		IID_PPV_ARGS(&layout)), cerr, nullptr);
-	if (name) layout->SetName(name);
+		IID_PPV_ARGS(&rootSignature)), cerr, nullptr);
+	if (name) rootSignature->SetName(name);
+	m_rootSignatures[key] = rootSignature;
 
-	return layout;
+	return rootSignature.get();
 }
 
 PipelineLayout PipelineLayoutCache_DX12::getPipelineLayout(const string& key, const wchar_t* name, bool create)
 {
-	const auto layoutIter = m_pipelineLayouts.find(key);
+	const auto layoutIter = m_rootSignatures.find(key);
 
 	// Create one, if it does not exist
-	if (layoutIter == m_pipelineLayouts.end())
+	if (layoutIter == m_rootSignatures.end())
 	{
 		if (create)
 		{
 			const auto layout = createPipelineLayout(key, name);
-			m_pipelineLayouts[key] = layout;
 
 			return layout;
 		}
 		else return nullptr;
 	}
 
-	return layoutIter->second;
+	return layoutIter->second.get();
 }
 
 DescriptorTableLayout PipelineLayoutCache_DX12::createDescriptorTableLayout(const string& key)
+{
+	const auto layout = &key;
+	m_descriptorTableLayouts[key] = nullptr;
+	const auto layoutPtrIter = m_descriptorTableLayouts.find(key);
+	layoutPtrIter->second = &layoutPtrIter->first;
+
+	return layoutPtrIter->second;
+};
+
+DescriptorTableLayout PipelineLayoutCache_DX12::getDescriptorTableLayout(const string& key)
+{
+	const auto layoutPtrIter = m_descriptorTableLayouts.find(key);
+
+	// Create one, if it does not exist
+	if (layoutPtrIter == m_descriptorTableLayouts.end())
+	{
+		const auto layout = createDescriptorTableLayout(key);
+
+		return layout;
+	}
+
+	return layoutPtrIter->second;
+}
+
+void PipelineLayoutCache_DX12::getRootParameter(CD3DX12_ROOT_PARAMETER1& rootParam, vector<CD3DX12_DESCRIPTOR_RANGE1>& descriptorRanges,
+	const DescriptorTableLayout& descriptorTableLayout) const
 {
 	D3D12_DESCRIPTOR_RANGE_TYPE rangeTypes[static_cast<uint8_t>(DescriptorType::NUM)];
 	rangeTypes[static_cast<uint8_t>(DescriptorType::SRV)] = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
@@ -261,10 +283,8 @@ DescriptorTableLayout PipelineLayoutCache_DX12::createDescriptorTableLayout(cons
 	rangeTypes[static_cast<uint8_t>(DescriptorType::CBV)] = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
 	rangeTypes[static_cast<uint8_t>(DescriptorType::SAMPLER)] = D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
 
-	// Create descriptor table layout
-	auto layout = make_shared<DescriptorTableLayout::element_type>();
-
 	// Set ranges
+	const auto& key = *static_cast<const string*>(descriptorTableLayout);
 	const auto numRanges = key.size() > 0 ? static_cast<uint32_t>((key.size() - 1) / sizeof(DescriptorRange)) : 0;
 
 	if (numRanges > 0)
@@ -281,62 +301,44 @@ DescriptorTableLayout PipelineLayoutCache_DX12::createDescriptorTableLayout(cons
 		visibilities[Shader::MS] = D3D12_SHADER_VISIBILITY_MESH;
 
 		const auto pRanges = reinterpret_cast<const DescriptorRange*>(&key[1]);
-		switch (pRanges->ViewType)
+		switch (pRanges->Type)
 		{
 		case DescriptorType::CONSTANT:
 			// Set param
-			layout->InitAsConstants(pRanges->NumDescriptors, pRanges->BaseBinding,
+			rootParam.InitAsConstants(pRanges->NumDescriptors, pRanges->BaseBinding,
 				pRanges->Space, visibilities[stage]);
 			break;
 
 		case DescriptorType::ROOT_SRV:
 			// Set param
-			layout->InitAsShaderResourceView(pRanges->BaseBinding, pRanges->Space,
+			rootParam.InitAsShaderResourceView(pRanges->BaseBinding, pRanges->Space,
 				GetDX12RootDescriptorFlags(pRanges->Flags), visibilities[stage]);
 			break;
 
 		case DescriptorType::ROOT_UAV:
 			// Set param
-			layout->InitAsUnorderedAccessView(pRanges->BaseBinding, pRanges->Space,
+			rootParam.InitAsUnorderedAccessView(pRanges->BaseBinding, pRanges->Space,
 				GetDX12RootDescriptorFlags(pRanges->Flags), visibilities[stage]);
 			break;
 
 		case DescriptorType::ROOT_CBV:
 			// Set param
-			layout->InitAsConstantBufferView(pRanges->BaseBinding, pRanges->Space,
+			rootParam.InitAsConstantBufferView(pRanges->BaseBinding, pRanges->Space,
 				GetDX12RootDescriptorFlags(pRanges->Flags), visibilities[stage]);
 			break;
 
 		default:
-			layout->ranges = DescriptorRangeList(numRanges);
-
+			descriptorRanges.resize(numRanges);
 			for (auto i = 0u; i < numRanges; ++i)
 			{
 				const auto& range = pRanges[i];
-				layout->ranges[i].Init(rangeTypes[static_cast<uint8_t>(range.ViewType)], range.NumDescriptors,
+				auto& descriptorRange = descriptorRanges[i];
+				descriptorRange.Init(rangeTypes[static_cast<uint8_t>(range.Type)], range.NumDescriptors,
 					range.BaseBinding, range.Space, GetDX12DescriptorRangeFlags(range.Flags));
 			}
 
 			// Set param
-			layout->InitAsDescriptorTable(numRanges, layout->ranges.data(), visibilities[stage]);
+			rootParam.InitAsDescriptorTable(numRanges, descriptorRanges.data(), visibilities[stage]);
 		}
 	}
-
-	return layout;
-}
-
-DescriptorTableLayout PipelineLayoutCache_DX12::getDescriptorTableLayout(const string& key)
-{
-	const auto layoutPtrIter = m_descriptorTableLayouts.find(key);
-
-	// Create one, if it does not exist
-	if (layoutPtrIter == m_descriptorTableLayouts.end())
-	{
-		const auto layout = createDescriptorTableLayout(key);
-		m_descriptorTableLayouts[key] = layout;
-
-		return layout;
-	}
-
-	return layoutPtrIter->second;
 }
