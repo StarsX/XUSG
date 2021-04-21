@@ -879,7 +879,7 @@ namespace XUSG
 		virtual bool GetFence(Fence* pFence, uint64_t initialValue, FenceFlag flags,
 			const wchar_t* name = nullptr) = 0;
 
-		virtual uint32_t Create(void* pAdapter, uint32_t featureLevel) = 0;
+		virtual uint32_t Create(void* pAdapter, uint32_t minFeatureLevel) = 0;
 		virtual uint32_t GetDeviceRemovedReason() const = 0;
 
 		virtual void* GetHandle() const = 0;
