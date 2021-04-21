@@ -544,7 +544,7 @@ static bool FillInitData(uint32_t width, uint32_t height, uint32_t depth,
 static bool CreateTexture(const Device* pDevice, CommandList* pCommandList,
 	const DDS_HEADER* header, const uint8_t* bitData, size_t bitSize, size_t maxsize,
 	bool forceSRGB, ShaderResource::sptr& texture, Resource* pUploader,
-	ResourceState state, const wchar_t* name)
+	ResourceState state, MemoryFlag memoryFlags, const wchar_t* name)
 {
 	const auto width = header->width;
 	auto height = header->height;
@@ -693,16 +693,16 @@ static bool CreateTexture(const Device* pDevice, CommandList* pCommandList,
 			if (texture3D) // Texture3D can be a Texture2D, so it goes first.
 			{
 				const auto fmt = forceSRGB ? MakeSRGB(format) : format;
-				success = texture3D->Create(pDevice, twidth, theight, tdepth, fmt, ResourceFlag::NONE,
-					mipCount - skipMip, MemoryType::DEFAULT, name);
+				success = texture3D->Create(pDevice, twidth, theight, tdepth, fmt,
+					ResourceFlag::NONE, mipCount - skipMip, memoryFlags, name);
 				if (success) success = texture3D->Upload(pCommandList, pUploader, initData.data(),
 					subresourceCount, state);
 			}
 			else if (texture2D)
 			{
 				const auto fmt = forceSRGB ? MakeSRGB(format) : format;
-				success = texture2D->Create(pDevice, twidth, theight, fmt, arraySize, ResourceFlag::NONE,
-					mipCount - skipMip, 1, MemoryType::DEFAULT, isCubeMap, name);
+				success = texture2D->Create(pDevice, twidth, theight, fmt, arraySize,
+					ResourceFlag::NONE, mipCount - skipMip, 1, isCubeMap, memoryFlags, name);
 				if (success) success = texture2D->Upload(pCommandList, pUploader, initData.data(),
 					subresourceCount, state);
 			}
@@ -722,8 +722,8 @@ static bool CreateTexture(const Device* pDevice, CommandList* pCommandList,
 					{
 						const auto fmt = forceSRGB ? MakeSRGB(format) : format;
 						texture = Texture3D::MakeUnique();
-						success = texture3D->Create(pDevice, width, height, depth, fmt, ResourceFlag::NONE,
-							mipCount, MemoryType::DEFAULT, name);
+						success = texture3D->Create(pDevice, width, height, depth, fmt,
+							ResourceFlag::NONE, mipCount, memoryFlags, name);
 						if (success) success = texture3D->Upload(pCommandList, pUploader, initData.data(),
 							subresourceCount, state);
 					}
@@ -731,8 +731,8 @@ static bool CreateTexture(const Device* pDevice, CommandList* pCommandList,
 					{
 						const auto fmt = forceSRGB ? MakeSRGB(format) : format;
 						texture = Texture2D::MakeUnique();
-						success = texture2D->Create(pDevice, width, height, fmt, arraySize, ResourceFlag::NONE,
-							mipCount, 1, MemoryType::DEFAULT, isCubeMap, name);
+						success = texture2D->Create(pDevice, width, height, fmt, arraySize,
+							ResourceFlag::NONE, mipCount, 1, isCubeMap, memoryFlags, name);
 						if (success) success = texture2D->Upload(pCommandList, pUploader, initData.data(),
 							subresourceCount, state);
 					}
@@ -786,7 +786,7 @@ Loader::~Loader()
 bool Loader::CreateTextureFromMemory(const Device* pDevice, CommandList* pCommandList,
 	const uint8_t* ddsData, size_t ddsDataSize, size_t maxsize, bool forceSRGB,
 	ShaderResource::sptr& texture, Resource* pUploader, AlphaMode* alphaMode,
-	ResourceState state)
+	ResourceState state, MemoryFlag memoryFlags)
 {
 	if (alphaMode)* alphaMode = ALPHA_MODE_UNKNOWN;
 	F_RETURN(!pDevice || !ddsData, cerr, E_INVALIDARG, false);
@@ -813,7 +813,7 @@ bool Loader::CreateTextureFromMemory(const Device* pDevice, CommandList* pComman
 	C_RETURN(ddsDataSize < offset, false);
 
 	N_RETURN(CreateTexture(pDevice, pCommandList, header, ddsData + offset, ddsDataSize - offset,
-		maxsize, forceSRGB, texture, pUploader, state, L"DDSTextureLoader"), false);
+		maxsize, forceSRGB, texture, pUploader, state, memoryFlags, L"DDSTextureLoader"), false);
 
 	if (alphaMode)* alphaMode = GetAlphaMode(header);
 
@@ -822,7 +822,7 @@ bool Loader::CreateTextureFromMemory(const Device* pDevice, CommandList* pComman
 
 bool Loader::CreateTextureFromFile(const Device* pDevice, CommandList* pCommandList,
 	const wchar_t* fileName, size_t maxsize, bool forceSRGB, ShaderResource::sptr& texture,
-	Resource* pUploader, AlphaMode* alphaMode, ResourceState state)
+	Resource* pUploader, AlphaMode* alphaMode, ResourceState state, MemoryFlag memoryFlags)
 {
 	if (alphaMode)* alphaMode = ALPHA_MODE_UNKNOWN;
 	F_RETURN(!pDevice || !fileName, cerr, E_INVALIDARG, false);
@@ -835,7 +835,7 @@ bool Loader::CreateTextureFromFile(const Device* pDevice, CommandList* pCommandL
 	N_RETURN(LoadTextureDataFromFile(fileName, ddsData, &header, &bitData, &bitSize), false);
 
 	N_RETURN(CreateTexture(pDevice, pCommandList, header, bitData, bitSize,
-		maxsize, forceSRGB, texture, pUploader, state, fileName), false);
+		maxsize, forceSRGB, texture, pUploader, state, memoryFlags, fileName), false);
 
 	if (alphaMode)* alphaMode = GetAlphaMode(header);
 
