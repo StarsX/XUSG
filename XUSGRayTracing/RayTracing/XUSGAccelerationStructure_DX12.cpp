@@ -182,17 +182,16 @@ void BottomLevelAS_DX12::Build(const CommandList* pCommandList, const Resource* 
 {
 	// Complete Acceleration Structure desc
 	{
-		const auto pResultBuffer = static_cast<ID3D12Resource*>(m_results[m_currentFrame]->GetHandle());
 		if (update && (m_buildDesc.Inputs.Flags & D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE)
 			== D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE)
 		{
-			m_buildDesc.SourceAccelerationStructureData = pResultBuffer->GetGPUVirtualAddress();
+			m_buildDesc.SourceAccelerationStructureData = m_results[m_currentFrame]->GetVirtualAddress();
 			m_buildDesc.Inputs.Flags |= D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PERFORM_UPDATE;
 			m_currentFrame = (m_currentFrame + 1) % g_frameCount;
 		}
 
-		m_buildDesc.DestAccelerationStructureData = pResultBuffer->GetGPUVirtualAddress();
-		m_buildDesc.ScratchAccelerationStructureData = dynamic_cast<const Resource_DX12*>(pScratch)->GetGPUVirtualAddress();
+		m_buildDesc.DestAccelerationStructureData = m_results[m_currentFrame]->GetVirtualAddress();
+		m_buildDesc.ScratchAccelerationStructureData = pScratch->GetVirtualAddress();
 	}
 
 	// Build acceleration structure.
@@ -236,8 +235,7 @@ void BottomLevelAS_DX12::SetTriangleGeometries(GeometryBuffer& geometries, uint3
 
 		geometryDesc = {};
 		geometryDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
-		geometryDesc.Triangles.Transform3x4 = pTransforms ?
-			dynamic_cast<const Resource_DX12*>(pTransforms[i].pResource)->GetGPUVirtualAddress() + pTransforms[i].Offset : 0;
+		geometryDesc.Triangles.Transform3x4 = pTransforms ? pTransforms[i].pResource->GetVirtualAddress() + pTransforms[i].Offset : 0;
 		geometryDesc.Triangles.IndexFormat = pIBs ? GetDXGIFormat(pIBs[i].Format) : DXGI_FORMAT_UNKNOWN;
 		geometryDesc.Triangles.VertexFormat = GetDXGIFormat(vertexFormat);
 		geometryDesc.Triangles.IndexCount = pIBs ? pIBs[i].SizeInBytes / strideIB : 0;
@@ -306,18 +304,17 @@ void TopLevelAS_DX12::Build(const CommandList* pCommandList, const Resource* pSc
 {
 	// Complete Acceleration Structure desc
 	{
-		const auto pResultBuffer = static_cast<ID3D12Resource*>(m_results[m_currentFrame]->GetHandle());
 		if (update && (m_buildDesc.Inputs.Flags & D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE)
 			== D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE)
 		{
-			m_buildDesc.SourceAccelerationStructureData = pResultBuffer->GetGPUVirtualAddress();
+			m_buildDesc.SourceAccelerationStructureData = m_results[m_currentFrame]->GetVirtualAddress();
 			m_buildDesc.Inputs.Flags |= D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PERFORM_UPDATE;
 			m_currentFrame = (m_currentFrame + 1) % g_frameCount;
 		}
 
-		m_buildDesc.DestAccelerationStructureData = pResultBuffer->GetGPUVirtualAddress();
-		m_buildDesc.Inputs.InstanceDescs = dynamic_cast<const Resource_DX12*>(pInstanceDescs)->GetGPUVirtualAddress();
-		m_buildDesc.ScratchAccelerationStructureData = dynamic_cast<const Resource_DX12*>(pScratch)->GetGPUVirtualAddress();
+		m_buildDesc.DestAccelerationStructureData = m_results[m_currentFrame]->GetVirtualAddress();
+		m_buildDesc.Inputs.InstanceDescs = pInstanceDescs->GetVirtualAddress();
+		m_buildDesc.ScratchAccelerationStructureData = pScratch->GetVirtualAddress();
 	}
 
 	// Build acceleration structure.

@@ -32,12 +32,7 @@ com_ptr<IDMLCommandRecorder>& CommandRecorder_DML::GetDMLCommandRecorder()
 
 bool DMLDevice::GetCommandRecorder(CommandRecorder* pCommandRecorder)
 {
-	return GetCommandRecorder(*pCommandRecorder);
-}
-
-bool DMLDevice::GetCommandRecorder(CommandRecorder& commandRecorder)
-{
-	auto& pDMLCommandRecorder = dynamic_cast<CommandRecorder_DML&>(commandRecorder).GetDMLCommandRecorder();
+	auto& pDMLCommandRecorder = dynamic_cast<CommandRecorder_DML*>(pCommandRecorder)->GetDMLCommandRecorder();
 	V_RETURN(CreateCommandRecorder(IID_PPV_ARGS(&pDMLCommandRecorder)), std::cerr, false);
 
 	return true;

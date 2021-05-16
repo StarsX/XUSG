@@ -99,9 +99,9 @@ namespace XUSG
 		uint32_t ResizeBuffers(uint8_t bufferCount, uint32_t width,
 			uint32_t height, Format format, uint8_t flag = 0);
 
-		void* GetHandle() const;
-
 		uint8_t GetCurrentBackBufferIndex() const;
+
+		void* GetHandle() const;
 
 	protected:
 		com_ptr<IDXGISwapChain3> m_swapChain;

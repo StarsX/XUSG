@@ -26,13 +26,13 @@ namespace XUSG
 			BarrierFlag flag = BarrierFlag::NONE);
 		ResourceState	GetResourceState(uint32_t subresource = 0) const;
 
-		void* GetHandle() const;
-
 		uint32_t GetWidth() const;
 
-		com_ptr<ID3D12Resource>& GetResource();
+		uint64_t GetVirtualAddress(int offset = 0) const;
 
-		D3D12_GPU_VIRTUAL_ADDRESS GetGPUVirtualAddress(int offset = 0) const;
+		void* GetHandle() const;
+
+		com_ptr<ID3D12Resource>& GetResource();
 
 	protected:
 		com_ptr<ID3D12Device>		m_device;

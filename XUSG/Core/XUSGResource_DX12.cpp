@@ -99,24 +99,24 @@ ResourceState Resource_DX12::GetResourceState(uint32_t subresource) const
 	return m_states[subresource];
 }
 
-void* Resource_DX12::GetHandle() const
-{
-	return m_resource.get();
-}
-
 uint32_t Resource_DX12::GetWidth() const
 {
 	return static_cast<uint32_t>(m_resource->GetDesc().Width);
 }
 
+uint64_t Resource_DX12::GetVirtualAddress(int offset) const
+{
+	return m_resource->GetGPUVirtualAddress() + offset;
+}
+
+void* Resource_DX12::GetHandle() const
+{
+	return m_resource.get();
+}
+
 com_ptr<ID3D12Resource>& Resource_DX12::GetResource()
 {
 	return m_resource;
-}
-
-D3D12_GPU_VIRTUAL_ADDRESS Resource_DX12::GetGPUVirtualAddress(int offset) const
-{
-	return m_resource->GetGPUVirtualAddress() + offset;
 }
 
 //--------------------------------------------------------------------------------------
@@ -227,7 +227,7 @@ bool ConstantBuffer_DX12::Upload(CommandList* pCommandList, Resource* pUploader,
 		pCommandList->Barrier(1, &barrier);
 	}
 
-	const auto pGraphicsCommandList = dynamic_cast<CommandList_DX12*>(pCommandList)->GetGraphicsCommandList().get();
+	const auto pGraphicsCommandList = static_cast<ID3D12GraphicsCommandList*>(pCommandList->GetHandle());
 	M_RETURN(UpdateSubresources(pGraphicsCommandList, m_resource.get(), uploaderResource.get(), offset, 0, 1, &subresourceData) <= 0,
 		clog, "Failed to upload the resource.", false);
 
@@ -442,7 +442,7 @@ bool Texture2D_DX12::Upload(CommandList* pCommandList, Resource* pUploader,
 	auto numBarriers = SetBarrier(&barrier, ResourceState::COPY_DEST);
 	if (m_states[0] != ResourceState::COMMON || !decay) pCommandList->Barrier(numBarriers, &barrier);
 
-	const auto pGraphicsCommandList = dynamic_cast<CommandList_DX12*>(pCommandList)->GetGraphicsCommandList().get();
+	const auto pGraphicsCommandList = static_cast<ID3D12GraphicsCommandList*>(pCommandList->GetHandle());
 	M_RETURN(UpdateSubresources(pGraphicsCommandList, m_resource.get(), uploaderResource.get(), 0, firstSubresource,
 		numSubresources, subresourceData.data()) <= 0,
 		clog, "Failed to upload the resource.", false);
@@ -1675,7 +1675,7 @@ bool RawBuffer_DX12::Upload(CommandList* pCommandList, Resource* pUploader, cons
 	auto numBarriers = SetBarrier(&barrier, ResourceState::COPY_DEST);
 	if (m_states[0] != ResourceState::COMMON) pCommandList->Barrier(numBarriers, &barrier);
 
-	const auto pGraphicsCommandList = dynamic_cast<CommandList_DX12*>(pCommandList)->GetGraphicsCommandList().get();
+	const auto pGraphicsCommandList = static_cast<ID3D12GraphicsCommandList*>(pCommandList->GetHandle());
 	M_RETURN(UpdateSubresources(pGraphicsCommandList, m_resource.get(), uploaderResource.get(), offset, 0, 1, &subresourceData) <= 0,
 		clog, "Failed to upload the resource.", false);
 

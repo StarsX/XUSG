@@ -72,7 +72,7 @@ namespace XUSG
 		void OMSetStencilRef(uint32_t stencilRef) const;
 		void SetPipelineState(const Pipeline& pipelineState) const;
 		void Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers) const;
-		void ExecuteBundle(CommandList& commandList) const;
+		void ExecuteBundle(const CommandList* pCommandList) const;
 		void SetDescriptorPools(uint32_t numDescriptorPools, const DescriptorPool* pDescriptorPools) const;
 		void SetComputePipelineLayout(const PipelineLayout& pipelineLayout) const;
 		void SetGraphicsPipelineLayout(const PipelineLayout& pipelineLayout) const;
@@ -125,6 +125,8 @@ namespace XUSG
 			const Resource* pArgumentBuffer, uint64_t argumentBufferOffset = 0,
 			const Resource* pCountBuffer = nullptr, uint64_t countBufferOffset = 0);
 
+		void* GetHandle() const;
+
 		com_ptr<ID3D12GraphicsCommandList>& GetGraphicsCommandList();
 
 	protected:
@@ -141,17 +143,17 @@ namespace XUSG
 		bool Create(const Device* pDevice, CommandListType type, CommandQueueFlag flags,
 			int32_t priority = 0, uint32_t nodeMask = 0, const wchar_t* name = nullptr);
 
-		bool SubmitCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists,
+		bool SubmitCommandLists(uint32_t numCommandLists, const CommandList* const* ppCommandLists,
 			const Semaphore* pWaits = nullptr, uint32_t numWaits = 0,
 			const Semaphore* pSignals = nullptr, uint32_t numSignals = 0);
-		bool SubmitCommandList(CommandList* const pCommandList,
+		bool SubmitCommandList(const CommandList* pCommandList,
 			const Semaphore* pWaits = nullptr, uint32_t numWaits = 0,
 			const Semaphore* pSignals = nullptr, uint32_t numSignals = 0);
 		bool Wait(const Fence* pFence, uint64_t value);
 		bool Signal(const Fence* pFence, uint64_t value);
 
-		void ExecuteCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists);
-		void ExecuteCommandList(CommandList* const pCommandList);
+		void ExecuteCommandLists(uint32_t numCommandLists, const CommandList* const* ppCommandLists);
+		void ExecuteCommandList(const CommandList* pCommandList);
 
 		void* GetHandle() const;
 

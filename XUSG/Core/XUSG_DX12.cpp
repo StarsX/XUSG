@@ -193,12 +193,12 @@ uint32_t SwapChain_DX12::ResizeBuffers(uint8_t bufferCount, uint32_t width,
 	return m_swapChain->ResizeBuffers(bufferCount, width, height, GetDXGIFormat(format), flag);
 }
 
-void* SwapChain_DX12::GetHandle() const
-{
-	return m_swapChain.get();
-}
-
 uint8_t SwapChain_DX12::GetCurrentBackBufferIndex() const
 {
 	return m_swapChain->GetCurrentBackBufferIndex();
+}
+
+void* SwapChain_DX12::GetHandle() const
+{
+	return m_swapChain.get();
 }

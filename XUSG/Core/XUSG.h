@@ -1013,7 +1013,7 @@ namespace XUSG
 		virtual void OMSetStencilRef(uint32_t stencilRef) const = 0;
 		virtual void SetPipelineState(const Pipeline& pipelineState) const = 0;
 		virtual void Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers) const = 0;
-		virtual void ExecuteBundle(CommandList& commandList) const = 0;
+		virtual void ExecuteBundle(const CommandList* pCommandList) const = 0;
 		virtual void SetDescriptorPools(uint32_t numDescriptorPools, const DescriptorPool* pDescriptorPools) const = 0;
 		virtual void SetComputePipelineLayout(const PipelineLayout& pipelineLayout) const = 0;
 		virtual void SetGraphicsPipelineLayout(const PipelineLayout& pipelineLayout) const = 0;
@@ -1066,6 +1066,8 @@ namespace XUSG
 			const Resource* pArgumentBuffer, uint64_t argumentBufferOffset = 0,
 			const Resource* pCountBuffer = nullptr, uint64_t countBufferOffset = 0) = 0;
 
+		virtual void* GetHandle() const = 0;
+
 		using uptr = std::unique_ptr<CommandList>;
 		using sptr = std::shared_ptr<CommandList>;
 
@@ -1085,17 +1087,17 @@ namespace XUSG
 		virtual bool Create(const Device* pDevice, CommandListType type, CommandQueueFlag flags,
 			int32_t priority = 0, uint32_t nodeMask = 0, const wchar_t* name = nullptr) = 0;
 
-		virtual bool SubmitCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists,
+		virtual bool SubmitCommandLists(uint32_t numCommandLists, const CommandList* const* ppCommandLists,
 			const Semaphore* pWaits = nullptr, uint32_t numWaits = 0,
 			const Semaphore* pSignals = nullptr, uint32_t numSignals = 0) = 0;
-		virtual bool SubmitCommandList(CommandList* const pCommandList,
+		virtual bool SubmitCommandList(const CommandList* pCommandList,
 			const Semaphore* pWaits = nullptr, uint32_t numWaits = 0,
 			const Semaphore* pSignals = nullptr, uint32_t numSignals = 0) = 0;
 		virtual bool Wait(const Fence* pFence, uint64_t value) = 0;
 		virtual bool Signal(const Fence* pFence, uint64_t value) = 0;
 
-		virtual void ExecuteCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists) = 0;
-		virtual void ExecuteCommandList(CommandList* const pCommandList) = 0;
+		virtual void ExecuteCommandLists(uint32_t numCommandLists, const CommandList* const* ppCommandLists) = 0;
+		virtual void ExecuteCommandList(const CommandList* pCommandList) = 0;
 
 		virtual void* GetHandle() const = 0;
 
@@ -1126,9 +1128,9 @@ namespace XUSG
 		virtual uint32_t ResizeBuffers(uint8_t bufferCount, uint32_t width,
 			uint32_t height, Format format, uint8_t flag = 0) = 0;
 
-		virtual void* GetHandle() const = 0;
-
 		virtual uint8_t GetCurrentBackBufferIndex() const = 0;
+
+		virtual void* GetHandle() const = 0;
 
 		using uptr = std::unique_ptr<SwapChain>;
 		using sptr = std::shared_ptr<SwapChain>;
@@ -1154,9 +1156,11 @@ namespace XUSG
 			BarrierFlag flag = BarrierFlag::NONE) = 0;
 		virtual ResourceState	GetResourceState(uint32_t subresource = 0) const = 0;
 
-		virtual void* GetHandle() const = 0;
-
 		virtual uint32_t GetWidth() const = 0;
+
+		virtual uint64_t GetVirtualAddress(int offset = 0) const = 0;
+
+		virtual void* GetHandle() const = 0;
 
 		using uptr = std::unique_ptr<Resource>;
 		using sptr = std::shared_ptr<Resource>;

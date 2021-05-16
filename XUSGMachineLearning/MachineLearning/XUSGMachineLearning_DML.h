@@ -28,7 +28,6 @@ namespace XUSG
 			DLL_INTERFACE DMLDevice : public IDMLDevice
 		{
 			bool GetCommandRecorder(CommandRecorder* pCommandRecorder);
-			bool GetCommandRecorder(CommandRecorder& commandRecorder);
 		};
 		using Device = com_ptr<DMLDevice>;
 		using Dispatchable = com_ptr<IDMLDispatchable>;

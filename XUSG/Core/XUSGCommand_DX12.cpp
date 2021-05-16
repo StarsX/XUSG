@@ -240,9 +240,9 @@ void CommandList_DX12::Barrier(uint32_t numBarriers, const ResourceBarrier* pBar
 	}
 }
 
-void CommandList_DX12::ExecuteBundle(CommandList& commandList) const
+void CommandList_DX12::ExecuteBundle(const CommandList* pCommandList) const
 {
-	m_commandList->ExecuteBundle(dynamic_cast<CommandList_DX12&>(commandList).GetGraphicsCommandList().get());
+	m_commandList->ExecuteBundle(static_cast<ID3D12GraphicsCommandList*>(pCommandList->GetHandle()));
 }
 
 void CommandList_DX12::SetDescriptorPools(uint32_t numDescriptorPools, const DescriptorPool* pDescriptorPools) const
@@ -294,38 +294,32 @@ void CommandList_DX12::SetGraphics32BitConstants(uint32_t index, uint32_t num32B
 
 void CommandList_DX12::SetComputeRootConstantBufferView(uint32_t index, const Resource* pResource, int offset) const
 {
-	m_commandList->SetComputeRootConstantBufferView(index,
-		dynamic_cast<const Resource_DX12*>(pResource)->GetGPUVirtualAddress(offset));
+	m_commandList->SetComputeRootConstantBufferView(index, pResource->GetVirtualAddress(offset));
 }
 
 void CommandList_DX12::SetGraphicsRootConstantBufferView(uint32_t index, const Resource* pResource, int offset) const
 {
-	m_commandList->SetGraphicsRootConstantBufferView(index,
-		dynamic_cast<const Resource_DX12*>(pResource)->GetGPUVirtualAddress(offset));
+	m_commandList->SetGraphicsRootConstantBufferView(index, pResource->GetVirtualAddress(offset));
 }
 
 void CommandList_DX12::SetComputeRootShaderResourceView(uint32_t index, const Resource* pResource, int offset) const
 {
-	m_commandList->SetComputeRootShaderResourceView(index,
-		dynamic_cast<const Resource_DX12*>(pResource)->GetGPUVirtualAddress(offset));
+	m_commandList->SetComputeRootShaderResourceView(index, pResource->GetVirtualAddress(offset));
 }
 
 void CommandList_DX12::SetGraphicsRootShaderResourceView(uint32_t index, const Resource* pResource, int offset) const
 {
-	m_commandList->SetGraphicsRootShaderResourceView(index,
-		dynamic_cast<const Resource_DX12*>(pResource)->GetGPUVirtualAddress(offset));
+	m_commandList->SetGraphicsRootShaderResourceView(index, pResource->GetVirtualAddress(offset));
 }
 
 void CommandList_DX12::SetComputeRootUnorderedAccessView(uint32_t index, const Resource* pResource, int offset) const
 {
-	m_commandList->SetComputeRootUnorderedAccessView(index,
-		dynamic_cast<const Resource_DX12*>(pResource)->GetGPUVirtualAddress(offset));
+	m_commandList->SetComputeRootUnorderedAccessView(index, pResource->GetVirtualAddress(offset));
 }
 
 void CommandList_DX12::SetGraphicsRootUnorderedAccessView(uint32_t index, const Resource* pResource, int offset) const
 {
-	m_commandList->SetGraphicsRootUnorderedAccessView(index,
-		dynamic_cast<const Resource_DX12*>(pResource)->GetGPUVirtualAddress(offset));
+	m_commandList->SetGraphicsRootUnorderedAccessView(index, pResource->GetVirtualAddress(offset));
 }
 
 void CommandList_DX12::IASetIndexBuffer(const IndexBufferView& view) const
@@ -527,6 +521,11 @@ void CommandList_DX12::ExecuteIndirect(const CommandLayout* pCommandlayout, uint
 		countBufferOffset);
 }
 
+void* CommandList_DX12::GetHandle() const
+{
+	return m_commandList.get();
+}
+
 com_ptr<ID3D12GraphicsCommandList>& CommandList_DX12::GetGraphicsCommandList()
 {
 	return m_commandList;
@@ -560,7 +559,7 @@ bool CommandQueue_DX12::Create(const Device* pDevice, CommandListType type,
 	return true;
 }
 
-bool CommandQueue_DX12::SubmitCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists,
+bool CommandQueue_DX12::SubmitCommandLists(uint32_t numCommandLists, const CommandList* const* ppCommandLists,
 	const Semaphore* pWaits, uint32_t numWaits, const Semaphore* pSignals, uint32_t numSignals)
 {
 	for (auto i = 0u; i < numWaits; ++i)
@@ -572,7 +571,7 @@ bool CommandQueue_DX12::SubmitCommandLists(uint32_t numCommandLists, CommandList
 	return true;
 }
 
-bool CommandQueue_DX12::SubmitCommandList(CommandList* const pCommandList,
+bool CommandQueue_DX12::SubmitCommandList(const CommandList* pCommandList,
 	const Semaphore* pWaits, uint32_t numWaits, const Semaphore* pSignals, uint32_t numSignals)
 {
 	for (auto i = 0u; i < numWaits; ++i)
@@ -584,21 +583,20 @@ bool CommandQueue_DX12::SubmitCommandList(CommandList* const pCommandList,
 	return true;
 }
 
-void CommandQueue_DX12::ExecuteCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists)
+void CommandQueue_DX12::ExecuteCommandLists(uint32_t numCommandLists, const CommandList* const* ppCommandLists)
 {
 	vector<ID3D12CommandList*> commandLists(numCommandLists);
 	for (auto i = 0u; i < numCommandLists; ++i)
-		commandLists[i] = dynamic_cast<CommandList_DX12*>(ppCommandLists[i])->GetGraphicsCommandList().get();
+		commandLists[i] = static_cast<ID3D12CommandList*>(ppCommandLists[i]->GetHandle());
 
 	m_commandQueue->ExecuteCommandLists(numCommandLists, commandLists.data());
 }
 
-void CommandQueue_DX12::ExecuteCommandList(CommandList* const pCommandList)
+void CommandQueue_DX12::ExecuteCommandList(const CommandList* pCommandList)
 {
-	ID3D12CommandList* const ppCommandLists[] =
-	{ dynamic_cast<CommandList_DX12*>(pCommandList)->GetGraphicsCommandList().get() };
+	const auto pDxCommandList = static_cast<ID3D12CommandList*>(pCommandList->GetHandle());
 
-	m_commandQueue->ExecuteCommandLists(1, ppCommandLists);
+	m_commandQueue->ExecuteCommandLists(1, &pDxCommandList);
 }
 
 bool CommandQueue_DX12::Wait(const Fence* pFence, uint64_t value)
