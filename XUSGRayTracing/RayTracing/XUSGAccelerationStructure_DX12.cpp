@@ -5,6 +5,7 @@
 #include "Core/XUSG_DX12.h"
 #include "Core/XUSGResource_DX12.h"
 #include "Core/XUSGEnum_DX12.h"
+#include "XUSGRayTracing_DX12.h"
 #include "XUSGAccelerationStructure_DX12.h"
 
 using namespace std;
@@ -99,15 +100,18 @@ bool AccelerationStructure_DX12::preBuild(const Device* pDevice, uint32_t descri
 	const auto& inputs = m_buildDesc.Inputs;
 	assert(pDevice->GetHandle());
 
-	m_prebuildInfo = {};
-	const auto pPrebuildInfo = reinterpret_cast<D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO*>(&m_prebuildInfo);
+	D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO prebuildInfo;
 #if ENABLE_DXR_FALLBACK
 	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(pDevice->GetRTHandle());
-	pDxDevice->GetRaytracingAccelerationStructurePrebuildInfo(&inputs, pPrebuildInfo, g_numUAVs);
+	pDxDevice->GetRaytracingAccelerationStructurePrebuildInfo(&inputs, &prebuildInfo, g_numUAVs);
 #else // DirectX Raytracing
 	const auto pDxDevice = static_cast<ID3D12Device5*>(pDevice->GetRTHandle());
-	pDxDevice->GetRaytracingAccelerationStructurePrebuildInfo(&inputs, pPrebuildInfo);
+	pDxDevice->GetRaytracingAccelerationStructurePrebuildInfo(&inputs, &prebuildInfo);
 #endif
+
+	m_prebuildInfo.ResultDataMaxSizeInBytes = prebuildInfo.ResultDataMaxSizeInBytes;
+	m_prebuildInfo.ScratchDataSizeInBytes = prebuildInfo.ScratchDataSizeInBytes;
+	m_prebuildInfo.UpdateScratchDataSizeInBytes = prebuildInfo.UpdateScratchDataSizeInBytes;
 
 	N_RETURN(m_prebuildInfo.ResultDataMaxSizeInBytes > 0, false);
 
@@ -159,15 +163,15 @@ BottomLevelAS_DX12::~BottomLevelAS_DX12()
 }
 
 bool BottomLevelAS_DX12::PreBuild(const Device* pDevice, uint32_t numDescs,
-	const Geometry* pGeometries, uint32_t descriptorIndex, BuildFlags flags)
+	const GeometryBuffer& geometries, uint32_t descriptorIndex, BuildFlag flags)
 {
 	m_buildDesc = {};
 	auto& inputs = m_buildDesc.Inputs;
 	inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
-	inputs.Flags = static_cast<decltype(inputs.Flags)>(flags);
+	inputs.Flags = GetDXRBuildFlags(flags);
 	inputs.NumDescs = numDescs;
 	inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
-	inputs.pGeometryDescs = pGeometries;
+	inputs.pGeometryDescs = reinterpret_cast<const D3D12_RAYTRACING_GEOMETRY_DESC*>(geometries.data());
 
 	// Get required sizes for an acceleration structure.
 	return preBuild(pDevice, descriptorIndex);
@@ -209,13 +213,14 @@ void BottomLevelAS_DX12::Build(XUSG::CommandList* pCommandList, const Resource* 
 }
 #endif
 
-void BottomLevelAS_DX12::SetTriangleGeometries(Geometry* pGeometries, uint32_t numGeometries,
+void BottomLevelAS_DX12::SetTriangleGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
 	Format vertexFormat, const VertexBufferView* pVBs, const IndexBufferView* pIBs,
-	const GeometryFlags* pGeometryFlags, const ResourceView* pTransforms)
+	const GeometryFlag* pGeometryFlags, const ResourceView* pTransforms)
 {
+	geometries.resize(sizeof(D3D12_RAYTRACING_GEOMETRY_DESC) * numGeometries);
 	for (auto i = 0u; i < numGeometries; ++i)
 	{
-		auto& geometryDesc = pGeometries[i];
+		auto& geometryDesc = reinterpret_cast<D3D12_RAYTRACING_GEOMETRY_DESC*>(geometries.data())[i];
 
 		auto strideIB = 0u;
 		if (pIBs)
@@ -229,7 +234,7 @@ void BottomLevelAS_DX12::SetTriangleGeometries(Geometry* pGeometries, uint32_t n
 		geometryDesc.Triangles.Transform3x4 = pTransforms ?
 			dynamic_cast<const Resource_DX12*>(pTransforms[i].pResource)->GetGPUVirtualAddress() + pTransforms[i].Offset : 0;
 		geometryDesc.Triangles.IndexFormat = pIBs ? GetDXGIFormat(pIBs[i].Format) : DXGI_FORMAT_UNKNOWN;
-		geometryDesc.Triangles.VertexFormat = static_cast<decltype(geometryDesc.Triangles.VertexFormat)>(vertexFormat);
+		geometryDesc.Triangles.VertexFormat = GetDXGIFormat(vertexFormat);
 		geometryDesc.Triangles.IndexCount = pIBs ? pIBs[i].SizeInBytes / strideIB : 0;
 		geometryDesc.Triangles.VertexCount = pVBs ? pVBs[i].SizeInBytes / pVBs[i].StrideInBytes : 0;
 		geometryDesc.Triangles.IndexBuffer = pIBs ? pIBs[i].BufferLocation : 0;
@@ -239,16 +244,17 @@ void BottomLevelAS_DX12::SetTriangleGeometries(Geometry* pGeometries, uint32_t n
 		// Mark the geometry as opaque. 
 		// PERFORMANCE TIP: mark geometry as opaque whenever applicable as it can enable important ray processing optimizations.
 		// Note: When rays encounter opaque geometry an any hit shader will not be executed whether it is present or not.
-		geometryDesc.Flags = static_cast<decltype(geometryDesc.Flags)>(pGeometryFlags ? pGeometryFlags[i] : GeometryFlags::FULL_OPAQUE);
+		geometryDesc.Flags = pGeometryFlags ? GetDXRGeometryFlags(pGeometryFlags[i]) : D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
 	}
 }
 
-void BottomLevelAS_DX12::SetAABBGeometries(Geometry* pGeometries, uint32_t numGeometries,
-	const VertexBufferView* pVBs, const GeometryFlags* pGeometryFlags)
+void BottomLevelAS_DX12::SetAABBGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
+	const VertexBufferView* pVBs, const GeometryFlag* pGeometryFlags)
 {
+	geometries.resize(sizeof(D3D12_RAYTRACING_GEOMETRY_DESC) * numGeometries);
 	for (auto i = 0u; i < numGeometries; ++i)
 	{
-		auto& geometryDesc = pGeometries[i];
+		auto& geometryDesc = reinterpret_cast<D3D12_RAYTRACING_GEOMETRY_DESC*>(geometries.data())[i];
 
 		geometryDesc = {};
 		geometryDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_PROCEDURAL_PRIMITIVE_AABBS;
@@ -259,7 +265,7 @@ void BottomLevelAS_DX12::SetAABBGeometries(Geometry* pGeometries, uint32_t numGe
 		// Mark the geometry as opaque. 
 		// PERFORMANCE TIP: mark geometry as opaque whenever applicable as it can enable important ray processing optimizations.
 		// Note: When rays encounter opaque geometry an any hit shader will not be executed whether it is present or not.
-		geometryDesc.Flags = static_cast<decltype(geometryDesc.Flags)>(pGeometryFlags ? pGeometryFlags[i] : GeometryFlags::FULL_OPAQUE);
+		geometryDesc.Flags = pGeometryFlags ? GetDXRGeometryFlags(pGeometryFlags[i]) : D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
 	}
 }
 
@@ -277,12 +283,12 @@ TopLevelAS_DX12::~TopLevelAS_DX12()
 }
 
 bool TopLevelAS_DX12::PreBuild(const Device* pDevice, uint32_t numDescs,
-	uint32_t descriptorIndex, BuildFlags flags)
+	uint32_t descriptorIndex, BuildFlag flags)
 {
 	m_buildDesc = {};
 	auto& inputs = m_buildDesc.Inputs;
 	inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
-	inputs.Flags = static_cast<decltype(inputs.Flags)>(flags);
+	inputs.Flags = GetDXRBuildFlags(flags);
 	inputs.NumDescs = numDescs;
 	inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
 

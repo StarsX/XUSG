@@ -10,37 +10,36 @@ namespace XUSG
 {
 	namespace RayTracing
 	{
-		enum class BuildFlags
+		enum class BuildFlag
 		{
-			NONE = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_NONE,
-			ALLOW_UPDATE = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE,
-			ALLOW_COMPACTION = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_COMPACTION,
-			PREFER_FAST_TRACE = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE,
-			PREFER_FAST_BUILD = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_BUILD,
-			MINIMIZE_MEMORY = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_MINIMIZE_MEMORY,
-			PERFORM_UPDATE = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PERFORM_UPDATE
+			NONE = 0,
+			ALLOW_UPDATE = (1 << 0),
+			ALLOW_COMPACTION = (1 << 1),
+			PREFER_FAST_TRACE = (1 << 2),
+			PREFER_FAST_BUILD = (1 << 3),
+			MINIMIZE_MEMORY = (1 << 4),
+			PERFORM_UPDATE = (1 << 5)
 		};
 
-		DEFINE_ENUM_FLAG_OPERATORS(BuildFlags);
+		DEFINE_ENUM_FLAG_OPERATORS(BuildFlag);
 
-		enum class GeometryFlags
+		enum class GeometryFlag
 		{
-			NONE = D3D12_RAYTRACING_GEOMETRY_FLAG_NONE,
-			FULL_OPAQUE = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE,
-			NO_DUPLICATE_ANYHIT_INVOCATION = D3D12_RAYTRACING_GEOMETRY_FLAG_NO_DUPLICATE_ANYHIT_INVOCATION
+			NONE = 0,
+			FULL_OPAQUE = (1 << 0),
+			NO_DUPLICATE_ANYHIT_INVOCATION = (1 << 1)
 		};
 
-		DEFINE_ENUM_FLAG_OPERATORS(GeometryFlags);
+		DEFINE_ENUM_FLAG_OPERATORS(GeometryFlag);
 
 		enum class HitGroupType : uint8_t
 		{
-			TRIANGLES = D3D12_HIT_GROUP_TYPE_TRIANGLES,
-			PROCEDURAL = D3D12_HIT_GROUP_TYPE_PROCEDURAL_PRIMITIVE
+			TRIANGLES,
+			PROCEDURAL
 		};
 
-		using BuildDesc = D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC;
-		using Geometry = D3D12_RAYTRACING_GEOMETRY_DESC;
-		using PipilineDesc = CD3D12_STATE_OBJECT_DESC;
+		using BuildDesc = void;
+		using GeometryBuffer = std::vector<uint8_t>;
 
 		struct PrebuildInfo
 		{
@@ -128,8 +127,8 @@ namespace XUSG
 			//BottomLevelAS();
 			virtual ~BottomLevelAS() {}
 
-			virtual bool PreBuild(const Device* pDevice, uint32_t numDescs, const Geometry* pGeometries,
-				uint32_t descriptorIndex, BuildFlags flags = BuildFlags::PREFER_FAST_TRACE) = 0;
+			virtual bool PreBuild(const Device* pDevice, uint32_t numDescs, const GeometryBuffer& geometries,
+				uint32_t descriptorIndex, BuildFlag flags = BuildFlag::PREFER_FAST_TRACE) = 0;
 			virtual void Build(const CommandList* pCommandList, const Resource* pScratch,
 				const DescriptorPool& descriptorPool, bool update = false) = 0;
 #if !ENABLE_DXR_FALLBACK
@@ -137,12 +136,12 @@ namespace XUSG
 				const DescriptorPool& descriptorPool, bool update = false) = 0;
 #endif
 
-			static void SetTriangleGeometries(Geometry* pGeometries, uint32_t numGeometries, Format vertexFormat,
+			static void SetTriangleGeometries(GeometryBuffer& geometries, uint32_t numGeometries, Format vertexFormat,
 				const VertexBufferView* pVBs, const IndexBufferView* pIBs = nullptr,
-				const GeometryFlags* pGeometryFlags = nullptr, const ResourceView* pTransforms = nullptr,
+				const GeometryFlag* pGeometryFlags = nullptr, const ResourceView* pTransforms = nullptr,
 				XUSG::API api = XUSG::API::DIRECTX_12);
-			static void SetAABBGeometries(Geometry* pGeometries, uint32_t numGeometries,
-				const VertexBufferView* pVBs, const GeometryFlags* pGeometryFlags = nullptr,
+			static void SetAABBGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
+				const VertexBufferView* pVBs, const GeometryFlag* pGeometryFlags = nullptr,
 				XUSG::API api = XUSG::API::DIRECTX_12);
 
 			using uptr = std::unique_ptr<BottomLevelAS>;
@@ -163,7 +162,7 @@ namespace XUSG
 			virtual ~TopLevelAS() {}
 
 			virtual bool PreBuild(const Device* pDevice, uint32_t numDescs, uint32_t descriptorIndex,
-				BuildFlags flags = BuildFlags::PREFER_FAST_TRACE) = 0;
+				BuildFlag flags = BuildFlag::PREFER_FAST_TRACE) = 0;
 			virtual void Build(const CommandList* pCommandList, const Resource* pScratch,
 				const Resource* pInstanceDescs, const DescriptorPool& descriptorPool, bool update = false) = 0;
 #if !ENABLE_DXR_FALLBACK
@@ -324,8 +323,8 @@ namespace XUSG
 			virtual void SetGlobalPipelineLayout(const XUSG::PipelineLayout& layout) = 0;
 			virtual void SetMaxRecursionDepth(uint32_t depth) = 0;
 
-			virtual Pipeline CreatePipeline(PipelineCache& pipelineCache, const wchar_t* name = nullptr) = 0;
-			virtual Pipeline GetPipeline(PipelineCache& pipelineCache, const wchar_t* name = nullptr) = 0;
+			virtual Pipeline CreatePipeline(PipelineCache* pPipelineCache, const wchar_t* name = nullptr) = 0;
+			virtual Pipeline GetPipeline(PipelineCache* pPipelineCache, const wchar_t* name = nullptr) = 0;
 
 			virtual const std::string& GetKey() = 0;
 
@@ -346,8 +345,8 @@ namespace XUSG
 			virtual void SetDevice(const Device* pDevice) = 0;
 			virtual void SetPipeline(const std::string& key, const Pipeline& pipeline) = 0;
 
-			virtual Pipeline CreatePipeline(State& state, const wchar_t* name = nullptr) = 0;
-			virtual Pipeline GetPipeline(State& state, const wchar_t* name = nullptr) = 0;
+			virtual Pipeline CreatePipeline(State* pState, const wchar_t* name = nullptr) = 0;
+			virtual Pipeline GetPipeline(State* pState, const wchar_t* name = nullptr) = 0;
 
 			using uptr = std::unique_ptr<PipelineCache>;
 			using sptr = std::shared_ptr<PipelineCache>;

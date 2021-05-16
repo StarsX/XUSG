@@ -60,15 +60,30 @@ bool RayTracing::CommandList_DX12::CreateInterface()
 void RayTracing::CommandList_DX12::BuildRaytracingAccelerationStructure(const BuildDesc* pDesc, uint32_t numPostbuildInfoDescs,
 	const PostbuildInfo* pPostbuildInfoDescs, const DescriptorPool& descriptorPool) const
 {
-	const auto pPostbuildInfo = reinterpret_cast<const D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_DESC*>(pPostbuildInfoDescs);
+	const D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_TYPE infoTypes[] =
+	{
+		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_COMPACTED_SIZE,
+		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_TOOLS_VISUALIZATION,
+		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_SERIALIZATION,
+		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_CURRENT_SIZE
+	};
+
+	vector<D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_DESC> postbuildInfoDescs(numPostbuildInfoDescs);
+	for (auto i = 0u; i < numPostbuildInfoDescs; ++i)
+	{
+		postbuildInfoDescs[i].DestBuffer = pPostbuildInfoDescs[i].DestBuffer;
+		postbuildInfoDescs[i].InfoType = infoTypes[pPostbuildInfoDescs[i].InfoType];
+	}
+
+	const auto pBuildDesc = static_cast<const D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC*>(pDesc);
 #if ENABLE_DXR_FALLBACK
 	// Set the descriptor heaps to be used during acceleration structure build for the Fallback Layer.
 	const auto pDescriptorHeap = reinterpret_cast<ID3D12DescriptorHeap*>(descriptorPool);
 	m_commandListRT->SetDescriptorHeaps(1, &pDescriptorHeap);
-	m_commandListRT->BuildRaytracingAccelerationStructure(pDesc, numPostbuildInfoDescs,
-		pPostbuildInfo, AccelerationStructure::GetUAVCount());
+	m_commandListRT->BuildRaytracingAccelerationStructure(pBuildDesc, numPostbuildInfoDescs,
+		postbuildInfoDescs.data(), AccelerationStructure::GetUAVCount());
 #else // DirectX Raytracing
-	m_commandListRT->BuildRaytracingAccelerationStructure(pDesc, numPostbuildInfoDescs, pPostbuildInfo);
+	m_commandListRT->BuildRaytracingAccelerationStructure(pBuildDesc, numPostbuildInfoDescs, postbuildInfoDescs.data());
 #endif
 }
 

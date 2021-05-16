@@ -34,15 +34,15 @@ namespace XUSG
 		protected:
 			bool preBuild(const Device* pDevice, uint32_t descriptorIndex, uint32_t numSRVs = 0);
 
-			BuildDesc		m_buildDesc;
-			PrebuildInfo	m_prebuildInfo;
+			D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC m_buildDesc;
+			PrebuildInfo m_prebuildInfo;
 
 			std::vector<RawBuffer::sptr> m_results;
 #if ENABLE_DXR_FALLBACK
 			std::vector<WRAPPED_GPU_POINTER> m_pointers;
 #endif
 
-			uint32_t		m_currentFrame;
+			uint32_t m_currentFrame;
 		};
 
 		class BottomLevelAS_DX12 :
@@ -53,8 +53,8 @@ namespace XUSG
 			BottomLevelAS_DX12();
 			virtual ~BottomLevelAS_DX12();
 
-			bool PreBuild(const Device* pDevice, uint32_t numDescs, const Geometry* pGeometries,
-				uint32_t descriptorIndex, BuildFlags flags = BuildFlags::PREFER_FAST_TRACE);
+			bool PreBuild(const Device* pDevice, uint32_t numDescs, const GeometryBuffer& geometries,
+				uint32_t descriptorIndex, BuildFlag flags = BuildFlag::PREFER_FAST_TRACE);
 			void Build(const CommandList* pCommandList, const Resource* pScratch,
 				const DescriptorPool& descriptorPool, bool update = false);
 #if !ENABLE_DXR_FALLBACK
@@ -62,11 +62,11 @@ namespace XUSG
 				const DescriptorPool& descriptorPool, bool update = false);
 #endif
 
-			static void SetTriangleGeometries(Geometry* pGeometries, uint32_t numGeometries,
+			static void SetTriangleGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
 				Format vertexFormat, const VertexBufferView* pVBs, const IndexBufferView* pIBs = nullptr,
-				const GeometryFlags* pGeometryFlags = nullptr, const ResourceView* pTransforms = nullptr);
-			static void SetAABBGeometries(Geometry* pGeometries, uint32_t numGeometries,
-				const VertexBufferView* pVBs, const GeometryFlags* pGeometryFlags = nullptr);
+				const GeometryFlag* pGeometryFlags = nullptr, const ResourceView* pTransforms = nullptr);
+			static void SetAABBGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
+				const VertexBufferView* pVBs, const GeometryFlag* pGeometryFlags = nullptr);
 		};
 
 		class TopLevelAS_DX12 :
@@ -78,7 +78,7 @@ namespace XUSG
 			virtual ~TopLevelAS_DX12();
 
 			bool PreBuild(const Device* pDevice, uint32_t numDescs, uint32_t descriptorIndex,
-				BuildFlags flags = BuildFlags::PREFER_FAST_TRACE);
+				BuildFlag flags = BuildFlag::PREFER_FAST_TRACE);
 			void Build(const CommandList* pCommandList, const Resource* pScratch,
 				const Resource* pInstanceDescs, const DescriptorPool& descriptorPool, bool update = false);
 #if !ENABLE_DXR_FALLBACK

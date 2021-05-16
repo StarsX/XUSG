@@ -51,16 +51,16 @@ bool AccelerationStructure::AllocateUploadBuffer(const Device* pDevice, Resource
 	return AccelerationStructure_DX12::AllocateUploadBuffer(pDevice, pResource, byteWidth, pData);
 }
 
-void BottomLevelAS::SetTriangleGeometries(Geometry* geometries, uint32_t numGeometries,
+void BottomLevelAS::SetTriangleGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
 	Format vertexFormat, const VertexBufferView* pVBs, const IndexBufferView* pIBs,
-	const GeometryFlags* geometryFlags, const ResourceView* pTransforms, XUSG::API api)
+	const GeometryFlag* geometryFlags, const ResourceView* pTransforms, XUSG::API api)
 {
 	BottomLevelAS_DX12::SetTriangleGeometries(geometries, numGeometries,
 		vertexFormat, pVBs, pIBs, geometryFlags, pTransforms);
 }
 
-void BottomLevelAS::SetAABBGeometries(Geometry* geometries, uint32_t numGeometries,
-	const VertexBufferView* pVBs, const GeometryFlags* geometryFlags, XUSG::API api)
+void BottomLevelAS::SetAABBGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
+	const VertexBufferView* pVBs, const GeometryFlag* geometryFlags, XUSG::API api)
 {
 	BottomLevelAS_DX12::SetAABBGeometries(geometries, numGeometries, pVBs, geometryFlags);
 }

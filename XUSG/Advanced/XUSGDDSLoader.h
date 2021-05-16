@@ -26,10 +26,10 @@ namespace XUSG
 
 			bool CreateTextureFromMemory(const Device* pDevice, CommandList* pCommandList, const uint8_t* ddsData,
 				size_t ddsDataSize, size_t maxsize, bool forceSRGB, ShaderResource::sptr& texture,
-				Resource::sptr& uploader, AlphaMode* alphaMode = nullptr, ResourceState state = ResourceState::COMMON);
+				Resource* pUploader, AlphaMode* alphaMode = nullptr, ResourceState state = ResourceState::COMMON);
 
 			bool CreateTextureFromFile(const Device* pDevice, CommandList* pCommandList, const wchar_t* fileName,
-				size_t maxsize, bool forceSRGB, ShaderResource::sptr& texture, Resource::sptr& uploader,
+				size_t maxsize, bool forceSRGB, ShaderResource::sptr& texture, Resource* pUploader,
 				AlphaMode* alphaMode = nullptr, ResourceState state = ResourceState::COMMON);
 
 			static size_t BitsPerPixel(Format fmt);

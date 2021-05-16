@@ -33,6 +33,12 @@ void State_DX12::SetShaderLibrary(Blob shaderLib)
 void State_DX12::SetHitGroup(uint32_t index, const void* hitGroup, const void* closestHitShader,
 	const void* anyHitShader, const void* intersectionShader, HitGroupType type)
 {
+	const D3D12_HIT_GROUP_TYPE hitGroupTypes[] =
+	{
+		D3D12_HIT_GROUP_TYPE_TRIANGLES,
+		D3D12_HIT_GROUP_TYPE_PROCEDURAL_PRIMITIVE
+	};
+
 	m_isComplete = false;
 
 	if (index >= m_keyHitGroups.size())
@@ -43,7 +49,7 @@ void State_DX12::SetHitGroup(uint32_t index, const void* hitGroup, const void* c
 	keyHitGroup.ClosestHitShader = closestHitShader;
 	keyHitGroup.AnyHitShader = anyHitShader;
 	keyHitGroup.IntersectionShader = intersectionShader;
-	keyHitGroup.Type = static_cast<uint8_t>(type);
+	keyHitGroup.Type = hitGroupTypes[static_cast<uint8_t>(type)];
 }
 
 void State_DX12::SetShaderConfig(uint32_t maxPayloadSize, uint32_t maxAttributeSize)
@@ -80,14 +86,14 @@ void State_DX12::SetMaxRecursionDepth(uint32_t depth)
 	m_pKeyHeader->MaxRecursionDepth = depth;
 }
 
-Pipeline State_DX12::CreatePipeline(PipelineCache& pipelineCache, const wchar_t* name)
+Pipeline State_DX12::CreatePipeline(PipelineCache* pPipelineCache, const wchar_t* name)
 {
-	return pipelineCache.CreatePipeline(*this, name);
+	return pPipelineCache->CreatePipeline(this, name);
 }
 
-Pipeline State_DX12::GetPipeline(PipelineCache& pipelineCache, const wchar_t* name)
+Pipeline State_DX12::GetPipeline(PipelineCache* pPipelineCache, const wchar_t* name)
 {
-	return pipelineCache.GetPipeline(*this, name);
+	return pPipelineCache->GetPipeline(this, name);
 }
 
 const string& State_DX12::GetKey()
@@ -171,14 +177,14 @@ void PipelineCache_DX12::SetPipeline(const string& key, const Pipeline& pipeline
 #endif
 }
 
-Pipeline PipelineCache_DX12::CreatePipeline(State& state, const wchar_t* name)
+Pipeline PipelineCache_DX12::CreatePipeline(State* pState, const wchar_t* name)
 {
-	return createPipeline(state.GetKey(), name);
+	return createPipeline(pState->GetKey(), name);
 }
 
-Pipeline PipelineCache_DX12::GetPipeline(State& state, const wchar_t* name)
+Pipeline PipelineCache_DX12::GetPipeline(State* pState, const wchar_t* name)
 {
-	return getPipeline(state.GetKey(), name);
+	return getPipeline(pState->GetKey(), name);
 }
 
 Pipeline PipelineCache_DX12::createPipeline(const string& key, const wchar_t* name)
@@ -186,7 +192,7 @@ Pipeline PipelineCache_DX12::createPipeline(const string& key, const wchar_t* na
 	// Get header
 	const auto& keyHeader = reinterpret_cast<const State_DX12::KeyHeader&>(key[0]);
 
-	PipilineDesc pDesc(D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE);
+	CD3D12_STATE_OBJECT_DESC pDesc(D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE);
 
 	// DXIL library
 	auto lib = pDesc.CreateSubobject<CD3D12_DXIL_LIBRARY_SUBOBJECT>();

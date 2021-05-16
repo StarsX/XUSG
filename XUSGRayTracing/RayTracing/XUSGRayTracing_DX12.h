@@ -33,5 +33,11 @@ namespace XUSG
 			com_ptr<ID3D12Device5> m_deviceRT;
 #endif
 		};
+
+		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS GetDXRBuildFlag(BuildFlag buildFlag);
+		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS GetDXRBuildFlags(BuildFlag buildFlags);
+
+		D3D12_RAYTRACING_GEOMETRY_FLAGS GetDXRGeometryFlag(GeometryFlag geometryFlag);
+		D3D12_RAYTRACING_GEOMETRY_FLAGS GetDXRGeometryFlags(GeometryFlag geometryFlags);
 	}
 }

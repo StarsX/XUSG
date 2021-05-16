@@ -1175,7 +1175,7 @@ namespace XUSG
 		virtual bool Create(const Device* pDevice, size_t byteWidth, uint32_t numCBVs = 1,
 			const size_t* offsets = nullptr, MemoryType memoryType = MemoryType::UPLOAD,
 			const wchar_t* name = nullptr) = 0;
-		virtual bool Upload(CommandList* pCommandList, Resource::sptr& uploader, const void* pData,
+		virtual bool Upload(CommandList* pCommandList, Resource* pUploader, const void* pData,
 			size_t size, uint32_t cbvIndex = 0, ResourceState srcState = ResourceState::COMMON,
 			ResourceState dstState = ResourceState::COMMON) = 0;
 
@@ -1227,10 +1227,10 @@ namespace XUSG
 			uint32_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, MemoryType memoryType = MemoryType::DEFAULT,
 			bool isCubeMap = false, const wchar_t* name = nullptr) = 0;
-		virtual bool Upload(CommandList* pCommandList, Resource::sptr& uploader,
+		virtual bool Upload(CommandList* pCommandList, Resource* pUploader,
 			const SubresourceData* pSubresourceData, uint32_t numSubresources = 1,
 			ResourceState dstState = ResourceState::COMMON, uint32_t firstSubresource = 0) = 0;
-		virtual bool Upload(CommandList* pCommandList, Resource::sptr& uploader, const void* pData,
+		virtual bool Upload(CommandList* pCommandList, Resource* pUploader, const void* pData,
 			uint8_t stride = sizeof(float), ResourceState dstState = ResourceState::COMMON) = 0;
 		virtual bool CreateSRVs(uint32_t arraySize, Format format = Format::UNKNOWN, uint8_t numMips = 1,
 			uint8_t sampleCount = 1, bool isCubeMap = false) = 0;
@@ -1402,7 +1402,7 @@ namespace XUSG
 			MemoryType memoryType = MemoryType::DEFAULT, uint32_t numSRVs = 1,
 			const uint32_t* firstSRVElements = nullptr, uint32_t numUAVs = 1,
 			const uint32_t* firstUAVElements = nullptr, const wchar_t* name = nullptr) = 0;
-		virtual bool Upload(CommandList* pCommandList, Resource::sptr& uploader, const void* pData, size_t size,
+		virtual bool Upload(CommandList* pCommandList, Resource* pUploader, const void* pData, size_t size,
 			uint32_t descriptorIndex = 0, ResourceState dstState = ResourceState::COMMON) = 0;
 		virtual bool CreateSRVs(size_t byteWidth, const uint32_t* firstElements = nullptr,
 			uint32_t numDescriptors = 1) = 0;

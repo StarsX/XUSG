@@ -196,7 +196,7 @@ bool ConstantBuffer_DX12::Create(const Device* pDevice, size_t byteWidth, uint32
 	return true;
 }
 
-bool ConstantBuffer_DX12::Upload(CommandList* pCommandList, Resource::sptr& uploader, const void* pData,
+bool ConstantBuffer_DX12::Upload(CommandList* pCommandList, Resource* pUploader, const void* pData,
 	size_t size, uint32_t cbvIndex, ResourceState srcState, ResourceState dstState)
 {
 	const auto offset = m_cbvOffsets.empty() ? 0 : m_cbvOffsets[cbvIndex];
@@ -204,10 +204,10 @@ bool ConstantBuffer_DX12::Upload(CommandList* pCommandList, Resource::sptr& uplo
 	subresourceData.pData = pData;
 	subresourceData.RowPitch = static_cast<uint32_t>(size);
 	subresourceData.SlicePitch = static_cast<uint32_t>(m_resource->GetDesc().Width);
+
 	// Create the GPU upload buffer.
-	const auto uploaderDX12 = make_shared<Resource_DX12>();
-	uploader = uploaderDX12;
-	auto& uploaderResource = uploaderDX12->GetResource();
+	assert(pUploader);
+	auto& uploaderResource = dynamic_cast<Resource_DX12*>(pUploader)->GetResource();
 	if (!uploaderResource)
 	{
 		const CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_UPLOAD);
@@ -407,7 +407,7 @@ bool Texture2D_DX12::Create(const Device* pDevice, uint32_t width, uint32_t heig
 	return true;
 }
 
-bool Texture2D_DX12::Upload(CommandList* pCommandList, Resource::sptr& uploader,
+bool Texture2D_DX12::Upload(CommandList* pCommandList, Resource* pUploader,
 	const SubresourceData* pSubresourceData, uint32_t numSubresources,
 	ResourceState dstState, uint32_t firstSubresource)
 {
@@ -421,9 +421,8 @@ bool Texture2D_DX12::Upload(CommandList* pCommandList, Resource::sptr& uploader,
 	};
 
 	// Create the GPU upload buffer.
-	const auto uploaderDX12 = make_shared<Resource_DX12>();
-	uploader = uploaderDX12;
-	auto& uploaderResource = uploaderDX12->GetResource();
+	assert(pUploader);
+	auto& uploaderResource = dynamic_cast<Resource_DX12*>(pUploader)->GetResource();
 	if (!uploaderResource)
 	{
 		const CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_UPLOAD);
@@ -454,7 +453,7 @@ bool Texture2D_DX12::Upload(CommandList* pCommandList, Resource::sptr& uploader,
 	return true;
 }
 
-bool Texture2D_DX12::Upload(CommandList* pCommandList, Resource::sptr& uploader,
+bool Texture2D_DX12::Upload(CommandList* pCommandList, Resource* pUploader,
 	const void* pData, uint8_t stride, ResourceState dstState)
 {
 	const auto desc = m_resource->GetDesc();
@@ -464,7 +463,7 @@ bool Texture2D_DX12::Upload(CommandList* pCommandList, Resource::sptr& uploader,
 	subresourceData.RowPitch = stride * static_cast<uint32_t>(desc.Width);
 	subresourceData.SlicePitch = subresourceData.RowPitch * desc.Height;
 
-	return Upload(pCommandList, uploader, &subresourceData, 1, dstState);
+	return Upload(pCommandList, pUploader, &subresourceData, 1, dstState);
 }
 
 bool Texture2D_DX12::CreateSRVs(uint32_t arraySize, Format format, uint8_t numMips,
@@ -1648,7 +1647,7 @@ bool RawBuffer_DX12::Create(const Device* pDevice, size_t byteWidth, ResourceFla
 	return true;
 }
 
-bool RawBuffer_DX12::Upload(CommandList* pCommandList, Resource::sptr& uploader, const void* pData,
+bool RawBuffer_DX12::Upload(CommandList* pCommandList, Resource* pUploader, const void* pData,
 	size_t size, uint32_t descriptorIndex, ResourceState dstState)
 {
 	const auto offset = m_srvOffsets.empty() ? 0 : m_srvOffsets[descriptorIndex];
@@ -1658,9 +1657,8 @@ bool RawBuffer_DX12::Upload(CommandList* pCommandList, Resource::sptr& uploader,
 	subresourceData.SlicePitch = static_cast<uint32_t>(m_resource->GetDesc().Width);
 
 	// Create the GPU upload buffer.
-	const auto uploaderDX12 = make_shared<Resource_DX12>();
-	uploader = uploaderDX12;
-	auto& uploaderResource = uploaderDX12->GetResource();
+	assert(pUploader);
+	auto& uploaderResource = dynamic_cast<Resource_DX12*>(pUploader)->GetResource();
 	if (!uploaderResource)
 	{
 		const CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_UPLOAD);
