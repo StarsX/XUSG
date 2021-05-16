@@ -202,8 +202,7 @@ void BottomLevelAS_DX12::Build(const CommandList* pCommandList, const Resource* 
 	{
 		m_results[m_currentFrame].get(),
 		ResourceState::UNORDERED_ACCESS,
-		ResourceState::UNORDERED_ACCESS,
-		BARRIER_ALL_SUBRESOURCES
+		ResourceState::UNORDERED_ACCESS
 	};
 	pCommandList->Barrier(1, &barrier);
 }
