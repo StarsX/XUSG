@@ -380,7 +380,7 @@ namespace XUSG
 
 	DEFINE_ENUM_FLAG_OPERATORS(DescriptorFlag);
 
-	enum class PipelineLayoutFlag : uint8_t
+	enum class PipelineLayoutFlag : uint32_t
 	{
 		NONE = 0,
 		ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT = (1 << 0),
@@ -390,7 +390,11 @@ namespace XUSG
 		DENY_GEOMETRY_SHADER_ROOT_ACCESS = (1 << 4),
 		DENY_PIXEL_SHADER_ROOT_ACCESS = (1 << 5),
 		ALLOW_STREAM_OUTPUT = (1 << 6),
-		LOCAL_PIPELINE_LAYOUT = (1 << 7)
+		LOCAL_PIPELINE_LAYOUT = (1 << 7),
+		DENY_AMPLIFICATION_SHADER_ROOT_ACCESS = (1 << 8),
+		DENY_MESH_SHADER_ROOT_ACCESS = (1 << 9),
+		CBV_SRV_UAV_POOL_DIRECTLY_INDEXED = (1 << 10),
+		SAMPLER_POOL_DIRECTLY_INDEXED = (1 << 11)
 	};
 
 	DEFINE_ENUM_FLAG_OPERATORS(PipelineLayoutFlag);
@@ -641,13 +645,13 @@ namespace XUSG
 
 	struct SamplerDesc
 	{
-		int Filter;
-		int AddressU;
-		int AddressV;
-		int AddressW;
+		uint16_t Filter;
+		uint8_t AddressU;
+		uint8_t AddressV;
+		uint8_t AddressW;
 		float MipLODBias;
-		uint32_t MaxAnisotropy;
-		int ComparisonFunc;
+		uint8_t MaxAnisotropy;
+		uint8_t ComparisonFunc;
 		float BorderColor[4];
 		float MinLOD;
 		float MaxLOD;
@@ -1693,6 +1697,8 @@ namespace XUSG
 			virtual void SetRootUAV(uint32_t index, uint32_t binding, uint32_t space = 0,
 				DescriptorFlag flags = DescriptorFlag::DATA_STATIC_WHILE_SET_AT_EXECUTE, Shader::Stage stage = Shader::Stage::ALL) = 0;
 			virtual void SetRootCBV(uint32_t index, uint32_t binding, uint32_t space = 0, Shader::Stage stage = Shader::Stage::ALL) = 0;
+			virtual void SetStaticSamplers(const Sampler* pSamplers, uint32_t num, uint32_t baseBinding,
+				uint32_t space = 0, Shader::Stage stage = Shader::Stage::ALL) = 0;
 
 			virtual XUSG::PipelineLayout CreatePipelineLayout(PipelineLayoutCache* pPipelineLayoutCache, PipelineLayoutFlag flags,
 				const wchar_t* name = nullptr) = 0;

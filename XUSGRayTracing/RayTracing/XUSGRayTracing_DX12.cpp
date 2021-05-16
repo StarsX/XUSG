@@ -8,7 +8,7 @@
 using namespace std;
 using namespace XUSG::RayTracing;
 
-#define APPEND_FLAG(type, dx12Type, flags, flag, none) ((flags & type::flag) == type::flag ? dx12Type##_##flag : dx12Type##_##none)
+#define APPEND_FLAG(type, dx12Type, flags, flag, none) (static_cast<bool>(flags & type::flag) ? dx12Type##_##flag : dx12Type##_##none)
 #define APPEND_BUILD_FLAG(flags, flag) APPEND_FLAG(BuildFlag, D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG, flags, flag, NONE)
 #define APPEND_GEOMETRY_FLAG(flags, flag) APPEND_FLAG(GeometryFlag, D3D12_RAYTRACING_GEOMETRY_FLAG, flags, flag, NONE)
 
@@ -103,7 +103,7 @@ D3D12_RAYTRACING_GEOMETRY_FLAGS XUSG::RayTracing::GetDXRGeometryFlag(GeometryFla
 D3D12_RAYTRACING_GEOMETRY_FLAGS XUSG::RayTracing::GetDXRGeometryFlags(GeometryFlag geometryFlags)
 {
 	auto flags = D3D12_RAYTRACING_GEOMETRY_FLAG_NONE;
-	flags |= (geometryFlags & GeometryFlag::FULL_OPAQUE) == GeometryFlag::FULL_OPAQUE ?
+	flags |= static_cast<bool>(geometryFlags & GeometryFlag::FULL_OPAQUE) ?
 		D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE : D3D12_RAYTRACING_GEOMETRY_FLAG_NONE;
 	flags |= APPEND_GEOMETRY_FLAG(geometryFlags, NO_DUPLICATE_ANYHIT_INVOCATION);
 

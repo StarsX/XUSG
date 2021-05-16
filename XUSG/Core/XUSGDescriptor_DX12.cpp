@@ -422,7 +422,7 @@ DescriptorTable DescriptorTableCache_DX12::createSamplerTable(const string& key,
 	{
 		const auto& index = key[0];
 		const auto numDescriptors = static_cast<uint32_t>(key.size() / sizeof(uintptr_t));
-		const auto pSamplers = reinterpret_cast<const D3D12_SAMPLER_DESC* const*>(&key[1]);
+		const auto pSamplers = reinterpret_cast<const SamplerDesc* const*>(&key[1]);
 
 		// Compute start addresses for CPU and GPU handles
 		const auto& descriptorPool = m_descriptorPools[SAMPLER_POOL][index];
@@ -444,8 +444,23 @@ DescriptorTable DescriptorTableCache_DX12::createSamplerTable(const string& key,
 		// Create a descriptor table
 		for (auto i = 0u; i < numDescriptors; ++i)
 		{
+			D3D12_SAMPLER_DESC desc;
+			desc.Filter = static_cast<D3D12_FILTER>(pSamplers[i]->Filter);
+			desc.AddressU = static_cast<D3D12_TEXTURE_ADDRESS_MODE>(pSamplers[i]->AddressU);
+			desc.AddressV = static_cast<D3D12_TEXTURE_ADDRESS_MODE>(pSamplers[i]->AddressV);
+			desc.AddressW = static_cast<D3D12_TEXTURE_ADDRESS_MODE>(pSamplers[i]->AddressW);
+			desc.MipLODBias = pSamplers[i]->MipLODBias;
+			desc.MaxAnisotropy = pSamplers[i]->MaxAnisotropy;
+			desc.ComparisonFunc = static_cast<D3D12_COMPARISON_FUNC>(pSamplers[i]->ComparisonFunc);
+			desc.BorderColor[0] = pSamplers[i]->BorderColor[0];
+			desc.BorderColor[1] = pSamplers[i]->BorderColor[1];
+			desc.BorderColor[2] = pSamplers[i]->BorderColor[2];
+			desc.BorderColor[3] = pSamplers[i]->BorderColor[3];
+			desc.MinLOD = pSamplers[i]->MinLOD;
+			desc.MaxLOD = pSamplers[i]->MaxLOD;
+
 			// Copy a descriptor
-			m_device->CreateSampler(pSamplers[i], dst);
+			m_device->CreateSampler(&desc, dst);
 			dst.Offset(descriptorStride);
 		}
 

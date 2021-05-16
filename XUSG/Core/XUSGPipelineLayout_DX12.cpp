@@ -11,6 +11,7 @@ using namespace XUSG;
 
 Util::PipelineLayout_DX12::PipelineLayout_DX12() :
 	m_descriptorTableLayoutKeys(0),
+	m_staticSamplers(0),
 	m_isTableLayoutsCompleted(false)
 {
 	m_pipelineLayoutKey.resize(1);
@@ -73,6 +74,22 @@ void Util::PipelineLayout_DX12::SetRootCBV(uint32_t index, uint32_t binding, uin
 	SetShaderStage(index, stage);
 }
 
+void Util::PipelineLayout_DX12::SetStaticSamplers(const Sampler* pSamplers,
+	uint32_t num, uint32_t baseBinding, uint32_t space, Shader::Stage stage)
+{
+	const auto startIdx = static_cast<uint32_t>(m_staticSamplers.size());
+	m_staticSamplers.resize(startIdx + num);
+
+	for (auto i = 0u; i < num; ++i)
+	{
+		auto& staticSampler = m_staticSamplers[startIdx + i];
+		staticSampler.Binding = baseBinding + i;
+		staticSampler.Space = space;
+		staticSampler.pSampler = pSamplers[i].get();
+		staticSampler.Stage = stage;
+	}
+}
+
 PipelineLayout Util::PipelineLayout_DX12::CreatePipelineLayout(PipelineLayoutCache* pPipelineLayoutCache,
 	PipelineLayoutFlag flags, const wchar_t* name)
 {
@@ -106,12 +123,19 @@ string& Util::PipelineLayout_DX12::GetPipelineLayoutKey(PipelineLayoutCache* pPi
 {
 	if (!m_isTableLayoutsCompleted && pPipelineLayoutCache)
 	{
-		m_pipelineLayoutKey.resize(sizeof(DescriptorTableLayout) * m_descriptorTableLayoutKeys.size() + 1);
+		const auto staticSamplerKeyOffset = DescriptorTableLayoutOffset + sizeof(DescriptorTableLayout) * m_descriptorTableLayoutKeys.size();
+		m_pipelineLayoutKey.resize(staticSamplerKeyOffset + sizeof(StaticSampler) * m_staticSamplers.size());
 
-		const auto pDescriptorTableLayouts = reinterpret_cast<DescriptorTableLayout*>(&m_pipelineLayoutKey[1]);
+		auto& descriptorTableLayoutCount = reinterpret_cast<uint16_t&>(m_pipelineLayoutKey[DescriptorTableLayoutCountOffset]);
+		const auto pDescriptorTableLayouts = reinterpret_cast<DescriptorTableLayout*>(&m_pipelineLayoutKey[DescriptorTableLayoutOffset]);
+		const auto pStaticSamplers = reinterpret_cast<StaticSampler*>(&m_pipelineLayoutKey[staticSamplerKeyOffset]);
 
-		for (auto i = 0u; i < m_descriptorTableLayoutKeys.size(); ++i)
+		descriptorTableLayoutCount = static_cast<uint16_t>(m_descriptorTableLayoutKeys.size());
+		for (auto i = 0u; i < descriptorTableLayoutCount; ++i)
 			pDescriptorTableLayouts[i] = GetDescriptorTableLayout(i, pPipelineLayoutCache);
+
+		for (auto i = 0u; i < m_staticSamplers.size(); ++i)
+			pStaticSamplers[i] = m_staticSamplers[i];
 
 		m_isTableLayoutsCompleted = true;
 	}
@@ -167,11 +191,17 @@ void PipelineLayoutCache_DX12::SetPipelineLayout(const string& key, const Pipeli
 void PipelineLayoutCache_DX12::GetRootParameter(CD3DX12_ROOT_PARAMETER1& rootParam, vector<CD3DX12_DESCRIPTOR_RANGE1>& descriptorRanges,
 	const DescriptorTableLayout& descriptorTableLayout) const
 {
-	D3D12_DESCRIPTOR_RANGE_TYPE rangeTypes[static_cast<uint8_t>(DescriptorType::NUM)];
-	rangeTypes[static_cast<uint8_t>(DescriptorType::SRV)] = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-	rangeTypes[static_cast<uint8_t>(DescriptorType::UAV)] = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-	rangeTypes[static_cast<uint8_t>(DescriptorType::CBV)] = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-	rangeTypes[static_cast<uint8_t>(DescriptorType::SAMPLER)] = D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
+	const D3D12_DESCRIPTOR_RANGE_TYPE rangeTypes[] =
+	{
+		D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
+		D3D12_DESCRIPTOR_RANGE_TYPE_UAV,
+		D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
+		D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER
+	};
+	assert(rangeTypes[static_cast<uint8_t>(DescriptorType::SRV)] == D3D12_DESCRIPTOR_RANGE_TYPE_SRV);
+	assert(rangeTypes[static_cast<uint8_t>(DescriptorType::UAV)] == D3D12_DESCRIPTOR_RANGE_TYPE_UAV);
+	assert(rangeTypes[static_cast<uint8_t>(DescriptorType::CBV)] == D3D12_DESCRIPTOR_RANGE_TYPE_CBV);
+	assert(rangeTypes[static_cast<uint8_t>(DescriptorType::SAMPLER)] == D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER);
 
 	// Set ranges
 	const auto& key = *static_cast<const string*>(descriptorTableLayout);
@@ -180,41 +210,32 @@ void PipelineLayoutCache_DX12::GetRootParameter(CD3DX12_ROOT_PARAMETER1& rootPar
 	if (numRanges > 0)
 	{
 		const auto stage = static_cast<Shader::Stage>(key[0]);
-		D3D12_SHADER_VISIBILITY visibilities[Shader::NUM_STAGE];
-		visibilities[Shader::VS] = D3D12_SHADER_VISIBILITY_VERTEX;
-		visibilities[Shader::PS] = D3D12_SHADER_VISIBILITY_PIXEL;
-		visibilities[Shader::DS] = D3D12_SHADER_VISIBILITY_DOMAIN;
-		visibilities[Shader::HS] = D3D12_SHADER_VISIBILITY_HULL;
-		visibilities[Shader::GS] = D3D12_SHADER_VISIBILITY_GEOMETRY;
-		visibilities[Shader::ALL] = D3D12_SHADER_VISIBILITY_ALL;
-		visibilities[Shader::AS] = D3D12_SHADER_VISIBILITY_AMPLIFICATION;
-		visibilities[Shader::MS] = D3D12_SHADER_VISIBILITY_MESH;
-
 		const auto pRanges = reinterpret_cast<const DescriptorRange*>(&key[1]);
+
 		switch (pRanges->Type)
 		{
 		case DescriptorType::CONSTANT:
 			// Set param
 			rootParam.InitAsConstants(pRanges->NumDescriptors, pRanges->BaseBinding,
-				pRanges->Space, visibilities[stage]);
+				pRanges->Space, getShaderVisibility(stage));
 			break;
 
 		case DescriptorType::ROOT_SRV:
 			// Set param
 			rootParam.InitAsShaderResourceView(pRanges->BaseBinding, pRanges->Space,
-				GetDX12RootDescriptorFlags(pRanges->Flags), visibilities[stage]);
+				GetDX12RootDescriptorFlags(pRanges->Flags), getShaderVisibility(stage));
 			break;
 
 		case DescriptorType::ROOT_UAV:
 			// Set param
 			rootParam.InitAsUnorderedAccessView(pRanges->BaseBinding, pRanges->Space,
-				GetDX12RootDescriptorFlags(pRanges->Flags), visibilities[stage]);
+				GetDX12RootDescriptorFlags(pRanges->Flags), getShaderVisibility(stage));
 			break;
 
 		case DescriptorType::ROOT_CBV:
 			// Set param
 			rootParam.InitAsConstantBufferView(pRanges->BaseBinding, pRanges->Space,
-				GetDX12RootDescriptorFlags(pRanges->Flags), visibilities[stage]);
+				GetDX12RootDescriptorFlags(pRanges->Flags), getShaderVisibility(stage));
 			break;
 
 		default:
@@ -228,16 +249,37 @@ void PipelineLayoutCache_DX12::GetRootParameter(CD3DX12_ROOT_PARAMETER1& rootPar
 			}
 
 			// Set param
-			rootParam.InitAsDescriptorTable(numRanges, descriptorRanges.data(), visibilities[stage]);
+			rootParam.InitAsDescriptorTable(numRanges, descriptorRanges.data(), getShaderVisibility(stage));
 		}
 	}
+}
+
+void PipelineLayoutCache_DX12::GetStaticSampler(CD3DX12_STATIC_SAMPLER_DESC& samplerDescs, const StaticSampler& staticSampler) const
+{
+	const auto borderColor = staticSampler.pSampler->BorderColor[3] ?
+		(staticSampler.pSampler->BorderColor[0] ? D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE : D3D12_STATIC_BORDER_COLOR_OPAQUE_BLACK) :
+		D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
+
+	samplerDescs.Init(staticSampler.Binding,
+		static_cast<D3D12_FILTER>(staticSampler.pSampler->Filter),
+		static_cast<D3D12_TEXTURE_ADDRESS_MODE>(staticSampler.pSampler->AddressU),
+		static_cast<D3D12_TEXTURE_ADDRESS_MODE>(staticSampler.pSampler->AddressV),
+		static_cast<D3D12_TEXTURE_ADDRESS_MODE>(staticSampler.pSampler->AddressW),
+		staticSampler.pSampler->MipLODBias,
+		staticSampler.pSampler->MaxAnisotropy,
+		static_cast<D3D12_COMPARISON_FUNC>(staticSampler.pSampler->ComparisonFunc),
+		borderColor,
+		staticSampler.pSampler->MinLOD,
+		staticSampler.pSampler->MaxLOD,
+		getShaderVisibility(static_cast<Shader::Stage>(staticSampler.Stage)),
+		staticSampler.Space);
 }
 
 PipelineLayout PipelineLayoutCache_DX12::CreatePipelineLayout(Util::PipelineLayout* pUtil,
 	PipelineLayoutFlag flags, const wchar_t* name)
 {
 	auto& pipelineLayoutKey = pUtil->GetPipelineLayoutKey(this);
-	pipelineLayoutKey[0] = static_cast<uint8_t>(flags);
+	reinterpret_cast<uint16_t&>(pipelineLayoutKey[0]) = static_cast<uint16_t>(flags);
 
 	return createPipelineLayout(pipelineLayoutKey, name);
 }
@@ -246,7 +288,7 @@ PipelineLayout PipelineLayoutCache_DX12::GetPipelineLayout(Util::PipelineLayout*
 	PipelineLayoutFlag flags, const wchar_t* name, bool create)
 {
 	auto& pipelineLayoutKey = pUtil->GetPipelineLayoutKey(this);
-	pipelineLayoutKey[0] = static_cast<uint8_t>(flags);
+	reinterpret_cast<uint16_t&>(pipelineLayoutKey[0]) = static_cast<uint16_t>(flags);
 
 	return getPipelineLayout(pipelineLayoutKey, name, create);
 }
@@ -265,30 +307,44 @@ DescriptorTableLayout PipelineLayoutCache_DX12::GetDescriptorTableLayout(uint32_
 	return keys.size() > index ? getDescriptorTableLayout(keys[index]) : nullptr;
 }
 
-PipelineLayout PipelineLayoutCache_DX12::createPipelineLayout(const string& key, const wchar_t* name)
+D3D_ROOT_SIGNATURE_VERSION PipelineLayoutCache_DX12::GetRootSignatureHighestVersion() const
 {
 	D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = {};
 
-	// This is the highest version the sample supports. If CheckFeatureSupport succeeds, the HighestVersion returned will not be greater than this.
-	featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1;
-
 	if (FAILED(m_device->CheckFeatureSupport(D3D12_FEATURE_ROOT_SIGNATURE, &featureData, sizeof(featureData))))
-		featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
+		return D3D_ROOT_SIGNATURE_VERSION_1_0;
 
-	const auto numRootParams = static_cast<uint32_t>((key.size() - 1) / sizeof(void*));
-	const auto flags = static_cast<PipelineLayoutFlag>(key[0]);
-	const auto pDescriptorTableLayouts = reinterpret_cast<const DescriptorTableLayout*>(&key[1]);
+	// This is the highest version the sample supports. If CheckFeatureSupport succeeds, the HighestVersion returned will not be greater than this.
+	return D3D_ROOT_SIGNATURE_VERSION_1_1;
+}
+
+PipelineLayout PipelineLayoutCache_DX12::createPipelineLayout(const string& key, const wchar_t* name)
+{
+	const auto highestVersion = GetRootSignatureHighestVersion();
+
+	const auto flags = static_cast<PipelineLayoutFlag>(reinterpret_cast<const uint16_t&>(key[0]));
+	const auto numRootParams = reinterpret_cast<const uint16_t&>(key[Util::PipelineLayout_DX12::DescriptorTableLayoutCountOffset]);
+	const auto pDescriptorTableLayouts = reinterpret_cast<const DescriptorTableLayout*>(&key[Util::PipelineLayout_DX12::DescriptorTableLayoutOffset]);
 
 	vector<CD3DX12_ROOT_PARAMETER1> rootParams(numRootParams);
 	vector<vector<CD3DX12_DESCRIPTOR_RANGE1>> descriptorRanges(numRootParams);
 	for (auto i = 0u; i < numRootParams; ++i)
 		GetRootParameter(rootParams[i], descriptorRanges[i], pDescriptorTableLayouts[i]);
 
+	const auto staticSamplerKeyOffset = Util::PipelineLayout_DX12::DescriptorTableLayoutOffset + sizeof(DescriptorTableLayout) * numRootParams;
+	const auto numSamplers = static_cast<uint32_t>((key.size() - staticSamplerKeyOffset) / sizeof(StaticSampler));
+	const auto pStaticSamplers = reinterpret_cast<const StaticSampler*>(&key[staticSamplerKeyOffset]);
+
+	vector<CD3DX12_STATIC_SAMPLER_DESC> samplerDescs(numSamplers);
+	for (auto i = 0u; i < numSamplers; ++i)
+		GetStaticSampler(samplerDescs[i], pStaticSamplers[i]);
+
 	CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
-	rootSignatureDesc.Init_1_1(numRootParams, rootParams.data(), 0, nullptr, GetDX12RootSignatureFlags(flags));
+	rootSignatureDesc.Init_1_1(numRootParams, numRootParams ? rootParams.data() : nullptr,
+		numSamplers, numSamplers ? samplerDescs.data() : nullptr, GetDX12RootSignatureFlags(flags));
 
 	com_ptr<ID3DBlob> signature, error;
-	H_RETURN(D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, featureData.HighestVersion, &signature, &error),
+	H_RETURN(D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, highestVersion, &signature, &error),
 		cerr, reinterpret_cast<wchar_t*>(error->GetBufferPointer()), nullptr);
 
 	com_ptr<ID3D12RootSignature> rootSignature;
@@ -307,12 +363,7 @@ PipelineLayout PipelineLayoutCache_DX12::getPipelineLayout(const string& key, co
 	// Create one, if it does not exist
 	if (layoutIter == m_rootSignatures.end())
 	{
-		if (create)
-		{
-			const auto layout = createPipelineLayout(key, name);
-
-			return layout;
-		}
+		if (create) return createPipelineLayout(key, name);
 		else return nullptr;
 	}
 
@@ -337,4 +388,29 @@ DescriptorTableLayout PipelineLayoutCache_DX12::getDescriptorTableLayout(const s
 	if (layoutPtrIter == m_descriptorTableLayouts.end()) return createDescriptorTableLayout(key);
 
 	return layoutPtrIter->second;
+}
+
+D3D12_SHADER_VISIBILITY PipelineLayoutCache_DX12::getShaderVisibility(Shader::Stage stage) const
+{
+	const D3D12_SHADER_VISIBILITY visibilities[] =
+	{
+		D3D12_SHADER_VISIBILITY_PIXEL,
+		D3D12_SHADER_VISIBILITY_VERTEX,
+		D3D12_SHADER_VISIBILITY_DOMAIN,
+		D3D12_SHADER_VISIBILITY_HULL,
+		D3D12_SHADER_VISIBILITY_GEOMETRY,
+		D3D12_SHADER_VISIBILITY_ALL,
+		D3D12_SHADER_VISIBILITY_MESH,
+		D3D12_SHADER_VISIBILITY_AMPLIFICATION
+	};
+	assert(visibilities[Shader::VS] == D3D12_SHADER_VISIBILITY_VERTEX);
+	assert(visibilities[Shader::PS] == D3D12_SHADER_VISIBILITY_PIXEL);
+	assert(visibilities[Shader::DS] == D3D12_SHADER_VISIBILITY_DOMAIN);
+	assert(visibilities[Shader::HS] == D3D12_SHADER_VISIBILITY_HULL);
+	assert(visibilities[Shader::GS] == D3D12_SHADER_VISIBILITY_GEOMETRY);
+	assert(visibilities[Shader::ALL] == D3D12_SHADER_VISIBILITY_ALL);
+	assert(visibilities[Shader::AS] == D3D12_SHADER_VISIBILITY_AMPLIFICATION);
+	assert(visibilities[Shader::MS] == D3D12_SHADER_VISIBILITY_MESH);
+
+	return visibilities[stage];
 }

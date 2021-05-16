@@ -13,8 +13,8 @@ namespace XUSG
 	{
 		struct PipelineDesc
 		{
-			void* PipelineLayout;
-			void* Shaders[Shader::Stage::NUM_GRAPHICS];
+			PipelineLayout PipelineLayout;
+			Blob Shaders[Shader::Stage::NUM_GRAPHICS];
 			const Blend* pBlend;
 			const Rasterizer* pRasterizer;
 			const DepthStencil* pDepthStencil;

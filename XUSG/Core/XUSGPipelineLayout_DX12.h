@@ -8,6 +8,14 @@
 
 namespace XUSG
 {
+	struct StaticSampler
+	{
+		uint32_t Binding;
+		uint32_t Space;
+		const SamplerDesc* pSampler;
+		uint8_t Stage;
+	};
+
 	namespace Util
 	{
 		class PipelineLayout_DX12 :
@@ -27,6 +35,8 @@ namespace XUSG
 			void SetRootUAV(uint32_t index, uint32_t binding, uint32_t space = 0,
 				DescriptorFlag flags = DescriptorFlag::DATA_STATIC_WHILE_SET_AT_EXECUTE, Shader::Stage stage = Shader::Stage::ALL);
 			void SetRootCBV(uint32_t index, uint32_t binding, uint32_t space = 0, Shader::Stage stage = Shader::Stage::ALL);
+			void SetStaticSamplers(const Sampler* pSamplers, uint32_t num, uint32_t baseBinding,
+				uint32_t space = 0, Shader::Stage stage = Shader::Stage::ALL);
 
 			XUSG::PipelineLayout CreatePipelineLayout(PipelineLayoutCache* pPipelineLayoutCache, PipelineLayoutFlag flags,
 				const wchar_t* name = nullptr);
@@ -39,10 +49,14 @@ namespace XUSG
 			const std::vector<std::string>& GetDescriptorTableLayoutKeys() const;
 			std::string& GetPipelineLayoutKey(PipelineLayoutCache* pPipelineLayoutCache);
 
+			static const uint8_t DescriptorTableLayoutCountOffset = sizeof(uint16_t);
+			static const uint8_t DescriptorTableLayoutOffset = DescriptorTableLayoutCountOffset + sizeof(uint16_t);
+
 		protected:
 			std::string& checkKeyStorage(uint32_t index);
 
 			std::vector<std::string> m_descriptorTableLayoutKeys;
+			std::vector<StaticSampler> m_staticSamplers;
 			std::string m_pipelineLayoutKey;
 
 			bool m_isTableLayoutsCompleted;
@@ -62,6 +76,7 @@ namespace XUSG
 		void GetRootParameter(CD3DX12_ROOT_PARAMETER1& rootParam,
 			std::vector<CD3DX12_DESCRIPTOR_RANGE1>& descriptorRanges,
 			const DescriptorTableLayout& descriptorTableLayout) const;
+		void GetStaticSampler(CD3DX12_STATIC_SAMPLER_DESC& samplerDescs, const StaticSampler& staticSampler) const;
 
 		PipelineLayout CreatePipelineLayout(Util::PipelineLayout* pUtil, PipelineLayoutFlag flags,
 			const wchar_t* name = nullptr);
@@ -71,12 +86,16 @@ namespace XUSG
 		DescriptorTableLayout CreateDescriptorTableLayout(uint32_t index, const Util::PipelineLayout* pUtil);
 		DescriptorTableLayout GetDescriptorTableLayout(uint32_t index, const Util::PipelineLayout* pUtil);
 
+		D3D_ROOT_SIGNATURE_VERSION GetRootSignatureHighestVersion() const;
+
 	protected:
 		PipelineLayout createPipelineLayout(const std::string& key, const wchar_t* name);
 		PipelineLayout getPipelineLayout(const std::string& key, const wchar_t* name, bool create);
 
 		DescriptorTableLayout createDescriptorTableLayout(const std::string& key);
 		DescriptorTableLayout getDescriptorTableLayout(const std::string& key);
+
+		D3D12_SHADER_VISIBILITY getShaderVisibility(Shader::Stage stage) const;
 
 		com_ptr<ID3D12Device> m_device;
 

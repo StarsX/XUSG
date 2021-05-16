@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Advanced\XUSGDDSLoader.h" />
+    <ClInclude Include="Common\d3d12.h" />
     <ClInclude Include="Common\d3dx12.h" />
     <ClInclude Include="Common\dds.h" />
     <ClInclude Include="Common\DXFrameworkHelper.h" />
