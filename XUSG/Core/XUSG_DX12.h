@@ -6,16 +6,16 @@
 
 #pragma once
 
-#define H_RETURN(x, o, m, r)		{ const auto hr = x; if (FAILED(hr)) { o << m << std::endl; assert(!m); return r; } }
-#define V_RETURN(x, o, r)			H_RETURN(x, o, XUSG::HrToString(hr).c_str(), r)
-#define F_RETURN(x, o, h, r)		M_RETURN(x, o, XUSG::HrToString(h).c_str(), r)
+#define H_RETURN(x, o, m, r)	{ const auto hr = x; if (FAILED(hr)) { o << m << std::endl; assert(!m); return r; } }
+#define V_RETURN(x, o, r)		H_RETURN(x, o, HrToString(hr).c_str(), r)
+#define F_RETURN(x, o, h, r)	M_RETURN(x, o, HrToString(h).c_str(), r)
 
 namespace XUSG
 {
-	inline std::string HrToString(HRESULT hr)
+	inline std::string HrToString(uint32_t hr)
 	{
 		char s_str[64] = {};
-		sprintf_s(s_str, "HRESULT of 0x%08X", static_cast<uint32_t>(hr));
+		sprintf_s(s_str, "HRESULT of 0x%08X", hr);
 
 		return std::string(s_str);
 	}
