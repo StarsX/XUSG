@@ -89,10 +89,10 @@ namespace XUSG
 		D3D_ROOT_SIGNATURE_VERSION GetRootSignatureHighestVersion() const;
 
 	protected:
-		PipelineLayout createPipelineLayout(const std::string& key, const wchar_t* name);
+		virtual PipelineLayout createPipelineLayout(const std::string& key, const wchar_t* name);
 		PipelineLayout getPipelineLayout(const std::string& key, const wchar_t* name, bool create);
 
-		DescriptorTableLayout createDescriptorTableLayout(const std::string& key);
+		virtual DescriptorTableLayout createDescriptorTableLayout(const std::string& key);
 		DescriptorTableLayout getDescriptorTableLayout(const std::string& key);
 
 		D3D12_SHADER_VISIBILITY getShaderVisibility(Shader::Stage stage) const;

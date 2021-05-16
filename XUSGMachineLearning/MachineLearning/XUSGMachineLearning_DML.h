@@ -137,11 +137,11 @@ namespace XUSG
 		using ValueScale2D = DML_VALUE_SCALE_2D_OPERATOR_DESC;
 		struct Upsample2D : public DML_UPSAMPLE_2D_OPERATOR_DESC
 		{
-			Upsample2D(const TensorDesc* pInputTensor, const TensorDesc* pOutputTensor,
+			Upsample2D(const Tensor* pInputTensor, const Tensor* pOutputTensor,
 				uint32_t scaleSizeX, uint32_t scaleSizeY, InterpolationType interpolationType)
 			{
-				InputTensor = pInputTensor;
-				OutputTensor = pOutputTensor;
+				InputTensor = static_cast<const DML_TENSOR_DESC*>(pInputTensor->GetHandle());
+				OutputTensor = static_cast<const DML_TENSOR_DESC*>(pOutputTensor->GetHandle());
 				ScaleSize.Width = scaleSizeX;
 				ScaleSize.Height = scaleSizeY;
 				InterpolationMode = GetDMLInterpolationMode(interpolationType);

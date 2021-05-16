@@ -51,7 +51,7 @@ bool Util_Impl::CreateUpsampleLayer(const uint32_t inputSizes[4], uint64_t& inpu
 		static_cast<uint32_t>(size(outputStrides)), outputSizes, outputStrides);
 	outputBufferRequiredSize = (max)(outputBufferSize, outputBufferRequiredSize);
 
-	Upsample2D upsample(&inputTensor->GetTensorDesc(), &outputTensor->GetTensorDesc(),
+	Upsample2D upsample(inputTensor->GetHandle(), outputTensor->GetHandle(),
 		scaleSizeX, scaleSizeY, interpolationType);
 
 	return opOut.Create(m_device, OperatorDesc(OperatorType::UPSAMPLE_2D, &upsample), ExecutionFlag::ALLOW_HALF_PRECISION_COMPUTATION);

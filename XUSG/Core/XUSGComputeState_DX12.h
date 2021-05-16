@@ -56,7 +56,7 @@ namespace XUSG
 			Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr);
 
 		protected:
-			Pipeline createPipeline(const std::string& key, const wchar_t* name);
+			virtual Pipeline createPipeline(const std::string& key, const wchar_t* name);
 			Pipeline getPipeline(const std::string& key, const wchar_t* nam);
 
 			com_ptr<ID3D12Device> m_device;

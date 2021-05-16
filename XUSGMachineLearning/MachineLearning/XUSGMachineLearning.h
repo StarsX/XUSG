@@ -142,6 +142,7 @@ namespace XUSG
 			LINEAR
 		};
 
+		class Tensor;
 		class CommandRecorder;
 
 		using Dispatchable = void*;
@@ -168,9 +169,9 @@ namespace XUSG
 			virtual uint64_t Create(TensorDataType dataType, uint32_t dimensionCount,
 				const uint32_t* pSizes, const uint32_t* pStrides = nullptr,
 				TensorFlag flags = TensorFlag::NONE) = 0;
-
-			virtual const TensorDesc& GetTensorDesc() const = 0;
 			virtual uint64_t GetTensorBufferSize() const = 0;
+
+			virtual const void* GetHandle() const = 0;
 
 			using uptr = std::unique_ptr<Tensor>;
 			using sptr = std::shared_ptr<Tensor>;
@@ -224,6 +225,20 @@ namespace XUSG
 
 			static uptr MakeUnique(XUSG::API api = XUSG::API::DIRECTX_12);
 			static sptr MakeShared(XUSG::API api = XUSG::API::DIRECTX_12);
+		};
+
+		//--------------------------------------------------------------------------------------
+		// Typed operators
+		//--------------------------------------------------------------------------------------
+		class DLL_INTERFACE Upsample2D
+		{
+		public:
+			Upsample2D(const Tensor* pInputTensor, const Tensor* pOutputTensor,
+				uint32_t scaleSizeX, uint32_t scaleSizeY, InterpolationType interpolationType);
+
+			const void* GetDesc() const;
+
+			//DML_UPSAMPLE_2D_OPERATOR_DESC
 		};
 
 		//--------------------------------------------------------------------------------------

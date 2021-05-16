@@ -20,16 +20,16 @@ namespace XUSG
 			uint64_t Create(TensorDataType dataType, uint32_t dimensionCount,
 				const uint32_t* pSizes, const uint32_t* pStrides = nullptr,
 				TensorFlag flags = TensorFlag::NONE);
-
-			const TensorDesc& GetTensorDesc() const;
 			uint64_t GetTensorBufferSize() const;
+
+			const void* GetHandle() const;
 
 		protected:
 			uint64_t calcBufferTensorSize(TensorDataType dataType, uint32_t dimensionCount,
 				const uint32_t* pSizes, const uint32_t* pStrides);
 
 			DML_BUFFER_TENSOR_DESC	m_bufferTensorDesc;
-			TensorDesc				m_tensorDesc;
+			DML_TENSOR_DESC			m_tensorDesc;
 		};
 	}
 }

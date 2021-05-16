@@ -35,14 +35,14 @@ uint64_t Tensor_DML::Create(TensorDataType dataType, uint32_t dimensionCount, co
 	return m_bufferTensorDesc.TotalTensorSizeInBytes;
 }
 
-const TensorDesc& Tensor_DML::GetTensorDesc() const
-{
-	return m_tensorDesc;
-}
-
 uint64_t Tensor_DML::GetTensorBufferSize() const
 {
 	return m_bufferTensorDesc.TotalTensorSizeInBytes;
+}
+
+const void* Tensor_DML::GetHandle() const
+{
+	return &m_tensorDesc;
 }
 
 uint64_t Tensor_DML::calcBufferTensorSize(TensorDataType dataType, uint32_t dimensionCount,

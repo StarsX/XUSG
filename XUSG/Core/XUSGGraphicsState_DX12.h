@@ -96,7 +96,7 @@ namespace XUSG
 			const DepthStencil* GetDepthStencil(DepthStencilPreset preset);
 
 		protected:
-			Pipeline createPipeline(const std::string& key, const wchar_t* name);
+			virtual Pipeline createPipeline(const std::string& key, const wchar_t* name);
 			Pipeline getPipeline(const std::string& key, const wchar_t* name);
 
 			com_ptr<ID3D12Device> m_device;
