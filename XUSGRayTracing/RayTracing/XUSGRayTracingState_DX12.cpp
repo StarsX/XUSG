@@ -228,16 +228,16 @@ Pipeline PipelineCache_DX12::createPipeline(const string& key, const wchar_t* na
 		(&key[sizeof(State_DX12::KeyHeader) + sizeof(State_DX12::KeyHitGroup) * keyHeader.NumHitGroups]);
 	for (auto i = 0u; i < keyHeader.NumLocalPipelineLayouts; ++i)
 	{
-		const auto pipelineLayout = static_cast<ID3D12RootSignature*>(pkeyLocalPipelineLayoutHeader->PipelineLayout);
+		const auto rootSignature = static_cast<ID3D12RootSignature*>(pkeyLocalPipelineLayoutHeader->PipelineLayout);
 
 		// Set pipeline layout
-		auto localPipelineLayout = pDesc.CreateSubobject<CD3D12_LOCAL_ROOT_SIGNATURE_SUBOBJECT>();
-		localPipelineLayout->SetRootSignature(pipelineLayout);
+		auto localRootSignature = pDesc.CreateSubobject<CD3D12_LOCAL_ROOT_SIGNATURE_SUBOBJECT>();
+		localRootSignature->SetRootSignature(rootSignature);
 
 		// Shader association
 		const auto pkeyLocalPipelineAssociation = reinterpret_cast<void* const*>(&pkeyLocalPipelineLayoutHeader[1]);
 		auto rootSignatureAssociation = pDesc.CreateSubobject<CD3D12_SUBOBJECT_TO_EXPORTS_ASSOCIATION_SUBOBJECT>();
-		rootSignatureAssociation->SetSubobjectToAssociate(*localPipelineLayout);
+		rootSignatureAssociation->SetSubobjectToAssociate(*localRootSignature);
 		for (auto j = 0u; j < pkeyLocalPipelineLayoutHeader->NumShaders; ++j)
 			rootSignatureAssociation->AddExport(reinterpret_cast<const wchar_t*>(pkeyLocalPipelineAssociation[j]));
 

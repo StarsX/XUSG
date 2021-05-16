@@ -199,9 +199,14 @@ void BottomLevelAS_DX12::Build(const CommandList* pCommandList, const Resource* 
 	pCommandList->BuildRaytracingAccelerationStructure(&m_buildDesc, 0, nullptr, descriptorPool);
 
 	// Resource barrier
-	ResourceBarrier barrier;
-	const auto numBarriers = m_results[m_currentFrame]->SetBarrier(&barrier, ResourceState::UNORDERED_ACCESS);
-	pCommandList->Barrier(numBarriers, &barrier);
+	const ResourceBarrier barrier =
+	{
+		m_results[m_currentFrame].get(),
+		ResourceState::UNORDERED_ACCESS,
+		ResourceState::UNORDERED_ACCESS,
+		BARRIER_ALL_SUBRESOURCES
+	};
+	pCommandList->Barrier(1, &barrier);
 }
 
 #if !ENABLE_DXR_FALLBACK
