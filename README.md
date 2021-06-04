@@ -11,6 +11,8 @@ XUSG, XU's supreme graphics lib, is a handy wrapper currently for DirectX 12. XU
 
 Using XUSGCore only:
 
+https://github.com/StarsX/MIPGen
+
 https://github.com/StarsX/NonuniformBlur
 
 https://github.com/StarsX/IrradianceMap
