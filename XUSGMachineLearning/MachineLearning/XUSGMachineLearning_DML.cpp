@@ -229,7 +229,7 @@ DML_PADDING_MODE ML::GetDMLPaddingMode(PaddingType mode)
 #if DML_TARGET_VERSION >= 0x3000
 		DML_PADDING_MODE_SYMMETRIC
 #else
-		DML_PADDING_MODE_REFLECTION + 1
+		DML_PADDING_MODE(DML_PADDING_MODE_REFLECTION + 1)
 #endif
 	};
 
@@ -847,6 +847,113 @@ void ML::GetDMLTypedOperator(string& dmlTypedOpDesc, const void* pTypedOp)
 		}
 	};
 
+	static const auto getDMLLSTM = [](string& dmlTypedOpDesc, const void* pTypedOp)
+	{
+		const auto& typedOp = *static_cast<const LSTMOperator*>(pTypedOp);
+
+		vector<string> dmlActivations(typedOp.ActivationCount);
+		auto dmlTypedDescSize = sizeof(DML_LSTM_OPERATOR_DESC);
+		if (typedOp.pActivations)
+		{
+			dmlTypedDescSize += sizeof(DML_OPERATOR_DESC) * typedOp.ActivationCount;
+			for (auto i = 0u; i < typedOp.ActivationCount; ++i)
+			{
+				assert(typedOp.pActivations[i]);
+				GetDMLTypedOperator(dmlActivations[i], typedOp.pActivations[i]);
+				dmlTypedDescSize += dmlActivations[i].size();
+			}
+		}
+
+		dmlTypedOpDesc.resize(dmlTypedDescSize);
+		auto& dmlDesc = reinterpret_cast<DML_LSTM_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto pDMLActivations = typedOp.pActivations ? reinterpret_cast<DML_OPERATOR_DESC*>(
+			&dmlTypedOpDesc[sizeof(DML_LSTM_OPERATOR_DESC)]) : nullptr;
+
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.WeightTensor = typedOp.pWeight ? static_cast<const DML_TENSOR_DESC*>(typedOp.pWeight->GetHandle()) : nullptr;
+		dmlDesc.RecurrenceTensor = typedOp.pRecurrence ? static_cast<const DML_TENSOR_DESC*>(typedOp.pRecurrence->GetHandle()) : nullptr;
+		dmlDesc.BiasTensor = typedOp.pBias ? static_cast<const DML_TENSOR_DESC*>(typedOp.pBias->GetHandle()) : nullptr;
+		dmlDesc.HiddenInitTensor = typedOp.pHiddenInit ? static_cast<const DML_TENSOR_DESC*>(typedOp.pHiddenInit->GetHandle()) : nullptr;
+		dmlDesc.CellMemInitTensor = typedOp.pCellMemInit ? static_cast<const DML_TENSOR_DESC*>(typedOp.pCellMemInit->GetHandle()) : nullptr;
+		dmlDesc.SequenceLengthsTensor = typedOp.pSequenceLengths ? static_cast<const DML_TENSOR_DESC*>(typedOp.pSequenceLengths->GetHandle()) : nullptr;
+		dmlDesc.PeepholeTensor = typedOp.pPeephole ? static_cast<const DML_TENSOR_DESC*>(typedOp.pPeephole->GetHandle()) : nullptr;
+		dmlDesc.OutputSequenceTensor = typedOp.pOutputSequence ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutputSequence->GetHandle()) : nullptr;
+		dmlDesc.OutputSingleTensor = typedOp.pOutputSingle ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutputSingle->GetHandle()) : nullptr;
+		dmlDesc.OutputCellSingleTensor = typedOp.pOutputCellSingle ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutputCellSingle->GetHandle()) : nullptr;
+		dmlDesc.ActivationDescCount = typedOp.ActivationCount;
+		dmlDesc.ActivationDescs = pDMLActivations;
+		dmlDesc.Direction = GetDMLRecurrentNetworkDirection(typedOp.Direction);
+		dmlDesc.ClipThreshold = typedOp.ClipThreshold;
+		dmlDesc.UseClipThreshold = typedOp.UseClipThreshold;
+		dmlDesc.CoupleInputForget = typedOp.CoupleInputForget;
+
+		if (pDMLActivations)
+		{
+			assert(typedOp.pActivations);
+			auto offset = sizeof(DML_CONVOLUTION_OPERATOR_DESC) + sizeof(DML_OPERATOR_DESC) * typedOp.ActivationCount;
+			for (auto i = 0u; i < typedOp.ActivationCount; ++i)
+			{
+				assert(typedOp.pActivations[i]);
+				const auto& dmlActivation = dmlActivations[i];
+				auto* pDMLActivation = &pDMLActivations[i];
+				pDMLActivation->Type = GetDMLOpteratorType(*static_cast<const OperatorType*>(typedOp.pActivations[i]));
+				pDMLActivation->Desc = &dmlTypedOpDesc[offset];
+				memcpy(&dmlTypedOpDesc[offset], dmlActivation.data(), dmlActivation.size());
+			}
+		}
+	};
+
+	static const auto getDMLGRU = [](string& dmlTypedOpDesc, const void* pTypedOp)
+	{
+		const auto& typedOp = *static_cast<const GRUOperator*>(pTypedOp);
+
+		vector<string> dmlActivations(typedOp.ActivationCount);
+		auto dmlTypedDescSize = sizeof(DML_GRU_OPERATOR_DESC);
+		if (typedOp.pActivations)
+		{
+			dmlTypedDescSize += sizeof(DML_OPERATOR_DESC) * typedOp.ActivationCount;
+			for (auto i = 0u; i < typedOp.ActivationCount; ++i)
+			{
+				assert(typedOp.pActivations[i]);
+				GetDMLTypedOperator(dmlActivations[i], typedOp.pActivations[i]);
+				dmlTypedDescSize += dmlActivations[i].size();
+			}
+		}
+
+		dmlTypedOpDesc.resize(dmlTypedDescSize);
+		auto& dmlDesc = reinterpret_cast<DML_GRU_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto pDMLActivations = typedOp.pActivations ? reinterpret_cast<DML_OPERATOR_DESC*>(
+			&dmlTypedOpDesc[sizeof(DML_GRU_OPERATOR_DESC)]) : nullptr;
+
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.WeightTensor = typedOp.pWeight ? static_cast<const DML_TENSOR_DESC*>(typedOp.pWeight->GetHandle()) : nullptr;
+		dmlDesc.RecurrenceTensor = typedOp.pRecurrence ? static_cast<const DML_TENSOR_DESC*>(typedOp.pRecurrence->GetHandle()) : nullptr;
+		dmlDesc.BiasTensor = typedOp.pBias ? static_cast<const DML_TENSOR_DESC*>(typedOp.pBias->GetHandle()) : nullptr;
+		dmlDesc.HiddenInitTensor = typedOp.pHiddenInit ? static_cast<const DML_TENSOR_DESC*>(typedOp.pHiddenInit->GetHandle()) : nullptr;
+		dmlDesc.SequenceLengthsTensor = typedOp.pSequenceLengths ? static_cast<const DML_TENSOR_DESC*>(typedOp.pSequenceLengths->GetHandle()) : nullptr;
+		dmlDesc.OutputSequenceTensor = typedOp.pOutputSequence ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutputSequence->GetHandle()) : nullptr;
+		dmlDesc.OutputSingleTensor = typedOp.pOutputSingle ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutputSingle->GetHandle()) : nullptr;
+		dmlDesc.ActivationDescCount = typedOp.ActivationCount;
+		dmlDesc.ActivationDescs = pDMLActivations;
+		dmlDesc.Direction = GetDMLRecurrentNetworkDirection(typedOp.Direction);
+		dmlDesc.LinearBeforeReset = typedOp.LinearBeforeReset;
+
+		if (pDMLActivations)
+		{
+			assert(typedOp.pActivations);
+			auto offset = sizeof(DML_CONVOLUTION_OPERATOR_DESC) + sizeof(DML_OPERATOR_DESC) * typedOp.ActivationCount;
+			for (auto i = 0u; i < typedOp.ActivationCount; ++i)
+			{
+				assert(typedOp.pActivations[i]);
+				const auto& dmlActivation = dmlActivations[i];
+				auto* pDMLActivation = &pDMLActivations[i];
+				pDMLActivation->Type = GetDMLOpteratorType(*static_cast<const OperatorType*>(typedOp.pActivations[i]));
+				pDMLActivation->Desc = &dmlTypedOpDesc[offset];
+				memcpy(&dmlTypedOpDesc[offset], dmlActivation.data(), dmlActivation.size());
+			}
+		}
+	};
+
 	static const function<void(string&, const void*)> pfnGetDMLOps[] =
 	{
 		nullptr,							// INVALID 
@@ -928,6 +1035,8 @@ void ML::GetDMLTypedOperator(string& dmlTypedOpDesc, const void* pTypedOp)
 		getDMLLocalResponseNormalization,	// LOCAL_RESPONSE_NORMALIZATION
 		getDMLLPNormalization,				// LP_NORMALIZATION
 		getDMLRNN,							// RNN
+		getDMLLSTM,							// LSTM
+		getDMLGRU							// GRU
 	};
 
 	pfnGetDMLOps[*static_cast<const uint32_t*>(pTypedOp)](dmlTypedOpDesc, pTypedOp);

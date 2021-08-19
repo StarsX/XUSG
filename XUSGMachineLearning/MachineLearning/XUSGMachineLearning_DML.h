@@ -47,8 +47,5 @@ namespace XUSG
 		protected:
 			com_ptr<IDMLDevice> m_device;
 		};
-
-		using LSTMOperator = DML_LSTM_OPERATOR_DESC;
-		using GRUOperator = DML_GRU_OPERATOR_DESC;
 	}
 }

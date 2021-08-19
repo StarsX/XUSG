@@ -624,6 +624,43 @@ namespace XUSG
 			RecurrentNetworkDirection Direction;
 		};
 
+		struct LSTMOperator
+		{
+			const Tensor* pInput;
+			const Tensor* pWeight;
+			const Tensor* pRecurrence;
+			const Tensor* pBias;
+			const Tensor* pHiddenInit;
+			const Tensor* pCellMemInit;
+			const Tensor* pSequenceLengths;
+			const Tensor* pPeephole;
+			const Tensor* pOutputSequence;
+			const Tensor* pOutputSingle;
+			const Tensor* pOutputCellSingle;
+			uint32_t ActivationCount;
+			const void** pActivations;
+			RecurrentNetworkDirection Direction;
+			float ClipThreshold;
+			bool UseClipThreshold;
+			bool CoupleInputForget;
+		};
+
+		struct GRUOperator
+		{
+			const Tensor* pInput;
+			const Tensor* pWeight;
+			const Tensor* pRecurrence;
+			const Tensor* pBias;
+			const Tensor* pHiddenInit;
+			const Tensor* pSequenceLengths;
+			const Tensor* pOutputSequence;
+			const Tensor* pOutputSingle;
+			uint32_t ActivationCount;
+			const void** pActivations;
+			RecurrentNetworkDirection Direction;
+			bool LinearBeforeReset;
+		};
+
 		//--------------------------------------------------------------------------------------
 		// Device
 		//--------------------------------------------------------------------------------------
