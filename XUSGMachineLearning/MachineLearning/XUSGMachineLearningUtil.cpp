@@ -8,7 +8,7 @@
 using namespace std;
 using namespace XUSG::ML;
 
-Util_Impl::Util_Impl(const ML::Device& device, TensorDataType tensorDataType,
+Util_Impl::Util_Impl(const ML::Device::sptr& device, TensorDataType tensorDataType,
 	TensorLayout tensorLayout, API api) :
 	m_device(device),
 	m_tensorDataType(tensorDataType),
@@ -51,10 +51,9 @@ bool Util_Impl::CreateUpsampleLayer(const uint32_t inputSizes[4], uint64_t& inpu
 		static_cast<uint32_t>(size(outputStrides)), outputSizes, outputStrides);
 	outputBufferRequiredSize = (max)(outputBufferSize, outputBufferRequiredSize);
 
-	Upsample2D upsample(inputTensor->GetHandle(), outputTensor->GetHandle(),
-		scaleSizeX, scaleSizeY, interpolationType);
+	const Upsample2D upsample = { inputTensor.get(), outputTensor.get(), scaleSizeX, scaleSizeY, interpolationType };
 
-	return opOut.Create(m_device, OperatorDesc(OperatorType::UPSAMPLE_2D, &upsample), ExecutionFlag::ALLOW_HALF_PRECISION_COMPUTATION);
+	return opOut.Create(m_device.get(), OperatorType::UPSAMPLE_2D, &upsample, ExecutionFlag::ALLOW_HALF_PRECISION_COMPUTATION);
 }
 
 bool Util_Impl::CreateConvolutionLayer(const uint32_t inputSizes[4], const uint32_t* filterSizes, bool useBiasAndActivation,
@@ -133,12 +132,12 @@ bool Util_Impl::CreateConvolutionLayer(const uint32_t inputSizes[4], const uint3
 	uint32_t outputPadding[] = { 0, 0 };
 
 	ActivationRELU fusedRelu = {};
-	const OperatorDesc reluDesc(OperatorType::ACTIVATION_RELU, &fusedRelu);
-
-	ConvolutionOperator conv(&inputTensor->GetTensorDesc(),
-		&filterTensor->GetTensorDesc(),
-		useBiasAndActivation ? &biasTensor->GetTensorDesc() : nullptr,
-		&outputTensor->GetTensorDesc(),
+	ConvolutionOperator conv =
+	{
+		inputTensor.get(),
+		filterTensor.get(),
+		useBiasAndActivation ? biasTensor.get() : nullptr,
+		outputTensor.get(),
 		ConvolutionMode::CROSS_CORRELATION,
 		ConvolutionDirection::FORWARD,
 		2,
@@ -148,9 +147,11 @@ bool Util_Impl::CreateConvolutionLayer(const uint32_t inputSizes[4], const uint3
 		endPadding,
 		outputPadding,
 		1,
-		useBiasAndActivation ? &reluDesc : nullptr);
+		OperatorType::ACTIVATION_RELU,
+		useBiasAndActivation ? &fusedRelu : nullptr
+	};
 
-	return opOut.Create(m_device, OperatorDesc(OperatorType::CONVOLUTION, &conv), ExecutionFlag::ALLOW_HALF_PRECISION_COMPUTATION);
+	return opOut.Create(m_device.get(), OperatorType::CONVOLUTION, &conv, ExecutionFlag::ALLOW_HALF_PRECISION_COMPUTATION);
 }
 
 bool Util_Impl::CreateAdditionLayer(const uint32_t inputSizes[4], Operator& opOut)
@@ -164,9 +165,9 @@ bool Util_Impl::CreateAdditionLayer(const uint32_t inputSizes[4], Operator& opOu
 
 	// Describe, create, and compile elementwise addition operator
 	// Inputs and output are all the same size and use the same tensor desc.
-	ElementWiseAdd add = { &tensor->GetTensorDesc(), &tensor->GetTensorDesc(), &tensor->GetTensorDesc() };
+	const ElementWiseAdd add = { tensor.get(), tensor.get(), tensor.get() };
 
-	return opOut.Create(m_device, OperatorDesc(OperatorType::ELEMENT_WISE_ADD, &add), ExecutionFlag::ALLOW_HALF_PRECISION_COMPUTATION);
+	return opOut.Create(m_device.get(), OperatorType::ELEMENT_WISE_ADD, &add, ExecutionFlag::ALLOW_HALF_PRECISION_COMPUTATION);
 }
 
 void Util_Impl::CreateWeightTensors(WeightMapType& weights, const char* convLayerName, const char* scaleLayerName,

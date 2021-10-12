@@ -5,6 +5,7 @@
 #include "XUSGTensor_DML.h"
 #include "XUSGOperator_DML.h"
 #include "XUSGBinding_DML.h"
+#include "XUSGMachineLearning_DML.h"
 #include "XUSGCommandRecorder_DML.h"
 #include "XUSGMachineLearningUtil.h"
 
@@ -57,6 +58,16 @@ Binding::sptr Binding::MakeShared(XUSG::API api)
 	return make_shared<Binding_DML>();
 }
 
+ML::Device::uptr ML::Device::MakeUnique(XUSG::API api)
+{
+	return make_unique<Device_DML>();
+}
+
+ML::Device::sptr ML::Device::MakeShared(XUSG::API api)
+{
+	return make_shared<Device_DML>();
+}
+
 CommandRecorder::uptr CommandRecorder::MakeUnique(XUSG::API api)
 {
 	return make_unique<CommandRecorder_DML>();
@@ -67,13 +78,13 @@ CommandRecorder::sptr CommandRecorder::MakeShared(XUSG::API api)
 	return make_shared<CommandRecorder_DML>();
 }
 
-ML::Util::uptr ML::Util::MakeUnique(const ML::Device& device, TensorDataType tensorDataType,
+ML::Util::uptr ML::Util::MakeUnique(const ML::Device::sptr& device, TensorDataType tensorDataType,
 	TensorLayout tensorLayout, XUSG::API api)
 {
 	return make_unique<Util_Impl>(device, tensorDataType, tensorLayout, api);
 }
 
-ML::Util::sptr ML::Util::MakeShared(const ML::Device& device, TensorDataType tensorDataType,
+ML::Util::sptr ML::Util::MakeShared(const ML::Device::sptr& device, TensorDataType tensorDataType,
 	TensorLayout tensorLayout, XUSG::API api)
 {
 	return make_shared<Util_Impl>(device, tensorDataType, tensorLayout, api);

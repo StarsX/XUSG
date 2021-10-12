@@ -4,6 +4,7 @@
 
 #include "Core/XUSG_DX12.h"
 #include "XUSGOperator_DML.h"
+#include "XUSGMachineLearning_DML.h"
 
 using namespace std;
 using namespace XUSG::ML;
@@ -21,15 +22,20 @@ Operator_DML::~Operator_DML()
 {
 }
 
-bool Operator_DML::Create(const Device& device, const OperatorDesc& desc, ExecutionFlag flags)
+bool Operator_DML::Create(const Device* pDevice, OperatorType type, const void* pTypedOp, ExecutionFlag flags)
 {
+	vector<uint8_t> dmlTypedOpDesc;
+	GetDMLTypedOperator(dmlTypedOpDesc, type, pTypedOp);
+	DML_OPERATOR_DESC dmlOpDesc = { GetDMLOpteratorType(type), dmlTypedOpDesc.data() };
+
 	com_ptr<IDMLOperator> dmlOperator = nullptr;
-	V_RETURN(device->CreateOperator(&desc, IID_PPV_ARGS(&dmlOperator)), cerr, false);
+	const auto pDMLDevice = static_cast<IDMLDevice*>(pDevice->GetHandle());
+	V_RETURN(pDMLDevice->CreateOperator(&dmlOpDesc, IID_PPV_ARGS(&dmlOperator)), cerr, false);
 
 	// Compile the operator into an object that can be dispatched to the GPU. In this step, DirectML performs operator
 	// fusion and just-in-time (JIT) compilation of shader bytecode, then compiles it into a Direct3D 12 pipeline state object (PSO).
 	// The resulting compiled operator is a baked, optimized form of an operator suitable for execution on the GPU.
-	V_RETURN(device->CompileOperator(dmlOperator.get(), GetDMLExecutionFlags(flags),
+	V_RETURN(pDMLDevice->CompileOperator(dmlOperator.get(), GetDMLExecutionFlags(flags),
 		IID_PPV_ARGS(&m_dispatchable)), cerr, false);
 
 	return true;
@@ -76,14 +82,15 @@ OperatorInitializer_DML::~OperatorInitializer_DML()
 {
 }
 
-bool OperatorInitializer_DML::Create(const Device& device, const Operator::sptr* pOperators, uint32_t numOperators)
+bool OperatorInitializer_DML::Create(const Device* pDevice, const Operator::sptr* pOperators, uint32_t numOperators)
 {
 	vector<IDMLCompiledOperator*> compiledOperators(numOperators);
 	for (auto i = 0u; i < numOperators; ++i)
 		compiledOperators[i] = static_cast<IDMLCompiledOperator*>(pOperators[i]->GetCompiled());
 
 	com_ptr<IDMLOperatorInitializer> operatorInitializer = nullptr;
-	V_RETURN(device->CreateOperatorInitializer(numOperators, compiledOperators.data(),
+	const auto pDMLDevice = static_cast<IDMLDevice*>(pDevice->GetHandle());
+	V_RETURN(pDMLDevice->CreateOperatorInitializer(numOperators, compiledOperators.data(),
 		IID_PPV_ARGS(&operatorInitializer)), cerr, false);
 	m_dispatchable = operatorInitializer;
 

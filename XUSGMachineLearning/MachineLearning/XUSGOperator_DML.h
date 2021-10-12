@@ -20,7 +20,8 @@ namespace XUSG
 			Operator_DML();
 			virtual ~Operator_DML();
 
-			bool Create(const Device& device, const OperatorDesc& desc, ExecutionFlag flags = ExecutionFlag::NONE);
+			bool Create(const ML::Device* pDevice, OperatorType type, const void* pTypedOp,
+				ExecutionFlag flags = ExecutionFlag::NONE);
 
 			Dispatchable GetDispatchable() const;
 
@@ -46,7 +47,7 @@ namespace XUSG
 			OperatorInitializer_DML();
 			virtual ~OperatorInitializer_DML();
 
-			bool Create(const Device& device, const Operator::sptr* pOperators, uint32_t numOperators);
+			bool Create(const Device* pDevice, const Operator::sptr* pOperators, uint32_t numOperators);
 
 			uint32_t GetDescriptorCount() const;
 			uint64_t GetTemporaryResourceSize() const;
@@ -54,20 +55,6 @@ namespace XUSG
 		protected:
 			uint32_t m_descriptorCount;
 			uint64_t m_temporaryResourceSize;
-		};
-
-		//--------------------------------------------------------------------------------------
-		// Typed operators
-		//--------------------------------------------------------------------------------------
-		struct Upsample2D_DML :
-			public Upsample2D
-		{
-			Upsample2D_ML(const Tensor* pInputTensor, const Tensor* pOutputTensor,
-				uint32_t scaleSizeX, uint32_t scaleSizeY, InterpolationType interpolationType);
-
-			const void* GetDesc() const;
-
-			//DML_UPSAMPLE_2D_OPERATOR_DESC
 		};
 	}
 }

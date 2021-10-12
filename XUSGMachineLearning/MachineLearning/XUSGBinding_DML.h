@@ -17,7 +17,7 @@ namespace XUSG
 			Binding_DML();
 			virtual ~Binding_DML();
 
-			bool Create(const Device& device, const Operator& dispatchable, const DescriptorPool& descriptorPool,
+			bool Create(const Device* pDevice, const Operator& dispatchable, const DescriptorPool& descriptorPool,
 				uint32_t descriptorCount, int32_t descriptorOffset = 0);
 			bool Reset(const Operator& dispatchable, const DescriptorPool& descriptorPool,
 				uint32_t descriptorCount, int32_t descriptorOffset = 0);

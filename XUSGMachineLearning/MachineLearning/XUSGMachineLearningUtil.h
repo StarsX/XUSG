@@ -14,7 +14,7 @@ namespace XUSG
 			public Util
 		{
 		public:
-			Util_Impl(const Device& device, TensorDataType tensorDataType = TensorDataType::FLOAT32,
+			Util_Impl(const Device::sptr& device, TensorDataType tensorDataType = TensorDataType::FLOAT32,
 				TensorLayout tensorLayout = TensorLayout::DEFAULT, XUSG::API api = XUSG::API::DIRECTX_12);
 			virtual ~Util_Impl();
 
@@ -32,7 +32,7 @@ namespace XUSG
 				std::vector<uint8_t>& biasWeightsOut);
 
 		protected:
-			Device			m_device;
+			Device::sptr	m_device;
 
 			TensorDataType	m_tensorDataType;
 			TensorLayout	m_tensorLayout;

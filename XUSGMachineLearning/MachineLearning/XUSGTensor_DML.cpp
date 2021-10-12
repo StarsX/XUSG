@@ -3,6 +3,7 @@
 //--------------------------------------------------------------------------------------
 
 #include "XUSGTensor_DML.h"
+#include "XUSGMachineLearning_DML.h"
 
 using namespace XUSG::ML;
 

@@ -24,7 +24,7 @@ using namespace XUSG;
 
 DXGI_FORMAT XUSG::GetDXGIFormat(Format format)
 {
-	static DXGI_FORMAT formats[] =
+	static const DXGI_FORMAT formats[] =
 	{
 		DXGI_FORMAT_UNKNOWN,
 		DXGI_FORMAT_R32G32B32A32_TYPELESS,

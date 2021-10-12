@@ -124,6 +124,36 @@ namespace XUSG
 
 		DEFINE_ENUM_FLAG_OPERATORS(ExecutionFlag);
 
+		enum class CreateDeviceFlag
+		{
+			NONE = 0,
+			DEBUG = 0x1
+		};
+
+		DEFINE_ENUM_FLAG_OPERATORS(CreateDeviceFlag);
+
+		enum class ReduceFunction
+		{
+			ARGMAX,
+			ARGMIN,
+			AVERAGE,
+			L1,
+			L2,
+			LOG_SUM,
+			LOG_SUM_EXP,
+			MAX,
+			MIN,
+			MULTIPLY,
+			SUM,
+			SUM_SQUARE
+		};
+
+		enum class MatrixTransform
+		{
+			NONE,
+			TRANSPOSE
+		};
+
 		enum class ConvolutionMode
 		{
 			CONVOLUTION,
@@ -134,6 +164,14 @@ namespace XUSG
 		{
 			FORWARD,
 			BACKWARD
+		};
+
+		enum class PaddingType
+		{
+			CONSTANT,
+			EDGE,
+			REFLECTION,
+			SYMMETRIC
 		};
 
 		enum class InterpolationType
@@ -148,15 +186,331 @@ namespace XUSG
 		using Dispatchable = void*;
 		using CompiledOperator = void*;
 		using BindingTable = void*;
-	}
-}
 
-#include "XUSGMachineLearning_DML.h"
+		struct ScaleBias
+		{
+			float Scale;
+			float Bias;
+		};
 
-namespace XUSG
-{
-	namespace ML
-	{
+		struct UnaryOp
+		{
+			const Tensor* pInput;
+			const Tensor* pOutput;
+		};
+
+		struct ElementWiseUnaryOp
+		{
+			const Tensor* pInput;
+			const Tensor* pOutput;
+			const ScaleBias* pScaleBias;
+		};
+
+		struct ElementWiseBinaryOp
+		{
+			const Tensor* pA;
+			const Tensor* pB;
+			const Tensor* pOutput;
+		};
+
+		using ElementWiseIdentity = ElementWiseUnaryOp;
+		using ElementWiseAbs = ElementWiseUnaryOp;
+		using ElementWiseAcos = ElementWiseUnaryOp;
+		using ElementWiseAdd = ElementWiseBinaryOp;
+		using ElementWiseAsin = ElementWiseUnaryOp;
+		using ElementWiseAtan = ElementWiseUnaryOp;
+		using ElementWiseCeil = ElementWiseUnaryOp;
+
+		struct ElementWiseClip
+		{
+			const Tensor* pInput;
+			const Tensor* pOutput;
+			const ScaleBias* pScaleBias;
+			float Min;
+			float Max;
+		};
+
+		using ElementWiseCos = ElementWiseUnaryOp;
+		using ElementWiseDivide = ElementWiseBinaryOp;
+		using ElementWiseExp = ElementWiseUnaryOp;
+		using ElementWiseFloor = ElementWiseUnaryOp;
+		using ElementWiseLog = ElementWiseUnaryOp;
+		using ElementWiseLogicalAnd = ElementWiseBinaryOp;
+		using ElementWiseLogicalEquals = ElementWiseBinaryOp;
+		using ElementWiseLogicalGreater = ElementWiseBinaryOp;
+		using ElementWiseLogicalLessThan = ElementWiseBinaryOp;
+		using ElementWiseLogicalNot = UnaryOp;
+		using ElementWiseLogicalOr = ElementWiseBinaryOp;
+		using ElementWiseLogicalXor = ElementWiseBinaryOp;
+		using ElementWiseMax = ElementWiseBinaryOp;
+		using ElementWiseMean = ElementWiseBinaryOp;
+		using ElementWiseMin = ElementWiseBinaryOp;
+		using ElementWiseMultiply = ElementWiseBinaryOp;
+
+		struct ElementWisePow
+		{
+			const Tensor* pInput;
+			const Tensor* pExponent;
+			const Tensor* pOutput;
+			const ScaleBias* pScaleBias;
+		};
+
+		struct ElementWiseConstantPow
+		{
+			const Tensor* pInput;
+			const Tensor* pOutput;
+			const ScaleBias* pScaleBias;
+			float Exponent;
+		};
+
+		using ElementWiseRecip = ElementWiseUnaryOp;
+		using ElementWiseSin = ElementWiseUnaryOp;
+		using ElementWiseSqrt = ElementWiseUnaryOp;
+		using ElementWiseSubtract = ElementWiseBinaryOp;
+		using ElementWiseTan = ElementWiseUnaryOp;
+
+		struct ElementWiseThreshold
+		{
+			const Tensor* pInput;
+			const Tensor* pOutput;
+			const ScaleBias* pScaleBias;
+			float Min;
+		};
+
+		struct ElementWiseQuantizeLinear
+		{
+			const Tensor* pInput;
+			const Tensor* pScale;
+			const Tensor* pZeroPoint;
+			const Tensor* pOutput;
+		};
+
+		using ElementWiseDequantizeLinear = ElementWiseQuantizeLinear;
+
+		struct ActivationELU
+		{
+			const Tensor* pInput;
+			const Tensor* pOutput;
+			float Alpha;
+		};
+
+		using ActivationHardMax = UnaryOp;
+
+		struct ActivationHardSigmoid
+		{
+			const Tensor* pInput;
+			const Tensor* pOutput;
+			float Alpha;
+			float Beta;
+		};
+
+		using ActivationIdentity = UnaryOp;
+		using ActivationLeakyRELU = ActivationELU;
+		using ActivationLinear = ActivationHardSigmoid;
+		using ActivationLogSoftmax = UnaryOp;
+
+		struct ActivationParameterizedRELU
+		{
+			const Tensor* pInput;
+			const Tensor* pSlope;
+			const Tensor* pOutput;
+		};
+
+		using ActivationParametricSoftplus = ActivationLinear;
+		using ActivationRELU = UnaryOp;
+
+		struct ActivationScaledELU
+		{
+			const Tensor* pInput;
+			const Tensor* pOutput;
+			float Alpha;
+			float Gamma;
+		};
+
+		using ActivationScaledTanh = ActivationLinear;
+		using ActivationSigmoid = UnaryOp;
+		using ActivationSoftmax = UnaryOp;
+
+		struct ActivationSoftplus
+		{
+			const Tensor* pInput;
+			const Tensor* pOutput;
+			float Steepness;
+		};
+
+		using ActivationSoftsign = UnaryOp;
+		using ActivationTanh = UnaryOp;
+		using ActivationThresholdRELU = ActivationELU;
+
+		struct ConvolutionOperator
+		{
+			const Tensor* pInput;
+			const Tensor* pFilter;
+			const Tensor* pBias;
+			const Tensor* pOutput;
+			ConvolutionMode Mode;
+			ConvolutionDirection Direction;
+			uint32_t DimensionCount;
+			const uint32_t* pStrides;
+			const uint32_t* pDilations;
+			const uint32_t* pStartPadding;
+			const uint32_t* pEndPadding;
+			const uint32_t* pOutputPadding;
+			uint32_t GroupCount;
+			OperatorType FusedActivationType;
+			const void* pFusedActivation;
+		};
+
+		struct GEMMOperator
+		{
+			const Tensor* pA;
+			const Tensor* pB;
+			const Tensor* pC;
+			const Tensor* pOutput;
+			MatrixTransform TransA;
+			MatrixTransform TransB;
+			float Alpha;
+			float Beta;
+			OperatorType FusedActivationType;
+			const void* pFusedActivation;
+		};
+
+		struct ReduceOperator
+		{
+			ReduceFunction Function;
+			const Tensor* pInput;
+			const Tensor* pOutput;
+			uint32_t AxisCount;
+			const uint32_t* pAxes;
+		};
+
+		struct AveragePooling
+		{
+			const Tensor* pInput;
+			const Tensor* pOutput;
+			uint32_t DimensionCount;
+			const uint32_t* pStrides;
+			const uint32_t* pWindowSize;
+			const uint32_t* pStartPadding;
+			const uint32_t* pEndPadding;
+			bool IncludePadding;
+		};
+
+		struct LPPooling
+		{
+			const Tensor* pInput;
+			const Tensor* pOutput;
+			uint32_t DimensionCount;
+			const uint32_t* pStrides;
+			const uint32_t* pWindowSize;
+			const uint32_t* pStartPadding;
+			const uint32_t* pEndPadding;
+			uint32_t P;
+		};
+
+		struct MaxPooling
+		{
+			const Tensor* pInput;
+			const Tensor* pOutput;
+			uint32_t DimensionCount;
+			const uint32_t* pStrides;
+			const uint32_t* pWindowSize;
+			const uint32_t* pStartPadding;
+			const uint32_t* pEndPadding;
+		};
+
+		struct ROIPooling
+		{
+			const Tensor* pInput;
+			const Tensor* pROI;
+			const Tensor* pOutput;
+			float SpatialScale;
+			uint32_t PooledWidth;
+			uint32_t PooledHeight;
+		};
+
+		struct SliceOperator
+		{
+			const Tensor* pInput;
+			const Tensor* pOutput;
+			uint32_t DimensionCount;
+			const uint32_t* pOffsets;
+			const uint32_t* pSizes;
+			const uint32_t* pStrides;
+		};
+
+		using CastOperator = UnaryOp;
+
+		struct SplitOperator
+		{
+			const Tensor* pInput;
+			uint32_t OutputCount;
+			const Tensor* pOutputs;
+			uint32_t Axis;
+		};
+
+		struct JoinOperator
+		{
+			uint32_t InputCount;
+			const Tensor* pInputs;
+			const Tensor* pOutput;
+			uint32_t Axis;
+		};
+
+		struct PaddingOperator
+		{
+			const Tensor* pInput;
+			const Tensor* pOutput;
+			PaddingType PaddingMode;
+			float PaddingValue;
+			uint32_t DimensionCount;
+			const uint32_t* pStartPadding;
+			const uint32_t* pEndPadding;
+		};
+
+		struct ValueScale2D
+		{
+			const Tensor* pInput;
+			const Tensor* pOutput;
+			float Scale;
+			uint32_t ChannelCount;
+			const float* pBias;
+		};
+
+		struct Upsample2D
+		{
+			const Tensor* pInput;
+			const Tensor* pOutput;
+			uint32_t ScaleWidth;
+			uint32_t ScaleHeight;
+			InterpolationType InterpolationMode;
+		};
+
+		//--------------------------------------------------------------------------------------
+		// Device
+		//--------------------------------------------------------------------------------------
+		class CommandRecorder;
+
+		class DLL_INTERFACE Device
+		{
+		public:
+			//Device();
+			virtual ~Device() {};
+
+			virtual bool GetCommandRecorder(CommandRecorder* pCommandRecorder, const wchar_t* name = nullptr) = 0;
+			virtual bool Create(const XUSG::Device* pDevice, CreateDeviceFlag flags, const wchar_t* name = nullptr) = 0;
+
+			virtual void Create(void* pHandle, const wchar_t* name = nullptr) = 0;
+
+			virtual void* GetHandle() const = 0;
+
+			using uptr = std::unique_ptr<Device>;
+			using sptr = std::shared_ptr<Device>;
+
+			static uptr MakeUnique(API api = API::DIRECTX_12);
+			static sptr MakeShared(API api = API::DIRECTX_12);
+		};
+
 		//--------------------------------------------------------------------------------------
 		// Tensor
 		//--------------------------------------------------------------------------------------
@@ -189,7 +543,8 @@ namespace XUSG
 			//Operator();
 			virtual ~Operator() {}
 
-			virtual bool Create(const Device& device, const OperatorDesc& desc, ExecutionFlag flags = ExecutionFlag::NONE) = 0;
+			virtual bool Create(const Device* pDevice, OperatorType type, const void* pTypedOp,
+				ExecutionFlag flags = ExecutionFlag::NONE) = 0;
 
 			virtual Dispatchable GetDispatchable() const = 0;
 
@@ -218,27 +573,13 @@ namespace XUSG
 			//OperatorInitializer();
 			virtual ~OperatorInitializer() {}
 
-			virtual bool Create(const Device& device, const Operator::sptr* pOperators, uint32_t numOperators) = 0;
+			virtual bool Create(const Device* pDevice, const Operator::sptr* pOperators, uint32_t numOperators) = 0;
 
 			using uptr = std::unique_ptr<OperatorInitializer>;
 			using sptr = std::shared_ptr<OperatorInitializer>;
 
 			static uptr MakeUnique(XUSG::API api = XUSG::API::DIRECTX_12);
 			static sptr MakeShared(XUSG::API api = XUSG::API::DIRECTX_12);
-		};
-
-		//--------------------------------------------------------------------------------------
-		// Typed operators
-		//--------------------------------------------------------------------------------------
-		class DLL_INTERFACE Upsample2D
-		{
-		public:
-			Upsample2D(const Tensor* pInputTensor, const Tensor* pOutputTensor,
-				uint32_t scaleSizeX, uint32_t scaleSizeY, InterpolationType interpolationType);
-
-			const void* GetDesc() const;
-
-			//DML_UPSAMPLE_2D_OPERATOR_DESC
 		};
 
 		//--------------------------------------------------------------------------------------
@@ -250,7 +591,7 @@ namespace XUSG
 			//Binding();
 			virtual ~Binding() {}
 
-			virtual bool Create(const Device& device, const Operator& dispatchable, const DescriptorPool& descriptorPool,
+			virtual bool Create(const Device* pDevice, const Operator& dispatchable, const DescriptorPool& descriptorPool,
 				uint32_t descriptorCount, int32_t descriptorOffset = 0) = 0;
 			virtual bool Reset(const Operator& dispatchable, const DescriptorPool& descriptorPool,
 				uint32_t descriptorCount, int32_t descriptorOffset = 0) = 0;
@@ -289,7 +630,11 @@ namespace XUSG
 			//CommandRecorder();
 			virtual ~CommandRecorder() {}
 
+			virtual bool Create(const Device* pDevice, const wchar_t* name = nullptr) = 0;
+
 			virtual void Dispatch(XUSG::CommandList* pCommandList, const Dispatchable& dispatchable, const BindingTable& bindings) const = 0;
+
+			virtual void* GetHandle() const = 0;
 
 			using uptr = std::unique_ptr<CommandRecorder>;
 			using sptr = std::shared_ptr<CommandRecorder>;
@@ -317,7 +662,7 @@ namespace XUSG
 		class DLL_INTERFACE Util
 		{
 		public:
-			//Util(const Device& device, TensorDataType tensorDataType = TensorDataType::FLOAT32,
+			//Util(const Device::sptr& device, TensorDataType tensorDataType = TensorDataType::FLOAT32,
 				//TensorLayout tensorLayout = TensorLayout::DEFAULT);
 			virtual ~Util() {}
 
@@ -339,9 +684,9 @@ namespace XUSG
 			using uptr = std::unique_ptr<Util>;
 			using sptr = std::shared_ptr<Util>;
 
-			static uptr MakeUnique(const Device& device, TensorDataType tensorDataType,
+			static uptr MakeUnique(const Device::sptr& device, TensorDataType tensorDataType,
 				TensorLayout tensorLayout, XUSG::API api = XUSG::API::DIRECTX_12);
-			static sptr MakeShared(const Device& device, TensorDataType tensorDataType,
+			static sptr MakeShared(const Device::sptr& device, TensorDataType tensorDataType,
 				TensorLayout tensorLayout, XUSG::API api = XUSG::API::DIRECTX_12);
 		};
 	}
