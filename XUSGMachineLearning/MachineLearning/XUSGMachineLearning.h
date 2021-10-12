@@ -486,6 +486,41 @@ namespace XUSG
 			InterpolationType InterpolationMode;
 		};
 
+		struct GatherOperator
+		{
+			const Tensor* pInput;
+			const Tensor* pIndices;
+			const Tensor* pOutput;
+			uint32_t Axis;
+			uint32_t IndexDimensions;
+		};
+
+		struct SpaceToDepth
+		{
+			const Tensor* pInput;
+			const Tensor* pOutput;
+			uint32_t BlockSize;
+		};
+
+		using DepthToSpace = SpaceToDepth;
+
+		struct TileOperator
+		{
+			const Tensor* pInput;
+			const Tensor* pOutput;
+			uint32_t RepeatsCount;
+			const uint32_t* pRepeats;
+		};
+
+		struct TopKOperator
+		{
+			const Tensor* pInput;
+			const Tensor* pOutputValue;
+			const Tensor* pOutputIndex;
+			uint32_t Axis;
+			uint32_t K;
+		};
+
 		//--------------------------------------------------------------------------------------
 		// Device
 		//--------------------------------------------------------------------------------------

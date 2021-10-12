@@ -643,6 +643,55 @@ void ML::GetDMLTypedOperator(vector<uint8_t>& dmlTypedOpDesc, OperatorType type,
 		pDMLDesc->InterpolationMode = GetDMLInterpolationMode(desc.InterpolationMode);
 	};
 
+	static const auto getDMLGather = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	{
+		dmlTypedOpDesc.resize(sizeof(DML_GATHER_OPERATOR_DESC));
+		const auto pDMLDesc = reinterpret_cast<DML_GATHER_OPERATOR_DESC*>(dmlTypedOpDesc.data());
+		const auto& desc = *static_cast<const GatherOperator*>(pOpDesc);
+
+		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
+		pDMLDesc->IndicesTensor = desc.pIndices ? static_cast<const DML_TENSOR_DESC*>(desc.pIndices->GetHandle()) : nullptr;
+		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
+		pDMLDesc->Axis = desc.Axis;
+		pDMLDesc->IndexDimensions = desc.IndexDimensions;
+	};
+
+	static const auto getDMLSpaceDepth = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	{
+		dmlTypedOpDesc.resize(sizeof(DML_SPACE_TO_DEPTH_OPERATOR_DESC));
+		const auto pDMLDesc = reinterpret_cast<DML_SPACE_TO_DEPTH_OPERATOR_DESC*>(dmlTypedOpDesc.data());
+		const auto& desc = *static_cast<const SpaceToDepth*>(pOpDesc);
+
+		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
+		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
+		pDMLDesc->BlockSize = desc.BlockSize;
+	};
+
+	static const auto getDMLTile = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	{
+		dmlTypedOpDesc.resize(sizeof(DML_TILE_OPERATOR_DESC));
+		const auto pDMLDesc = reinterpret_cast<DML_TILE_OPERATOR_DESC*>(dmlTypedOpDesc.data());
+		const auto& desc = *static_cast<const TileOperator*>(pOpDesc);
+
+		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
+		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
+		pDMLDesc->RepeatsCount = desc.RepeatsCount;
+		pDMLDesc->Repeats = desc.pRepeats;
+	};
+
+	static const auto getDMLTopK = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	{
+		dmlTypedOpDesc.resize(sizeof(DML_TOP_K_OPERATOR_DESC));
+		const auto pDMLDesc = reinterpret_cast<DML_TOP_K_OPERATOR_DESC*>(dmlTypedOpDesc.data());
+		const auto& desc = *static_cast<const TopKOperator*>(pOpDesc);
+
+		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
+		pDMLDesc->OutputValueTensor = desc.pOutputValue ? static_cast<const DML_TENSOR_DESC*>(desc.pOutputValue->GetHandle()) : nullptr;
+		pDMLDesc->OutputIndexTensor = desc.pOutputIndex ? static_cast<const DML_TENSOR_DESC*>(desc.pOutputIndex->GetHandle()) : nullptr;
+		pDMLDesc->Axis = desc.Axis;
+		pDMLDesc->K = desc.K;
+	};
+
 	static const function<void(vector<uint8_t>&, const void*)> pfnGetDMLOps[] =
 	{
 		nullptr,							// INVALID 
@@ -714,6 +763,11 @@ void ML::GetDMLTypedOperator(vector<uint8_t>& dmlTypedOpDesc, OperatorType type,
 		getDMLPadding,						// PADDING
 		getDMLValueScale2D,					// VALUE_SCALE_2D
 		getDMLUpsample2D,					// UPSAMPLE_2D
+		getDMLGather,						// GATHER
+		getDMLSpaceDepth,					// SPACE_TO_DEPTH
+		getDMLSpaceDepth,					// DEPTH_TO_SPACE
+		getDMLTile,							// TILE
+		getDMLTopK,							// TOP_K
 	};
 
 	pfnGetDMLOps[static_cast<uint32_t>(type)](dmlTypedOpDesc, pOpDesc);

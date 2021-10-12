@@ -47,12 +47,6 @@ namespace XUSG
 			com_ptr<IDMLDevice> m_device;
 		};
 
-		using GatherOperator = DML_GATHER_OPERATOR_DESC;
-		using SpaceToDepth = DML_SPACE_TO_DEPTH_OPERATOR_DESC;
-		using DepthToSpace = DML_DEPTH_TO_SPACE_OPERATOR_DESC;
-		using TileOperator = DML_TILE_OPERATOR_DESC;
-		using TopKOperator = DML_TOP_K_OPERATOR_DESC;
-
 		using BatchNormalization = DML_BATCH_NORMALIZATION_OPERATOR_DESC;
 		using MeanVarianceNormalization = DML_MEAN_VARIANCE_NORMALIZATION_OPERATOR_DESC;
 		using LocalResponseNormalization = DML_LOCAL_RESPONSE_NORMALIZATION_OPERATOR_DESC;
