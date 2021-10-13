@@ -109,7 +109,7 @@ namespace XUSG
 		enum class TensorFlag
 		{
 			NONE,
-			MANAGED,
+			MANAGED
 		};
 
 		DEFINE_ENUM_FLAG_OPERATORS(TensorFlag);
@@ -119,7 +119,7 @@ namespace XUSG
 			NONE,
 			ALLOW_HALF_PRECISION_COMPUTATION,
 			DISABLE_META_COMMANDS,
-			DESCRIPTORS_VOLATILE,
+			DESCRIPTORS_VOLATILE
 		};
 
 		DEFINE_ENUM_FLAG_OPERATORS(ExecutionFlag);
@@ -519,6 +519,54 @@ namespace XUSG
 			const Tensor* pOutputIndex;
 			uint32_t Axis;
 			uint32_t K;
+		};
+
+		struct BatchNormalization
+
+		{
+			const Tensor* pInput;
+			const Tensor* pMean;
+			const Tensor* pVariance;
+			const Tensor* pScale;
+			const Tensor* pBias;
+			const Tensor* pOutput;
+			bool Spatial;
+			float Epsilon;
+			OperatorType FusedActivationType;
+			const void* pFusedActivation;
+		};
+
+		struct MeanVarianceNormalization
+		{
+			const Tensor* pInput;
+			const Tensor* pScale;
+			const Tensor* pBias;
+			const Tensor* pOutput;
+			bool CrossChannel;
+			bool NormalizeVariance;
+			float Epsilon;
+			OperatorType FusedActivationType;
+			const void* pFusedActivation;
+		};
+
+		struct LocalResponseNormalization
+		{
+			const Tensor* pInput;
+			const Tensor* pOutput;
+			bool CrossChannel;
+			uint32_t LocalSize;
+			float Alpha;
+			float Beta;
+			float Bias;
+		};
+
+		struct LPNormalization
+		{
+			const Tensor* pInput;
+			const Tensor* pOutput;
+			uint32_t Axis;
+			float Epsilon;
+			uint32_t P;
 		};
 
 		//--------------------------------------------------------------------------------------

@@ -47,11 +47,6 @@ namespace XUSG
 			com_ptr<IDMLDevice> m_device;
 		};
 
-		using BatchNormalization = DML_BATCH_NORMALIZATION_OPERATOR_DESC;
-		using MeanVarianceNormalization = DML_MEAN_VARIANCE_NORMALIZATION_OPERATOR_DESC;
-		using LocalResponseNormalization = DML_LOCAL_RESPONSE_NORMALIZATION_OPERATOR_DESC;
-		using LPNormalization = DML_LP_NORMALIZATION_OPERATOR_DESC;
-		
 		using RNNOperator = DML_RNN_OPERATOR_DESC;
 		using LSTMOperator = DML_LSTM_OPERATOR_DESC;
 		using GRUOperator = DML_GRU_OPERATOR_DESC;
