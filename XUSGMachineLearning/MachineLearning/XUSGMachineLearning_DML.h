@@ -20,11 +20,12 @@ namespace XUSG
 		DML_EXECUTION_FLAGS GetDMLExecutionFlags(ExecutionFlag executionFlags);
 
 		DML_REDUCE_FUNCTION GetDMLReduceFunction(ReduceFunction reduceFunction);
-		DML_MATRIX_TRANSFORM GetDMLMatrixTransform(MatrixTransform matrixTransform);
-		DML_CONVOLUTION_MODE GetDMLConvolutionMode(ConvolutionMode convolutionMode);
-		DML_CONVOLUTION_DIRECTION GetDMLConvolutionDirection(ConvolutionDirection convolutionDirection);
-		DML_PADDING_MODE GetDMLPaddingMode(PaddingType paddingMode);
-		DML_INTERPOLATION_MODE GetDMLInterpolationMode(InterpolationType interpolationMode);
+		DML_MATRIX_TRANSFORM GetDMLMatrixTransform(MatrixTransform transform);
+		DML_CONVOLUTION_MODE GetDMLConvolutionMode(ConvolutionType mode);
+		DML_CONVOLUTION_DIRECTION GetDMLConvolutionDirection(ConvolutionDirection direction);
+		DML_PADDING_MODE GetDMLPaddingMode(PaddingType mode);
+		DML_INTERPOLATION_MODE GetDMLInterpolationMode(InterpolationType mode);
+		DML_RECURRENT_NETWORK_DIRECTION GetDMLRecurrentNetworkDirection(RecurrentNetworkDirection direction);
 
 		void GetDMLTypedOperator(std::string& dmlTypedOpDesc, const void* pTypedOp);
 
@@ -47,7 +48,6 @@ namespace XUSG
 			com_ptr<IDMLDevice> m_device;
 		};
 
-		using RNNOperator = DML_RNN_OPERATOR_DESC;
 		using LSTMOperator = DML_LSTM_OPERATOR_DESC;
 		using GRUOperator = DML_GRU_OPERATOR_DESC;
 	}

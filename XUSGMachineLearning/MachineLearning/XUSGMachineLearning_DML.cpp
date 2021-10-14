@@ -186,7 +186,7 @@ DML_REDUCE_FUNCTION ML::GetDMLReduceFunction(ReduceFunction reduceFunction)
 	return reduceFunctions[static_cast<uint32_t>(reduceFunction)];
 }
 
-DML_MATRIX_TRANSFORM ML::GetDMLMatrixTransform(MatrixTransform matrixTransform)
+DML_MATRIX_TRANSFORM ML::GetDMLMatrixTransform(MatrixTransform transform)
 {
 	static const DML_MATRIX_TRANSFORM matrixTransforms[] =
 	{
@@ -194,10 +194,10 @@ DML_MATRIX_TRANSFORM ML::GetDMLMatrixTransform(MatrixTransform matrixTransform)
 		DML_MATRIX_TRANSFORM_TRANSPOSE
 	};
 
-	return matrixTransforms[static_cast<uint32_t>(matrixTransform)];
+	return matrixTransforms[static_cast<uint32_t>(transform)];
 }
 
-DML_CONVOLUTION_MODE ML::GetDMLConvolutionMode(ConvolutionMode convolutionMode)
+DML_CONVOLUTION_MODE ML::GetDMLConvolutionMode(ConvolutionType mode)
 {
 	static const DML_CONVOLUTION_MODE convolutionModes[] =
 	{
@@ -205,10 +205,10 @@ DML_CONVOLUTION_MODE ML::GetDMLConvolutionMode(ConvolutionMode convolutionMode)
 		DML_CONVOLUTION_MODE_CROSS_CORRELATION
 	};
 
-	return convolutionModes[static_cast<uint32_t>(convolutionMode)];
+	return convolutionModes[static_cast<uint32_t>(mode)];
 }
 
-DML_CONVOLUTION_DIRECTION ML::GetDMLConvolutionDirection(ConvolutionDirection convolutionDirection)
+DML_CONVOLUTION_DIRECTION ML::GetDMLConvolutionDirection(ConvolutionDirection direction)
 {
 	static const DML_CONVOLUTION_DIRECTION convolutionDirections[] =
 	{
@@ -216,10 +216,10 @@ DML_CONVOLUTION_DIRECTION ML::GetDMLConvolutionDirection(ConvolutionDirection co
 		DML_CONVOLUTION_DIRECTION_BACKWARD
 	};
 
-	return convolutionDirections[static_cast<uint32_t>(convolutionDirection)];
+	return convolutionDirections[static_cast<uint32_t>(direction)];
 }
 
-DML_PADDING_MODE ML::GetDMLPaddingMode(PaddingType paddingMode)
+DML_PADDING_MODE ML::GetDMLPaddingMode(PaddingType mode)
 {
 	static const DML_PADDING_MODE paddingModes[] =
 	{
@@ -233,10 +233,10 @@ DML_PADDING_MODE ML::GetDMLPaddingMode(PaddingType paddingMode)
 #endif
 	};
 
-	return paddingModes[static_cast<uint32_t>(paddingMode)];
+	return paddingModes[static_cast<uint32_t>(mode)];
 }
 
-DML_INTERPOLATION_MODE ML::GetDMLInterpolationMode(InterpolationType interpolationMode)
+DML_INTERPOLATION_MODE ML::GetDMLInterpolationMode(InterpolationType mode)
 {
 	static const DML_INTERPOLATION_MODE interpolationModes[] =
 	{
@@ -244,7 +244,19 @@ DML_INTERPOLATION_MODE ML::GetDMLInterpolationMode(InterpolationType interpolati
 		DML_INTERPOLATION_MODE_LINEAR
 	};
 
-	return interpolationModes[static_cast<uint32_t>(interpolationMode)];
+	return interpolationModes[static_cast<uint32_t>(mode)];
+}
+
+DML_RECURRENT_NETWORK_DIRECTION ML::GetDMLRecurrentNetworkDirection(RecurrentNetworkDirection direction)
+{
+	static const DML_RECURRENT_NETWORK_DIRECTION recurrentNetworkDirections[] =
+	{
+		DML_RECURRENT_NETWORK_DIRECTION_FORWARD,
+		DML_RECURRENT_NETWORK_DIRECTION_BACKWARD,
+		DML_RECURRENT_NETWORK_DIRECTION_BIDIRECTIONAL
+	};
+
+	return recurrentNetworkDirections[static_cast<uint32_t>(direction)];
 }
 
 void ML::GetDMLTypedOperator(string& dmlTypedOpDesc, const void* pTypedOp)
@@ -785,6 +797,56 @@ void ML::GetDMLTypedOperator(string& dmlTypedOpDesc, const void* pTypedOp)
 		dmlDesc.P = typedOp.P;
 	};
 
+	static const auto getDMLRNN = [](string& dmlTypedOpDesc, const void* pTypedOp)
+	{
+		const auto& typedOp = *static_cast<const RNNOperator*>(pTypedOp);
+
+		vector<string> dmlActivations(typedOp.ActivationCount);
+		auto dmlTypedDescSize = sizeof(DML_RNN_OPERATOR_DESC);
+		if (typedOp.pActivations)
+		{
+			dmlTypedDescSize += sizeof(DML_OPERATOR_DESC) * typedOp.ActivationCount;
+			for (auto i = 0u; i < typedOp.ActivationCount; ++i)
+			{
+				assert(typedOp.pActivations[i]);
+				GetDMLTypedOperator(dmlActivations[i], typedOp.pActivations[i]);
+				dmlTypedDescSize += dmlActivations[i].size();
+			}
+		}
+
+		dmlTypedOpDesc.resize(dmlTypedDescSize);
+		auto& dmlDesc = reinterpret_cast<DML_RNN_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto pDMLActivations = typedOp.pActivations ? reinterpret_cast<DML_OPERATOR_DESC*>(
+			&dmlTypedOpDesc[sizeof(DML_RNN_OPERATOR_DESC)]) : nullptr;
+
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.WeightTensor = typedOp.pWeight ? static_cast<const DML_TENSOR_DESC*>(typedOp.pWeight->GetHandle()) : nullptr;
+		dmlDesc.RecurrenceTensor = typedOp.pRecurrence ? static_cast<const DML_TENSOR_DESC*>(typedOp.pRecurrence->GetHandle()) : nullptr;
+		dmlDesc.BiasTensor = typedOp.pBias ? static_cast<const DML_TENSOR_DESC*>(typedOp.pBias->GetHandle()) : nullptr;
+		dmlDesc.HiddenInitTensor = typedOp.pHiddenInit ? static_cast<const DML_TENSOR_DESC*>(typedOp.pHiddenInit->GetHandle()) : nullptr;
+		dmlDesc.SequenceLengthsTensor = typedOp.pSequenceLengths ? static_cast<const DML_TENSOR_DESC*>(typedOp.pSequenceLengths->GetHandle()) : nullptr;
+		dmlDesc.OutputSequenceTensor = typedOp.pOutputSequence ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutputSequence->GetHandle()) : nullptr;
+		dmlDesc.OutputSingleTensor = typedOp.pOutputSingle ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutputSingle->GetHandle()) : nullptr;
+		dmlDesc.ActivationDescCount = typedOp.ActivationCount;
+		dmlDesc.ActivationDescs = pDMLActivations;
+		dmlDesc.Direction = GetDMLRecurrentNetworkDirection(typedOp.Direction);
+
+		if (pDMLActivations)
+		{
+			assert(typedOp.pActivations);
+			auto offset = sizeof(DML_CONVOLUTION_OPERATOR_DESC) + sizeof(DML_OPERATOR_DESC) * typedOp.ActivationCount;
+			for (auto i = 0u; i < typedOp.ActivationCount; ++i)
+			{
+				assert(typedOp.pActivations[i]);
+				const auto& dmlActivation = dmlActivations[i];
+				auto* pDMLActivation = &pDMLActivations[i];
+				pDMLActivation->Type = GetDMLOpteratorType(*static_cast<const OperatorType*>(typedOp.pActivations[i]));
+				pDMLActivation->Desc = &dmlTypedOpDesc[offset];
+				memcpy(&dmlTypedOpDesc[offset], dmlActivation.data(), dmlActivation.size());
+			}
+		}
+	};
+
 	static const function<void(string&, const void*)> pfnGetDMLOps[] =
 	{
 		nullptr,							// INVALID 
@@ -861,11 +923,11 @@ void ML::GetDMLTypedOperator(string& dmlTypedOpDesc, const void* pTypedOp)
 		getDMLSpaceDepth,					// DEPTH_TO_SPACE
 		getDMLTile,							// TILE
 		getDMLTopK,							// TOP_K
-
 		getDMLBatchNormalization,			// BATCH_NORMALIZATION
 		getDMLMeanVarianceNormalization,	// MEAN_VARIANCE_NORMALIZATION
 		getDMLLocalResponseNormalization,	// LOCAL_RESPONSE_NORMALIZATION
 		getDMLLPNormalization,				// LP_NORMALIZATION
+		getDMLRNN,							// RNN
 	};
 
 	pfnGetDMLOps[*static_cast<const uint32_t*>(pTypedOp)](dmlTypedOpDesc, pTypedOp);

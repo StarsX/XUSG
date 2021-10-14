@@ -139,7 +139,7 @@ bool Util_Impl::CreateConvolutionLayer(const uint32_t inputSizes[4], const uint3
 		filterTensor.get(),
 		useBiasAndActivation ? biasTensor.get() : nullptr,
 		outputTensor.get(),
-		ConvolutionMode::CROSS_CORRELATION,
+		ConvolutionType::CROSS_CORRELATION,
 		ConvolutionDirection::FORWARD,
 		2,
 		strides,

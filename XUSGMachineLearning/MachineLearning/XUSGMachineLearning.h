@@ -154,7 +154,7 @@ namespace XUSG
 			TRANSPOSE
 		};
 
-		enum class ConvolutionMode
+		enum class ConvolutionType
 		{
 			CONVOLUTION,
 			CROSS_CORRELATION
@@ -178,6 +178,13 @@ namespace XUSG
 		{
 			NEAREST_NEIGHBOR,
 			LINEAR
+		};
+
+		enum class RecurrentNetworkDirection
+		{
+			FORWARD,
+			BACKWARD,
+			BIDIRECTIONAL
 		};
 
 		class Tensor;
@@ -366,7 +373,7 @@ namespace XUSG
 			const Tensor* pFilter;
 			const Tensor* pBias;
 			const Tensor* pOutput;
-			ConvolutionMode Mode;
+			ConvolutionType Mode;
 			ConvolutionDirection Direction;
 			uint32_t DimensionCount;
 			const uint32_t* pStrides;
@@ -600,6 +607,21 @@ namespace XUSG
 			uint32_t Axis;
 			float Epsilon;
 			uint32_t P;
+		};
+
+		struct RNNOperator
+		{
+			const Tensor* pInput;
+			const Tensor* pWeight;
+			const Tensor* pRecurrence;
+			const Tensor* pBias;
+			const Tensor* pHiddenInit;
+			const Tensor* pSequenceLengths;
+			const Tensor* pOutputSequence;
+			const Tensor* pOutputSingle;
+			uint32_t ActivationCount;
+			const void** pActivations;
+			RecurrentNetworkDirection Direction;
 		};
 
 		//--------------------------------------------------------------------------------------
