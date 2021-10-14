@@ -22,11 +22,15 @@ Operator_DML::~Operator_DML()
 {
 }
 
-bool Operator_DML::Create(const Device* pDevice, OperatorType type, const void* pTypedOp, ExecutionFlag flags)
+bool Operator_DML::Create(const Device* pDevice, const void* pTypedOp, ExecutionFlag flags)
 {
-	vector<uint8_t> dmlTypedOpDesc;
-	GetDMLTypedOperator(dmlTypedOpDesc, type, pTypedOp);
-	DML_OPERATOR_DESC dmlOpDesc = { GetDMLOpteratorType(type), dmlTypedOpDesc.data() };
+	string dmlTypedOpDesc;
+	GetDMLTypedOperator(dmlTypedOpDesc, pTypedOp);
+	const DML_OPERATOR_DESC dmlOpDesc =
+	{
+		GetDMLOpteratorType(*static_cast<const OperatorType*>(pTypedOp)),
+		dmlTypedOpDesc.data()
+	};
 
 	com_ptr<IDMLOperator> dmlOperator = nullptr;
 	const auto pDMLDevice = static_cast<IDMLDevice*>(pDevice->GetHandle());

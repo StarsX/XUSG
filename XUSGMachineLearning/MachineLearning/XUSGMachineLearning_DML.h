@@ -26,7 +26,7 @@ namespace XUSG
 		DML_PADDING_MODE GetDMLPaddingMode(PaddingType paddingMode);
 		DML_INTERPOLATION_MODE GetDMLInterpolationMode(InterpolationType interpolationMode);
 
-		void GetDMLTypedOperator(std::vector<uint8_t>& dmlTypedOpDesc, OperatorType type, const void* pOpDesc);
+		void GetDMLTypedOperator(std::string& dmlTypedOpDesc, const void* pTypedOp);
 
 		// Device
 		class Device_DML :

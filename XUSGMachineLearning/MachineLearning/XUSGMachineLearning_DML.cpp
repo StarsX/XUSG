@@ -247,7 +247,7 @@ DML_INTERPOLATION_MODE ML::GetDMLInterpolationMode(InterpolationType interpolati
 	return interpolationModes[static_cast<uint32_t>(interpolationMode)];
 }
 
-void ML::GetDMLTypedOperator(vector<uint8_t>& dmlTypedOpDesc, OperatorType type, const void* pOpDesc)
+void ML::GetDMLTypedOperator(string& dmlTypedOpDesc, const void* pTypedOp)
 {
 	struct DMLUnaryOp
 	{
@@ -269,524 +269,523 @@ void ML::GetDMLTypedOperator(vector<uint8_t>& dmlTypedOpDesc, OperatorType type,
 		const DML_TENSOR_DESC* OutputTensor;
 	};
 
-	static const auto getDMLUnaryOp = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLUnaryOp = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
 		dmlTypedOpDesc.resize(sizeof(DMLUnaryOp));
-		const auto pDMLDesc = reinterpret_cast<DMLUnaryOp*>(dmlTypedOpDesc.data());
-		const auto& desc = *static_cast<const UnaryOp*>(pOpDesc);
+		auto& dmlDesc = reinterpret_cast<DMLUnaryOp&>(dmlTypedOpDesc[0]);
+		const auto& typedOp = *static_cast<const UnaryOp*>(pTypedOp);
 
-		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
-		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.OutputTensor = typedOp.pOutput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutput->GetHandle()) : nullptr;
 	};
 
-	static const auto getDMLElementWiseUnaryOp = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLElementWiseUnaryOp = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
 		dmlTypedOpDesc.resize(sizeof(DMLElementWiseUnaryOp));
-		const auto pDMLDesc = reinterpret_cast<DMLElementWiseUnaryOp*>(dmlTypedOpDesc.data());
-		const auto& desc = *static_cast<const ElementWiseUnaryOp*>(pOpDesc);
+		auto& dmlDesc = reinterpret_cast<DMLElementWiseUnaryOp&>(dmlTypedOpDesc[0]);
+		const auto& typedOp = *static_cast<const ElementWiseUnaryOp*>(pTypedOp);
 
-		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
-		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
-		pDMLDesc->ScaleBias = reinterpret_cast<const DML_SCALE_BIAS*>(desc.pScaleBias);
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.OutputTensor = typedOp.pOutput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutput->GetHandle()) : nullptr;
+		dmlDesc.ScaleBias = reinterpret_cast<const DML_SCALE_BIAS*>(typedOp.pScaleBias);
 	};
 
-	static const auto getDMLElementWiseBinaryOp = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLElementWiseBinaryOp = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
 		dmlTypedOpDesc.resize(sizeof(DMLElementWiseBinaryOp));
-		const auto pDMLDesc = reinterpret_cast<DMLElementWiseBinaryOp*>(dmlTypedOpDesc.data());
-		const auto& desc = *static_cast<const ElementWiseBinaryOp*>(pOpDesc);
+		auto& dmlDesc = reinterpret_cast<DMLElementWiseBinaryOp&>(dmlTypedOpDesc[0]);
+		const auto& typedOp = *static_cast<const ElementWiseBinaryOp*>(pTypedOp);
 
-		pDMLDesc->ATensor = desc.pA ? static_cast<const DML_TENSOR_DESC*>(desc.pA->GetHandle()) : nullptr;
-		pDMLDesc->BTensor = desc.pB ? static_cast<const DML_TENSOR_DESC*>(desc.pB->GetHandle()) : nullptr;
-		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
+		dmlDesc.ATensor = typedOp.pA ? static_cast<const DML_TENSOR_DESC*>(typedOp.pA->GetHandle()) : nullptr;
+		dmlDesc.BTensor = typedOp.pB ? static_cast<const DML_TENSOR_DESC*>(typedOp.pB->GetHandle()) : nullptr;
+		dmlDesc.OutputTensor = typedOp.pOutput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutput->GetHandle()) : nullptr;
 	};
 
-	static const auto getDMLElementWiseClip = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLElementWiseClip = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
 		dmlTypedOpDesc.resize(sizeof(DML_ELEMENT_WISE_CLIP_OPERATOR_DESC));
-		const auto pDMLDesc = reinterpret_cast<DML_ELEMENT_WISE_CLIP_OPERATOR_DESC*>(dmlTypedOpDesc.data());
-		const auto& desc = *static_cast<const ElementWiseClip*>(pOpDesc);
+		auto& dmlDesc = reinterpret_cast<DML_ELEMENT_WISE_CLIP_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto& typedOp = *static_cast<const ElementWiseClip*>(pTypedOp);
 
-		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
-		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
-		pDMLDesc->ScaleBias = reinterpret_cast<const DML_SCALE_BIAS*>(desc.pScaleBias);
-		pDMLDesc->Min = desc.Min;
-		pDMLDesc->Max = desc.Max;
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.OutputTensor = typedOp.pOutput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutput->GetHandle()) : nullptr;
+		dmlDesc.ScaleBias = reinterpret_cast<const DML_SCALE_BIAS*>(typedOp.pScaleBias);
+		dmlDesc.Min = typedOp.Min;
+		dmlDesc.Max = typedOp.Max;
 	};
 
-	static const auto getDMLElementWisePow = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLElementWisePow = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
 		dmlTypedOpDesc.resize(sizeof(DML_ELEMENT_WISE_POW_OPERATOR_DESC));
-		const auto pDMLDesc = reinterpret_cast<DML_ELEMENT_WISE_POW_OPERATOR_DESC*>(dmlTypedOpDesc.data());
-		const auto& desc = *static_cast<const ElementWisePow*>(pOpDesc);
+		auto& dmlDesc = reinterpret_cast<DML_ELEMENT_WISE_POW_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto& typedOp = *static_cast<const ElementWisePow*>(pTypedOp);
 
-		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
-		pDMLDesc->ExponentTensor = desc.pExponent ? static_cast<const DML_TENSOR_DESC*>(desc.pExponent->GetHandle()) : nullptr;
-		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
-		pDMLDesc->ScaleBias = reinterpret_cast<const DML_SCALE_BIAS*>(desc.pScaleBias);
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.ExponentTensor = typedOp.pExponent ? static_cast<const DML_TENSOR_DESC*>(typedOp.pExponent->GetHandle()) : nullptr;
+		dmlDesc.OutputTensor = typedOp.pOutput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutput->GetHandle()) : nullptr;
+		dmlDesc.ScaleBias = reinterpret_cast<const DML_SCALE_BIAS*>(typedOp.pScaleBias);
 	};
 
-	static const auto getDMLElementWiseConstantPow = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLElementWiseConstantPow = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
 		dmlTypedOpDesc.resize(sizeof(DML_ELEMENT_WISE_CONSTANT_POW_OPERATOR_DESC));
-		const auto pDMLDesc = reinterpret_cast<DML_ELEMENT_WISE_CONSTANT_POW_OPERATOR_DESC*>(dmlTypedOpDesc.data());
-		const auto& desc = *static_cast<const ElementWiseConstantPow*>(pOpDesc);
+		auto& dmlDesc = reinterpret_cast<DML_ELEMENT_WISE_CONSTANT_POW_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto& typedOp = *static_cast<const ElementWiseConstantPow*>(pTypedOp);
 
-		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
-		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
-		pDMLDesc->ScaleBias = reinterpret_cast<const DML_SCALE_BIAS*>(desc.pScaleBias);
-		pDMLDesc->Exponent = desc.Exponent;
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.OutputTensor = typedOp.pOutput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutput->GetHandle()) : nullptr;
+		dmlDesc.ScaleBias = reinterpret_cast<const DML_SCALE_BIAS*>(typedOp.pScaleBias);
+		dmlDesc.Exponent = typedOp.Exponent;
 	};
 
-	static const auto getDMLElementWiseThreshold = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLElementWiseThreshold = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
 		dmlTypedOpDesc.resize(sizeof(DML_ELEMENT_WISE_THRESHOLD_OPERATOR_DESC));
-		const auto pDMLDesc = reinterpret_cast<DML_ELEMENT_WISE_THRESHOLD_OPERATOR_DESC*>(dmlTypedOpDesc.data());
-		const auto& desc = *static_cast<const ElementWiseThreshold*>(pOpDesc);
+		auto& dmlDesc = reinterpret_cast<DML_ELEMENT_WISE_THRESHOLD_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto& typedOp = *static_cast<const ElementWiseThreshold*>(pTypedOp);
 
-		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
-		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
-		pDMLDesc->ScaleBias = reinterpret_cast<const DML_SCALE_BIAS*>(desc.pScaleBias);
-		pDMLDesc->Min = desc.Min;
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.OutputTensor = typedOp.pOutput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutput->GetHandle()) : nullptr;
+		dmlDesc.ScaleBias = reinterpret_cast<const DML_SCALE_BIAS*>(typedOp.pScaleBias);
+		dmlDesc.Min = typedOp.Min;
 	};
 
-	static const auto getDMLElementWiseQuantizeLinear = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLElementWiseQuantizeLinear = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
 		dmlTypedOpDesc.resize(sizeof(DML_ELEMENT_WISE_QUANTIZE_LINEAR_OPERATOR_DESC));
-		const auto pDMLDesc = reinterpret_cast<DML_ELEMENT_WISE_QUANTIZE_LINEAR_OPERATOR_DESC*>(dmlTypedOpDesc.data());
-		const auto& desc = *static_cast<const ElementWiseQuantizeLinear*>(pOpDesc);
+		auto& dmlDesc = reinterpret_cast<DML_ELEMENT_WISE_QUANTIZE_LINEAR_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto& typedOp = *static_cast<const ElementWiseQuantizeLinear*>(pTypedOp);
 
-		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
-		pDMLDesc->ScaleTensor = desc.pScale ? static_cast<const DML_TENSOR_DESC*>(desc.pScale->GetHandle()) : nullptr;
-		pDMLDesc->ZeroPointTensor = desc.pZeroPoint ? static_cast<const DML_TENSOR_DESC*>(desc.pZeroPoint->GetHandle()) : nullptr;
-		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.ScaleTensor = typedOp.pScale ? static_cast<const DML_TENSOR_DESC*>(typedOp.pScale->GetHandle()) : nullptr;
+		dmlDesc.ZeroPointTensor = typedOp.pZeroPoint ? static_cast<const DML_TENSOR_DESC*>(typedOp.pZeroPoint->GetHandle()) : nullptr;
+		dmlDesc.OutputTensor = typedOp.pOutput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutput->GetHandle()) : nullptr;
 	};
 
-	static const auto getDMLActivationELU = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLActivationELU = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
 		dmlTypedOpDesc.resize(sizeof(DML_ACTIVATION_ELU_OPERATOR_DESC));
-		const auto pDMLDesc = reinterpret_cast<DML_ACTIVATION_ELU_OPERATOR_DESC*>(dmlTypedOpDesc.data());
-		const auto& desc = *static_cast<const ActivationELU*>(pOpDesc);
+		auto& dmlDesc = reinterpret_cast<DML_ACTIVATION_ELU_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto& typedOp = *static_cast<const ActivationELU*>(pTypedOp);
 
-		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
-		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
-		pDMLDesc->Alpha = desc.Alpha;
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.OutputTensor = typedOp.pOutput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutput->GetHandle()) : nullptr;
+		dmlDesc.Alpha = typedOp.Alpha;
 	};
 
-	static const auto getDMLActivationLinear = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLActivationLinear = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
 		dmlTypedOpDesc.resize(sizeof(DML_ACTIVATION_LINEAR_OPERATOR_DESC));
-		const auto pDMLDesc = reinterpret_cast<DML_ACTIVATION_LINEAR_OPERATOR_DESC*>(dmlTypedOpDesc.data());
-		const auto& desc = *static_cast<const ActivationLinear*>(pOpDesc);
+		auto& dmlDesc = reinterpret_cast<DML_ACTIVATION_LINEAR_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto& typedOp = *static_cast<const ActivationLinear*>(pTypedOp);
 
-		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
-		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
-		pDMLDesc->Alpha = desc.Alpha;
-		pDMLDesc->Beta = desc.Beta;
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.OutputTensor = typedOp.pOutput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutput->GetHandle()) : nullptr;
+		dmlDesc.Alpha = typedOp.Alpha;
+		dmlDesc.Beta = typedOp.Beta;
 	};
 
-	static const auto getDMLActivationParameterizedRELU = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLActivationParameterizedRELU = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
 		dmlTypedOpDesc.resize(sizeof(DML_ACTIVATION_PARAMETERIZED_RELU_OPERATOR_DESC));
-		const auto pDMLDesc = reinterpret_cast<DML_ACTIVATION_PARAMETERIZED_RELU_OPERATOR_DESC*>(dmlTypedOpDesc.data());
-		const auto& desc = *static_cast<const ActivationParameterizedRELU*>(pOpDesc);
+		auto& dmlDesc = reinterpret_cast<DML_ACTIVATION_PARAMETERIZED_RELU_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto& typedOp = *static_cast<const ActivationParameterizedRELU*>(pTypedOp);
 
-		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
-		pDMLDesc->SlopeTensor = desc.pSlope ? static_cast<const DML_TENSOR_DESC*>(desc.pSlope->GetHandle()) : nullptr;
-		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.SlopeTensor = typedOp.pSlope ? static_cast<const DML_TENSOR_DESC*>(typedOp.pSlope->GetHandle()) : nullptr;
+		dmlDesc.OutputTensor = typedOp.pOutput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutput->GetHandle()) : nullptr;
 	};
 
-	static const auto getDMLActivationScaledELU = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLActivationScaledELU = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
 		dmlTypedOpDesc.resize(sizeof(DML_ACTIVATION_SCALED_ELU_OPERATOR_DESC));
-		const auto pDMLDesc = reinterpret_cast<DML_ACTIVATION_SCALED_ELU_OPERATOR_DESC*>(dmlTypedOpDesc.data());
-		const auto& desc = *static_cast<const ActivationScaledELU*>(pOpDesc);
+		auto& dmlDesc = reinterpret_cast<DML_ACTIVATION_SCALED_ELU_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto& typedOp = *static_cast<const ActivationScaledELU*>(pTypedOp);
 
-		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
-		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
-		pDMLDesc->Alpha = desc.Alpha;
-		pDMLDesc->Gamma = desc.Gamma;
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.OutputTensor = typedOp.pOutput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutput->GetHandle()) : nullptr;
+		dmlDesc.Alpha = typedOp.Alpha;
+		dmlDesc.Gamma = typedOp.Gamma;
 	};
 
-	static const auto getDMLActivationSoftplus = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLActivationSoftplus = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
 		dmlTypedOpDesc.resize(sizeof(DML_ACTIVATION_SOFTPLUS_OPERATOR_DESC));
-		const auto pDMLDesc = reinterpret_cast<DML_ACTIVATION_SOFTPLUS_OPERATOR_DESC*>(dmlTypedOpDesc.data());
-		const auto& desc = *static_cast<const ActivationSoftplus*>(pOpDesc);
+		auto& dmlDesc = reinterpret_cast<DML_ACTIVATION_SOFTPLUS_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto& typedOp = *static_cast<const ActivationSoftplus*>(pTypedOp);
 
-		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
-		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
-		pDMLDesc->Steepness = desc.Steepness;
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.OutputTensor = typedOp.pOutput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutput->GetHandle()) : nullptr;
+		dmlDesc.Steepness = typedOp.Steepness;
 	};
 
-	static const auto getDMLConvolution = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLConvolution = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
-		const auto& desc = *static_cast<const ConvolutionOperator*>(pOpDesc);
+		const auto& typedOp = *static_cast<const ConvolutionOperator*>(pTypedOp);
 
-		vector<uint8_t> typedFused(0);
-		if (desc.pFusedActivation) GetDMLTypedOperator(typedFused, desc.FusedActivationType, desc.pFusedActivation);
+		string dmlFusedActivation;
+		if (typedOp.pFusedActivation) GetDMLTypedOperator(dmlFusedActivation, typedOp.pFusedActivation);
 
 		dmlTypedOpDesc.resize(sizeof(DML_CONVOLUTION_OPERATOR_DESC) +
-			(desc.pFusedActivation ? sizeof(DML_OPERATOR_DESC) + typedFused.size() : 0));
-		const auto pDMLDesc = reinterpret_cast<DML_CONVOLUTION_OPERATOR_DESC*>(dmlTypedOpDesc.data());
-		const auto pDMLFused = desc.pFusedActivation ? reinterpret_cast<DML_OPERATOR_DESC*>(
+			(typedOp.pFusedActivation ? sizeof(DML_OPERATOR_DESC) + dmlFusedActivation.size() : 0));
+		auto& dmlDesc = reinterpret_cast<DML_CONVOLUTION_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto pDMLFusedActivation = typedOp.pFusedActivation ? reinterpret_cast<DML_OPERATOR_DESC*>(
 			&dmlTypedOpDesc[sizeof(DML_CONVOLUTION_OPERATOR_DESC)]) : nullptr;
 		
-		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
-		pDMLDesc->FilterTensor = desc.pFilter ? static_cast<const DML_TENSOR_DESC*>(desc.pFilter->GetHandle()) : nullptr;
-		pDMLDesc->BiasTensor = desc.pBias ? static_cast<const DML_TENSOR_DESC*>(desc.pBias->GetHandle()) : nullptr;
-		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
-		pDMLDesc->Mode = GetDMLConvolutionMode(desc.Mode);
-		pDMLDesc->Direction = GetDMLConvolutionDirection(desc.Direction);
-		pDMLDesc->DimensionCount = desc.DimensionCount;
-		pDMLDesc->Strides = desc.pStrides;
-		pDMLDesc->Dilations = desc.pDilations;
-		pDMLDesc->StartPadding = desc.pStartPadding;
-		pDMLDesc->EndPadding = desc.pEndPadding;
-		pDMLDesc->OutputPadding = desc.pOutputPadding;
-		pDMLDesc->GroupCount = desc.GroupCount;
-		pDMLDesc->FusedActivation = pDMLFused;
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.FilterTensor = typedOp.pFilter ? static_cast<const DML_TENSOR_DESC*>(typedOp.pFilter->GetHandle()) : nullptr;
+		dmlDesc.BiasTensor = typedOp.pBias ? static_cast<const DML_TENSOR_DESC*>(typedOp.pBias->GetHandle()) : nullptr;
+		dmlDesc.OutputTensor = typedOp.pOutput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutput->GetHandle()) : nullptr;
+		dmlDesc.Mode = GetDMLConvolutionMode(typedOp.Mode);
+		dmlDesc.Direction = GetDMLConvolutionDirection(typedOp.Direction);
+		dmlDesc.DimensionCount = typedOp.DimensionCount;
+		dmlDesc.Strides = typedOp.pStrides;
+		dmlDesc.Dilations = typedOp.pDilations;
+		dmlDesc.StartPadding = typedOp.pStartPadding;
+		dmlDesc.EndPadding = typedOp.pEndPadding;
+		dmlDesc.OutputPadding = typedOp.pOutputPadding;
+		dmlDesc.GroupCount = typedOp.GroupCount;
+		dmlDesc.FusedActivation = pDMLFusedActivation;
 
-		if (pDMLFused)
+		if (pDMLFusedActivation)
 		{
-			assert(desc.pFusedActivation);
+			assert(typedOp.pFusedActivation);
 			const auto offset = sizeof(DML_CONVOLUTION_OPERATOR_DESC) + sizeof(DML_OPERATOR_DESC);
-			pDMLFused->Type = GetDMLOpteratorType(desc.FusedActivationType);
-			pDMLFused->Desc = &dmlTypedOpDesc[offset];
-			memcpy(&dmlTypedOpDesc[offset], typedFused.data(), typedFused.size());
+			pDMLFusedActivation->Type = GetDMLOpteratorType(*static_cast<const OperatorType*>(typedOp.pFusedActivation));
+			pDMLFusedActivation->Desc = &dmlTypedOpDesc[offset];
+			memcpy(&dmlTypedOpDesc[offset], dmlFusedActivation.data(), dmlFusedActivation.size());
 		}
 	};
 
-	static const auto getDMLGEMM = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLGEMM = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
-		const auto& desc = *static_cast<const GEMMOperator*>(pOpDesc);
+		const auto& typedOp = *static_cast<const GEMMOperator*>(pTypedOp);
 
-		vector<uint8_t> typedFused(0);
-		if (desc.pFusedActivation) GetDMLTypedOperator(typedFused, desc.FusedActivationType, desc.pFusedActivation);
+		string dmlFusedActivation;
+		if (typedOp.pFusedActivation) GetDMLTypedOperator(dmlFusedActivation, typedOp.pFusedActivation);
 
 		dmlTypedOpDesc.resize(sizeof(DML_GEMM_OPERATOR_DESC) +
-			(desc.pFusedActivation ? sizeof(DML_OPERATOR_DESC) + typedFused.size() : 0));
-		const auto pDMLDesc = reinterpret_cast<DML_GEMM_OPERATOR_DESC*>(dmlTypedOpDesc.data());
-		const auto pDMLFused = desc.pFusedActivation ? reinterpret_cast<DML_OPERATOR_DESC*>(
+			(typedOp.pFusedActivation ? sizeof(DML_OPERATOR_DESC) + dmlFusedActivation.size() : 0));
+		auto& dmlDesc = reinterpret_cast<DML_GEMM_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto pDMLFusedActivation = typedOp.pFusedActivation ? reinterpret_cast<DML_OPERATOR_DESC*>(
 			&dmlTypedOpDesc[sizeof(DML_GEMM_OPERATOR_DESC)]) : nullptr;
 
-		pDMLDesc->ATensor = desc.pA ? static_cast<const DML_TENSOR_DESC*>(desc.pA->GetHandle()) : nullptr;
-		pDMLDesc->BTensor = desc.pB ? static_cast<const DML_TENSOR_DESC*>(desc.pB->GetHandle()) : nullptr;
-		pDMLDesc->CTensor = desc.pC ? static_cast<const DML_TENSOR_DESC*>(desc.pC->GetHandle()) : nullptr;
-		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
-		pDMLDesc->TransA = GetDMLMatrixTransform(desc.TransA);
-		pDMLDesc->TransB = GetDMLMatrixTransform(desc.TransB);
-		pDMLDesc->Alpha = desc.Alpha;
-		pDMLDesc->Beta = desc.Beta;
-		pDMLDesc->FusedActivation = pDMLFused;
+		dmlDesc.ATensor = typedOp.pA ? static_cast<const DML_TENSOR_DESC*>(typedOp.pA->GetHandle()) : nullptr;
+		dmlDesc.BTensor = typedOp.pB ? static_cast<const DML_TENSOR_DESC*>(typedOp.pB->GetHandle()) : nullptr;
+		dmlDesc.CTensor = typedOp.pC ? static_cast<const DML_TENSOR_DESC*>(typedOp.pC->GetHandle()) : nullptr;
+		dmlDesc.OutputTensor = typedOp.pOutput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutput->GetHandle()) : nullptr;
+		dmlDesc.TransA = GetDMLMatrixTransform(typedOp.TransA);
+		dmlDesc.TransB = GetDMLMatrixTransform(typedOp.TransB);
+		dmlDesc.Alpha = typedOp.Alpha;
+		dmlDesc.Beta = typedOp.Beta;
+		dmlDesc.FusedActivation = pDMLFusedActivation;
 
-		if (pDMLFused)
+		if (pDMLFusedActivation)
 		{
-			assert(desc.pFusedActivation);
+			assert(typedOp.pFusedActivation);
 			const auto offset = sizeof(DML_GEMM_OPERATOR_DESC) + sizeof(DML_OPERATOR_DESC);
-			pDMLFused->Type = GetDMLOpteratorType(desc.FusedActivationType);
-			pDMLFused->Desc = &dmlTypedOpDesc[offset];
-			memcpy(&dmlTypedOpDesc[offset], typedFused.data(), typedFused.size());
+			pDMLFusedActivation->Type = GetDMLOpteratorType(*static_cast<const OperatorType*>(typedOp.pFusedActivation));
+			pDMLFusedActivation->Desc = &dmlTypedOpDesc[offset];
+			memcpy(&dmlTypedOpDesc[offset], dmlFusedActivation.data(), dmlFusedActivation.size());
 		}
 	};
 
-	static const auto getDMLReduce = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLReduce = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
 		dmlTypedOpDesc.resize(sizeof(DML_REDUCE_OPERATOR_DESC));
-		const auto pDMLDesc = reinterpret_cast<DML_REDUCE_OPERATOR_DESC*>(dmlTypedOpDesc.data());
-		const auto& desc = *static_cast<const ReduceOperator*>(pOpDesc);
+		auto& dmlDesc = reinterpret_cast<DML_REDUCE_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto& typedOp = *static_cast<const ReduceOperator*>(pTypedOp);
 
-		pDMLDesc->Function = GetDMLReduceFunction(desc.Function);
-		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
-		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
-		pDMLDesc->AxisCount = desc.AxisCount;
-		pDMLDesc->Axes = desc.pAxes;
+		dmlDesc.Function = GetDMLReduceFunction(typedOp.Function);
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.OutputTensor = typedOp.pOutput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutput->GetHandle()) : nullptr;
+		dmlDesc.AxisCount = typedOp.AxisCount;
+		dmlDesc.Axes = typedOp.pAxes;
 	};
 
-	static const auto getDMLAveragePooling = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLAveragePooling = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
 		dmlTypedOpDesc.resize(sizeof(DML_AVERAGE_POOLING_OPERATOR_DESC));
-		const auto pDMLDesc = reinterpret_cast<DML_AVERAGE_POOLING_OPERATOR_DESC*>(dmlTypedOpDesc.data());
-		const auto& desc = *static_cast<const AveragePooling*>(pOpDesc);
+		auto& dmlDesc = reinterpret_cast<DML_AVERAGE_POOLING_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto& typedOp = *static_cast<const AveragePooling*>(pTypedOp);
 
-		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
-		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
-		pDMLDesc->DimensionCount = desc.DimensionCount;
-		pDMLDesc->Strides = desc.pStrides;
-		pDMLDesc->WindowSize = desc.pWindowSize;
-		pDMLDesc->StartPadding = desc.pStartPadding;
-		pDMLDesc->EndPadding = desc.pEndPadding;
-		pDMLDesc->IncludePadding = desc.IncludePadding;
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.OutputTensor = typedOp.pOutput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutput->GetHandle()) : nullptr;
+		dmlDesc.DimensionCount = typedOp.DimensionCount;
+		dmlDesc.Strides = typedOp.pStrides;
+		dmlDesc.WindowSize = typedOp.pWindowSize;
+		dmlDesc.StartPadding = typedOp.pStartPadding;
+		dmlDesc.EndPadding = typedOp.pEndPadding;
+		dmlDesc.IncludePadding = typedOp.IncludePadding;
 	};
 
-	static const auto getDMLLPPooling = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLLPPooling = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
 		dmlTypedOpDesc.resize(sizeof(DML_LP_POOLING_OPERATOR_DESC));
-		const auto pDMLDesc = reinterpret_cast<DML_LP_POOLING_OPERATOR_DESC*>(dmlTypedOpDesc.data());
-		const auto& desc = *static_cast<const LPPooling*>(pOpDesc);
+		auto& dmlDesc = reinterpret_cast<DML_LP_POOLING_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto& typedOp = *static_cast<const LPPooling*>(pTypedOp);
 
-		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
-		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
-		pDMLDesc->DimensionCount = desc.DimensionCount;
-		pDMLDesc->Strides = desc.pStrides;
-		pDMLDesc->WindowSize = desc.pWindowSize;
-		pDMLDesc->StartPadding = desc.pStartPadding;
-		pDMLDesc->EndPadding = desc.pEndPadding;
-		pDMLDesc->P = desc.P;
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.OutputTensor = typedOp.pOutput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutput->GetHandle()) : nullptr;
+		dmlDesc.DimensionCount = typedOp.DimensionCount;
+		dmlDesc.Strides = typedOp.pStrides;
+		dmlDesc.WindowSize = typedOp.pWindowSize;
+		dmlDesc.StartPadding = typedOp.pStartPadding;
+		dmlDesc.EndPadding = typedOp.pEndPadding;
+		dmlDesc.P = typedOp.P;
 	};
 
-	static const auto getDMLMaxPooling = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLMaxPooling = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
 		dmlTypedOpDesc.resize(sizeof(DML_MAX_POOLING_OPERATOR_DESC));
-		const auto pDMLDesc = reinterpret_cast<DML_MAX_POOLING_OPERATOR_DESC*>(dmlTypedOpDesc.data());
-		const auto& desc = *static_cast<const MaxPooling*>(pOpDesc);
+		auto& dmlDesc = reinterpret_cast<DML_MAX_POOLING_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto& typedOp = *static_cast<const MaxPooling*>(pTypedOp);
 
-		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
-		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
-		pDMLDesc->DimensionCount = desc.DimensionCount;
-		pDMLDesc->Strides = desc.pStrides;
-		pDMLDesc->WindowSize = desc.pWindowSize;
-		pDMLDesc->StartPadding = desc.pStartPadding;
-		pDMLDesc->EndPadding = desc.pEndPadding;
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.OutputTensor = typedOp.pOutput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutput->GetHandle()) : nullptr;
+		dmlDesc.DimensionCount = typedOp.DimensionCount;
+		dmlDesc.Strides = typedOp.pStrides;
+		dmlDesc.WindowSize = typedOp.pWindowSize;
+		dmlDesc.StartPadding = typedOp.pStartPadding;
+		dmlDesc.EndPadding = typedOp.pEndPadding;
 	};
 
-	static const auto getDMLROIPooling = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLROIPooling = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
 		dmlTypedOpDesc.resize(sizeof(DML_ROI_POOLING_OPERATOR_DESC));
-		const auto pDMLDesc = reinterpret_cast<DML_ROI_POOLING_OPERATOR_DESC*>(dmlTypedOpDesc.data());
-		const auto& desc = *static_cast<const ROIPooling*>(pOpDesc);
+		auto& dmlDesc = reinterpret_cast<DML_ROI_POOLING_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto& typedOp = *static_cast<const ROIPooling*>(pTypedOp);
 
-		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
-		pDMLDesc->ROITensor = desc.pROI ? static_cast<const DML_TENSOR_DESC*>(desc.pROI->GetHandle()) : nullptr;
-		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
-		pDMLDesc->SpatialScale = desc.SpatialScale;
-		pDMLDesc->PooledSize.Width = desc.PooledWidth;
-		pDMLDesc->PooledSize.Height = desc.PooledHeight;
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.ROITensor = typedOp.pROI ? static_cast<const DML_TENSOR_DESC*>(typedOp.pROI->GetHandle()) : nullptr;
+		dmlDesc.OutputTensor = typedOp.pOutput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutput->GetHandle()) : nullptr;
+		dmlDesc.SpatialScale = typedOp.SpatialScale;
+		dmlDesc.PooledSize.Width = typedOp.PooledWidth;
+		dmlDesc.PooledSize.Height = typedOp.PooledHeight;
 	};
 
-	static const auto getDMLSlice = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLSlice = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
 		dmlTypedOpDesc.resize(sizeof(DML_SLICE_OPERATOR_DESC));
-		const auto pDMLDesc = reinterpret_cast<DML_SLICE_OPERATOR_DESC*>(dmlTypedOpDesc.data());
-		const auto& desc = *static_cast<const SliceOperator*>(pOpDesc);
+		auto& dmlDesc = reinterpret_cast<DML_SLICE_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto& typedOp = *static_cast<const SliceOperator*>(pTypedOp);
 
-		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
-		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
-		pDMLDesc->DimensionCount = desc.DimensionCount;
-		pDMLDesc->Offsets = desc.pOffsets;
-		pDMLDesc->Sizes = desc.pSizes;
-		pDMLDesc->Strides = desc.pStrides;
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.OutputTensor = typedOp.pOutput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutput->GetHandle()) : nullptr;
+		dmlDesc.DimensionCount = typedOp.DimensionCount;
+		dmlDesc.Offsets = typedOp.pOffsets;
+		dmlDesc.Sizes = typedOp.pSizes;
+		dmlDesc.Strides = typedOp.pStrides;
 	};
 
-	static const auto getDMLSplit = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLSplit = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
 		dmlTypedOpDesc.resize(sizeof(DML_SPLIT_OPERATOR_DESC));
-		const auto pDMLDesc = reinterpret_cast<DML_SPLIT_OPERATOR_DESC*>(dmlTypedOpDesc.data());
-		const auto& desc = *static_cast<const SplitOperator*>(pOpDesc);
+		auto& dmlDesc = reinterpret_cast<DML_SPLIT_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto& typedOp = *static_cast<const SplitOperator*>(pTypedOp);
 
-		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
-		pDMLDesc->OutputCount = desc.OutputCount;
-		pDMLDesc->OutputTensors = desc.pOutputs ? static_cast<const DML_TENSOR_DESC*>(desc.pOutputs->GetHandle()) : nullptr;
-		pDMLDesc->Axis = desc.Axis;
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.OutputCount = typedOp.OutputCount;
+		dmlDesc.OutputTensors = typedOp.pOutputs ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutputs->GetHandle()) : nullptr;
+		dmlDesc.Axis = typedOp.Axis;
 	};
 
-	static const auto getDMLJoin = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLJoin = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
 		dmlTypedOpDesc.resize(sizeof(DML_JOIN_OPERATOR_DESC));
-		const auto pDMLDesc = reinterpret_cast<DML_JOIN_OPERATOR_DESC*>(dmlTypedOpDesc.data());
-		const auto& desc = *static_cast<const JoinOperator*>(pOpDesc);
+		auto& dmlDesc = reinterpret_cast<DML_JOIN_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto& typedOp = *static_cast<const JoinOperator*>(pTypedOp);
 
-		pDMLDesc->InputCount = desc.InputCount;
-		pDMLDesc->InputTensors = desc.pInputs ? static_cast<const DML_TENSOR_DESC*>(desc.pInputs->GetHandle()) : nullptr;
-		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
-		pDMLDesc->Axis = desc.Axis;
+		dmlDesc.InputCount = typedOp.InputCount;
+		dmlDesc.InputTensors = typedOp.pInputs ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInputs->GetHandle()) : nullptr;
+		dmlDesc.OutputTensor = typedOp.pOutput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutput->GetHandle()) : nullptr;
+		dmlDesc.Axis = typedOp.Axis;
 	};
 
-	static const auto getDMLPadding = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLPadding = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
 		dmlTypedOpDesc.resize(sizeof(DML_PADDING_OPERATOR_DESC));
-		const auto pDMLDesc = reinterpret_cast<DML_PADDING_OPERATOR_DESC*>(dmlTypedOpDesc.data());
-		const auto& desc = *static_cast<const PaddingOperator*>(pOpDesc);
+		auto& dmlDesc = reinterpret_cast<DML_PADDING_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto& typedOp = *static_cast<const PaddingOperator*>(pTypedOp);
 
-		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
-		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
-		pDMLDesc->PaddingMode = GetDMLPaddingMode(desc.PaddingMode);
-		pDMLDesc->PaddingValue = desc.PaddingValue;
-		pDMLDesc->DimensionCount = desc.DimensionCount;
-		pDMLDesc->StartPadding = desc.pStartPadding;
-		pDMLDesc->EndPadding = desc.pEndPadding;
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.OutputTensor = typedOp.pOutput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutput->GetHandle()) : nullptr;
+		dmlDesc.PaddingMode = GetDMLPaddingMode(typedOp.PaddingMode);
+		dmlDesc.PaddingValue = typedOp.PaddingValue;
+		dmlDesc.DimensionCount = typedOp.DimensionCount;
+		dmlDesc.StartPadding = typedOp.pStartPadding;
+		dmlDesc.EndPadding = typedOp.pEndPadding;
 	};
 
-	static const auto getDMLValueScale2D = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLValueScale2D = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
 		dmlTypedOpDesc.resize(sizeof(DML_VALUE_SCALE_2D_OPERATOR_DESC));
-		const auto pDMLDesc = reinterpret_cast<DML_VALUE_SCALE_2D_OPERATOR_DESC*>(dmlTypedOpDesc.data());
-		const auto& desc = *static_cast<const ValueScale2D*>(pOpDesc);
+		auto& dmlDesc = reinterpret_cast<DML_VALUE_SCALE_2D_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto& typedOp = *static_cast<const ValueScale2D*>(pTypedOp);
 
-		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
-		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
-		pDMLDesc->Scale = desc.Scale;
-		pDMLDesc->ChannelCount = desc.ChannelCount;
-		pDMLDesc->Bias = desc.pBias;
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.OutputTensor = typedOp.pOutput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutput->GetHandle()) : nullptr;
+		dmlDesc.Scale = typedOp.Scale;
+		dmlDesc.ChannelCount = typedOp.ChannelCount;
+		dmlDesc.Bias = typedOp.pBias;
 	};
 
-	static const auto getDMLUpsample2D = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLUpsample2D = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
 		dmlTypedOpDesc.resize(sizeof(DML_UPSAMPLE_2D_OPERATOR_DESC));
-		const auto pDMLDesc = reinterpret_cast<DML_UPSAMPLE_2D_OPERATOR_DESC*>(dmlTypedOpDesc.data());
-		const auto& desc = *static_cast<const Upsample2D*>(pOpDesc);
+		auto& dmlDesc = reinterpret_cast<DML_UPSAMPLE_2D_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto& typedOp = *static_cast<const Upsample2D*>(pTypedOp);
 
-		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
-		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
-		pDMLDesc->ScaleSize.Width = desc.ScaleWidth;
-		pDMLDesc->ScaleSize.Height = desc.ScaleHeight;
-		pDMLDesc->InterpolationMode = GetDMLInterpolationMode(desc.InterpolationMode);
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.OutputTensor = typedOp.pOutput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutput->GetHandle()) : nullptr;
+		dmlDesc.ScaleSize.Width = typedOp.ScaleWidth;
+		dmlDesc.ScaleSize.Height = typedOp.ScaleHeight;
+		dmlDesc.InterpolationMode = GetDMLInterpolationMode(typedOp.InterpolationMode);
 	};
 
-	static const auto getDMLGather = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLGather = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
 		dmlTypedOpDesc.resize(sizeof(DML_GATHER_OPERATOR_DESC));
-		const auto pDMLDesc = reinterpret_cast<DML_GATHER_OPERATOR_DESC*>(dmlTypedOpDesc.data());
-		const auto& desc = *static_cast<const GatherOperator*>(pOpDesc);
+		auto& dmlDesc = reinterpret_cast<DML_GATHER_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto& typedOp = *static_cast<const GatherOperator*>(pTypedOp);
 
-		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
-		pDMLDesc->IndicesTensor = desc.pIndices ? static_cast<const DML_TENSOR_DESC*>(desc.pIndices->GetHandle()) : nullptr;
-		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
-		pDMLDesc->Axis = desc.Axis;
-		pDMLDesc->IndexDimensions = desc.IndexDimensions;
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.IndicesTensor = typedOp.pIndices ? static_cast<const DML_TENSOR_DESC*>(typedOp.pIndices->GetHandle()) : nullptr;
+		dmlDesc.OutputTensor = typedOp.pOutput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutput->GetHandle()) : nullptr;
+		dmlDesc.Axis = typedOp.Axis;
+		dmlDesc.IndexDimensions = typedOp.IndexDimensions;
 	};
 
-	static const auto getDMLSpaceDepth = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLSpaceDepth = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
 		dmlTypedOpDesc.resize(sizeof(DML_SPACE_TO_DEPTH_OPERATOR_DESC));
-		const auto pDMLDesc = reinterpret_cast<DML_SPACE_TO_DEPTH_OPERATOR_DESC*>(dmlTypedOpDesc.data());
-		const auto& desc = *static_cast<const SpaceToDepth*>(pOpDesc);
+		auto& dmlDesc = reinterpret_cast<DML_SPACE_TO_DEPTH_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto& typedOp = *static_cast<const SpaceToDepth*>(pTypedOp);
 
-		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
-		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
-		pDMLDesc->BlockSize = desc.BlockSize;
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.OutputTensor = typedOp.pOutput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutput->GetHandle()) : nullptr;
+		dmlDesc.BlockSize = typedOp.BlockSize;
 	};
 
-	static const auto getDMLTile = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLTile = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
 		dmlTypedOpDesc.resize(sizeof(DML_TILE_OPERATOR_DESC));
-		const auto pDMLDesc = reinterpret_cast<DML_TILE_OPERATOR_DESC*>(dmlTypedOpDesc.data());
-		const auto& desc = *static_cast<const TileOperator*>(pOpDesc);
+		auto& dmlDesc = reinterpret_cast<DML_TILE_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto& typedOp = *static_cast<const TileOperator*>(pTypedOp);
 
-		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
-		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
-		pDMLDesc->RepeatsCount = desc.RepeatsCount;
-		pDMLDesc->Repeats = desc.pRepeats;
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.OutputTensor = typedOp.pOutput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutput->GetHandle()) : nullptr;
+		dmlDesc.RepeatsCount = typedOp.RepeatsCount;
+		dmlDesc.Repeats = typedOp.pRepeats;
 	};
 
-	static const auto getDMLTopK = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLTopK = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
 		dmlTypedOpDesc.resize(sizeof(DML_TOP_K_OPERATOR_DESC));
-		const auto pDMLDesc = reinterpret_cast<DML_TOP_K_OPERATOR_DESC*>(dmlTypedOpDesc.data());
-		const auto& desc = *static_cast<const TopKOperator*>(pOpDesc);
+		auto& dmlDesc = reinterpret_cast<DML_TOP_K_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto& typedOp = *static_cast<const TopKOperator*>(pTypedOp);
 
-		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
-		pDMLDesc->OutputValueTensor = desc.pOutputValue ? static_cast<const DML_TENSOR_DESC*>(desc.pOutputValue->GetHandle()) : nullptr;
-		pDMLDesc->OutputIndexTensor = desc.pOutputIndex ? static_cast<const DML_TENSOR_DESC*>(desc.pOutputIndex->GetHandle()) : nullptr;
-		pDMLDesc->Axis = desc.Axis;
-		pDMLDesc->K = desc.K;
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.OutputValueTensor = typedOp.pOutputValue ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutputValue->GetHandle()) : nullptr;
+		dmlDesc.OutputIndexTensor = typedOp.pOutputIndex ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutputIndex->GetHandle()) : nullptr;
+		dmlDesc.Axis = typedOp.Axis;
+		dmlDesc.K = typedOp.K;
 	};
 
-	static const auto getDMLBatchNormalization = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLBatchNormalization = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
-		const auto& desc = *static_cast<const BatchNormalization*>(pOpDesc);
+		const auto& typedOp = *static_cast<const BatchNormalization*>(pTypedOp);
 
-		vector<uint8_t> typedFused(0);
-		if (desc.pFusedActivation) GetDMLTypedOperator(typedFused, desc.FusedActivationType, desc.pFusedActivation);
+		string dmlFusedActivation;
+		if (typedOp.pFusedActivation) GetDMLTypedOperator(dmlFusedActivation, typedOp.pFusedActivation);
 
 		dmlTypedOpDesc.resize(sizeof(DML_BATCH_NORMALIZATION_OPERATOR_DESC) +
-			(desc.pFusedActivation ? sizeof(DML_OPERATOR_DESC) + typedFused.size() : 0));
-		const auto pDMLDesc = reinterpret_cast<DML_BATCH_NORMALIZATION_OPERATOR_DESC*>(dmlTypedOpDesc.data());
-		const auto pDMLFused = desc.pFusedActivation ? reinterpret_cast<DML_OPERATOR_DESC*>(
+			(typedOp.pFusedActivation ? sizeof(DML_OPERATOR_DESC) + dmlFusedActivation.size() : 0));
+		auto& dmlDesc = reinterpret_cast<DML_BATCH_NORMALIZATION_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto pDMLFusedActivation = typedOp.pFusedActivation ? reinterpret_cast<DML_OPERATOR_DESC*>(
 			&dmlTypedOpDesc[sizeof(DML_BATCH_NORMALIZATION_OPERATOR_DESC)]) : nullptr;
 
-		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
-		pDMLDesc->MeanTensor = desc.pMean ? static_cast<const DML_TENSOR_DESC*>(desc.pMean->GetHandle()) : nullptr;
-		pDMLDesc->VarianceTensor = desc.pVariance ? static_cast<const DML_TENSOR_DESC*>(desc.pVariance->GetHandle()) : nullptr;
-		pDMLDesc->ScaleTensor = desc.pScale ? static_cast<const DML_TENSOR_DESC*>(desc.pScale->GetHandle()) : nullptr;
-		pDMLDesc->BiasTensor = desc.pBias ? static_cast<const DML_TENSOR_DESC*>(desc.pBias->GetHandle()) : nullptr;
-		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
-		pDMLDesc->Spatial = desc.Spatial;
-		pDMLDesc->Epsilon = desc.Epsilon;
-		pDMLDesc->FusedActivation = pDMLFused;
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.MeanTensor = typedOp.pMean ? static_cast<const DML_TENSOR_DESC*>(typedOp.pMean->GetHandle()) : nullptr;
+		dmlDesc.VarianceTensor = typedOp.pVariance ? static_cast<const DML_TENSOR_DESC*>(typedOp.pVariance->GetHandle()) : nullptr;
+		dmlDesc.ScaleTensor = typedOp.pScale ? static_cast<const DML_TENSOR_DESC*>(typedOp.pScale->GetHandle()) : nullptr;
+		dmlDesc.BiasTensor = typedOp.pBias ? static_cast<const DML_TENSOR_DESC*>(typedOp.pBias->GetHandle()) : nullptr;
+		dmlDesc.OutputTensor = typedOp.pOutput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutput->GetHandle()) : nullptr;
+		dmlDesc.Spatial = typedOp.Spatial;
+		dmlDesc.Epsilon = typedOp.Epsilon;
+		dmlDesc.FusedActivation = pDMLFusedActivation;
 
-		if (pDMLFused)
+		if (pDMLFusedActivation)
 		{
-			assert(desc.pFusedActivation);
+			assert(typedOp.pFusedActivation);
 			const auto offset = sizeof(DML_CONVOLUTION_OPERATOR_DESC) + sizeof(DML_OPERATOR_DESC);
-			pDMLFused->Type = GetDMLOpteratorType(desc.FusedActivationType);
-			pDMLFused->Desc = &dmlTypedOpDesc[offset];
-			memcpy(&dmlTypedOpDesc[offset], typedFused.data(), typedFused.size());
+			pDMLFusedActivation->Type = GetDMLOpteratorType(*static_cast<const OperatorType*>(typedOp.pFusedActivation));
+			pDMLFusedActivation->Desc = &dmlTypedOpDesc[offset];
+			memcpy(&dmlTypedOpDesc[offset], dmlFusedActivation.data(), dmlFusedActivation.size());
 		}
 	};
 
-	static const auto getDMLMeanVarianceNormalization = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLMeanVarianceNormalization = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
-		const auto& desc = *static_cast<const MeanVarianceNormalization*>(pOpDesc);
+		const auto& typedOp = *static_cast<const MeanVarianceNormalization*>(pTypedOp);
 
-		vector<uint8_t> typedFused(0);
-		if (desc.pFusedActivation) GetDMLTypedOperator(typedFused, desc.FusedActivationType, desc.pFusedActivation);
+		string dmlFusedActivation;
+		if (typedOp.pFusedActivation) GetDMLTypedOperator(dmlFusedActivation, typedOp.pFusedActivation);
 
 		dmlTypedOpDesc.resize(sizeof(DML_MEAN_VARIANCE_NORMALIZATION_OPERATOR_DESC) +
-			(desc.pFusedActivation ? sizeof(DML_OPERATOR_DESC) + typedFused.size() : 0));
-		const auto pDMLDesc = reinterpret_cast<DML_MEAN_VARIANCE_NORMALIZATION_OPERATOR_DESC*>(dmlTypedOpDesc.data());
-		const auto pDMLFused = desc.pFusedActivation ? reinterpret_cast<DML_OPERATOR_DESC*>(
+			(typedOp.pFusedActivation ? sizeof(DML_OPERATOR_DESC) + dmlFusedActivation.size() : 0));
+		auto& dmlDesc = reinterpret_cast<DML_MEAN_VARIANCE_NORMALIZATION_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto pDMLFusedActivation = typedOp.pFusedActivation ? reinterpret_cast<DML_OPERATOR_DESC*>(
 			&dmlTypedOpDesc[sizeof(DML_MEAN_VARIANCE_NORMALIZATION_OPERATOR_DESC)]) : nullptr;
 
-		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
-		pDMLDesc->ScaleTensor = desc.pScale ? static_cast<const DML_TENSOR_DESC*>(desc.pScale->GetHandle()) : nullptr;
-		pDMLDesc->BiasTensor = desc.pBias ? static_cast<const DML_TENSOR_DESC*>(desc.pBias->GetHandle()) : nullptr;
-		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
-		pDMLDesc->CrossChannel = desc.CrossChannel;
-		pDMLDesc->NormalizeVariance = desc.NormalizeVariance;
-		pDMLDesc->Epsilon = desc.Epsilon;
-		pDMLDesc->FusedActivation = pDMLFused;
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.ScaleTensor = typedOp.pScale ? static_cast<const DML_TENSOR_DESC*>(typedOp.pScale->GetHandle()) : nullptr;
+		dmlDesc.BiasTensor = typedOp.pBias ? static_cast<const DML_TENSOR_DESC*>(typedOp.pBias->GetHandle()) : nullptr;
+		dmlDesc.OutputTensor = typedOp.pOutput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutput->GetHandle()) : nullptr;
+		dmlDesc.CrossChannel = typedOp.CrossChannel;
+		dmlDesc.NormalizeVariance = typedOp.NormalizeVariance;
+		dmlDesc.Epsilon = typedOp.Epsilon;
+		dmlDesc.FusedActivation = pDMLFusedActivation;
 
-		if (pDMLFused)
+		if (pDMLFusedActivation)
 		{
-			assert(desc.pFusedActivation);
+			assert(typedOp.pFusedActivation);
 			const auto offset = sizeof(DML_CONVOLUTION_OPERATOR_DESC) + sizeof(DML_OPERATOR_DESC);
-			pDMLFused->Type = GetDMLOpteratorType(desc.FusedActivationType);
-			pDMLFused->Desc = &dmlTypedOpDesc[offset];
-			memcpy(&dmlTypedOpDesc[offset], typedFused.data(), typedFused.size());
+			pDMLFusedActivation->Type = GetDMLOpteratorType(*static_cast<const OperatorType*>(typedOp.pFusedActivation));
+			pDMLFusedActivation->Desc = &dmlTypedOpDesc[offset];
+			memcpy(&dmlTypedOpDesc[offset], dmlFusedActivation.data(), dmlFusedActivation.size());
 		}
 	};
 
-	static const auto getDMLLocalResponseNormalization = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLLocalResponseNormalization = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
 		dmlTypedOpDesc.resize(sizeof(DML_LOCAL_RESPONSE_NORMALIZATION_OPERATOR_DESC));
-		const auto pDMLDesc = reinterpret_cast<DML_LOCAL_RESPONSE_NORMALIZATION_OPERATOR_DESC*>(dmlTypedOpDesc.data());
-		const auto& desc = *static_cast<const LocalResponseNormalization*>(pOpDesc);
+		auto& dmlDesc = reinterpret_cast<DML_LOCAL_RESPONSE_NORMALIZATION_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto& typedOp = *static_cast<const LocalResponseNormalization*>(pTypedOp);
 
-		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
-		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
-		pDMLDesc->CrossChannel = desc.CrossChannel;
-		pDMLDesc->LocalSize = desc.LocalSize;
-		pDMLDesc->Alpha = desc.Alpha;
-		pDMLDesc->Beta = desc.Beta;
-		pDMLDesc->Bias = desc.Bias;
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.OutputTensor = typedOp.pOutput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutput->GetHandle()) : nullptr;
+		dmlDesc.CrossChannel = typedOp.CrossChannel;
+		dmlDesc.LocalSize = typedOp.LocalSize;
+		dmlDesc.Alpha = typedOp.Alpha;
+		dmlDesc.Beta = typedOp.Beta;
+		dmlDesc.Bias = typedOp.Bias;
 	};
 
-	static const auto getDMLLPNormalization = [](vector<uint8_t>& dmlTypedOpDesc, const void* pOpDesc)
+	static const auto getDMLLPNormalization = [](string& dmlTypedOpDesc, const void* pTypedOp)
 	{
 		dmlTypedOpDesc.resize(sizeof(DML_LP_NORMALIZATION_OPERATOR_DESC));
-		const auto pDMLDesc = reinterpret_cast<DML_LP_NORMALIZATION_OPERATOR_DESC*>(dmlTypedOpDesc.data());
-		const auto& desc = *static_cast<const LPNormalization*>(pOpDesc);
+		auto& dmlDesc = reinterpret_cast<DML_LP_NORMALIZATION_OPERATOR_DESC&>(dmlTypedOpDesc[0]);
+		const auto& typedOp = *static_cast<const LPNormalization*>(pTypedOp);
 
-		pDMLDesc->InputTensor = desc.pInput ? static_cast<const DML_TENSOR_DESC*>(desc.pInput->GetHandle()) : nullptr;
-		pDMLDesc->OutputTensor = desc.pOutput ? static_cast<const DML_TENSOR_DESC*>(desc.pOutput->GetHandle()) : nullptr;
-		pDMLDesc->Axis = desc.Axis;
-		pDMLDesc->Epsilon = desc.Epsilon;
-		pDMLDesc->P = desc.P;
+		dmlDesc.InputTensor = typedOp.pInput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pInput->GetHandle()) : nullptr;
+		dmlDesc.OutputTensor = typedOp.pOutput ? static_cast<const DML_TENSOR_DESC*>(typedOp.pOutput->GetHandle()) : nullptr;
+		dmlDesc.Axis = typedOp.Axis;
+		dmlDesc.Epsilon = typedOp.Epsilon;
+		dmlDesc.P = typedOp.P;
 	};
 
-
-	static const function<void(vector<uint8_t>&, const void*)> pfnGetDMLOps[] =
+	static const function<void(string&, const void*)> pfnGetDMLOps[] =
 	{
 		nullptr,							// INVALID 
 		getDMLElementWiseUnaryOp,			// ELEMENT_WISE_IDENTITY
@@ -869,7 +868,7 @@ void ML::GetDMLTypedOperator(vector<uint8_t>& dmlTypedOpDesc, OperatorType type,
 		getDMLLPNormalization,				// LP_NORMALIZATION
 	};
 
-	pfnGetDMLOps[static_cast<uint32_t>(type)](dmlTypedOpDesc, pOpDesc);
+	pfnGetDMLOps[*static_cast<const uint32_t*>(pTypedOp)](dmlTypedOpDesc, pTypedOp);
 }
 
 //--------------------------------------------------------------------------------------

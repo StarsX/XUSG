@@ -20,7 +20,7 @@ namespace XUSG
 			Operator_DML();
 			virtual ~Operator_DML();
 
-			bool Create(const ML::Device* pDevice, OperatorType type, const void* pTypedOp,
+			bool Create(const ML::Device* pDevice, const void* pTypedOp,
 				ExecutionFlag flags = ExecutionFlag::NONE);
 
 			Dispatchable GetDispatchable() const;
