@@ -279,11 +279,15 @@ void EZ::CommandList_DX12::Create(const Device* pDevice, void* pHandle, uint32_t
 
 Graphics::State* EZ::CommandList_DX12::GetGraphicsPipelineState()
 {
+	if (!m_graphicsState) m_graphicsState = Graphics::State::MakeUnique();
+
 	return m_graphicsState.get();
 }
 
 Compute::State* EZ::CommandList_DX12::GetComputePipelineState()
 {
+	if (!m_computeState) m_computeState = Compute::State::MakeUnique();
+
 	return m_computeState.get();
 }
 
