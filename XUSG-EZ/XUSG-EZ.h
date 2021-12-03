@@ -108,6 +108,9 @@ namespace XUSG
 
 			virtual void* GetHandle() const = 0;
 
+			virtual Graphics::State* GetGraphicsPipelineState() = 0;
+			virtual Compute::State* GetComputePipelineState() = 0;
+
 			using uptr = std::unique_ptr<CommandList>;
 			using sptr = std::shared_ptr<CommandList>;
 

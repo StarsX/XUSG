@@ -277,6 +277,16 @@ void EZ::CommandList_DX12::Create(const Device* pDevice, void* pHandle, uint32_t
 		maxCbvSpaces, maxSrvSpaces, maxUavSpaces);
 }
 
+Graphics::State* EZ::CommandList_DX12::GetGraphicsPipelineState()
+{
+	return m_graphicsState.get();
+}
+
+Compute::State* EZ::CommandList_DX12::GetComputePipelineState()
+{
+	return m_computeState.get();
+}
+
 bool EZ::CommandList_DX12::createPipelineLayouts(uint32_t maxSamplers,
 	const uint32_t* pMaxCbvsEachSpace, const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
 	uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces)

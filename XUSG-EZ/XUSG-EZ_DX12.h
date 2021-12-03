@@ -183,6 +183,9 @@ namespace XUSG
 
 			void* GetHandle() const { return XUSG::CommandList_DX12::GetHandle(); }
 
+			Graphics::State* GetGraphicsPipelineState();
+			Compute::State* GetComputePipelineState();
+
 		protected:
 			enum PipelineLayoutIndex
 			{
