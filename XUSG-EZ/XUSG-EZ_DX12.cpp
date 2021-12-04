@@ -215,6 +215,18 @@ void EZ::CommandList_DX12::IASetPrimitiveTopology(PrimitiveTopology primitiveTop
 	XUSG::CommandList_DX12::IASetPrimitiveTopology(primitiveTopology);
 }
 
+void EZ::CommandList_DX12::RSSetState(Graphics::RasterizerPreset preset)
+{
+	if (!m_graphicsState) m_graphicsState = Graphics::State::MakeUnique();
+	m_graphicsState->RSSetState(preset, m_graphicsPipelineCache.get());
+}
+
+void EZ::CommandList_DX12::DSSetState(Graphics::DepthStencilPreset preset)
+{
+	if (!m_graphicsState) m_graphicsState = Graphics::State::MakeUnique();
+	m_graphicsState->DSSetState(preset, m_graphicsPipelineCache.get());
+}
+
 void EZ::CommandList_DX12::SetPipelineState(const Pipeline& pipelineState)
 {
 	XUSG::CommandList_DX12::SetPipelineState(pipelineState);
@@ -222,11 +234,11 @@ void EZ::CommandList_DX12::SetPipelineState(const Pipeline& pipelineState)
 	m_computeState.reset();
 }
 
-void EZ::CommandList_DX12::SetGraphicsSamplerStates(uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerStates)
+void EZ::CommandList_DX12::SetGraphicsSamplerStates(uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerPresets)
 {
 	auto& descriptorTable = m_samplerTables[GRAPHICS];
 	if (!descriptorTable) descriptorTable = Util::DescriptorTable::MakeUnique();
-	descriptorTable->SetSamplers(startBinding, numSamplers, pSamplerStates, m_descriptorTableCache.get());
+	descriptorTable->SetSamplers(startBinding, numSamplers, pSamplerPresets, m_descriptorTableCache.get());
 }
 
 void EZ::CommandList_DX12::SetGraphicsResources(Shader::Stage stage, DescriptorType descriptorType,
@@ -252,11 +264,11 @@ void EZ::CommandList_DX12::SetGraphicsResources(Shader::Stage stage, DescriptorT
 	}
 }
 
-void EZ::CommandList_DX12::SetComputeSamplerStates(uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerStates)
+void EZ::CommandList_DX12::SetComputeSamplerStates(uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerPresets)
 {
 	auto& descriptorTable = m_samplerTables[COMPUTE];
 	if (!descriptorTable) descriptorTable = Util::DescriptorTable::MakeUnique();
-	descriptorTable->SetSamplers(startBinding, numSamplers, pSamplerStates, m_descriptorTableCache.get());
+	descriptorTable->SetSamplers(startBinding, numSamplers, pSamplerPresets, m_descriptorTableCache.get());
 }
 
 void EZ::CommandList_DX12::SetComputeResources(DescriptorType descriptorType, uint32_t startBinding,

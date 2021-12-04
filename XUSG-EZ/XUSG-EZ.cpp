@@ -25,6 +25,13 @@ uint32_t EZ::CalcSubresource(const Texture* pResource, uint8_t mipSlice, uint32_
 	return mipSlice + arraySlice * numMips + planeSlice * numMips * pResource->GetArraySize();
 }
 
+ResourceView EZ::GetCBV(ConstantBuffer* pResource, uint32_t index)
+{
+	ResourceView resourceView;
+	resourceView.pResource = pResource;
+	resourceView.view = pResource->GetCBV(index);
+}
+
 ResourceView EZ::GetSRV(Buffer* pResource, uint32_t index)
 {
 	ResourceView resourceView;

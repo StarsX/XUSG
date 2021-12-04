@@ -25,6 +25,7 @@ namespace XUSG
 		static uint32_t CalcSubresource(const Texture* pResource, uint8_t mipSlice, uint32_t arraySlice, uint8_t planeSlice = 0);
 
 		// Resource view generation helpers coupled for XUSG resources
+		static ResourceView GetCBV(ConstantBuffer* pResource, uint32_t index = 0);
 		static ResourceView GetSRV(Buffer* pResource, uint32_t index = 0);
 		static ResourceView GetSRV(Texture* pResource, uint32_t index = 0);
 		static ResourceView GetSRVLevel(Texture* pResource, uint8_t level);
@@ -43,8 +44,7 @@ namespace XUSG
 		//--------------------------------------------------------------------------------------
 		// Command list
 		//--------------------------------------------------------------------------------------
-		class DLL_INTERFACE CommandList :
-			public virtual XUSG::CommandList
+		class DLL_INTERFACE CommandList
 		{
 		public:
 			//CommandList();
@@ -84,16 +84,18 @@ namespace XUSG
 			virtual void ResolveSubresource(Resource* pDstResource, uint32_t dstSubresource,
 				Resource* pSrcResource, uint32_t srcSubresource, Format format) = 0;
 			virtual void IASetPrimitiveTopology(PrimitiveTopology primitiveTopology) = 0;
+			virtual void RSSetState(Graphics::RasterizerPreset preset) = 0;
 			virtual void RSSetViewports(uint32_t numViewports, const Viewport* pViewports) const = 0;
 			virtual void RSSetScissorRects(uint32_t numRects, const RectRange* pRects) const = 0;
 			virtual void OMSetBlendFactor(const float blendFactor[4]) const = 0;
 			virtual void OMSetStencilRef(uint32_t stencilRef) const = 0;
+			virtual void DSSetState(Graphics::DepthStencilPreset preset) = 0;
 			virtual void SetPipelineState(const Pipeline& pipelineState) = 0;
-			virtual void ExecuteBundle(const CommandList* pCommandList) const = 0;
-			virtual void SetGraphicsSamplerStates(uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerStates) = 0;
+			virtual void ExecuteBundle(const XUSG::CommandList* pCommandList) const = 0;
+			virtual void SetGraphicsSamplerStates(uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerPresets) = 0;
 			virtual void SetGraphicsResources(Shader::Stage stage, DescriptorType descriptorType, uint32_t startBinding,
 				uint32_t numResources, const ResourceView* pResourceViews, uint32_t space = 0) = 0;
-			virtual void SetComputeSamplerStates(uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerStates) = 0;
+			virtual void SetComputeSamplerStates(uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerPresets) = 0;
 			virtual void SetComputeResources(DescriptorType descriptorType, uint32_t startBinding,
 				uint32_t numResources, const ResourceView* pResourceViews, uint32_t space = 0) = 0;
 			virtual void IASetIndexBuffer(const IndexBufferView& view) const = 0;

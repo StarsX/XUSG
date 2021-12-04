@@ -55,6 +55,7 @@ namespace XUSG
 			void ResolveSubresource(Resource* pDstResource, uint32_t dstSubresource,
 				Resource* pSrcResource, uint32_t srcSubresource, Format format);
 			void IASetPrimitiveTopology(PrimitiveTopology primitiveTopology);
+			void RSSetState(Graphics::RasterizerPreset preset);
 			void RSSetViewports(uint32_t numViewports, const Viewport* pViewports) const
 			{
 				XUSG::CommandList_DX12::RSSetViewports(numViewports, pViewports);
@@ -67,12 +68,13 @@ namespace XUSG
 
 			void OMSetBlendFactor(const float blendFactor[4]) const { XUSG::CommandList_DX12::OMSetBlendFactor(blendFactor); }
 			void OMSetStencilRef(uint32_t stencilRef) const { XUSG::CommandList_DX12::OMSetStencilRef(stencilRef); }
+			void DSSetState(Graphics::DepthStencilPreset preset);
 			void SetPipelineState(const Pipeline& pipelineState);
-			void ExecuteBundle(const CommandList* pCommandList) const { XUSG::CommandList_DX12::ExecuteBundle(pCommandList); }
-			void SetGraphicsSamplerStates(uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerStates);
+			void ExecuteBundle(const XUSG::CommandList* pCommandList) const { XUSG::CommandList_DX12::ExecuteBundle(pCommandList); }
+			void SetGraphicsSamplerStates(uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerPresets);
 			void SetGraphicsResources(Shader::Stage stage, DescriptorType descriptorType, uint32_t startBinding,
 				uint32_t numResources, const ResourceView* pResourceViews, uint32_t space = 0);
-			void SetComputeSamplerStates(uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerStates);
+			void SetComputeSamplerStates(uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerPresets);
 			void SetComputeResources(DescriptorType descriptorType, uint32_t startBinding,
 				uint32_t numResources, const ResourceView* pResourceViews, uint32_t space = 0);
 			void IASetIndexBuffer(const IndexBufferView& view) const { XUSG::CommandList_DX12::IASetIndexBuffer(view); }
