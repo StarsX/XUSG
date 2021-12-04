@@ -10,12 +10,35 @@ namespace XUSG
 {
 	namespace EZ
 	{
+		// Resource view
+		using Buffer = RawBuffer;
+		using Texture = Texture2D;
 		struct ResourceView
 		{
 			Resource* pResource;
 			Descriptor view;
-			std::vector<uint32_t> subresources;
+			std::vector<uint32_t> Subresources;
 		};
+
+		static void CalcSubresources(std::vector<uint32_t>& subresources, const Texture* pResource, uint8_t mipSlice, uint8_t planeSlice = 0);
+
+		static uint32_t CalcSubresource(const Texture* pResource, uint8_t mipSlice, uint32_t arraySlice, uint8_t planeSlice = 0);
+
+		// Resource view generation helpers coupled for XUSG resources
+		static ResourceView GetSRV(Buffer* pResource, uint32_t index = 0);
+		static ResourceView GetSRV(Texture* pResource, uint32_t index = 0);
+		static ResourceView GetSRVLevel(Texture* pResource, uint8_t level);
+		static ResourceView GetUAV(Buffer* pResource, uint8_t index = 0);
+		static ResourceView GetUAV(Texture* pResource, uint8_t index = 0);
+		static ResourceView GetPackedUAV(Texture* pResource, uint8_t index = 0);
+		static ResourceView GetPackedUAV(TypedBuffer* pResource, uint8_t index = 0);
+		static ResourceView GetRTV(RenderTarget* pResource, uint32_t slice = 0, uint8_t mipLevel = 0);
+		static ResourceView GetArrayRTV(RenderTarget* pResource, uint8_t mipLevel = 0);
+		static ResourceView GetDSV(DepthStencil* pResource, uint32_t slice = 0, uint8_t mipLevel = 0);
+		static ResourceView GetArrayDSV(DepthStencil* pResource, uint8_t mipLevel = 0);
+		static ResourceView GetReadOnlyDSV(DepthStencil* pResource, uint32_t slice = 0, uint8_t mipLevel = 0);
+		static ResourceView GetReadOnlyArrayDSV(DepthStencil* pResource, uint8_t mipLevel = 0);
+		static ResourceView GetStencilSRV(DepthStencil* pResource);
 
 		//--------------------------------------------------------------------------------------
 		// Command list
