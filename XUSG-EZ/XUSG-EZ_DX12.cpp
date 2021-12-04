@@ -52,7 +52,7 @@ bool EZ::CommandList_DX12::Create(const Device* pDevice, XUSG::CommandList* pCom
 	return true;
 }
 
-bool EZ::CommandList_DX12::Reset(const CommandAllocator* pAllocator, const Pipeline& initialState) const
+bool EZ::CommandList_DX12::Reset(const CommandAllocator* pAllocator, const Pipeline& initialState)
 {
 	const auto ret = Reset(pAllocator, initialState);
 
@@ -67,6 +67,9 @@ bool EZ::CommandList_DX12::Reset(const CommandAllocator* pAllocator, const Pipel
 	// Set pipeline layouts
 	XUSG::CommandList_DX12::SetGraphicsPipelineLayout(m_pipelineLayouts[GRAPHICS]);
 	XUSG::CommandList_DX12::SetComputePipelineLayout(m_pipelineLayouts[COMPUTE]);
+
+	m_barriers.clear();
+	m_clearDSVs.clear();
 
 	return ret;
 }
@@ -309,6 +312,20 @@ void EZ::CommandList_DX12::OMSetRenderTargets(uint32_t numRenderTargets,
 		pDepthStencilView ? &pDepthStencilView->view : nullptr);
 }
 
+void EZ::CommandList_DX12::ClearDepthStencilView(ResourceView& depthStencilView, ClearFlag clearFlags,
+	float depth, uint8_t stencil, uint32_t numRects, const RectRange* pRects)
+{
+	setBarriers(1, &depthStencilView, ResourceState::DEPTH_WRITE);
+	m_clearDSVs.emplace_back(ClearDSV { depthStencilView.view, clearFlags, depth, stencil, numRects, pRects });
+}
+
+void EZ::CommandList_DX12::ClearRenderTargetView(ResourceView& renderTargetView,
+	const float colorRGBA[4], uint32_t numRects, const RectRange* pRects)
+{
+	setBarriers(1, &renderTargetView, ResourceState::RENDER_TARGET);
+	m_clearRTVs.emplace_back(ClearRTV{ renderTargetView.view, colorRGBA, numRects, pRects });
+}
+
 void EZ::CommandList_DX12::ResetDescriptorPool(DescriptorPoolType type)
 {
 	m_descriptorTableCache->ResetDescriptorPool(type, 0);
@@ -475,6 +492,18 @@ void EZ::CommandList_DX12::predraw()
 	// Set barrier command
 	XUSG::CommandList_DX12::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
 	m_barriers.clear();
+
+	// Clear DSVs
+	for (const auto& args : m_clearDSVs)
+		XUSG::CommandList_DX12::ClearDepthStencilView(args.DepthStencilView,
+			args.ClearFlags, args.Depth, args.Stencil, args.NumRects, args.pRects);
+	m_clearDSVs.clear();
+
+	// Clear RTVs
+	for (const auto& args : m_clearRTVs)
+		XUSG::CommandList_DX12::ClearRenderTargetView(args.RenderTargetView,
+			args.ColorRGBA, args.NumRects, args.pRects);
+	m_clearRTVs.clear();
 
 	// Create pipeline for dynamic states
 	if (m_graphicsState)

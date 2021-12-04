@@ -25,7 +25,7 @@ namespace XUSG
 				uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
 				const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1);
 			bool Close() const { return XUSG::CommandList_DX12::Close(); }
-			bool Reset(const CommandAllocator* pAllocator, const Pipeline& initialState) const;
+			bool Reset(const CommandAllocator* pAllocator, const Pipeline& initialState);
 
 			void ClearState(const Pipeline& initialState) const { XUSG::CommandList_DX12::ClearState(initialState); }
 			void Draw(
@@ -86,19 +86,10 @@ namespace XUSG
 				uint32_t numRenderTargets,
 				const ResourceView* pRenderTargetViews,
 				const ResourceView* pDepthStencilView = nullptr);
-			void ClearDepthStencilView(const Descriptor& depthStencilView, ClearFlag clearFlags,
-				float depth, uint8_t stencil = 0, uint32_t numRects = 0, const RectRange* pRects = nullptr) const
-			{
-				XUSG::CommandList_DX12::ClearDepthStencilView(depthStencilView,
-					clearFlags, depth, stencil, numRects, pRects);
-			}
-
-			void ClearRenderTargetView(const Descriptor& renderTargetView, const float colorRGBA[4],
-				uint32_t numRects = 0, const RectRange* pRects = nullptr) const
-			{
-				XUSG::CommandList_DX12::ClearRenderTargetView(renderTargetView, colorRGBA, numRects, pRects);
-			}
-
+			void ClearDepthStencilView(ResourceView& depthStencilView, ClearFlag clearFlags,
+				float depth, uint8_t stencil = 0, uint32_t numRects = 0, const RectRange* pRects = nullptr);
+			void ClearRenderTargetView(ResourceView& renderTargetView, const float colorRGBA[4],
+				uint32_t numRects = 0, const RectRange* pRects = nullptr);
 			void DiscardResource(const Resource* pResource, uint32_t numRects, const RectRange* pRects,
 				uint32_t firstSubresource, uint32_t numSubresources) const
 			{
@@ -170,6 +161,24 @@ namespace XUSG
 				NUM_PIPELINE_LAYOUT
 			};
 
+			struct ClearDSV
+			{
+				Descriptor DepthStencilView;
+				ClearFlag ClearFlags;
+				float Depth;
+				uint8_t Stencil;
+				uint32_t NumRects;
+				const RectRange* pRects;
+			};
+
+			struct ClearRTV
+			{
+				Descriptor RenderTargetView;
+				const float* ColorRGBA;
+				uint32_t NumRects;
+				const RectRange* pRects;
+			};
+
 			static const uint8_t CbvSrvUavTypes = 3;
 
 			bool createPipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
@@ -197,6 +206,8 @@ namespace XUSG
 			Util::DescriptorTable::uptr m_samplerTables[NUM_PIPELINE_LAYOUT];
 
 			std::vector<ResourceBarrier> m_barriers;
+			std::vector<ClearDSV> m_clearDSVs;
+			std::vector<ClearRTV> m_clearRTVs;
 
 			std::vector<uint32_t> m_graphicsSpaceToParamIndexMap[Shader::Stage::NUM_GRAPHICS][3];
 			std::vector<uint32_t> m_computeSpaceToParamIndexMap[CbvSrvUavTypes];

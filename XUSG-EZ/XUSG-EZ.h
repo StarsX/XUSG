@@ -54,7 +54,7 @@ namespace XUSG
 				uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
 				const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1) = 0;
 			virtual bool Close() const = 0;
-			virtual bool Reset(const CommandAllocator* pAllocator, const Pipeline& initialState) const = 0;
+			virtual bool Reset(const CommandAllocator* pAllocator, const Pipeline& initialState) = 0;
 
 			virtual void ClearState(const Pipeline& initialState) const = 0;
 			virtual void Draw(
@@ -103,10 +103,10 @@ namespace XUSG
 				uint32_t numRenderTargets,
 				const ResourceView* pRenderTargetViews,
 				const ResourceView* pDepthStencilView = nullptr) = 0;
-			virtual void ClearDepthStencilView(const Descriptor& depthStencilView, ClearFlag clearFlags,
-				float depth, uint8_t stencil = 0, uint32_t numRects = 0, const RectRange* pRects = nullptr) const = 0;
-			virtual void ClearRenderTargetView(const Descriptor& renderTargetView, const float colorRGBA[4],
-				uint32_t numRects = 0, const RectRange* pRects = nullptr) const = 0;
+			virtual void ClearDepthStencilView(ResourceView& depthStencilView, ClearFlag clearFlags,
+				float depth, uint8_t stencil = 0, uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
+			virtual void ClearRenderTargetView(ResourceView& renderTargetView, const float colorRGBA[4],
+				uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
 			virtual void DiscardResource(const Resource* pResource, uint32_t numRects, const RectRange* pRects,
 				uint32_t firstSubresource, uint32_t numSubresources) const = 0;
 			virtual void BeginQuery(const QueryPool& queryPool, QueryType type, uint32_t index) const = 0;
