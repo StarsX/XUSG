@@ -128,6 +128,66 @@ void EZ::CommandList_DX12::Dispatch(uint32_t threadGroupCountX, uint32_t threadG
 	XUSG::CommandList_DX12::Dispatch(threadGroupCountX, threadGroupCountY, threadGroupCountZ);
 }
 
+void EZ::CommandList_DX12::CopyBufferRegion(Resource* pDstBuffer, uint64_t dstOffset,
+	Resource* pSrcBuffer, uint64_t srcOffset, uint64_t numBytes)
+{
+	// Generate barriers for each resource
+	ResourceBarrier barriers[2];
+	auto numBarriers = pDstBuffer->SetBarrier(barriers, ResourceState::COPY_DEST);
+	numBarriers = pSrcBuffer->SetBarrier(barriers, ResourceState::COPY_SOURCE, numBarriers);
+	XUSG::CommandList_DX12::Barrier(numBarriers, barriers);
+
+	XUSG::CommandList_DX12::CopyBufferRegion(pDstBuffer, dstOffset, pSrcBuffer, srcOffset, numBytes);
+}
+
+void EZ::CommandList_DX12::CopyTextureRegion(const TextureCopyLocation& dst, uint32_t dstX,
+	uint32_t dstY, uint32_t dstZ, const TextureCopyLocation& src, const BoxRange* pSrcBox)
+{
+	// Generate barriers for each resource
+	ResourceBarrier barriers[2];
+	auto numBarriers = const_cast<Resource*>(dst.pResource)->SetBarrier(
+		barriers, ResourceState::COPY_DEST, 0, dst.SubresourceIndex);
+	numBarriers = const_cast<Resource*>(src.pResource)->SetBarrier(
+		barriers, ResourceState::COPY_SOURCE, numBarriers, src.SubresourceIndex);
+	XUSG::CommandList_DX12::Barrier(numBarriers, barriers);
+
+	XUSG::CommandList_DX12::CopyTextureRegion(dst, dstX, dstY, dstZ, src, pSrcBox);
+}
+
+void EZ::CommandList_DX12::CopyResource(Resource* pDstResource, Resource* pSrcResource)
+{
+	// Generate barriers for each resource
+	ResourceBarrier barriers[2];
+	auto numBarriers = pDstResource->SetBarrier(barriers, ResourceState::COPY_DEST);
+	numBarriers = pSrcResource->SetBarrier(barriers, ResourceState::COPY_SOURCE, numBarriers);
+	XUSG::CommandList_DX12::Barrier(numBarriers, barriers);
+
+	XUSG::CommandList_DX12::CopyResource(pDstResource, pSrcResource);
+}
+
+void EZ::CommandList_DX12::CopyTiles(Resource* pTiledResource, const TiledResourceCoord* pTileRegionStartCoord,
+	const TileRegionSize* pTileRegionSize, const Resource* pBuffer, uint64_t bufferStartOffsetInBytes, TileCopyFlag flags)
+{
+	ResourceBarrier barrier;
+	const auto numBarriers = pTiledResource->SetBarrier(&barrier, ResourceState::COPY_DEST);
+	XUSG::CommandList_DX12::Barrier(numBarriers, &barrier);
+
+	XUSG::CommandList_DX12::CopyTiles(pTiledResource, pTileRegionStartCoord,
+		pTileRegionSize, pBuffer, bufferStartOffsetInBytes, flags);
+}
+
+void EZ::CommandList_DX12::ResolveSubresource(Resource* pDstResource, uint32_t dstSubresource,
+	Resource* pSrcResource, uint32_t srcSubresource, Format format)
+{
+	// Generate barriers for each resource
+	ResourceBarrier barriers[2];
+	auto numBarriers = pDstResource->SetBarrier(barriers, ResourceState::RESOLVE_DEST, 0, dstSubresource);
+	numBarriers = pSrcResource->SetBarrier(barriers, ResourceState::RESOLVE_SOURCE, numBarriers, srcSubresource);
+	XUSG::CommandList_DX12::Barrier(numBarriers, barriers);
+
+	XUSG::CommandList_DX12::ResolveSubresource(pDstResource, dstSubresource, pSrcResource, srcSubresource, format);
+}
+
 void EZ::CommandList_DX12::IASetPrimitiveTopology(PrimitiveTopology primitiveTopology)
 {
 	if (m_graphicsState)
@@ -216,6 +276,21 @@ void EZ::CommandList_DX12::SetComputeResources(DescriptorType descriptorType, ui
 			ResourceState::UNORDERED_ACCESS : ResourceState::NON_PIXEL_SHADER_RESOURCE;
 		setBarriers(numResources, pResourceViews, dstState);
 	}
+}
+
+void EZ::CommandList_DX12::SOSetTargets(uint32_t startSlot, uint32_t numViews, const StreamOutBufferView* pViews, Resource* const* ppResources)
+{
+	vector<ResourceView> resourceViews(numViews);
+	for (auto i = 0u; i < numViews; ++i)
+	{
+		auto& resourceView = resourceViews[i];
+		resourceView.pResource = ppResources[i];
+		resourceView.Subresources = { BARRIER_ALL_SUBRESOURCES };
+	}
+
+	setBarriers(numViews, resourceViews.data(), ResourceState::STREAM_OUT);
+
+	XUSG::CommandList_DX12::SOSetTargets(startSlot, numViews, pViews);
 }
 
 void EZ::CommandList_DX12::OMSetRenderTargets(uint32_t numRenderTargets,

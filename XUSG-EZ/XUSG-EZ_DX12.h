@@ -43,38 +43,17 @@ namespace XUSG
 				uint32_t threadGroupCountX,
 				uint32_t threadGroupCountY,
 				uint32_t threadGroupCountZ);
-			void CopyBufferRegion(const Resource* pDstBuffer, uint64_t dstOffset,
-				const Resource* pSrcBuffer, uint64_t srcOffset, uint64_t numBytes) const
-			{
-				XUSG::CommandList_DX12::CopyBufferRegion(pDstBuffer, dstOffset, pSrcBuffer, srcOffset, numBytes);
-			}
-
+			void CopyBufferRegion(Resource* pDstBuffer, uint64_t dstOffset,
+				Resource* pSrcBuffer, uint64_t srcOffset, uint64_t numBytes);
 			void CopyTextureRegion(const TextureCopyLocation& dst,
 				uint32_t dstX, uint32_t dstY, uint32_t dstZ,
-				const TextureCopyLocation& src, const BoxRange* pSrcBox = nullptr) const
-			{
-				XUSG::CommandList_DX12::CopyTextureRegion(dst, dstX, dstY, dstZ, src, pSrcBox);
-			}
-
-			void CopyResource(const Resource* pDstResource, const Resource* pSrcResource) const
-			{
-				XUSG::CommandList_DX12::CopyResource(pDstResource, pSrcResource);
-			}
-
-			void CopyTiles(const Resource* pTiledResource, const TiledResourceCoord* pTileRegionStartCoord,
+				const TextureCopyLocation& src, const BoxRange* pSrcBox = nullptr);
+			void CopyResource(Resource* pDstResource, Resource* pSrcResource);
+			void CopyTiles(Resource* pTiledResource, const TiledResourceCoord* pTileRegionStartCoord,
 				const TileRegionSize* pTileRegionSize, const Resource* pBuffer, uint64_t bufferStartOffsetInBytes,
-				TileCopyFlag flags) const
-			{
-				XUSG::CommandList_DX12::CopyTiles(pTiledResource, pTileRegionStartCoord,
-					pTileRegionSize, pBuffer, bufferStartOffsetInBytes, flags);
-			}
-
-			void ResolveSubresource(const Resource* pDstResource, uint32_t dstSubresource,
-				const Resource* pSrcResource, uint32_t srcSubresource, Format format) const
-			{
-				XUSG::CommandList_DX12::ResolveSubresource(pDstResource, dstSubresource, pSrcResource, srcSubresource, format);
-			}
-
+				TileCopyFlag flags);
+			void ResolveSubresource(Resource* pDstResource, uint32_t dstSubresource,
+				Resource* pSrcResource, uint32_t srcSubresource, Format format);
 			void IASetPrimitiveTopology(PrimitiveTopology primitiveTopology);
 			void RSSetViewports(uint32_t numViewports, const Viewport* pViewports) const
 			{
@@ -102,11 +81,7 @@ namespace XUSG
 				XUSG::CommandList_DX12::IASetVertexBuffers(startSlot, numViews, pViews);
 			}
 
-			void SOSetTargets(uint32_t startSlot, uint32_t numViews, const StreamOutBufferView* pViews) const
-			{
-				XUSG::CommandList_DX12::SOSetTargets(startSlot, numViews, pViews);
-			}
-
+			void SOSetTargets(uint32_t startSlot, uint32_t numViews, const StreamOutBufferView* pViews, Resource* const* ppResources);
 			void OMSetRenderTargets(
 				uint32_t numRenderTargets,
 				const ResourceView* pRenderTargetViews,

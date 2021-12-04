@@ -72,17 +72,17 @@ namespace XUSG
 				uint32_t threadGroupCountX,
 				uint32_t threadGroupCountY,
 				uint32_t threadGroupCountZ) = 0;
-			virtual void CopyBufferRegion(const Resource* pDstBuffer, uint64_t dstOffset,
-				const Resource* pSrcBuffer, uint64_t srcOffset, uint64_t numBytes) const = 0;
+			virtual void CopyBufferRegion(Resource* pDstBuffer, uint64_t dstOffset,
+				Resource* pSrcBuffer, uint64_t srcOffset, uint64_t numBytes) = 0;
 			virtual void CopyTextureRegion(const TextureCopyLocation& dst,
 				uint32_t dstX, uint32_t dstY, uint32_t dstZ,
-				const TextureCopyLocation& src, const BoxRange* pSrcBox = nullptr) const = 0;
-			virtual void CopyResource(const Resource* pDstResource, const Resource* pSrcResource) const = 0;
-			virtual void CopyTiles(const Resource* pTiledResource, const TiledResourceCoord* pTileRegionStartCoord,
+				const TextureCopyLocation& src, const BoxRange* pSrcBox = nullptr) = 0;
+			virtual void CopyResource(Resource* pDstResource, Resource* pSrcResource) = 0;
+			virtual void CopyTiles(Resource* pTiledResource, const TiledResourceCoord* pTileRegionStartCoord,
 				const TileRegionSize* pTileRegionSize, const Resource* pBuffer, uint64_t bufferStartOffsetInBytes,
-				TileCopyFlag flags) const = 0;
-			virtual void ResolveSubresource(const Resource* pDstResource, uint32_t dstSubresource,
-				const Resource* pSrcResource, uint32_t srcSubresource, Format format) const = 0;
+				TileCopyFlag flags) = 0;
+			virtual void ResolveSubresource(Resource* pDstResource, uint32_t dstSubresource,
+				Resource* pSrcResource, uint32_t srcSubresource, Format format) = 0;
 			virtual void IASetPrimitiveTopology(PrimitiveTopology primitiveTopology) = 0;
 			virtual void RSSetViewports(uint32_t numViewports, const Viewport* pViewports) const = 0;
 			virtual void RSSetScissorRects(uint32_t numRects, const RectRange* pRects) const = 0;
@@ -98,7 +98,7 @@ namespace XUSG
 				uint32_t numResources, const ResourceView* pResourceViews, uint32_t space = 0) = 0;
 			virtual void IASetIndexBuffer(const IndexBufferView& view) const = 0;
 			virtual void IASetVertexBuffers(uint32_t startSlot, uint32_t numViews, const VertexBufferView* pViews) const = 0;
-			virtual void SOSetTargets(uint32_t startSlot, uint32_t numViews, const StreamOutBufferView* pViews) const = 0;
+			virtual void SOSetTargets(uint32_t startSlot, uint32_t numViews, const StreamOutBufferView* pViews, Resource* const* ppResources) = 0;
 			virtual void OMSetRenderTargets(
 				uint32_t numRenderTargets,
 				const ResourceView* pRenderTargetViews,
