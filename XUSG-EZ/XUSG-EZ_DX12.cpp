@@ -114,7 +114,7 @@ void EZ::CommandList_DX12::Dispatch(uint32_t threadGroupCountX, uint32_t threadG
 		}
 	}
 
-	// Set barriers
+	// Set barrier command
 	XUSG::CommandList_DX12::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
 	m_barriers.clear();
 
@@ -182,20 +182,10 @@ void EZ::CommandList_DX12::SetGraphicsResources(Shader::Stage stage, DescriptorT
 	// Set barriers
 	if (descriptorType == DescriptorType::SRV || descriptorType == DescriptorType::UAV)
 	{
-		ResourceState dstState;
-		if (descriptorType == DescriptorType::UAV) dstState = ResourceState::UNORDERED_ACCESS;
-		else if (stage == Shader::Stage::PS) dstState = ResourceState::PIXEL_SHADER_RESOURCE;
-		else dstState = ResourceState::NON_PIXEL_SHADER_RESOURCE;
-
-		vector<ResourceBarrier> barriers(numResources);
-		auto numBarriers = 0u;
-		// [TODO] Per subresource
-		for (auto i = 0u; i < numResources; ++i)
-			numBarriers = pResourceViews[i].pResource->SetBarrier(barriers.data(), dstState, numBarriers);
-
-		const auto i = m_barriers.size();
-		m_barriers.resize(m_barriers.size() + numBarriers);
-		memcpy(&m_barriers[i], barriers.data(), sizeof(ResourceBarrier) * numBarriers);
+		const auto dstState = descriptorType == DescriptorType::UAV ?
+			ResourceState::UNORDERED_ACCESS : ResourceState::NON_PIXEL_SHADER_RESOURCE |
+			ResourceState::PIXEL_SHADER_RESOURCE;
+		setBarriers(numResources, pResourceViews, dstState);
 	}
 }
 
@@ -224,36 +214,23 @@ void EZ::CommandList_DX12::SetComputeResources(DescriptorType descriptorType, ui
 	{
 		const auto dstState = descriptorType == DescriptorType::UAV ?
 			ResourceState::UNORDERED_ACCESS : ResourceState::NON_PIXEL_SHADER_RESOURCE;
-
-		vector<ResourceBarrier> barriers(numResources);
-		auto numBarriers = 0u;
-		// [TODO] Per subresource
-		for (auto i = 0u; i < numResources; ++i)
-			numBarriers = pResourceViews[i].pResource->SetBarrier(barriers.data(), dstState, numBarriers);
-
-		const auto i = m_barriers.size();
-		m_barriers.resize(m_barriers.size() + numBarriers);
-		memcpy(&m_barriers[i], barriers.data(), sizeof(ResourceBarrier) * numBarriers);
+		setBarriers(numResources, pResourceViews, dstState);
 	}
 }
 
 void EZ::CommandList_DX12::OMSetRenderTargets(uint32_t numRenderTargets,
 	const ResourceView* pRenderTargetViews, const ResourceView* pDepthStencilView)
 {
-	vector<ResourceBarrier> barriers(numRenderTargets + (pDepthStencilView ? 1 : 0));
-	auto numBarriers = 0u;
-	// [TODO] Per subresource
-	for (auto i = 0u; i < numRenderTargets; ++i)
-		numBarriers = pRenderTargetViews[i].pResource->SetBarrier(barriers.data(), ResourceState::RENDER_TARGET, numBarriers);
-	if (pDepthStencilView) numBarriers = pDepthStencilView->pResource->SetBarrier(barriers.data(), ResourceState::DEPTH_WRITE, numBarriers);
+	// Set RTV barriers
+	setBarriers(numRenderTargets, pRenderTargetViews, ResourceState::RENDER_TARGET);
 
-	const auto i = m_barriers.size();
-	m_barriers.resize(m_barriers.size() + numBarriers);
-	memcpy(&m_barriers[i], barriers.data(), sizeof(ResourceBarrier) * numBarriers);
+	// Set DSV barriers
+	if (pDepthStencilView)
+		setBarriers(1, pDepthStencilView, ResourceState::DEPTH_WRITE);
 
-	vector<Descriptor> rtvs(numRenderTargets);
-	for (auto i = 0u; i < numRenderTargets; ++i) rtvs[i] = pRenderTargetViews[i].view;
-	XUSG::CommandList_DX12::OMSetRenderTargets(numRenderTargets, rtvs.data(),
+	Descriptor pRTVs[D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT];
+	for (auto i = 0u; i < numRenderTargets; ++i) pRTVs[i] = pRenderTargetViews[i].view;
+	XUSG::CommandList_DX12::OMSetRenderTargets(numRenderTargets, pRTVs,
 		pDepthStencilView ? &pDepthStencilView->view : nullptr);
 }
 
@@ -420,7 +397,7 @@ void EZ::CommandList_DX12::predraw()
 		}
 	}
 
-	// Set barriers
+	// Set barrier command
 	XUSG::CommandList_DX12::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
 	m_barriers.clear();
 
@@ -430,4 +407,32 @@ void EZ::CommandList_DX12::predraw()
 		const auto pipeline = m_graphicsState->GetPipeline(m_graphicsPipelineCache.get());
 		if (pipeline) XUSG::CommandList_DX12::SetPipelineState(pipeline);
 	}
+}
+
+void EZ::CommandList_DX12::setBarriers(uint32_t numResources, const ResourceView* pResourceViews, ResourceState dstState)
+{
+	// Estimate barrier count
+	auto numBarriers = 0u;
+	for (auto i = 0u; i < numResources; ++i)
+		numBarriers += static_cast<uint32_t>(pResourceViews[i].Subresources.size());
+
+	// Generate barriers for each resource
+	vector<ResourceBarrier> barriers(numBarriers);
+	numBarriers = 0;
+	for (auto i = 0u; i < numResources; ++i)
+		numBarriers = generateBarriers(barriers.data(), pResourceViews[i], dstState, numBarriers);
+
+	// Copy the barriers to the total
+	const auto i = m_barriers.size();
+	m_barriers.resize(m_barriers.size() + numBarriers);
+	memcpy(&m_barriers[i], barriers.data(), sizeof(ResourceBarrier) * numBarriers);
+}
+
+uint32_t EZ::CommandList_DX12::generateBarriers(ResourceBarrier* pBarriers, const ResourceView& resrouceView,
+	ResourceState dstState, uint32_t numBarriers, BarrierFlag flags)
+{
+	for (const auto& subresource : resrouceView.Subresources)
+		numBarriers = resrouceView.pResource->SetBarrier(pBarriers, dstState, numBarriers, subresource, flags);
+
+	return numBarriers;
 }

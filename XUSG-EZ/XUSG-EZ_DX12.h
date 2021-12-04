@@ -202,6 +202,10 @@ namespace XUSG
 				uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces);
 
 			void predraw();
+			void setBarriers(uint32_t numResources, const ResourceView* pResourceViews, ResourceState dstState);
+
+			static uint32_t generateBarriers(ResourceBarrier* pBarriers, const ResourceView& resrouceView,
+				ResourceState dstState, uint32_t numBarriers = 0, BarrierFlag flags = BarrierFlag::NONE);
 
 			Graphics::PipelineCache::uptr	m_graphicsPipelineCache;
 			Compute::PipelineCache::uptr	m_computePipelineCache;
