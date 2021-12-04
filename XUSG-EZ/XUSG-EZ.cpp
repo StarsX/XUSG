@@ -30,6 +30,8 @@ ResourceView EZ::GetCBV(ConstantBuffer* pResource, uint32_t index)
 	ResourceView resourceView;
 	resourceView.pResource = pResource;
 	resourceView.view = pResource->GetCBV(index);
+
+	return resourceView;
 }
 
 ResourceView EZ::GetSRV(Buffer* pResource, uint32_t index)
@@ -38,6 +40,8 @@ ResourceView EZ::GetSRV(Buffer* pResource, uint32_t index)
 	resourceView.pResource = pResource;
 	resourceView.view = pResource->GetSRV(index);
 	resourceView.Subresources = { BARRIER_ALL_SUBRESOURCES };
+
+	return resourceView;
 }
 
 ResourceView EZ::GetSRV(Texture* pResource, uint32_t index)
@@ -53,6 +57,8 @@ ResourceView EZ::GetSRV(Texture* pResource, uint32_t index)
 	for (auto i = index; i < numMips; ++i)
 		for (auto j = 0u; j < arraySize; ++j)
 			resourceView.Subresources[i] = CalcSubresource(pResource, i, j);
+
+	return resourceView;
 }
 
 ResourceView EZ::GetSRVLevel(Texture* pResource, uint8_t level)
