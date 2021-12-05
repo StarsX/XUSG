@@ -211,7 +211,7 @@ void BottomLevelAS_DX12::Build(const CommandList* pCommandList, const Resource* 
 void BottomLevelAS_DX12::Build(XUSG::CommandList* pCommandList, const Resource* pScratch,
 	const DescriptorPool& descriptorPool, bool update)
 {
-	const auto commandList = CommandList::MakeUnique(pCommandList);
+	const auto commandList = CommandList::MakeUnique(pCommandList, API::DIRECTX_12);
 	Build(commandList.get(), pScratch, descriptorPool, update);
 }
 #endif
@@ -324,7 +324,7 @@ void TopLevelAS_DX12::Build(const CommandList* pCommandList, const Resource* pSc
 void TopLevelAS_DX12::Build(XUSG::CommandList* pCommandList, const Resource* pScratch,
 	const Resource* pInstanceDescs, const DescriptorPool& descriptorPool, bool update)
 {
-	const auto commandList = CommandList::MakeUnique(pCommandList);
+	const auto commandList = CommandList::MakeUnique(pCommandList, API::DIRECTX_12);
 	Build(commandList.get(), pScratch, pInstanceDescs, descriptorPool, update);
 }
 #endif

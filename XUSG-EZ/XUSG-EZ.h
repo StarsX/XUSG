@@ -81,7 +81,6 @@ namespace XUSG
 				TileCopyFlag flags) = 0;
 			virtual void ResolveSubresource(Resource* pDstResource, uint32_t dstSubresource,
 				Resource* pSrcResource, uint32_t srcSubresource, Format format) = 0;
-			virtual void IASetPrimitiveTopology(PrimitiveTopology primitiveTopology) = 0;
 			virtual void RSSetState(Graphics::RasterizerPreset preset) = 0;
 			virtual void RSSetViewports(uint32_t numViewports, const Viewport* pViewports) const = 0;
 			virtual void RSSetScissorRects(uint32_t numRects, const RectRange* pRects) const = 0;
@@ -96,6 +95,7 @@ namespace XUSG
 			virtual void SetComputeSamplerStates(uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerPresets) = 0;
 			virtual void SetComputeResources(DescriptorType descriptorType, uint32_t startBinding,
 				uint32_t numResources, const ResourceView* pResourceViews, uint32_t space = 0) = 0;
+			virtual void IASetPrimitiveTopology(PrimitiveTopology primitiveTopology) = 0;
 			virtual void IASetIndexBuffer(const IndexBufferView& view) const = 0;
 			virtual void IASetVertexBuffers(uint32_t startSlot, uint32_t numViews, const VertexBufferView* pViews) const = 0;
 			virtual void SOSetTargets(uint32_t startSlot, uint32_t numViews, const StreamOutBufferView* pViews, Resource* const* ppResources) = 0;

@@ -141,7 +141,7 @@ bool ShaderTable_DX12::allocate(const XUSG::Device* pDevice, uint32_t byteWidth,
 	const auto heapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
 	const auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(byteWidth);
 
-	m_resource = Resource::MakeUnique();
+	m_resource = Resource::MakeUnique(API::DIRECTX_12);
 	const auto pDxDevice = static_cast<ID3D12Device*>(pDevice->GetHandle());
 	auto& resource = dynamic_cast<Resource_DX12*>(m_resource.get())->GetResource();
 

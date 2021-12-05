@@ -54,7 +54,7 @@ bool EZ::CommandList_DX12::Create(const Device* pDevice, XUSG::CommandList* pCom
 
 bool EZ::CommandList_DX12::Reset(const CommandAllocator* pAllocator, const Pipeline& initialState)
 {
-	const auto ret = Reset(pAllocator, initialState);
+	const auto ret = XUSG::CommandList_DX12::Reset(pAllocator, initialState);
 
 	// Set Descriptor pools
 	const DescriptorPool descriptorPools[] =
@@ -67,6 +67,8 @@ bool EZ::CommandList_DX12::Reset(const CommandAllocator* pAllocator, const Pipel
 	// Set pipeline layouts
 	XUSG::CommandList_DX12::SetGraphicsPipelineLayout(m_pipelineLayouts[GRAPHICS]);
 	XUSG::CommandList_DX12::SetComputePipelineLayout(m_pipelineLayouts[COMPUTE]);
+	m_pipeline = initialState;
+	m_pInputLayout = nullptr;
 
 	m_barriers.clear();
 	m_clearDSVs.clear();
@@ -124,8 +126,9 @@ void EZ::CommandList_DX12::Dispatch(uint32_t threadGroupCountX, uint32_t threadG
 	// Create pipeline for dynamic states
 	if (m_computeState)
 	{
+		m_computeState->SetPipelineLayout(m_pipelineLayouts[COMPUTE]);
 		const auto pipeline = m_computeState->GetPipeline(m_computePipelineCache.get());
-		if (pipeline) XUSG::CommandList_DX12::SetPipelineState(pipeline);
+		if (pipeline && m_pipeline != pipeline) XUSG::CommandList_DX12::SetPipelineState(pipeline);
 	}
 
 	XUSG::CommandList_DX12::Dispatch(threadGroupCountX, threadGroupCountY, threadGroupCountZ);
@@ -189,30 +192,6 @@ void EZ::CommandList_DX12::ResolveSubresource(Resource* pDstResource, uint32_t d
 	XUSG::CommandList_DX12::Barrier(numBarriers, barriers);
 
 	XUSG::CommandList_DX12::ResolveSubresource(pDstResource, dstSubresource, pSrcResource, srcSubresource, format);
-}
-
-void EZ::CommandList_DX12::IASetPrimitiveTopology(PrimitiveTopology primitiveTopology)
-{
-	if (m_graphicsState)
-	{
-		if (primitiveTopology == PrimitiveTopology::POINTLIST)
-			m_graphicsState->IASetPrimitiveTopologyType(PrimitiveTopologyType::POINT);
-		else if (primitiveTopology == PrimitiveTopology::LINELIST || primitiveTopology == PrimitiveTopology::LINESTRIP ||
-			primitiveTopology == PrimitiveTopology::LINELIST_ADJ || primitiveTopology == PrimitiveTopology::LINESTRIP_ADJ)
-			m_graphicsState->IASetPrimitiveTopologyType(PrimitiveTopologyType::LINE);
-		else if (primitiveTopology == PrimitiveTopology::TRIANGLELIST || primitiveTopology == PrimitiveTopology::TRIANGLESTRIP ||
-			primitiveTopology == PrimitiveTopology::TRIANGLELIST_ADJ || primitiveTopology == PrimitiveTopology::TRIANGLESTRIP_ADJ)
-			m_graphicsState->IASetPrimitiveTopologyType(PrimitiveTopologyType::TRIANGLE);
-		else if (primitiveTopology >= PrimitiveTopology::CONTROL_POINT1_PATCHLIST && primitiveTopology <= PrimitiveTopology::CONTROL_POINT32_PATCHLIST)
-			m_graphicsState->IASetPrimitiveTopologyType(PrimitiveTopologyType::PATCH);
-		else
-		{
-			assert(primitiveTopology == PrimitiveTopology::UNDEFINED);
-			m_graphicsState->IASetPrimitiveTopologyType(PrimitiveTopologyType::UNDEFINED);
-		}
-	}
-
-	XUSG::CommandList_DX12::IASetPrimitiveTopology(primitiveTopology);
 }
 
 void EZ::CommandList_DX12::RSSetState(Graphics::RasterizerPreset preset)
@@ -291,6 +270,30 @@ void EZ::CommandList_DX12::SetComputeResources(DescriptorType descriptorType, ui
 			ResourceState::UNORDERED_ACCESS : ResourceState::NON_PIXEL_SHADER_RESOURCE;
 		setBarriers(numResources, pResourceViews, dstState);
 	}
+}
+
+void EZ::CommandList_DX12::IASetPrimitiveTopology(PrimitiveTopology primitiveTopology)
+{
+	if (m_graphicsState)
+	{
+		if (primitiveTopology == PrimitiveTopology::POINTLIST)
+			m_graphicsState->IASetPrimitiveTopologyType(PrimitiveTopologyType::POINT);
+		else if (primitiveTopology == PrimitiveTopology::LINELIST || primitiveTopology == PrimitiveTopology::LINESTRIP ||
+			primitiveTopology == PrimitiveTopology::LINELIST_ADJ || primitiveTopology == PrimitiveTopology::LINESTRIP_ADJ)
+			m_graphicsState->IASetPrimitiveTopologyType(PrimitiveTopologyType::LINE);
+		else if (primitiveTopology == PrimitiveTopology::TRIANGLELIST || primitiveTopology == PrimitiveTopology::TRIANGLESTRIP ||
+			primitiveTopology == PrimitiveTopology::TRIANGLELIST_ADJ || primitiveTopology == PrimitiveTopology::TRIANGLESTRIP_ADJ)
+			m_graphicsState->IASetPrimitiveTopologyType(PrimitiveTopologyType::TRIANGLE);
+		else if (primitiveTopology >= PrimitiveTopology::CONTROL_POINT1_PATCHLIST && primitiveTopology <= PrimitiveTopology::CONTROL_POINT32_PATCHLIST)
+			m_graphicsState->IASetPrimitiveTopologyType(PrimitiveTopologyType::PATCH);
+		else
+		{
+			assert(primitiveTopology == PrimitiveTopology::UNDEFINED);
+			m_graphicsState->IASetPrimitiveTopologyType(PrimitiveTopologyType::UNDEFINED);
+		}
+	}
+
+	XUSG::CommandList_DX12::IASetPrimitiveTopology(primitiveTopology);
 }
 
 void EZ::CommandList_DX12::SOSetTargets(uint32_t startSlot, uint32_t numViews, const StreamOutBufferView* pViews, Resource* const* ppResources)
@@ -401,7 +404,7 @@ bool EZ::CommandList_DX12::createPipelineLayouts(uint32_t maxSamplers,
 
 				if (s < maxCbvSpaces)
 				{
-					const auto maxDescriptors = pMaxCbvsEachSpace ? pMaxCbvsEachSpace[s] : 32;
+					const auto maxDescriptors = pMaxCbvsEachSpace ? pMaxCbvsEachSpace[s] : 14;
 					spaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::CBV)][s] = paramIndex;
 					pipelineLayout->SetRange(paramIndex, DescriptorType::CBV, maxDescriptors, 0, s, DescriptorFlag::DATA_STATIC);
 					pipelineLayout->SetShaderStage(paramIndex++, stage);
@@ -434,6 +437,11 @@ bool EZ::CommandList_DX12::createPipelineLayouts(uint32_t maxSamplers,
 		auto paramIndex = 0u;
 		const auto pipelineLayout = Util::PipelineLayout::MakeUnique(API::DIRECTX_12);
 		pipelineLayout->SetRange(paramIndex++, DescriptorType::SAMPLER, maxSamplers, 0, 0, DescriptorFlag::DATA_STATIC);
+
+		auto& descriptorTables = m_computeCbvSrvUavTables;
+		descriptorTables[static_cast<uint32_t>(DescriptorType::CBV)].resize(maxCbvSpaces);
+		descriptorTables[static_cast<uint32_t>(DescriptorType::SRV)].resize(maxSrvSpaces);
+		descriptorTables[static_cast<uint32_t>(DescriptorType::UAV)].resize(maxUavSpaces);
 
 		m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::CBV)].resize(maxCbvSpaces);
 		m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::SRV)].resize(maxSrvSpaces);
@@ -520,8 +528,9 @@ void EZ::CommandList_DX12::predraw()
 	// Create pipeline for dynamic states
 	if (m_graphicsState)
 	{
+		m_graphicsState->SetPipelineLayout(m_pipelineLayouts[GRAPHICS]);
 		const auto pipeline = m_graphicsState->GetPipeline(m_graphicsPipelineCache.get());
-		if (pipeline) XUSG::CommandList_DX12::SetPipelineState(pipeline);
+		if (pipeline && m_pipeline != pipeline) XUSG::CommandList_DX12::SetPipelineState(pipeline);
 	}
 }
 
@@ -539,9 +548,12 @@ void EZ::CommandList_DX12::setBarriers(uint32_t numResources, const ResourceView
 		numBarriers = generateBarriers(barriers.data(), pResourceViews[i], dstState, numBarriers);
 
 	// Copy the barriers to the total
-	const auto i = m_barriers.size();
-	m_barriers.resize(m_barriers.size() + numBarriers);
-	memcpy(&m_barriers[i], barriers.data(), sizeof(ResourceBarrier) * numBarriers);
+	if (numBarriers > 0)
+	{
+		const auto i = m_barriers.size();
+		m_barriers.resize(m_barriers.size() + numBarriers);
+		memcpy(&m_barriers[i], barriers.data(), sizeof(ResourceBarrier) * numBarriers);
+	}
 }
 
 uint32_t EZ::CommandList_DX12::generateBarriers(ResourceBarrier* pBarriers, const ResourceView& resrouceView,

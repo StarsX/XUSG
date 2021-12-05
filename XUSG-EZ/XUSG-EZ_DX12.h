@@ -54,7 +54,6 @@ namespace XUSG
 				TileCopyFlag flags);
 			void ResolveSubresource(Resource* pDstResource, uint32_t dstSubresource,
 				Resource* pSrcResource, uint32_t srcSubresource, Format format);
-			void IASetPrimitiveTopology(PrimitiveTopology primitiveTopology);
 			void RSSetState(Graphics::RasterizerPreset preset);
 			void RSSetViewports(uint32_t numViewports, const Viewport* pViewports) const
 			{
@@ -77,6 +76,7 @@ namespace XUSG
 			void SetComputeSamplerStates(uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerPresets);
 			void SetComputeResources(DescriptorType descriptorType, uint32_t startBinding,
 				uint32_t numResources, const ResourceView* pResourceViews, uint32_t space = 0);
+			void IASetPrimitiveTopology(PrimitiveTopology primitiveTopology);
 			void IASetIndexBuffer(const IndexBufferView& view) const { XUSG::CommandList_DX12::IASetIndexBuffer(view); }
 			void IASetVertexBuffers(uint32_t startSlot, uint32_t numViews, const VertexBufferView* pViews) const
 			{
@@ -198,7 +198,9 @@ namespace XUSG
 			PipelineLayoutCache::uptr		m_pipelineLayoutCache;
 			DescriptorTableCache::uptr		m_descriptorTableCache;
 
+			const XUSG::InputLayout* m_pInputLayout;
 			XUSG::PipelineLayout m_pipelineLayouts[NUM_PIPELINE_LAYOUT];
+			XUSG::Pipeline m_pipeline;
 
 			Graphics::State::uptr m_graphicsState;
 			Compute::State::uptr m_computeState;
