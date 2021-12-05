@@ -1254,14 +1254,14 @@ namespace XUSG
 	};
 
 	//--------------------------------------------------------------------------------------
-	// 2D Texture
+	// Texture
 	//--------------------------------------------------------------------------------------
-	class DLL_INTERFACE Texture2D :
+	class DLL_INTERFACE Texture :
 		public virtual ShaderResource
 	{
 	public:
-		//Texture2D();
-		virtual ~Texture2D() {};
+		//Texture();
+		virtual ~Texture() {};
 
 		virtual bool Create(const Device* pDevice, uint32_t width, uint32_t height, Format format,
 			uint32_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
@@ -1311,20 +1311,25 @@ namespace XUSG
 		virtual uint32_t	GetArraySize() const = 0;
 		virtual uint8_t		GetNumMips() const = 0;
 
-		Texture2D* AsTexture2D();
+		Texture* AsTexture();
 
-		using uptr = std::unique_ptr<Texture2D>;
-		using sptr = std::shared_ptr<Texture2D>;
+		using uptr = std::unique_ptr<Texture>;
+		using sptr = std::shared_ptr<Texture>;
 
 		static uptr MakeUnique(API api = API::DIRECTX_12);
 		static sptr MakeShared(API api = API::DIRECTX_12);
 	};
 
 	//--------------------------------------------------------------------------------------
+	// 2D Texture
+	//--------------------------------------------------------------------------------------
+	using Texture2D = Texture;
+
+	//--------------------------------------------------------------------------------------
 	// Render target
 	//--------------------------------------------------------------------------------------
 	class DLL_INTERFACE RenderTarget :
-		public virtual Texture2D
+		public virtual Texture
 	{
 	public:
 		//RenderTarget();
@@ -1371,7 +1376,7 @@ namespace XUSG
 	// Depth stencil
 	//--------------------------------------------------------------------------------------
 	class DLL_INTERFACE DepthStencil :
-		public virtual Texture2D
+		public virtual Texture
 	{
 	public:
 		//DepthStencil();
@@ -1406,7 +1411,7 @@ namespace XUSG
 	// 3D Texture
 	//--------------------------------------------------------------------------------------
 	class DLL_INTERFACE Texture3D :
-		public virtual Texture2D
+		public virtual Texture
 	{
 	public:
 		//Texture3D();
@@ -1430,14 +1435,14 @@ namespace XUSG
 	};
 
 	//--------------------------------------------------------------------------------------
-	// Raw buffer
+	// Buffer
 	//--------------------------------------------------------------------------------------
-	class DLL_INTERFACE RawBuffer :
+	class DLL_INTERFACE Buffer :
 		public virtual ShaderResource
 	{
 	public:
-		//RawBuffer();
-		virtual ~RawBuffer() {};
+		//Buffer();
+		virtual ~Buffer() {};
 
 		virtual bool Create(const Device* pDevice, size_t byteWidth, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			MemoryType memoryType = MemoryType::DEFAULT, uint32_t numSRVs = 1,
@@ -1457,18 +1462,23 @@ namespace XUSG
 		virtual void* Map(const Range* pReadRange, uint32_t descriptorIndex = 0) = 0;
 		virtual void Unmap() = 0;
 
-		using uptr = std::unique_ptr<RawBuffer>;
-		using sptr = std::shared_ptr<RawBuffer>;
+		using uptr = std::unique_ptr<Buffer>;
+		using sptr = std::shared_ptr<Buffer>;
 
 		static uptr MakeUnique(API api = API::DIRECTX_12);
 		static sptr MakeShared(API api = API::DIRECTX_12);
 	};
 
 	//--------------------------------------------------------------------------------------
+	// Raw buffer
+	//--------------------------------------------------------------------------------------
+	using RawBuffer = Buffer;
+
+	//--------------------------------------------------------------------------------------
 	// Structured buffer
 	//--------------------------------------------------------------------------------------
 	class DLL_INTERFACE StructuredBuffer :
-		public virtual RawBuffer
+		public virtual Buffer
 	{
 	public:
 		//StructuredBuffer();
@@ -1501,7 +1511,7 @@ namespace XUSG
 	// Typed buffer
 	//--------------------------------------------------------------------------------------
 	class DLL_INTERFACE TypedBuffer :
-		public virtual RawBuffer
+		public virtual Buffer
 	{
 	public:
 		//TypedBuffer();

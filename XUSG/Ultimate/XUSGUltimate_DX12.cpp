@@ -103,7 +103,7 @@ XUSG::com_ptr<ID3D12GraphicsCommandList6>& CommandList_DX12::GetGraphicsCommandL
 //--------------------------------------------------------------------------------------
 
 SamplerFeedBack_DX12::SamplerFeedBack_DX12() :
-	XUSG::Texture2D_DX12()
+	XUSG::Texture_DX12()
 {
 }
 
@@ -111,7 +111,7 @@ SamplerFeedBack_DX12::~SamplerFeedBack_DX12()
 {
 }
 
-bool SamplerFeedBack_DX12::Create(const Device* pDevice, const Texture2D* pTarget, Format format,
+bool SamplerFeedBack_DX12::Create(const Device* pDevice, const Texture* pTarget, Format format,
 	uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
 	ResourceFlag resourceFlags, bool isCubeMap, MemoryFlag memoryFlags, const wchar_t* name)
 {

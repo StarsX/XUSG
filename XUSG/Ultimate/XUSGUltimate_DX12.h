@@ -47,13 +47,13 @@ namespace XUSG
 		//--------------------------------------------------------------------------------------
 		class SamplerFeedBack_DX12 :
 			public virtual SamplerFeedBack,
-			public virtual Texture2D_DX12
+			public virtual Texture_DX12
 		{
 		public:
 			SamplerFeedBack_DX12();
 			~SamplerFeedBack_DX12();
 
-			bool Create(const Device* pDevice, const Texture2D* pTarget, Format format,
+			bool Create(const Device* pDevice, const Texture* pTarget, Format format,
 				uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
 				ResourceFlag resourceFlags = ResourceFlag::NONE, bool isCubeMap = false,
 				MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr);

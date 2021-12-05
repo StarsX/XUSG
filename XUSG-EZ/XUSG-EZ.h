@@ -11,8 +11,6 @@ namespace XUSG
 	namespace EZ
 	{
 		// Resource view
-		using Buffer = RawBuffer;
-		using Texture = Texture2D;
 		struct ResourceView
 		{
 			Resource* pResource;

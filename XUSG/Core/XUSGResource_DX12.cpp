@@ -348,7 +348,7 @@ Descriptor ShaderResource_DX12::allocateSrvUavHeap()
 // 2D Texture
 //--------------------------------------------------------------------------------------
 
-Texture2D_DX12::Texture2D_DX12() :
+Texture_DX12::Texture_DX12() :
 	ShaderResource_DX12(),
 	m_uavs(0),
 	m_packedUavs(0),
@@ -356,11 +356,11 @@ Texture2D_DX12::Texture2D_DX12() :
 {
 }
 
-Texture2D_DX12::~Texture2D_DX12()
+Texture_DX12::~Texture_DX12()
 {
 }
 
-bool Texture2D_DX12::Create(const Device* pDevice, uint32_t width, uint32_t height, Format format,
+bool Texture_DX12::Create(const Device* pDevice, uint32_t width, uint32_t height, Format format,
 	uint32_t arraySize, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount,
 	bool isCubeMap, MemoryFlag memoryFlags, const wchar_t* name)
 {
@@ -404,7 +404,7 @@ bool Texture2D_DX12::Create(const Device* pDevice, uint32_t width, uint32_t heig
 	return true;
 }
 
-bool Texture2D_DX12::Upload(CommandList* pCommandList, Resource* pUploader,
+bool Texture_DX12::Upload(CommandList* pCommandList, Resource* pUploader,
 	const SubresourceData* pSubresourceData, uint32_t numSubresources,
 	ResourceState dstState, uint32_t firstSubresource)
 {
@@ -450,7 +450,7 @@ bool Texture2D_DX12::Upload(CommandList* pCommandList, Resource* pUploader,
 	return true;
 }
 
-bool Texture2D_DX12::Upload(CommandList* pCommandList, Resource* pUploader,
+bool Texture_DX12::Upload(CommandList* pCommandList, Resource* pUploader,
 	const void* pData, uint8_t stride, ResourceState dstState)
 {
 	const auto desc = m_resource->GetDesc();
@@ -463,7 +463,7 @@ bool Texture2D_DX12::Upload(CommandList* pCommandList, Resource* pUploader,
 	return Upload(pCommandList, pUploader, &subresourceData, 1, dstState);
 }
 
-bool Texture2D_DX12::CreateSRVs(uint32_t arraySize, Format format, uint8_t numMips,
+bool Texture_DX12::CreateSRVs(uint32_t arraySize, Format format, uint8_t numMips,
 	uint8_t sampleCount, bool isCubeMap)
 {
 	// Setup the description of the shader resource view.
@@ -528,7 +528,7 @@ bool Texture2D_DX12::CreateSRVs(uint32_t arraySize, Format format, uint8_t numMi
 	return true;
 }
 
-bool Texture2D_DX12::CreateSRVLevels(uint32_t arraySize, uint8_t numMips, Format format,
+bool Texture_DX12::CreateSRVLevels(uint32_t arraySize, uint8_t numMips, Format format,
 	uint8_t sampleCount, bool isCubeMap)
 {
 	if (numMips > 1)
@@ -584,7 +584,7 @@ bool Texture2D_DX12::CreateSRVLevels(uint32_t arraySize, uint8_t numMips, Format
 	return true;
 }
 
-bool Texture2D_DX12::CreateUAVs(uint32_t arraySize, Format format, uint8_t numMips, vector<Descriptor>* pUavs)
+bool Texture_DX12::CreateUAVs(uint32_t arraySize, Format format, uint8_t numMips, vector<Descriptor>* pUavs)
 {
 	// Setup the description of the unordered access view.
 	D3D12_UNORDERED_ACCESS_VIEW_DESC desc = {};
@@ -617,13 +617,13 @@ bool Texture2D_DX12::CreateUAVs(uint32_t arraySize, Format format, uint8_t numMi
 	return true;
 }
 
-uint32_t Texture2D_DX12::SetBarrier(ResourceBarrier* pBarriers, ResourceState dstState,
+uint32_t Texture_DX12::SetBarrier(ResourceBarrier* pBarriers, ResourceState dstState,
 	uint32_t numBarriers, uint32_t subresource, BarrierFlag flags)
 {
 	return ShaderResource_DX12::SetBarrier(pBarriers, dstState, numBarriers, subresource, flags);
 }
 
-uint32_t Texture2D_DX12::SetBarrier(ResourceBarrier* pBarriers, uint8_t mipLevel, ResourceState dstState,
+uint32_t Texture_DX12::SetBarrier(ResourceBarrier* pBarriers, uint8_t mipLevel, ResourceState dstState,
 	uint32_t numBarriers, uint32_t slice, BarrierFlag flags)
 {
 	const auto desc = m_resource->GetDesc();
@@ -632,7 +632,7 @@ uint32_t Texture2D_DX12::SetBarrier(ResourceBarrier* pBarriers, uint8_t mipLevel
 	return SetBarrier(pBarriers, dstState, numBarriers, subresource, flags);
 }
 
-void Texture2D_DX12::Blit(const CommandList* pCommandList, uint32_t groupSizeX, uint32_t groupSizeY,
+void Texture_DX12::Blit(const CommandList* pCommandList, uint32_t groupSizeX, uint32_t groupSizeY,
 	uint32_t groupSizeZ, const DescriptorTable& uavSrvTable, uint32_t uavSrvSlot, uint8_t mipLevel,
 	const DescriptorTable& srvTable, uint32_t srvSlot, const DescriptorTable& samplerTable,
 	uint32_t samplerSlot, const Pipeline& pipeline)
@@ -653,7 +653,7 @@ void Texture2D_DX12::Blit(const CommandList* pCommandList, uint32_t groupSizeX, 
 		DIV_UP(desc.DepthOrArraySize, groupSizeZ));
 }
 
-uint32_t Texture2D_DX12::Blit(const CommandList* pCommandList, ResourceBarrier* pBarriers,
+uint32_t Texture_DX12::Blit(const CommandList* pCommandList, ResourceBarrier* pBarriers,
 	uint32_t groupSizeX, uint32_t groupSizeY, uint32_t groupSizeZ, uint8_t mipLevel,
 	int8_t srcMipLevel, ResourceState srcState, const DescriptorTable& uavSrvTable,
 	uint32_t uavSrvSlot, uint32_t numBarriers, const DescriptorTable& srvTable,
@@ -688,7 +688,7 @@ uint32_t Texture2D_DX12::Blit(const CommandList* pCommandList, ResourceBarrier* 
 	return numBarriers;
 }
 
-uint32_t Texture2D_DX12::GenerateMips(const CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
+uint32_t Texture_DX12::GenerateMips(const CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
 	uint32_t groupSizeY, uint32_t groupSizeZ, ResourceState dstState, const PipelineLayout& pipelineLayout,
 	const Pipeline& pipeline, const DescriptorTable* pUavSrvTables, uint32_t uavSrvSlot, const DescriptorTable& samplerTable,
 	uint32_t samplerSlot, uint32_t numBarriers, const DescriptorTable* pSrvTables, uint32_t srvSlot, uint8_t baseMip,
@@ -739,35 +739,35 @@ uint32_t Texture2D_DX12::GenerateMips(const CommandList* pCommandList, ResourceB
 	return numBarriers;
 }
 
-const Descriptor& Texture2D_DX12::GetUAV(uint8_t index) const
+const Descriptor& Texture_DX12::GetUAV(uint8_t index) const
 {
 	assert(m_uavs.size() > index);
 	return m_uavs[index];
 }
 
-const Descriptor& Texture2D_DX12::GetPackedUAV(uint8_t index) const
+const Descriptor& Texture_DX12::GetPackedUAV(uint8_t index) const
 {
 	assert(m_packedUavs.size() > index);
 	return m_packedUavs[index];
 }
 
-const Descriptor& Texture2D_DX12::GetSRVLevel(uint8_t level) const
+const Descriptor& Texture_DX12::GetSRVLevel(uint8_t level) const
 {
 	assert(m_srvLevels.size() > level);
 	return m_srvLevels[level];
 }
 
-uint32_t Texture2D_DX12::GetHeight() const
+uint32_t Texture_DX12::GetHeight() const
 {
 	return m_resource->GetDesc().Height;
 }
 
-uint32_t Texture2D_DX12::GetArraySize() const
+uint32_t Texture_DX12::GetArraySize() const
 {
 	return m_resource->GetDesc().DepthOrArraySize;
 }
 
-uint8_t Texture2D_DX12::GetNumMips() const
+uint8_t Texture_DX12::GetNumMips() const
 {
 	return static_cast<uint8_t>(m_resource->GetDesc().MipLevels);
 }
@@ -777,7 +777,7 @@ uint8_t Texture2D_DX12::GetNumMips() const
 //--------------------------------------------------------------------------------------
 
 RenderTarget_DX12::RenderTarget_DX12() :
-	Texture2D_DX12(),
+	Texture_DX12(),
 	m_rtvHeaps(0),
 	m_rtvs(0)
 {
@@ -1113,7 +1113,7 @@ Descriptor RenderTarget_DX12::allocateRtvHeap()
 //--------------------------------------------------------------------------------------
 
 DepthStencil_DX12::DepthStencil_DX12() :
-	Texture2D_DX12(),
+	Texture_DX12(),
 	m_dsvHeaps(),
 	m_dsvs(0),
 	m_readOnlyDsvs(0),
@@ -1455,7 +1455,7 @@ Descriptor DepthStencil_DX12::allocateDsvHeap()
 //--------------------------------------------------------------------------------------
 
 Texture3D_DX12::Texture3D_DX12() :
-	Texture2D_DX12()
+	Texture_DX12()
 {
 }
 
@@ -1595,7 +1595,7 @@ uint32_t Texture3D_DX12::GetDepth() const
 // Raw buffer
 //--------------------------------------------------------------------------------------
 
-RawBuffer_DX12::RawBuffer_DX12() :
+Buffer_DX12::Buffer_DX12() :
 	ShaderResource_DX12(),
 	m_uavs(0),
 	m_srvOffsets(0),
@@ -1603,12 +1603,12 @@ RawBuffer_DX12::RawBuffer_DX12() :
 {
 }
 
-RawBuffer_DX12::~RawBuffer_DX12()
+Buffer_DX12::~Buffer_DX12()
 {
 	if (m_resource) Unmap();
 }
 
-bool RawBuffer_DX12::Create(const Device* pDevice, size_t byteWidth, ResourceFlag resourceFlags,
+bool Buffer_DX12::Create(const Device* pDevice, size_t byteWidth, ResourceFlag resourceFlags,
 	MemoryType memoryType, uint32_t numSRVs, const uint32_t* firstSRVElements,
 	uint32_t numUAVs, const uint32_t* firstUAVElements, MemoryFlag memoryFlags,
 	const wchar_t* name)
@@ -1631,7 +1631,7 @@ bool RawBuffer_DX12::Create(const Device* pDevice, size_t byteWidth, ResourceFla
 	return true;
 }
 
-bool RawBuffer_DX12::Upload(CommandList* pCommandList, Resource* pUploader, const void* pData,
+bool Buffer_DX12::Upload(CommandList* pCommandList, Resource* pUploader, const void* pData,
 	size_t size, uint32_t descriptorIndex, ResourceState dstState)
 {
 	const auto offset = m_srvOffsets.empty() ? 0 : m_srvOffsets[descriptorIndex];
@@ -1669,7 +1669,7 @@ bool RawBuffer_DX12::Upload(CommandList* pCommandList, Resource* pUploader, cons
 	return true;
 }
 
-bool RawBuffer_DX12::CreateSRVs(size_t byteWidth, const uint32_t* firstElements,
+bool Buffer_DX12::CreateSRVs(size_t byteWidth, const uint32_t* firstElements,
 	uint32_t numDescriptors)
 {
 	D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
@@ -1725,7 +1725,7 @@ bool RawBuffer_DX12::CreateSRVs(size_t byteWidth, const uint32_t* firstElements,
 	return true;
 }
 
-bool RawBuffer_DX12::CreateUAVs(size_t byteWidth, const uint32_t* firstElements,
+bool Buffer_DX12::CreateUAVs(size_t byteWidth, const uint32_t* firstElements,
 	uint32_t numDescriptors)
 {
 	D3D12_UNORDERED_ACCESS_VIEW_DESC desc = {};
@@ -1752,20 +1752,20 @@ bool RawBuffer_DX12::CreateUAVs(size_t byteWidth, const uint32_t* firstElements,
 	return true;
 }
 
-const Descriptor& RawBuffer_DX12::GetUAV(uint32_t index) const
+const Descriptor& Buffer_DX12::GetUAV(uint32_t index) const
 {
 	assert(m_uavs.size() > index);
 	return m_uavs[index];
 }
 
-void* RawBuffer_DX12::Map(uint32_t descriptorIndex, uintptr_t readBegin, uintptr_t readEnd)
+void* Buffer_DX12::Map(uint32_t descriptorIndex, uintptr_t readBegin, uintptr_t readEnd)
 {
 	const Range range(readBegin, readEnd);
 
 	return Map(&range, descriptorIndex);
 }
 
-void* RawBuffer_DX12::Map(const Range* pReadRange, uint32_t descriptorIndex)
+void* Buffer_DX12::Map(const Range* pReadRange, uint32_t descriptorIndex)
 {
 	// Map and initialize the buffer.
 	if (m_pDataBegin == nullptr)
@@ -1785,7 +1785,7 @@ void* RawBuffer_DX12::Map(const Range* pReadRange, uint32_t descriptorIndex)
 	return &reinterpret_cast<uint8_t*>(m_pDataBegin)[offset];
 }
 
-void RawBuffer_DX12::Unmap()
+void Buffer_DX12::Unmap()
 {
 	if (m_pDataBegin)
 	{
@@ -1794,7 +1794,7 @@ void RawBuffer_DX12::Unmap()
 	}
 }
 
-bool RawBuffer_DX12::create(const Device* pDevice, size_t byteWidth, ResourceFlag resourceFlags,
+bool Buffer_DX12::create(const Device* pDevice, size_t byteWidth, ResourceFlag resourceFlags,
 	MemoryType memoryType, uint32_t numSRVs, uint32_t numUAVs, MemoryFlag memoryFlags,
 	const wchar_t* name)
 {
@@ -1839,7 +1839,7 @@ bool RawBuffer_DX12::create(const Device* pDevice, size_t byteWidth, ResourceFla
 //--------------------------------------------------------------------------------------
 
 StructuredBuffer_DX12::StructuredBuffer_DX12() :
-	RawBuffer_DX12()
+	Buffer_DX12()
 {
 }
 
@@ -1943,7 +1943,7 @@ Resource::sptr StructuredBuffer_DX12::GetCounter() const
 //--------------------------------------------------------------------------------------
 
 TypedBuffer_DX12::TypedBuffer_DX12() :
-	RawBuffer_DX12()
+	Buffer_DX12()
 {
 }
 
@@ -2093,7 +2093,7 @@ bool VertexBuffer_DX12::CreateAsRaw(const Device* pDevice, uint32_t numVertices,
 	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
 	const bool hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
 
-	N_RETURN(RawBuffer_DX12::Create(pDevice, static_cast<size_t>(stride) * numVertices, resourceFlags,
+	N_RETURN(Buffer_DX12::Create(pDevice, static_cast<size_t>(stride) * numVertices, resourceFlags,
 		memoryType, numSRVs, firstSRVElements, numUAVs, firstUAVElements, memoryFlags, name), false);
 
 	// Create vertex buffer view

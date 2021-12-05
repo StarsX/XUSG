@@ -37,10 +37,10 @@ bool EZ::CommandList_DX12::Create(const Device* pDevice, XUSG::CommandList* pCom
 {
 	m_commandList = dynamic_cast<XUSG::CommandList_DX12*>(pCommandList)->GetGraphicsCommandList();
 
-	m_graphicsPipelineCache = Graphics::PipelineCache::MakeUnique(pDevice);
-	m_computePipelineCache = Compute::PipelineCache::MakeUnique(pDevice);
-	m_pipelineLayoutCache = PipelineLayoutCache::MakeUnique(pDevice);
-	m_descriptorTableCache = DescriptorTableCache::MakeUnique(pDevice);
+	m_graphicsPipelineCache = Graphics::PipelineCache::MakeUnique(pDevice, API::DIRECTX_12);
+	m_computePipelineCache = Compute::PipelineCache::MakeUnique(pDevice, API::DIRECTX_12);
+	m_pipelineLayoutCache = PipelineLayoutCache::MakeUnique(pDevice, API::DIRECTX_12);
+	m_descriptorTableCache = DescriptorTableCache::MakeUnique(pDevice, L"EZDescirptorTableCache", API::DIRECTX_12);
 
 	// Allocate descriptor pools
 	m_descriptorTableCache->AllocateDescriptorPool(DescriptorPoolType::SAMPLER_POOL, samplerPoolSize);
@@ -217,13 +217,13 @@ void EZ::CommandList_DX12::IASetPrimitiveTopology(PrimitiveTopology primitiveTop
 
 void EZ::CommandList_DX12::RSSetState(Graphics::RasterizerPreset preset)
 {
-	if (!m_graphicsState) m_graphicsState = Graphics::State::MakeUnique();
+	if (!m_graphicsState) m_graphicsState = Graphics::State::MakeUnique(API::DIRECTX_12);
 	m_graphicsState->RSSetState(preset, m_graphicsPipelineCache.get());
 }
 
 void EZ::CommandList_DX12::DSSetState(Graphics::DepthStencilPreset preset)
 {
-	if (!m_graphicsState) m_graphicsState = Graphics::State::MakeUnique();
+	if (!m_graphicsState) m_graphicsState = Graphics::State::MakeUnique(API::DIRECTX_12);
 	m_graphicsState->DSSetState(preset, m_graphicsPipelineCache.get());
 }
 
@@ -237,7 +237,7 @@ void EZ::CommandList_DX12::SetPipelineState(const Pipeline& pipelineState)
 void EZ::CommandList_DX12::SetGraphicsSamplerStates(uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerPresets)
 {
 	auto& descriptorTable = m_samplerTables[GRAPHICS];
-	if (!descriptorTable) descriptorTable = Util::DescriptorTable::MakeUnique();
+	if (!descriptorTable) descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
 	descriptorTable->SetSamplers(startBinding, numSamplers, pSamplerPresets, m_descriptorTableCache.get());
 }
 
@@ -249,7 +249,7 @@ void EZ::CommandList_DX12::SetGraphicsResources(Shader::Stage stage, DescriptorT
 	auto& descriptorTable = descriptorTables[space];
 
 	// Set descriptors to the descriptor table
-	if (!descriptorTable) descriptorTable = Util::DescriptorTable::MakeUnique();
+	if (!descriptorTable) descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
 	vector<Descriptor> descriptors(numResources);
 	for (auto i = 0u; i < numResources; ++i) descriptors[i] = pResourceViews[i].view;
 	descriptorTable->SetDescriptors(startBinding, numResources, descriptors.data());
@@ -267,7 +267,7 @@ void EZ::CommandList_DX12::SetGraphicsResources(Shader::Stage stage, DescriptorT
 void EZ::CommandList_DX12::SetComputeSamplerStates(uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerPresets)
 {
 	auto& descriptorTable = m_samplerTables[COMPUTE];
-	if (!descriptorTable) descriptorTable = Util::DescriptorTable::MakeUnique();
+	if (!descriptorTable) descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
 	descriptorTable->SetSamplers(startBinding, numSamplers, pSamplerPresets, m_descriptorTableCache.get());
 }
 
@@ -279,7 +279,7 @@ void EZ::CommandList_DX12::SetComputeResources(DescriptorType descriptorType, ui
 	auto& descriptorTable = descriptorTables[space];
 
 	// Set descriptors to the descriptor table
-	if (!descriptorTable) descriptorTable = Util::DescriptorTable::MakeUnique();
+	if (!descriptorTable) descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
 	vector<Descriptor> descriptors(numResources);
 	for (auto i = 0u; i < numResources; ++i) descriptors[i] = pResourceViews[i].view;
 	descriptorTable->SetDescriptors(startBinding, numResources, descriptors.data());
@@ -360,14 +360,14 @@ void EZ::CommandList_DX12::Create(const Device* pDevice, void* pHandle, uint32_t
 
 Graphics::State* EZ::CommandList_DX12::GetGraphicsPipelineState()
 {
-	if (!m_graphicsState) m_graphicsState = Graphics::State::MakeUnique();
+	if (!m_graphicsState) m_graphicsState = Graphics::State::MakeUnique(API::DIRECTX_12);
 
 	return m_graphicsState.get();
 }
 
 Compute::State* EZ::CommandList_DX12::GetComputePipelineState()
 {
-	if (!m_computeState) m_computeState = Compute::State::MakeUnique();
+	if (!m_computeState) m_computeState = Compute::State::MakeUnique(API::DIRECTX_12);
 
 	return m_computeState.get();
 }
@@ -380,7 +380,7 @@ bool EZ::CommandList_DX12::createPipelineLayouts(uint32_t maxSamplers,
 	{
 		// Create common graphics pipeline layout
 		auto paramIndex = 0u;
-		const auto pipelineLayout = Util::PipelineLayout::MakeUnique();
+		const auto pipelineLayout = Util::PipelineLayout::MakeUnique(API::DIRECTX_12);
 		const auto maxSpaces = (max)(maxCbvSpaces, (max)(maxSrvSpaces, maxUavSpaces));
 		pipelineLayout->SetRange(paramIndex++, DescriptorType::SAMPLER, maxSamplers, 0, 0, DescriptorFlag::DATA_STATIC);
 
@@ -432,7 +432,7 @@ bool EZ::CommandList_DX12::createPipelineLayouts(uint32_t maxSamplers,
 	{
 		// Create common compute pipeline layout
 		auto paramIndex = 0u;
-		const auto pipelineLayout = Util::PipelineLayout::MakeUnique();
+		const auto pipelineLayout = Util::PipelineLayout::MakeUnique(API::DIRECTX_12);
 		pipelineLayout->SetRange(paramIndex++, DescriptorType::SAMPLER, maxSamplers, 0, 0, DescriptorFlag::DATA_STATIC);
 
 		m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::CBV)].resize(maxCbvSpaces);

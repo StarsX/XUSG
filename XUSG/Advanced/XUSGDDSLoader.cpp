@@ -543,8 +543,8 @@ static bool FillInitData(uint32_t width, uint32_t height, uint32_t depth,
 
 static bool CreateTexture(const Device* pDevice, CommandList* pCommandList,
 	const DDS_HEADER* header, const uint8_t* bitData, size_t bitSize, size_t maxsize,
-	bool forceSRGB, ShaderResource::sptr& texture, Resource* pUploader,
-	ResourceState state, MemoryFlag memoryFlags, const wchar_t* name)
+	bool forceSRGB, Texture::sptr& texture, Resource* pUploader,
+	ResourceState state, MemoryFlag memoryFlags, const wchar_t* name, API api)
 {
 	const auto width = header->width;
 	auto height = header->height;
@@ -642,7 +642,7 @@ static bool CreateTexture(const Device* pDevice, CommandList* pCommandList,
 	case ResourceDimension::TEXTURE1D:
 		F_RETURN(arraySize > GetDX12Requirement(REQ_TEXTURE1D_ARRAY_AXIS_DIMENSION) ||
 			width > GetDX12Requirement(REQ_TEXTURE1D_U_DIMENSION), cerr, ERROR_NOT_SUPPORTED, false);
-		texture = Texture2D::MakeUnique();
+		texture = Texture::MakeShared(api);
 		break;
 
 	case ResourceDimension::TEXTURE2D:
@@ -658,7 +658,7 @@ static bool CreateTexture(const Device* pDevice, CommandList* pCommandList,
 			width > GetDX12Requirement(REQ_TEXTURE2D_U_OR_V_DIMENSION) ||
 			height > GetDX12Requirement(REQ_TEXTURE2D_U_OR_V_DIMENSION),
 			cerr, ERROR_NOT_SUPPORTED, false);
-		texture = Texture2D::MakeUnique();
+		texture = Texture::MakeShared(api);
 		break;
 
 	case ResourceDimension::TEXTURE3D:
@@ -667,7 +667,7 @@ static bool CreateTexture(const Device* pDevice, CommandList* pCommandList,
 			height > GetDX12Requirement(REQ_TEXTURE3D_U_V_OR_W_DIMENSION) ||
 			depth > GetDX12Requirement(REQ_TEXTURE3D_U_V_OR_W_DIMENSION),
 			cerr, ERROR_NOT_SUPPORTED, false);
-		texture = Texture3D::MakeUnique();
+		texture = Texture3D::MakeShared(api);
 		break;
 
 	default:
@@ -688,7 +688,6 @@ static bool CreateTexture(const Device* pDevice, CommandList* pCommandList,
 			twidth, theight, tdepth, skipMip, initData.data()))
 		{
 			bool success;
-			const auto texture2D = dynamic_pointer_cast<Texture2D, ShaderResource>(texture);
 			const auto texture3D = dynamic_pointer_cast<Texture3D, ShaderResource>(texture);
 			if (texture3D) // Texture3D can be a Texture2D, so it goes first.
 			{
@@ -698,15 +697,14 @@ static bool CreateTexture(const Device* pDevice, CommandList* pCommandList,
 				if (success) success = texture3D->Upload(pCommandList, pUploader, initData.data(),
 					subresourceCount, state);
 			}
-			else if (texture2D)
+			else
 			{
 				const auto fmt = forceSRGB ? MakeSRGB(format) : format;
-				success = texture2D->Create(pDevice, twidth, theight, fmt, arraySize,
+				success = texture->Create(pDevice, twidth, theight, fmt, arraySize,
 					ResourceFlag::NONE, mipCount - skipMip, 1, isCubeMap, memoryFlags, name);
-				if (success) success = texture2D->Upload(pCommandList, pUploader, initData.data(),
+				if (success) success = texture->Upload(pCommandList, pUploader, initData.data(),
 					subresourceCount, state);
 			}
-			else V_RETURN(ERROR_NOT_SUPPORTED, cerr, false);
 
 			if (!success && !maxsize && (mipCount > 1))
 			{
@@ -721,22 +719,21 @@ static bool CreateTexture(const Device* pDevice, CommandList* pCommandList,
 					if (texture3D) // Texture3D can be a Texture2D, so it goes first.
 					{
 						const auto fmt = forceSRGB ? MakeSRGB(format) : format;
-						texture = Texture3D::MakeUnique();
+						texture = Texture3D::MakeShared(api);
 						success = texture3D->Create(pDevice, width, height, depth, fmt,
 							ResourceFlag::NONE, mipCount, memoryFlags, name);
 						if (success) success = texture3D->Upload(pCommandList, pUploader, initData.data(),
 							subresourceCount, state);
 					}
-					else if (texture2D)
+					else
 					{
 						const auto fmt = forceSRGB ? MakeSRGB(format) : format;
-						texture = Texture2D::MakeUnique();
-						success = texture2D->Create(pDevice, width, height, fmt, arraySize,
+						texture = Texture::MakeShared(api);
+						success = texture->Create(pDevice, width, height, fmt, arraySize,
 							ResourceFlag::NONE, mipCount, 1, isCubeMap, memoryFlags, name);
-						if (success) success = texture2D->Upload(pCommandList, pUploader, initData.data(),
+						if (success) success = texture->Upload(pCommandList, pUploader, initData.data(),
 							subresourceCount, state);
 					}
-					else V_RETURN(ERROR_NOT_SUPPORTED, cerr, false);
 				}
 			}
 
@@ -785,8 +782,8 @@ Loader::~Loader()
 
 bool Loader::CreateTextureFromMemory(const Device* pDevice, CommandList* pCommandList,
 	const uint8_t* ddsData, size_t ddsDataSize, size_t maxsize, bool forceSRGB,
-	ShaderResource::sptr& texture, Resource* pUploader, AlphaMode* alphaMode,
-	ResourceState state, MemoryFlag memoryFlags)
+	Texture::sptr& texture, Resource* pUploader, AlphaMode* alphaMode,
+	ResourceState state, MemoryFlag memoryFlags, API api)
 {
 	if (alphaMode)* alphaMode = ALPHA_MODE_UNKNOWN;
 	F_RETURN(!pDevice || !ddsData, cerr, E_INVALIDARG, false);
@@ -812,8 +809,8 @@ bool Loader::CreateTextureFromMemory(const Device* pDevice, CommandList* pComman
 	// Must be long enough for all headers and magic value
 	C_RETURN(ddsDataSize < offset, false);
 
-	N_RETURN(CreateTexture(pDevice, pCommandList, header, ddsData + offset, ddsDataSize - offset,
-		maxsize, forceSRGB, texture, pUploader, state, memoryFlags, L"DDSTextureLoader"), false);
+	N_RETURN(CreateTexture(pDevice, pCommandList, header, ddsData + offset, ddsDataSize - offset, maxsize,
+		forceSRGB, texture, pUploader, state, memoryFlags, L"DDSTextureLoader", api), false);
 
 	if (alphaMode)* alphaMode = GetAlphaMode(header);
 
@@ -821,8 +818,9 @@ bool Loader::CreateTextureFromMemory(const Device* pDevice, CommandList* pComman
 }
 
 bool Loader::CreateTextureFromFile(const Device* pDevice, CommandList* pCommandList,
-	const wchar_t* fileName, size_t maxsize, bool forceSRGB, ShaderResource::sptr& texture,
-	Resource* pUploader, AlphaMode* alphaMode, ResourceState state, MemoryFlag memoryFlags)
+	const wchar_t* fileName, size_t maxsize, bool forceSRGB, Texture::sptr& texture,
+	Resource* pUploader, AlphaMode* alphaMode, ResourceState state,
+	MemoryFlag memoryFlags, API api)
 {
 	if (alphaMode)* alphaMode = ALPHA_MODE_UNKNOWN;
 	F_RETURN(!pDevice || !fileName, cerr, E_INVALIDARG, false);
@@ -834,8 +832,8 @@ bool Loader::CreateTextureFromFile(const Device* pDevice, CommandList* pCommandL
 	unique_ptr<uint8_t[]> ddsData;
 	N_RETURN(LoadTextureDataFromFile(fileName, ddsData, &header, &bitData, &bitSize), false);
 
-	N_RETURN(CreateTexture(pDevice, pCommandList, header, bitData, bitSize,
-		maxsize, forceSRGB, texture, pUploader, state, memoryFlags, fileName), false);
+	N_RETURN(CreateTexture(pDevice, pCommandList, header, bitData, bitSize, maxsize,
+		forceSRGB, texture, pUploader, state, memoryFlags, fileName, api), false);
 
 	if (alphaMode)* alphaMode = GetAlphaMode(header);
 

@@ -86,13 +86,13 @@ namespace XUSG
 		// Sampler feedback
 		//--------------------------------------------------------------------------------------
 		class DLL_INTERFACE SamplerFeedBack :
-			public virtual Texture2D
+			public virtual Texture
 		{
 		public:
 			//SamplerFeedBack();
 			virtual ~SamplerFeedBack() {};
 
-			virtual bool Create(const Device* pDevice, const Texture2D* pTarget, Format format,
+			virtual bool Create(const Device* pDevice, const Texture* pTarget, Format format,
 				uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
 				ResourceFlag resourceFlags = ResourceFlag::NONE, bool isCubeMap = false,
 				MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr) = 0;

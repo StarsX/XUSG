@@ -103,15 +103,15 @@ namespace XUSG
 	};
 
 	//--------------------------------------------------------------------------------------
-	// 2D Texture
+	// Texture
 	//--------------------------------------------------------------------------------------
-	class Texture2D_DX12 :
-		public virtual Texture2D,
+	class Texture_DX12 :
+		public virtual Texture,
 		public virtual ShaderResource_DX12
 	{
 	public:
-		Texture2D_DX12();
-		virtual ~Texture2D_DX12();
+		Texture_DX12();
+		virtual ~Texture_DX12();
 
 		bool Create(const Device* pDevice, uint32_t width, uint32_t height, Format format,
 			uint32_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
@@ -172,7 +172,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	class RenderTarget_DX12 :
 		public virtual RenderTarget,
-		public virtual Texture2D_DX12
+		public virtual Texture_DX12
 	{
 	public:
 		RenderTarget_DX12();
@@ -222,7 +222,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	class DepthStencil_DX12 :
 		public virtual DepthStencil,
-		public virtual Texture2D_DX12
+		public virtual Texture_DX12
 	{
 	public:
 		DepthStencil_DX12();
@@ -264,7 +264,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	class Texture3D_DX12 :
 		public virtual Texture3D,
-		public virtual Texture2D_DX12
+		public virtual Texture_DX12
 	{
 	public:
 		Texture3D_DX12();
@@ -282,15 +282,15 @@ namespace XUSG
 	};
 
 	//--------------------------------------------------------------------------------------
-	// Raw buffer
+	// Buffer/raw buffer
 	//--------------------------------------------------------------------------------------
-	class RawBuffer_DX12 :
-		public virtual RawBuffer,
+	class Buffer_DX12 :
+		public virtual Buffer,
 		public virtual ShaderResource_DX12
 	{
 	public:
-		RawBuffer_DX12();
-		virtual ~RawBuffer_DX12();
+		Buffer_DX12();
+		virtual ~Buffer_DX12();
 
 		bool Create(const Device* pDevice, size_t byteWidth, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			MemoryType memoryType = MemoryType::DEFAULT, uint32_t numSRVs = 1,
@@ -326,7 +326,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	class StructuredBuffer_DX12 :
 		public virtual StructuredBuffer,
-		public virtual RawBuffer_DX12
+		public virtual Buffer_DX12
 	{
 	public:
 		StructuredBuffer_DX12();
@@ -357,7 +357,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	class TypedBuffer_DX12 :
 		public virtual TypedBuffer,
-		public virtual RawBuffer_DX12
+		public virtual Buffer_DX12
 	{
 	public:
 		TypedBuffer_DX12();

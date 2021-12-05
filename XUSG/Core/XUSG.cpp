@@ -115,19 +115,19 @@ ShaderResource::sptr ShaderResource::MakeShared(API api)
 	return make_shared<ShaderResource_DX12>();
 }
 
-Texture2D* Texture2D::AsTexture2D()
+Texture* Texture::AsTexture()
 {
-	return static_cast<Texture2D*>(this);
+	return static_cast<Texture*>(this);
 }
 
-Texture2D::uptr Texture2D::MakeUnique(API api)
+Texture::uptr Texture::MakeUnique(API api)
 {
-	return make_unique<Texture2D_DX12>();
+	return make_unique<Texture_DX12>();
 }
 
-Texture2D::sptr Texture2D::MakeShared(API api)
+Texture::sptr Texture::MakeShared(API api)
 {
-	return make_shared<Texture2D_DX12>();
+	return make_shared<Texture_DX12>();
 }
 
 RenderTarget::uptr RenderTarget::MakeUnique(API api)
@@ -160,14 +160,14 @@ Texture3D::sptr Texture3D::MakeShared(API api)
 	return make_shared<Texture3D_DX12>();
 }
 
-RawBuffer::uptr RawBuffer::MakeUnique(API api)
+Buffer::uptr Buffer::MakeUnique(API api)
 {
-	return make_unique<RawBuffer_DX12>();
+	return make_unique<Buffer_DX12>();
 }
 
-RawBuffer::sptr RawBuffer::MakeShared(API api)
+Buffer::sptr Buffer::MakeShared(API api)
 {
-	return make_shared<RawBuffer_DX12>();
+	return make_shared<Buffer_DX12>();
 }
 
 StructuredBuffer::uptr StructuredBuffer::MakeUnique(API api)
