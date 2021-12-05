@@ -450,7 +450,7 @@ bool EZ::CommandList_DX12::createPipelineLayouts(uint32_t maxSamplers,
 		{
 			if (s < maxCbvSpaces)
 			{
-				const auto maxDescriptors = pMaxCbvsEachSpace ? pMaxCbvsEachSpace[s] : 32;
+				const auto maxDescriptors = pMaxCbvsEachSpace ? pMaxCbvsEachSpace[s] : 14;
 				m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::CBV)][s] = paramIndex;
 				pipelineLayout->SetRange(paramIndex++, DescriptorType::CBV, maxDescriptors, 0, s, DescriptorFlag::DATA_STATIC);
 			}
