@@ -48,6 +48,19 @@ Blob ShaderPool_DX12::CreateShader(Shader::Stage stage, uint32_t index, const ws
 	return shader.get();
 }
 
+Blob ShaderPool_DX12::CreateShader(Shader::Stage stage, uint32_t index, const uint8_t* pData, size_t size)
+{
+	auto& shader = checkShaderStorage(stage, index);
+	V_RETURN(D3DCreateBlob(size, &shader), cerr, nullptr);
+	memcpy(shader->GetBufferPointer(), pData, size);
+
+	auto& reflector = checkReflectorStorage(stage, index);
+	reflector = make_shared<Reflector_DX12>();
+	N_RETURN(reflector->SetShader(shader.get()), nullptr);
+
+	return shader.get();
+}
+
 Blob ShaderPool_DX12::GetShader(Shader::Stage stage, uint32_t index) const
 {
 	return index < m_shaders[stage].size() ? m_shaders[stage][index].get() : nullptr;

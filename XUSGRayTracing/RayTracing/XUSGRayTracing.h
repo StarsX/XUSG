@@ -129,12 +129,8 @@ namespace XUSG
 
 			virtual bool PreBuild(const Device* pDevice, uint32_t numDescs, const GeometryBuffer& geometries,
 				uint32_t descriptorIndex, BuildFlag flags = BuildFlag::PREFER_FAST_TRACE) = 0;
-			virtual void Build(const CommandList* pCommandList, const Resource* pScratch,
+			virtual void Build(CommandList* pCommandList, const Resource* pScratch,
 				const DescriptorPool& descriptorPool, bool update = false) = 0;
-#if !ENABLE_DXR_FALLBACK
-			virtual void Build(XUSG::CommandList* pCommandList, const Resource* pScratch,
-				const DescriptorPool& descriptorPool, bool update = false) = 0;
-#endif
 
 			static void SetTriangleGeometries(GeometryBuffer& geometries, uint32_t numGeometries, Format vertexFormat,
 				const VertexBufferView* pVBs, const IndexBufferView* pIBs = nullptr,
@@ -165,10 +161,6 @@ namespace XUSG
 				BuildFlag flags = BuildFlag::PREFER_FAST_TRACE) = 0;
 			virtual void Build(const CommandList* pCommandList, const Resource* pScratch,
 				const Resource* pInstanceDescs, const DescriptorPool& descriptorPool, bool update = false) = 0;
-#if !ENABLE_DXR_FALLBACK
-			virtual void Build(XUSG::CommandList* pCommandList, const Resource* pScratch,
-				const Resource* pInstanceDescs, const DescriptorPool& descriptorPool, bool update = false) = 0;
-#endif
 
 			static void SetInstances(const Device* pDevice, Resource* pInstances,
 				uint32_t numInstances, const BottomLevelAS* const* ppBottomLevelASs,

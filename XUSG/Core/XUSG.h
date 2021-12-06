@@ -1041,7 +1041,7 @@ namespace XUSG
 		virtual void OMSetBlendFactor(const float blendFactor[4]) const = 0;
 		virtual void OMSetStencilRef(uint32_t stencilRef) const = 0;
 		virtual void SetPipelineState(const Pipeline& pipelineState) const = 0;
-		virtual void Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers) const = 0;
+		virtual void Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers) = 0;
 		virtual void ExecuteBundle(const CommandList* pCommandList) const = 0;
 		virtual void SetDescriptorPools(uint32_t numDescriptorPools, const DescriptorPool* pDescriptorPools) const = 0;
 		virtual void SetComputePipelineLayout(const PipelineLayout& pipelineLayout) const = 0;
@@ -1070,19 +1070,19 @@ namespace XUSG
 			const Descriptor* pDepthStencilView = nullptr,
 			bool rtsSingleHandleToDescriptorRange = false) const = 0;
 		virtual void ClearDepthStencilView(const Framebuffer& framebuffer, ClearFlag clearFlags,
-			float depth, uint8_t stencil = 0, uint32_t numRects = 0, const RectRange* pRects = nullptr) const = 0;
+			float depth, uint8_t stencil = 0, uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
 		virtual void ClearDepthStencilView(const Descriptor& depthStencilView, ClearFlag clearFlags,
-			float depth, uint8_t stencil = 0, uint32_t numRects = 0, const RectRange* pRects = nullptr) const = 0;
+			float depth, uint8_t stencil = 0, uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
 		virtual void ClearRenderTargetView(const Descriptor& renderTargetView, const float colorRGBA[4],
-			uint32_t numRects = 0, const RectRange* pRects = nullptr) const = 0;
+			uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
 		virtual void ClearUnorderedAccessViewUint(const DescriptorTable& descriptorTable,
 			const Descriptor& descriptor, const Resource* pResource, const uint32_t values[4],
-			uint32_t numRects = 0, const RectRange* pRects = nullptr) const = 0;
+			uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
 		virtual void ClearUnorderedAccessViewFloat(const DescriptorTable& descriptorTable,
 			const Descriptor& descriptor, const Resource* pResource, const float values[4],
-			uint32_t numRects = 0, const RectRange* pRects = nullptr) const = 0;
+			uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
 		virtual void DiscardResource(const Resource*pResource, uint32_t numRects, const RectRange* pRects,
-			uint32_t firstSubresource, uint32_t numSubresources) const = 0;
+			uint32_t firstSubresource, uint32_t numSubresources) = 0;
 		virtual void BeginQuery(const QueryPool& queryPool, QueryType type, uint32_t index) const = 0;
 		virtual void EndQuery(const QueryPool& queryPool, QueryType type, uint32_t index) const = 0;
 		virtual void ResolveQueryData(const QueryPool& queryPool, QueryType type, uint32_t startIndex,
@@ -1291,12 +1291,12 @@ namespace XUSG
 			const DescriptorTable& samplerTable = nullptr, uint32_t samplerSlot = 1,
 			const Pipeline& pipeline = nullptr) = 0;
 
-		virtual uint32_t Blit(const CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
+		virtual uint32_t Blit(CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
 			uint32_t groupSizeY, uint32_t groupSizeZ, uint8_t mipLevel, int8_t srcMipLevel,
 			ResourceState srcState, const DescriptorTable& uavSrvTable, uint32_t uavSrvSlot = 0,
 			uint32_t numBarriers = 0, const DescriptorTable& srvTable = nullptr,
 			uint32_t srvSlot = 0, uint32_t baseSlice = 0, uint32_t numSlices = 0) = 0;
-		virtual uint32_t GenerateMips(const CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
+		virtual uint32_t GenerateMips(CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
 			uint32_t groupSizeY, uint32_t groupSizeZ, ResourceState dstState, const PipelineLayout& pipelineLayout,
 			const Pipeline& pipeline, const DescriptorTable* pUavSrvTables, uint32_t uavSrvSlot = 0,
 			const DescriptorTable& samplerTable = nullptr, uint32_t samplerSlot = 1, uint32_t numBarriers = 0,
@@ -1353,11 +1353,11 @@ namespace XUSG
 			uint32_t samplerSlot = 1, const Pipeline& pipeline = nullptr,
 			uint32_t offsetForSliceId = 0, uint32_t cbSlot = 2) = 0;
 
-		virtual uint32_t Blit(const CommandList* pCommandList, ResourceBarrier* pBarriers, uint8_t mipLevel,
+		virtual uint32_t Blit(CommandList* pCommandList, ResourceBarrier* pBarriers, uint8_t mipLevel,
 			int8_t srcMipLevel, ResourceState srcState, const DescriptorTable& srcSrvTable,
 			uint32_t srcSlot = 0, uint32_t numBarriers = 0, uint32_t baseSlice = 0, uint32_t numSlices = 0,
 			uint32_t offsetForSliceId = 0, uint32_t cbSlot = 2) = 0;
-		virtual uint32_t GenerateMips(const CommandList* pCommandList, ResourceBarrier* pBarriers, ResourceState dstState,
+		virtual uint32_t GenerateMips(CommandList* pCommandList, ResourceBarrier* pBarriers, ResourceState dstState,
 			const PipelineLayout& pipelineLayout, const Pipeline& pipeline, const DescriptorTable* pSrcSrvTables,
 			uint32_t srcSlot = 0, const DescriptorTable& samplerTable = nullptr, uint32_t samplerSlot = 1,
 			uint32_t numBarriers = 0, uint8_t baseMip = 1, uint8_t numMips = 0, uint32_t baseSlice = 0,
@@ -1713,6 +1713,7 @@ namespace XUSG
 		virtual void SetReflector(Shader::Stage stage, uint32_t index, const Reflector::sptr& reflector) = 0;
 
 		virtual Blob CreateShader(Shader::Stage stage, uint32_t index, const std::wstring& fileName) = 0;
+		virtual Blob CreateShader(Shader::Stage stage, uint32_t index, const uint8_t* pData, size_t size) = 0;
 		virtual Blob GetShader(Shader::Stage stage, uint32_t index) const = 0;
 		virtual Reflector::sptr GetReflector(Shader::Stage stage, uint32_t index) const = 0;
 

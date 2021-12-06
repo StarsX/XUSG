@@ -177,7 +177,7 @@ bool BottomLevelAS_DX12::PreBuild(const Device* pDevice, uint32_t numDescs,
 	return preBuild(pDevice, descriptorIndex);
 }
 
-void BottomLevelAS_DX12::Build(const CommandList* pCommandList, const Resource* pScratch,
+void BottomLevelAS_DX12::Build(CommandList* pCommandList, const Resource* pScratch,
 	const DescriptorPool& descriptorPool, bool update)
 {
 	// Complete Acceleration Structure desc
@@ -206,15 +206,6 @@ void BottomLevelAS_DX12::Build(const CommandList* pCommandList, const Resource* 
 	};
 	pCommandList->Barrier(1, &barrier);
 }
-
-#if !ENABLE_DXR_FALLBACK
-void BottomLevelAS_DX12::Build(XUSG::CommandList* pCommandList, const Resource* pScratch,
-	const DescriptorPool& descriptorPool, bool update)
-{
-	const auto commandList = CommandList::MakeUnique(pCommandList, API::DIRECTX_12);
-	Build(commandList.get(), pScratch, descriptorPool, update);
-}
-#endif
 
 void BottomLevelAS_DX12::SetTriangleGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
 	Format vertexFormat, const VertexBufferView* pVBs, const IndexBufferView* pIBs,
@@ -319,15 +310,6 @@ void TopLevelAS_DX12::Build(const CommandList* pCommandList, const Resource* pSc
 	// Build acceleration structure.
 	pCommandList->BuildRaytracingAccelerationStructure(&m_buildDesc, 0, nullptr, descriptorPool);
 }
-
-#if !ENABLE_DXR_FALLBACK
-void TopLevelAS_DX12::Build(XUSG::CommandList* pCommandList, const Resource* pScratch,
-	const Resource* pInstanceDescs, const DescriptorPool& descriptorPool, bool update)
-{
-	const auto commandList = CommandList::MakeUnique(pCommandList, API::DIRECTX_12);
-	Build(commandList.get(), pScratch, pInstanceDescs, descriptorPool, update);
-}
-#endif
 
 void TopLevelAS_DX12::SetInstances(const RayTracing::Device* pDevice, Resource* pInstances,
 	uint32_t numInstances, const BottomLevelAS* const* ppBottomLevelASs, float* const* transforms)

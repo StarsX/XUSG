@@ -71,7 +71,7 @@ namespace XUSG
 		void OMSetBlendFactor(const float blendFactor[4]) const;
 		void OMSetStencilRef(uint32_t stencilRef) const;
 		void SetPipelineState(const Pipeline& pipelineState) const;
-		void Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers) const;
+		void Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers);
 		void ExecuteBundle(const CommandList* pCommandList) const;
 		void SetDescriptorPools(uint32_t numDescriptorPools, const DescriptorPool* pDescriptorPools) const;
 		void SetComputePipelineLayout(const PipelineLayout& pipelineLayout) const;
@@ -100,19 +100,19 @@ namespace XUSG
 			const Descriptor* pDepthStencilView = nullptr,
 			bool rtsSingleHandleToDescriptorRange = false) const;
 		void ClearDepthStencilView(const Framebuffer& framebuffer, ClearFlag clearFlags,
-			float depth, uint8_t stencil = 0, uint32_t numRects = 0, const RectRange * pRects = nullptr) const;
+			float depth, uint8_t stencil = 0, uint32_t numRects = 0, const RectRange * pRects = nullptr);
 		void ClearDepthStencilView(const Descriptor& depthStencilView, ClearFlag clearFlags,
-			float depth, uint8_t stencil = 0, uint32_t numRects = 0, const RectRange* pRects = nullptr) const;
+			float depth, uint8_t stencil = 0, uint32_t numRects = 0, const RectRange* pRects = nullptr);
 		void ClearRenderTargetView(const Descriptor& renderTargetView, const float colorRGBA[4],
-			uint32_t numRects = 0, const RectRange* pRects = nullptr) const;
+			uint32_t numRects = 0, const RectRange* pRects = nullptr);
 		void ClearUnorderedAccessViewUint(const DescriptorTable& descriptorTable,
 			const Descriptor& descriptor, const Resource* pResource, const uint32_t values[4],
-			uint32_t numRects = 0, const RectRange* pRects = nullptr) const;
+			uint32_t numRects = 0, const RectRange* pRects = nullptr);
 		void ClearUnorderedAccessViewFloat(const DescriptorTable& descriptorTable,
 			const Descriptor& descriptor, const Resource* pResource, const float values[4],
-			uint32_t numRects = 0, const RectRange* pRects = nullptr) const;
+			uint32_t numRects = 0, const RectRange* pRects = nullptr);
 		void DiscardResource(const Resource* pResource, uint32_t numRects, const RectRange* pRects,
-			uint32_t firstSubresource, uint32_t numSubresources) const;
+			uint32_t firstSubresource, uint32_t numSubresources);
 		void BeginQuery(const QueryPool& queryPool, QueryType type, uint32_t index) const;
 		void EndQuery(const QueryPool& queryPool, QueryType type, uint32_t index) const;
 		void ResolveQueryData(const QueryPool& queryPool, QueryType type, uint32_t startIndex,
@@ -132,7 +132,10 @@ namespace XUSG
 		com_ptr<ID3D12GraphicsCommandList>& GetGraphicsCommandList();
 
 	protected:
-		com_ptr<ID3D12GraphicsCommandList> m_commandList;
+		com_ptr<ID3D12GraphicsCommandList>	m_commandList;
+
+		std::vector<D3D12_RESOURCE_BARRIER>	m_barriers;
+		std::vector<D3D12_RECT>				m_rects;
 	};
 
 	class CommandQueue_DX12 :
@@ -162,7 +165,8 @@ namespace XUSG
 		com_ptr<ID3D12CommandQueue>& GetCommandQueue();
 
 	protected:
-
 		com_ptr<ID3D12CommandQueue> m_commandQueue;
+
+		std::vector<ID3D12CommandList*> m_pCommandLists;
 	};
 }

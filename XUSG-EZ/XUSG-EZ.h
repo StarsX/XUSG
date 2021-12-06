@@ -108,7 +108,7 @@ namespace XUSG
 			virtual void ClearRenderTargetView(ResourceView& renderTargetView, const float colorRGBA[4],
 				uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
 			virtual void DiscardResource(const Resource* pResource, uint32_t numRects, const RectRange* pRects,
-				uint32_t firstSubresource, uint32_t numSubresources) const = 0;
+				uint32_t firstSubresource, uint32_t numSubresources) = 0;
 			virtual void BeginQuery(const QueryPool& queryPool, QueryType type, uint32_t index) const = 0;
 			virtual void EndQuery(const QueryPool& queryPool, QueryType type, uint32_t index) const = 0;
 			virtual void ResolveQueryData(const QueryPool& queryPool, QueryType type, uint32_t startIndex,

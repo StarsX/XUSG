@@ -653,7 +653,7 @@ void Texture_DX12::Blit(const CommandList* pCommandList, uint32_t groupSizeX, ui
 		DIV_UP(desc.DepthOrArraySize, groupSizeZ));
 }
 
-uint32_t Texture_DX12::Blit(const CommandList* pCommandList, ResourceBarrier* pBarriers,
+uint32_t Texture_DX12::Blit(CommandList* pCommandList, ResourceBarrier* pBarriers,
 	uint32_t groupSizeX, uint32_t groupSizeY, uint32_t groupSizeZ, uint8_t mipLevel,
 	int8_t srcMipLevel, ResourceState srcState, const DescriptorTable& uavSrvTable,
 	uint32_t uavSrvSlot, uint32_t numBarriers, const DescriptorTable& srvTable,
@@ -688,7 +688,7 @@ uint32_t Texture_DX12::Blit(const CommandList* pCommandList, ResourceBarrier* pB
 	return numBarriers;
 }
 
-uint32_t Texture_DX12::GenerateMips(const CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
+uint32_t Texture_DX12::GenerateMips(CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
 	uint32_t groupSizeY, uint32_t groupSizeZ, ResourceState dstState, const PipelineLayout& pipelineLayout,
 	const Pipeline& pipeline, const DescriptorTable* pUavSrvTables, uint32_t uavSrvSlot, const DescriptorTable& samplerTable,
 	uint32_t samplerSlot, uint32_t numBarriers, const DescriptorTable* pSrvTables, uint32_t srvSlot, uint8_t baseMip,
@@ -961,7 +961,7 @@ void RenderTarget_DX12::Blit(const CommandList* pCommandList, const DescriptorTa
 	}
 }
 
-uint32_t RenderTarget_DX12::Blit(const CommandList* pCommandList, ResourceBarrier* pBarriers, uint8_t mipLevel,
+uint32_t RenderTarget_DX12::Blit(CommandList* pCommandList, ResourceBarrier* pBarriers, uint8_t mipLevel,
 	int8_t srcMipLevel, ResourceState srcState, const DescriptorTable& srcSrvTable, uint32_t srcSlot,
 	uint32_t numBarriers, uint32_t baseSlice, uint32_t numSlices,
 	uint32_t offsetForSliceId, uint32_t cbSlot)
@@ -990,7 +990,7 @@ uint32_t RenderTarget_DX12::Blit(const CommandList* pCommandList, ResourceBarrie
 	return numBarriers;
 }
 
-uint32_t RenderTarget_DX12::GenerateMips(const CommandList* pCommandList, ResourceBarrier* pBarriers,
+uint32_t RenderTarget_DX12::GenerateMips(CommandList* pCommandList, ResourceBarrier* pBarriers,
 	ResourceState dstState, const PipelineLayout& pipelineLayout, const Pipeline& pipeline,
 	const DescriptorTable* pSrcSrvTables, uint32_t srcSlot, const DescriptorTable& samplerTable,
 	uint32_t samplerSlot, uint32_t numBarriers, uint8_t baseMip, uint8_t numMips,

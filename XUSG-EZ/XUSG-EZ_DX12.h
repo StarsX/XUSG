@@ -93,7 +93,7 @@ namespace XUSG
 			void ClearRenderTargetView(ResourceView& renderTargetView, const float colorRGBA[4],
 				uint32_t numRects = 0, const RectRange* pRects = nullptr);
 			void DiscardResource(const Resource* pResource, uint32_t numRects, const RectRange* pRects,
-				uint32_t firstSubresource, uint32_t numSubresources) const
+				uint32_t firstSubresource, uint32_t numSubresources)
 			{
 				XUSG::CommandList_DX12::DiscardResource(pResource, numRects,
 					pRects, firstSubresource, numSubresources);
@@ -205,6 +205,7 @@ namespace XUSG
 			Graphics::State::uptr m_graphicsState;
 			Compute::State::uptr m_computeState;
 
+			std::vector<Descriptor> m_descriptors;
 			std::vector<Util::DescriptorTable::uptr> m_graphicsCbvSrvUavTables[Shader::Stage::NUM_GRAPHICS][CbvSrvUavTypes];
 			std::vector<Util::DescriptorTable::uptr> m_computeCbvSrvUavTables[CbvSrvUavTypes];
 			Util::DescriptorTable::uptr m_samplerTables[NUM_PIPELINE_LAYOUT];

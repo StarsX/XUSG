@@ -222,11 +222,11 @@ void CommandList_DX12::SetPipelineState(const Pipeline& pipelineState) const
 	m_commandList->SetPipelineState(static_cast<ID3D12PipelineState*>(pipelineState));
 }
 
-void CommandList_DX12::Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers) const
+void CommandList_DX12::Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers)
 {
 	if (numBarriers > 0)
 	{
-		vector<D3D12_RESOURCE_BARRIER> barriers(numBarriers);
+		if (m_barriers.size() < numBarriers) m_barriers.resize(numBarriers);
 		for (auto i = 0u; i < numBarriers; ++i)
 		{
 			const auto& barrier = pBarriers[i];
@@ -237,16 +237,16 @@ void CommandList_DX12::Barrier(uint32_t numBarriers, const ResourceBarrier* pBar
 				const auto pResource = static_cast<ID3D12Resource*>(barrier.pResource->GetHandle());
 
 				if (barrier.StateBefore == barrier.StateAfter)
-					barriers[i] = barrier.StateAfter == ResourceState::UNORDERED_ACCESS ?
+					m_barriers[i] = barrier.StateAfter == ResourceState::UNORDERED_ACCESS ?
 						CD3DX12_RESOURCE_BARRIER::UAV(pResource) : CD3DX12_RESOURCE_BARRIER::Aliasing(pResource, pResourceAfter);
-				else barriers[i] = CD3DX12_RESOURCE_BARRIER::Transition(pResource, GetDX12ResourceStates(barrier.StateBefore),
+				else m_barriers[i] = CD3DX12_RESOURCE_BARRIER::Transition(pResource, GetDX12ResourceStates(barrier.StateBefore),
 					GetDX12ResourceStates(barrier.StateAfter), barrier.Subresource, GetDX12BarrierFlags(barrier.Flags));
 			}
-			else barriers[i] = barrier.StateBefore == ResourceState::UNORDERED_ACCESS ?
+			else m_barriers[i] = barrier.StateBefore == ResourceState::UNORDERED_ACCESS ?
 				CD3DX12_RESOURCE_BARRIER::UAV(nullptr) : CD3DX12_RESOURCE_BARRIER::Aliasing(nullptr, pResourceAfter);
 		}
 
-		m_commandList->ResourceBarrier(numBarriers, barriers.data());
+		m_commandList->ResourceBarrier(numBarriers, m_barriers.data());
 	}
 }
 
@@ -395,91 +395,91 @@ void CommandList_DX12::OMSetRenderTargets(uint32_t numRenderTargetDescriptors, c
 }
 
 void CommandList_DX12::ClearDepthStencilView(const Framebuffer& framebuffer, ClearFlag clearFlags, float depth,
-	uint8_t stencil, uint32_t numRects, const RectRange* pRects) const
+	uint8_t stencil, uint32_t numRects, const RectRange* pRects)
 {
 	ClearDepthStencilView(framebuffer.DepthStencilView, clearFlags, depth, stencil, numRects, pRects);
 }
 
 void CommandList_DX12::ClearDepthStencilView(const Descriptor& depthStencilView, ClearFlag clearFlags, float depth,
-	uint8_t stencil, uint32_t numRects, const RectRange* pRects) const
+	uint8_t stencil, uint32_t numRects, const RectRange* pRects)
 {
-	vector<D3D12_RECT> rects(numRects);
+	if (m_rects.size() < numRects) m_rects.resize(numRects);
 	for (auto i = 0u; i < numRects; ++i)
 	{
-		rects[i].left = pRects[i].Left;
-		rects[i].top = pRects[i].Top;
-		rects[i].right = pRects[i].Right;
-		rects[i].bottom = pRects[i].Bottom;
+		m_rects[i].left = pRects[i].Left;
+		m_rects[i].top = pRects[i].Top;
+		m_rects[i].right = pRects[i].Right;
+		m_rects[i].bottom = pRects[i].Bottom;
 	}
 
 	m_commandList->ClearDepthStencilView({ depthStencilView }, GetDX12ClearFlags(clearFlags),
-		depth, stencil, numRects, numRects ? rects.data() : nullptr);
+		depth, stencil, numRects, numRects ? m_rects.data() : nullptr);
 }
 
 void CommandList_DX12::ClearRenderTargetView(const Descriptor& renderTargetView, const float colorRGBA[4],
-	uint32_t numRects, const RectRange* pRects) const
+	uint32_t numRects, const RectRange* pRects)
 {
-	vector<D3D12_RECT> rects(numRects);
+	if (m_rects.size() < numRects) m_rects.resize(numRects);
 	for (auto i = 0u; i < numRects; ++i)
 	{
-		rects[i].left = pRects[i].Left;
-		rects[i].top = pRects[i].Top;
-		rects[i].right = pRects[i].Right;
-		rects[i].bottom = pRects[i].Bottom;
+		m_rects[i].left = pRects[i].Left;
+		m_rects[i].top = pRects[i].Top;
+		m_rects[i].right = pRects[i].Right;
+		m_rects[i].bottom = pRects[i].Bottom;
 	}
 
 	m_commandList->ClearRenderTargetView({ renderTargetView }, colorRGBA,
-		numRects, numRects ? rects.data() : nullptr);
+		numRects, numRects ? m_rects.data() : nullptr);
 }
 
 void CommandList_DX12::ClearUnorderedAccessViewUint(const DescriptorTable& descriptorTable, const Descriptor& descriptor,
-	const Resource* pResource, const uint32_t values[4], uint32_t numRects, const RectRange* pRects) const
+	const Resource* pResource, const uint32_t values[4], uint32_t numRects, const RectRange* pRects)
 {
-	vector<D3D12_RECT> rects(numRects);
+	if (m_rects.size() < numRects) m_rects.resize(numRects);
 	for (auto i = 0u; i < numRects; ++i)
 	{
-		rects[i].left = pRects[i].Left;
-		rects[i].top = pRects[i].Top;
-		rects[i].right = pRects[i].Right;
-		rects[i].bottom = pRects[i].Bottom;
+		m_rects[i].left = pRects[i].Left;
+		m_rects[i].top = pRects[i].Top;
+		m_rects[i].right = pRects[i].Right;
+		m_rects[i].bottom = pRects[i].Bottom;
 	}
 
 	m_commandList->ClearUnorderedAccessViewUint({ *descriptorTable }, { descriptor },
 		static_cast<ID3D12Resource*>(pResource->GetHandle()), values,
-		numRects, numRects ? rects.data() : nullptr);
+		numRects, numRects ? m_rects.data() : nullptr);
 }
 
 void CommandList_DX12::ClearUnorderedAccessViewFloat(const DescriptorTable& descriptorTable, const Descriptor& descriptor,
-	const Resource* pResource, const float values[4], uint32_t numRects, const RectRange* pRects) const
+	const Resource* pResource, const float values[4], uint32_t numRects, const RectRange* pRects)
 {
-	vector<D3D12_RECT> rects(numRects);
+	if (m_rects.size() < numRects) m_rects.resize(numRects);
 	for (auto i = 0u; i < numRects; ++i)
 	{
-		rects[i].left = pRects[i].Left;
-		rects[i].top = pRects[i].Top;
-		rects[i].right = pRects[i].Right;
-		rects[i].bottom = pRects[i].Bottom;
+		m_rects[i].left = pRects[i].Left;
+		m_rects[i].top = pRects[i].Top;
+		m_rects[i].right = pRects[i].Right;
+		m_rects[i].bottom = pRects[i].Bottom;
 	}
 
 	m_commandList->ClearUnorderedAccessViewFloat({ *descriptorTable }, { descriptor },
 		static_cast<ID3D12Resource*>(pResource->GetHandle()), values,
-		numRects, numRects ? rects.data() : nullptr);
+		numRects, numRects ? m_rects.data() : nullptr);
 }
 
 void CommandList_DX12::DiscardResource(const Resource* pResource, uint32_t numRects, const RectRange* pRects,
-	uint32_t firstSubresource, uint32_t numSubresources) const
+	uint32_t firstSubresource, uint32_t numSubresources)
 {
-	vector<D3D12_RECT> rects(numRects);
+	if (m_rects.size() < numRects) m_rects.resize(numRects);
 	for (auto i = 0u; i < numRects; ++i)
 	{
-		rects[i].left = pRects[i].Left;
-		rects[i].top = pRects[i].Top;
-		rects[i].right = pRects[i].Right;
-		rects[i].bottom = pRects[i].Bottom;
+		m_rects[i].left = pRects[i].Left;
+		m_rects[i].top = pRects[i].Top;
+		m_rects[i].right = pRects[i].Right;
+		m_rects[i].bottom = pRects[i].Bottom;
 	}
 
 	const D3D12_DISCARD_REGION region =
-	{ numRects, numRects ? rects.data() : nullptr, firstSubresource, numSubresources };
+	{ numRects, numRects ? m_rects.data() : nullptr, firstSubresource, numSubresources };
 	m_commandList->DiscardResource(static_cast<ID3D12Resource*>(pResource->GetHandle()), &region);
 }
 
@@ -601,11 +601,11 @@ bool CommandQueue_DX12::SubmitCommandList(const CommandList* pCommandList,
 
 void CommandQueue_DX12::ExecuteCommandLists(uint32_t numCommandLists, const CommandList* const* ppCommandLists)
 {
-	vector<ID3D12CommandList*> commandLists(numCommandLists);
+	if (m_pCommandLists.size() < numCommandLists) m_pCommandLists.resize(numCommandLists);
 	for (auto i = 0u; i < numCommandLists; ++i)
-		commandLists[i] = static_cast<ID3D12CommandList*>(ppCommandLists[i]->GetHandle());
+		m_pCommandLists[i] = static_cast<ID3D12CommandList*>(ppCommandLists[i]->GetHandle());
 
-	m_commandQueue->ExecuteCommandLists(numCommandLists, commandLists.data());
+	m_commandQueue->ExecuteCommandLists(numCommandLists, m_pCommandLists.data());
 }
 
 void CommandQueue_DX12::ExecuteCommandList(const CommandList* pCommandList)

@@ -229,9 +229,9 @@ void EZ::CommandList_DX12::SetGraphicsResources(Shader::Stage stage, DescriptorT
 
 	// Set descriptors to the descriptor table
 	if (!descriptorTable) descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
-	vector<Descriptor> descriptors(numResources);
-	for (auto i = 0u; i < numResources; ++i) descriptors[i] = pResourceViews[i].view;
-	descriptorTable->SetDescriptors(startBinding, numResources, descriptors.data());
+	if (m_descriptors.size() < numResources) m_descriptors.resize(numResources);
+	for (auto i = 0u; i < numResources; ++i) m_descriptors[i] = pResourceViews[i].view;
+	descriptorTable->SetDescriptors(startBinding, numResources, m_descriptors.data());
 
 	// Set barriers
 	if (descriptorType == DescriptorType::SRV || descriptorType == DescriptorType::UAV)
@@ -259,9 +259,9 @@ void EZ::CommandList_DX12::SetComputeResources(DescriptorType descriptorType, ui
 
 	// Set descriptors to the descriptor table
 	if (!descriptorTable) descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
-	vector<Descriptor> descriptors(numResources);
-	for (auto i = 0u; i < numResources; ++i) descriptors[i] = pResourceViews[i].view;
-	descriptorTable->SetDescriptors(startBinding, numResources, descriptors.data());
+	if (m_descriptors.size() < numResources) m_descriptors.resize(numResources);
+	for (auto i = 0u; i < numResources; ++i) m_descriptors[i] = pResourceViews[i].view;
+	descriptorTable->SetDescriptors(startBinding, numResources, m_descriptors.data());
 
 	// Set barriers
 	if (descriptorType == DescriptorType::SRV || descriptorType == DescriptorType::UAV)
@@ -537,23 +537,19 @@ void EZ::CommandList_DX12::predraw()
 void EZ::CommandList_DX12::setBarriers(uint32_t numResources, const ResourceView* pResourceViews, ResourceState dstState)
 {
 	// Estimate barrier count
-	auto numBarriers = 0u;
+	auto numBarriersEst = 0u;
 	for (auto i = 0u; i < numResources; ++i)
-		numBarriers += static_cast<uint32_t>(pResourceViews[i].Subresources.size());
+		numBarriersEst += static_cast<uint32_t>(pResourceViews[i].Subresources.size());
 
 	// Generate barriers for each resource
-	vector<ResourceBarrier> barriers(numBarriers);
-	numBarriers = 0;
+	const auto startIdx = m_barriers.size();
+	m_barriers.resize(startIdx + numBarriersEst);
+	auto numBarriers = 0u;
 	for (auto i = 0u; i < numResources; ++i)
-		numBarriers = generateBarriers(barriers.data(), pResourceViews[i], dstState, numBarriers);
+		numBarriers = generateBarriers(&m_barriers[startIdx], pResourceViews[i], dstState, numBarriers);
 
-	// Copy the barriers to the total
-	if (numBarriers > 0)
-	{
-		const auto i = m_barriers.size();
-		m_barriers.resize(m_barriers.size() + numBarriers);
-		memcpy(&m_barriers[i], barriers.data(), sizeof(ResourceBarrier) * numBarriers);
-	}
+	// Shrink the size of barrier list
+	if (numBarriers < numBarriersEst) m_barriers.resize(startIdx + numBarriers);
 }
 
 uint32_t EZ::CommandList_DX12::generateBarriers(ResourceBarrier* pBarriers, const ResourceView& resrouceView,
