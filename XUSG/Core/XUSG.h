@@ -1060,6 +1060,12 @@ namespace XUSG
 		virtual void SetGraphicsRootShaderResourceView(uint32_t index, const Resource* pResource, int offset = 0) const = 0;
 		virtual void SetComputeRootUnorderedAccessView(uint32_t index, const Resource* pResource, int offset = 0) const = 0;
 		virtual void SetGraphicsRootUnorderedAccessView(uint32_t index, const Resource* pResource, int offset = 0) const = 0;
+		virtual void SetComputeRootConstantBufferView(uint32_t index, uint64_t address) const = 0;
+		virtual void SetGraphicsRootConstantBufferView(uint32_t index, uint64_t address) const = 0;
+		virtual void SetComputeRootShaderResourceView(uint32_t index, uint64_t address) const = 0;
+		virtual void SetGraphicsRootShaderResourceView(uint32_t index, uint64_t address) const = 0;
+		virtual void SetComputeRootUnorderedAccessView(uint32_t index, uint64_t address) const = 0;
+		virtual void SetGraphicsRootUnorderedAccessView(uint32_t index, uint64_t address) const = 0;
 		virtual void IASetIndexBuffer(const IndexBufferView& view) const = 0;
 		virtual void IASetVertexBuffers(uint32_t startSlot, uint32_t numViews, const VertexBufferView* pViews) const = 0;
 		virtual void SOSetTargets(uint32_t startSlot, uint32_t numViews, const StreamOutBufferView* pViews) const = 0;
@@ -1782,9 +1788,13 @@ namespace XUSG
 		virtual void SetPipelineLayout(const std::string& key, const PipelineLayout& pipelineLayout) = 0;
 
 		virtual PipelineLayout CreatePipelineLayout(Util::PipelineLayout* pUtil, PipelineLayoutFlag flags,
-			const wchar_t* name = nullptr) = 0;
+			const wchar_t* name = nullptr, uint32_t nodeMask = 0) = 0;
 		virtual PipelineLayout GetPipelineLayout(Util::PipelineLayout* pUtil, PipelineLayoutFlag flags,
-			const wchar_t* name = nullptr, bool create = true) = 0;
+			const wchar_t* name = nullptr, bool create = true, uint32_t nodeMask = 0) = 0;
+		virtual PipelineLayout CreateRootSignature(const void* pBlobSignature, size_t size,
+			const wchar_t* name, uint32_t nodeMask = 0) = 0;
+		virtual PipelineLayout GetRootSignature(const void* pBlobSignature, size_t size,
+			const wchar_t* name = nullptr, bool create = true, uint32_t nodeMask = 0) = 0;
 
 		virtual DescriptorTableLayout CreateDescriptorTableLayout(uint32_t index, const Util::PipelineLayout* pUtil) = 0;
 		virtual DescriptorTableLayout GetDescriptorTableLayout(uint32_t index, const Util::PipelineLayout* pUtil) = 0;

@@ -90,6 +90,12 @@ namespace XUSG
 		void SetGraphicsRootShaderResourceView(uint32_t index, const Resource* pResource, int offset = 0) const;
 		void SetComputeRootUnorderedAccessView(uint32_t index, const Resource* pResource, int offset = 0) const;
 		void SetGraphicsRootUnorderedAccessView(uint32_t index, const Resource* pResource, int offset = 0) const;
+		void SetComputeRootConstantBufferView(uint32_t index, uint64_t address) const;
+		void SetGraphicsRootConstantBufferView(uint32_t index, uint64_t address) const;
+		void SetComputeRootShaderResourceView(uint32_t index, uint64_t address) const;
+		void SetGraphicsRootShaderResourceView(uint32_t index, uint64_t address) const;
+		void SetComputeRootUnorderedAccessView(uint32_t index, uint64_t address) const;
+		void SetGraphicsRootUnorderedAccessView(uint32_t index, uint64_t address) const;
 		void IASetIndexBuffer(const IndexBufferView& view) const;
 		void IASetVertexBuffers(uint32_t startSlot, uint32_t numViews, const VertexBufferView* pViews) const;
 		void SOSetTargets(uint32_t startSlot, uint32_t numViews, const StreamOutBufferView* pViews) const;

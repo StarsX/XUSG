@@ -332,6 +332,36 @@ void CommandList_DX12::SetGraphicsRootUnorderedAccessView(uint32_t index, const 
 	m_commandList->SetGraphicsRootUnorderedAccessView(index, pResource->GetVirtualAddress(offset));
 }
 
+void CommandList_DX12::SetComputeRootConstantBufferView(uint32_t index, uint64_t address) const
+{
+	m_commandList->SetComputeRootConstantBufferView(index, address);
+}
+
+void CommandList_DX12::SetGraphicsRootConstantBufferView(uint32_t index, uint64_t address) const
+{
+	m_commandList->SetGraphicsRootConstantBufferView(index, address);
+}
+
+void CommandList_DX12::SetComputeRootShaderResourceView(uint32_t index, uint64_t address) const
+{
+	m_commandList->SetComputeRootShaderResourceView(index, address);
+}
+
+void CommandList_DX12::SetGraphicsRootShaderResourceView(uint32_t index, uint64_t address) const
+{
+	m_commandList->SetGraphicsRootShaderResourceView(index, address);
+}
+
+void CommandList_DX12::SetComputeRootUnorderedAccessView(uint32_t index, uint64_t address) const
+{
+	m_commandList->SetComputeRootUnorderedAccessView(index, address);
+}
+
+void CommandList_DX12::SetGraphicsRootUnorderedAccessView(uint32_t index, uint64_t address) const
+{
+	m_commandList->SetGraphicsRootUnorderedAccessView(index, address);
+}
+
 void CommandList_DX12::IASetIndexBuffer(const IndexBufferView& view) const
 {
 	D3D12_INDEX_BUFFER_VIEW ibv = { view.BufferLocation, view.SizeInBytes, GetDXGIFormat(view.Format) };
