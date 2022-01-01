@@ -99,9 +99,9 @@ ResourceState Resource_DX12::GetResourceState(uint32_t subresource) const
 	return m_states[subresource];
 }
 
-uint32_t Resource_DX12::GetWidth() const
+uint64_t Resource_DX12::GetWidth() const
 {
-	return static_cast<uint32_t>(m_resource->GetDesc().Width);
+	return m_resource->GetDesc().Width;
 }
 
 uint64_t Resource_DX12::GetVirtualAddress(int offset) const
@@ -361,7 +361,7 @@ Texture_DX12::~Texture_DX12()
 }
 
 bool Texture_DX12::Create(const Device* pDevice, uint32_t width, uint32_t height, Format format,
-	uint32_t arraySize, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount,
+	uint16_t arraySize, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount,
 	bool isCubeMap, MemoryFlag memoryFlags, const wchar_t* name)
 {
 	N_RETURN(setDevice(pDevice), false);
@@ -382,7 +382,7 @@ bool Texture_DX12::Create(const Device* pDevice, uint32_t width, uint32_t height
 		width, height, arraySize, numMips, sampleCount, 0, GetDX12ResourceFlags(resourceFlags));
 
 	// Determine initial state
-	m_states.resize(arraySize * numMips, ResourceState::COMMON);
+	m_states.resize(static_cast<uint32_t>(arraySize) * numMips, ResourceState::COMMON);
 
 	V_RETURN(m_device->CreateCommittedResource(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
 		GetDX12ResourceStates(m_states[0]), nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
@@ -463,7 +463,7 @@ bool Texture_DX12::Upload(CommandList* pCommandList, Resource* pUploader,
 	return Upload(pCommandList, pUploader, &subresourceData, 1, dstState);
 }
 
-bool Texture_DX12::CreateSRVs(uint32_t arraySize, Format format, uint8_t numMips,
+bool Texture_DX12::CreateSRVs(uint16_t arraySize, Format format, uint8_t numMips,
 	uint8_t sampleCount, bool isCubeMap)
 {
 	// Setup the description of the shader resource view.
@@ -528,7 +528,7 @@ bool Texture_DX12::CreateSRVs(uint32_t arraySize, Format format, uint8_t numMips
 	return true;
 }
 
-bool Texture_DX12::CreateSRVLevels(uint32_t arraySize, uint8_t numMips, Format format,
+bool Texture_DX12::CreateSRVLevels(uint16_t arraySize, uint8_t numMips, Format format,
 	uint8_t sampleCount, bool isCubeMap)
 {
 	if (numMips > 1)
@@ -584,7 +584,7 @@ bool Texture_DX12::CreateSRVLevels(uint32_t arraySize, uint8_t numMips, Format f
 	return true;
 }
 
-bool Texture_DX12::CreateUAVs(uint32_t arraySize, Format format, uint8_t numMips, vector<Descriptor>* pUavs)
+bool Texture_DX12::CreateUAVs(uint16_t arraySize, Format format, uint8_t numMips, vector<Descriptor>* pUavs)
 {
 	// Setup the description of the unordered access view.
 	D3D12_UNORDERED_ACCESS_VIEW_DESC desc = {};
@@ -657,7 +657,7 @@ uint32_t Texture_DX12::Blit(CommandList* pCommandList, ResourceBarrier* pBarrier
 	uint32_t groupSizeX, uint32_t groupSizeY, uint32_t groupSizeZ, uint8_t mipLevel,
 	int8_t srcMipLevel, ResourceState srcState, const DescriptorTable& uavSrvTable,
 	uint32_t uavSrvSlot, uint32_t numBarriers, const DescriptorTable& srvTable,
-	uint32_t srvSlot, uint32_t baseSlice, uint32_t numSlices)
+	uint32_t srvSlot, uint16_t baseSlice, uint16_t numSlices)
 {
 	const auto prevBarriers = numBarriers;
 	const auto desc = m_resource->GetDesc();
@@ -665,9 +665,9 @@ uint32_t Texture_DX12::Blit(CommandList* pCommandList, ResourceBarrier* pBarrier
 
 	if (!mipLevel && srcMipLevel <= mipLevel)
 		numBarriers = SetBarrier(pBarriers, ResourceState::UNORDERED_ACCESS, numBarriers);
-	else for (auto i = 0u; i < numSlices; ++i)
+	else for (uint16_t i = 0; i < numSlices; ++i)
 	{
-		const auto j = baseSlice + i;
+		const uint16_t j = baseSlice + i;
 		const auto subresource = D3D12CalcSubresource(mipLevel, j, 0, desc.MipLevels, desc.DepthOrArraySize);
 		if (m_states[subresource] != ResourceState::UNORDERED_ACCESS)
 		{
@@ -692,7 +692,7 @@ uint32_t Texture_DX12::GenerateMips(CommandList* pCommandList, ResourceBarrier* 
 	uint32_t groupSizeY, uint32_t groupSizeZ, ResourceState dstState, const PipelineLayout& pipelineLayout,
 	const Pipeline& pipeline, const DescriptorTable* pUavSrvTables, uint32_t uavSrvSlot, const DescriptorTable& samplerTable,
 	uint32_t samplerSlot, uint32_t numBarriers, const DescriptorTable* pSrvTables, uint32_t srvSlot, uint8_t baseMip,
-	uint8_t numMips, uint32_t baseSlice, uint32_t numSlices)
+	uint8_t numMips, uint16_t baseSlice, uint16_t numSlices)
 {
 	if (pipelineLayout) pCommandList->SetComputePipelineLayout(pipelineLayout);
 	if (samplerTable) pCommandList->SetComputeDescriptorTable(samplerSlot, samplerTable);
@@ -705,14 +705,14 @@ uint32_t Texture_DX12::GenerateMips(CommandList* pCommandList, ResourceBarrier* 
 	if (!numSlices) numSlices = desc.DepthOrArraySize - baseSlice;
 	if (!numMips) numMips = desc.MipLevels - baseMip;
 
-	for (uint8_t i = 0u; i < numMips; ++i)
+	for (uint8_t i = 0; i < numMips; ++i)
 	{
-		const auto j = baseMip + i;
+		const uint8_t j = baseMip + i;
 		const auto prevBarriers = numBarriers;
 
-		if (j > 0) for (auto k = 0u; k < numSlices; ++k)
+		if (j > 0) for (uint16_t k = 0; k < numSlices; ++k)
 		{
-			const auto n = baseSlice + k;
+			const uint16_t n = baseSlice + k;
 			auto subresource = D3D12CalcSubresource(j, n, 0, desc.MipLevels, desc.DepthOrArraySize);
 			if (m_states[subresource] != ResourceState::UNORDERED_ACCESS)
 			{
@@ -733,7 +733,7 @@ uint32_t Texture_DX12::GenerateMips(CommandList* pCommandList, ResourceBarrier* 
 	}
 
 	const auto m = baseMip + numMips - 1;
-	for (auto i = 0u; i < numSlices; ++i)
+	for (uint16_t i = 0; i < numSlices; ++i)
 		numBarriers = SetBarrier(pBarriers, m, dstState, numBarriers, baseSlice + i);
 
 	return numBarriers;
@@ -762,7 +762,7 @@ uint32_t Texture_DX12::GetHeight() const
 	return m_resource->GetDesc().Height;
 }
 
-uint32_t Texture_DX12::GetArraySize() const
+uint16_t Texture_DX12::GetArraySize() const
 {
 	return m_resource->GetDesc().DepthOrArraySize;
 }
@@ -788,7 +788,7 @@ RenderTarget_DX12::~RenderTarget_DX12()
 }
 
 bool RenderTarget_DX12::Create(const Device* pDevice, uint32_t width, uint32_t height, Format format,
-	uint32_t arraySize, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount,
+	uint16_t arraySize, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount,
 	const float* pClearColor, bool isCubeMap, MemoryFlag memoryFlags, const wchar_t* name)
 {
 	N_RETURN(create(pDevice, width, height, arraySize, format, numMips, sampleCount,
@@ -800,7 +800,7 @@ bool RenderTarget_DX12::Create(const Device* pDevice, uint32_t width, uint32_t h
 
 	numMips = max<uint8_t>(numMips, 1);
 	m_rtvs.resize(arraySize);
-	for (auto i = 0u; i < arraySize; ++i)
+	for (uint16_t i = 0; i < arraySize; ++i)
 	{
 		uint8_t mipLevel = 0;
 		m_rtvs[i].resize(numMips);
@@ -845,7 +845,7 @@ bool RenderTarget_DX12::Create(const Device* pDevice, uint32_t width, uint32_t h
 }
 
 bool RenderTarget_DX12::CreateArray(const Device* pDevice, uint32_t width, uint32_t height,
-	uint32_t arraySize, Format format, ResourceFlag resourceFlags, uint8_t numMips,
+	uint16_t arraySize, Format format, ResourceFlag resourceFlags, uint8_t numMips,
 	uint8_t sampleCount, const float* pClearColor, bool isCubeMap,
 	MemoryFlag memoryFlags, const wchar_t* name)
 {
@@ -923,7 +923,7 @@ bool RenderTarget_DX12::CreateFromSwapChain(const Device* pDevice, const SwapCha
 }
 
 void RenderTarget_DX12::Blit(const CommandList* pCommandList, const DescriptorTable& srcSrvTable,
-	uint32_t srcSlot, uint8_t mipLevel, uint32_t baseSlice, uint32_t numSlices,
+	uint32_t srcSlot, uint8_t mipLevel, uint16_t baseSlice, uint16_t numSlices,
 	const DescriptorTable& samplerTable, uint32_t samplerSlot, const Pipeline& pipeline,
 	uint32_t offsetForSliceId, uint32_t cbSlot)
 {
@@ -952,7 +952,7 @@ void RenderTarget_DX12::Blit(const CommandList* pCommandList, const DescriptorTa
 		pCommandList->OMSetRenderTargets(1, &GetRTV(baseSlice, mipLevel));
 		pCommandList->Draw(3, 1, 0, 0);
 	}
-	else for (auto i = 0u; i < numSlices; ++i)
+	else for (uint16_t i = 0; i < numSlices; ++i)
 	{
 		// Set render target
 		pCommandList->OMSetRenderTargets(1, &GetRTV(baseSlice + i, mipLevel));
@@ -963,7 +963,7 @@ void RenderTarget_DX12::Blit(const CommandList* pCommandList, const DescriptorTa
 
 uint32_t RenderTarget_DX12::Blit(CommandList* pCommandList, ResourceBarrier* pBarriers, uint8_t mipLevel,
 	int8_t srcMipLevel, ResourceState srcState, const DescriptorTable& srcSrvTable, uint32_t srcSlot,
-	uint32_t numBarriers, uint32_t baseSlice, uint32_t numSlices,
+	uint32_t numBarriers, uint16_t baseSlice, uint16_t numSlices,
 	uint32_t offsetForSliceId, uint32_t cbSlot)
 {
 	const auto prevBarriers = numBarriers;
@@ -971,7 +971,7 @@ uint32_t RenderTarget_DX12::Blit(CommandList* pCommandList, ResourceBarrier* pBa
 
 	if (!mipLevel && srcMipLevel <= mipLevel)
 		numBarriers = SetBarrier(pBarriers, ResourceState::RENDER_TARGET, numBarriers);
-	else for (auto i = 0u; i < numSlices; ++i)
+	else for (uint16_t i = 0; i < numSlices; ++i)
 	{
 		const auto j = baseSlice + i;
 		numBarriers = SetBarrier(pBarriers, mipLevel, ResourceState::RENDER_TARGET, numBarriers, j);
@@ -994,7 +994,7 @@ uint32_t RenderTarget_DX12::GenerateMips(CommandList* pCommandList, ResourceBarr
 	ResourceState dstState, const PipelineLayout& pipelineLayout, const Pipeline& pipeline,
 	const DescriptorTable* pSrcSrvTables, uint32_t srcSlot, const DescriptorTable& samplerTable,
 	uint32_t samplerSlot, uint32_t numBarriers, uint8_t baseMip, uint8_t numMips,
-	uint32_t baseSlice, uint32_t numSlices, uint32_t offsetForSliceId, uint32_t cbSlot)
+	uint16_t baseSlice, uint16_t numSlices, uint32_t offsetForSliceId, uint32_t cbSlot)
 {
 	if (pipelineLayout) pCommandList->SetGraphicsPipelineLayout(pipelineLayout);
 	if (samplerTable) pCommandList->SetGraphicsDescriptorTable(samplerSlot, samplerTable);
@@ -1009,12 +1009,12 @@ uint32_t RenderTarget_DX12::GenerateMips(CommandList* pCommandList, ResourceBarr
 
 	for (uint8_t i = 0; i < numMips; ++i)
 	{
-		const auto j = baseMip + i;
+		const uint8_t j = baseMip + i;
 		const auto prevBarriers = numBarriers;
 
-		if (j > 0) for (auto k = 0u; k < numSlices; ++k)
+		if (j > 0) for (uint16_t k = 0; k < numSlices; ++k)
 		{
-			const auto n = baseSlice + k;
+			const uint16_t n = baseSlice + k;
 			numBarriers = SetBarrier(pBarriers, j, ResourceState::RENDER_TARGET, numBarriers, n);
 
 			const auto subresource = D3D12CalcSubresource(j - 1, n, 0, desc.MipLevels, desc.DepthOrArraySize);
@@ -1031,20 +1031,20 @@ uint32_t RenderTarget_DX12::GenerateMips(CommandList* pCommandList, ResourceBarr
 	}
 
 	const auto m = baseMip + numMips - 1;
-	for (auto i = 0u; i < numSlices; ++i)
+	for (uint16_t i = 0; i < numSlices; ++i)
 		numBarriers = SetBarrier(pBarriers, m, dstState, numBarriers, baseSlice + i);
 
 	return numBarriers;
 }
 
-const Descriptor& RenderTarget_DX12::GetRTV(uint32_t slice, uint8_t mipLevel) const
+const Descriptor& RenderTarget_DX12::GetRTV(uint16_t slice, uint8_t mipLevel) const
 {
 	assert(m_rtvs.size() > slice && m_rtvs[slice].size() > mipLevel);
 	return m_rtvs[slice][mipLevel];
 }
 
 bool RenderTarget_DX12::create(const Device* pDevice, uint32_t width, uint32_t height,
-	uint32_t arraySize, Format format, uint8_t numMips, uint8_t sampleCount,
+	uint16_t arraySize, Format format, uint8_t numMips, uint8_t sampleCount,
 	ResourceFlag resourceFlags, const float* pClearColor, bool isCubeMap,
 	MemoryFlag memoryFlags, const wchar_t* name)
 {
@@ -1068,7 +1068,7 @@ bool RenderTarget_DX12::create(const Device* pDevice, uint32_t width, uint32_t h
 		GetDX12ResourceFlags(ResourceFlag::ALLOW_RENDER_TARGET | resourceFlags));
 
 	// Determine initial state
-	m_states.resize(arraySize * numMips, ResourceState::COMMON);
+	m_states.resize(static_cast<uint32_t>(arraySize) * numMips, ResourceState::COMMON);
 
 	// Optimized clear value
 	D3D12_CLEAR_VALUE clearValue = { GetDXGIFormat(m_format) };
@@ -1126,7 +1126,7 @@ DepthStencil_DX12::~DepthStencil_DX12()
 }
 
 bool DepthStencil_DX12::Create(const Device* pDevice, uint32_t width, uint32_t height, Format format,
-	ResourceFlag resourceFlags, uint32_t arraySize, uint8_t numMips, uint8_t sampleCount,
+	ResourceFlag resourceFlags, uint16_t arraySize, uint8_t numMips, uint8_t sampleCount,
 	float clearDepth, uint8_t clearStencil, bool isCubeMap, MemoryFlag memoryFlags,
 	const wchar_t* name)
 {
@@ -1143,7 +1143,7 @@ bool DepthStencil_DX12::Create(const Device* pDevice, uint32_t width, uint32_t h
 	m_dsvs.resize(arraySize);
 	m_readOnlyDsvs.resize(arraySize);
 
-	for (auto i = 0u; i < arraySize; ++i)
+	for (uint16_t i = 0; i < arraySize; ++i)
 	{
 		uint8_t mipLevel = 0;
 		m_dsvs[i].resize(numMips);
@@ -1206,7 +1206,7 @@ bool DepthStencil_DX12::Create(const Device* pDevice, uint32_t width, uint32_t h
 	return true;
 }
 
-bool DepthStencil_DX12::CreateArray(const Device* pDevice, uint32_t width, uint32_t height, uint32_t arraySize,
+bool DepthStencil_DX12::CreateArray(const Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize,
 	Format format, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount, float clearDepth,
 	uint8_t clearStencil, bool isCubeMap, MemoryFlag memoryFlags, const wchar_t* name)
 {
@@ -1279,13 +1279,13 @@ bool DepthStencil_DX12::CreateArray(const Device* pDevice, uint32_t width, uint3
 	return true;
 }
 
-const Descriptor& DepthStencil_DX12::GetDSV(uint32_t slice, uint8_t mipLevel) const
+const Descriptor& DepthStencil_DX12::GetDSV(uint16_t slice, uint8_t mipLevel) const
 {
 	assert(m_dsvs.size() > slice && m_dsvs[slice].size() > mipLevel);
 	return m_dsvs[slice][mipLevel];
 }
 
-const Descriptor& DepthStencil_DX12::GetReadOnlyDSV(uint32_t slice, uint8_t mipLevel) const
+const Descriptor& DepthStencil_DX12::GetReadOnlyDSV(uint16_t slice, uint8_t mipLevel) const
 {
 	assert(m_readOnlyDsvs.size() > slice && m_readOnlyDsvs[slice].size() > mipLevel);
 	return m_readOnlyDsvs[slice][mipLevel];
@@ -1296,9 +1296,9 @@ const Descriptor& DepthStencil_DX12::GetStencilSRV() const
 	return m_stencilSrv;
 }
 
-uint32_t DepthStencil_DX12::GetArraySize() const
+uint16_t DepthStencil_DX12::GetArraySize() const
 {
-	return static_cast<uint32_t>(m_dsvs.size());
+	return static_cast<uint16_t>(m_dsvs.size());
 }
 
 uint8_t DepthStencil_DX12::GetNumMips() const
@@ -1306,7 +1306,7 @@ uint8_t DepthStencil_DX12::GetNumMips() const
 	return static_cast<uint8_t>(m_dsvs.size());
 }
 
-bool DepthStencil_DX12::create(const Device* pDevice, uint32_t width, uint32_t height, uint32_t arraySize,
+bool DepthStencil_DX12::create(const Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize,
 	uint8_t numMips, uint8_t sampleCount, Format format, ResourceFlag resourceFlags, float clearDepth,
 	uint8_t clearStencil, bool& hasSRV, Format& formatStencil, bool isCubeMap, MemoryFlag memoryFlags,
 	const wchar_t* name)
@@ -1360,7 +1360,7 @@ bool DepthStencil_DX12::create(const Device* pDevice, uint32_t width, uint32_t h
 			GetDX12ResourceFlags(ResourceFlag::ALLOW_DEPTH_STENCIL | resourceFlags));
 
 		// Determine initial state
-		m_states.resize(arraySize * numMips, ResourceState::DEPTH_WRITE);
+		m_states.resize(static_cast<uint32_t>(arraySize) * numMips, ResourceState::DEPTH_WRITE);
 
 		// Optimized clear value
 		D3D12_CLEAR_VALUE clearValue = { GetDXGIFormat(m_format) };
@@ -1464,7 +1464,7 @@ Texture3D_DX12::~Texture3D_DX12()
 }
 
 bool Texture3D_DX12::Create(const Device* pDevice, uint32_t width, uint32_t height,
-	uint32_t depth, Format format, ResourceFlag resourceFlags, uint8_t numMips,
+	uint16_t depth, Format format, ResourceFlag resourceFlags, uint8_t numMips,
 	MemoryFlag memoryFlags, const wchar_t* name)
 {
 	N_RETURN(setDevice(pDevice), false);
@@ -1586,7 +1586,7 @@ bool Texture3D_DX12::CreateUAVs(Format format, uint8_t numMips, vector<Descripto
 	return true;
 }
 
-uint32_t Texture3D_DX12::GetDepth() const
+uint16_t Texture3D_DX12::GetDepth() const
 {
 	return m_resource->GetDesc().DepthOrArraySize;
 }

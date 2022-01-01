@@ -20,6 +20,18 @@
 #define APPEND_ALIGNED_ELEMENT		0xffffffff
 #define BARRIER_ALL_SUBRESOURCES	0xffffffff
 
+#define XUSG_DEF_ENUM_FLAG_OPERATORS(ENUMTYPE) \
+extern "C++" \
+{ \
+	inline constexpr ENUMTYPE operator | (ENUMTYPE a, ENUMTYPE b) { return ENUMTYPE(((std::underlying_type_t<ENUMTYPE>)a) | ((std::underlying_type_t<ENUMTYPE>)b)); } \
+	inline ENUMTYPE &operator |= (ENUMTYPE &a, ENUMTYPE b) { return (ENUMTYPE &)(((std::underlying_type_t<ENUMTYPE>&)a) |= ((std::underlying_type_t<ENUMTYPE>)b)); } \
+	inline constexpr ENUMTYPE operator & (ENUMTYPE a, ENUMTYPE b) { return ENUMTYPE(((std::underlying_type_t<ENUMTYPE>)a) & ((std::underlying_type_t<ENUMTYPE>)b)); } \
+	inline ENUMTYPE &operator &= (ENUMTYPE &a, ENUMTYPE b) { return (ENUMTYPE &)(((std::underlying_type_t<ENUMTYPE>&)a) &= ((std::underlying_type_t<ENUMTYPE>)b)); } \
+	inline constexpr ENUMTYPE operator ~ (ENUMTYPE a) { return ENUMTYPE(~((std::underlying_type_t<ENUMTYPE>)a)); } \
+	inline constexpr ENUMTYPE operator ^ (ENUMTYPE a, ENUMTYPE b) { return ENUMTYPE(((std::underlying_type_t<ENUMTYPE>)a) ^ ((std::underlying_type_t<ENUMTYPE>)b)); } \
+	inline ENUMTYPE &operator ^= (ENUMTYPE &a, ENUMTYPE b) { return (ENUMTYPE &)(((std::underlying_type_t<ENUMTYPE>&)a) ^= ((std::underlying_type_t<ENUMTYPE>)b)); } \
+}
+
 namespace XUSG
 {
 #if defined(WIN32) || (_WIN32)
@@ -332,7 +344,7 @@ namespace XUSG
 		ALLOW_ONLY_RT_DS_TEXTURES = D3D12_HEAP_FLAG_DENY_BUFFERS | DENY_NON_RT_DS_TEXTURES
 	};
 
-	DEFINE_ENUM_FLAG_OPERATORS(MemoryFlag);
+	XUSG_DEF_ENUM_FLAG_OPERATORS(MemoryFlag);
 
 	enum class ResourceFlag : uint32_t
 	{
@@ -348,7 +360,7 @@ namespace XUSG
 		ACCELERATION_STRUCTURE = ALLOW_UNORDERED_ACCESS | 0x400000
 	};
 
-	DEFINE_ENUM_FLAG_OPERATORS(ResourceFlag);
+	XUSG_DEF_ENUM_FLAG_OPERATORS(ResourceFlag);
 
 	enum class ResourceState : uint32_t
 	{
@@ -382,7 +394,7 @@ namespace XUSG
 		VIDEO_ENCODE_WRITE = (1 << 22)
 	};
 
-	DEFINE_ENUM_FLAG_OPERATORS(ResourceState);
+	XUSG_DEF_ENUM_FLAG_OPERATORS(ResourceState);
 
 	enum class BarrierFlag : uint8_t
 	{
@@ -391,7 +403,7 @@ namespace XUSG
 		END_ONLY = (1 << 1)
 	};
 
-	DEFINE_ENUM_FLAG_OPERATORS(BarrierFlag);
+	XUSG_DEF_ENUM_FLAG_OPERATORS(BarrierFlag);
 
 	enum class DescriptorFlag : uint8_t
 	{
@@ -403,7 +415,7 @@ namespace XUSG
 		DESCRIPTORS_STATIC_KEEPING_BUFFER_BOUNDS_CHECKS = (1 << 4)
 	};
 
-	DEFINE_ENUM_FLAG_OPERATORS(DescriptorFlag);
+	XUSG_DEF_ENUM_FLAG_OPERATORS(DescriptorFlag);
 
 	enum class PipelineLayoutFlag : uint32_t
 	{
@@ -422,7 +434,7 @@ namespace XUSG
 		SAMPLER_POOL_DIRECTLY_INDEXED = (1 << 11)
 	};
 
-	DEFINE_ENUM_FLAG_OPERATORS(PipelineLayoutFlag);
+	XUSG_DEF_ENUM_FLAG_OPERATORS(PipelineLayoutFlag);
 
 	enum class CommandQueueFlag : uint8_t
 	{
@@ -430,7 +442,7 @@ namespace XUSG
 		DISABLE_GPU_TIMEOUT = (1 << 0)
 	};
 
-	DEFINE_ENUM_FLAG_OPERATORS(CommandQueueFlag);
+	XUSG_DEF_ENUM_FLAG_OPERATORS(CommandQueueFlag);
 
 	enum class FenceFlag : uint8_t
 	{
@@ -440,7 +452,7 @@ namespace XUSG
 		NON_MONITORED = (1 << 2)
 	};
 
-	DEFINE_ENUM_FLAG_OPERATORS(FenceFlag);
+	XUSG_DEF_ENUM_FLAG_OPERATORS(FenceFlag);
 
 	enum class ClearFlag : uint8_t
 	{
@@ -449,7 +461,7 @@ namespace XUSG
 		STENCIL = (1 << 1)
 	};
 
-	DEFINE_ENUM_FLAG_OPERATORS(ClearFlag);
+	XUSG_DEF_ENUM_FLAG_OPERATORS(ClearFlag);
 
 	enum class BlendFactor : uint8_t
 	{
@@ -562,7 +574,7 @@ namespace XUSG
 		SWIZZLED_TILED_RESOURCE_TO_LINEAR_BUFFER = (1 << 2)
 	};
 
-	DEFINE_ENUM_FLAG_OPERATORS(TileCopyFlag);
+	XUSG_DEF_ENUM_FLAG_OPERATORS(TileCopyFlag);
 
 	namespace Shader
 	{
@@ -1193,7 +1205,7 @@ namespace XUSG
 			BarrierFlag flag = BarrierFlag::NONE) = 0;
 		virtual ResourceState	GetResourceState(uint32_t subresource = 0) const = 0;
 
-		virtual uint32_t GetWidth() const = 0;
+		virtual uint64_t GetWidth() const = 0;
 
 		virtual uint64_t GetVirtualAddress(int offset = 0) const = 0;
 
@@ -1270,7 +1282,7 @@ namespace XUSG
 		virtual ~Texture() {};
 
 		virtual bool Create(const Device* pDevice, uint32_t width, uint32_t height, Format format,
-			uint32_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
+			uint16_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, bool isCubeMap = false,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr) = 0;
 		virtual bool Upload(CommandList* pCommandList, Resource* pUploader,
@@ -1278,11 +1290,11 @@ namespace XUSG
 			ResourceState dstState = ResourceState::COMMON, uint32_t firstSubresource = 0) = 0;
 		virtual bool Upload(CommandList* pCommandList, Resource* pUploader, const void* pData,
 			uint8_t stride = sizeof(float), ResourceState dstState = ResourceState::COMMON) = 0;
-		virtual bool CreateSRVs(uint32_t arraySize, Format format = Format::UNKNOWN, uint8_t numMips = 1,
+		virtual bool CreateSRVs(uint16_t arraySize, Format format = Format::UNKNOWN, uint8_t numMips = 1,
 			uint8_t sampleCount = 1, bool isCubeMap = false) = 0;
-		virtual bool CreateSRVLevels(uint32_t arraySize, uint8_t numMips, Format format = Format::UNKNOWN,
+		virtual bool CreateSRVLevels(uint16_t arraySize, uint8_t numMips, Format format = Format::UNKNOWN,
 			uint8_t sampleCount = 1, bool isCubeMap = false) = 0;
-		virtual bool CreateUAVs(uint32_t arraySize, Format format = Format::UNKNOWN, uint8_t numMips = 1,
+		virtual bool CreateUAVs(uint16_t arraySize, Format format = Format::UNKNOWN, uint8_t numMips = 1,
 			std::vector<Descriptor>* pUavs = nullptr) = 0;
 
 		virtual uint32_t SetBarrier(ResourceBarrier* pBarriers, ResourceState dstState,
@@ -1301,20 +1313,20 @@ namespace XUSG
 			uint32_t groupSizeY, uint32_t groupSizeZ, uint8_t mipLevel, int8_t srcMipLevel,
 			ResourceState srcState, const DescriptorTable& uavSrvTable, uint32_t uavSrvSlot = 0,
 			uint32_t numBarriers = 0, const DescriptorTable& srvTable = nullptr,
-			uint32_t srvSlot = 0, uint32_t baseSlice = 0, uint32_t numSlices = 0) = 0;
+			uint32_t srvSlot = 0, uint16_t baseSlice = 0, uint16_t numSlices = 0) = 0;
 		virtual uint32_t GenerateMips(CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
 			uint32_t groupSizeY, uint32_t groupSizeZ, ResourceState dstState, const PipelineLayout& pipelineLayout,
 			const Pipeline& pipeline, const DescriptorTable* pUavSrvTables, uint32_t uavSrvSlot = 0,
 			const DescriptorTable& samplerTable = nullptr, uint32_t samplerSlot = 1, uint32_t numBarriers = 0,
 			const DescriptorTable* pSrvTables = nullptr, uint32_t srvSlot = 0, uint8_t baseMip = 1,
-			uint8_t numMips = 0, uint32_t baseSlice = 0, uint32_t numSlices = 0) = 0;
+			uint8_t numMips = 0, uint16_t baseSlice = 0, uint16_t numSlices = 0) = 0;
 
 		virtual const Descriptor& GetUAV(uint8_t index = 0) const = 0;
 		virtual const Descriptor& GetPackedUAV(uint8_t index = 0) const = 0;
 		virtual const Descriptor& GetSRVLevel(uint8_t level) const = 0;
 
 		virtual uint32_t	GetHeight() const = 0;
-		virtual uint32_t	GetArraySize() const = 0;
+		virtual uint16_t	GetArraySize() const = 0;
 		virtual uint8_t		GetNumMips() const = 0;
 
 		Texture* AsTexture();
@@ -1343,33 +1355,33 @@ namespace XUSG
 
 		// Create() will create multiple RTVs (1 slice per RTV)
 		virtual bool Create(const Device* pDevice, uint32_t width, uint32_t height, Format format,
-			uint32_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
+			uint16_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, const float* pClearColor = nullptr,
 			bool isCubeMap = false, MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr) = 0;
 		// CreateArray() will create a single array RTV of n slices
-		virtual bool CreateArray(const Device* pDevice, uint32_t width, uint32_t height, uint32_t arraySize,
+		virtual bool CreateArray(const Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize,
 			Format format, ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			uint8_t sampleCount = 1, const float* pClearColor = nullptr, bool isCubeMap = false,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr) = 0;
 		virtual bool CreateFromSwapChain(const Device* pDevice, const SwapChain* pSwapChain, uint32_t bufferIndex) = 0;
 
 		virtual void Blit(const CommandList* pCommandList, const DescriptorTable& srcSrvTable,
-			uint32_t srcSlot = 0, uint8_t mipLevel = 0, uint32_t baseSlice = 0,
-			uint32_t numSlices = 0, const DescriptorTable& samplerTable = nullptr,
+			uint32_t srcSlot = 0, uint8_t mipLevel = 0, uint16_t baseSlice = 0,
+			uint16_t numSlices = 0, const DescriptorTable& samplerTable = nullptr,
 			uint32_t samplerSlot = 1, const Pipeline& pipeline = nullptr,
 			uint32_t offsetForSliceId = 0, uint32_t cbSlot = 2) = 0;
 
 		virtual uint32_t Blit(CommandList* pCommandList, ResourceBarrier* pBarriers, uint8_t mipLevel,
 			int8_t srcMipLevel, ResourceState srcState, const DescriptorTable& srcSrvTable,
-			uint32_t srcSlot = 0, uint32_t numBarriers = 0, uint32_t baseSlice = 0, uint32_t numSlices = 0,
+			uint32_t srcSlot = 0, uint32_t numBarriers = 0, uint16_t baseSlice = 0, uint16_t numSlices = 0,
 			uint32_t offsetForSliceId = 0, uint32_t cbSlot = 2) = 0;
 		virtual uint32_t GenerateMips(CommandList* pCommandList, ResourceBarrier* pBarriers, ResourceState dstState,
 			const PipelineLayout& pipelineLayout, const Pipeline& pipeline, const DescriptorTable* pSrcSrvTables,
 			uint32_t srcSlot = 0, const DescriptorTable& samplerTable = nullptr, uint32_t samplerSlot = 1,
-			uint32_t numBarriers = 0, uint8_t baseMip = 1, uint8_t numMips = 0, uint32_t baseSlice = 0,
-			uint32_t numSlices = 0, uint32_t offsetForSliceId = 0, uint32_t cbSlot = 2) = 0;
+			uint32_t numBarriers = 0, uint8_t baseMip = 1, uint8_t numMips = 0, uint16_t baseSlice = 0,
+			uint16_t numSlices = 0, uint32_t offsetForSliceId = 0, uint32_t cbSlot = 2) = 0;
 
-		virtual const Descriptor& GetRTV(uint32_t slice = 0, uint8_t mipLevel = 0) const = 0;
+		virtual const Descriptor& GetRTV(uint16_t slice = 0, uint8_t mipLevel = 0) const = 0;
 
 		using uptr = std::unique_ptr<RenderTarget>;
 		using sptr = std::shared_ptr<RenderTarget>;
@@ -1390,20 +1402,20 @@ namespace XUSG
 
 		virtual bool Create(const Device* pDevice, uint32_t width, uint32_t height,
 			Format format = Format::UNKNOWN, ResourceFlag resourceFlags = ResourceFlag::NONE,
-			uint32_t arraySize = 1, uint8_t numMips = 1, uint8_t sampleCount = 1,
+			uint16_t arraySize = 1, uint8_t numMips = 1, uint8_t sampleCount = 1,
 			float clearDepth = 1.0f, uint8_t clearStencil = 0, bool isCubeMap = false,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr) = 0;
-		virtual bool CreateArray(const Device* pDevice, uint32_t width, uint32_t height, uint32_t arraySize,
+		virtual bool CreateArray(const Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize,
 			Format format = Format::UNKNOWN, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, float clearDepth = 1.0f,
 			uint8_t clearStencil = 0, bool isCubeMap = false, MemoryFlag memoryFlags = MemoryFlag::NONE,
 			const wchar_t* name = nullptr) = 0;
 
-		virtual const Descriptor& GetDSV(uint32_t slice = 0, uint8_t mipLevel = 0) const = 0;
-		virtual const Descriptor& GetReadOnlyDSV(uint32_t slice = 0, uint8_t mipLevel = 0) const = 0;
+		virtual const Descriptor& GetDSV(uint16_t slice = 0, uint8_t mipLevel = 0) const = 0;
+		virtual const Descriptor& GetReadOnlyDSV(uint16_t slice = 0, uint8_t mipLevel = 0) const = 0;
 		virtual const Descriptor& GetStencilSRV() const = 0;
 
-		virtual uint32_t	GetArraySize() const = 0;
+		virtual uint16_t	GetArraySize() const = 0;
 		virtual uint8_t		GetNumMips() const = 0;
 
 		using uptr = std::unique_ptr<DepthStencil>;
@@ -1423,7 +1435,7 @@ namespace XUSG
 		//Texture3D();
 		virtual ~Texture3D() {};
 
-		virtual bool Create(const Device* pDevice, uint32_t width, uint32_t height, uint32_t depth,
+		virtual bool Create(const Device* pDevice, uint32_t width, uint32_t height, uint16_t depth,
 			Format format, ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr) = 0;
 		virtual bool CreateSRVs(Format format = Format::UNKNOWN, uint8_t numMips = 1) = 0;
@@ -1431,7 +1443,7 @@ namespace XUSG
 		virtual bool CreateUAVs(Format format = Format::UNKNOWN, uint8_t numMips = 1,
 			std::vector<Descriptor>* pUavs = nullptr) = 0;
 
-		virtual uint32_t GetDepth() const = 0;
+		virtual uint16_t GetDepth() const = 0;
 
 		using uptr = std::unique_ptr<Texture3D>;
 		using sptr = std::shared_ptr<Texture3D>;
@@ -2039,7 +2051,7 @@ namespace XUSG
 		};
 	}
 
-	__forceinline uint8_t Log2(uint32_t value)
+	inline uint8_t Log2(uint32_t value)
 	{
 #if defined(WIN32) || (_WIN32)
 		unsigned long mssb; // most significant set bit
