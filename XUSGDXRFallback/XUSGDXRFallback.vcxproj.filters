@@ -92,5 +92,23 @@
     <ClInclude Include="..\XUSGRayTracing\RayTracing\XUSGShaderTable_DX12.h">
       <Filter>RayTracing\Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\XUSG\Core\XUSG.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Core\XUSG_DX12.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Core\XUSGCommand_DX12.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Core\XUSGEnum_DX12.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Core\XUSGPipelineLayout_DX12.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Core\XUSGResource_DX12.h">
+      <Filter>Core</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

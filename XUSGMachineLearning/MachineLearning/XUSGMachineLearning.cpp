@@ -78,14 +78,12 @@ CommandRecorder::sptr CommandRecorder::MakeShared(XUSG::API api)
 	return make_shared<CommandRecorder_DML>();
 }
 
-ML::Util::uptr ML::Util::MakeUnique(const ML::Device::sptr& device, TensorDataType tensorDataType,
-	TensorLayout tensorLayout, XUSG::API api)
+ML::Util::uptr ML::Util::MakeUnique(TensorDataType tensorDataType, TensorLayout tensorLayout, XUSG::API api)
 {
-	return make_unique<Util_Impl>(device, tensorDataType, tensorLayout, api);
+	return make_unique<Util_Impl>(tensorDataType, tensorLayout, api);
 }
 
-ML::Util::sptr ML::Util::MakeShared(const ML::Device::sptr& device, TensorDataType tensorDataType,
-	TensorLayout tensorLayout, XUSG::API api)
+ML::Util::sptr ML::Util::MakeShared(TensorDataType tensorDataType, TensorLayout tensorLayout, XUSG::API api)
 {
-	return make_shared<Util_Impl>(device, tensorDataType, tensorLayout, api);
+	return make_shared<Util_Impl>(tensorDataType, tensorLayout, api);
 }

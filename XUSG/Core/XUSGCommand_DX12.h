@@ -134,11 +134,16 @@ namespace XUSG
 		void Create(void* pHandle, const wchar_t* name = nullptr);
 
 		void* GetHandle() const;
+		void* GetDeviceHandle() const;
+
+		const Device* GetDevice() const;
 
 		com_ptr<ID3D12GraphicsCommandList>& GetGraphicsCommandList();
 
 	protected:
 		com_ptr<ID3D12GraphicsCommandList>	m_commandList;
+
+		const Device*						m_pDevice;
 
 		std::vector<D3D12_RESOURCE_BARRIER>	m_barriers;
 		std::vector<D3D12_RECT>				m_rects;

@@ -22,11 +22,16 @@ namespace XUSG
 			void Dispatch(XUSG::CommandList* pCommandList, const Dispatchable& dispatchable, const BindingTable& bindings) const;
 
 			void* GetHandle() const;
+			void* GetDeviceHandle() const;
+
+			const Device* GetDevice() const;
 
 			com_ptr<IDMLCommandRecorder>& GetDMLCommandRecorder();
 
 		protected:
 			com_ptr<IDMLCommandRecorder> m_commandRecorder;
+
+			const Device* m_pDevice;
 		};
 	}
 }

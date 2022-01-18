@@ -151,7 +151,6 @@ RayTracing::CommandList::sptr RayTracing::CommandList::MakeShared(API api)
 	return make_shared<RayTracing::CommandList_DX12>();
 }
 
-#if ENABLE_DXR_FALLBACK
 RayTracing::CommandList::uptr RayTracing::CommandList::MakeUnique(XUSG::CommandList* pCommandList, const RayTracing::Device* pDevice, API api)
 {
 	return make_unique<RayTracing::CommandList_DX12>(pCommandList, pDevice);
@@ -161,17 +160,6 @@ RayTracing::CommandList::sptr RayTracing::CommandList::MakeShared(XUSG::CommandL
 {
 	return make_shared<RayTracing::CommandList_DX12>(pCommandList, pDevice);
 }
-#else
-RayTracing::CommandList::uptr RayTracing::CommandList::MakeUnique(XUSG::CommandList* pCommandList, API api)
-{
-	return make_unique<RayTracing::CommandList_DX12>(pCommandList);
-}
-
-RayTracing::CommandList::sptr RayTracing::CommandList::MakeShared(XUSG::CommandList* pCommandList, API api)
-{
-	return make_shared<RayTracing::CommandList_DX12>(pCommandList);
-}
-#endif
 
 RayTracing::PipelineLayout::uptr RayTracing::PipelineLayout::MakeUnique(API api)
 {

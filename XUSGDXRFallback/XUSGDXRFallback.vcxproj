@@ -150,6 +150,12 @@
     <ClInclude Include="..\XUSGRayTracing\RayTracing\XUSGRayTracingState_DX12.h" />
     <ClInclude Include="..\XUSGRayTracing\RayTracing\XUSGRayTracing_DX12.h" />
     <ClInclude Include="..\XUSGRayTracing\RayTracing\XUSGShaderTable_DX12.h" />
+    <ClInclude Include="..\XUSG\Core\XUSG.h" />
+    <ClInclude Include="..\XUSG\Core\XUSGCommand_DX12.h" />
+    <ClInclude Include="..\XUSG\Core\XUSGEnum_DX12.h" />
+    <ClInclude Include="..\XUSG\Core\XUSGPipelineLayout_DX12.h" />
+    <ClInclude Include="..\XUSG\Core\XUSGResource_DX12.h" />
+    <ClInclude Include="..\XUSG\Core\XUSG_DX12.h" />
     <ClInclude Include="stdafx.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

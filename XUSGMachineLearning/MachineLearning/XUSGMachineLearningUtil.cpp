@@ -8,9 +8,7 @@
 using namespace std;
 using namespace XUSG::ML;
 
-Util_Impl::Util_Impl(const ML::Device::sptr& device, TensorDataType tensorDataType,
-	TensorLayout tensorLayout, API api) :
-	m_device(device),
+Util_Impl::Util_Impl(TensorDataType tensorDataType, TensorLayout tensorLayout, API api) :
 	m_tensorDataType(tensorDataType),
 	m_tensorLayout(tensorLayout),
 	m_api(api)
@@ -21,9 +19,9 @@ Util_Impl::~Util_Impl()
 {
 }
 
-bool Util_Impl::CreateUpsampleLayer(const uint32_t inputSizes[4], uint64_t& inputBufferRequiredSize,
-	uint64_t& outputBufferRequiredSize, uint32_t outputSizes[4], Operator& opOut,
-	uint32_t scaleSizeX, uint32_t scaleSizeY, InterpolationType interpolationType)
+bool Util_Impl::CreateUpsampleLayer(const Device* pDevice, const uint32_t inputSizes[4],
+	uint64_t& inputBufferRequiredSize, uint64_t& outputBufferRequiredSize, uint32_t outputSizes[4],
+	Operator& opOut, uint32_t scaleSizeX, uint32_t scaleSizeY, InterpolationType interpolationType)
 {
 	// Describe input and output tensors
 	uint32_t inputStrides[4];
@@ -53,11 +51,12 @@ bool Util_Impl::CreateUpsampleLayer(const uint32_t inputSizes[4], uint64_t& inpu
 
 	const Upsample2D upsample = { OperatorType::UPSAMPLE_2D, inputTensor.get(), outputTensor.get(), scaleSizeX, scaleSizeY, interpolationType };
 
-	return opOut.Create(m_device.get(), &upsample, ExecutionFlag::ALLOW_HALF_PRECISION_COMPUTATION);
+	return opOut.Create(pDevice, &upsample, ExecutionFlag::ALLOW_HALF_PRECISION_COMPUTATION);
 }
 
-bool Util_Impl::CreateConvolutionLayer(const uint32_t inputSizes[4], const uint32_t* filterSizes, bool useBiasAndActivation,
-	uint64_t& inputBufferRequiredSize, uint64_t& outputBufferRequiredSize, uint32_t outputSizes[4], Operator& opOut)
+bool Util_Impl::CreateConvolutionLayer(const Device* pDevice, const uint32_t inputSizes[4],
+	const uint32_t* filterSizes, bool useBiasAndActivation, uint64_t& inputBufferRequiredSize,
+	uint64_t& outputBufferRequiredSize, uint32_t outputSizes[4], Operator& opOut)
 {
 	// Describe input and output tensors    
 	uint32_t inputStrides[4];
@@ -151,10 +150,10 @@ bool Util_Impl::CreateConvolutionLayer(const uint32_t inputSizes[4], const uint3
 		useBiasAndActivation ? &fusedRelu : nullptr
 	};
 
-	return opOut.Create(m_device.get(), &conv, ExecutionFlag::ALLOW_HALF_PRECISION_COMPUTATION);
+	return opOut.Create(pDevice, &conv, ExecutionFlag::ALLOW_HALF_PRECISION_COMPUTATION);
 }
 
-bool Util_Impl::CreateAdditionLayer(const uint32_t inputSizes[4], Operator& opOut)
+bool Util_Impl::CreateAdditionLayer(const Device* pDevice, const uint32_t inputSizes[4], Operator& opOut)
 {
 	// Describe input and output tensors
 	uint32_t strides[4];
@@ -167,7 +166,7 @@ bool Util_Impl::CreateAdditionLayer(const uint32_t inputSizes[4], Operator& opOu
 	// Inputs and output are all the same size and use the same tensor desc.
 	const ElementWiseAdd add = { OperatorType::ELEMENT_WISE_ADD, tensor.get(), tensor.get(), tensor.get() };
 
-	return opOut.Create(m_device.get(), &add, ExecutionFlag::ALLOW_HALF_PRECISION_COMPUTATION);
+	return opOut.Create(pDevice, &add, ExecutionFlag::ALLOW_HALF_PRECISION_COMPUTATION);
 }
 
 void Util_Impl::CreateWeightTensors(WeightMapType& weights, const char* convLayerName, const char* scaleLayerName,

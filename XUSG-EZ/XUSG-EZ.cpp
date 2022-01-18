@@ -191,24 +191,24 @@ EZ::CommandList::sptr EZ::CommandList::MakeShared(API api)
 	return make_shared<EZ::CommandList_DX12>();
 }
 
-EZ::CommandList::uptr EZ::CommandList::MakeUnique(const Device* pDevice, XUSG::CommandList* pCommandList,
+EZ::CommandList::uptr EZ::CommandList::MakeUnique(XUSG::CommandList* pCommandList,
 	uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize, uint32_t maxSamplers,
 	const uint32_t* pMaxCbvsEachSpace, const uint32_t* pMaxSrvsEachSpace,
 	const uint32_t* pMaxUavsEachSpace, uint32_t maxCbvSpaces,
 	uint32_t maxSrvSpaces, uint32_t maxUavSpaces, API api)
 {
-	return make_unique<EZ::CommandList_DX12>(pDevice, pCommandList, samplerPoolSize, cbvSrvUavPoolSize,
+	return make_unique<EZ::CommandList_DX12>(pCommandList, samplerPoolSize, cbvSrvUavPoolSize,
 		maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
 		maxCbvSpaces, maxSrvSpaces, maxUavSpaces);
 }
 
-EZ::CommandList::sptr EZ::CommandList::MakeShared(const Device* pDevice, XUSG::CommandList* pCommandList,
+EZ::CommandList::sptr EZ::CommandList::MakeShared(XUSG::CommandList* pCommandList,
 	uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize, uint32_t maxSamplers,
 	const uint32_t* pMaxCbvsEachSpace, const uint32_t* pMaxSrvsEachSpace,
 	const uint32_t* pMaxUavsEachSpace, uint32_t maxCbvSpaces,
 	uint32_t maxSrvSpaces, uint32_t maxUavSpaces, API api)
 {
-	return make_shared<EZ::CommandList_DX12>(pDevice, pCommandList, samplerPoolSize, cbvSrvUavPoolSize,
+	return make_shared<EZ::CommandList_DX12>(pCommandList, samplerPoolSize, cbvSrvUavPoolSize,
 		maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
 		maxCbvSpaces, maxSrvSpaces, maxUavSpaces);
 }

@@ -63,6 +63,8 @@ bool CommandList_DX12::Create(const Device* pDevice, uint32_t nodeMask, CommandL
 		static_cast<ID3D12PipelineState*>(pipeline), IID_PPV_ARGS(&m_commandList)), cerr, false);
 	if (name) m_commandList->SetName(name);
 
+	m_pDevice = pDevice;
+
 	return true;
 }
 
@@ -570,6 +572,19 @@ void CommandList_DX12::Create(void* pHandle, const wchar_t* name)
 void* CommandList_DX12::GetHandle() const
 {
 	return m_commandList.get();
+}
+
+void* CommandList_DX12::GetDeviceHandle() const
+{
+	com_ptr<ID3D12Device> device;
+	V_RETURN(m_commandList->GetDevice(IID_PPV_ARGS(&device)), cerr, nullptr);
+
+	return device.get();
+}
+
+const Device* CommandList_DX12::GetDevice() const
+{
+	return m_pDevice;
 }
 
 com_ptr<ID3D12GraphicsCommandList>& CommandList_DX12::GetGraphicsCommandList()

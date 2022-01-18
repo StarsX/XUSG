@@ -48,7 +48,7 @@ namespace XUSG
 			//CommandList();
 			virtual ~CommandList() {}
 
-			virtual bool Create(const Device* pDevice, XUSG::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+			virtual bool Create(XUSG::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
 				uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
 				const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1) = 0;
 			virtual bool Close() const = 0;
@@ -130,6 +130,9 @@ namespace XUSG
 				const wchar_t* name = nullptr) = 0;
 
 			virtual void* GetHandle() const = 0;
+			virtual void* GetDeviceHandle() const = 0;
+
+			virtual const Device* GetDevice() const = 0;
 
 			virtual Graphics::State* GetGraphicsPipelineState() = 0;
 			virtual Compute::State* GetComputePipelineState() = 0;
@@ -139,11 +142,11 @@ namespace XUSG
 
 			static uptr MakeUnique(XUSG::API api = XUSG::API::DIRECTX_12);
 			static sptr MakeShared(XUSG::API api = XUSG::API::DIRECTX_12);
-			static uptr MakeUnique(const Device* pDevice, XUSG::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+			static uptr MakeUnique(XUSG::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
 				uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
 				const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1,
 				XUSG::API api = XUSG::API::DIRECTX_12);
-			static sptr MakeShared(const Device* pDevice, XUSG::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+			static sptr MakeShared(XUSG::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
 				uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
 				const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1,
 				XUSG::API api = XUSG::API::DIRECTX_12);

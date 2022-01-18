@@ -541,10 +541,10 @@ static bool FillInitData(uint32_t width, uint32_t height, uint32_t depth,
 	return index > 0;
 }
 
-static bool CreateTexture(const Device* pDevice, CommandList* pCommandList,
-	const DDS_HEADER* header, const uint8_t* bitData, size_t bitSize, size_t maxsize,
-	bool forceSRGB, Texture::sptr& texture, Resource* pUploader,
-	ResourceState state, MemoryFlag memoryFlags, const wchar_t* name, API api)
+static bool CreateTexture(CommandList* pCommandList, const DDS_HEADER* header,
+	const uint8_t* bitData, size_t bitSize, size_t maxsize, bool forceSRGB,
+	Texture::sptr& texture, Resource* pUploader, ResourceState state,
+	MemoryFlag memoryFlags, const wchar_t* name, API api)
 {
 	const auto width = header->width;
 	auto height = header->height;
@@ -676,6 +676,7 @@ static bool CreateTexture(const Device* pDevice, CommandList* pCommandList,
 
 	{
 		// Create the texture
+		const auto pDevice = pCommandList->GetDevice();
 		const auto subresourceCount = static_cast<uint32_t>(mipCount) * arraySize;
 		vector<SubresourceData> initData(subresourceCount);
 
@@ -780,13 +781,13 @@ Loader::~Loader()
 {
 }
 
-bool Loader::CreateTextureFromMemory(const Device* pDevice, CommandList* pCommandList,
-	const uint8_t* ddsData, size_t ddsDataSize, size_t maxsize, bool forceSRGB,
-	Texture::sptr& texture, Resource* pUploader, AlphaMode* alphaMode,
-	ResourceState state, MemoryFlag memoryFlags, API api)
+bool Loader::CreateTextureFromMemory(CommandList* pCommandList, const uint8_t* ddsData,
+	size_t ddsDataSize, size_t maxsize, bool forceSRGB, Texture::sptr& texture,
+	Resource* pUploader, AlphaMode* alphaMode, ResourceState state,
+	MemoryFlag memoryFlags, API api)
 {
 	if (alphaMode)* alphaMode = ALPHA_MODE_UNKNOWN;
-	F_RETURN(!pDevice || !ddsData, cerr, E_INVALIDARG, false);
+	F_RETURN(!pCommandList || !ddsData, cerr, E_INVALIDARG, false);
 
 	// Validate DDS file in memory
 	C_RETURN(ddsDataSize < sizeof(uint32_t) + sizeof(DDS_HEADER), false);
@@ -809,7 +810,7 @@ bool Loader::CreateTextureFromMemory(const Device* pDevice, CommandList* pComman
 	// Must be long enough for all headers and magic value
 	C_RETURN(ddsDataSize < offset, false);
 
-	N_RETURN(CreateTexture(pDevice, pCommandList, header, ddsData + offset, ddsDataSize - offset, maxsize,
+	N_RETURN(CreateTexture(pCommandList, header, ddsData + offset, ddsDataSize - offset, maxsize,
 		forceSRGB, texture, pUploader, state, memoryFlags, L"DDSTextureLoader", api), false);
 
 	if (alphaMode)* alphaMode = GetAlphaMode(header);
@@ -817,13 +818,12 @@ bool Loader::CreateTextureFromMemory(const Device* pDevice, CommandList* pComman
 	return true;
 }
 
-bool Loader::CreateTextureFromFile(const Device* pDevice, CommandList* pCommandList,
-	const wchar_t* fileName, size_t maxsize, bool forceSRGB, Texture::sptr& texture,
-	Resource* pUploader, AlphaMode* alphaMode, ResourceState state,
-	MemoryFlag memoryFlags, API api)
+bool Loader::CreateTextureFromFile(CommandList* pCommandList, const wchar_t* fileName,
+	size_t maxsize, bool forceSRGB, Texture::sptr& texture, Resource* pUploader,
+	AlphaMode* alphaMode, ResourceState state, MemoryFlag memoryFlags, API api)
 {
 	if (alphaMode)* alphaMode = ALPHA_MODE_UNKNOWN;
-	F_RETURN(!pDevice || !fileName, cerr, E_INVALIDARG, false);
+	F_RETURN(!pCommandList || !fileName, cerr, E_INVALIDARG, false);
 
 	DDS_HEADER* header = nullptr;
 	uint8_t* bitData = nullptr;
@@ -832,7 +832,7 @@ bool Loader::CreateTextureFromFile(const Device* pDevice, CommandList* pCommandL
 	unique_ptr<uint8_t[]> ddsData;
 	N_RETURN(LoadTextureDataFromFile(fileName, ddsData, &header, &bitData, &bitSize), false);
 
-	N_RETURN(CreateTexture(pDevice, pCommandList, header, bitData, bitSize, maxsize,
+	N_RETURN(CreateTexture(pCommandList, header, bitData, bitSize, maxsize,
 		forceSRGB, texture, pUploader, state, memoryFlags, fileName, api), false);
 
 	if (alphaMode)* alphaMode = GetAlphaMode(header);

@@ -27,6 +27,15 @@
     <ClInclude Include="XUSG-EZ_DX12.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\XUSG\Core\XUSG.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Core\XUSGCommand_DX12.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Core\XUSGEnum_DX12.h">
+      <Filter>Core</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">

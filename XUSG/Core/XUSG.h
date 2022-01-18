@@ -1116,6 +1116,9 @@ namespace XUSG
 		virtual void Create(void* pHandle, const wchar_t* name = nullptr) = 0;
 
 		virtual void* GetHandle() const = 0;
+		virtual void* GetDeviceHandle() const = 0;
+
+		virtual const Device* GetDevice() const = 0;
 
 		using uptr = std::unique_ptr<CommandList>;
 		using sptr = std::shared_ptr<CommandList>;

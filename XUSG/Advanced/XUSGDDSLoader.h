@@ -24,12 +24,12 @@ namespace XUSG
 			Loader();
 			virtual ~Loader();
 
-			bool CreateTextureFromMemory(const Device* pDevice, CommandList* pCommandList, const uint8_t* ddsData,
+			bool CreateTextureFromMemory(CommandList* pCommandList, const uint8_t* ddsData,
 				size_t ddsDataSize, size_t maxsize, bool forceSRGB, Texture::sptr& texture, Resource* pUploader,
 				AlphaMode* alphaMode = nullptr, ResourceState state = ResourceState::COMMON,
 				MemoryFlag memoryFlags = MemoryFlag::NONE, API api = API::DIRECTX_12);
 
-			bool CreateTextureFromFile(const Device* pDevice, CommandList* pCommandList, const wchar_t* fileName,
+			bool CreateTextureFromFile(CommandList* pCommandList, const wchar_t* fileName,
 				size_t maxsize, bool forceSRGB, Texture::sptr& texture, Resource* pUploader,
 				AlphaMode* alphaMode = nullptr, ResourceState state = ResourceState::COMMON,
 				MemoryFlag memoryFlags = MemoryFlag::NONE, API api = API::DIRECTX_12);

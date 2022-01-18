@@ -242,11 +242,7 @@ namespace XUSG
 			//CommandList();
 			virtual ~CommandList() {}
 
-#if ENABLE_DXR_FALLBACK
-			virtual bool CreateInterface(const Device* pDevice) = 0;
-#else
 			virtual bool CreateInterface() = 0;
-#endif
 
 			virtual void BuildRaytracingAccelerationStructure(const BuildDesc* pDesc,
 				uint32_t numPostbuildInfoDescs,
@@ -258,18 +254,15 @@ namespace XUSG
 			virtual void DispatchRays(const Pipeline& pipeline, uint32_t width, uint32_t height, uint32_t depth,
 				const ShaderTable* pHitGroup, const ShaderTable* pMiss, const ShaderTable* pRayGen) const = 0;
 
+			virtual const Device* GetRTDevice() const = 0;
+
 			using uptr = std::unique_ptr<CommandList>;
 			using sptr = std::shared_ptr<CommandList>;
 
 			static uptr MakeUnique(XUSG::API api = XUSG::API::DIRECTX_12);
 			static sptr MakeShared(XUSG::API api = XUSG::API::DIRECTX_12);
-#if ENABLE_DXR_FALLBACK
 			static uptr MakeUnique(XUSG::CommandList* pCommandList, const RayTracing::Device* pDevice, XUSG::API api = XUSG::API::DIRECTX_12);
 			static sptr MakeShared(XUSG::CommandList* pCommandList, const RayTracing::Device* pDevice, XUSG::API api = XUSG::API::DIRECTX_12);
-#else
-			static uptr MakeUnique(XUSG::CommandList* pCommandList, XUSG::API api = XUSG::API::DIRECTX_12);
-			static sptr MakeShared(XUSG::CommandList* pCommandList, XUSG::API api = XUSG::API::DIRECTX_12);
-#endif
 		};
 
 		//--------------------------------------------------------------------------------------

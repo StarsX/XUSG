@@ -810,6 +810,9 @@ namespace XUSG
 			virtual void Dispatch(XUSG::CommandList* pCommandList, const Dispatchable& dispatchable, const BindingTable& bindings) const = 0;
 
 			virtual void* GetHandle() const = 0;
+			virtual void* GetDeviceHandle() const = 0;
+
+			virtual const Device* GetDevice() const = 0;
 
 			using uptr = std::unique_ptr<CommandRecorder>;
 			using sptr = std::shared_ptr<CommandRecorder>;
@@ -837,18 +840,18 @@ namespace XUSG
 		class DLL_INTERFACE Util
 		{
 		public:
-			//Util(const Device::sptr& device, TensorDataType tensorDataType = TensorDataType::FLOAT32,
+			//Util(TensorDataType tensorDataType = TensorDataType::FLOAT32,
 				//TensorLayout tensorLayout = TensorLayout::DEFAULT);
 			virtual ~Util() {}
 
-			virtual bool CreateUpsampleLayer(const uint32_t inputSizes[4], uint64_t& inputBufferRequiredSize,
-				uint64_t& outputBufferRequiredSize, uint32_t outputSizes[4], Operator& opOut,
-				uint32_t scaleSizeX = 2, uint32_t scaleSizeY = 2,
+			virtual bool CreateUpsampleLayer(const Device* pDevice, const uint32_t inputSizes[4],
+				uint64_t& inputBufferRequiredSize, uint64_t& outputBufferRequiredSize, uint32_t outputSizes[4],
+				Operator& opOut, uint32_t scaleSizeX = 2, uint32_t scaleSizeY = 2,
 				InterpolationType interpolationType = InterpolationType::NEAREST_NEIGHBOR) = 0;
-			virtual bool CreateConvolutionLayer(const uint32_t inputSizes[4], const uint32_t* filterSizes,
-				bool useBiasAndActivation, uint64_t& inputBufferRequiredSize, uint64_t& outputBufferRequiredSize,
-				uint32_t outputSizes[4], Operator& opOut) = 0;
-			virtual bool CreateAdditionLayer(const uint32_t inputSizes[4], Operator& opOut) = 0;
+			virtual bool CreateConvolutionLayer(const Device* pDevice, const uint32_t inputSizes[4],
+				const uint32_t* filterSizes, bool useBiasAndActivation, uint64_t& inputBufferRequiredSize,
+				uint64_t& outputBufferRequiredSize, uint32_t outputSizes[4], Operator& opOut) = 0;
+			virtual bool CreateAdditionLayer(const Device* pDevice, const uint32_t inputSizes[4], Operator& opOut) = 0;
 
 			virtual void CreateWeightTensors(WeightMapType& weights, const char* convLayerName, const char* scaleLayerName,
 				const char* shiftLayerName, const uint32_t filterSizes[4], std::vector<uint8_t>& filterWeightsOut,
@@ -859,10 +862,8 @@ namespace XUSG
 			using uptr = std::unique_ptr<Util>;
 			using sptr = std::shared_ptr<Util>;
 
-			static uptr MakeUnique(const Device::sptr& device, TensorDataType tensorDataType,
-				TensorLayout tensorLayout, XUSG::API api = XUSG::API::DIRECTX_12);
-			static sptr MakeShared(const Device::sptr& device, TensorDataType tensorDataType,
-				TensorLayout tensorLayout, XUSG::API api = XUSG::API::DIRECTX_12);
+			static uptr MakeUnique(TensorDataType tensorDataType, TensorLayout tensorLayout, XUSG::API api = XUSG::API::DIRECTX_12);
+			static sptr MakeShared(TensorDataType tensorDataType, TensorLayout tensorLayout, XUSG::API api = XUSG::API::DIRECTX_12);
 		};
 	}
 }

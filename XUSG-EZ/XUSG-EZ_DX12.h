@@ -16,12 +16,12 @@ namespace XUSG
 		{
 		public:
 			CommandList_DX12();
-			CommandList_DX12(const Device* pDevice, XUSG::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+			CommandList_DX12(XUSG::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
 				uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
 				const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1);
 			virtual ~CommandList_DX12();
 
-			bool Create(const Device* pDevice, XUSG::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+			bool Create(XUSG::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
 				uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
 				const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1);
 			bool Close() const { return XUSG::CommandList_DX12::Close(); }
@@ -150,6 +150,9 @@ namespace XUSG
 				const wchar_t* name = nullptr);
 
 			void* GetHandle() const { return XUSG::CommandList_DX12::GetHandle(); }
+			void* GetDeviceHandle() const { return XUSG::CommandList_DX12::GetDeviceHandle(); }
+
+			const Device* GetDevice() const { return XUSG::CommandList_DX12::GetDevice(); }
 
 			Graphics::State* GetGraphicsPipelineState();
 			Compute::State* GetComputePipelineState();

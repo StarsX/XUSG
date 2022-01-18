@@ -26,6 +26,8 @@ bool CommandRecorder_DML::Create(const Device* pDevice, const wchar_t* name)
 	V_RETURN(pDMLDevice->CreateCommandRecorder(IID_PPV_ARGS(&m_commandRecorder)), cerr, false);
 	if (name) m_commandRecorder->SetName(name);
 
+	m_pDevice = pDevice;
+
 	return true;
 }
 
@@ -38,6 +40,19 @@ void CommandRecorder_DML::Dispatch(CommandList* pCommandList, const Dispatchable
 void* CommandRecorder_DML::GetHandle() const
 {
 	return m_commandRecorder.get();
+}
+
+void* CommandRecorder_DML::GetDeviceHandle() const
+{
+	com_ptr<IDMLDevice> device;
+	V_RETURN(m_commandRecorder->GetDevice(IID_PPV_ARGS(&device)), cerr, nullptr);
+
+	return device.get();
+}
+
+const ML::Device* CommandRecorder_DML::GetDevice() const
+{
+	return m_pDevice;
 }
 
 com_ptr<IDMLCommandRecorder>& CommandRecorder_DML::GetDMLCommandRecorder()

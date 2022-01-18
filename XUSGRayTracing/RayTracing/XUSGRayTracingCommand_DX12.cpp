@@ -18,33 +18,22 @@ RayTracing::CommandList_DX12::~CommandList_DX12()
 {
 }
 
-#if ENABLE_DXR_FALLBACK
 RayTracing::CommandList_DX12::CommandList_DX12(XUSG::CommandList* pCommandList, const RayTracing::Device* pDevice)
 {
 	m_commandList = dynamic_cast<XUSG::CommandList_DX12*>(pCommandList)->GetGraphicsCommandList();
-	CreateInterface(pDevice);
-}
-#else
-RayTracing::CommandList_DX12::CommandList_DX12(XUSG::CommandList* pCommandList)
-{
-	m_commandList = dynamic_cast<XUSG::CommandList_DX12*>(pCommandList)->GetGraphicsCommandList();
+	m_pDevice = pDevice;
 	CreateInterface();
 }
-#endif
 
-#if ENABLE_DXR_FALLBACK
-bool RayTracing::CommandList_DX12::CreateInterface(const RayTracing::Device* pDevice)
+bool RayTracing::CommandList_DX12::CreateInterface()
 {
-	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(pDevice->GetRTHandle());
+	m_pDeviceRT = dynamic_cast<const RayTracing::Device*>(m_pDevice);
+#if ENABLE_DXR_FALLBACK
+	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(m_pDeviceRT->GetRTHandle());
 
 	assert(pDxDevice);
 	pDxDevice->QueryRaytracingCommandList(m_commandList.get(), IID_PPV_ARGS(&m_commandListRT));
-
-	return true;
-}
 #else
-bool RayTracing::CommandList_DX12::CreateInterface()
-{
 	const auto hr = m_commandList->QueryInterface(IID_PPV_ARGS(&m_commandListRT));
 	if (FAILED(hr))
 	{
@@ -52,10 +41,10 @@ bool RayTracing::CommandList_DX12::CreateInterface()
 
 		return false;
 	}
+#endif
 
 	return true;
 }
-#endif
 
 void RayTracing::CommandList_DX12::BuildRaytracingAccelerationStructure(const BuildDesc* pDesc, uint32_t numPostbuildInfoDescs,
 	const PostbuildInfo* pPostbuildInfoDescs, const DescriptorPool& descriptorPool) const
@@ -134,4 +123,9 @@ void RayTracing::CommandList_DX12::DispatchRays(const Pipeline& pipeline,
 
 	D3D12_DISPATCH_RAYS_DESC dispatchDesc = {};
 	dispatchRays(m_commandListRT.get(), pipeline, &dispatchDesc);
+}
+
+const RayTracing::Device* RayTracing::CommandList_DX12::GetRTDevice() const
+{
+	return m_pDeviceRT;
 }
