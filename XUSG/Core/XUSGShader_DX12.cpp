@@ -22,7 +22,7 @@ ShaderPool_DX12::~ShaderPool_DX12()
 
 void ShaderPool_DX12::SetShader(Shader::Stage stage, uint32_t index, const Blob& shader)
 {
-	checkShaderStorage(stage, index) = static_cast<ID3DBlob*>(shader);
+	checkShaderStorage(stage, index) = shader;
 }
 
 void ShaderPool_DX12::SetShader(Shader::Stage stage, uint32_t index, const Blob& shader, const Reflector::sptr& reflector)
@@ -39,7 +39,7 @@ void ShaderPool_DX12::SetReflector(Shader::Stage stage, uint32_t index, const Re
 Blob ShaderPool_DX12::CreateShader(Shader::Stage stage, uint32_t index, const wstring& fileName)
 {
 	auto& shader = checkShaderStorage(stage, index);
-	V_RETURN(D3DReadFileToBlob(fileName.c_str(), &shader), cerr, nullptr);
+	V_RETURN(D3DReadFileToBlob(fileName.c_str(), shader.put()), cerr, nullptr);
 
 	auto& reflector = checkReflectorStorage(stage, index);
 	reflector = make_shared<Reflector_DX12>();
@@ -51,7 +51,7 @@ Blob ShaderPool_DX12::CreateShader(Shader::Stage stage, uint32_t index, const ws
 Blob ShaderPool_DX12::CreateShader(Shader::Stage stage, uint32_t index, const uint8_t* pData, size_t size)
 {
 	auto& shader = checkShaderStorage(stage, index);
-	V_RETURN(D3DCreateBlob(size, &shader), cerr, nullptr);
+	V_RETURN(D3DCreateBlob(size, shader.put()), cerr, nullptr);
 	memcpy(shader->GetBufferPointer(), pData, size);
 
 	auto& reflector = checkReflectorStorage(stage, index);

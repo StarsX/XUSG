@@ -77,13 +77,13 @@ PipelineCache_DX12::~PipelineCache_DX12()
 
 void PipelineCache_DX12::SetDevice(const Device* pDevice)
 {
-	m_device = static_cast<ID3D12Device*>(pDevice->GetHandle());
+	m_device = pDevice->GetHandle();
 	assert(m_device);
 }
 
 void PipelineCache_DX12::SetPipeline(const string& key, const Pipeline& pipeline)
 {
-	m_pipelines[key] = static_cast<ID3D12PipelineState*>(pipeline);
+	m_pipelines[key] = pipeline;
 }
 
 Pipeline PipelineCache_DX12::CreatePipeline(const State* pState, const wchar_t* name)

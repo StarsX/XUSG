@@ -126,7 +126,7 @@ DescriptorTableCache_DX12::~DescriptorTableCache_DX12()
 
 void DescriptorTableCache_DX12::SetDevice(const Device* pDevice)
 {
-	m_device = static_cast<ID3D12Device*>(pDevice->GetHandle());
+	m_device = pDevice->GetHandle();
 
 	assert(m_device);
 	m_descriptorStrides[CBV_SRV_UAV_POOL] = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);

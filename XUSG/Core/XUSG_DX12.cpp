@@ -57,7 +57,7 @@ uint32_t Device_DX12::GetDeviceRemovedReason() const
 
 void Device_DX12::Create(void* pHandle, const wchar_t* name)
 {
-	m_device = static_cast<ID3D12Device*>(pHandle);
+	m_device = pHandle;
 	if (name) m_device->SetName(name);
 }
 
@@ -174,8 +174,8 @@ bool SwapChain_DX12::Create(void* pFactory, void* hWnd, const CommandQueue* pCom
 		&swapChainDesc,
 		nullptr,
 		nullptr,
-		&swapChain
-	), cerr, false);
+		swapChain.put()),
+		cerr, false);
 
 	// Store the swap chain.
 	V_RETURN(swapChain->QueryInterface(IID_PPV_ARGS(&m_swapChain)), cerr, false);

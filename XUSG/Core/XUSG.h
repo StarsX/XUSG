@@ -44,7 +44,7 @@ namespace XUSG
 		using element_type = T;
 		using winrt::com_ptr<T>::com_ptr;
 
-		element_type** operator&() noexcept { return this->put(); }
+		com_ptr(void* ptr) noexcept : com_ptr() { this->copy_from(static_cast<T*>(ptr)); }
 	};
 #else
 	template <typename T>
@@ -55,7 +55,10 @@ namespace XUSG
 		using element_type = T;
 		using Microsoft::WRL::ComPtr<T>::ComPtr;
 
+		com_ptr(void* ptr = nullptr) throw() : com_ptr(static_cast<T*>(ptr)) {}
+
 		element_type* get() const throw() { return this->Get(); }
+		element_type** put() throw() { return &this->ptr_; }
 	};
 #endif
 #endif
@@ -996,6 +999,9 @@ namespace XUSG
 		virtual bool Reset() = 0;
 
 		virtual void* GetHandle() const = 0;
+		virtual void* GetDeviceHandle() const = 0;
+
+		virtual const Device* GetDevice() const = 0;
 
 		using uptr = std::unique_ptr<CommandAllocator>;
 		using sptr = std::shared_ptr<CommandAllocator>;
@@ -1152,6 +1158,9 @@ namespace XUSG
 		virtual void ExecuteCommandList(const CommandList* pCommandList) = 0;
 
 		virtual void* GetHandle() const = 0;
+		virtual void* GetDeviceHandle() const = 0;
+
+		virtual const Device* GetDevice() const = 0;
 
 		using uptr = std::unique_ptr<CommandQueue>;
 		using sptr = std::shared_ptr<CommandQueue>;

@@ -111,8 +111,8 @@ uint64_t Resource_DX12::GetVirtualAddress(int offset) const
 
 void Resource_DX12::Create(void* pDeviceHandle, void* pResourceHandle, const wchar_t* name)
 {
-	m_device = static_cast<ID3D12Device*>(pDeviceHandle);
-	m_resource = static_cast<ID3D12Resource*>(pResourceHandle);
+	m_device = pDeviceHandle;
+	m_resource = pResourceHandle;
 
 	const auto desc = m_resource->GetDesc();
 	m_states.resize(desc.MipLevels * desc.DepthOrArraySize, ResourceState::COMMON);
@@ -151,7 +151,7 @@ ConstantBuffer_DX12::~ConstantBuffer_DX12()
 bool ConstantBuffer_DX12::Create(const Device* pDevice, size_t byteWidth, uint32_t numCBVs,
 	const size_t* offsets, MemoryType memoryType, MemoryFlag memoryFlags, const wchar_t* name)
 {
-	m_device = static_cast<ID3D12Device*>(pDevice->GetHandle());
+	m_device = pDevice->GetHandle();
 	M_RETURN(!m_device, cerr, "The device is NULL.", false);
 	m_cbvHeaps.clear();
 
@@ -325,7 +325,7 @@ Format ShaderResource_DX12::GetFormat() const
 
 bool ShaderResource_DX12::setDevice(const Device* pDevice)
 {
-	m_device = static_cast<ID3D12Device*>(pDevice->GetHandle());
+	m_device = pDevice->GetHandle();
 	M_RETURN(!m_device, cerr, "The device is NULL.", false);
 	m_srvUavHeaps.clear();
 

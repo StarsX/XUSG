@@ -19,9 +19,14 @@ namespace XUSG
 		bool Reset();
 
 		void* GetHandle() const;
+		void* GetDeviceHandle() const;
+
+		const Device* GetDevice() const;
 
 	protected:
 		com_ptr<ID3D12CommandAllocator> m_commandAllocator;
+
+		const Device* m_pDevice;
 	};
 
 	class CommandList_DX12 :
@@ -172,6 +177,9 @@ namespace XUSG
 		void ExecuteCommandList(const CommandList* pCommandList);
 
 		void* GetHandle() const;
+		void* GetDeviceHandle() const;
+
+		const Device* GetDevice() const;
 
 		com_ptr<ID3D12CommandQueue>& GetCommandQueue();
 
@@ -179,5 +187,7 @@ namespace XUSG
 		com_ptr<ID3D12CommandQueue> m_commandQueue;
 
 		std::vector<ID3D12CommandList*> m_pCommandLists;
+
+		const Device* m_pDevice;
 	};
 }

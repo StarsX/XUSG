@@ -215,7 +215,7 @@ bool Reflector_DX12::SetShader(const Blob& shader)
 		V_RETURN(DxcCreateInstance(CLSID_DxcLibrary, IID_PPV_ARGS(&library)), cerr, false);
 		com_ptr<IDxcBlobEncoding> blob = nullptr;
 		library->CreateBlobWithEncodingFromPinned(pShader->GetBufferPointer(),
-			static_cast<uint32_t>(pShader->GetBufferSize()), 0, &blob);
+			static_cast<uint32_t>(pShader->GetBufferSize()), 0, blob.put());
 
 		auto shaderIdx = ~0u;
 		com_ptr<IDxcContainerReflection> reflection = nullptr;
@@ -236,7 +236,7 @@ bool Reflector_DX12::SetShader(const Blob& shader)
 			V_RETURN(DxcCreateInstance(CLSID_DxcValidator, IID_PPV_ARGS(&validator)), cerr, false);
 
 			com_ptr<IDxcOperationResult> result = nullptr;
-			V_RETURN(validator->Validate(blob.get(), DxcValidatorFlags_InPlaceEdit, &result), cerr, false);
+			V_RETURN(validator->Validate(blob.get(), DxcValidatorFlags_InPlaceEdit, result.put()), cerr, false);
 
 			HRESULT hr;
 			result->GetStatus(&hr);
@@ -245,8 +245,8 @@ bool Reflector_DX12::SetShader(const Blob& shader)
 				cout << "The DXIL container failed validation." << endl;
 
 				com_ptr<IDxcBlobEncoding> printBlob = nullptr, printBlobUtf8 = nullptr;
-				V_RETURN(result->GetErrorBuffer(&printBlob), cerr, false);
-				V_RETURN(library->GetBlobAsUtf8(printBlob.get(), &printBlobUtf8), cerr, false);
+				V_RETURN(result->GetErrorBuffer(printBlob.put()), cerr, false);
+				V_RETURN(library->GetBlobAsUtf8(printBlob.get(), printBlobUtf8.put()), cerr, false);
 
 				string error;
 				if (printBlobUtf8) error = reinterpret_cast<const char*>(printBlobUtf8->GetBufferPointer());

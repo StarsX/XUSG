@@ -179,13 +179,13 @@ PipelineLayoutCache_DX12::~PipelineLayoutCache_DX12()
 
 void PipelineLayoutCache_DX12::SetDevice(const Device* pDevice)
 {
-	m_device = static_cast<ID3D12Device*>(pDevice->GetHandle());
+	m_device = pDevice->GetHandle();
 	assert(m_device);
 }
 
 void PipelineLayoutCache_DX12::SetPipelineLayout(const string& key, const PipelineLayout& pipelineLayout)
 {
-	m_rootSignatures[key] = static_cast<ID3D12RootSignature*>(pipelineLayout);
+	m_rootSignatures[key] = pipelineLayout;
 }
 
 void PipelineLayoutCache_DX12::GetRootParameter(CD3DX12_ROOT_PARAMETER1& rootParam, vector<CD3DX12_DESCRIPTOR_RANGE1>& descriptorRanges,
@@ -362,7 +362,7 @@ PipelineLayout PipelineLayoutCache_DX12::createPipelineLayout(const string& key,
 		numSamplers, numSamplers ? samplerDescs.data() : nullptr, GetDX12RootSignatureFlags(flags));
 
 	com_ptr<ID3DBlob> signature, error;
-	H_RETURN(D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, highestVersion, &signature, &error),
+	H_RETURN(D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, highestVersion, signature.put(), error.put()),
 		cerr, reinterpret_cast<wchar_t*>(error->GetBufferPointer()), nullptr);
 
 	return createRootSignature(key, signature->GetBufferPointer(), signature->GetBufferSize(), name, nodeMask);

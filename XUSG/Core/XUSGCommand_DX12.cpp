@@ -27,6 +27,8 @@ bool CommandAllocator_DX12::Create(const Device* pDevice, CommandListType type, 
 		IID_PPV_ARGS(&m_commandAllocator)), cerr, false);
 	if (name) m_commandAllocator->SetName(name);
 
+	m_pDevice = pDevice;
+
 	return true;
 }
 
@@ -40,6 +42,19 @@ bool CommandAllocator_DX12::Reset()
 void* CommandAllocator_DX12::GetHandle() const
 {
 	return m_commandAllocator.get();
+}
+
+void* CommandAllocator_DX12::GetDeviceHandle() const
+{
+	com_ptr<ID3D12Device> device;
+	V_RETURN(m_commandAllocator->GetDevice(IID_PPV_ARGS(&device)), cerr, nullptr);
+
+	return device.get();
+}
+
+const Device* CommandAllocator_DX12::GetDevice() const
+{
+	return m_pDevice;
 }
 
 //--------------------------------------------------------------------------------------
@@ -565,7 +580,7 @@ void CommandList_DX12::ExecuteIndirect(const CommandLayout* pCommandlayout, uint
 
 void CommandList_DX12::Create(void* pHandle, const wchar_t* name)
 {
-	m_commandList = static_cast<ID3D12GraphicsCommandList*>(pHandle);
+	m_commandList = pHandle;
 	if (name) m_commandList->SetName(name);
 }
 
@@ -616,6 +631,8 @@ bool CommandQueue_DX12::Create(const Device* pDevice, CommandListType type,
 	assert(pDxDevice);
 	V_RETURN(pDxDevice->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&m_commandQueue)), cerr, false);
 	if (name) m_commandQueue->SetName(name);
+
+	m_pDevice = pDevice;
 
 	return true;
 }
@@ -677,6 +694,19 @@ bool CommandQueue_DX12::Signal(const Fence* pFence, uint64_t value)
 void* CommandQueue_DX12::GetHandle() const
 {
 	return m_commandQueue.get();
+}
+
+void* CommandQueue_DX12::GetDeviceHandle() const
+{
+	com_ptr<ID3D12Device> device;
+	V_RETURN(m_commandQueue->GetDevice(IID_PPV_ARGS(&device)), cerr, nullptr);
+
+	return device.get();
+}
+
+const Device* CommandQueue_DX12::GetDevice() const
+{
+	return m_pDevice;
 }
 
 com_ptr<ID3D12CommandQueue>& CommandQueue_DX12::GetCommandQueue()
