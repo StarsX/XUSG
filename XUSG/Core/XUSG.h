@@ -2063,6 +2063,8 @@ namespace XUSG
 		};
 	}
 
+	DLL_INTERFACE uint32_t DivideAndRoundUp(uint32_t x, uint32_t n);
+
 	inline uint8_t Log2(uint32_t value)
 	{
 #if defined(WIN32) || (_WIN32)
@@ -2074,5 +2076,17 @@ namespace XUSG
 #else
 		return static_cast<uint8_t>(log2(value));
 #endif
+	}
+
+	inline uint8_t CalculateMipLevels(uint32_t width, uint32_t height, uint32_t depth = 1)
+	{
+		const auto texSize = (std::max)((std::max)(width, height), depth);
+
+		return Log2(texSize) + 1;
+	}
+
+	inline uint8_t CalculateMipLevels(uint64_t width, uint32_t height, uint32_t depth = 1)
+	{
+		return CalculateMipLevels(static_cast<uint32_t>(width), height, depth);
 	}
 }
