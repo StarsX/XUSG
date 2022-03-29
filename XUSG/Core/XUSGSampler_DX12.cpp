@@ -233,3 +233,235 @@ Sampler DescriptorTableCache_DX12::SamplerAnisotropicLessEqual()
 
 	return sampler;
 }
+
+Sampler DescriptorTableCache_DX12::SamplerMinLinearWrap()
+{
+	const auto sampler = make_shared<SamplerDesc>();
+	sampler->Filter = D3D12_FILTER_MINIMUM_MIN_MAG_MIP_LINEAR;
+	sampler->AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	sampler->AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	sampler->AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	sampler->ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+	sampler->MinLOD = 0.0f;
+	sampler->MaxLOD = D3D12_FLOAT32_MAX;
+
+	return sampler;
+}
+
+Sampler DescriptorTableCache_DX12::SamplerMinLinearMirror()
+{
+	const auto sampler = make_shared<SamplerDesc>();
+	sampler->Filter = D3D12_FILTER_MINIMUM_MIN_MAG_MIP_LINEAR;
+	sampler->AddressU = D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
+	sampler->AddressV = D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
+	sampler->AddressW = D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
+	sampler->ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+	sampler->MinLOD = 0.0f;
+	sampler->MaxLOD = D3D12_FLOAT32_MAX;
+
+	return sampler;
+}
+
+Sampler DescriptorTableCache_DX12::SamplerMinLinearClamp()
+{
+	const auto sampler = make_shared<SamplerDesc>();
+	sampler->Filter = D3D12_FILTER_MINIMUM_MIN_MAG_MIP_LINEAR;
+	sampler->AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	sampler->AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	sampler->AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	sampler->ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+	sampler->MinLOD = 0.0f;
+	sampler->MaxLOD = D3D12_FLOAT32_MAX;
+
+	return sampler;
+}
+
+Sampler DescriptorTableCache_DX12::SamplerMinLinearBorder()
+{
+	const auto sampler = make_shared<SamplerDesc>();
+	sampler->Filter = D3D12_FILTER_MINIMUM_MIN_MAG_MIP_LINEAR;
+	sampler->AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+	sampler->AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+	sampler->AddressW = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+	sampler->ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+	sampler->MinLOD = 0.0f;
+	sampler->MaxLOD = D3D12_FLOAT32_MAX;
+
+	return sampler;
+}
+
+Sampler DescriptorTableCache_DX12::SamplerMaxLinearWrap()
+{
+	const auto sampler = make_shared<SamplerDesc>();
+	sampler->Filter = D3D12_FILTER_MAXIMUM_MIN_MAG_MIP_LINEAR;
+	sampler->AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	sampler->AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	sampler->AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	sampler->ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+	sampler->MinLOD = 0.0f;
+	sampler->MaxLOD = D3D12_FLOAT32_MAX;
+
+	return sampler;
+}
+
+Sampler DescriptorTableCache_DX12::SamplerMaxLinearMirror()
+{
+	const auto sampler = make_shared<SamplerDesc>();
+	sampler->Filter = D3D12_FILTER_MAXIMUM_MIN_MAG_MIP_LINEAR;
+	sampler->AddressU = D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
+	sampler->AddressV = D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
+	sampler->AddressW = D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
+	sampler->ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+	sampler->MinLOD = 0.0f;
+	sampler->MaxLOD = D3D12_FLOAT32_MAX;
+
+	return sampler;
+}
+
+Sampler DescriptorTableCache_DX12::SamplerMaxLinearClamp()
+{
+	const auto sampler = make_shared<SamplerDesc>();
+	sampler->Filter = D3D12_FILTER_MAXIMUM_MIN_MAG_MIP_LINEAR;
+	sampler->AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	sampler->AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	sampler->AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	sampler->ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+	sampler->MinLOD = 0.0f;
+	sampler->MaxLOD = D3D12_FLOAT32_MAX;
+
+	return sampler;
+}
+
+Sampler DescriptorTableCache_DX12::SamplerMaxLinearBorder()
+{
+	const auto sampler = make_shared<SamplerDesc>();
+	sampler->Filter = D3D12_FILTER_MAXIMUM_MIN_MAG_MIP_LINEAR;
+	sampler->AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+	sampler->AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+	sampler->AddressW = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+	sampler->ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+	sampler->MinLOD = 0.0f;
+	sampler->MaxLOD = D3D12_FLOAT32_MAX;
+
+	return sampler;
+}
+
+Sampler DescriptorTableCache_DX12::SamplerMinAnisotropicWrap()
+{
+	const auto sampler = make_shared<SamplerDesc>();
+	sampler->Filter = D3D12_FILTER_MINIMUM_ANISOTROPIC;
+	sampler->AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	sampler->AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	sampler->AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	sampler->MaxAnisotropy = 16;
+	sampler->ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+	sampler->MinLOD = 0.0f;
+	sampler->MaxLOD = D3D12_FLOAT32_MAX;
+
+	return sampler;
+}
+
+Sampler DescriptorTableCache_DX12::SamplerMinAnisotropicMirror()
+{
+	const auto sampler = make_shared<SamplerDesc>();
+	sampler->Filter = D3D12_FILTER_MINIMUM_ANISOTROPIC;
+	sampler->AddressU = D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
+	sampler->AddressV = D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
+	sampler->AddressW = D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
+	sampler->MaxAnisotropy = 16;
+	sampler->ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+	sampler->MinLOD = 0.0f;
+	sampler->MaxLOD = D3D12_FLOAT32_MAX;
+
+	return sampler;
+}
+
+Sampler DescriptorTableCache_DX12::SamplerMinAnisotropicClamp()
+{
+	const auto sampler = make_shared<SamplerDesc>();
+	sampler->Filter = D3D12_FILTER_MINIMUM_ANISOTROPIC;
+	sampler->AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	sampler->AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	sampler->AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	sampler->MaxAnisotropy = 16;
+	sampler->ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+	sampler->MinLOD = 0.0f;
+	sampler->MaxLOD = D3D12_FLOAT32_MAX;
+
+	return sampler;
+}
+
+Sampler DescriptorTableCache_DX12::SamplerMinAnisotropicBorder()
+{
+	const auto sampler = make_shared<SamplerDesc>();
+	sampler->Filter = D3D12_FILTER_MINIMUM_ANISOTROPIC;
+	sampler->AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+	sampler->AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+	sampler->AddressW = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+	sampler->MaxAnisotropy = 16;
+	sampler->ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+	sampler->MinLOD = 0.0f;
+	sampler->MaxLOD = D3D12_FLOAT32_MAX;
+
+	return sampler;
+}
+
+Sampler DescriptorTableCache_DX12::SamplerMaxAnisotropicWrap()
+{
+	const auto sampler = make_shared<SamplerDesc>();
+	sampler->Filter = D3D12_FILTER_MAXIMUM_ANISOTROPIC;
+	sampler->AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	sampler->AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	sampler->AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	sampler->MaxAnisotropy = 16;
+	sampler->ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+	sampler->MinLOD = 0.0f;
+	sampler->MaxLOD = D3D12_FLOAT32_MAX;
+
+	return sampler;
+}
+
+Sampler DescriptorTableCache_DX12::SamplerMaxAnisotropicMirror()
+{
+	const auto sampler = make_shared<SamplerDesc>();
+	sampler->Filter = D3D12_FILTER_MAXIMUM_ANISOTROPIC;
+	sampler->AddressU = D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
+	sampler->AddressV = D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
+	sampler->AddressW = D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
+	sampler->MaxAnisotropy = 16;
+	sampler->ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+	sampler->MinLOD = 0.0f;
+	sampler->MaxLOD = D3D12_FLOAT32_MAX;
+
+	return sampler;
+}
+
+Sampler DescriptorTableCache_DX12::SamplerMaxAnisotropicClamp()
+{
+	const auto sampler = make_shared<SamplerDesc>();
+	sampler->Filter = D3D12_FILTER_MAXIMUM_ANISOTROPIC;
+	sampler->AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	sampler->AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	sampler->AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	sampler->MaxAnisotropy = 16;
+	sampler->ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+	sampler->MinLOD = 0.0f;
+	sampler->MaxLOD = D3D12_FLOAT32_MAX;
+
+	return sampler;
+}
+
+Sampler DescriptorTableCache_DX12::SamplerMaxAnisotropicBorder()
+{
+	const auto sampler = make_shared<SamplerDesc>();
+	sampler->Filter = D3D12_FILTER_MAXIMUM_ANISOTROPIC;
+	sampler->AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+	sampler->AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+	sampler->AddressW = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+	sampler->MaxAnisotropy = 16;
+	sampler->ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+	sampler->MinLOD = 0.0f;
+	sampler->MaxLOD = D3D12_FLOAT32_MAX;
+
+	return sampler;
+}

@@ -118,15 +118,37 @@ namespace XUSG
 		static Sampler SamplerPointClamp();
 		static Sampler SamplerPointBorder();
 		static Sampler SamplerPointLessEqual();
+
 		static Sampler SamplerLinearWrap();
 		static Sampler SamplerLinearMirror();
 		static Sampler SamplerLinearClamp();
 		static Sampler SamplerLinearBorder();
 		static Sampler SamplerLinearLessEqual();
+
 		static Sampler SamplerAnisotropicWrap();
 		static Sampler SamplerAnisotropicMirror();
 		static Sampler SamplerAnisotropicClamp();
 		static Sampler SamplerAnisotropicBorder();
 		static Sampler SamplerAnisotropicLessEqual();
+
+		static Sampler SamplerMinLinearWrap();
+		static Sampler SamplerMinLinearMirror();
+		static Sampler SamplerMinLinearClamp();
+		static Sampler SamplerMinLinearBorder();
+
+		static Sampler SamplerMinAnisotropicWrap();
+		static Sampler SamplerMinAnisotropicMirror();
+		static Sampler SamplerMinAnisotropicClamp();
+		static Sampler SamplerMinAnisotropicBorder();
+
+		static Sampler SamplerMaxLinearWrap();
+		static Sampler SamplerMaxLinearMirror();
+		static Sampler SamplerMaxLinearClamp();
+		static Sampler SamplerMaxLinearBorder();
+
+		static Sampler SamplerMaxAnisotropicWrap();
+		static Sampler SamplerMaxAnisotropicMirror();
+		static Sampler SamplerMaxAnisotropicClamp();
+		static Sampler SamplerMaxAnisotropicBorder();
 	};
 }

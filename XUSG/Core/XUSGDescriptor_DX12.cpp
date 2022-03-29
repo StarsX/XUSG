@@ -111,6 +111,26 @@ DescriptorTableCache_DX12::DescriptorTableCache_DX12() :
 	m_pfnSamplers[SamplerPreset::ANISOTROPIC_CLAMP] = SamplerAnisotropicClamp;
 	m_pfnSamplers[SamplerPreset::ANISOTROPIC_BORDER] = SamplerAnisotropicBorder;
 	m_pfnSamplers[SamplerPreset::ANISOTROPIC_LESS_EQUAL] = SamplerAnisotropicLessEqual;
+
+	m_pfnSamplers[SamplerPreset::MIN_LINEAR_WRAP] = SamplerMinLinearWrap;
+	m_pfnSamplers[SamplerPreset::MIN_LINEAR_MIRROR] = SamplerMinLinearMirror;
+	m_pfnSamplers[SamplerPreset::MIN_LINEAR_CLAMP] = SamplerMinLinearClamp;
+	m_pfnSamplers[SamplerPreset::MIN_LINEAR_BORDER] = SamplerMinLinearBorder;
+
+	m_pfnSamplers[SamplerPreset::MIN_ANISOTROPIC_WRAP] = SamplerMinAnisotropicWrap;
+	m_pfnSamplers[SamplerPreset::MIN_ANISOTROPIC_MIRROR] = SamplerMinAnisotropicMirror;
+	m_pfnSamplers[SamplerPreset::MIN_ANISOTROPIC_CLAMP] = SamplerMinAnisotropicClamp;
+	m_pfnSamplers[SamplerPreset::MIN_ANISOTROPIC_BORDER] = SamplerMinAnisotropicBorder;
+
+	m_pfnSamplers[SamplerPreset::MAX_LINEAR_WRAP] = SamplerMaxLinearWrap;
+	m_pfnSamplers[SamplerPreset::MAX_LINEAR_MIRROR] = SamplerMaxLinearMirror;
+	m_pfnSamplers[SamplerPreset::MAX_LINEAR_CLAMP] = SamplerMaxLinearClamp;
+	m_pfnSamplers[SamplerPreset::MAX_LINEAR_BORDER] = SamplerMaxLinearBorder;
+
+	m_pfnSamplers[SamplerPreset::MAX_ANISOTROPIC_WRAP] = SamplerMaxAnisotropicWrap;
+	m_pfnSamplers[SamplerPreset::MAX_ANISOTROPIC_MIRROR] = SamplerMaxAnisotropicMirror;
+	m_pfnSamplers[SamplerPreset::MAX_ANISOTROPIC_CLAMP] = SamplerMaxAnisotropicClamp;
+	m_pfnSamplers[SamplerPreset::MAX_ANISOTROPIC_BORDER] = SamplerMaxAnisotropicBorder;
 }
 
 DescriptorTableCache_DX12::DescriptorTableCache_DX12(const Device* pDevice, const wchar_t* name) :
