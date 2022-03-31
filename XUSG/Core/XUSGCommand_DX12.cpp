@@ -92,6 +92,7 @@ bool CommandList_DX12::Close() const
 
 bool CommandList_DX12::Reset(const CommandAllocator* pCommandAllocator, const Pipeline& initialState) const
 {
+	assert(pCommandAllocator);
 	V_RETURN(m_commandList->Reset(static_cast<ID3D12CommandAllocator*>(pCommandAllocator->GetHandle()),
 		static_cast<ID3D12PipelineState*>(initialState)), cerr, false);
 
@@ -125,6 +126,8 @@ void CommandList_DX12::Dispatch(uint32_t threadGroupCountX, uint32_t threadGroup
 void CommandList_DX12::CopyBufferRegion(const Resource* pDstBuffer, uint64_t dstOffset,
 	const Resource* pSrcBuffer, uint64_t srcOffset, uint64_t numBytes) const
 {
+	assert(pDstBuffer);
+	assert(pSrcBuffer);
 	m_commandList->CopyBufferRegion(static_cast<ID3D12Resource*>(pDstBuffer->GetHandle()), dstOffset,
 		static_cast<ID3D12Resource*>(pSrcBuffer->GetHandle()), srcOffset, numBytes);
 }
@@ -143,6 +146,9 @@ void CommandList_DX12::CopyTextureRegion(const TextureCopyLocation& dst,
 		srcBox.bottom = pSrcBox->Bottom;
 		srcBox.back = pSrcBox->Back;
 	};
+
+	assert(dst.pResource);
+	assert(src.pResource);
 	const CD3DX12_TEXTURE_COPY_LOCATION dstCopy(static_cast<ID3D12Resource*>(dst.pResource->GetHandle()), dst.SubresourceIndex);
 	const CD3DX12_TEXTURE_COPY_LOCATION srcCopy(static_cast<ID3D12Resource*>(src.pResource->GetHandle()), src.SubresourceIndex);
 	m_commandList->CopyTextureRegion(&dstCopy, dstX, dstY, dstZ, &srcCopy, pSrcBox ? &srcBox : nullptr);
@@ -150,6 +156,8 @@ void CommandList_DX12::CopyTextureRegion(const TextureCopyLocation& dst,
 
 void CommandList_DX12::CopyResource(const Resource* pDstResource, const Resource* pSrcResource) const
 {
+	assert(pDstResource);
+	assert(pSrcResource);
 	m_commandList->CopyResource(static_cast<ID3D12Resource*>(pDstResource->GetHandle()),
 		static_cast<ID3D12Resource*>(pSrcResource->GetHandle()));
 }
@@ -158,6 +166,11 @@ void CommandList_DX12::CopyTiles(const Resource* pTiledResource, const TiledReso
 	const TileRegionSize* pTileRegionSize, const Resource* pBuffer, uint64_t bufferStartOffsetInBytes,
 	TileCopyFlag flags) const
 {
+	assert(pTiledResource);
+	assert(pTileRegionStartCoord);
+	assert(pTileRegionSize);
+	assert(pBuffer);
+
 	const D3D12_TILED_RESOURCE_COORDINATE tileRegionStartCoord =
 	{
 		pTileRegionStartCoord->X,
@@ -183,6 +196,8 @@ void CommandList_DX12::CopyTiles(const Resource* pTiledResource, const TiledReso
 void CommandList_DX12::ResolveSubresource(const Resource* pDstResource, uint32_t dstSubresource,
 	const Resource* pSrcResource, uint32_t srcSubresource, Format format) const
 {
+	assert(pDstResource);
+	assert(pSrcResource);
 	m_commandList->ResolveSubresource(static_cast<ID3D12Resource*>(pDstResource->GetHandle()), dstSubresource,
 		static_cast<ID3D12Resource*>(pSrcResource->GetHandle()), srcSubresource, GetDXGIFormat(format));
 }
@@ -194,7 +209,9 @@ void CommandList_DX12::IASetPrimitiveTopology(PrimitiveTopology primitiveTopolog
 
 void CommandList_DX12::RSSetViewports(uint32_t numViewports, const Viewport* pViewports) const
 {
+	assert(numViewports == 0 || pViewports);
 	assert(numViewports <= D3D12_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE);
+
 	D3D12_VIEWPORT viewports[D3D12_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE];
 	for (uint8_t i = 0; i < numViewports; ++i)
 	{
@@ -206,12 +223,14 @@ void CommandList_DX12::RSSetViewports(uint32_t numViewports, const Viewport* pVi
 		viewports[i].MaxDepth = pViewports[i].MaxDepth;
 	}
 
-	m_commandList->RSSetViewports(numViewports, viewports);
+	m_commandList->RSSetViewports(numViewports, pViewports ? viewports : nullptr);
 }
 
 void CommandList_DX12::RSSetScissorRects(uint32_t numRects, const RectRange* pRects) const
 {
+	assert(numRects == 0 || pRects);
 	assert(numRects <= D3D12_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE);
+
 	D3D12_RECT rects[D3D12_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE];
 	for (uint8_t i = 0; i < numRects; ++i)
 	{
@@ -221,7 +240,7 @@ void CommandList_DX12::RSSetScissorRects(uint32_t numRects, const RectRange* pRe
 		rects[i].bottom = pRects[i].Bottom;
 	}
 
-	m_commandList->RSSetScissorRects(numRects, rects);
+	m_commandList->RSSetScissorRects(numRects, pRects ? rects : nullptr);
 }
 
 void CommandList_DX12::OMSetBlendFactor(const float blendFactor[4]) const
@@ -243,6 +262,7 @@ void CommandList_DX12::Barrier(uint32_t numBarriers, const ResourceBarrier* pBar
 {
 	if (numBarriers > 0)
 	{
+		assert(pBarriers);
 		if (m_barriers.size() < numBarriers) m_barriers.resize(numBarriers);
 		for (auto i = 0u; i < numBarriers; ++i)
 		{
@@ -269,12 +289,15 @@ void CommandList_DX12::Barrier(uint32_t numBarriers, const ResourceBarrier* pBar
 
 void CommandList_DX12::ExecuteBundle(const CommandList* pCommandList) const
 {
+	assert(pCommandList);
 	m_commandList->ExecuteBundle(static_cast<ID3D12GraphicsCommandList*>(pCommandList->GetHandle()));
 }
 
 void CommandList_DX12::SetDescriptorPools(uint32_t numDescriptorPools, const DescriptorPool* pDescriptorPools) const
 {
-	m_commandList->SetDescriptorHeaps(numDescriptorPools, reinterpret_cast<ID3D12DescriptorHeap* const*>(pDescriptorPools));
+	assert(numDescriptorPools == 0 || pDescriptorPools);
+	m_commandList->SetDescriptorHeaps(numDescriptorPools, pDescriptorPools ?
+		reinterpret_cast<ID3D12DescriptorHeap* const*>(pDescriptorPools) : nullptr);
 }
 
 void CommandList_DX12::SetComputePipelineLayout(const PipelineLayout& pipelineLayout) const
@@ -321,32 +344,32 @@ void CommandList_DX12::SetGraphics32BitConstants(uint32_t index, uint32_t num32B
 
 void CommandList_DX12::SetComputeRootConstantBufferView(uint32_t index, const Resource* pResource, int offset) const
 {
-	m_commandList->SetComputeRootConstantBufferView(index, pResource->GetVirtualAddress(offset));
+	m_commandList->SetComputeRootConstantBufferView(index, pResource ? pResource->GetVirtualAddress(offset) : 0);
 }
 
 void CommandList_DX12::SetGraphicsRootConstantBufferView(uint32_t index, const Resource* pResource, int offset) const
 {
-	m_commandList->SetGraphicsRootConstantBufferView(index, pResource->GetVirtualAddress(offset));
+	m_commandList->SetGraphicsRootConstantBufferView(index, pResource ? pResource->GetVirtualAddress(offset) : 0);
 }
 
 void CommandList_DX12::SetComputeRootShaderResourceView(uint32_t index, const Resource* pResource, int offset) const
 {
-	m_commandList->SetComputeRootShaderResourceView(index, pResource->GetVirtualAddress(offset));
+	m_commandList->SetComputeRootShaderResourceView(index, pResource ? pResource->GetVirtualAddress(offset) : 0);
 }
 
 void CommandList_DX12::SetGraphicsRootShaderResourceView(uint32_t index, const Resource* pResource, int offset) const
 {
-	m_commandList->SetGraphicsRootShaderResourceView(index, pResource->GetVirtualAddress(offset));
+	m_commandList->SetGraphicsRootShaderResourceView(index, pResource ? pResource->GetVirtualAddress(offset) : 0);
 }
 
 void CommandList_DX12::SetComputeRootUnorderedAccessView(uint32_t index, const Resource* pResource, int offset) const
 {
-	m_commandList->SetComputeRootUnorderedAccessView(index, pResource->GetVirtualAddress(offset));
+	m_commandList->SetComputeRootUnorderedAccessView(index, pResource ? pResource->GetVirtualAddress(offset) : 0);
 }
 
 void CommandList_DX12::SetGraphicsRootUnorderedAccessView(uint32_t index, const Resource* pResource, int offset) const
 {
-	m_commandList->SetGraphicsRootUnorderedAccessView(index, pResource->GetVirtualAddress(offset));
+	m_commandList->SetGraphicsRootUnorderedAccessView(index, pResource ? pResource->GetVirtualAddress(offset) : 0);
 }
 
 void CommandList_DX12::SetComputeRootConstantBufferView(uint32_t index, uint64_t address) const
@@ -387,7 +410,9 @@ void CommandList_DX12::IASetIndexBuffer(const IndexBufferView& view) const
 
 void CommandList_DX12::IASetVertexBuffers(uint32_t startSlot, uint32_t numViews, const VertexBufferView* pViews) const
 {
+	assert(numViews == 0 || pViews);
 	assert(numViews <= D3D12_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT);
+
 	D3D12_VERTEX_BUFFER_VIEW views[D3D12_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT];
 	for (uint8_t i = 0; i < numViews; ++i)
 	{
@@ -396,12 +421,14 @@ void CommandList_DX12::IASetVertexBuffers(uint32_t startSlot, uint32_t numViews,
 		views[i].StrideInBytes = pViews[i].StrideInBytes;
 	}
 
-	m_commandList->IASetVertexBuffers(startSlot, numViews, numViews ? views : nullptr);
+	m_commandList->IASetVertexBuffers(startSlot, numViews, pViews ? views : nullptr);
 }
 
 void CommandList_DX12::SOSetTargets(uint32_t startSlot, uint32_t numViews, const StreamOutBufferView* pViews) const
 {
+	assert(numViews == 0 || pViews);
 	assert(numViews <= 4);
+
 	D3D12_STREAM_OUTPUT_BUFFER_VIEW views[4];
 	for (uint8_t i = 0; i < numViews; ++i)
 	{
@@ -410,12 +437,13 @@ void CommandList_DX12::SOSetTargets(uint32_t startSlot, uint32_t numViews, const
 		views[i].BufferFilledSizeLocation = pViews[i].BufferFilledSizeLocation;
 	}
 
-	m_commandList->SOSetTargets(startSlot, numViews, numViews ? views : nullptr);
+	m_commandList->SOSetTargets(startSlot, numViews, pViews ? views : nullptr);
 }
 
 void CommandList_DX12::OMSetFramebuffer(const Framebuffer& framebuffer) const
 {
 	assert(framebuffer.NumRenderTargetDescriptors < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT);
+
 	D3D12_CPU_DESCRIPTOR_HANDLE renderTargetViews[D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT];
 	for (uint8_t i = 0; i < framebuffer.NumRenderTargetDescriptors; ++i)
 		renderTargetViews[i].ptr = framebuffer.RenderTargetViews.get()[i];
@@ -429,7 +457,9 @@ void CommandList_DX12::OMSetFramebuffer(const Framebuffer& framebuffer) const
 void CommandList_DX12::OMSetRenderTargets(uint32_t numRenderTargetDescriptors, const Descriptor* pRenderTargetViews,
 	const Descriptor* pDepthStencilView, bool rtsSingleHandleToDescriptorRange) const
 {
+	assert(numRenderTargetDescriptors == 0 || pRenderTargetViews);
 	assert(numRenderTargetDescriptors < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT);
+
 	D3D12_CPU_DESCRIPTOR_HANDLE renderTargetViews[D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT];
 	for (uint8_t i = 0; i < numRenderTargetDescriptors; ++i)
 		renderTargetViews[i].ptr = pRenderTargetViews[i];
@@ -437,8 +467,9 @@ void CommandList_DX12::OMSetRenderTargets(uint32_t numRenderTargetDescriptors, c
 	CD3DX12_CPU_DESCRIPTOR_HANDLE depthStencilView(D3D12_DEFAULT);
 	depthStencilView.ptr = pDepthStencilView ? *pDepthStencilView : depthStencilView.ptr;
 
-	m_commandList->OMSetRenderTargets(numRenderTargetDescriptors, renderTargetViews,
-		rtsSingleHandleToDescriptorRange, pDepthStencilView ? &depthStencilView : nullptr);
+	m_commandList->OMSetRenderTargets(numRenderTargetDescriptors, pRenderTargetViews ?
+		renderTargetViews : nullptr, rtsSingleHandleToDescriptorRange,
+		pDepthStencilView ? &depthStencilView : nullptr);
 }
 
 void CommandList_DX12::ClearDepthStencilView(const Framebuffer& framebuffer, ClearFlag clearFlags, float depth,
@@ -450,6 +481,8 @@ void CommandList_DX12::ClearDepthStencilView(const Framebuffer& framebuffer, Cle
 void CommandList_DX12::ClearDepthStencilView(const Descriptor& depthStencilView, ClearFlag clearFlags, float depth,
 	uint8_t stencil, uint32_t numRects, const RectRange* pRects)
 {
+	assert(numRects == 0 || pRects);
+
 	if (m_rects.size() < numRects) m_rects.resize(numRects);
 	for (auto i = 0u; i < numRects; ++i)
 	{
@@ -460,12 +493,14 @@ void CommandList_DX12::ClearDepthStencilView(const Descriptor& depthStencilView,
 	}
 
 	m_commandList->ClearDepthStencilView({ depthStencilView }, GetDX12ClearFlags(clearFlags),
-		depth, stencil, numRects, numRects ? m_rects.data() : nullptr);
+		depth, stencil, numRects, pRects ? m_rects.data() : nullptr);
 }
 
 void CommandList_DX12::ClearRenderTargetView(const Descriptor& renderTargetView, const float colorRGBA[4],
 	uint32_t numRects, const RectRange* pRects)
 {
+	assert(numRects == 0 || pRects);
+
 	if (m_rects.size() < numRects) m_rects.resize(numRects);
 	for (auto i = 0u; i < numRects; ++i)
 	{
@@ -476,12 +511,15 @@ void CommandList_DX12::ClearRenderTargetView(const Descriptor& renderTargetView,
 	}
 
 	m_commandList->ClearRenderTargetView({ renderTargetView }, colorRGBA,
-		numRects, numRects ? m_rects.data() : nullptr);
+		numRects, pRects ? m_rects.data() : nullptr);
 }
 
 void CommandList_DX12::ClearUnorderedAccessViewUint(const DescriptorTable& descriptorTable, const Descriptor& descriptor,
 	const Resource* pResource, const uint32_t values[4], uint32_t numRects, const RectRange* pRects)
 {
+	assert(pResource);
+	assert(numRects == 0 || pRects);
+
 	if (m_rects.size() < numRects) m_rects.resize(numRects);
 	for (auto i = 0u; i < numRects; ++i)
 	{
@@ -499,6 +537,9 @@ void CommandList_DX12::ClearUnorderedAccessViewUint(const DescriptorTable& descr
 void CommandList_DX12::ClearUnorderedAccessViewFloat(const DescriptorTable& descriptorTable, const Descriptor& descriptor,
 	const Resource* pResource, const float values[4], uint32_t numRects, const RectRange* pRects)
 {
+	assert(pResource);
+	assert(numRects == 0 || pRects);
+
 	if (m_rects.size() < numRects) m_rects.resize(numRects);
 	for (auto i = 0u; i < numRects; ++i)
 	{
@@ -516,6 +557,9 @@ void CommandList_DX12::ClearUnorderedAccessViewFloat(const DescriptorTable& desc
 void CommandList_DX12::DiscardResource(const Resource* pResource, uint32_t numRects, const RectRange* pRects,
 	uint32_t firstSubresource, uint32_t numSubresources)
 {
+	assert(pResource);
+	assert(numRects == 0 || pRects);
+
 	if (m_rects.size() < numRects) m_rects.resize(numRects);
 	for (auto i = 0u; i < numRects; ++i)
 	{
@@ -543,12 +587,14 @@ void CommandList_DX12::EndQuery(const QueryPool& queryPool, QueryType type, uint
 void CommandList_DX12::ResolveQueryData(const QueryPool& queryPool, QueryType type, uint32_t startIndex,
 	uint32_t numQueries, const Resource* pDstBuffer, uint64_t alignedDstBufferOffset) const
 {
+	assert(pDstBuffer);
 	m_commandList->ResolveQueryData(static_cast<ID3D12QueryHeap*>(queryPool), GetDX12QueryType(type),
 		startIndex, numQueries, static_cast<ID3D12Resource*>(pDstBuffer->GetHandle()), alignedDstBufferOffset);
 }
 
 void CommandList_DX12::SetPredication(const Resource* pBuffer, uint64_t alignedBufferOffset, bool opEqualZero) const
 {
+	assert(pBuffer);
 	m_commandList->SetPredication(static_cast<ID3D12Resource*>(pBuffer->GetHandle()), alignedBufferOffset,
 		opEqualZero ? D3D12_PREDICATION_OP_EQUAL_ZERO : D3D12_PREDICATION_OP_NOT_EQUAL_ZERO);
 }
@@ -572,6 +618,8 @@ void CommandList_DX12::ExecuteIndirect(const CommandLayout* pCommandlayout, uint
 	const Resource* pArgumentBuffer, uint64_t argumentBufferOffset,
 	const Resource* pCountBuffer, uint64_t countBufferOffset)
 {
+	assert(pCommandlayout);
+	assert(pArgumentBuffer);
 	m_commandList->ExecuteIndirect(static_cast<ID3D12CommandSignature*>(pCommandlayout->GetHandle()),
 		maxCommandCount, static_cast<ID3D12Resource*>(pArgumentBuffer->GetHandle()), argumentBufferOffset,
 		pCountBuffer ? static_cast<ID3D12Resource*>(pCountBuffer->GetHandle()) : nullptr,

@@ -51,25 +51,40 @@ bool CommandList_DX12::CreateInterface()
 void CommandList_DX12::SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions) const
 {
 	assert(
+		numSamplesPerPixel == 0 ||
 		numSamplesPerPixel == 1 ||
 		numSamplesPerPixel == 2 ||
 		numSamplesPerPixel == 4 ||
 		numSamplesPerPixel == 8 ||
 		numSamplesPerPixel == 16);
+	assert(numPixels == 0 || numPixels == 1 || numPixels == 4);
+
+	const uint8_t numSamples = numSamplesPerPixel * numPixels;
+
+	assert(numSamples == 0 || pPositions);
+	assert(numSamples <= 16);
+
 	D3D12_SAMPLE_POSITION positions[16];
-	for (uint8_t i = 0; i < numSamplesPerPixel; ++i)
+	if (pPositions)
 	{
-		positions[i].X = pPositions[i].X;
-		positions[i].Y = pPositions[i].Y;
+		for (uint8_t i = 0; i < numSamples; ++i)
+		{
+			positions[i].X = pPositions[i].X;
+			positions[i].Y = pPositions[i].Y;
+		}
 	}
 
-	m_commandListU->SetSamplePositions(numSamplesPerPixel, numPixels, positions);
+	m_commandListU->SetSamplePositions(numSamplesPerPixel, numPixels, pPositions ? positions : nullptr);
 }
 
 void CommandList_DX12::ResolveSubresourceRegion(const Resource* pDstResource, uint32_t dstSubresource, uint32_t dstX, uint32_t dstY,
 	const Resource* pSrcResource, uint32_t srcSubresource, const RectRange& srcRect, Format format, ResolveMode resolveMode) const
 {
+	assert(pDstResource);
+	assert(pSrcResource);
+
 	D3D12_RECT rect = { srcRect.Left, srcRect.Top, srcRect.Right, srcRect.Bottom };
+
 	m_commandListU->ResolveSubresourceRegion(static_cast<ID3D12Resource*>(pDstResource->GetHandle()),
 		dstSubresource, dstX, dstY, static_cast<ID3D12Resource*>(pSrcResource->GetHandle()), srcSubresource,
 		&rect, GetDXGIFormat(format), GetDX12ResolveMode(resolveMode));
@@ -78,14 +93,17 @@ void CommandList_DX12::ResolveSubresourceRegion(const Resource* pDstResource, ui
 void CommandList_DX12::RSSetShadingRate(ShadingRate baseShadingRate, const ShadingRateCombiner* pCombiners) const
 {
 	D3D12_SHADING_RATE_COMBINER combiners[D3D12_RS_SET_SHADING_RATE_COMBINER_COUNT];
-	for (uint8_t i = 0; i < D3D12_RS_SET_SHADING_RATE_COMBINER_COUNT; ++i)
-		combiners[i] = GetDX12ShadingRateCombiner(pCombiners[i]);
-	m_commandListU->RSSetShadingRate(D3D12_SHADING_RATE(baseShadingRate), combiners);
+	if (pCombiners)
+		for (uint8_t i = 0; i < D3D12_RS_SET_SHADING_RATE_COMBINER_COUNT; ++i)
+			combiners[i] = GetDX12ShadingRateCombiner(pCombiners[i]);
+
+	m_commandListU->RSSetShadingRate(D3D12_SHADING_RATE(baseShadingRate), pCombiners ? combiners : nullptr);
 }
 
 void CommandList_DX12::RSSetShadingRateImage(const Resource* pShadingRateImage)  const
 {
-	m_commandListU->RSSetShadingRateImage(static_cast<ID3D12Resource*>(pShadingRateImage->GetHandle()));
+	m_commandListU->RSSetShadingRateImage(pShadingRateImage ?
+		static_cast<ID3D12Resource*>(pShadingRateImage->GetHandle()) : nullptr);
 }
 
 void CommandList_DX12::DispatchMesh(uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ)  const
