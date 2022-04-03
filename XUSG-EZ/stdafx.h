@@ -48,9 +48,14 @@
 #include <wrl.h>
 #include <shellapi.h>
 
+#include "D3D12RaytracingFallback.h"
+#include "D3D12RaytracingHelpers.hpp"
+
 #if defined(DEBUG) | defined(_DEBUG)
 #ifndef DBG_NEW
 #define DBG_NEW new (_NORMAL_BLOCK, __FILE__, __LINE__)
 #define new DBG_NEW
 #endif
 #endif  // _DEBUG
+
+#define ENABLE_DXR_FALLBACK 1

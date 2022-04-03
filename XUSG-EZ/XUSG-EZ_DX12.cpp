@@ -3,6 +3,7 @@
 //--------------------------------------------------------------------------------------
 
 #include "Core/XUSGCommand_DX12.h"
+#include "RayTracing/XUSGRayTracing.h"
 #include "XUSG-EZ_DX12.h"
 
 using namespace std;
@@ -78,7 +79,7 @@ bool EZ::CommandList_DX12::Reset(const CommandAllocator* pAllocator, const Pipel
 }
 
 void EZ::CommandList_DX12::Draw(uint32_t vertexCountPerInstance, uint32_t instanceCount,
-		uint32_t startVertexLocation, uint32_t startInstanceLocation)
+	uint32_t startVertexLocation, uint32_t startInstanceLocation)
 {
 	predraw();
 	XUSG::CommandList_DX12::Draw(vertexCountPerInstance, instanceCount, startVertexLocation, startInstanceLocation);
@@ -346,7 +347,7 @@ void EZ::CommandList_DX12::ClearDepthStencilView(ResourceView& depthStencilView,
 	float depth, uint8_t stencil, uint32_t numRects, const RectRange* pRects)
 {
 	setBarriers(1, &depthStencilView, ResourceState::DEPTH_WRITE);
-	m_clearDSVs.emplace_back(ClearDSV { depthStencilView.view, clearFlags, depth, stencil, numRects, pRects });
+	m_clearDSVs.emplace_back(ClearDSV{ depthStencilView.view, clearFlags, depth, stencil, numRects, pRects });
 }
 
 void EZ::CommandList_DX12::ClearRenderTargetView(ResourceView& renderTargetView,
