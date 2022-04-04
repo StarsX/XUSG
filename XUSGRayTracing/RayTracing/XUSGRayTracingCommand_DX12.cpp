@@ -57,6 +57,7 @@ void RayTracing::CommandList_DX12::BuildRaytracingAccelerationStructure(const Bu
 		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_CURRENT_SIZE
 	};
 
+	assert(numPostbuildInfoDescs == 0 || pPostbuildInfoDescs);
 	vector<D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_DESC> postbuildInfoDescs(numPostbuildInfoDescs);
 	for (auto i = 0u; i < numPostbuildInfoDescs; ++i)
 	{
@@ -70,15 +71,18 @@ void RayTracing::CommandList_DX12::BuildRaytracingAccelerationStructure(const Bu
 	const auto pDescriptorHeap = reinterpret_cast<ID3D12DescriptorHeap*>(descriptorPool);
 	m_commandListRT->SetDescriptorHeaps(1, &pDescriptorHeap);
 	m_commandListRT->BuildRaytracingAccelerationStructure(pBuildDesc, numPostbuildInfoDescs,
-		postbuildInfoDescs.data(), AccelerationStructure::GetUAVCount());
+		pPostbuildInfoDescs ? postbuildInfoDescs.data() : nullptr, AccelerationStructure::GetUAVCount());
 #else // DirectX Raytracing
-	m_commandListRT->BuildRaytracingAccelerationStructure(pBuildDesc, numPostbuildInfoDescs, postbuildInfoDescs.data());
+	m_commandListRT->BuildRaytracingAccelerationStructure(pBuildDesc, numPostbuildInfoDescs,
+		pPostbuildInfoDescs ? postbuildInfoDescs.data() : nullptr);
 #endif
 }
 
 void RayTracing::CommandList_DX12::SetDescriptorPools(uint32_t numDescriptorPools, const DescriptorPool* pDescriptorPools) const
 {
-	m_commandListRT->SetDescriptorHeaps(numDescriptorPools, reinterpret_cast<ID3D12DescriptorHeap* const*>(pDescriptorPools));
+	assert(numDescriptorPools == 0 || pDescriptorPools);
+	m_commandListRT->SetDescriptorHeaps(numDescriptorPools, pDescriptorPools ?
+		reinterpret_cast<ID3D12DescriptorHeap* const*>(pDescriptorPools) : nullptr);
 }
 
 void RayTracing::CommandList_DX12::SetTopLevelAccelerationStructure(uint32_t index, const TopLevelAS* pTopLevelAS) const
@@ -96,33 +100,31 @@ void RayTracing::CommandList_DX12::DispatchRays(const Pipeline& pipeline,
 	const ShaderTable* pMiss,
 	const ShaderTable* pRayGen) const
 {
-	auto dispatchRays = [&](auto* commandList, auto* stateObject, auto* dispatchDesc)
-	{
-		// Since each shader table has only one shader record, the stride is same as the size.
-		const auto dxHitGroup = static_cast<ID3D12Resource*>(pHitGroup->GetResource()->GetHandle());
-		const auto dxMiss = static_cast<ID3D12Resource*>(pMiss->GetResource()->GetHandle());
-		const auto dxRayGen = static_cast<ID3D12Resource*>(pRayGen->GetResource()->GetHandle());
-		dispatchDesc->HitGroupTable.StartAddress = dxHitGroup->GetGPUVirtualAddress();
-		dispatchDesc->HitGroupTable.SizeInBytes = pHitGroup->GetResource()->GetWidth();
-		dispatchDesc->HitGroupTable.StrideInBytes = pHitGroup->GetShaderRecordSize();
-		dispatchDesc->MissShaderTable.StartAddress = dxMiss->GetGPUVirtualAddress();
-		dispatchDesc->MissShaderTable.SizeInBytes = pMiss->GetResource()->GetWidth();
-		dispatchDesc->MissShaderTable.StrideInBytes = pMiss->GetShaderRecordSize();
-		dispatchDesc->RayGenerationShaderRecord.StartAddress = dxRayGen->GetGPUVirtualAddress();
-		dispatchDesc->RayGenerationShaderRecord.SizeInBytes = pRayGen->GetResource()->GetWidth();
-		dispatchDesc->Width = width;
-		dispatchDesc->Height = height;
-		dispatchDesc->Depth = depth;
-#if ENABLE_DXR_FALLBACK
-		commandList->SetPipelineState1(static_cast<ID3D12RaytracingFallbackStateObject*>(stateObject));
-#else // DirectX Raytracing
-		commandList->SetPipelineState1(static_cast<ID3D12StateObject*>(stateObject));
-#endif
-		commandList->DispatchRays(dispatchDesc);
-	};
-
 	D3D12_DISPATCH_RAYS_DESC dispatchDesc = {};
-	dispatchRays(m_commandListRT.get(), pipeline, &dispatchDesc);
+
+	// Since each shader table has only one shader record, the stride is same as the size.
+	const auto dxHitGroup = pHitGroup ? static_cast<ID3D12Resource*>(pHitGroup->GetResource()->GetHandle()) : nullptr;
+	const auto dxMiss = pMiss ? static_cast<ID3D12Resource*>(pMiss->GetResource()->GetHandle()) : nullptr;
+	const auto dxRayGen = pRayGen ? static_cast<ID3D12Resource*>(pRayGen->GetResource()->GetHandle()) : nullptr;
+	dispatchDesc.HitGroupTable.StartAddress = dxHitGroup ? dxHitGroup->GetGPUVirtualAddress() : 0;
+	dispatchDesc.HitGroupTable.SizeInBytes = pHitGroup ? pHitGroup->GetResource()->GetWidth() : 0;
+	dispatchDesc.HitGroupTable.StrideInBytes = pHitGroup ? pHitGroup->GetShaderRecordSize() : 0;
+	dispatchDesc.MissShaderTable.StartAddress = dxMiss ? dxMiss->GetGPUVirtualAddress() : 0;
+	dispatchDesc.MissShaderTable.SizeInBytes = pMiss ? pMiss->GetResource()->GetWidth() : 0;
+	dispatchDesc.MissShaderTable.StrideInBytes = pMiss ? pMiss->GetShaderRecordSize() : 0;
+	dispatchDesc.RayGenerationShaderRecord.StartAddress = dxRayGen ? dxRayGen->GetGPUVirtualAddress() : 0;
+	dispatchDesc.RayGenerationShaderRecord.SizeInBytes = pRayGen ? pRayGen->GetResource()->GetWidth() : 0;
+	dispatchDesc.Width = width;
+	dispatchDesc.Height = height;
+	dispatchDesc.Depth = depth;
+
+	const auto pCommandList = m_commandListRT.get();
+#if ENABLE_DXR_FALLBACK
+	pCommandList->SetPipelineState1(static_cast<ID3D12RaytracingFallbackStateObject*>(pipeline));
+#else // DirectX Raytracing
+	pCommandList->SetPipelineState1(static_cast<ID3D12StateObject*>(pipeline));
+#endif
+	pCommandList->DispatchRays(&dispatchDesc);
 }
 
 const RayTracing::Device* RayTracing::CommandList_DX12::GetRTDevice() const
