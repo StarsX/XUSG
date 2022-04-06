@@ -137,7 +137,7 @@ namespace XUSG
 				const Resource* pCountBuffer = nullptr, uint64_t countBufferOffset = 0)
 			{
 				XUSG::CommandList_DX12::ExecuteIndirect(pCommandlayout, maxCommandCount,
-					pArgumentBuffer, argumentBufferOffset, pCountBuffer,  countBufferOffset);
+					pArgumentBuffer, argumentBufferOffset, pCountBuffer, countBufferOffset);
 			}
 
 			// For resize window

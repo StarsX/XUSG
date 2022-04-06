@@ -164,6 +164,9 @@ namespace XUSG
 				//CommandList();
 				virtual ~CommandList() {}
 
+				using uptr = std::unique_ptr<CommandList>;
+				using sptr = std::shared_ptr<CommandList>;
+
 				static uptr MakeUnique(XUSG::API api = XUSG::API::DIRECTX_12);
 				static sptr MakeShared(XUSG::API api = XUSG::API::DIRECTX_12);
 				static uptr MakeUnique(XUSG::RayTracing::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
