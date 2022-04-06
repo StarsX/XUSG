@@ -10,8 +10,9 @@ using namespace XUSG;
 using namespace XUSG::EZ::RayTracing;
 
 CommandList_DXR::CommandList_DXR() :
-	XUSG::EZ::CommandList_DX12()
-	, m_paramIndex(0)
+	XUSG::CommandList_DX12(),
+	EZ::CommandList_DX12(),
+	m_paramIndex(0)
 {
 }
 
@@ -22,9 +23,9 @@ CommandList_DXR::~CommandList_DXR()
 CommandList_DXR::CommandList_DXR(XUSG::RayTracing::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
 	uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace, const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
 	uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces, uint32_t maxTLASSrvs, uint32_t spaceTLAS) :
-	XUSG::EZ::CommandList_DX12(pCommandList, samplerPoolSize, cbvSrvUavPoolSize, maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
-		maxCbvSpaces, maxSrvSpaces, maxUavSpaces)
-	, m_paramIndex(0)
+	EZ::CommandList_DX12(pCommandList, samplerPoolSize, cbvSrvUavPoolSize, maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
+		maxCbvSpaces, maxSrvSpaces, maxUavSpaces),
+	m_paramIndex(0)
 {
 }
 
@@ -60,7 +61,7 @@ bool CommandList_DXR::createPipelineLayouts(uint32_t maxSamplers, const uint32_t
 	{
 		// Create common graphics pipeline layout
 		auto paramIndex = 0u;
-		const auto pipelineLayout = XUSG::RayTracing::PipelineLayout::MakeUnique(API::DIRECTX_12);
+		const auto pipelineLayout = Util::PipelineLayout::MakeUnique(API::DIRECTX_12);
 		const auto maxSpaces = (max)(maxCbvSpaces, (max)(maxSrvSpaces, maxUavSpaces));
 		pipelineLayout->SetRange(paramIndex++, DescriptorType::SAMPLER, maxSamplers, 0, 0, DescriptorFlag::DATA_STATIC);
 
@@ -105,7 +106,7 @@ bool CommandList_DXR::createPipelineLayouts(uint32_t maxSamplers, const uint32_t
 			}
 		}
 
-		X_RETURN(m_pipelineLayouts[GRAPHICS], pipelineLayout->GetPipelineLayout(m_pDeviceRT, m_pipelineLayoutCache.get(),
+		X_RETURN(m_pipelineLayouts[GRAPHICS], pipelineLayout->GetPipelineLayout(m_pipelineLayoutCache.get(),
 			PipelineLayoutFlag::ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT, L"EZGraphicsLayout"), false);
 	}
 
@@ -156,7 +157,7 @@ bool CommandList_DXR::createPipelineLayouts(uint32_t maxSamplers, const uint32_t
 		}
 
 		m_paramIndex = paramIndex;
-		X_RETURN(m_pipelineLayouts[COMPUTE], pipelineLayout->GetPipelineLayout(pCommandList->GetRTDevice(), m_pipelineLayoutCache.get(),
+		X_RETURN(m_pipelineLayouts[COMPUTE], pipelineLayout->GetPipelineLayout(m_pDeviceRT, m_pipelineLayoutCache.get(),
 			PipelineLayoutFlag::NONE, L"EZComputeLayout"), false);
 	}
 

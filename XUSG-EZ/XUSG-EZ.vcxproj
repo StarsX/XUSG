@@ -163,6 +163,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\XUSGRayTracing\RayTracing\XUSGRayTracingCommand_DX12.h" />
     <ClInclude Include="..\XUSG\Core\XUSG.h" />
     <ClInclude Include="..\XUSG\Core\XUSGCommand_DX12.h" />
     <ClInclude Include="..\XUSG\Core\XUSGEnum_DX12.h" />
@@ -172,6 +173,12 @@
     <ClInclude Include="XUSG-EZ_DXR.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\XUSGRayTracing\RayTracing\XUSGRayTracingCommand_DX12.cpp">
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">stdafx.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdafx.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdafx.h</ForcedIncludeFiles>
+    </ClCompile>
     <ClCompile Include="..\XUSG\Core\XUSGCommand_DX12.cpp">
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">stdafx.h</ForcedIncludeFiles>
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdafx.h</ForcedIncludeFiles>

@@ -162,7 +162,8 @@ namespace XUSG
 			//--------------------------------------------------------------------------------------
 			// RayTracing Command list
 			//--------------------------------------------------------------------------------------
-			class DLL_INTERFACE CommandList : public EZ::CommandList
+			class DLL_INTERFACE CommandList :
+				public virtual EZ::CommandList
 			{
 			public:
 				//CommandList();
