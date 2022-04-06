@@ -4,6 +4,7 @@
 
 #include "Core/XUSGCommand_DX12.h"
 #include "XUSG-EZ_DXR.h"
+#include "RayTracing/XUSGAccelerationStructure_DX12.h"
 
 using namespace std;
 using namespace XUSG;
@@ -12,7 +13,9 @@ using namespace XUSG::EZ::RayTracing;
 CommandList_DXR::CommandList_DXR() :
 	XUSG::CommandList_DX12(),
 	EZ::CommandList_DX12(),
-	m_paramIndex(0)
+	m_asUavCount(0),
+	m_paramIndex(0),
+	m_scratchSize(0)
 {
 }
 
@@ -25,7 +28,9 @@ CommandList_DXR::CommandList_DXR(XUSG::RayTracing::CommandList* pCommandList, ui
 	uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces, uint32_t maxTLASSrvs, uint32_t spaceTLAS) :
 	EZ::CommandList_DX12(pCommandList, samplerPoolSize, cbvSrvUavPoolSize, maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
 		maxCbvSpaces, maxSrvSpaces, maxUavSpaces),
-	m_paramIndex(0)
+	m_paramIndex(0),
+	m_asUavCount(0),
+	m_scratchSize(0)
 {
 }
 
@@ -50,6 +55,68 @@ bool CommandList_DXR::Create(XUSG::RayTracing::CommandList* pCommandList, uint32
 	// Create common pipeline layouts
 	createPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces, maxTLASSrvs, spaceTLAS);
 
+	return true;
+}
+
+bool CommandList_DXR::PreBuildBLAS(XUSG::RayTracing::BottomLevelAS* pBLAS, uint32_t numGeometries, const XUSG::RayTracing::GeometryBuffer& geometries,
+	XUSG::RayTracing::BuildFlag flags)
+{
+	assert(pBLAS);
+
+	N_RETURN(pBLAS->PreBuild(m_pDeviceRT, numGeometries, geometries, m_asUavCount++, flags), false);
+
+	Descriptor descriptor = pBLAS->GetResult()->GetUAV();
+	const auto descriptorTable = Util::DescriptorTable::MakeUnique();
+	descriptorTable->SetDescriptors(0, 1, &descriptor);
+	const auto asTable = descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get());
+	N_RETURN(asTable, false);
+	m_scratchSize = (max)(m_scratchSize, pBLAS->GetScratchDataMaxSize());
+
+	return true;
+}
+
+bool CommandList_DXR::PreBuildTLAS(XUSG::RayTracing::TopLevelAS* pTLAS, uint32_t numGeometries, XUSG::RayTracing::BuildFlag flags)
+{
+	assert(pTLAS);
+
+	N_RETURN(pTLAS->PreBuild(m_pDeviceRT, numGeometries, m_asUavCount++, flags), false);
+
+	Descriptor descriptor = pTLAS->GetResult()->GetUAV();
+	const auto descriptorTable = Util::DescriptorTable::MakeUnique();
+	descriptorTable->SetDescriptors(0, 1, &descriptor);
+	const auto asTable = descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get());
+	N_RETURN(asTable, false);
+	m_scratchSize = (max)(m_scratchSize, pTLAS->GetScratchDataMaxSize());
+
+	return true;
+}
+
+
+bool CommandList_DXR::BuildBLAS(XUSG::RayTracing::BottomLevelAS* pBLAS, bool update)
+{
+	assert(pBLAS);
+
+	if (!m_scratch)
+	{
+		m_scratch = Resource::MakeUnique();
+		N_RETURN(XUSG::RayTracing::AccelerationStructure::AllocateUAVBuffer(m_pDeviceRT, m_scratch.get(), m_scratchSize), false);
+	}
+	const auto& descriptorPool = m_descriptorTableCache->GetDescriptorPool(CBV_SRV_UAV_POOL);
+	pBLAS->Build(this, m_scratch.get(), descriptorPool, update);
+	return true;
+}
+
+bool CommandList_DXR::BuildTLAS(XUSG::RayTracing::TopLevelAS* pTLAS, const Resource* pInstanceDescs, bool update)
+{
+	assert(pTLAS);
+
+	if (!m_scratch)
+	{
+		m_scratch = Resource::MakeUnique();
+		N_RETURN(XUSG::RayTracing::AccelerationStructure::AllocateUAVBuffer(m_pDeviceRT, m_scratch.get(), m_scratchSize), false);
+	}
+	const auto& descriptorPool = m_descriptorTableCache->GetDescriptorPool(CBV_SRV_UAV_POOL);
+	pTLAS->Build(this, m_scratch.get(), pInstanceDescs, descriptorPool, update);
 	return true;
 }
 
