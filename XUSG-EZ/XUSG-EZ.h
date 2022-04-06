@@ -107,6 +107,10 @@ namespace XUSG
 				float depth, uint8_t stencil = 0, uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
 			virtual void ClearRenderTargetView(ResourceView& renderTargetView, const float colorRGBA[4],
 				uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
+			virtual void ClearUnorderedAccessViewUint(ResourceView& unorderedAccessView, const uint32_t values[4],
+				uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
+			virtual void ClearUnorderedAccessViewFloat(ResourceView& unorderedAccessView, const float values[4],
+				uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
 			virtual void DiscardResource(const Resource* pResource, uint32_t numRects, const RectRange* pRects,
 				uint32_t firstSubresource, uint32_t numSubresources) = 0;
 			virtual void BeginQuery(const QueryPool& queryPool, QueryType type, uint32_t index) const = 0;

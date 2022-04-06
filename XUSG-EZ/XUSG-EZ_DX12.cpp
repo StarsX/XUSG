@@ -320,10 +320,24 @@ void EZ::CommandList_DX12::OMSetRenderTargets(uint32_t numRenderTargets,
 
 	// Set DSV barriers
 	if (pDepthStencilView)
+	{
 		setBarriers(1, pDepthStencilView, ResourceState::DEPTH_WRITE);
+		m_graphicsState->OMSetDSVFormat(dynamic_cast<Texture*>(pDepthStencilView->pResource)->GetFormat());
+	}
+	else m_graphicsState->OMSetDSVFormat(Format::UNKNOWN);
+
+	m_graphicsState->OMSetNumRenderTargets(numRenderTargets);
 
 	Descriptor pRTVs[D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT];
-	for (auto i = 0u; i < numRenderTargets; ++i) pRTVs[i] = pRenderTargetViews[i].view;
+	for (auto i = 0u; i < numRenderTargets; ++i)
+	{
+		pRTVs[i] = pRenderTargetViews[i].view;
+		m_graphicsState->OMSetRTVFormat(i, dynamic_cast<Texture*>(pRenderTargetViews[i].pResource)->GetFormat());
+	}
+
+	for (auto i = numRenderTargets; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
+		m_graphicsState->OMSetRTVFormat(i, Format::UNKNOWN);
+
 	XUSG::CommandList_DX12::OMSetRenderTargets(numRenderTargets, pRTVs,
 		pDepthStencilView ? &pDepthStencilView->view : nullptr);
 }
@@ -340,6 +354,32 @@ void EZ::CommandList_DX12::ClearRenderTargetView(ResourceView& renderTargetView,
 {
 	setBarriers(1, &renderTargetView, ResourceState::RENDER_TARGET);
 	m_clearRTVs.emplace_back(ClearRTV{ renderTargetView.view, colorRGBA, numRects, pRects });
+}
+
+void EZ::CommandList_DX12::ClearUnorderedAccessViewUint(ResourceView& unorderedAccessView,
+	const uint32_t values[4], uint32_t numRects, const RectRange* pRects)
+{
+	setBarriers(1, &unorderedAccessView, ResourceState::UNORDERED_ACCESS);
+
+	const auto uavTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
+	uavTable->SetDescriptors(0, 1, &unorderedAccessView.view);
+	const auto descriptorTable = uavTable->GetCbvSrvUavTable(m_descriptorTableCache.get());
+
+	XUSG::CommandList_DX12::ClearUnorderedAccessViewUint(descriptorTable, unorderedAccessView.view,
+		unorderedAccessView.pResource, values, numRects, pRects);
+}
+
+void EZ::CommandList_DX12::ClearUnorderedAccessViewFloat(ResourceView& unorderedAccessView,
+	const float values[4], uint32_t numRects, const RectRange* pRects)
+{
+	setBarriers(1, &unorderedAccessView, ResourceState::UNORDERED_ACCESS);
+
+	const auto uavTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
+	uavTable->SetDescriptors(0, 1, &unorderedAccessView.view);
+	const auto descriptorTable = uavTable->GetCbvSrvUavTable(m_descriptorTableCache.get());
+
+	XUSG::CommandList_DX12::ClearUnorderedAccessViewFloat(descriptorTable, unorderedAccessView.view,
+		unorderedAccessView.pResource, values, numRects, pRects);
 }
 
 void EZ::CommandList_DX12::ResetDescriptorPool(DescriptorPoolType type)
