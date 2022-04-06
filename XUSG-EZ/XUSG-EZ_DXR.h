@@ -5,6 +5,8 @@
 #pragma once
 
 #include "XUSG-EZ_DX12.h"
+#include "XUSG-EZ.h"
+#include "RayTracing/XUSGRayTracingCommand_DX12.h"
 
 namespace XUSG
 {
@@ -12,7 +14,10 @@ namespace XUSG
 	{
 		namespace RayTracing
 		{
-			class CommandList_DXR : public XUSG::EZ::CommandList_DX12
+			class CommandList_DXR :
+				virtual public XUSG::EZ::RayTracing::CommandList,
+				virtual public XUSG::RayTracing::CommandList_DX12,
+				virtual public XUSG::EZ::CommandList_DX12
 			{
 			public:
 				CommandList_DXR();
@@ -28,7 +33,7 @@ namespace XUSG
 					uint32_t maxTLASSrvs = 0, uint32_t spaceTLAS = 0);
 
 			protected:
-				bool createPipelineLayouts(XUSG::RayTracing::CommandList* pCommandList, uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
+				bool createPipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
 					const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
 					uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces,
 					uint32_t maxTLASSrvs, uint32_t spaceTLAS);

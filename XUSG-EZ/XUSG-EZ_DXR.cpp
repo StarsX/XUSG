@@ -33,25 +33,26 @@ bool CommandList_DXR::Create(XUSG::RayTracing::CommandList* pCommandList, uint32
 	const uint32_t* pMaxUavsEachSpace, uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces,
 	uint32_t maxTLASSrvs, uint32_t spaceTLAS)
 {
-	const auto pDevice = pCommandList->GetRTDevice();
+	m_pDevice = pCommandList->GetDevice();
+	m_pDeviceRT = pCommandList->GetRTDevice();
 	m_commandList = dynamic_cast<XUSG::CommandList_DX12*>(pCommandList)->GetGraphicsCommandList();
 
-	m_graphicsPipelineCache = Graphics::PipelineCache::MakeUnique(pDevice, API::DIRECTX_12);
-	m_computePipelineCache = Compute::PipelineCache::MakeUnique(pDevice, API::DIRECTX_12);
-	m_pipelineLayoutCache = PipelineLayoutCache::MakeUnique(pDevice, API::DIRECTX_12);
-	m_descriptorTableCache = DescriptorTableCache::MakeUnique(pDevice, L"EZDescirptorTableCache", API::DIRECTX_12);
+	m_graphicsPipelineCache = Graphics::PipelineCache::MakeUnique(m_pDevice, API::DIRECTX_12);
+	m_computePipelineCache = Compute::PipelineCache::MakeUnique(m_pDevice, API::DIRECTX_12);
+	m_pipelineLayoutCache = PipelineLayoutCache::MakeUnique(m_pDevice, API::DIRECTX_12);
+	m_descriptorTableCache = DescriptorTableCache::MakeUnique(m_pDevice, L"EZDescirptorTableCache", API::DIRECTX_12);
 
 	// Allocate descriptor pools
 	m_descriptorTableCache->AllocateDescriptorPool(DescriptorPoolType::SAMPLER_POOL, samplerPoolSize);
 	m_descriptorTableCache->AllocateDescriptorPool(DescriptorPoolType::CBV_SRV_UAV_POOL, cbvSrvUavPoolSize);
 
 	// Create common pipeline layouts
-	createPipelineLayouts(pCommandList, maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces, maxTLASSrvs, spaceTLAS);
+	createPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces, maxTLASSrvs, spaceTLAS);
 
 	return true;
 }
 
-bool CommandList_DXR::createPipelineLayouts(XUSG::RayTracing::CommandList* pCommandList, uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
+bool CommandList_DXR::createPipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
 	const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
 	uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces, uint32_t maxTLASSrvs, uint32_t spaceTLAS)
 {
@@ -104,7 +105,7 @@ bool CommandList_DXR::createPipelineLayouts(XUSG::RayTracing::CommandList* pComm
 			}
 		}
 
-		X_RETURN(m_pipelineLayouts[GRAPHICS], pipelineLayout->GetPipelineLayout(pCommandList->GetRTDevice(), m_pipelineLayoutCache.get(),
+		X_RETURN(m_pipelineLayouts[GRAPHICS], pipelineLayout->GetPipelineLayout(m_pDeviceRT, m_pipelineLayoutCache.get(),
 			PipelineLayoutFlag::ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT, L"EZGraphicsLayout"), false);
 	}
 
