@@ -67,7 +67,7 @@ bool CommandList_DXR::Close()
 		m_scratches[0] = std::move(scratch);
 	}
 
-	return XUSG::EZ::CommandList::Close();
+	return XUSG::EZ::CommandList_DX12::Close();
 }
 
 bool CommandList_DXR::PreBuildBLAS(XUSG::RayTracing::BottomLevelAS* pBLAS, uint32_t numGeometries, const XUSG::RayTracing::GeometryBuffer& geometries,
