@@ -58,6 +58,18 @@ bool CommandList_DXR::Create(XUSG::RayTracing::CommandList* pCommandList, uint32
 	return true;
 }
 
+bool CommandList_DXR::Close()
+{
+	if (!m_scratches.empty())
+	{
+		auto scratch = std::move(m_scratches.back());
+		m_scratches.resize(1);
+		m_scratches[0] = std::move(scratch);
+	}
+
+	return XUSG::EZ::CommandList::Close();
+}
+
 bool CommandList_DXR::PreBuildBLAS(XUSG::RayTracing::BottomLevelAS* pBLAS, uint32_t numGeometries, const XUSG::RayTracing::GeometryBuffer& geometries,
 	XUSG::RayTracing::BuildFlag flags)
 {
@@ -91,18 +103,13 @@ bool CommandList_DXR::PreBuildTLAS(XUSG::RayTracing::TopLevelAS* pTLAS, uint32_t
 	return true;
 }
 
-
 bool CommandList_DXR::BuildBLAS(XUSG::RayTracing::BottomLevelAS* pBLAS, bool update)
 {
 	assert(pBLAS);
 
-	if (!m_scratch)
-	{
-		m_scratch = Resource::MakeUnique();
-		N_RETURN(XUSG::RayTracing::AccelerationStructure::AllocateUAVBuffer(m_pDeviceRT, m_scratch.get(), m_scratchSize), false);
-	}
+	auto scratch = needScratch(m_scratchSize);
 	const auto& descriptorPool = m_descriptorTableCache->GetDescriptorPool(CBV_SRV_UAV_POOL);
-	pBLAS->Build(this, m_scratch.get(), descriptorPool, update);
+	pBLAS->Build(this, scratch, descriptorPool, update);
 	return true;
 }
 
@@ -110,14 +117,21 @@ bool CommandList_DXR::BuildTLAS(XUSG::RayTracing::TopLevelAS* pTLAS, const Resou
 {
 	assert(pTLAS);
 
-	if (!m_scratch)
-	{
-		m_scratch = Resource::MakeUnique();
-		N_RETURN(XUSG::RayTracing::AccelerationStructure::AllocateUAVBuffer(m_pDeviceRT, m_scratch.get(), m_scratchSize), false);
-	}
+	auto scratch = needScratch(m_scratchSize);
 	const auto& descriptorPool = m_descriptorTableCache->GetDescriptorPool(CBV_SRV_UAV_POOL);
-	pTLAS->Build(this, m_scratch.get(), pInstanceDescs, descriptorPool, update);
+	pTLAS->Build(this, scratch, pInstanceDescs, descriptorPool, update);
 	return true;
+}
+
+XUSG::Resource* CommandList_DXR::needScratch(uint32_t size)
+{
+	if (m_scratches.empty() || !m_scratches.back() || m_scratches.back()->GetWidth() < size)
+	{
+		m_scratches.emplace_back(Resource::MakeUnique());
+		XUSG::RayTracing::AccelerationStructure::AllocateUAVBuffer(m_pDeviceRT, m_scratches.back().get(), size);
+	}
+
+	return m_scratches.back().get();
 }
 
 bool CommandList_DXR::createPipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,

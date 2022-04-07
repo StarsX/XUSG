@@ -32,6 +32,8 @@ namespace XUSG
 					const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1,
 					uint32_t maxTLASSrvs = 0, uint32_t spaceTLAS = 0);
 
+				bool Close();
+
 				bool PreBuildBLAS(XUSG::RayTracing::BottomLevelAS* pBLAS, uint32_t numGeometries, const XUSG::RayTracing::GeometryBuffer& geometries,
 					XUSG::RayTracing::BuildFlag flags = XUSG::RayTracing::BuildFlag::PREFER_FAST_TRACE);
 				bool PreBuildTLAS(XUSG::RayTracing::TopLevelAS* pTLAS, uint32_t numGeometries, XUSG::RayTracing::BuildFlag flags);
@@ -40,6 +42,8 @@ namespace XUSG
 				bool BuildTLAS(XUSG::RayTracing::TopLevelAS* pTLAS, const Resource* pInstanceDescs, bool update = false);
 
 			protected:
+				XUSG::Resource* needScratch(uint32_t size);
+
 				bool createPipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
 					const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
 					uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces,
@@ -51,7 +55,7 @@ namespace XUSG
 				std::vector<uint32_t> m_tlasBindingToParamIndexMap;
 
 				uint32_t m_scratchSize;
-				XUSG::Resource::uptr m_scratch;
+				std::vector<XUSG::Resource::uptr> m_scratches;
 			};
 		}
 	}
