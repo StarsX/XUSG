@@ -9,12 +9,15 @@
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
     </Filter>
-    <Filter Include="Resource Files">
+    <Filter Include="Core">
+      <UniqueIdentifier>{f1082f8e-3256-4ec9-b2c9-c9e9e655a496}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Resource Files">
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="Core">
-      <UniqueIdentifier>{f1082f8e-3256-4ec9-b2c9-c9e9e655a496}</UniqueIdentifier>
+    <Filter Include="RayTracing">
+      <UniqueIdentifier>{40d5f41d-7bc3-4d19-acfd-aa9beed1733a}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -36,6 +39,12 @@
     <ClInclude Include="..\XUSG\Core\XUSGEnum_DX12.h">
       <Filter>Core</Filter>
     </ClInclude>
+    <ClInclude Include="XUSG-EZ_DXR.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSGRayTracing\RayTracing\XUSGRayTracingCommand_DX12.h">
+      <Filter>RayTracing</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -52,6 +61,12 @@
     </ClCompile>
     <ClCompile Include="XUSG-EZ.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="XUSG-EZ_DXR.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSGRayTracing\RayTracing\XUSGRayTracingCommand_DX12.cpp">
+      <Filter>RayTracing</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

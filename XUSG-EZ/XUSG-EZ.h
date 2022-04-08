@@ -5,6 +5,7 @@
 #pragma once
 
 #include "Core/XUSG.h"
+#include "RayTracing/XUSGRayTracing.h"
 
 namespace XUSG
 {
@@ -155,5 +156,33 @@ namespace XUSG
 				const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1,
 				XUSG::API api = XUSG::API::DIRECTX_12);
 		};
+
+		namespace RayTracing
+		{
+			//--------------------------------------------------------------------------------------
+			// RayTracing Command list
+			//--------------------------------------------------------------------------------------
+			class DLL_INTERFACE CommandList :
+				public virtual EZ::CommandList
+			{
+			public:
+				//CommandList();
+				virtual ~CommandList() {}
+
+				using uptr = std::unique_ptr<CommandList>;
+				using sptr = std::shared_ptr<CommandList>;
+
+				static uptr MakeUnique(XUSG::API api = XUSG::API::DIRECTX_12);
+				static sptr MakeShared(XUSG::API api = XUSG::API::DIRECTX_12);
+				static uptr MakeUnique(XUSG::RayTracing::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+					uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
+					const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1,
+					XUSG::API api = XUSG::API::DIRECTX_12);
+				static sptr MakeShared(XUSG::RayTracing::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+					uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
+					const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1,
+					XUSG::API api = XUSG::API::DIRECTX_12);
+			};
+		}
 	}
 }
