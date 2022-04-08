@@ -39,5 +39,8 @@ namespace XUSG
 
 		D3D12_RAYTRACING_GEOMETRY_FLAGS GetDXRGeometryFlag(GeometryFlag geometryFlag);
 		D3D12_RAYTRACING_GEOMETRY_FLAGS GetDXRGeometryFlags(GeometryFlag geometryFlags);
+
+		D3D12_RAYTRACING_INSTANCE_FLAGS GetDXRInstanceFlag(InstanceFlag instanceFlag);
+		D3D12_RAYTRACING_INSTANCE_FLAGS GetDXRInstanceFlags(InstanceFlag instanceFlags);
 	}
 }

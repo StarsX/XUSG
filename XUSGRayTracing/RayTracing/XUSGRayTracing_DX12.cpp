@@ -11,6 +11,7 @@ using namespace XUSG::RayTracing;
 #define APPEND_FLAG(type, dx12Type, flags, flag, none) (static_cast<bool>(flags & type::flag) ? dx12Type##_##flag : dx12Type##_##none)
 #define APPEND_BUILD_FLAG(flags, flag) APPEND_FLAG(BuildFlag, D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG, flags, flag, NONE)
 #define APPEND_GEOMETRY_FLAG(flags, flag) APPEND_FLAG(GeometryFlag, D3D12_RAYTRACING_GEOMETRY_FLAG, flags, flag, NONE)
+#define APPEND_INSTANCE_FLAG(flags, flag) APPEND_FLAG(InstanceFlag, D3D12_RAYTRACING_INSTANCE_FLAG, flags, flag, NONE)
 
 Device_DX12::Device_DX12()
 {
@@ -106,6 +107,35 @@ D3D12_RAYTRACING_GEOMETRY_FLAGS XUSG::RayTracing::GetDXRGeometryFlags(GeometryFl
 	flags |= static_cast<bool>(geometryFlags & GeometryFlag::FULL_OPAQUE) ?
 		D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE : D3D12_RAYTRACING_GEOMETRY_FLAG_NONE;
 	flags |= APPEND_GEOMETRY_FLAG(geometryFlags, NO_DUPLICATE_ANYHIT_INVOCATION);
+
+	return flags;
+}
+
+D3D12_RAYTRACING_INSTANCE_FLAGS XUSG::RayTracing::GetDXRInstanceFlag(InstanceFlag instanceFlag)
+{
+	static const D3D12_RAYTRACING_INSTANCE_FLAGS instanceFlags[] =
+	{
+		D3D12_RAYTRACING_INSTANCE_FLAG_TRIANGLE_CULL_DISABLE,
+		D3D12_RAYTRACING_INSTANCE_FLAG_TRIANGLE_FRONT_COUNTERCLOCKWISE,
+		D3D12_RAYTRACING_INSTANCE_FLAG_FORCE_OPAQUE,
+		D3D12_RAYTRACING_INSTANCE_FLAG_FORCE_NON_OPAQUE
+	};
+
+	if (instanceFlag == InstanceFlag::NONE) return D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
+
+	const auto index = XUSG::Log2(static_cast<uint32_t>(instanceFlag));
+
+	return instanceFlags[index];
+}
+
+D3D12_RAYTRACING_INSTANCE_FLAGS XUSG::RayTracing::GetDXRInstanceFlags(InstanceFlag instanceFlags)
+{
+	auto flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
+	flags |= static_cast<bool>(instanceFlags & InstanceFlag::TRIANGLE_CULL_DISABLE) ?
+		D3D12_RAYTRACING_INSTANCE_FLAG_TRIANGLE_CULL_DISABLE : D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
+	flags |= APPEND_INSTANCE_FLAG(instanceFlags, TRIANGLE_FRONT_COUNTERCLOCKWISE);
+	flags |= APPEND_INSTANCE_FLAG(instanceFlags, FORCE_OPAQUE);
+	flags |= APPEND_INSTANCE_FLAG(instanceFlags, FORCE_NON_OPAQUE);
 
 	return flags;
 }

@@ -84,6 +84,8 @@ namespace XUSG
 
 			static void SetInstances(const Device* pDevice, Resource* pInstances, uint32_t numInstances,
 				const BottomLevelAS* const* ppBottomLevelASs, float* const* transforms);
+			static void SetInstances(const Device* pDevice, Resource* pInstances, uint32_t numInstances,
+				const InstanceDesc* pInstanceDescs);
 		};
 	}
 }

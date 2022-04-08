@@ -92,6 +92,12 @@ void TopLevelAS::SetInstances(const Device* pDevice, Resource* pInstances,
 	TopLevelAS_DX12::SetInstances(pDevice, pInstances, numInstances, pBottomLevelASs, transforms);
 }
 
+void TopLevelAS::SetInstances(const Device* pDevice, Resource* pInstances,
+	uint32_t numInstances, const InstanceDesc* pInstanceDescs, API api)
+{
+	TopLevelAS_DX12::SetInstances(pDevice, pInstances, numInstances, pInstanceDescs);
+}
+
 TopLevelAS::uptr TopLevelAS::MakeUnique(API api)
 {
 	return make_unique<TopLevelAS_DX12>();
