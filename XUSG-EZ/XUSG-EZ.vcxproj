@@ -163,6 +163,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\XUSGRayTracing\RayTracing\XUSGRayTracing.h" />
     <ClInclude Include="..\XUSGRayTracing\RayTracing\XUSGRayTracingCommand_DX12.h" />
     <ClInclude Include="..\XUSG\Core\XUSG.h" />
     <ClInclude Include="..\XUSG\Core\XUSGCommand_DX12.h" />

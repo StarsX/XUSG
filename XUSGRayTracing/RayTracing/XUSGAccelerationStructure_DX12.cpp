@@ -162,14 +162,14 @@ BottomLevelAS_DX12::~BottomLevelAS_DX12()
 {
 }
 
-bool BottomLevelAS_DX12::PreBuild(const Device* pDevice, uint32_t numDescs,
+bool BottomLevelAS_DX12::PreBuild(const Device* pDevice, uint32_t numGeometries,
 	const GeometryBuffer& geometries, uint32_t descriptorIndex, BuildFlag flags)
 {
 	m_buildDesc = {};
 	auto& inputs = m_buildDesc.Inputs;
 	inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
 	inputs.Flags = GetDXRBuildFlags(flags);
-	inputs.NumDescs = numDescs;
+	inputs.NumDescs = numGeometries;
 	inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
 	inputs.pGeometryDescs = reinterpret_cast<const D3D12_RAYTRACING_GEOMETRY_DESC*>(geometries.data());
 
@@ -275,14 +275,14 @@ TopLevelAS_DX12::~TopLevelAS_DX12()
 {
 }
 
-bool TopLevelAS_DX12::PreBuild(const Device* pDevice, uint32_t numDescs,
+bool TopLevelAS_DX12::PreBuild(const Device* pDevice, uint32_t numInstances,
 	uint32_t descriptorIndex, BuildFlag flags)
 {
 	m_buildDesc = {};
 	auto& inputs = m_buildDesc.Inputs;
 	inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
 	inputs.Flags = GetDXRBuildFlags(flags);
-	inputs.NumDescs = numDescs;
+	inputs.NumDescs = numInstances;
 	inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
 
 	// Get required sizes for an acceleration structure.

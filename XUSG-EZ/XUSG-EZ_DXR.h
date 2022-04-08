@@ -36,10 +36,15 @@ namespace XUSG
 
 				bool PreBuildBLAS(XUSG::RayTracing::BottomLevelAS* pBLAS, uint32_t numGeometries, const XUSG::RayTracing::GeometryBuffer& geometries,
 					XUSG::RayTracing::BuildFlag flags = XUSG::RayTracing::BuildFlag::PREFER_FAST_TRACE);
-				bool PreBuildTLAS(XUSG::RayTracing::TopLevelAS* pTLAS, uint32_t numGeometries, XUSG::RayTracing::BuildFlag flags);
+				bool PreBuildTLAS(XUSG::RayTracing::TopLevelAS* pTLAS, uint32_t numInstances, XUSG::RayTracing::BuildFlag flags);
 
 				bool BuildBLAS(XUSG::RayTracing::BottomLevelAS* pBLAS, bool update = false);
 				bool BuildTLAS(XUSG::RayTracing::TopLevelAS* pTLAS, const Resource* pInstanceDescs, bool update = false);
+
+				bool Create(const XUSG::RayTracing::Device* pDevice, void* pHandle, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+					uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
+					const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1,
+					const wchar_t* name = nullptr);
 
 			protected:
 				XUSG::Resource* needScratch(uint32_t size);
@@ -49,7 +54,6 @@ namespace XUSG
 					uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces,
 					uint32_t maxTLASSrvs, uint32_t spaceTLAS);
 
-			protected:
 				uint32_t m_asUavCount;
 				uint32_t m_paramIndex;
 				std::vector<uint32_t> m_tlasBindingToParamIndexMap;
