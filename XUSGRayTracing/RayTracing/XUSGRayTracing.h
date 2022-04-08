@@ -127,7 +127,7 @@ namespace XUSG
 			//BottomLevelAS();
 			virtual ~BottomLevelAS() {}
 
-			virtual bool PreBuild(const Device* pDevice, uint32_t numDescs, const GeometryBuffer& geometries,
+			virtual bool PreBuild(const Device* pDevice, uint32_t numGeometries, const GeometryBuffer& geometries,
 				uint32_t descriptorIndex, BuildFlag flags = BuildFlag::PREFER_FAST_TRACE) = 0;
 			virtual void Build(CommandList* pCommandList, const Resource* pScratch,
 				const DescriptorPool& descriptorPool, bool update = false) = 0;
@@ -157,7 +157,7 @@ namespace XUSG
 			//TopLevelAS();
 			virtual ~TopLevelAS() {}
 
-			virtual bool PreBuild(const Device* pDevice, uint32_t numDescs, uint32_t descriptorIndex,
+			virtual bool PreBuild(const Device* pDevice, uint32_t numInstances, uint32_t descriptorIndex,
 				BuildFlag flags = BuildFlag::PREFER_FAST_TRACE) = 0;
 			virtual void Build(const CommandList* pCommandList, const Resource* pScratch,
 				const Resource* pInstanceDescs, const DescriptorPool& descriptorPool, bool update = false) = 0;

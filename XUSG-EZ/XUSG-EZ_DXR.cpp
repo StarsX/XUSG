@@ -39,8 +39,8 @@ bool CommandList_DXR::Create(XUSG::RayTracing::CommandList* pCommandList, uint32
 	const uint32_t* pMaxUavsEachSpace, uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces,
 	uint32_t maxTLASSrvs, uint32_t spaceTLAS)
 {
-	m_pDevice = pCommandList->GetDevice();
 	m_pDeviceRT = pCommandList->GetRTDevice();
+	m_pDevice = m_pDeviceRT;
 	m_commandList = dynamic_cast<XUSG::CommandList_DX12*>(pCommandList)->GetGraphicsCommandList();
 
 	m_graphicsPipelineCache = Graphics::PipelineCache::MakeUnique(m_pDevice, API::DIRECTX_12);
@@ -74,30 +74,28 @@ bool CommandList_DXR::PreBuildBLAS(XUSG::RayTracing::BottomLevelAS* pBLAS, uint3
 	XUSG::RayTracing::BuildFlag flags)
 {
 	assert(pBLAS);
-
 	N_RETURN(pBLAS->PreBuild(m_pDeviceRT, numGeometries, geometries, m_asUavCount++, flags), false);
 
-	Descriptor descriptor = pBLAS->GetResult()->GetUAV();
 	const auto descriptorTable = Util::DescriptorTable::MakeUnique();
-	descriptorTable->SetDescriptors(0, 1, &descriptor);
-	const auto asTable = descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get());
-	N_RETURN(asTable, false);
+	descriptorTable->SetDescriptors(0, 1, &pBLAS->GetResult()->GetUAV());
+	const auto uavTable = descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get());
+	N_RETURN(uavTable, false);
+
 	m_scratchSize = (max)(m_scratchSize, pBLAS->GetScratchDataMaxSize());
 
 	return true;
 }
 
-bool CommandList_DXR::PreBuildTLAS(XUSG::RayTracing::TopLevelAS* pTLAS, uint32_t numGeometries, XUSG::RayTracing::BuildFlag flags)
+bool CommandList_DXR::PreBuildTLAS(XUSG::RayTracing::TopLevelAS* pTLAS, uint32_t numInstances, XUSG::RayTracing::BuildFlag flags)
 {
 	assert(pTLAS);
+	N_RETURN(pTLAS->PreBuild(m_pDeviceRT, numInstances, m_asUavCount++, flags), false);
 
-	N_RETURN(pTLAS->PreBuild(m_pDeviceRT, numGeometries, m_asUavCount++, flags), false);
-
-	Descriptor descriptor = pTLAS->GetResult()->GetUAV();
 	const auto descriptorTable = Util::DescriptorTable::MakeUnique();
-	descriptorTable->SetDescriptors(0, 1, &descriptor);
-	const auto asTable = descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get());
-	N_RETURN(asTable, false);
+	descriptorTable->SetDescriptors(0, 1, &pTLAS->GetResult()->GetUAV());
+	const auto uavTable = descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get());
+	N_RETURN(uavTable, false);
+
 	m_scratchSize = (max)(m_scratchSize, pTLAS->GetScratchDataMaxSize());
 
 	return true;
@@ -123,7 +121,16 @@ bool CommandList_DXR::BuildTLAS(XUSG::RayTracing::TopLevelAS* pTLAS, const Resou
 	return true;
 }
 
-XUSG::Resource* CommandList_DXR::needScratch(uint32_t size)
+bool CommandList_DXR::Create(const XUSG::RayTracing::Device* pDevice, void* pHandle, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize, uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace, const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace, uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces, const wchar_t* name)
+{
+	m_pDeviceRT = pDevice;
+	XUSG::RayTracing::CommandList_DX12::Create(pHandle, name);
+	return Create(this, samplerPoolSize, cbvSrvUavPoolSize, maxSamplers,
+		pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
+		maxCbvSpaces, maxSrvSpaces, maxUavSpaces);
+}
+
+Resource* CommandList_DXR::needScratch(uint32_t size)
 {
 	if (m_scratches.empty() || !m_scratches.back() || m_scratches.back()->GetWidth() < size)
 	{

@@ -45,6 +45,9 @@
     <ClInclude Include="..\XUSGRayTracing\RayTracing\XUSGRayTracingCommand_DX12.h">
       <Filter>RayTracing</Filter>
     </ClInclude>
+    <ClInclude Include="..\XUSGRayTracing\RayTracing\XUSGRayTracing.h">
+      <Filter>RayTracing</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">

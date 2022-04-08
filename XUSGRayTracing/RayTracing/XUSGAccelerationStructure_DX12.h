@@ -53,7 +53,7 @@ namespace XUSG
 			BottomLevelAS_DX12();
 			virtual ~BottomLevelAS_DX12();
 
-			bool PreBuild(const Device* pDevice, uint32_t numDescs, const GeometryBuffer& geometries,
+			bool PreBuild(const Device* pDevice, uint32_t numGeometries, const GeometryBuffer& geometries,
 				uint32_t descriptorIndex, BuildFlag flags = BuildFlag::PREFER_FAST_TRACE);
 			void Build(CommandList* pCommandList, const Resource* pScratch,
 				const DescriptorPool& descriptorPool, bool update = false);
@@ -73,7 +73,7 @@ namespace XUSG
 			TopLevelAS_DX12();
 			virtual ~TopLevelAS_DX12();
 
-			bool PreBuild(const Device* pDevice, uint32_t numDescs, uint32_t descriptorIndex,
+			bool PreBuild(const Device* pDevice, uint32_t numInstances, uint32_t descriptorIndex,
 				BuildFlag flags = BuildFlag::PREFER_FAST_TRACE);
 			void Build(const CommandList* pCommandList, const Resource* pScratch,
 				const Resource* pInstanceDescs, const DescriptorPool& descriptorPool, bool update = false);

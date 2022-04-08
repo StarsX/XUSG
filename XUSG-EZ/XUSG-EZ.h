@@ -129,7 +129,7 @@ namespace XUSG
 			virtual void ResetDescriptorPool(DescriptorPoolType type) = 0;
 			virtual void Resize() = 0;
 
-			virtual void Create(const Device* pDevice, void* pHandle, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+			virtual bool Create(const Device* pDevice, void* pHandle, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
 				uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
 				const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1,
 				const wchar_t* name = nullptr) = 0;
@@ -171,6 +171,25 @@ namespace XUSG
 
 				using uptr = std::unique_ptr<CommandList>;
 				using sptr = std::shared_ptr<CommandList>;
+
+				virtual bool Create(XUSG::RayTracing::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+					uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
+					const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1,
+					uint32_t maxTLASSrvs = 0, uint32_t spaceTLAS = 0) = 0;
+
+				virtual bool Close() = 0;
+
+				virtual bool PreBuildBLAS(XUSG::RayTracing::BottomLevelAS* pBLAS, uint32_t numGeometries, const XUSG::RayTracing::GeometryBuffer& geometries,
+					XUSG::RayTracing::BuildFlag flags = XUSG::RayTracing::BuildFlag::PREFER_FAST_TRACE) = 0;
+				virtual bool PreBuildTLAS(XUSG::RayTracing::TopLevelAS* pTLAS, uint32_t numInstances, XUSG::RayTracing::BuildFlag flags) = 0;
+
+				virtual bool BuildBLAS(XUSG::RayTracing::BottomLevelAS* pBLAS, bool update = false) = 0;
+				virtual bool BuildTLAS(XUSG::RayTracing::TopLevelAS* pTLAS, const Resource* pInstanceDescs, bool update = false) = 0;
+
+				virtual bool Create(const XUSG::RayTracing::Device* pDevice, void* pHandle, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+					uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
+					const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1,
+					const wchar_t* name = nullptr) = 0;
 
 				static uptr MakeUnique(XUSG::API api = XUSG::API::DIRECTX_12);
 				static sptr MakeShared(XUSG::API api = XUSG::API::DIRECTX_12);
