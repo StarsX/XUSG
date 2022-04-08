@@ -32,6 +32,16 @@ namespace XUSG
 
 		DEFINE_ENUM_FLAG_OPERATORS(GeometryFlag);
 
+		enum class InstanceFlag {
+			NONE = 0,
+			TRIANGLE_CULL_DISABLE = (1 << 0),
+			TRIANGLE_FRONT_COUNTERCLOCKWISE = (1 << 1),
+			FORCE_OPAQUE = (1 << 2),
+			FORCE_NON_OPAQUE = (1 << 3)
+		};
+
+		DEFINE_ENUM_FLAG_OPERATORS(InstanceFlag);
+
 		enum class HitGroupType : uint8_t
 		{
 			TRIANGLES,
@@ -154,6 +164,16 @@ namespace XUSG
 			public virtual AccelerationStructure
 		{
 		public:
+			struct InstanceDesc
+			{
+				const float* pTransform;
+				unsigned int InstanceID : 24;
+				unsigned int InstanceMask : 8;
+				unsigned int InstanceContributionToHitGroupIndex : 24;
+				unsigned int Flags : 8;
+				const BottomLevelAS* pBottomLevelAS;
+			};
+
 			//TopLevelAS();
 			virtual ~TopLevelAS() {}
 
@@ -165,6 +185,9 @@ namespace XUSG
 			static void SetInstances(const Device* pDevice, Resource* pInstances,
 				uint32_t numInstances, const BottomLevelAS* const* ppBottomLevelASs,
 				float* const* transforms, XUSG::API api = XUSG::API::DIRECTX_12);
+			static void SetInstances(const Device* pDevice, Resource* pInstances,
+				uint32_t numInstances, const InstanceDesc* pInstanceDescs,
+				XUSG::API api = XUSG::API::DIRECTX_12);
 
 			using uptr = std::unique_ptr<TopLevelAS>;
 			using sptr = std::shared_ptr<TopLevelAS>;

@@ -314,7 +314,24 @@ void TopLevelAS_DX12::Build(const CommandList* pCommandList, const Resource* pSc
 void TopLevelAS_DX12::SetInstances(const RayTracing::Device* pDevice, Resource* pInstances,
 	uint32_t numInstances, const BottomLevelAS* const* ppBottomLevelASs, float* const* transforms)
 {
-	const auto pDxInstances = static_cast<ID3D12Resource*>(pInstances->GetHandle());
+	assert(numInstances == 0 || (ppBottomLevelASs && transforms));
+
+	vector<InstanceDesc> instanceDescs(numInstances);
+	for (auto i = 0u; i < numInstances; ++i)
+	{
+		instanceDescs[i].pTransform = transforms[i];
+		instanceDescs[i].InstanceMask = 1;
+		instanceDescs[i].pBottomLevelAS = ppBottomLevelASs[i];
+	}
+
+	SetInstances(pDevice, pInstances, numInstances, instanceDescs.data());
+}
+
+void TopLevelAS_DX12::SetInstances(const RayTracing::Device* pDevice, Resource* pInstances,
+	uint32_t numInstances, const InstanceDesc* pInstanceDescs)
+{
+	const auto pDxInstances = pInstances ? static_cast<ID3D12Resource*>(pInstances->GetHandle()) : nullptr;
+	assert(numInstances == 0 || pInstanceDescs);
 
 #if ENABLE_DXR_FALLBACK
 	// Note on Emulated GPU pointers (AKA Wrapped pointers) requirement in Fallback Layer:
@@ -330,9 +347,14 @@ void TopLevelAS_DX12::SetInstances(const RayTracing::Device* pDevice, Resource* 
 	vector<D3D12_RAYTRACING_FALLBACK_INSTANCE_DESC> instanceDescs(numInstances);
 	for (auto i = 0u; i < numInstances; ++i)
 	{
-		memcpy(instanceDescs[i].Transform, transforms[i], sizeof(instanceDescs[i].Transform));
-		instanceDescs[i].InstanceMask = 1;
-		instanceDescs[i].AccelerationStructure = ppBottomLevelASs[i]->GetResultPointer();
+		const auto& instanceDesc = pInstanceDescs[i];
+		const auto& pBottomLevelAS = pInstanceDescs[i].pBottomLevelAS;
+		memcpy(instanceDescs[i].Transform, instanceDesc.pTransform, sizeof(instanceDescs[i].Transform));
+		instanceDescs[i].InstanceID = instanceDesc.InstanceID;
+		instanceDescs[i].InstanceMask = instanceDesc.InstanceMask;
+		instanceDescs[i].InstanceContributionToHitGroupIndex = instanceDesc.InstanceContributionToHitGroupIndex;
+		instanceDescs[i].Flags = GetDXRInstanceFlags(static_cast<InstanceFlag>(instanceDesc.Flags));
+		instanceDescs[i].AccelerationStructure = pBottomLevelAS ? pBottomLevelAS->GetResultPointer() : WRAPPED_GPU_POINTER();
 	}
 
 	if (pDxInstances)
@@ -348,9 +370,14 @@ void TopLevelAS_DX12::SetInstances(const RayTracing::Device* pDevice, Resource* 
 	vector<D3D12_RAYTRACING_INSTANCE_DESC> instanceDescs(numInstances);
 	for (auto i = 0u; i < numInstances; ++i)
 	{
-		const auto pResource = static_cast<ID3D12Resource*>(ppBottomLevelASs[i]->GetResult()->GetHandle());
-		memcpy(instanceDescs[i].Transform, transforms[i], sizeof(instanceDescs[i].Transform));
-		instanceDescs[i].InstanceMask = 1;
+		const auto& instanceDesc = pInstanceDescs[i];
+		const auto& pBottomLevelAS = instanceDesc.pBottomLevelAS;
+		const auto pResource = pBottomLevelAS ? static_cast<ID3D12Resource*>(pBottomLevelAS->GetResult()->GetHandle()) : nullptr;
+		memcpy(instanceDescs[i].Transform, instanceDesc.pTransform, sizeof(instanceDescs[i].Transform));
+		instanceDescs[i].InstanceID = instanceDesc.InstanceID;
+		instanceDescs[i].InstanceMask = instanceDesc.InstanceMask;
+		instanceDescs[i].InstanceContributionToHitGroupIndex = instanceDesc.InstanceContributionToHitGroupIndex;
+		instanceDescs[i].Flags = GetDXRInstanceFlags(static_cast<InstanceFlag>(instanceDesc.Flags));
 		instanceDescs[i].AccelerationStructure = pResource->GetGPUVirtualAddress();
 	}
 
