@@ -249,4 +249,3 @@ EZ::RayTracing::CommandList::sptr EZ::RayTracing::CommandList::MakeShared(XUSG::
 		maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
 		maxCbvSpaces, maxSrvSpaces, maxUavSpaces);
 }
-
