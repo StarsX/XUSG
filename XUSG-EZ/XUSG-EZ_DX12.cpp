@@ -405,6 +405,8 @@ void EZ::CommandList_DX12::OMSetRenderTargets(uint32_t numRenderTargets,
 	for (auto i = numRenderTargets; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
 		m_graphicsState->OMSetRTVFormat(i, Format::UNKNOWN);
 
+	m_isGraphicsDirty = true;
+
 	XUSG::CommandList_DX12::OMSetRenderTargets(numRenderTargets, pRTVs,
 		pDepthStencilView ? &pDepthStencilView->view : nullptr);
 }
