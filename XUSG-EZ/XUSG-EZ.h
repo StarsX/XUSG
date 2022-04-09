@@ -5,7 +5,10 @@
 #pragma once
 
 #include "Core/XUSG.h"
+
+#ifdef XUSG_RAY_TRACING_EZ
 #include "RayTracing/XUSGRayTracing.h"
+#endif
 
 namespace XUSG
 {
@@ -163,6 +166,7 @@ namespace XUSG
 				XUSG::API api = XUSG::API::DIRECTX_12);
 		};
 
+#ifdef XUSG_RAY_TRACING_EZ
 		namespace RayTracing
 		{
 			//--------------------------------------------------------------------------------------
@@ -209,5 +213,6 @@ namespace XUSG
 					XUSG::API api = XUSG::API::DIRECTX_12);
 			};
 		}
+#endif
 	}
 }
