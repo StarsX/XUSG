@@ -54,6 +54,8 @@ namespace XUSG
 				TileCopyFlag flags);
 			void ResolveSubresource(Resource* pDstResource, uint32_t dstSubresource,
 				Resource* pSrcResource, uint32_t srcSubresource, Format format);
+			void IASetInputLayout(const InputLayout* pLayout);
+			void IASetIndexBufferStripCutValue(IBStripCutValue ibStripCutValue);
 			void RSSetState(Graphics::RasterizerPreset preset);
 			void RSSetViewports(uint32_t numViewports, const Viewport* pViewports) const
 			{
@@ -65,9 +67,15 @@ namespace XUSG
 				XUSG::CommandList_DX12::RSSetScissorRects(numRects, pRects);
 			}
 
+			void OMSetBlendState(Graphics::BlendPreset preset, uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX);
 			void OMSetBlendFactor(const float blendFactor[4]) const { XUSG::CommandList_DX12::OMSetBlendFactor(blendFactor); }
 			void OMSetStencilRef(uint32_t stencilRef) const { XUSG::CommandList_DX12::OMSetStencilRef(stencilRef); }
+			void OMSetSample(uint8_t count, uint8_t quality = 0);
 			void DSSetState(Graphics::DepthStencilPreset preset);
+			void SetGraphicsShader(Shader::Stage stage, const Blob& shader);
+			void SetGraphicsNodeMask(uint32_t nodeMask);
+			void SetComputeShader(const Blob& shader);
+			void SetComputeNodeMask(uint32_t nodeMask);
 			void SetPipelineState(const Pipeline& pipelineState);
 			void ExecuteBundle(const XUSG::CommandList* pCommandList) const { XUSG::CommandList_DX12::ExecuteBundle(pCommandList); }
 			void SetGraphicsSamplerStates(uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerPresets);
@@ -158,9 +166,6 @@ namespace XUSG
 
 			const Device* GetDevice() const { return XUSG::CommandList_DX12::GetDevice(); }
 
-			Graphics::State* GetGraphicsPipelineState();
-			Compute::State* GetComputePipelineState();
-
 		protected:
 			enum PipelineLayoutIndex
 			{
@@ -211,6 +216,9 @@ namespace XUSG
 
 			Graphics::State::uptr m_graphicsState;
 			Compute::State::uptr m_computeState;
+
+			uint32_t m_isGraphicsDirty;
+			uint32_t m_isComputeDirty;
 
 			std::vector<Descriptor> m_descriptors;
 			std::vector<Util::DescriptorTable::uptr> m_graphicsCbvSrvUavTables[Shader::Stage::NUM_GRAPHICS][CbvSrvUavTypes];
