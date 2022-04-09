@@ -371,7 +371,7 @@ void EZ::CommandList_DX12::SOSetTargets(uint32_t startSlot, uint32_t numViews, c
 	{
 		auto& resourceView = resourceViews[i];
 		resourceView.pResource = ppResources[i];
-		resourceView.Subresources = { BARRIER_ALL_SUBRESOURCES };
+		resourceView.Subresources = { XUSG_BARRIER_ALL_SUBRESOURCES };
 	}
 
 	setBarriers(numViews, resourceViews.data(), ResourceState::STREAM_OUT);
@@ -525,7 +525,7 @@ bool EZ::CommandList_DX12::createPipelineLayouts(uint32_t maxSamplers,
 			}
 		}
 
-		X_RETURN(m_pipelineLayouts[GRAPHICS], pipelineLayout->GetPipelineLayout(m_pipelineLayoutCache.get(),
+		XUSG_X_RETURN(m_pipelineLayouts[GRAPHICS], pipelineLayout->GetPipelineLayout(m_pipelineLayoutCache.get(),
 			PipelineLayoutFlag::ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT, L"EZGraphicsLayout"), false);
 	}
 
@@ -567,7 +567,7 @@ bool EZ::CommandList_DX12::createPipelineLayouts(uint32_t maxSamplers,
 			}
 		}
 
-		X_RETURN(m_pipelineLayouts[COMPUTE], pipelineLayout->GetPipelineLayout(m_pipelineLayoutCache.get(),
+		XUSG_X_RETURN(m_pipelineLayouts[COMPUTE], pipelineLayout->GetPipelineLayout(m_pipelineLayoutCache.get(),
 			PipelineLayoutFlag::NONE, L"EZComputeLayout"), false);
 	}
 

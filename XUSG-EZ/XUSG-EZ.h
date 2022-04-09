@@ -22,31 +22,31 @@ namespace XUSG
 			std::vector<uint32_t> Subresources;
 		};
 
-		DLL_INTERFACE void CalcSubresources(std::vector<uint32_t>& subresources, const Texture* pResource, uint8_t mipSlice, uint8_t planeSlice = 0);
+		XUSG_INTERFACE void CalcSubresources(std::vector<uint32_t>& subresources, const Texture* pResource, uint8_t mipSlice, uint8_t planeSlice = 0);
 
-		DLL_INTERFACE uint32_t CalcSubresource(const Texture* pResource, uint8_t mipSlice, uint32_t arraySlice, uint8_t planeSlice = 0);
+		XUSG_INTERFACE uint32_t CalcSubresource(const Texture* pResource, uint8_t mipSlice, uint32_t arraySlice, uint8_t planeSlice = 0);
 
 		// Resource view generation helpers coupled for XUSG resources
-		DLL_INTERFACE ResourceView GetCBV(ConstantBuffer* pResource, uint32_t index = 0);
-		DLL_INTERFACE ResourceView GetSRV(Buffer* pResource, uint32_t index = 0);
-		DLL_INTERFACE ResourceView GetSRV(Texture* pResource, uint32_t index = 0);
-		DLL_INTERFACE ResourceView GetSRVLevel(Texture* pResource, uint8_t level);
-		DLL_INTERFACE ResourceView GetUAV(Buffer* pResource, uint8_t index = 0);
-		DLL_INTERFACE ResourceView GetUAV(Texture* pResource, uint8_t index = 0);
-		DLL_INTERFACE ResourceView GetPackedUAV(Texture* pResource, uint8_t index = 0);
-		DLL_INTERFACE ResourceView GetPackedUAV(TypedBuffer* pResource, uint8_t index = 0);
-		DLL_INTERFACE ResourceView GetRTV(RenderTarget* pResource, uint32_t slice = 0, uint8_t mipLevel = 0);
-		DLL_INTERFACE ResourceView GetArrayRTV(RenderTarget* pResource, uint8_t mipLevel = 0);
-		DLL_INTERFACE ResourceView GetDSV(DepthStencil* pResource, uint32_t slice = 0, uint8_t mipLevel = 0);
-		DLL_INTERFACE ResourceView GetArrayDSV(DepthStencil* pResource, uint8_t mipLevel = 0);
-		DLL_INTERFACE ResourceView GetReadOnlyDSV(DepthStencil* pResource, uint32_t slice = 0, uint8_t mipLevel = 0);
-		DLL_INTERFACE ResourceView GetReadOnlyArrayDSV(DepthStencil* pResource, uint8_t mipLevel = 0);
-		DLL_INTERFACE ResourceView GetStencilSRV(DepthStencil* pResource);
+		XUSG_INTERFACE ResourceView GetCBV(ConstantBuffer* pResource, uint32_t index = 0);
+		XUSG_INTERFACE ResourceView GetSRV(Buffer* pResource, uint32_t index = 0);
+		XUSG_INTERFACE ResourceView GetSRV(Texture* pResource, uint32_t index = 0);
+		XUSG_INTERFACE ResourceView GetSRVLevel(Texture* pResource, uint8_t level);
+		XUSG_INTERFACE ResourceView GetUAV(Buffer* pResource, uint8_t index = 0);
+		XUSG_INTERFACE ResourceView GetUAV(Texture* pResource, uint8_t index = 0);
+		XUSG_INTERFACE ResourceView GetPackedUAV(Texture* pResource, uint8_t index = 0);
+		XUSG_INTERFACE ResourceView GetPackedUAV(TypedBuffer* pResource, uint8_t index = 0);
+		XUSG_INTERFACE ResourceView GetRTV(RenderTarget* pResource, uint32_t slice = 0, uint8_t mipLevel = 0);
+		XUSG_INTERFACE ResourceView GetArrayRTV(RenderTarget* pResource, uint8_t mipLevel = 0);
+		XUSG_INTERFACE ResourceView GetDSV(DepthStencil* pResource, uint32_t slice = 0, uint8_t mipLevel = 0);
+		XUSG_INTERFACE ResourceView GetArrayDSV(DepthStencil* pResource, uint8_t mipLevel = 0);
+		XUSG_INTERFACE ResourceView GetReadOnlyDSV(DepthStencil* pResource, uint32_t slice = 0, uint8_t mipLevel = 0);
+		XUSG_INTERFACE ResourceView GetReadOnlyArrayDSV(DepthStencil* pResource, uint8_t mipLevel = 0);
+		XUSG_INTERFACE ResourceView GetStencilSRV(DepthStencil* pResource);
 
 		//--------------------------------------------------------------------------------------
 		// Command list
 		//--------------------------------------------------------------------------------------
-		class DLL_INTERFACE CommandList
+		class XUSG_INTERFACE CommandList
 		{
 		public:
 			//CommandList();
@@ -172,7 +172,7 @@ namespace XUSG
 			//--------------------------------------------------------------------------------------
 			// RayTracing Command list
 			//--------------------------------------------------------------------------------------
-			class DLL_INTERFACE CommandList :
+			class XUSG_INTERFACE CommandList :
 				public virtual EZ::CommandList
 			{
 			public:

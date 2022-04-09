@@ -74,12 +74,12 @@ bool CommandList_DXR::PreBuildBLAS(XUSG::RayTracing::BottomLevelAS* pBLAS, uint3
 	XUSG::RayTracing::BuildFlag flags)
 {
 	assert(pBLAS);
-	N_RETURN(pBLAS->PreBuild(m_pDeviceRT, numGeometries, geometries, m_asUavCount++, flags), false);
+	XUSG_N_RETURN(pBLAS->PreBuild(m_pDeviceRT, numGeometries, geometries, m_asUavCount++, flags), false);
 
 	const auto descriptorTable = Util::DescriptorTable::MakeUnique();
 	descriptorTable->SetDescriptors(0, 1, &pBLAS->GetResult()->GetUAV());
 	const auto uavTable = descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get());
-	N_RETURN(uavTable, false);
+	XUSG_N_RETURN(uavTable, false);
 
 	m_scratchSize = (max)(m_scratchSize, pBLAS->GetScratchDataMaxSize());
 
@@ -89,12 +89,12 @@ bool CommandList_DXR::PreBuildBLAS(XUSG::RayTracing::BottomLevelAS* pBLAS, uint3
 bool CommandList_DXR::PreBuildTLAS(XUSG::RayTracing::TopLevelAS* pTLAS, uint32_t numInstances, XUSG::RayTracing::BuildFlag flags)
 {
 	assert(pTLAS);
-	N_RETURN(pTLAS->PreBuild(m_pDeviceRT, numInstances, m_asUavCount++, flags), false);
+	XUSG_N_RETURN(pTLAS->PreBuild(m_pDeviceRT, numInstances, m_asUavCount++, flags), false);
 
 	const auto descriptorTable = Util::DescriptorTable::MakeUnique();
 	descriptorTable->SetDescriptors(0, 1, &pTLAS->GetResult()->GetUAV());
 	const auto uavTable = descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get());
-	N_RETURN(uavTable, false);
+	XUSG_N_RETURN(uavTable, false);
 
 	m_scratchSize = (max)(m_scratchSize, pTLAS->GetScratchDataMaxSize());
 
@@ -194,7 +194,7 @@ bool CommandList_DXR::createPipelineLayouts(uint32_t maxSamplers, const uint32_t
 			}
 		}
 
-		X_RETURN(m_pipelineLayouts[GRAPHICS], pipelineLayout->GetPipelineLayout(m_pipelineLayoutCache.get(),
+		XUSG_X_RETURN(m_pipelineLayouts[GRAPHICS], pipelineLayout->GetPipelineLayout(m_pipelineLayoutCache.get(),
 			PipelineLayoutFlag::ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT, L"EZGraphicsLayout"), false);
 	}
 
@@ -245,7 +245,7 @@ bool CommandList_DXR::createPipelineLayouts(uint32_t maxSamplers, const uint32_t
 		}
 
 		m_paramIndex = paramIndex;
-		X_RETURN(m_pipelineLayouts[COMPUTE], pipelineLayout->GetPipelineLayout(m_pDeviceRT, m_pipelineLayoutCache.get(),
+		XUSG_X_RETURN(m_pipelineLayouts[COMPUTE], pipelineLayout->GetPipelineLayout(m_pDeviceRT, m_pipelineLayoutCache.get(),
 			PipelineLayoutFlag::NONE, L"EZComputeLayout"), false);
 	}
 
