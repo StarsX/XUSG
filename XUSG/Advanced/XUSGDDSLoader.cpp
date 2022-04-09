@@ -42,7 +42,7 @@ static bool LoadTextureDataFromFile(const wchar_t* fileName,
 	}
 
 	// Need at least enough data to fill the header and magic number to be a valid DDS
-	C_RETURN(fileSize < (sizeof(DDS_HEADER) + sizeof(uint32_t)), false);
+	XUSG_C_RETURN(fileSize < (sizeof(DDS_HEADER) + sizeof(uint32_t)), false);
 
 	// create enough space for the file data
 	ddsData.reset(new uint8_t[fileSize]);
@@ -54,12 +54,12 @@ static bool LoadTextureDataFromFile(const wchar_t* fileName,
 
 	// DDS files always start with the same magic number ("DDS ")
 	const auto dwMagicNumber = *(const uint32_t*)(ddsData.get());
-	C_RETURN(dwMagicNumber != DDS_MAGIC, false);
+	XUSG_C_RETURN(dwMagicNumber != DDS_MAGIC, false);
 
 	const auto hdr = reinterpret_cast<DDS_HEADER*>(ddsData.get() + sizeof(uint32_t));
 
 	// Verify header to validate DDS file
-	C_RETURN(hdr->size != sizeof(DDS_HEADER) || hdr->ddspf.size != sizeof(DDS_PIXELFORMAT), false);
+	XUSG_C_RETURN(hdr->size != sizeof(DDS_HEADER) || hdr->ddspf.size != sizeof(DDS_PIXELFORMAT), false);
 
 	auto offset = sizeof(uint32_t) + sizeof(DDS_HEADER);
 
@@ -69,7 +69,7 @@ static bool LoadTextureDataFromFile(const wchar_t* fileName,
 			offset += sizeof(DDS_HEADER_DXT10);
 
 	// Must be long enough for all headers and magic value
-	C_RETURN(fileSize < offset, false);
+	XUSG_C_RETURN(fileSize < offset, false);
 
 	// setup the pointers in the process request
 	*header = hdr;
@@ -738,7 +738,7 @@ static bool CreateTexture(CommandList* pCommandList, const DDS_HEADER* header,
 				}
 			}
 
-			M_RETURN(!success, cerr, "Failed to the create texture.", false);
+			XUSG_M_RETURN(!success, cerr, "Failed to the create texture.", false);
 		}
 	}
 
@@ -790,14 +790,14 @@ bool Loader::CreateTextureFromMemory(CommandList* pCommandList, const uint8_t* d
 	F_RETURN(!pCommandList || !ddsData, cerr, E_INVALIDARG, false);
 
 	// Validate DDS file in memory
-	C_RETURN(ddsDataSize < sizeof(uint32_t) + sizeof(DDS_HEADER), false);
+	XUSG_C_RETURN(ddsDataSize < sizeof(uint32_t) + sizeof(DDS_HEADER), false);
 
 	const auto magicNumber = reinterpret_cast<const uint32_t&>(*ddsData);
-	C_RETURN(magicNumber != DDS_MAGIC, false);
+	XUSG_C_RETURN(magicNumber != DDS_MAGIC, false);
 
 	// Verify header to validate DDS file
 	auto header = reinterpret_cast<const DDS_HEADER*>(ddsData + sizeof(uint32_t));
-	C_RETURN(header->size != sizeof(DDS_HEADER) ||
+	XUSG_C_RETURN(header->size != sizeof(DDS_HEADER) ||
 		header->ddspf.size != sizeof(DDS_PIXELFORMAT), false);
 
 	auto offset = sizeof(DDS_HEADER) + sizeof(uint32_t);
@@ -808,9 +808,9 @@ bool Loader::CreateTextureFromMemory(CommandList* pCommandList, const uint8_t* d
 			offset += sizeof(DDS_HEADER_DXT10);
 
 	// Must be long enough for all headers and magic value
-	C_RETURN(ddsDataSize < offset, false);
+	XUSG_C_RETURN(ddsDataSize < offset, false);
 
-	N_RETURN(CreateTexture(pCommandList, header, ddsData + offset, ddsDataSize - offset, maxsize,
+	XUSG_N_RETURN(CreateTexture(pCommandList, header, ddsData + offset, ddsDataSize - offset, maxsize,
 		forceSRGB, texture, pUploader, state, memoryFlags, L"DDSTextureLoader", api), false);
 
 	if (alphaMode)* alphaMode = GetAlphaMode(header);
@@ -830,9 +830,9 @@ bool Loader::CreateTextureFromFile(CommandList* pCommandList, const wchar_t* fil
 	size_t bitSize = 0;
 
 	unique_ptr<uint8_t[]> ddsData;
-	N_RETURN(LoadTextureDataFromFile(fileName, ddsData, &header, &bitData, &bitSize), false);
+	XUSG_N_RETURN(LoadTextureDataFromFile(fileName, ddsData, &header, &bitData, &bitSize), false);
 
-	N_RETURN(CreateTexture(pCommandList, header, bitData, bitSize, maxsize,
+	XUSG_N_RETURN(CreateTexture(pCommandList, header, bitData, bitSize, maxsize,
 		forceSRGB, texture, pUploader, state, memoryFlags, fileName, api), false);
 
 	if (alphaMode)* alphaMode = GetAlphaMode(header);

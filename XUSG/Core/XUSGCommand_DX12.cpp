@@ -689,10 +689,10 @@ bool CommandQueue_DX12::SubmitCommandLists(uint32_t numCommandLists, const Comma
 	const Semaphore* pWaits, uint32_t numWaits, const Semaphore* pSignals, uint32_t numSignals)
 {
 	for (auto i = 0u; i < numWaits; ++i)
-		N_RETURN(Wait(pWaits[i].Fence.get(), pWaits[i].Value), false);
+		XUSG_N_RETURN(Wait(pWaits[i].Fence.get(), pWaits[i].Value), false);
 	ExecuteCommandLists(numCommandLists, ppCommandLists);
 	for (auto i = 0u; i < numSignals; ++i)
-		N_RETURN(Signal(pSignals[i].Fence.get(), pSignals[i].Value), false);
+		XUSG_N_RETURN(Signal(pSignals[i].Fence.get(), pSignals[i].Value), false);
 
 	return true;
 }
@@ -701,10 +701,10 @@ bool CommandQueue_DX12::SubmitCommandList(const CommandList* pCommandList,
 	const Semaphore* pWaits, uint32_t numWaits, const Semaphore* pSignals, uint32_t numSignals)
 {
 	for (auto i = 0u; i < numWaits; ++i)
-		N_RETURN(Wait(pWaits[i].Fence.get(), pWaits[i].Value), false);
+		XUSG_N_RETURN(Wait(pWaits[i].Fence.get(), pWaits[i].Value), false);
 	ExecuteCommandList(pCommandList);
 	for (auto i = 0u; i < numSignals; ++i)
-		N_RETURN(Signal(pSignals[i].Fence.get(), pSignals[i].Value), false);
+		XUSG_N_RETURN(Signal(pSignals[i].Fence.get(), pSignals[i].Value), false);
 
 	return true;
 }

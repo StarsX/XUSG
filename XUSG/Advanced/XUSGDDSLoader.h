@@ -18,7 +18,7 @@ namespace XUSG
 			ALPHA_MODE_CUSTOM
 		};
 
-		class DLL_INTERFACE Loader
+		class XUSG_INTERFACE Loader
 		{
 		public:
 			Loader();
