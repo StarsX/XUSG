@@ -15,7 +15,7 @@ ShaderRecord_DX12::ShaderRecord_DX12(const Device* pDevice, const Pipeline& pipe
 	const void* shader, const void* pLocalDescriptorArgs, uint32_t localDescriptorArgSize) :
 	m_localDescriptorArgs(pLocalDescriptorArgs, localDescriptorArgSize)
 {
-#if ENABLE_DXR_FALLBACK
+#if XUSG_ENABLE_DXR_FALLBACK
 	m_shaderID.Ptr = static_cast<ID3D12RaytracingFallbackStateObject*>(pipeline)->GetShaderIdentifier(reinterpret_cast<const wchar_t*>(shader));
 #else // DirectX Raytracing
 	com_ptr<ID3D12StateObjectProperties> stateObjectProperties;
@@ -48,7 +48,7 @@ void ShaderRecord_DX12::CopyTo(void* dest) const
 
 uint32_t ShaderRecord_DX12::GetShaderIDSize(const Device* pDevice)
 {
-#if ENABLE_DXR_FALLBACK
+#if XUSG_ENABLE_DXR_FALLBACK
 	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(pDevice->GetRTHandle());
 	const auto shaderIDSize = pDxDevice->UsingRaytracingDriver() ?
 		D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES : pDxDevice->GetShaderIdentifierSize();
@@ -82,8 +82,8 @@ bool ShaderTable_DX12::Create(const XUSG::Device* pDevice, uint32_t numShaderRec
 	//m_shaderRecords.reserve(numShaderRecords);
 
 	const auto bufferWidth = numShaderRecords * m_shaderRecordSize;
-	N_RETURN(allocate(pDevice, bufferWidth, name), false);
-	N_RETURN(Map(), false);
+	XUSG_N_RETURN(allocate(pDevice, bufferWidth, name), false);
+	XUSG_N_RETURN(Map(), false);
 
 	return true;
 }

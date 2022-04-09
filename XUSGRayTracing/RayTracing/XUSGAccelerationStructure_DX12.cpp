@@ -12,7 +12,7 @@ using namespace std;
 using namespace XUSG;
 using namespace XUSG::RayTracing;
 
-#if ENABLE_DXR_FALLBACK
+#if XUSG_ENABLE_DXR_FALLBACK
 extern uint32_t g_numUAVs;
 #endif
 extern uint32_t g_frameCount;
@@ -50,7 +50,7 @@ uint32_t AccelerationStructure_DX12::GetUpdateScratchDataSize() const
 	return static_cast<uint32_t>(m_prebuildInfo.UpdateScratchDataSizeInBytes);
 }
 
-#if ENABLE_DXR_FALLBACK
+#if XUSG_ENABLE_DXR_FALLBACK
 const WRAPPED_GPU_POINTER& AccelerationStructure_DX12::GetResultPointer() const
 {
 	return m_pointers[m_currentFrame];
@@ -101,7 +101,7 @@ bool AccelerationStructure_DX12::preBuild(const Device* pDevice, uint32_t descri
 	assert(pDevice->GetHandle());
 
 	D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO prebuildInfo;
-#if ENABLE_DXR_FALLBACK
+#if XUSG_ENABLE_DXR_FALLBACK
 	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(pDevice->GetRTHandle());
 	pDxDevice->GetRaytracingAccelerationStructurePrebuildInfo(&inputs, &prebuildInfo, g_numUAVs);
 #else // DirectX Raytracing
@@ -113,7 +113,7 @@ bool AccelerationStructure_DX12::preBuild(const Device* pDevice, uint32_t descri
 	m_prebuildInfo.ScratchDataSizeInBytes = prebuildInfo.ScratchDataSizeInBytes;
 	m_prebuildInfo.UpdateScratchDataSizeInBytes = prebuildInfo.UpdateScratchDataSizeInBytes;
 
-	N_RETURN(m_prebuildInfo.ResultDataMaxSizeInBytes > 0, false);
+	XUSG_N_RETURN(m_prebuildInfo.ResultDataMaxSizeInBytes > 0, false);
 
 	// Allocate resources for acceleration structures.
 	// Acceleration structures can only be placed in resources that are created in the default heap (or custom heap equivalent). 
@@ -126,7 +126,7 @@ bool AccelerationStructure_DX12::preBuild(const Device* pDevice, uint32_t descri
 		== D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE ? g_frameCount : 1;
 
 	m_results.resize(bufferCount);
-#if ENABLE_DXR_FALLBACK
+#if XUSG_ENABLE_DXR_FALLBACK
 	const auto resourceFlags = pDxDevice->UsingRaytracingDriver() ? ResourceFlag::ACCELERATION_STRUCTURE : ResourceFlag::ALLOW_UNORDERED_ACCESS;
 #else // DirectX Raytracing
 	const auto resourceFlags = ResourceFlag::ACCELERATION_STRUCTURE;
@@ -134,10 +134,10 @@ bool AccelerationStructure_DX12::preBuild(const Device* pDevice, uint32_t descri
 	for (auto& result : m_results)
 	{
 		result = RawBuffer::MakeShared();
-		N_RETURN(result->Create(pDevice, GetResultDataMaxSize(), resourceFlags, MemoryType::DEFAULT, numSRVs), false);
+		XUSG_N_RETURN(result->Create(pDevice, GetResultDataMaxSize(), resourceFlags, MemoryType::DEFAULT, numSRVs), false);
 	}
 
-#if ENABLE_DXR_FALLBACK
+#if XUSG_ENABLE_DXR_FALLBACK
 	// The Fallback Layer interface uses WRAPPED_GPU_POINTER to encapsulate the underlying pointer
 	// which will either be an emulated GPU pointer for the compute - based path or a GPU_VIRTUAL_ADDRESS for the DXR path.
 	m_pointers.resize(bufferCount);
@@ -333,7 +333,7 @@ void TopLevelAS_DX12::SetInstances(const RayTracing::Device* pDevice, Resource* 
 	const auto pDxInstances = pInstances ? static_cast<ID3D12Resource*>(pInstances->GetHandle()) : nullptr;
 	assert(numInstances == 0 || pInstanceDescs);
 
-#if ENABLE_DXR_FALLBACK
+#if XUSG_ENABLE_DXR_FALLBACK
 	// Note on Emulated GPU pointers (AKA Wrapped pointers) requirement in Fallback Layer:
 	// The primary point of divergence between the DXR API and the compute-based Fallback layer is the handling of GPU pointers. 
 	// DXR fundamentally requires that GPUs be able to dynamically read from arbitrary addresses in GPU memory. 
