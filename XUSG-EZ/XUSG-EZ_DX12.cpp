@@ -11,6 +11,8 @@ using namespace XUSG;
 
 EZ::CommandList_DX12::CommandList_DX12() :
 	XUSG::CommandList_DX12(),
+	m_isGraphicsDirty(false),
+	m_isComputeDirty(false),
 	m_graphicsCbvSrvUavTables(),
 	m_computeCbvSrvUavTables(),
 	m_graphicsSpaceToParamIndexMap(),
@@ -126,11 +128,15 @@ void EZ::CommandList_DX12::Dispatch(uint32_t threadGroupCountX, uint32_t threadG
 	m_barriers.clear();
 
 	// Create pipeline for dynamic states
-	if (m_computeState)
+	if (m_computeState && m_isComputeDirty)
 	{
 		m_computeState->SetPipelineLayout(m_pipelineLayouts[COMPUTE]);
 		const auto pipeline = m_computeState->GetPipeline(m_computePipelineCache.get());
-		if (pipeline && m_pipeline != pipeline) XUSG::CommandList_DX12::SetPipelineState(pipeline);
+		if (pipeline)
+		{
+			if (m_pipeline != pipeline) XUSG::CommandList_DX12::SetPipelineState(pipeline);
+			m_isComputeDirty = false;
+		}
 	}
 
 	XUSG::CommandList_DX12::Dispatch(threadGroupCountX, threadGroupCountY, threadGroupCountZ);
@@ -196,16 +202,74 @@ void EZ::CommandList_DX12::ResolveSubresource(Resource* pDstResource, uint32_t d
 	XUSG::CommandList_DX12::ResolveSubresource(pDstResource, dstSubresource, pSrcResource, srcSubresource, format);
 }
 
+void EZ::CommandList_DX12::IASetInputLayout(const InputLayout* pLayout)
+{
+	if (!m_graphicsState) m_graphicsState = Graphics::State::MakeUnique(API::DIRECTX_12);
+	m_graphicsState->IASetInputLayout(pLayout);
+	m_isGraphicsDirty = true;
+}
+
+void EZ::CommandList_DX12::IASetIndexBufferStripCutValue(IBStripCutValue ibStripCutValue)
+{
+	if (!m_graphicsState) m_graphicsState = Graphics::State::MakeUnique(API::DIRECTX_12);
+	m_graphicsState->IASetIndexBufferStripCutValue(ibStripCutValue);
+	m_isGraphicsDirty = true;
+}
+
 void EZ::CommandList_DX12::RSSetState(Graphics::RasterizerPreset preset)
 {
 	if (!m_graphicsState) m_graphicsState = Graphics::State::MakeUnique(API::DIRECTX_12);
 	m_graphicsState->RSSetState(preset, m_graphicsPipelineCache.get());
+	m_isGraphicsDirty = true;
+}
+
+void EZ::CommandList_DX12::OMSetBlendState(Graphics::BlendPreset preset, uint8_t numColorRTs, uint32_t sampleMask)
+{
+	if (!m_graphicsState) m_graphicsState = Graphics::State::MakeUnique(API::DIRECTX_12);
+	m_graphicsState->OMSetBlendState(preset, m_graphicsPipelineCache.get(), numColorRTs, sampleMask);
+	m_isGraphicsDirty = true;
+}
+
+void EZ::CommandList_DX12::OMSetSample(uint8_t count, uint8_t quality)
+{
+	if (!m_graphicsState) m_graphicsState = Graphics::State::MakeUnique(API::DIRECTX_12);
+	m_graphicsState->OMSetSample(count, quality);
+	m_isGraphicsDirty = true;
 }
 
 void EZ::CommandList_DX12::DSSetState(Graphics::DepthStencilPreset preset)
 {
 	if (!m_graphicsState) m_graphicsState = Graphics::State::MakeUnique(API::DIRECTX_12);
 	m_graphicsState->DSSetState(preset, m_graphicsPipelineCache.get());
+	m_isGraphicsDirty = true;
+}
+
+void EZ::CommandList_DX12::SetGraphicsShader(Shader::Stage stage, const Blob& shader)
+{
+	if (!m_graphicsState) m_graphicsState = Graphics::State::MakeUnique(API::DIRECTX_12);
+	m_graphicsState->SetShader(stage, shader);
+	m_isGraphicsDirty = true;
+}
+
+void EZ::CommandList_DX12::SetGraphicsNodeMask(uint32_t nodeMask)
+{
+	if (!m_graphicsState) m_graphicsState = Graphics::State::MakeUnique(API::DIRECTX_12);
+	m_graphicsState->SetNodeMask(nodeMask);
+	m_isGraphicsDirty = true;
+}
+
+void EZ::CommandList_DX12::SetComputeShader(const Blob& shader)
+{
+	if (!m_computeState) m_computeState = Compute::State::MakeUnique(API::DIRECTX_12);
+	m_computeState->SetShader(shader);
+	m_isComputeDirty = true;
+}
+
+void EZ::CommandList_DX12::SetComputeNodeMask(uint32_t nodeMask)
+{
+	if (!m_computeState) m_computeState = Compute::State::MakeUnique(API::DIRECTX_12);
+	m_computeState->SetNodeMask(nodeMask);
+	m_isComputeDirty = true;
 }
 
 void EZ::CommandList_DX12::SetPipelineState(const Pipeline& pipelineState)
@@ -293,6 +357,8 @@ void EZ::CommandList_DX12::IASetPrimitiveTopology(PrimitiveTopology primitiveTop
 			assert(primitiveTopology == PrimitiveTopology::UNDEFINED);
 			m_graphicsState->IASetPrimitiveTopologyType(PrimitiveTopologyType::UNDEFINED);
 		}
+
+		m_isGraphicsDirty = true;
 	}
 
 	XUSG::CommandList_DX12::IASetPrimitiveTopology(primitiveTopology);
@@ -402,20 +468,6 @@ bool EZ::CommandList_DX12::Create(const Device* pDevice, void* pHandle, uint32_t
 	return Create(this, samplerPoolSize, cbvSrvUavPoolSize, maxSamplers,
 		pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
 		maxCbvSpaces, maxSrvSpaces, maxUavSpaces);
-}
-
-Graphics::State* EZ::CommandList_DX12::GetGraphicsPipelineState()
-{
-	if (!m_graphicsState) m_graphicsState = Graphics::State::MakeUnique(API::DIRECTX_12);
-
-	return m_graphicsState.get();
-}
-
-Compute::State* EZ::CommandList_DX12::GetComputePipelineState()
-{
-	if (!m_computeState) m_computeState = Compute::State::MakeUnique(API::DIRECTX_12);
-
-	return m_computeState.get();
 }
 
 bool EZ::CommandList_DX12::createPipelineLayouts(uint32_t maxSamplers,
@@ -569,11 +621,15 @@ void EZ::CommandList_DX12::predraw()
 	m_clearRTVs.clear();
 
 	// Create pipeline for dynamic states
-	if (m_graphicsState)
+	if (m_graphicsState && m_isGraphicsDirty)
 	{
 		m_graphicsState->SetPipelineLayout(m_pipelineLayouts[GRAPHICS]);
 		const auto pipeline = m_graphicsState->GetPipeline(m_graphicsPipelineCache.get());
-		if (pipeline && m_pipeline != pipeline) XUSG::CommandList_DX12::SetPipelineState(pipeline);
+		if (pipeline)
+		{
+			if (m_pipeline != pipeline) XUSG::CommandList_DX12::SetPipelineState(pipeline);
+			m_isGraphicsDirty = false;
+		}
 	}
 }
 

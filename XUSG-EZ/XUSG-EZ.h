@@ -82,12 +82,21 @@ namespace XUSG
 				TileCopyFlag flags) = 0;
 			virtual void ResolveSubresource(Resource* pDstResource, uint32_t dstSubresource,
 				Resource* pSrcResource, uint32_t srcSubresource, Format format) = 0;
+			virtual void IASetInputLayout(const InputLayout* pLayout) = 0;
+			virtual void IASetIndexBufferStripCutValue(IBStripCutValue ibStripCutValue) = 0;
 			virtual void RSSetState(Graphics::RasterizerPreset preset) = 0;
 			virtual void RSSetViewports(uint32_t numViewports, const Viewport* pViewports) const = 0;
 			virtual void RSSetScissorRects(uint32_t numRects, const RectRange* pRects) const = 0;
+			virtual void OMSetBlendState(Graphics::BlendPreset preset,
+				uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX) = 0;
 			virtual void OMSetBlendFactor(const float blendFactor[4]) const = 0;
 			virtual void OMSetStencilRef(uint32_t stencilRef) const = 0;
+			virtual void OMSetSample(uint8_t count, uint8_t quality = 0) = 0;
 			virtual void DSSetState(Graphics::DepthStencilPreset preset) = 0;
+			virtual void SetGraphicsShader(Shader::Stage stage, const Blob& shader) = 0;
+			virtual void SetGraphicsNodeMask(uint32_t nodeMask) = 0;
+			virtual void SetComputeShader(const Blob& shader) = 0;
+			virtual void SetComputeNodeMask(uint32_t nodeMask) = 0;
 			virtual void SetPipelineState(const Pipeline& pipelineState) = 0;
 			virtual void ExecuteBundle(const XUSG::CommandList* pCommandList) const = 0;
 			virtual void SetGraphicsSamplerStates(uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerPresets) = 0;
@@ -138,9 +147,6 @@ namespace XUSG
 			virtual void* GetDeviceHandle() const = 0;
 
 			virtual const Device* GetDevice() const = 0;
-
-			virtual Graphics::State* GetGraphicsPipelineState() = 0;
-			virtual Compute::State* GetComputePipelineState() = 0;
 
 			using uptr = std::unique_ptr<CommandList>;
 			using sptr = std::shared_ptr<CommandList>;
