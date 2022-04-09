@@ -133,7 +133,7 @@ bool SamplerFeedBack_DX12::Create(const Device* pDevice, const Texture* pTarget,
 	uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
 	ResourceFlag resourceFlags, bool isCubeMap, MemoryFlag memoryFlags, const wchar_t* name)
 {
-	N_RETURN(setDevice(pDevice), false);
+	XUSG_N_RETURN(setDevice(pDevice), false);
 	V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&m_deviceU)), cerr, false);
 
 	if (name) m_name = name;
@@ -160,10 +160,10 @@ bool SamplerFeedBack_DX12::Create(const Device* pDevice, const Texture* pTarget,
 	if (!m_name.empty()) m_resource->SetName((m_name + L".Resource").c_str());
 
 	// Create SRV
-	if (hasSRV) N_RETURN(CreateSRVs(arraySize, format, numMips, 1, isCubeMap), false);
+	if (hasSRV) XUSG_N_RETURN(CreateSRVs(arraySize, format, numMips, 1, isCubeMap), false);
 
 	// Create UAVs
-	N_RETURN(CreateUAV(pTarget), false);
+	XUSG_N_RETURN(CreateUAV(pTarget), false);
 
 	return true;
 }
@@ -172,7 +172,7 @@ bool SamplerFeedBack_DX12::CreateUAV(const Resource* pTarget)
 {
 	// Create an unordered access view
 	m_uavs.resize(1);
-	X_RETURN(m_uavs[0], allocateSrvUavHeap(), false);
+	XUSG_X_RETURN(m_uavs[0], allocateSrvUavHeap(), false);
 	m_deviceU->CreateSamplerFeedbackUnorderedAccessView(static_cast<ID3D12Resource*>(pTarget->GetHandle()),
 		m_resource.get(), { m_uavs[0] });
 

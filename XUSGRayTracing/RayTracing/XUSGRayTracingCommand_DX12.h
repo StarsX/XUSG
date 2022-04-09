@@ -34,7 +34,7 @@ namespace XUSG
 			const Device* GetRTDevice() const;
 
 		protected:
-#if ENABLE_DXR_FALLBACK
+#if XUSG_ENABLE_DXR_FALLBACK
 			com_ptr<ID3D12RaytracingFallbackCommandList> m_commandListRT;
 #else
 			com_ptr<ID3D12GraphicsCommandList4> m_commandListRT;

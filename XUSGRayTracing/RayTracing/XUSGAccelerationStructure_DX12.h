@@ -22,7 +22,7 @@ namespace XUSG
 			uint32_t GetResultDataMaxSize() const;
 			uint32_t GetScratchDataMaxSize() const;
 			uint32_t GetUpdateScratchDataSize() const;
-#if ENABLE_DXR_FALLBACK
+#if XUSG_ENABLE_DXR_FALLBACK
 			const WRAPPED_GPU_POINTER& GetResultPointer() const;
 #endif
 
@@ -38,7 +38,7 @@ namespace XUSG
 			PrebuildInfo m_prebuildInfo;
 
 			std::vector<RawBuffer::sptr> m_results;
-#if ENABLE_DXR_FALLBACK
+#if XUSG_ENABLE_DXR_FALLBACK
 			std::vector<WRAPPED_GPU_POINTER> m_pointers;
 #endif
 
@@ -77,7 +77,7 @@ namespace XUSG
 				BuildFlag flags = BuildFlag::PREFER_FAST_TRACE);
 			void Build(const CommandList* pCommandList, const Resource* pScratch,
 				const Resource* pInstanceDescs, const DescriptorPool& descriptorPool, bool update = false);
-#if !ENABLE_DXR_FALLBACK
+#if !XUSG_ENABLE_DXR_FALLBACK
 			void Build(XUSG::CommandList* pCommandList, const Resource* pScratch,
 				const Resource* pInstanceDescs, const DescriptorPool& descriptorPool, bool update = false);
 #endif

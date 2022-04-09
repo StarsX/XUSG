@@ -41,7 +41,7 @@ ResourceView EZ::GetSRV(Buffer* pResource, uint32_t index)
 	ResourceView resourceView;
 	resourceView.pResource = pResource;
 	resourceView.view = pResource->GetSRV(index);
-	resourceView.Subresources = { BARRIER_ALL_SUBRESOURCES };
+	resourceView.Subresources = { XUSG_BARRIER_ALL_SUBRESOURCES };
 
 	return resourceView;
 }
@@ -78,7 +78,7 @@ ResourceView EZ::GetUAV(Buffer* pResource, uint8_t index)
 	ResourceView resourceView;
 	resourceView.pResource = pResource;
 	resourceView.view = pResource->GetUAV(index);
-	resourceView.Subresources = { BARRIER_ALL_SUBRESOURCES };
+	resourceView.Subresources = { XUSG_BARRIER_ALL_SUBRESOURCES };
 
 	return resourceView;
 }
@@ -108,7 +108,7 @@ ResourceView EZ::GetPackedUAV(TypedBuffer* pResource, uint8_t index)
 	ResourceView resourceView;
 	resourceView.pResource = pResource;
 	resourceView.view = pResource->GetUAV(index);
-	resourceView.Subresources = { BARRIER_ALL_SUBRESOURCES };
+	resourceView.Subresources = { XUSG_BARRIER_ALL_SUBRESOURCES };
 
 	return resourceView;
 }
@@ -178,7 +178,7 @@ ResourceView EZ::GetStencilSRV(DepthStencil* pResource)
 	ResourceView resourceView;
 	resourceView.pResource = pResource;
 	resourceView.view = pResource->GetStencilSRV();
-	resourceView.Subresources = { BARRIER_ALL_SUBRESOURCES };
+	resourceView.Subresources = { XUSG_BARRIER_ALL_SUBRESOURCES };
 
 	return resourceView;
 }

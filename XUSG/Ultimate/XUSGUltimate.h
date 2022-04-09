@@ -52,7 +52,7 @@ namespace XUSG
 		//--------------------------------------------------------------------------------------
 		// Command list
 		//--------------------------------------------------------------------------------------
-		class DLL_INTERFACE CommandList :
+		class XUSG_INTERFACE CommandList :
 			public virtual XUSG::CommandList
 		{
 		public:
@@ -85,7 +85,7 @@ namespace XUSG
 		//--------------------------------------------------------------------------------------
 		// Sampler feedback
 		//--------------------------------------------------------------------------------------
-		class DLL_INTERFACE SamplerFeedBack :
+		class XUSG_INTERFACE SamplerFeedBack :
 			public virtual Texture
 		{
 		public:
@@ -121,7 +121,7 @@ namespace XUSG
 
 		class PipelineCache;
 
-		class DLL_INTERFACE State
+		class XUSG_INTERFACE State
 		{
 		public:
 			//State();
@@ -159,7 +159,7 @@ namespace XUSG
 			static sptr MakeShared(API api = API::DIRECTX_12);
 		};
 
-		class DLL_INTERFACE PipelineCache :
+		class XUSG_INTERFACE PipelineCache :
 			public virtual Graphics::PipelineCache
 		{
 		public:

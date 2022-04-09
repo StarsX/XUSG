@@ -8,7 +8,7 @@
 
 #define H_RETURN(x, o, m, r)	{ const auto hr = x; if (FAILED(hr)) { o << m << std::endl; assert(!m); return r; } }
 #define V_RETURN(x, o, r)		H_RETURN(x, o, HrToString(hr).c_str(), r)
-#define F_RETURN(x, o, h, r)	M_RETURN(x, o, HrToString(h).c_str(), r)
+#define F_RETURN(x, o, h, r)	XUSG_M_RETURN(x, o, HrToString(h).c_str(), r)
 
 namespace XUSG
 {

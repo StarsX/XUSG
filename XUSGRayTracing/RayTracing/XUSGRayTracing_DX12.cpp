@@ -21,7 +21,7 @@ Device_DX12::~Device_DX12()
 {
 }
 
-#if ENABLE_DXR_FALLBACK
+#if XUSG_ENABLE_DXR_FALLBACK
 bool Device_DX12::CreateInterface(uint8_t flags)
 {
 	const auto hr = D3D12CreateRaytracingFallbackDevice(m_device.get(), flags, 0, IID_PPV_ARGS(&m_deviceRT));

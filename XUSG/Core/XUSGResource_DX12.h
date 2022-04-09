@@ -19,10 +19,10 @@ namespace XUSG
 		virtual ~Resource_DX12();
 
 		uint32_t SetBarrier(ResourceBarrier* pBarriers, ResourceState dstState,
-			uint32_t numBarriers = 0, uint32_t subresource = BARRIER_ALL_SUBRESOURCES,
+			uint32_t numBarriers = 0, uint32_t subresource = XUSG_BARRIER_ALL_SUBRESOURCES,
 			BarrierFlag flags = BarrierFlag::NONE);
 
-		ResourceBarrier	Transition(ResourceState dstState, uint32_t subresource = BARRIER_ALL_SUBRESOURCES,
+		ResourceBarrier	Transition(ResourceState dstState, uint32_t subresource = XUSG_BARRIER_ALL_SUBRESOURCES,
 			BarrierFlag flag = BarrierFlag::NONE);
 		ResourceState	GetResourceState(uint32_t subresource = 0) const;
 
@@ -130,7 +130,7 @@ namespace XUSG
 			std::vector<Descriptor>* pUavs = nullptr);
 
 		uint32_t SetBarrier(ResourceBarrier* pBarriers, ResourceState dstState,
-			uint32_t numBarriers = 0, uint32_t subresource = BARRIER_ALL_SUBRESOURCES,
+			uint32_t numBarriers = 0, uint32_t subresource = XUSG_BARRIER_ALL_SUBRESOURCES,
 			BarrierFlag flags = BarrierFlag::NONE);
 		uint32_t SetBarrier(ResourceBarrier* pBarriers, uint8_t mipLevel, ResourceState dstState,
 			uint32_t numBarriers = 0, uint32_t slice = 0, BarrierFlag flags = BarrierFlag::NONE);

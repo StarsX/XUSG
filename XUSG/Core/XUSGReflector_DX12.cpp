@@ -75,9 +75,9 @@ inline const DxilPartHeader* GetDxilContainerPart(const DxilContainerHeader* pHe
 
 static const DxilContainerHeader* IsDxilContainerLike(const void* ptr, size_t length)
 {
-	C_RETURN(!ptr || length < 4, nullptr);
+	XUSG_C_RETURN(!ptr || length < 4, nullptr);
 
-	C_RETURN(DFCC_Container != *reinterpret_cast<const uint32_t*>(ptr), nullptr);
+	XUSG_C_RETURN(DFCC_Container != *reinterpret_cast<const uint32_t*>(ptr), nullptr);
 
 	return reinterpret_cast<const DxilContainerHeader*>(ptr);
 }
@@ -85,18 +85,18 @@ static const DxilContainerHeader* IsDxilContainerLike(const void* ptr, size_t le
 static bool IsValidDxilContainer(const DxilContainerHeader* pHeader, size_t length)
 {
 	// Validate that the header is where it's supposed to be.
-	N_RETURN(pHeader, false);
-	N_RETURN(length >= sizeof(DxilContainerHeader), false);
+	XUSG_N_RETURN(pHeader, false);
+	XUSG_N_RETURN(length >= sizeof(DxilContainerHeader), false);
 
 	// Validate the header values.
-	N_RETURN(pHeader->HeaderFourCC == DFCC_Container, false);
-	N_RETURN(pHeader->Version.Major == g_dxilContainerVersionMajor, false);
-	N_RETURN(pHeader->ContainerSizeInBytes <= length, false);
-	N_RETURN(pHeader->ContainerSizeInBytes <= g_dxilContainerMaxSize, false);
+	XUSG_N_RETURN(pHeader->HeaderFourCC == DFCC_Container, false);
+	XUSG_N_RETURN(pHeader->Version.Major == g_dxilContainerVersionMajor, false);
+	XUSG_N_RETURN(pHeader->ContainerSizeInBytes <= length, false);
+	XUSG_N_RETURN(pHeader->ContainerSizeInBytes <= g_dxilContainerMaxSize, false);
 
 	// Make sure that the count of offsets fits.
 	const auto partOffsetTableBytes = sizeof(uint32_t) * pHeader->PartCount;
-	N_RETURN(partOffsetTableBytes + sizeof(DxilContainerHeader) <= pHeader->ContainerSizeInBytes, false);
+	XUSG_N_RETURN(partOffsetTableBytes + sizeof(DxilContainerHeader) <= pHeader->ContainerSizeInBytes, false);
 
 	// Make sure that each part is within the bounds.
 	const auto pLinearContainer = reinterpret_cast<const uint8_t*>(pHeader);
@@ -104,12 +104,12 @@ static bool IsValidDxilContainer(const DxilContainerHeader* pHeader, size_t leng
 	for (auto i = 0u; i < pHeader->PartCount; ++i)
 	{
 		// The part header should fit.
-		N_RETURN(pPartOffsetTable[i] + sizeof(DxilPartHeader) <= pHeader->ContainerSizeInBytes, false);
+		XUSG_N_RETURN(pPartOffsetTable[i] + sizeof(DxilPartHeader) <= pHeader->ContainerSizeInBytes, false);
 
 		// The contents of the part should fit.
 		const auto pPartHeader = reinterpret_cast<const DxilPartHeader*>(pLinearContainer + pPartOffsetTable[i]);
 
-		N_RETURN(pPartOffsetTable[i] + sizeof(DxilPartHeader) + pPartHeader->PartSize <=
+		XUSG_N_RETURN(pPartOffsetTable[i] + sizeof(DxilPartHeader) + pPartHeader->PartSize <=
 			pHeader->ContainerSizeInBytes, false);
 	}
 
@@ -122,14 +122,14 @@ static bool IsValidDxilContainer(const DxilContainerHeader* pHeader, size_t leng
 static bool IsDxil(LPCVOID pSrcData, SIZE_T SrcDataSize)
 {
 	const auto pHeader = IsDxilContainerLike(pSrcData, SrcDataSize);
-	N_RETURN(pHeader, false);
+	XUSG_N_RETURN(pHeader, false);
 
-	N_RETURN(IsValidDxilContainer(pHeader, SrcDataSize), false);
+	XUSG_N_RETURN(IsValidDxilContainer(pHeader, SrcDataSize), false);
 
 	for (auto i = 0u; i < pHeader->PartCount; ++i)
 	{
 		const auto pPart = GetDxilContainerPart(pHeader, i);
-		C_RETURN(pPart->PartFourCC == DFCC_DXIL || pPart->PartFourCC == DFCC_ShaderDebugInfoDXIL, true);
+		XUSG_C_RETURN(pPart->PartFourCC == DFCC_DXIL || pPart->PartFourCC == DFCC_ShaderDebugInfoDXIL, true);
 	}
 
 	return false;

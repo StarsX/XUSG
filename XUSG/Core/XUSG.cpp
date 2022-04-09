@@ -368,5 +368,5 @@ Compute::PipelineCache::sptr Compute::PipelineCache::MakeShared(const Device* pD
 
 uint32_t XUSG::DivideAndRoundUp(uint32_t x, uint32_t n)
 {
-	return DIV_UP(x, n);
+	return XUSG_DIV_UP(x, n);
 }

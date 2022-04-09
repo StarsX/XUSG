@@ -18,7 +18,7 @@ namespace XUSG
 			Device_DX12();
 			virtual ~Device_DX12();
 
-#if ENABLE_DXR_FALLBACK
+#if XUSG_ENABLE_DXR_FALLBACK
 			bool CreateInterface(uint8_t flags);
 #else
 			bool CreateInterface();
@@ -27,7 +27,7 @@ namespace XUSG
 			void* GetRTHandle() const;
 
 		protected:
-#if ENABLE_DXR_FALLBACK
+#if XUSG_ENABLE_DXR_FALLBACK
 			com_ptr<ID3D12RaytracingFallbackDevice> m_deviceRT;
 #else
 			com_ptr<ID3D12Device5> m_deviceRT;

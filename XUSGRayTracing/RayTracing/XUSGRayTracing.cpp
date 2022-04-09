@@ -17,12 +17,12 @@ using namespace std;
 using namespace XUSG;
 using namespace XUSG::RayTracing;
 
-#if ENABLE_DXR_FALLBACK
+#if XUSG_ENABLE_DXR_FALLBACK
 uint32_t g_numUAVs;
 #endif
 uint32_t g_frameCount = 1;
 
-#if ENABLE_DXR_FALLBACK
+#if XUSG_ENABLE_DXR_FALLBACK
 uint32_t AccelerationStructure::GetUAVCount()
 {
 	return g_numUAVs;

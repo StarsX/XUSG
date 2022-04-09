@@ -5,20 +5,20 @@
 #pragma once
 #pragma warning(disable:4250)
 
-#ifndef DLL_INTERFACE
-#define DLL_INTERFACE
+#ifndef XUSG_INTERFACE
+#define XUSG_INTERFACE
 #endif
 
-#define M_RETURN(x, o, m, r)		if (x) { o << m << std::endl; assert(!m); return r; }
-#define C_RETURN(x, r)				if (x) return r
-#define N_RETURN(x, r)				C_RETURN(!(x), r)
-#define X_RETURN(x, f, r)			{ x = f; N_RETURN(x, r); }
+#define XUSG_M_RETURN(x, o, m, r)		if (x) { o << m << std::endl; assert(!m); return r; }
+#define XUSG_C_RETURN(x, r)				if (x) return r
+#define XUSG_N_RETURN(x, r)				XUSG_C_RETURN(!(x), r)
+#define XUSG_X_RETURN(x, f, r)			{ x = f; XUSG_N_RETURN(x, r); }
 
-#define DIV_UP(x, n)				(((x) - 1) / (n) + 1)
-#define SizeOfInUint32(obj)			DIV_UP(sizeof(obj), sizeof(uint32_t))
+#define XUSG_DIV_UP(x, n)				(((x) - 1) / (n) + 1)
+#define XUSG_SizeOfInUint32(obj)		XUSG_DIV_UP(sizeof(obj), sizeof(uint32_t))
 
-#define APPEND_ALIGNED_ELEMENT		0xffffffff
-#define BARRIER_ALL_SUBRESOURCES	0xffffffff
+#define XUSG_APPEND_ALIGNED_ELEMENT		0xffffffff
+#define XUSG_BARRIER_ALL_SUBRESOURCES	0xffffffff
 
 #define XUSG_DEF_ENUM_FLAG_OPERATORS(ENUMTYPE) \
 extern "C++" \
@@ -923,7 +923,7 @@ namespace XUSG
 	class CommandQueue;
 	class Fence;
 
-	class DLL_INTERFACE Device
+	class XUSG_INTERFACE Device
 	{
 	public:
 		//Device();
@@ -957,7 +957,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Fence
 	//--------------------------------------------------------------------------------------
-	class DLL_INTERFACE Fence
+	class XUSG_INTERFACE Fence
 	{
 	public:
 		//Fence();
@@ -988,7 +988,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Command layout
 	//--------------------------------------------------------------------------------------
-	class DLL_INTERFACE CommandLayout
+	class XUSG_INTERFACE CommandLayout
 	{
 	public:
 		//CommandLayout();
@@ -1009,7 +1009,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Command queue
 	//--------------------------------------------------------------------------------------
-	class DLL_INTERFACE CommandAllocator
+	class XUSG_INTERFACE CommandAllocator
 	{
 	public:
 		//CommandAllocator();
@@ -1033,7 +1033,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Command list
 	//--------------------------------------------------------------------------------------
-	class DLL_INTERFACE CommandList
+	class XUSG_INTERFACE CommandList
 	{
 	public:
 		//CommandList();
@@ -1156,7 +1156,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Command queue
 	//--------------------------------------------------------------------------------------
-	class DLL_INTERFACE CommandQueue
+	class XUSG_INTERFACE CommandQueue
 	{
 	public:
 		//CommandQueue();
@@ -1194,7 +1194,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	class Resource;
 
-	class DLL_INTERFACE SwapChain
+	class XUSG_INTERFACE SwapChain
 	{
 	public:
 		//SwapChain();
@@ -1223,17 +1223,17 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Resource
 	//--------------------------------------------------------------------------------------
-	class DLL_INTERFACE Resource
+	class XUSG_INTERFACE Resource
 	{
 	public:
 		//Resource();
 		virtual ~Resource() {};
 
 		virtual uint32_t SetBarrier(ResourceBarrier* pBarriers, ResourceState dstState,
-			uint32_t numBarriers = 0, uint32_t subresource = BARRIER_ALL_SUBRESOURCES,
+			uint32_t numBarriers = 0, uint32_t subresource = XUSG_BARRIER_ALL_SUBRESOURCES,
 			BarrierFlag flags = BarrierFlag::NONE) = 0;
 
-		virtual ResourceBarrier	Transition(ResourceState dstState, uint32_t subresource = BARRIER_ALL_SUBRESOURCES,
+		virtual ResourceBarrier	Transition(ResourceState dstState, uint32_t subresource = XUSG_BARRIER_ALL_SUBRESOURCES,
 			BarrierFlag flag = BarrierFlag::NONE) = 0;
 		virtual ResourceState	GetResourceState(uint32_t subresource = 0) const = 0;
 
@@ -1255,7 +1255,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Constant buffer
 	//--------------------------------------------------------------------------------------
-	class DLL_INTERFACE ConstantBuffer :
+	class XUSG_INTERFACE ConstantBuffer :
 		public virtual Resource
 	{
 	public:
@@ -1285,7 +1285,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Resource base
 	//--------------------------------------------------------------------------------------
-	class DLL_INTERFACE ShaderResource :
+	class XUSG_INTERFACE ShaderResource :
 		public virtual Resource
 	{
 	public:
@@ -1306,7 +1306,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Texture
 	//--------------------------------------------------------------------------------------
-	class DLL_INTERFACE Texture :
+	class XUSG_INTERFACE Texture :
 		public virtual ShaderResource
 	{
 	public:
@@ -1330,7 +1330,7 @@ namespace XUSG
 			std::vector<Descriptor>* pUavs = nullptr) = 0;
 
 		virtual uint32_t SetBarrier(ResourceBarrier* pBarriers, ResourceState dstState,
-			uint32_t numBarriers = 0, uint32_t subresource = BARRIER_ALL_SUBRESOURCES,
+			uint32_t numBarriers = 0, uint32_t subresource = XUSG_BARRIER_ALL_SUBRESOURCES,
 			BarrierFlag flags = BarrierFlag::NONE) = 0;
 		virtual uint32_t SetBarrier(ResourceBarrier* pBarriers, uint8_t mipLevel, ResourceState dstState,
 			uint32_t numBarriers = 0, uint32_t slice = 0, BarrierFlag flags = BarrierFlag::NONE) = 0;
@@ -1378,7 +1378,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Render target
 	//--------------------------------------------------------------------------------------
-	class DLL_INTERFACE RenderTarget :
+	class XUSG_INTERFACE RenderTarget :
 		public virtual Texture
 	{
 	public:
@@ -1425,7 +1425,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Depth stencil
 	//--------------------------------------------------------------------------------------
-	class DLL_INTERFACE DepthStencil :
+	class XUSG_INTERFACE DepthStencil :
 		public virtual Texture
 	{
 	public:
@@ -1460,7 +1460,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// 3D Texture
 	//--------------------------------------------------------------------------------------
-	class DLL_INTERFACE Texture3D :
+	class XUSG_INTERFACE Texture3D :
 		public virtual Texture
 	{
 	public:
@@ -1487,7 +1487,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Buffer
 	//--------------------------------------------------------------------------------------
-	class DLL_INTERFACE Buffer :
+	class XUSG_INTERFACE Buffer :
 		public virtual ShaderResource
 	{
 	public:
@@ -1527,7 +1527,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Structured buffer
 	//--------------------------------------------------------------------------------------
-	class DLL_INTERFACE StructuredBuffer :
+	class XUSG_INTERFACE StructuredBuffer :
 		public virtual Buffer
 	{
 	public:
@@ -1560,7 +1560,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Typed buffer
 	//--------------------------------------------------------------------------------------
-	class DLL_INTERFACE TypedBuffer :
+	class XUSG_INTERFACE TypedBuffer :
 		public virtual Buffer
 	{
 	public:
@@ -1591,7 +1591,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Vertex buffer
 	//--------------------------------------------------------------------------------------
-	class DLL_INTERFACE VertexBuffer :
+	class XUSG_INTERFACE VertexBuffer :
 		public virtual StructuredBuffer
 	{
 	public:
@@ -1623,7 +1623,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Index buffer
 	//--------------------------------------------------------------------------------------
-	class DLL_INTERFACE IndexBuffer :
+	class XUSG_INTERFACE IndexBuffer :
 		public virtual TypedBuffer
 	{
 	public:
@@ -1654,7 +1654,7 @@ namespace XUSG
 
 	namespace Util
 	{
-		class DLL_INTERFACE DescriptorTable
+		class XUSG_INTERFACE DescriptorTable
 		{
 		public:
 			//DescriptorTable();
@@ -1690,7 +1690,7 @@ namespace XUSG
 		};
 	}
 
-	class DLL_INTERFACE DescriptorTableCache
+	class XUSG_INTERFACE DescriptorTableCache
 	{
 	public:
 		//DescriptorTableCache();
@@ -1732,7 +1732,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Shader reflector
 	//--------------------------------------------------------------------------------------
-	class DLL_INTERFACE Reflector
+	class XUSG_INTERFACE Reflector
 	{
 	public:
 		//Reflector();
@@ -1752,7 +1752,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Shader
 	//--------------------------------------------------------------------------------------
-	class DLL_INTERFACE ShaderPool
+	class XUSG_INTERFACE ShaderPool
 	{
 	public:
 		//ShaderPool();
@@ -1781,7 +1781,7 @@ namespace XUSG
 
 	namespace Util
 	{
-		class DLL_INTERFACE PipelineLayout
+		class XUSG_INTERFACE PipelineLayout
 		{
 		public:
 			//PipelineLayout();
@@ -1821,7 +1821,7 @@ namespace XUSG
 		};
 	}
 
-	class DLL_INTERFACE PipelineLayoutCache
+	class XUSG_INTERFACE PipelineLayoutCache
 	{
 	public:
 		//PipelineLayoutCache();
@@ -1957,7 +1957,7 @@ namespace XUSG
 
 		class PipelineCache;
 		
-		class DLL_INTERFACE State
+		class XUSG_INTERFACE State
 		{
 		public:
 			//State();
@@ -1999,7 +1999,7 @@ namespace XUSG
 			static sptr MakeShared(API api = API::DIRECTX_12);
 		};
 
-		class DLL_INTERFACE PipelineCache
+		class XUSG_INTERFACE PipelineCache
 		{
 		public:
 			//PipelineCache();
@@ -2037,7 +2037,7 @@ namespace XUSG
 	{
 		class PipelineCache;
 		
-		class DLL_INTERFACE State
+		class XUSG_INTERFACE State
 		{
 		public:
 			//State();
@@ -2060,7 +2060,7 @@ namespace XUSG
 			static sptr MakeShared(API api = API::DIRECTX_12);
 		};
 
-		class DLL_INTERFACE PipelineCache
+		class XUSG_INTERFACE PipelineCache
 		{
 		public:
 			//PipelineCache();
@@ -2083,7 +2083,7 @@ namespace XUSG
 		};
 	}
 
-	DLL_INTERFACE uint32_t DivideAndRoundUp(uint32_t x, uint32_t n);
+	XUSG_INTERFACE uint32_t DivideAndRoundUp(uint32_t x, uint32_t n);
 
 	inline uint8_t Log2(uint32_t value)
 	{

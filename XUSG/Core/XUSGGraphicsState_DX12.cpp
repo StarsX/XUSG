@@ -333,7 +333,7 @@ Pipeline PipelineCache_DX12::createPipeline(const std::string& key, const wchar_
 			dst.SemanticIndex = src.SemanticIndex;
 			dst.Format = GetDXGIFormat(src.Format);
 			dst.InputSlot = src.InputSlot;
-			dst.AlignedByteOffset = src.AlignedByteOffset != APPEND_ALIGNED_ELEMENT ? src.AlignedByteOffset : D3D12_APPEND_ALIGNED_ELEMENT;
+			dst.AlignedByteOffset = src.AlignedByteOffset != XUSG_APPEND_ALIGNED_ELEMENT ? src.AlignedByteOffset : D3D12_APPEND_ALIGNED_ELEMENT;
 			dst.InputSlotClass = GetDX12InputClassification(src.InputSlotClass);
 			dst.InstanceDataStepRate = src.InstanceDataStepRate;
 		}

@@ -43,7 +43,7 @@ Blob ShaderPool_DX12::CreateShader(Shader::Stage stage, uint32_t index, const ws
 
 	auto& reflector = checkReflectorStorage(stage, index);
 	reflector = make_shared<Reflector_DX12>();
-	N_RETURN(reflector->SetShader(shader.get()), nullptr);
+	XUSG_N_RETURN(reflector->SetShader(shader.get()), nullptr);
 
 	return shader.get();
 }
@@ -56,7 +56,7 @@ Blob ShaderPool_DX12::CreateShader(Shader::Stage stage, uint32_t index, const ui
 
 	auto& reflector = checkReflectorStorage(stage, index);
 	reflector = make_shared<Reflector_DX12>();
-	N_RETURN(reflector->SetShader(shader.get()), nullptr);
+	XUSG_N_RETURN(reflector->SetShader(shader.get()), nullptr);
 
 	return shader.get();
 }

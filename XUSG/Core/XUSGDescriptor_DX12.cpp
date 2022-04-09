@@ -296,7 +296,7 @@ bool DescriptorTableCache_DX12::reallocateCbvSrvUavPool(const string& key)
 	const auto descriptorCount = calculateGrowth(numDescriptors, CBV_SRV_UAV_POOL, index);
 	if (!descriptorPool || descriptorPool->GetDesc().NumDescriptors < descriptorCount)
 	{
-		N_RETURN(allocateDescriptorPool(CBV_SRV_UAV_POOL, descriptorCount, index), false);
+		XUSG_N_RETURN(allocateDescriptorPool(CBV_SRV_UAV_POOL, descriptorCount, index), false);
 
 		// Recreate descriptor tables
 		for (const auto& pKey : m_descriptorKeyPtrs[CBV_SRV_UAV_POOL][index])
@@ -319,7 +319,7 @@ bool DescriptorTableCache_DX12::reallocateSamplerPool(const string& key)
 	const auto descriptorCount = calculateGrowth(numDescriptors, SAMPLER_POOL, index);
 	if (!descriptorPool || descriptorPool->GetDesc().NumDescriptors < descriptorCount)
 	{
-		N_RETURN(allocateDescriptorPool(SAMPLER_POOL, descriptorCount, index), false);
+		XUSG_N_RETURN(allocateDescriptorPool(SAMPLER_POOL, descriptorCount, index), false);
 
 		// Recreate descriptor tables
 		for (const auto& pKey : m_descriptorKeyPtrs[SAMPLER_POOL][index])
@@ -342,7 +342,7 @@ bool DescriptorTableCache_DX12::reallocateRtvPool(const string& key)
 	const auto descriptorCount = calculateGrowth(numDescriptors, RTV_POOL, index);
 	if (!descriptorPool || descriptorPool->GetDesc().NumDescriptors < descriptorCount)
 	{
-		N_RETURN(allocateDescriptorPool(RTV_POOL, descriptorCount, index), false);
+		XUSG_N_RETURN(allocateDescriptorPool(RTV_POOL, descriptorCount, index), false);
 
 		// Recreate descriptor tables
 		for (const auto& pKey : m_descriptorKeyPtrs[RTV_POOL][index])
