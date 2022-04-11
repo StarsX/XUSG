@@ -10,10 +10,24 @@ using namespace XUSG;
 
 EZ::CommandList_DX12::CommandList_DX12() :
 	XUSG::CommandList_DX12(),
+	m_graphicsPipelineCache(nullptr),
+	m_computePipelineCache(nullptr),
+	m_pipelineLayoutCache(nullptr),
+	m_descriptorTableCache(nullptr),
+	m_pInputLayout(nullptr),
+	m_pipelineLayouts(),
+	m_pipeline(nullptr),
+	m_graphicsState(nullptr),
+	m_computeState(nullptr),
 	m_isGraphicsDirty(false),
 	m_isComputeDirty(false),
+	m_descriptors(0),
 	m_graphicsCbvSrvUavTables(),
 	m_computeCbvSrvUavTables(),
+	m_samplerTables(),
+	m_barriers(0),
+	m_clearDSVs(0),
+	m_clearRTVs(0),
 	m_graphicsSpaceToParamIndexMap(),
 	m_computeSpaceToParamIndexMap()
 {
