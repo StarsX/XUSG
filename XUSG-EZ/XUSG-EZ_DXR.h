@@ -46,6 +46,13 @@ namespace XUSG
 					const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1,
 					const wchar_t* name = nullptr);
 
+				void RTSetShaderLibrary(Blob shaderLib);
+				void RTSetShaderConfig(uint32_t maxPayloadSize, uint32_t maxAttributeSize = sizeof(float[2]));
+				void RTSetHitGroup(uint32_t index, const void* hitGroup, const void* closestHitShader,
+					const void* anyHitShader = nullptr, const void* intersectionShader = nullptr,
+					XUSG::RayTracing::HitGroupType type = XUSG::RayTracing::HitGroupType::TRIANGLES);
+				void RTSetMaxRecursionDepth(uint32_t depth);
+
 			protected:
 				XUSG::Resource* needScratch(uint32_t size);
 
@@ -60,6 +67,9 @@ namespace XUSG
 
 				uint32_t m_scratchSize;
 				std::vector<XUSG::Resource::uptr> m_scratches;
+
+				bool m_isRTStateDirty;
+				XUSG::RayTracing::State::uptr m_RTState;
 			};
 		}
 	}
