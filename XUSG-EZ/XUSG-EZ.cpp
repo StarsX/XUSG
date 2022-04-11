@@ -3,9 +3,9 @@
 //--------------------------------------------------------------------------------------
 
 #include "Core/XUSGCommand_DX12.h"
+#include "RayTracing/XUSGRayTracingCommand_DX12.h"
 #include "XUSG-EZ_DX12.h"
 #include "XUSG-EZ_DXR.h"
-
 
 using namespace std;
 using namespace XUSG;
