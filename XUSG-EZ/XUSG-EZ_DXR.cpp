@@ -39,7 +39,7 @@ CommandList_DXR::CommandList_DXR(XUSG::RayTracing::CommandList* pCommandList, ui
 	m_rayTracingState(nullptr),
 	m_asUavCount(0),
 	m_paramIndex(0),
-	m_tlasBindingToParamIndexMap(0),
+	m_tlasBindingToParamIndexMap(0)
 {
 }
 
@@ -59,11 +59,14 @@ bool CommandList_DXR::Create(XUSG::RayTracing::CommandList* pCommandList, uint32
 	m_descriptorTableCache = DescriptorTableCache::MakeUnique(m_pDevice, L"EZDescirptorTableCache", API::DIRECTX_12);
 
 	// Allocate descriptor pools
-	m_descriptorTableCache->AllocateDescriptorPool(DescriptorPoolType::SAMPLER_POOL, samplerPoolSize);
-	m_descriptorTableCache->AllocateDescriptorPool(DescriptorPoolType::CBV_SRV_UAV_POOL, cbvSrvUavPoolSize);
+	XUSG_N_RETURN(m_descriptorTableCache->AllocateDescriptorPool(
+		DescriptorPoolType::SAMPLER_POOL, samplerPoolSize), false);
+	XUSG_N_RETURN(m_descriptorTableCache->AllocateDescriptorPool(
+		DescriptorPoolType::CBV_SRV_UAV_POOL, cbvSrvUavPoolSize), false);
 
 	// Create common pipeline layouts
-	createPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces, maxTLASSrvs, spaceTLAS);
+	XUSG_N_RETURN(createPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
+		maxCbvSpaces, maxSrvSpaces, maxUavSpaces, maxTLASSrvs, spaceTLAS), false);
 
 	return true;
 }

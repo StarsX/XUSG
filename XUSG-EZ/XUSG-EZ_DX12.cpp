@@ -60,11 +60,14 @@ bool EZ::CommandList_DX12::Create(XUSG::CommandList* pCommandList, uint32_t samp
 	m_descriptorTableCache = DescriptorTableCache::MakeUnique(m_pDevice, L"EZDescirptorTableCache", API::DIRECTX_12);
 
 	// Allocate descriptor pools
-	m_descriptorTableCache->AllocateDescriptorPool(DescriptorPoolType::SAMPLER_POOL, samplerPoolSize);
-	m_descriptorTableCache->AllocateDescriptorPool(DescriptorPoolType::CBV_SRV_UAV_POOL, cbvSrvUavPoolSize);
+	XUSG_N_RETURN(m_descriptorTableCache->AllocateDescriptorPool(
+		DescriptorPoolType::SAMPLER_POOL, samplerPoolSize), false);
+	XUSG_N_RETURN(m_descriptorTableCache->AllocateDescriptorPool(
+		DescriptorPoolType::CBV_SRV_UAV_POOL, cbvSrvUavPoolSize), false);
 
 	// Create common pipeline layouts
-	createPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces);
+	XUSG_N_RETURN(createPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
+		pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces), false);
 
 	return true;
 }
