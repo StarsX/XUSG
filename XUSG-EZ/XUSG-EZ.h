@@ -201,6 +201,13 @@ namespace XUSG
 					const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1,
 					const wchar_t* name = nullptr) = 0;
 
+				virtual void RTSetShaderLibrary(Blob shaderLib) = 0;
+				virtual void RTSetHitGroup(uint32_t index, const void* hitGroup, const void* closestHitShader,
+					const void* anyHitShader = nullptr, const void* intersectionShader = nullptr,
+					XUSG::RayTracing::HitGroupType type = XUSG::RayTracing::HitGroupType::TRIANGLES) = 0;
+				virtual void RTSetShaderConfig(uint32_t maxPayloadSize, uint32_t maxAttributeSize = sizeof(float[2])) = 0;
+				virtual void RTSetMaxRecursionDepth(uint32_t depth) = 0;
+
 				static uptr MakeUnique(XUSG::API api = XUSG::API::DIRECTX_12);
 				static sptr MakeShared(XUSG::API api = XUSG::API::DIRECTX_12);
 				static uptr MakeUnique(XUSG::RayTracing::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,

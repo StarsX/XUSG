@@ -5,6 +5,7 @@
 #include "Core/XUSGCommand_DX12.h"
 #include "XUSG-EZ_DXR.h"
 #include "RayTracing/XUSGAccelerationStructure_DX12.h"
+#include "RayTracing/XUSGRayTracingState_DX12.h"
 
 using namespace std;
 using namespace XUSG;
@@ -15,7 +16,8 @@ CommandList_DXR::CommandList_DXR() :
 	EZ::CommandList_DX12(),
 	m_asUavCount(0),
 	m_paramIndex(0),
-	m_scratchSize(0)
+	m_scratchSize(0),
+	m_isRTStateDirty(false)
 {
 }
 
@@ -30,7 +32,8 @@ CommandList_DXR::CommandList_DXR(XUSG::RayTracing::CommandList* pCommandList, ui
 		maxCbvSpaces, maxSrvSpaces, maxUavSpaces),
 	m_paramIndex(0),
 	m_asUavCount(0),
-	m_scratchSize(0)
+	m_scratchSize(0),
+	m_isRTStateDirty(false)
 {
 }
 
@@ -251,3 +254,34 @@ bool CommandList_DXR::createPipelineLayouts(uint32_t maxSamplers, const uint32_t
 
 	return true;
 }
+
+void CommandList_DXR::RTSetShaderLibrary(Blob shaderLib)
+{
+	if (!m_RTState) m_RTState = XUSG::RayTracing::State::MakeUnique(API::DIRECTX_12);
+	m_RTState->SetShaderLibrary(shaderLib);
+	m_isRTStateDirty = true;
+}
+
+void CommandList_DXR::RTSetShaderConfig(uint32_t maxPayloadSize, uint32_t maxAttributeSize)
+{
+	if (!m_RTState) m_RTState = XUSG::RayTracing::State::MakeUnique(API::DIRECTX_12);
+	m_RTState->SetShaderConfig(maxPayloadSize, maxAttributeSize);
+	m_isRTStateDirty = true;
+}
+
+void CommandList_DXR::RTSetHitGroup(uint32_t index, const void* hitGroup, const void* closestHitShader,
+	const void* anyHitShader, const void* intersectionShader,
+	XUSG::RayTracing::HitGroupType type)
+{
+	if (!m_RTState) m_RTState = XUSG::RayTracing::State::MakeUnique(API::DIRECTX_12);
+	m_RTState->SetHitGroup(index, hitGroup, closestHitShader, anyHitShader, intersectionShader, type);
+	m_isRTStateDirty = true;
+}
+
+void CommandList_DXR::RTSetMaxRecursionDepth(uint32_t depth)
+{
+	if (!m_RTState) m_RTState = XUSG::RayTracing::State::MakeUnique(API::DIRECTX_12);
+	m_RTState->SetMaxRecursionDepth(depth);
+	m_isRTStateDirty = true;
+}
+
