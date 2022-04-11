@@ -52,6 +52,7 @@ namespace XUSG
 					const void* anyHitShader = nullptr, const void* intersectionShader = nullptr,
 					XUSG::RayTracing::HitGroupType type = XUSG::RayTracing::HitGroupType::TRIANGLES);
 				void RTSetMaxRecursionDepth(uint32_t depth);
+				void DispatchRays(uint32_t width, uint32_t height, uint32_t depth);
 
 			protected:
 				XUSG::Resource* needScratch(uint32_t size);
@@ -70,6 +71,8 @@ namespace XUSG
 
 				bool m_isRTStateDirty;
 				XUSG::RayTracing::State::uptr m_RTState;
+
+				XUSG::RayTracing::PipelineCache::uptr m_RayTracingPipelineCache;
 			};
 		}
 	}

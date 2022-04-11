@@ -48,6 +48,7 @@ bool CommandList_DXR::Create(XUSG::RayTracing::CommandList* pCommandList, uint32
 
 	m_graphicsPipelineCache = Graphics::PipelineCache::MakeUnique(m_pDevice, API::DIRECTX_12);
 	m_computePipelineCache = Compute::PipelineCache::MakeUnique(m_pDevice, API::DIRECTX_12);
+	m_RayTracingPipelineCache = XUSG::RayTracing::PipelineCache::MakeUnique(m_pDeviceRT, API::DIRECTX_12);
 	m_pipelineLayoutCache = PipelineLayoutCache::MakeUnique(m_pDevice, API::DIRECTX_12);
 	m_descriptorTableCache = DescriptorTableCache::MakeUnique(m_pDevice, L"EZDescirptorTableCache", API::DIRECTX_12);
 
@@ -283,5 +284,54 @@ void CommandList_DXR::RTSetMaxRecursionDepth(uint32_t depth)
 	if (!m_RTState) m_RTState = XUSG::RayTracing::State::MakeUnique(API::DIRECTX_12);
 	m_RTState->SetMaxRecursionDepth(depth);
 	m_isRTStateDirty = true;
+}
+
+void CommandList_DXR::DispatchRays(uint32_t width, uint32_t height, uint32_t depth)
+{
+	//TODO: fix raytracing shadertables.
+	// Create and set sampler table
+	auto& samplerTable = m_samplerTables[COMPUTE];
+	if (samplerTable)
+	{
+		const auto descriptorTable = samplerTable->GetSamplerTable(m_descriptorTableCache.get());
+		if (descriptorTable) XUSG::CommandList_DX12::SetComputeDescriptorTable(0, descriptorTable);
+		samplerTable.reset();
+	}
+
+	// Create and set CBV/SRV/UAV tables
+	for (uint8_t t = 0; t < CbvSrvUavTypes; ++t)
+	{
+		auto& cbvSrvUavTables = m_computeCbvSrvUavTables[t];
+		const auto numSpaces = static_cast<uint32_t>(cbvSrvUavTables.size());
+		for (auto s = 0u; s < numSpaces; ++s)
+		{
+			auto& cbvSrvUavTable = cbvSrvUavTables[s];
+			if (cbvSrvUavTable)
+			{
+				const auto descriptorTable = cbvSrvUavTable->GetCbvSrvUavTable(m_descriptorTableCache.get());
+				if (descriptorTable) XUSG::CommandList_DX12::SetComputeDescriptorTable(
+					m_computeSpaceToParamIndexMap[t][s], descriptorTable);
+				cbvSrvUavTable.reset();
+			}
+		}
+	}
+
+	// Set barrier command
+	XUSG::CommandList_DX12::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
+	m_barriers.clear();
+
+	// Create pipeline for dynamic states
+	if (m_RTState && m_isRTStateDirty)
+	{
+		m_RTState->SetGlobalPipelineLayout(m_pipelineLayouts[COMPUTE]);
+		const auto pipeline = m_RTState->GetPipeline(m_RayTracingPipelineCache.get());
+		if (pipeline)
+		{
+			m_pipeline = pipeline;
+			m_isRTStateDirty = false;
+		}
+	}
+
+	//XUSG::RayTracing::CommandList::DispatchRays(m_pipeline, width, height, depth, pHitGroup, pMiss, pRayGen);
 }
 

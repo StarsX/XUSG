@@ -134,7 +134,11 @@ void EZ::CommandList_DX12::Dispatch(uint32_t threadGroupCountX, uint32_t threadG
 		const auto pipeline = m_computeState->GetPipeline(m_computePipelineCache.get());
 		if (pipeline)
 		{
-			if (m_pipeline != pipeline) XUSG::CommandList_DX12::SetPipelineState(pipeline);
+			if (m_pipeline != pipeline)
+			{
+				XUSG::CommandList_DX12::SetPipelineState(pipeline);
+				m_pipeline = pipeline;
+			}
 			m_isComputeDirty = false;
 		}
 	}
@@ -629,7 +633,11 @@ void EZ::CommandList_DX12::predraw()
 		const auto pipeline = m_graphicsState->GetPipeline(m_graphicsPipelineCache.get());
 		if (pipeline)
 		{
-			if (m_pipeline != pipeline) XUSG::CommandList_DX12::SetPipelineState(pipeline);
+			if (m_pipeline != pipeline)
+			{
+				XUSG::CommandList_DX12::SetPipelineState(pipeline);
+				m_pipeline = pipeline;
+			}
 			m_isGraphicsDirty = false;
 		}
 	}
