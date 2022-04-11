@@ -60,9 +60,7 @@ namespace XUSG
 					uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces,
 					uint32_t maxTLASSrvs, uint32_t spaceTLAS);
 
-				uint32_t m_asUavCount;
-				uint32_t m_paramIndex;
-				std::vector<uint32_t> m_tlasBindingToParamIndexMap;
+				XUSG::RayTracing::PipelineCache::uptr m_RayTracingPipelineCache;
 
 				uint32_t m_scratchSize;
 				std::vector<XUSG::Resource::uptr> m_scratches;
@@ -70,7 +68,9 @@ namespace XUSG
 				bool m_isRTStateDirty;
 				XUSG::RayTracing::State::uptr m_rayTracingState;
 
-				XUSG::RayTracing::PipelineCache::uptr m_RayTracingPipelineCache;
+				uint32_t m_asUavCount;
+				uint32_t m_paramIndex;
+				std::vector<uint32_t> m_tlasBindingToParamIndexMap;
 			};
 		}
 	}

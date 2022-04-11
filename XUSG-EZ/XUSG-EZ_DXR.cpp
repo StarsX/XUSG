@@ -32,10 +32,14 @@ CommandList_DXR::CommandList_DXR(XUSG::RayTracing::CommandList* pCommandList, ui
 	uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces, uint32_t maxTLASSrvs, uint32_t spaceTLAS) :
 	EZ::CommandList_DX12(pCommandList, samplerPoolSize, cbvSrvUavPoolSize, maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
 		maxCbvSpaces, maxSrvSpaces, maxUavSpaces),
-	m_paramIndex(0),
-	m_asUavCount(0),
+	m_RayTracingPipelineCache(nullptr),
 	m_scratchSize(0),
-	m_isRTStateDirty(false)
+	m_scratches(0),
+	m_isRTStateDirty(false),
+	m_rayTracingState(nullptr),
+	m_asUavCount(0),
+	m_paramIndex(0),
+	m_tlasBindingToParamIndexMap(0),
 {
 }
 
