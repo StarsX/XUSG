@@ -94,11 +94,17 @@ void RayTracing::CommandList_DX12::SetTopLevelAccelerationStructure(uint32_t ind
 #endif
 }
 
-void RayTracing::CommandList_DX12::DispatchRays(const Pipeline& pipeline,
-	uint32_t width, uint32_t height, uint32_t depth,
-	const ShaderTable* pHitGroup,
-	const ShaderTable* pMiss,
-	const ShaderTable* pRayGen) const
+void RayTracing::CommandList_DX12::SetRayTracingPipeline(const Pipeline& pipeline) const
+{
+#if XUSG_ENABLE_DXR_FALLBACK
+	m_commandListRT->SetPipelineState1(static_cast<ID3D12RaytracingFallbackStateObject*>(pipeline));
+#else // DirectX Raytracing
+	m_commandListRT->SetPipelineState1(static_cast<ID3D12StateObject*>(pipeline));
+#endif
+}
+
+void RayTracing::CommandList_DX12::DispatchRays(uint32_t width, uint32_t height, uint32_t depth,
+	const ShaderTable* pHitGroup, const ShaderTable* pMiss, const ShaderTable* pRayGen) const
 {
 	D3D12_DISPATCH_RAYS_DESC dispatchDesc = {};
 
@@ -118,13 +124,17 @@ void RayTracing::CommandList_DX12::DispatchRays(const Pipeline& pipeline,
 	dispatchDesc.Height = height;
 	dispatchDesc.Depth = depth;
 
-	const auto pCommandList = m_commandListRT.get();
-#if XUSG_ENABLE_DXR_FALLBACK
-	pCommandList->SetPipelineState1(static_cast<ID3D12RaytracingFallbackStateObject*>(pipeline));
-#else // DirectX Raytracing
-	pCommandList->SetPipelineState1(static_cast<ID3D12StateObject*>(pipeline));
-#endif
-	pCommandList->DispatchRays(&dispatchDesc);
+	m_commandListRT->DispatchRays(&dispatchDesc);
+}
+
+void RayTracing::CommandList_DX12::DispatchRays(const Pipeline& pipeline,
+	uint32_t width, uint32_t height, uint32_t depth,
+	const ShaderTable* pHitGroup,
+	const ShaderTable* pMiss,
+	const ShaderTable* pRayGen) const
+{
+	SetRayTracingPipeline(pipeline);
+	DispatchRays(width, height, depth, pHitGroup, pMiss, pRayGen);
 }
 
 const RayTracing::Device* RayTracing::CommandList_DX12::GetRTDevice() const

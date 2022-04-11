@@ -4,9 +4,7 @@
 
 #pragma once
 
-#include "XUSG-EZ_DX12.h"
 #include "XUSG-EZ.h"
-#include "RayTracing/XUSGRayTracingCommand_DX12.h"
 
 namespace XUSG
 {
@@ -70,7 +68,7 @@ namespace XUSG
 				std::vector<XUSG::Resource::uptr> m_scratches;
 
 				bool m_isRTStateDirty;
-				XUSG::RayTracing::State::uptr m_RTState;
+				XUSG::RayTracing::State::uptr m_rayTracingState;
 
 				XUSG::RayTracing::PipelineCache::uptr m_RayTracingPipelineCache;
 			};

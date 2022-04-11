@@ -3,9 +3,11 @@
 //--------------------------------------------------------------------------------------
 
 #include "Core/XUSGCommand_DX12.h"
+#include "RayTracing/XUSGRayTracingCommand_DX12.h"
+#include "XUSG-EZ_DX12.h"
 #include "XUSG-EZ_DXR.h"
-#include "RayTracing/XUSGAccelerationStructure_DX12.h"
-#include "RayTracing/XUSGRayTracingState_DX12.h"
+//#include "RayTracing/XUSGAccelerationStructure_DX12.h"
+//#include "RayTracing/XUSGRayTracingState_DX12.h"
 
 using namespace std;
 using namespace XUSG;
@@ -258,15 +260,15 @@ bool CommandList_DXR::createPipelineLayouts(uint32_t maxSamplers, const uint32_t
 
 void CommandList_DXR::RTSetShaderLibrary(Blob shaderLib)
 {
-	if (!m_RTState) m_RTState = XUSG::RayTracing::State::MakeUnique(API::DIRECTX_12);
-	m_RTState->SetShaderLibrary(shaderLib);
+	if (!m_rayTracingState) m_rayTracingState = XUSG::RayTracing::State::MakeUnique(API::DIRECTX_12);
+	m_rayTracingState->SetShaderLibrary(shaderLib);
 	m_isRTStateDirty = true;
 }
 
 void CommandList_DXR::RTSetShaderConfig(uint32_t maxPayloadSize, uint32_t maxAttributeSize)
 {
-	if (!m_RTState) m_RTState = XUSG::RayTracing::State::MakeUnique(API::DIRECTX_12);
-	m_RTState->SetShaderConfig(maxPayloadSize, maxAttributeSize);
+	if (!m_rayTracingState) m_rayTracingState = XUSG::RayTracing::State::MakeUnique(API::DIRECTX_12);
+	m_rayTracingState->SetShaderConfig(maxPayloadSize, maxAttributeSize);
 	m_isRTStateDirty = true;
 }
 
@@ -274,15 +276,15 @@ void CommandList_DXR::RTSetHitGroup(uint32_t index, const void* hitGroup, const 
 	const void* anyHitShader, const void* intersectionShader,
 	XUSG::RayTracing::HitGroupType type)
 {
-	if (!m_RTState) m_RTState = XUSG::RayTracing::State::MakeUnique(API::DIRECTX_12);
-	m_RTState->SetHitGroup(index, hitGroup, closestHitShader, anyHitShader, intersectionShader, type);
+	if (!m_rayTracingState) m_rayTracingState = XUSG::RayTracing::State::MakeUnique(API::DIRECTX_12);
+	m_rayTracingState->SetHitGroup(index, hitGroup, closestHitShader, anyHitShader, intersectionShader, type);
 	m_isRTStateDirty = true;
 }
 
 void CommandList_DXR::RTSetMaxRecursionDepth(uint32_t depth)
 {
-	if (!m_RTState) m_RTState = XUSG::RayTracing::State::MakeUnique(API::DIRECTX_12);
-	m_RTState->SetMaxRecursionDepth(depth);
+	if (!m_rayTracingState) m_rayTracingState = XUSG::RayTracing::State::MakeUnique(API::DIRECTX_12);
+	m_rayTracingState->SetMaxRecursionDepth(depth);
 	m_isRTStateDirty = true;
 }
 
@@ -321,17 +323,21 @@ void CommandList_DXR::DispatchRays(uint32_t width, uint32_t height, uint32_t dep
 	m_barriers.clear();
 
 	// Create pipeline for dynamic states
-	if (m_RTState && m_isRTStateDirty)
+	if (m_rayTracingState && m_isRTStateDirty)
 	{
-		m_RTState->SetGlobalPipelineLayout(m_pipelineLayouts[COMPUTE]);
-		const auto pipeline = m_RTState->GetPipeline(m_RayTracingPipelineCache.get());
+		m_rayTracingState->SetGlobalPipelineLayout(m_pipelineLayouts[COMPUTE]);
+		const auto pipeline = m_rayTracingState->GetPipeline(m_RayTracingPipelineCache.get());
 		if (pipeline)
 		{
+			if (m_pipeline != pipeline)
+			{
+				XUSG::RayTracing::CommandList_DX12::SetRayTracingPipeline(pipeline);
+				m_pipeline = pipeline;
+			}
 			m_pipeline = pipeline;
 			m_isRTStateDirty = false;
 		}
 	}
 
-	//XUSG::RayTracing::CommandList::DispatchRays(m_pipeline, width, height, depth, pHitGroup, pMiss, pRayGen);
+	//XUSG::RayTracing::CommandList::DispatchRays(width, height, depth, pHitGroup, pMiss, pRayGen);
 }
-
