@@ -4,13 +4,14 @@
 
 #include "Core/XUSGCommand_DX12.h"
 #include "RayTracing/XUSGRayTracingCommand_DX12.h"
+#include "RayTracing/XUSGRayTracingState_DX12.h"
 #include "XUSG-EZ_DX12.h"
 #include "XUSG-EZ_DXR.h"
 //#include "RayTracing/XUSGAccelerationStructure_DX12.h"
-//#include "RayTracing/XUSGRayTracingState_DX12.h"
 
 using namespace std;
 using namespace XUSG;
+using namespace XUSG::RayTracing;
 using namespace XUSG::EZ::RayTracing;
 
 CommandList_DXR::CommandList_DXR() :
@@ -295,7 +296,8 @@ void CommandList_DXR::RTSetMaxRecursionDepth(uint32_t depth)
 	m_isRTStateDirty = true;
 }
 
-void CommandList_DXR::DispatchRays(uint32_t width, uint32_t height, uint32_t depth)
+void CommandList_DXR::DispatchRays(uint32_t width, uint32_t height, uint32_t depth,
+	const void* rayGenShader, const void* missShader)
 {
 	//TODO: fix raytracing shadertables.
 	// Create and set sampler table
@@ -329,6 +331,8 @@ void CommandList_DXR::DispatchRays(uint32_t width, uint32_t height, uint32_t dep
 	XUSG::CommandList_DX12::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
 	m_barriers.clear();
 
+	const ShaderTable* hitGroupTable = nullptr;
+
 	// Create pipeline for dynamic states
 	if (m_rayTracingState && m_isRTStateDirty)
 	{
@@ -340,11 +344,77 @@ void CommandList_DXR::DispatchRays(uint32_t width, uint32_t height, uint32_t dep
 			{
 				XUSG::RayTracing::CommandList_DX12::SetRayTracingPipeline(pipeline);
 				m_pipeline = pipeline;
+
+				// Get hit-group table; the hit-group has been bound on the pipeline
+				const auto numHitGroups = getNumHitGroupsFromState(m_rayTracingState.get());
+				string key(sizeof(void*) * numHitGroups, '\0');
+				const auto pShaderIDs = reinterpret_cast<void**>(&key[0]);
+				for (auto i = 0u; i < numHitGroups; ++i) // Set hit-group shader IDs into the key
+				{
+					const void* hitGroup = getHitGroupFromState(i, m_rayTracingState.get());
+					pShaderIDs[i] = XUSG::RayTracing::ShaderRecord::GetShaderID(pipeline, hitGroup);
+				}
+				hitGroupTable = getShaderTable(key, m_hitGroupTables, numHitGroups);
 			}
-			m_pipeline = pipeline;
 			m_isRTStateDirty = false;
 		}
 	}
 
-	//XUSG::RayTracing::CommandList::DispatchRays(width, height, depth, pHitGroup, pMiss, pRayGen);
+	// Get ray-generation shader table; the ray-generation shader is independent of the pipeline
+	const ShaderTable* rayGenTable = nullptr;
+	{
+		string key(sizeof(void*), '\0');
+		auto& shaderID = reinterpret_cast<void*&>(key[0]);
+		shaderID = XUSG::RayTracing::ShaderRecord::GetShaderID(m_pipeline, rayGenShader);
+		rayGenTable = getShaderTable(key, m_rayGenTables, 1);
+	}
+
+	const ShaderTable* missTable = nullptr;
+	{
+		string key(sizeof(void*), '\0');
+		auto& shaderID = reinterpret_cast<void*&>(key[0]);
+		shaderID = XUSG::RayTracing::ShaderRecord::GetShaderID(m_pipeline, missShader);
+		missTable = getShaderTable(key, m_missTables, 1);
+	}
+
+	XUSG::RayTracing::CommandList_DX12::DispatchRays(width, height, depth, hitGroupTable, missTable, rayGenTable);
+}
+
+const void* CommandList_DXR::getHitGroupFromState(uint32_t index, const XUSG::RayTracing::State* pState)
+{
+	assert(index < getNumHitGroupsFromState(pState));
+
+	const std::string& key = m_rayTracingState->GetKey();
+	const auto pHitGroups = reinterpret_cast<const State_DX12::KeyHitGroup*>(&key[sizeof(State_DX12::KeyHeader)]);
+	return pHitGroups[index].HitGroup;
+}
+
+uint32_t CommandList_DXR::getNumHitGroupsFromState(const XUSG::RayTracing::State* pState)
+{
+	const std::string& key = m_rayTracingState->GetKey();
+	const auto pKeyHeader = reinterpret_cast<const State_DX12::KeyHeader*>(&key[0]);
+	return pKeyHeader->NumHitGroups;
+}
+
+const ShaderTable* CommandList_DXR::getShaderTable(const string& key,
+	std::unordered_map<string, XUSG::RayTracing::ShaderTable::uptr>& shaderTables,
+	uint32_t numShaderIDs)
+{
+	const auto shaderTablePair = shaderTables.find(key);
+
+	if (shaderTablePair == shaderTables.end())
+	{
+		auto shaderTable = ShaderTable::MakeUnique();
+		shaderTable->Create(GetRTDevice(), numShaderIDs, ShaderRecord::GetShaderIDSize(GetRTDevice()));
+
+		const auto shaderIDSize = ShaderRecord::GetShaderIDSize(GetRTDevice());
+		const auto pShaderIDs = reinterpret_cast<void* const*>(&key[0]);
+		for (auto i = 0u; i < numShaderIDs; ++i)
+			shaderTable->AddShaderRecord(ShaderRecord::MakeUnique(pShaderIDs[i], shaderIDSize).get());
+		shaderTables[key] = std::move(shaderTable);
+
+		return shaderTables[key].get();
+	}
+
+	return shaderTablePair->second.get();
 }
