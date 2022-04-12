@@ -11,25 +11,17 @@ using namespace std;
 using namespace XUSG;
 using namespace XUSG::RayTracing;
 
-ShaderRecord_DX12::ShaderRecord_DX12(const Device* pDevice, const Pipeline& pipeline,
-	const void* shader, const void* pLocalDescriptorArgs, uint32_t localDescriptorArgSize) :
-	m_localDescriptorArgs(pLocalDescriptorArgs, localDescriptorArgSize)
-{
-#if XUSG_ENABLE_DXR_FALLBACK
-	m_shaderID.Ptr = static_cast<ID3D12RaytracingFallbackStateObject*>(pipeline)->GetShaderIdentifier(reinterpret_cast<const wchar_t*>(shader));
-#else // DirectX Raytracing
-	com_ptr<ID3D12StateObjectProperties> stateObjectProperties;
-	ThrowIfFailed(static_cast<ID3D12StateObject*>(pipeline)->QueryInterface(IID_PPV_ARGS(&stateObjectProperties)));
-	m_shaderID.Ptr = stateObjectProperties->GetShaderIdentifier(reinterpret_cast<const wchar_t*>(shader));
-#endif
-
-	m_shaderID.Size = GetShaderIDSize(pDevice);
-}
-
 ShaderRecord_DX12::ShaderRecord_DX12(void* pShaderID, uint32_t shaderIDSize,
 	const void* pLocalDescriptorArgs, uint32_t localDescriptorArgSize) :
 	m_shaderID(pShaderID, shaderIDSize),
 	m_localDescriptorArgs(pLocalDescriptorArgs, localDescriptorArgSize)
+{
+}
+
+ShaderRecord_DX12::ShaderRecord_DX12(const Device* pDevice, const Pipeline& pipeline,
+	const void* shader, const void* pLocalDescriptorArgs, uint32_t localDescriptorArgSize) :
+	ShaderRecord_DX12(GetShaderID(pipeline, shader), GetShaderIDSize(pDevice),
+		pLocalDescriptorArgs, localDescriptorArgSize)
 {
 }
 
@@ -44,6 +36,18 @@ void ShaderRecord_DX12::CopyTo(void* dest) const
 
 	if (m_localDescriptorArgs.Ptr)
 		memcpy(byteDest + m_shaderID.Size, m_localDescriptorArgs.Ptr, m_localDescriptorArgs.Size);
+}
+
+void* XUSG::RayTracing::ShaderRecord_DX12::GetShaderID(const Pipeline& pipeline, const void* shader)
+{
+#if XUSG_ENABLE_DXR_FALLBACK
+	return static_cast<ID3D12RaytracingFallbackStateObject*>(pipeline)->GetShaderIdentifier(reinterpret_cast<const wchar_t*>(shader));
+#else // DirectX Raytracing
+	com_ptr<ID3D12StateObjectProperties> stateObjectProperties;
+	ThrowIfFailed(static_cast<ID3D12StateObject*>(pipeline)->QueryInterface(IID_PPV_ARGS(&stateObjectProperties)));
+
+	return stateObjectProperties->GetShaderIdentifier(reinterpret_cast<const wchar_t*>(shader));
+#endif
 }
 
 uint32_t ShaderRecord_DX12::GetShaderIDSize(const Device* pDevice)

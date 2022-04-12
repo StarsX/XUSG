@@ -108,21 +108,14 @@ TopLevelAS::sptr TopLevelAS::MakeShared(API api)
 	return make_shared<TopLevelAS_DX12>();
 }
 
+void* ShaderRecord::GetShaderID(const Pipeline& pipeline, const void* shader, API api)
+{
+	return ShaderRecord_DX12::GetShaderID(pipeline, shader);
+}
+
 uint32_t ShaderRecord::GetShaderIDSize(const Device* pDevice, API api)
 {
 	return ShaderRecord_DX12::GetShaderIDSize(pDevice);
-}
-
-ShaderRecord::uptr ShaderRecord::MakeUnique(const Device* pDevice, const Pipeline& pipeline, const void* shader,
-	const void* pLocalDescriptorArgs, uint32_t localDescriptorArgSize, API api)
-{
-	return make_unique<ShaderRecord_DX12>(pDevice, pipeline, shader, pLocalDescriptorArgs, localDescriptorArgSize);
-}
-
-ShaderRecord::sptr ShaderRecord::MakeShared(const Device* pDevice, const Pipeline& pipeline, const void* shader,
-	const void* pLocalDescriptorArgs, uint32_t localDescriptorArgSize, API api)
-{
-	return make_shared<ShaderRecord_DX12>(pDevice, pipeline, shader, pLocalDescriptorArgs, localDescriptorArgSize);
 }
 
 ShaderRecord::uptr ShaderRecord::MakeUnique(void* pShaderID, uint32_t shaderIDSize,
@@ -135,6 +128,18 @@ ShaderRecord::sptr ShaderRecord::MakeShared(void* pShaderID, uint32_t shaderIDSi
 	const void* pLocalDescriptorArgs, uint32_t localDescriptorArgSize, API api)
 {
 	return make_shared<ShaderRecord_DX12>(pShaderID, shaderIDSize, pLocalDescriptorArgs, localDescriptorArgSize);
+}
+
+ShaderRecord::uptr ShaderRecord::MakeUnique(const Device* pDevice, const Pipeline& pipeline, const void* shader,
+	const void* pLocalDescriptorArgs, uint32_t localDescriptorArgSize, API api)
+{
+	return make_unique<ShaderRecord_DX12>(pDevice, pipeline, shader, pLocalDescriptorArgs, localDescriptorArgSize);
+}
+
+ShaderRecord::sptr ShaderRecord::MakeShared(const Device* pDevice, const Pipeline& pipeline, const void* shader,
+	const void* pLocalDescriptorArgs, uint32_t localDescriptorArgSize, API api)
+{
+	return make_shared<ShaderRecord_DX12>(pDevice, pipeline, shader, pLocalDescriptorArgs, localDescriptorArgSize);
 }
 
 ShaderTable::uptr ShaderTable::MakeUnique(API api)

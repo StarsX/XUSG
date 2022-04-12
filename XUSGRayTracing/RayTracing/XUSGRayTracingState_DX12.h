@@ -49,7 +49,7 @@ namespace XUSG
 			State_DX12();
 			virtual ~State_DX12();
 
-			void SetShaderLibrary(Blob shaderLib);
+			void SetShaderLibrary(const Blob& shaderLib);
 			void SetHitGroup(uint32_t index, const void* hitGroup, const void* closestHitShader,
 				const void* anyHitShader = nullptr, const void* intersectionShader = nullptr,
 				HitGroupType type = HitGroupType::TRIANGLES);

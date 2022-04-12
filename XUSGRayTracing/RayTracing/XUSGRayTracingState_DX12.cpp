@@ -24,7 +24,7 @@ State_DX12::~State_DX12()
 {
 }
 
-void State_DX12::SetShaderLibrary(Blob shaderLib)
+void State_DX12::SetShaderLibrary(const Blob& shaderLib)
 {
 	m_isComplete = false;
 	m_pKeyHeader->ShaderLib = shaderLib;
