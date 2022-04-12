@@ -210,21 +210,23 @@ namespace XUSG
 
 			virtual void CopyTo(void* dest) const = 0;
 
+			static void* GetShaderID(const Pipeline& pipeline, const void* shader, XUSG::API api = XUSG::API::DIRECTX_12);
+
 			static uint32_t GetShaderIDSize(const Device* pDevice, XUSG::API api = XUSG::API::DIRECTX_12);
 
 			using uptr = std::unique_ptr<ShaderRecord>;
 			using sptr = std::shared_ptr<ShaderRecord>;
 
+			static uptr MakeUnique(void* pShaderID, uint32_t shaderIDSize, const void* pLocalDescriptorArgs = nullptr,
+				uint32_t localDescriptorArgSize = 0, XUSG::API api = XUSG::API::DIRECTX_12);
+			static sptr MakeShared(void* pShaderID, uint32_t shaderIDSize, const void* pLocalDescriptorArgs = nullptr,
+				uint32_t localDescriptorArgSize = 0, XUSG::API api = XUSG::API::DIRECTX_12);
 			static uptr MakeUnique(const Device* pDevice, const Pipeline& pipeline, const void* shader,
 				const void* pLocalDescriptorArgs = nullptr, uint32_t localDescriptorArgSize = 0,
 				XUSG::API api = XUSG::API::DIRECTX_12);
 			static sptr MakeShared(const Device* pDevice, const Pipeline& pipeline, const void* shader,
 				const void* pLocalDescriptorArgs = nullptr, uint32_t localDescriptorArgSize = 0,
 				XUSG::API api = XUSG::API::DIRECTX_12);
-			static uptr MakeUnique(void* pShaderID, uint32_t shaderIDSize, const void* pLocalDescriptorArgs = nullptr,
-				uint32_t localDescriptorArgSize = 0, XUSG::API api = XUSG::API::DIRECTX_12);
-			static sptr MakeShared(void* pShaderID, uint32_t shaderIDSize, const void* pLocalDescriptorArgs = nullptr,
-				uint32_t localDescriptorArgSize = 0, XUSG::API api = XUSG::API::DIRECTX_12);
 		};
 
 		//--------------------------------------------------------------------------------------
@@ -324,7 +326,7 @@ namespace XUSG
 			//State();
 			virtual ~State() {}
 
-			virtual void SetShaderLibrary(Blob shaderLib) = 0;
+			virtual void SetShaderLibrary(const Blob& shaderLib) = 0;
 			virtual void SetHitGroup(uint32_t index, const void* hitGroup, const void* closestHitShader,
 				const void* anyHitShader = nullptr, const void* intersectionShader = nullptr,
 				HitGroupType type = HitGroupType::TRIANGLES) = 0;
