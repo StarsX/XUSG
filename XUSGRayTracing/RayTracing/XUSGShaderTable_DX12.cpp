@@ -11,7 +11,7 @@ using namespace std;
 using namespace XUSG;
 using namespace XUSG::RayTracing;
 
-ShaderRecord_DX12::ShaderRecord_DX12(void* pShaderID, uint32_t shaderIDSize,
+ShaderRecord_DX12::ShaderRecord_DX12(const void* pShaderID, uint32_t shaderIDSize,
 	const void* pLocalDescriptorArgs, uint32_t localDescriptorArgSize) :
 	m_shaderID(pShaderID, shaderIDSize),
 	m_localDescriptorArgs(pLocalDescriptorArgs, localDescriptorArgSize)
@@ -38,7 +38,7 @@ void ShaderRecord_DX12::CopyTo(void* dest) const
 		memcpy(byteDest + m_shaderID.Size, m_localDescriptorArgs.Ptr, m_localDescriptorArgs.Size);
 }
 
-void* XUSG::RayTracing::ShaderRecord_DX12::GetShaderID(const Pipeline& pipeline, const void* shader)
+const void* XUSG::RayTracing::ShaderRecord_DX12::GetShaderID(const Pipeline& pipeline, const void* shader)
 {
 #if XUSG_ENABLE_DXR_FALLBACK
 	return static_cast<ID3D12RaytracingFallbackStateObject*>(pipeline)->GetShaderIdentifier(reinterpret_cast<const wchar_t*>(shader));

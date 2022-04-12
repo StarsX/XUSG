@@ -202,15 +202,15 @@ namespace XUSG
 		class XUSG_INTERFACE ShaderRecord
 		{
 		public:
-			//ShaderRecord(const Device* pDevice, const Pipeline& pipeline, const void* shader,
+			//ShaderRecord(const void* pShaderID, uint32_t shaderIDSize,
 				//const void* pLocalDescriptorArgs = nullptr, uint32_t localDescriptorArgSize = 0);
-			//ShaderRecord(void* pShaderID, uint32_t shaderIDSize,
+			//ShaderRecord(const Device* pDevice, const Pipeline& pipeline, const void* shader,
 				//const void* pLocalDescriptorArgs = nullptr, uint32_t localDescriptorArgSize = 0);
 			virtual ~ShaderRecord() {}
 
 			virtual void CopyTo(void* dest) const = 0;
 
-			static void* GetShaderID(const Pipeline& pipeline, const void* shader, XUSG::API api = XUSG::API::DIRECTX_12);
+			static const void* GetShaderID(const Pipeline& pipeline, const void* shader, XUSG::API api = XUSG::API::DIRECTX_12);
 
 			static uint32_t GetShaderIDSize(const Device* pDevice, XUSG::API api = XUSG::API::DIRECTX_12);
 

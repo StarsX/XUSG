@@ -14,7 +14,7 @@ namespace XUSG
 			public virtual ShaderRecord
 		{
 		public:
-			ShaderRecord_DX12(void* pShaderID, uint32_t shaderIDSize,
+			ShaderRecord_DX12(const void* pShaderID, uint32_t shaderIDSize,
 				const void* pLocalDescriptorArgs = nullptr, uint32_t localDescriptorArgSize = 0);
 			ShaderRecord_DX12(const Device* pDevice, const Pipeline& pipeline, const void* shader,
 				const void* pLocalDescriptorArgs = nullptr, uint32_t localDescriptorArgSize = 0);
@@ -22,7 +22,7 @@ namespace XUSG
 
 			void CopyTo(void* dest) const;
 
-			static void* GetShaderID(const Pipeline& pipeline, const void* shader);
+			static const void* GetShaderID(const Pipeline& pipeline, const void* shader);
 
 			static uint32_t GetShaderIDSize(const Device* pDevice);
 

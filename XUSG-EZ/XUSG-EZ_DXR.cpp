@@ -7,7 +7,6 @@
 #include "RayTracing/XUSGRayTracingState_DX12.h"
 #include "XUSG-EZ_DX12.h"
 #include "XUSG-EZ_DXR.h"
-//#include "RayTracing/XUSGAccelerationStructure_DX12.h"
 
 using namespace std;
 using namespace XUSG;
@@ -55,7 +54,7 @@ bool CommandList_DXR::Create(XUSG::RayTracing::CommandList* pCommandList, uint32
 
 	m_graphicsPipelineCache = Graphics::PipelineCache::MakeUnique(m_pDevice, API::DIRECTX_12);
 	m_computePipelineCache = Compute::PipelineCache::MakeUnique(m_pDevice, API::DIRECTX_12);
-	m_RayTracingPipelineCache = XUSG::RayTracing::PipelineCache::MakeUnique(m_pDeviceRT, API::DIRECTX_12);
+	m_RayTracingPipelineCache = PipelineCache::MakeUnique(m_pDeviceRT, API::DIRECTX_12);
 	m_pipelineLayoutCache = PipelineLayoutCache::MakeUnique(m_pDevice, API::DIRECTX_12);
 	m_descriptorTableCache = DescriptorTableCache::MakeUnique(m_pDevice, L"EZDescirptorTableCache", API::DIRECTX_12);
 
@@ -76,21 +75,21 @@ bool CommandList_DXR::Close()
 {
 	if (!m_scratches.empty())
 	{
-		auto scratch = std::move(m_scratches.back());
+		auto scratch = move(m_scratches.back());
 		m_scratches.resize(1);
-		m_scratches[0] = std::move(scratch);
+		m_scratches[0] = move(scratch);
 	}
 
 	return XUSG::EZ::CommandList_DX12::Close();
 }
 
-bool CommandList_DXR::PreBuildBLAS(XUSG::RayTracing::BottomLevelAS* pBLAS, uint32_t numGeometries, const XUSG::RayTracing::GeometryBuffer& geometries,
-	XUSG::RayTracing::BuildFlag flags)
+bool CommandList_DXR::PreBuildBLAS(BottomLevelAS* pBLAS, uint32_t numGeometries,
+	const GeometryBuffer& geometries, BuildFlag flags)
 {
 	assert(pBLAS);
 	XUSG_N_RETURN(pBLAS->PreBuild(m_pDeviceRT, numGeometries, geometries, m_asUavCount++, flags), false);
 
-	const auto descriptorTable = Util::DescriptorTable::MakeUnique();
+	const auto descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
 	descriptorTable->SetDescriptors(0, 1, &pBLAS->GetResult()->GetUAV());
 	const auto uavTable = descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get());
 	XUSG_N_RETURN(uavTable, false);
@@ -100,12 +99,12 @@ bool CommandList_DXR::PreBuildBLAS(XUSG::RayTracing::BottomLevelAS* pBLAS, uint3
 	return true;
 }
 
-bool CommandList_DXR::PreBuildTLAS(XUSG::RayTracing::TopLevelAS* pTLAS, uint32_t numInstances, XUSG::RayTracing::BuildFlag flags)
+bool CommandList_DXR::PreBuildTLAS(TopLevelAS* pTLAS, uint32_t numInstances, BuildFlag flags)
 {
 	assert(pTLAS);
 	XUSG_N_RETURN(pTLAS->PreBuild(m_pDeviceRT, numInstances, m_asUavCount++, flags), false);
 
-	const auto descriptorTable = Util::DescriptorTable::MakeUnique();
+	const auto descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
 	descriptorTable->SetDescriptors(0, 1, &pTLAS->GetResult()->GetUAV());
 	const auto uavTable = descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get());
 	XUSG_N_RETURN(uavTable, false);
@@ -115,7 +114,7 @@ bool CommandList_DXR::PreBuildTLAS(XUSG::RayTracing::TopLevelAS* pTLAS, uint32_t
 	return true;
 }
 
-bool CommandList_DXR::BuildBLAS(XUSG::RayTracing::BottomLevelAS* pBLAS, bool update)
+bool CommandList_DXR::BuildBLAS(BottomLevelAS* pBLAS, bool update)
 {
 	assert(pBLAS);
 
@@ -125,7 +124,7 @@ bool CommandList_DXR::BuildBLAS(XUSG::RayTracing::BottomLevelAS* pBLAS, bool upd
 	return true;
 }
 
-bool CommandList_DXR::BuildTLAS(XUSG::RayTracing::TopLevelAS* pTLAS, const Resource* pInstanceDescs, bool update)
+bool CommandList_DXR::BuildTLAS(TopLevelAS* pTLAS, const Resource* pInstanceDescs, bool update)
 {
 	assert(pTLAS);
 
@@ -135,7 +134,9 @@ bool CommandList_DXR::BuildTLAS(XUSG::RayTracing::TopLevelAS* pTLAS, const Resou
 	return true;
 }
 
-bool CommandList_DXR::Create(const XUSG::RayTracing::Device* pDevice, void* pHandle, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize, uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace, const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace, uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces, const wchar_t* name)
+bool CommandList_DXR::Create(const XUSG::RayTracing::Device* pDevice, void* pHandle, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+	uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace, const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
+	uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces, const wchar_t* name)
 {
 	m_pDeviceRT = pDevice;
 	XUSG::RayTracing::CommandList_DX12::Create(pHandle, name);
@@ -148,8 +149,8 @@ Resource* CommandList_DXR::needScratch(uint32_t size)
 {
 	if (m_scratches.empty() || !m_scratches.back() || m_scratches.back()->GetWidth() < size)
 	{
-		m_scratches.emplace_back(Resource::MakeUnique());
-		XUSG::RayTracing::AccelerationStructure::AllocateUAVBuffer(m_pDeviceRT, m_scratches.back().get(), size);
+		m_scratches.emplace_back(Resource::MakeUnique(API::DIRECTX_12));
+		AccelerationStructure::AllocateUAVBuffer(m_pDeviceRT, m_scratches.back().get(), size);
 	}
 
 	return m_scratches.back().get();
@@ -268,30 +269,29 @@ bool CommandList_DXR::createPipelineLayouts(uint32_t maxSamplers, const uint32_t
 
 void CommandList_DXR::RTSetShaderLibrary(Blob shaderLib)
 {
-	if (!m_rayTracingState) m_rayTracingState = XUSG::RayTracing::State::MakeUnique(API::DIRECTX_12);
+	if (!m_rayTracingState) m_rayTracingState = State::MakeUnique(API::DIRECTX_12);
 	m_rayTracingState->SetShaderLibrary(shaderLib);
 	m_isRTStateDirty = true;
 }
 
 void CommandList_DXR::RTSetShaderConfig(uint32_t maxPayloadSize, uint32_t maxAttributeSize)
 {
-	if (!m_rayTracingState) m_rayTracingState = XUSG::RayTracing::State::MakeUnique(API::DIRECTX_12);
+	if (!m_rayTracingState) m_rayTracingState = State::MakeUnique(API::DIRECTX_12);
 	m_rayTracingState->SetShaderConfig(maxPayloadSize, maxAttributeSize);
 	m_isRTStateDirty = true;
 }
 
 void CommandList_DXR::RTSetHitGroup(uint32_t index, const void* hitGroup, const void* closestHitShader,
-	const void* anyHitShader, const void* intersectionShader,
-	XUSG::RayTracing::HitGroupType type)
+	const void* anyHitShader, const void* intersectionShader, HitGroupType type)
 {
-	if (!m_rayTracingState) m_rayTracingState = XUSG::RayTracing::State::MakeUnique(API::DIRECTX_12);
+	if (!m_rayTracingState) m_rayTracingState = State::MakeUnique(API::DIRECTX_12);
 	m_rayTracingState->SetHitGroup(index, hitGroup, closestHitShader, anyHitShader, intersectionShader, type);
 	m_isRTStateDirty = true;
 }
 
 void CommandList_DXR::RTSetMaxRecursionDepth(uint32_t depth)
 {
-	if (!m_rayTracingState) m_rayTracingState = XUSG::RayTracing::State::MakeUnique(API::DIRECTX_12);
+	if (!m_rayTracingState) m_rayTracingState = State::MakeUnique(API::DIRECTX_12);
 	m_rayTracingState->SetMaxRecursionDepth(depth);
 	m_isRTStateDirty = true;
 }
@@ -348,11 +348,11 @@ void CommandList_DXR::DispatchRays(uint32_t width, uint32_t height, uint32_t dep
 				// Get hit-group table; the hit-group has been bound on the pipeline
 				const auto numHitGroups = getNumHitGroupsFromState(m_rayTracingState.get());
 				string key(sizeof(void*) * numHitGroups, '\0');
-				const auto pShaderIDs = reinterpret_cast<void**>(&key[0]);
+				const auto pShaderIDs = reinterpret_cast<const void**>(&key[0]);
 				for (auto i = 0u; i < numHitGroups; ++i) // Set hit-group shader IDs into the key
 				{
 					const void* hitGroup = getHitGroupFromState(i, m_rayTracingState.get());
-					pShaderIDs[i] = XUSG::RayTracing::ShaderRecord::GetShaderID(pipeline, hitGroup);
+					pShaderIDs[i] = ShaderRecord::GetShaderID(pipeline, hitGroup, API::DIRECTX_12);
 				}
 				hitGroupTable = getShaderTable(key, m_hitGroupTables, numHitGroups);
 			}
@@ -364,56 +364,57 @@ void CommandList_DXR::DispatchRays(uint32_t width, uint32_t height, uint32_t dep
 	const ShaderTable* rayGenTable = nullptr;
 	{
 		string key(sizeof(void*), '\0');
-		auto& shaderID = reinterpret_cast<void*&>(key[0]);
-		shaderID = XUSG::RayTracing::ShaderRecord::GetShaderID(m_pipeline, rayGenShader);
+		auto& shaderID = reinterpret_cast<const void*&>(key[0]);
+		shaderID = ShaderRecord::GetShaderID(m_pipeline, rayGenShader, API::DIRECTX_12);
 		rayGenTable = getShaderTable(key, m_rayGenTables, 1);
 	}
 
 	const ShaderTable* missTable = nullptr;
 	{
 		string key(sizeof(void*), '\0');
-		auto& shaderID = reinterpret_cast<void*&>(key[0]);
-		shaderID = XUSG::RayTracing::ShaderRecord::GetShaderID(m_pipeline, missShader);
+		auto& shaderID = reinterpret_cast<const void*&>(key[0]);
+		shaderID = ShaderRecord::GetShaderID(m_pipeline, missShader, API::DIRECTX_12);
 		missTable = getShaderTable(key, m_missTables, 1);
 	}
 
 	XUSG::RayTracing::CommandList_DX12::DispatchRays(width, height, depth, hitGroupTable, missTable, rayGenTable);
 }
 
-const void* CommandList_DXR::getHitGroupFromState(uint32_t index, const XUSG::RayTracing::State* pState)
+const void* CommandList_DXR::getHitGroupFromState(uint32_t index, const State* pState)
 {
 	assert(index < getNumHitGroupsFromState(pState));
 
-	const std::string& key = m_rayTracingState->GetKey();
+	const auto& key = m_rayTracingState->GetKey();
 	const auto pHitGroups = reinterpret_cast<const State_DX12::KeyHitGroup*>(&key[sizeof(State_DX12::KeyHeader)]);
 	return pHitGroups[index].HitGroup;
 }
 
-uint32_t CommandList_DXR::getNumHitGroupsFromState(const XUSG::RayTracing::State* pState)
+uint32_t CommandList_DXR::getNumHitGroupsFromState(const State* pState)
 {
-	const std::string& key = m_rayTracingState->GetKey();
+	const auto& key = m_rayTracingState->GetKey();
 	const auto pKeyHeader = reinterpret_cast<const State_DX12::KeyHeader*>(&key[0]);
 	return pKeyHeader->NumHitGroups;
 }
 
 const ShaderTable* CommandList_DXR::getShaderTable(const string& key,
-	std::unordered_map<string, XUSG::RayTracing::ShaderTable::uptr>& shaderTables,
+	unordered_map<string, ShaderTable::uptr>& shaderTables,
 	uint32_t numShaderIDs)
 {
 	const auto shaderTablePair = shaderTables.find(key);
 
 	if (shaderTablePair == shaderTables.end())
 	{
-		auto shaderTable = ShaderTable::MakeUnique();
-		shaderTable->Create(GetRTDevice(), numShaderIDs, ShaderRecord::GetShaderIDSize(GetRTDevice()));
+		const auto shaderIDSize = ShaderRecord::GetShaderIDSize(GetRTDevice(), API::DIRECTX_12);
 
-		const auto shaderIDSize = ShaderRecord::GetShaderIDSize(GetRTDevice());
+		auto& shaderTable = shaderTables[key];
+		shaderTable = ShaderTable::MakeUnique(API::DIRECTX_12);
+		shaderTable->Create(GetRTDevice(), numShaderIDs, shaderIDSize);
+
 		const auto pShaderIDs = reinterpret_cast<void* const*>(&key[0]);
 		for (auto i = 0u; i < numShaderIDs; ++i)
 			shaderTable->AddShaderRecord(ShaderRecord::MakeUnique(pShaderIDs[i], shaderIDSize).get());
-		shaderTables[key] = std::move(shaderTable);
 
-		return shaderTables[key].get();
+		return shaderTable.get();
 	}
 
 	return shaderTablePair->second.get();
