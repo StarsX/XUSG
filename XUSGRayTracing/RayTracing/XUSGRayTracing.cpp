@@ -108,7 +108,7 @@ TopLevelAS::sptr TopLevelAS::MakeShared(API api)
 	return make_shared<TopLevelAS_DX12>();
 }
 
-void* ShaderRecord::GetShaderID(const Pipeline& pipeline, const void* shader, API api)
+const void* ShaderRecord::GetShaderID(const Pipeline& pipeline, const void* shader, API api)
 {
 	return ShaderRecord_DX12::GetShaderID(pipeline, shader);
 }
