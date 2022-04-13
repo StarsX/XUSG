@@ -489,6 +489,7 @@ bool EZ::CommandList_DX12::Create(const Device* pDevice, void* pHandle, uint32_t
 {
 	m_pDevice = pDevice;
 	XUSG::CommandList_DX12::Create(pHandle, name);
+
 	return Create(this, samplerPoolSize, cbvSrvUavPoolSize, maxSamplers,
 		pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
 		maxCbvSpaces, maxSrvSpaces, maxUavSpaces);

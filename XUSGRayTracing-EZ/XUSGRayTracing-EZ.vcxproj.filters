@@ -16,16 +16,28 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="RayTracing">
+      <UniqueIdentifier>{40d5f41d-7bc3-4d19-acfd-aa9beed1733a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="XUSG-EZ">
+      <UniqueIdentifier>{ca3a2565-f851-45c1-a2af-d94ccf343eec}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="XUSG-EZ.h">
+    <ClInclude Include="XUSGRayTracing-EZ.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="XUSG-EZ_DX12.h">
+    <ClInclude Include="XUSGRayTracing-EZ_DX12.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSGRayTracing\RayTracing\XUSGRayTracingCommand_DX12.h">
+      <Filter>RayTracing</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSGRayTracing\RayTracing\XUSGRayTracing.h">
+      <Filter>RayTracing</Filter>
     </ClInclude>
     <ClInclude Include="..\XUSG\Core\XUSG.h">
       <Filter>Core</Filter>
@@ -36,12 +48,24 @@
     <ClInclude Include="..\XUSG\Core\XUSGEnum_DX12.h">
       <Filter>Core</Filter>
     </ClInclude>
+    <ClInclude Include="..\XUSG-EZ\XUSG-EZ.h">
+      <Filter>XUSG-EZ</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG-EZ\XUSG-EZ_DX12.h">
+      <Filter>XUSG-EZ</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="XUSG-EZ_DX12.cpp">
+    <ClCompile Include="XUSGRayTracing-EZ_DX12.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSGRayTracing\RayTracing\XUSGRayTracingCommand_DX12.cpp">
+      <Filter>RayTracing</Filter>
+    </ClCompile>
+    <ClCompile Include="XUSGRayTracing-EZ.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\XUSG\Core\XUSGCommand_DX12.cpp">
@@ -50,8 +74,8 @@
     <ClCompile Include="..\XUSG\Core\XUSGEnum_DX12.cpp">
       <Filter>Core</Filter>
     </ClCompile>
-    <ClCompile Include="XUSG-EZ.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="..\XUSG-EZ\XUSG-EZ_DX12.cpp">
+      <Filter>XUSG-EZ</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
