@@ -17,7 +17,6 @@ CommandList_DXR::CommandList_DXR() :
 	XUSG::CommandList_DX12(),
 	EZ::CommandList_DX12(),
 	m_asUavCount(0),
-	m_paramIndex(0),
 	m_scratchSize(0),
 	m_isRTStateDirty(false)
 {
@@ -38,7 +37,6 @@ CommandList_DXR::CommandList_DXR(XUSG::RayTracing::CommandList* pCommandList, ui
 	m_isRTStateDirty(false),
 	m_rayTracingState(nullptr),
 	m_asUavCount(0),
-	m_paramIndex(0),
 	m_tlasBindingToParamIndexMap(0)
 {
 }
@@ -57,6 +55,7 @@ bool CommandList_DXR::Create(XUSG::RayTracing::CommandList* pCommandList, uint32
 	m_RayTracingPipelineCache = PipelineCache::MakeUnique(m_pDeviceRT, API::DIRECTX_12);
 	m_pipelineLayoutCache = PipelineLayoutCache::MakeUnique(m_pDevice, API::DIRECTX_12);
 	m_descriptorTableCache = DescriptorTableCache::MakeUnique(m_pDevice, L"EZDescirptorTableCache", API::DIRECTX_12);
+	m_rayTracingState = State::MakeUnique(API::DIRECTX_12);
 
 	// Allocate descriptor pools
 	XUSG_N_RETURN(m_descriptorTableCache->AllocateDescriptorPool(
@@ -259,7 +258,6 @@ bool CommandList_DXR::createPipelineLayouts(uint32_t maxSamplers, const uint32_t
 			pipelineLayout->SetRootSRV(paramIndex++, slot, spaceTLAS, DescriptorFlag::DATA_STATIC);
 		}
 
-		m_paramIndex = paramIndex;
 		XUSG_X_RETURN(m_pipelineLayouts[COMPUTE], pipelineLayout->GetPipelineLayout(m_pDeviceRT, m_pipelineLayoutCache.get(),
 			PipelineLayoutFlag::NONE, L"EZComputeLayout"), false);
 	}
@@ -269,14 +267,14 @@ bool CommandList_DXR::createPipelineLayouts(uint32_t maxSamplers, const uint32_t
 
 void CommandList_DXR::RTSetShaderLibrary(Blob shaderLib)
 {
-	if (!m_rayTracingState) m_rayTracingState = State::MakeUnique(API::DIRECTX_12);
+	assert(m_rayTracingState);
 	m_rayTracingState->SetShaderLibrary(shaderLib);
 	m_isRTStateDirty = true;
 }
 
 void CommandList_DXR::RTSetShaderConfig(uint32_t maxPayloadSize, uint32_t maxAttributeSize)
 {
-	if (!m_rayTracingState) m_rayTracingState = State::MakeUnique(API::DIRECTX_12);
+	assert(m_rayTracingState);
 	m_rayTracingState->SetShaderConfig(maxPayloadSize, maxAttributeSize);
 	m_isRTStateDirty = true;
 }
@@ -284,14 +282,14 @@ void CommandList_DXR::RTSetShaderConfig(uint32_t maxPayloadSize, uint32_t maxAtt
 void CommandList_DXR::RTSetHitGroup(uint32_t index, const void* hitGroup, const void* closestHitShader,
 	const void* anyHitShader, const void* intersectionShader, HitGroupType type)
 {
-	if (!m_rayTracingState) m_rayTracingState = State::MakeUnique(API::DIRECTX_12);
+	assert(m_rayTracingState);
 	m_rayTracingState->SetHitGroup(index, hitGroup, closestHitShader, anyHitShader, intersectionShader, type);
 	m_isRTStateDirty = true;
 }
 
 void CommandList_DXR::RTSetMaxRecursionDepth(uint32_t depth)
 {
-	if (!m_rayTracingState) m_rayTracingState = State::MakeUnique(API::DIRECTX_12);
+	assert(m_rayTracingState);
 	m_rayTracingState->SetMaxRecursionDepth(depth);
 	m_isRTStateDirty = true;
 }
@@ -334,7 +332,8 @@ void CommandList_DXR::DispatchRays(uint32_t width, uint32_t height, uint32_t dep
 	const ShaderTable* hitGroupTable = nullptr;
 
 	// Create pipeline for dynamic states
-	if (m_rayTracingState && m_isRTStateDirty)
+	assert(m_rayTracingState);
+	if (m_isRTStateDirty)
 	{
 		m_rayTracingState->SetGlobalPipelineLayout(m_pipelineLayouts[COMPUTE]);
 		const auto pipeline = m_rayTracingState->GetPipeline(m_RayTracingPipelineCache.get());
@@ -418,4 +417,9 @@ const ShaderTable* CommandList_DXR::getShaderTable(const string& key,
 	}
 
 	return shaderTablePair->second.get();
+}
+
+void CommandList_DXR::SetTopLevelAccelerationStructure(uint32_t binding, const TopLevelAS* pTopLevelAS) const
+{
+	XUSG::RayTracing::CommandList_DX12::SetTopLevelAccelerationStructure(m_tlasBindingToParamIndexMap[binding], pTopLevelAS);
 }
