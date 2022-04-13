@@ -17,12 +17,9 @@ using namespace std;
 using namespace XUSG;
 using namespace XUSG::RayTracing;
 
-#if XUSG_ENABLE_DXR_FALLBACK
-uint32_t g_numUAVs;
-#endif
+uint32_t g_numUAVs = 0;
 uint32_t g_frameCount = 1;
 
-#if XUSG_ENABLE_DXR_FALLBACK
 uint32_t AccelerationStructure::GetUAVCount()
 {
 	return g_numUAVs;
@@ -32,7 +29,6 @@ void AccelerationStructure::SetUAVCount(uint32_t numUAVs)
 {
 	g_numUAVs = numUAVs;
 }
-#endif
 
 void AccelerationStructure::SetFrameCount(uint32_t frameCount)
 {

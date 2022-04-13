@@ -40,25 +40,16 @@ void ShaderRecord_DX12::CopyTo(void* dest) const
 
 const void* XUSG::RayTracing::ShaderRecord_DX12::GetShaderID(const Pipeline& pipeline, const void* shader)
 {
-#if XUSG_ENABLE_DXR_FALLBACK
-	return static_cast<ID3D12RaytracingFallbackStateObject*>(pipeline)->GetShaderIdentifier(reinterpret_cast<const wchar_t*>(shader));
-#else // DirectX Raytracing
-	com_ptr<ID3D12StateObjectProperties> stateObjectProperties;
-	ThrowIfFailed(static_cast<ID3D12StateObject*>(pipeline)->QueryInterface(IID_PPV_ARGS(&stateObjectProperties)));
+	const auto pPipeline = static_cast<ID3D12RaytracingFallbackStateObject*>(pipeline);
 
-	return stateObjectProperties->GetShaderIdentifier(reinterpret_cast<const wchar_t*>(shader));
-#endif
+	return pPipeline->GetShaderIdentifier(reinterpret_cast<const wchar_t*>(shader));
 }
 
 uint32_t ShaderRecord_DX12::GetShaderIDSize(const Device* pDevice)
 {
-#if XUSG_ENABLE_DXR_FALLBACK
 	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(pDevice->GetRTHandle());
 	const auto shaderIDSize = pDxDevice->UsingRaytracingDriver() ?
 		D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES : pDxDevice->GetShaderIdentifierSize();
-#else
-	const auto shaderIDSize = D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES;
-#endif
 
 	return shaderIDSize;
 }

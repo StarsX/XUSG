@@ -22,9 +22,8 @@ namespace XUSG
 			uint32_t GetResultDataMaxSize() const;
 			uint32_t GetScratchDataMaxSize() const;
 			uint32_t GetUpdateScratchDataSize() const;
-#if XUSG_ENABLE_DXR_FALLBACK
-			const WRAPPED_GPU_POINTER& GetResultPointer() const;
-#endif
+
+			uint64_t GetResultPointer() const;
 
 			static bool AllocateUAVBuffer(const XUSG::Device* pDevice, Resource* pResource,
 				size_t byteWidth, ResourceState dstState = ResourceState::UNORDERED_ACCESS);
@@ -38,9 +37,7 @@ namespace XUSG
 			PrebuildInfo m_prebuildInfo;
 
 			std::vector<RawBuffer::sptr> m_results;
-#if XUSG_ENABLE_DXR_FALLBACK
 			std::vector<WRAPPED_GPU_POINTER> m_pointers;
-#endif
 
 			uint32_t m_currentFrame;
 		};
@@ -77,10 +74,6 @@ namespace XUSG
 				BuildFlag flags = BuildFlag::PREFER_FAST_TRACE);
 			void Build(const CommandList* pCommandList, const Resource* pScratch,
 				const Resource* pInstanceDescs, const DescriptorPool& descriptorPool, bool update = false);
-#if !XUSG_ENABLE_DXR_FALLBACK
-			void Build(XUSG::CommandList* pCommandList, const Resource* pScratch,
-				const Resource* pInstanceDescs, const DescriptorPool& descriptorPool, bool update = false);
-#endif
 
 			static void SetInstances(const Device* pDevice, Resource* pInstances, uint32_t numInstances,
 				const BottomLevelAS* const* ppBottomLevelASs, float* const* transforms);
