@@ -211,7 +211,7 @@ void EZ::CommandList_DXR::DispatchRays(uint32_t width, uint32_t height, uint32_t
 	XUSG::CommandList_DX12::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
 	m_barriers.clear();
 
-	const ShaderTable* hitGroupTable = nullptr;
+	const ShaderTable* pHitGroup = nullptr;
 
 	// Create pipeline for dynamic states
 	assert(m_rayTracingState);
@@ -235,30 +235,30 @@ void EZ::CommandList_DXR::DispatchRays(uint32_t width, uint32_t height, uint32_t
 					const void* hitGroup = getHitGroupFromState(i, m_rayTracingState.get());
 					pShaderIDs[i] = ShaderRecord::GetShaderID(pipeline, hitGroup, API::DIRECTX_12);
 				}
-				hitGroupTable = getShaderTable(key, m_hitGroupTables, numHitGroups);
+				pHitGroup = getShaderTable(key, m_hitGroupTables, numHitGroups);
 			}
 			m_isRTStateDirty = false;
 		}
 	}
 
 	// Get ray-generation shader table; the ray-generation shader is independent of the pipeline
-	const ShaderTable* rayGenTable = nullptr;
+	const ShaderTable* pRayGen = nullptr;
 	{
 		string key(sizeof(void*), '\0');
 		auto& shaderID = reinterpret_cast<const void*&>(key[0]);
 		shaderID = ShaderRecord::GetShaderID(m_pipeline, rayGenShader, API::DIRECTX_12);
-		rayGenTable = getShaderTable(key, m_rayGenTables, 1);
+		pRayGen = getShaderTable(key, m_rayGenTables, 1);
 	}
 
-	const ShaderTable* missTable = nullptr;
+	const ShaderTable* pMiss = nullptr;
 	{
 		string key(sizeof(void*), '\0');
 		auto& shaderID = reinterpret_cast<const void*&>(key[0]);
 		shaderID = ShaderRecord::GetShaderID(m_pipeline, missShader, API::DIRECTX_12);
-		missTable = getShaderTable(key, m_missTables, 1);
+		pMiss = getShaderTable(key, m_missTables, 1);
 	}
 
-	XUSG::RayTracing::CommandList_DX12::DispatchRays(width, height, depth, hitGroupTable, missTable, rayGenTable);
+	RayTracing::CommandList_DX12::DispatchRays(width, height, depth, pHitGroup, pMiss, pRayGen);
 }
 
 bool EZ::CommandList_DXR::createPipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
@@ -408,11 +408,11 @@ const ShaderTable* EZ::CommandList_DXR::getShaderTable(const string& key,
 
 	if (shaderTablePair == shaderTables.end())
 	{
-		const auto shaderIDSize = ShaderRecord::GetShaderIDSize(GetRTDevice(), API::DIRECTX_12);
+		const auto shaderIDSize = ShaderRecord::GetShaderIDSize(m_pDeviceRT, API::DIRECTX_12);
 
 		auto& shaderTable = shaderTables[key];
 		shaderTable = ShaderTable::MakeUnique(API::DIRECTX_12);
-		shaderTable->Create(GetRTDevice(), numShaderIDs, shaderIDSize);
+		shaderTable->Create(m_pDeviceRT, numShaderIDs, shaderIDSize);
 
 		const auto pShaderIDs = reinterpret_cast<void* const*>(&key[0]);
 		for (auto i = 0u; i < numShaderIDs; ++i)
