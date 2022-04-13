@@ -58,6 +58,8 @@ bool EZ::CommandList_DX12::Create(XUSG::CommandList* pCommandList, uint32_t samp
 	m_computePipelineCache = Compute::PipelineCache::MakeUnique(m_pDevice, API::DIRECTX_12);
 	m_pipelineLayoutCache = PipelineLayoutCache::MakeUnique(m_pDevice, API::DIRECTX_12);
 	m_descriptorTableCache = DescriptorTableCache::MakeUnique(m_pDevice, L"EZDescirptorTableCache", API::DIRECTX_12);
+	m_graphicsState = Graphics::State::MakeUnique(API::DIRECTX_12);
+	m_computeState = Compute::State::MakeUnique(API::DIRECTX_12);
 
 	// Allocate descriptor pools
 	XUSG_N_RETURN(m_descriptorTableCache->AllocateDescriptorPool(
@@ -144,7 +146,8 @@ void EZ::CommandList_DX12::Dispatch(uint32_t threadGroupCountX, uint32_t threadG
 	m_barriers.clear();
 
 	// Create pipeline for dynamic states
-	if (m_computeState && m_isComputeDirty)
+	assert(m_computeState);
+	if (m_isComputeDirty)
 	{
 		m_computeState->SetPipelineLayout(m_pipelineLayouts[COMPUTE]);
 		const auto pipeline = m_computeState->GetPipeline(m_computePipelineCache.get());
@@ -224,70 +227,70 @@ void EZ::CommandList_DX12::ResolveSubresource(Resource* pDstResource, uint32_t d
 
 void EZ::CommandList_DX12::IASetInputLayout(const InputLayout* pLayout)
 {
-	if (!m_graphicsState) m_graphicsState = Graphics::State::MakeUnique(API::DIRECTX_12);
+	assert(m_graphicsState);
 	m_graphicsState->IASetInputLayout(pLayout);
 	m_isGraphicsDirty = true;
 }
 
 void EZ::CommandList_DX12::IASetIndexBufferStripCutValue(IBStripCutValue ibStripCutValue)
 {
-	if (!m_graphicsState) m_graphicsState = Graphics::State::MakeUnique(API::DIRECTX_12);
+	assert(m_graphicsState);
 	m_graphicsState->IASetIndexBufferStripCutValue(ibStripCutValue);
 	m_isGraphicsDirty = true;
 }
 
 void EZ::CommandList_DX12::RSSetState(Graphics::RasterizerPreset preset)
 {
-	if (!m_graphicsState) m_graphicsState = Graphics::State::MakeUnique(API::DIRECTX_12);
+	assert(m_graphicsState);
 	m_graphicsState->RSSetState(preset, m_graphicsPipelineCache.get());
 	m_isGraphicsDirty = true;
 }
 
 void EZ::CommandList_DX12::OMSetBlendState(Graphics::BlendPreset preset, uint8_t numColorRTs, uint32_t sampleMask)
 {
-	if (!m_graphicsState) m_graphicsState = Graphics::State::MakeUnique(API::DIRECTX_12);
+	assert(m_graphicsState);
 	m_graphicsState->OMSetBlendState(preset, m_graphicsPipelineCache.get(), numColorRTs, sampleMask);
 	m_isGraphicsDirty = true;
 }
 
 void EZ::CommandList_DX12::OMSetSample(uint8_t count, uint8_t quality)
 {
-	if (!m_graphicsState) m_graphicsState = Graphics::State::MakeUnique(API::DIRECTX_12);
+	assert(m_graphicsState);
 	m_graphicsState->OMSetSample(count, quality);
 	m_isGraphicsDirty = true;
 }
 
 void EZ::CommandList_DX12::DSSetState(Graphics::DepthStencilPreset preset)
 {
-	if (!m_graphicsState) m_graphicsState = Graphics::State::MakeUnique(API::DIRECTX_12);
+	assert(m_graphicsState);
 	m_graphicsState->DSSetState(preset, m_graphicsPipelineCache.get());
 	m_isGraphicsDirty = true;
 }
 
 void EZ::CommandList_DX12::SetGraphicsShader(Shader::Stage stage, const Blob& shader)
 {
-	if (!m_graphicsState) m_graphicsState = Graphics::State::MakeUnique(API::DIRECTX_12);
+	assert(m_graphicsState);
 	m_graphicsState->SetShader(stage, shader);
 	m_isGraphicsDirty = true;
 }
 
 void EZ::CommandList_DX12::SetGraphicsNodeMask(uint32_t nodeMask)
 {
-	if (!m_graphicsState) m_graphicsState = Graphics::State::MakeUnique(API::DIRECTX_12);
+	assert(m_graphicsState);
 	m_graphicsState->SetNodeMask(nodeMask);
 	m_isGraphicsDirty = true;
 }
 
 void EZ::CommandList_DX12::SetComputeShader(const Blob& shader)
 {
-	if (!m_computeState) m_computeState = Compute::State::MakeUnique(API::DIRECTX_12);
+	assert(m_computeState);
 	m_computeState->SetShader(shader);
 	m_isComputeDirty = true;
 }
 
 void EZ::CommandList_DX12::SetComputeNodeMask(uint32_t nodeMask)
 {
-	if (!m_computeState) m_computeState = Compute::State::MakeUnique(API::DIRECTX_12);
+	assert(m_computeState);
 	m_computeState->SetNodeMask(nodeMask);
 	m_isComputeDirty = true;
 }
@@ -360,26 +363,25 @@ void EZ::CommandList_DX12::SetComputeResources(DescriptorType descriptorType, ui
 
 void EZ::CommandList_DX12::IASetPrimitiveTopology(PrimitiveTopology primitiveTopology)
 {
-	if (m_graphicsState)
-	{
-		if (primitiveTopology == PrimitiveTopology::POINTLIST)
-			m_graphicsState->IASetPrimitiveTopologyType(PrimitiveTopologyType::POINT);
-		else if (primitiveTopology == PrimitiveTopology::LINELIST || primitiveTopology == PrimitiveTopology::LINESTRIP ||
-			primitiveTopology == PrimitiveTopology::LINELIST_ADJ || primitiveTopology == PrimitiveTopology::LINESTRIP_ADJ)
-			m_graphicsState->IASetPrimitiveTopologyType(PrimitiveTopologyType::LINE);
-		else if (primitiveTopology == PrimitiveTopology::TRIANGLELIST || primitiveTopology == PrimitiveTopology::TRIANGLESTRIP ||
-			primitiveTopology == PrimitiveTopology::TRIANGLELIST_ADJ || primitiveTopology == PrimitiveTopology::TRIANGLESTRIP_ADJ)
-			m_graphicsState->IASetPrimitiveTopologyType(PrimitiveTopologyType::TRIANGLE);
-		else if (primitiveTopology >= PrimitiveTopology::CONTROL_POINT1_PATCHLIST && primitiveTopology <= PrimitiveTopology::CONTROL_POINT32_PATCHLIST)
-			m_graphicsState->IASetPrimitiveTopologyType(PrimitiveTopologyType::PATCH);
-		else
-		{
-			assert(primitiveTopology == PrimitiveTopology::UNDEFINED);
-			m_graphicsState->IASetPrimitiveTopologyType(PrimitiveTopologyType::UNDEFINED);
-		}
+	assert(m_graphicsState);
 
-		m_isGraphicsDirty = true;
+	if (primitiveTopology == PrimitiveTopology::POINTLIST)
+		m_graphicsState->IASetPrimitiveTopologyType(PrimitiveTopologyType::POINT);
+	else if (primitiveTopology == PrimitiveTopology::LINELIST || primitiveTopology == PrimitiveTopology::LINESTRIP ||
+		primitiveTopology == PrimitiveTopology::LINELIST_ADJ || primitiveTopology == PrimitiveTopology::LINESTRIP_ADJ)
+		m_graphicsState->IASetPrimitiveTopologyType(PrimitiveTopologyType::LINE);
+	else if (primitiveTopology == PrimitiveTopology::TRIANGLELIST || primitiveTopology == PrimitiveTopology::TRIANGLESTRIP ||
+		primitiveTopology == PrimitiveTopology::TRIANGLELIST_ADJ || primitiveTopology == PrimitiveTopology::TRIANGLESTRIP_ADJ)
+		m_graphicsState->IASetPrimitiveTopologyType(PrimitiveTopologyType::TRIANGLE);
+	else if (primitiveTopology >= PrimitiveTopology::CONTROL_POINT1_PATCHLIST && primitiveTopology <= PrimitiveTopology::CONTROL_POINT32_PATCHLIST)
+		m_graphicsState->IASetPrimitiveTopologyType(PrimitiveTopologyType::PATCH);
+	else
+	{
+		assert(primitiveTopology == PrimitiveTopology::UNDEFINED);
+		m_graphicsState->IASetPrimitiveTopologyType(PrimitiveTopologyType::UNDEFINED);
 	}
+
+	m_isGraphicsDirty = true;
 
 	XUSG::CommandList_DX12::IASetPrimitiveTopology(primitiveTopology);
 }
@@ -643,7 +645,8 @@ void EZ::CommandList_DX12::predraw()
 	m_clearRTVs.clear();
 
 	// Create pipeline for dynamic states
-	if (m_graphicsState && m_isGraphicsDirty)
+	assert(m_graphicsState);
+	if (m_isGraphicsDirty)
 	{
 		m_graphicsState->SetPipelineLayout(m_pipelineLayouts[GRAPHICS]);
 		const auto pipeline = m_graphicsState->GetPipeline(m_graphicsPipelineCache.get());
