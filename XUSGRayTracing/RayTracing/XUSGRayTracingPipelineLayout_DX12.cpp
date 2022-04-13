@@ -50,16 +50,10 @@ XUSG::PipelineLayout RayTracing::PipelineLayout_DX12::CreatePipelineLayout(const
 
 	com_ptr<ID3D12RootSignature> rootSignature;
 	com_ptr<ID3DBlob> signature, error;
-#if XUSG_ENABLE_DXR_FALLBACK
 	rootSignatureDesc.Version = highestVersion;
 	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(pDevice->GetRTHandle());
 	H_RETURN(pDxDevice->D3D12SerializeVersionedRootSignature(&rootSignatureDesc, &signature, &error,
 		AccelerationStructure::GetUAVCount()), cerr, reinterpret_cast<wchar_t*>(error->GetBufferPointer()), nullptr);
-#else // DirectX Raytracing
-	const auto pDxDevice = static_cast<ID3D12Device5*>(pDevice->GetRTHandle());
-	H_RETURN(D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, highestVersion, &signature, &error),
-		cerr, reinterpret_cast<wchar_t*>(error->GetBufferPointer()), nullptr);
-#endif
 
 	V_RETURN(pDxDevice->CreateRootSignature(1, signature->GetBufferPointer(), signature->GetBufferSize(),
 		IID_PPV_ARGS(&rootSignature)), cerr, nullptr);

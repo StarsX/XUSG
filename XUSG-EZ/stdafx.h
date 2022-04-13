@@ -59,4 +59,3 @@
 #endif  // _DEBUG
 
 #define XUSG_RAY_TRACING_EZ
-#define XUSG_ENABLE_DXR_FALLBACK 1

@@ -80,11 +80,7 @@ namespace XUSG
 			//Device();
 			virtual ~Device() {};
 
-#if XUSG_ENABLE_DXR_FALLBACK
-			virtual bool CreateInterface(uint8_t flags) = 0;
-#else
-			virtual bool CreateInterface() = 0;
-#endif
+			virtual bool CreateInterface(uint8_t flags = 0) = 0;
 
 			virtual void* GetRTHandle() const = 0;
 
@@ -111,13 +107,12 @@ namespace XUSG
 			virtual uint32_t GetResultDataMaxSize() const = 0;
 			virtual uint32_t GetScratchDataMaxSize() const = 0;
 			virtual uint32_t GetUpdateScratchDataSize() const = 0;
-#if XUSG_ENABLE_DXR_FALLBACK
-			virtual const WRAPPED_GPU_POINTER& GetResultPointer() const = 0;
+
+			virtual uint64_t GetResultPointer() const = 0;
 
 			static uint32_t GetUAVCount();
 
 			static void SetUAVCount(uint32_t numUAVs);
-#endif
 			static void SetFrameCount(uint32_t frameCount);
 
 			static bool AllocateUAVBuffer(const Device* pDevice, Resource* pResource,

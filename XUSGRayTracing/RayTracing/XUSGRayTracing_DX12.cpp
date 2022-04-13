@@ -21,7 +21,6 @@ Device_DX12::~Device_DX12()
 {
 }
 
-#if XUSG_ENABLE_DXR_FALLBACK
 bool Device_DX12::CreateInterface(uint8_t flags)
 {
 	const auto hr = D3D12CreateRaytracingFallbackDevice(m_device.get(), flags, 0, IID_PPV_ARGS(&m_deviceRT));
@@ -34,20 +33,6 @@ bool Device_DX12::CreateInterface(uint8_t flags)
 
 	return true;
 }
-#else
-bool Device_DX12::CreateInterface()
-{
-	const auto hr = m_device->QueryInterface(IID_PPV_ARGS(&m_deviceRT));
-	if (FAILED(hr))
-	{
-		OutputDebugString(L"Couldn't get DirectX Raytracing interface for the device.\n");
-
-		return false;
-	}
-
-	return true;
-}
-#endif
 
 void* Device_DX12::GetRTHandle() const
 {

@@ -160,21 +160,13 @@ PipelineCache_DX12::~PipelineCache_DX12()
 
 void PipelineCache_DX12::SetDevice(const RayTracing::Device* pDevice)
 {
-#if XUSG_ENABLE_DXR_FALLBACK
 	m_device = static_cast<ID3D12RaytracingFallbackDevice*>(pDevice->GetRTHandle());
-#else
-	m_device = static_cast<ID3D12Device5*>(pDevice->GetRTHandle());
-#endif
 	assert(m_device);
 }
 
 void PipelineCache_DX12::SetPipeline(const string& key, const Pipeline& pipeline)
 {
-#if XUSG_ENABLE_DXR_FALLBACK
 	m_stateObjects[key] = static_cast<ID3D12RaytracingFallbackStateObject*>(pipeline);
-#else // DirectX Raytracing
-	m_stateObjects[key] = static_cast<ID3D12StateObject*>(pipeline);
-#endif
 }
 
 Pipeline PipelineCache_DX12::CreatePipeline(State* pState, const wchar_t* name)
@@ -261,19 +253,11 @@ Pipeline PipelineCache_DX12::createPipeline(const string& key, const wchar_t* na
 	//PrintStateObjectDesc(desc);
 
 	// Create pipeline
-#if XUSG_ENABLE_DXR_FALLBACK
 	com_ptr<ID3D12RaytracingFallbackStateObject> stateObject = nullptr;
-#else // DirectX Raytracing
-	com_ptr<ID3D12StateObject> stateObject = nullptr;
-#endif
 	H_RETURN(m_device->CreateStateObject(pDesc, IID_PPV_ARGS(&stateObject)), cerr,
 		L"Couldn't create DirectX Raytracing state object.\n", stateObject.get());
 
-#if XUSG_ENABLE_DXR_FALLBACK
 	if (name) stateObject->GetStateObject()->SetName(name);
-#else
-	if (name) stateObject->SetName(name);
-#endif
 	m_stateObjects[key] = stateObject;
 
 	return stateObject.get();

@@ -4,6 +4,7 @@
 
 #include "Core/XUSGCommand_DX12.h"
 #include "XUSGRayTracingCommand_DX12.h"
+#include "XUSGAccelerationStructure_DX12.h"
 
 using namespace std;
 using namespace XUSG;
@@ -28,20 +29,10 @@ RayTracing::CommandList_DX12::CommandList_DX12(XUSG::CommandList* pCommandList, 
 bool RayTracing::CommandList_DX12::CreateInterface()
 {
 	m_pDeviceRT = dynamic_cast<const RayTracing::Device*>(m_pDevice);
-#if XUSG_ENABLE_DXR_FALLBACK
 	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(m_pDeviceRT->GetRTHandle());
+	XUSG_N_RETURN(pDxDevice, false);
 
-	assert(pDxDevice);
 	pDxDevice->QueryRaytracingCommandList(m_commandList.get(), IID_PPV_ARGS(&m_commandListRT));
-#else
-	const auto hr = m_commandList->QueryInterface(IID_PPV_ARGS(&m_commandListRT));
-	if (FAILED(hr))
-	{
-		OutputDebugString(L"Couldn't get DirectX Raytracing interface for the command list.\n");
-
-		return false;
-	}
-#endif
 
 	return true;
 }
@@ -65,17 +56,17 @@ void RayTracing::CommandList_DX12::BuildRaytracingAccelerationStructure(const Bu
 		postbuildInfoDescs[i].InfoType = infoTypes[pPostbuildInfoDescs[i].InfoType];
 	}
 
+	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(m_pDeviceRT->GetRTHandle());
+	if (!pDxDevice->UsingRaytracingDriver())
+	{
+		// Set the descriptor heaps to be used during acceleration structure build for the Fallback Layer.
+		const auto pDescriptorHeap = reinterpret_cast<ID3D12DescriptorHeap*>(descriptorPool);
+		m_commandListRT->SetDescriptorHeaps(1, &pDescriptorHeap);
+	}
+	
 	const auto pBuildDesc = static_cast<const D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC*>(pDesc);
-#if XUSG_ENABLE_DXR_FALLBACK
-	// Set the descriptor heaps to be used during acceleration structure build for the Fallback Layer.
-	const auto pDescriptorHeap = reinterpret_cast<ID3D12DescriptorHeap*>(descriptorPool);
-	m_commandListRT->SetDescriptorHeaps(1, &pDescriptorHeap);
 	m_commandListRT->BuildRaytracingAccelerationStructure(pBuildDesc, numPostbuildInfoDescs,
 		pPostbuildInfoDescs ? postbuildInfoDescs.data() : nullptr, AccelerationStructure::GetUAVCount());
-#else // DirectX Raytracing
-	m_commandListRT->BuildRaytracingAccelerationStructure(pBuildDesc, numPostbuildInfoDescs,
-		pPostbuildInfoDescs ? postbuildInfoDescs.data() : nullptr);
-#endif
 }
 
 void RayTracing::CommandList_DX12::SetDescriptorPools(uint32_t numDescriptorPools, const DescriptorPool* pDescriptorPools) const
@@ -87,20 +78,14 @@ void RayTracing::CommandList_DX12::SetDescriptorPools(uint32_t numDescriptorPool
 
 void RayTracing::CommandList_DX12::SetTopLevelAccelerationStructure(uint32_t index, const TopLevelAS* pTopLevelAS) const
 {
-#if XUSG_ENABLE_DXR_FALLBACK
-	m_commandListRT->SetTopLevelAccelerationStructure(index, pTopLevelAS->GetResultPointer());
-#else // DirectX Raytracing
-	XUSG::CommandList_DX12::SetComputeRootShaderResourceView(index, pTopLevelAS->GetResult().get());
-#endif
+	const auto topLevelASPtr = pTopLevelAS ? pTopLevelAS->GetResultPointer() : 0;
+	m_commandListRT->SetTopLevelAccelerationStructure(index,
+		reinterpret_cast<const WRAPPED_GPU_POINTER&>(topLevelASPtr));
 }
 
 void RayTracing::CommandList_DX12::SetRayTracingPipeline(const Pipeline& pipeline) const
 {
-#if XUSG_ENABLE_DXR_FALLBACK
 	m_commandListRT->SetPipelineState1(static_cast<ID3D12RaytracingFallbackStateObject*>(pipeline));
-#else // DirectX Raytracing
-	m_commandListRT->SetPipelineState1(static_cast<ID3D12StateObject*>(pipeline));
-#endif
 }
 
 void RayTracing::CommandList_DX12::DispatchRays(uint32_t width, uint32_t height, uint32_t depth,

@@ -12,9 +12,7 @@ using namespace std;
 using namespace XUSG;
 using namespace XUSG::RayTracing;
 
-#if XUSG_ENABLE_DXR_FALLBACK
 extern uint32_t g_numUAVs;
-#endif
 extern uint32_t g_frameCount;
 
 //--------------------------------------------------------------------------------------
@@ -50,12 +48,10 @@ uint32_t AccelerationStructure_DX12::GetUpdateScratchDataSize() const
 	return static_cast<uint32_t>(m_prebuildInfo.UpdateScratchDataSizeInBytes);
 }
 
-#if XUSG_ENABLE_DXR_FALLBACK
-const WRAPPED_GPU_POINTER& AccelerationStructure_DX12::GetResultPointer() const
+uint64_t AccelerationStructure_DX12::GetResultPointer() const
 {
-	return m_pointers[m_currentFrame];
+	return reinterpret_cast<const uint64_t&>(m_pointers[m_currentFrame]);
 }
-#endif
 
 bool AccelerationStructure_DX12::AllocateUAVBuffer(const XUSG::Device* pDevice, Resource* pResource,
 	size_t byteWidth, ResourceState dstState)
@@ -101,13 +97,8 @@ bool AccelerationStructure_DX12::preBuild(const Device* pDevice, uint32_t descri
 	assert(pDevice->GetHandle());
 
 	D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO prebuildInfo;
-#if XUSG_ENABLE_DXR_FALLBACK
 	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(pDevice->GetRTHandle());
 	pDxDevice->GetRaytracingAccelerationStructurePrebuildInfo(&inputs, &prebuildInfo, g_numUAVs);
-#else // DirectX Raytracing
-	const auto pDxDevice = static_cast<ID3D12Device5*>(pDevice->GetRTHandle());
-	pDxDevice->GetRaytracingAccelerationStructurePrebuildInfo(&inputs, &prebuildInfo);
-#endif
 
 	m_prebuildInfo.ResultDataMaxSizeInBytes = prebuildInfo.ResultDataMaxSizeInBytes;
 	m_prebuildInfo.ScratchDataSizeInBytes = prebuildInfo.ScratchDataSizeInBytes;
@@ -126,25 +117,19 @@ bool AccelerationStructure_DX12::preBuild(const Device* pDevice, uint32_t descri
 		== D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE ? g_frameCount : 1;
 
 	m_results.resize(bufferCount);
-#if XUSG_ENABLE_DXR_FALLBACK
 	const auto resourceFlags = pDxDevice->UsingRaytracingDriver() ? ResourceFlag::ACCELERATION_STRUCTURE : ResourceFlag::ALLOW_UNORDERED_ACCESS;
-#else // DirectX Raytracing
-	const auto resourceFlags = ResourceFlag::ACCELERATION_STRUCTURE;
-#endif
 	for (auto& result : m_results)
 	{
 		result = RawBuffer::MakeShared();
 		XUSG_N_RETURN(result->Create(pDevice, GetResultDataMaxSize(), resourceFlags, MemoryType::DEFAULT, numSRVs), false);
 	}
 
-#if XUSG_ENABLE_DXR_FALLBACK
 	// The Fallback Layer interface uses WRAPPED_GPU_POINTER to encapsulate the underlying pointer
 	// which will either be an emulated GPU pointer for the compute - based path or a GPU_VIRTUAL_ADDRESS for the DXR path.
 	m_pointers.resize(bufferCount);
 	for (auto i = 0u; i < bufferCount; ++i)
 		m_pointers[i] = pDxDevice->GetWrappedPointerSimple(descriptorIndex,
 			static_cast<ID3D12Resource*>(m_results[i]->GetHandle())->GetGPUVirtualAddress());
-#endif
 
 	return true;
 }
@@ -333,7 +318,6 @@ void TopLevelAS_DX12::SetInstances(const RayTracing::Device* pDevice, Resource* 
 	const auto pDxInstances = pInstances ? static_cast<ID3D12Resource*>(pInstances->GetHandle()) : nullptr;
 	assert(numInstances == 0 || pInstanceDescs);
 
-#if XUSG_ENABLE_DXR_FALLBACK
 	// Note on Emulated GPU pointers (AKA Wrapped pointers) requirement in Fallback Layer:
 	// The primary point of divergence between the DXR API and the compute-based Fallback layer is the handling of GPU pointers. 
 	// DXR fundamentally requires that GPUs be able to dynamically read from arbitrary addresses in GPU memory. 
@@ -349,12 +333,13 @@ void TopLevelAS_DX12::SetInstances(const RayTracing::Device* pDevice, Resource* 
 	{
 		const auto& instanceDesc = pInstanceDescs[i];
 		const auto& pBottomLevelAS = pInstanceDescs[i].pBottomLevelAS;
+		const auto bottomLevelASPtr = pBottomLevelAS ? pBottomLevelAS->GetResultPointer() : 0;
 		memcpy(instanceDescs[i].Transform, instanceDesc.pTransform, sizeof(instanceDescs[i].Transform));
 		instanceDescs[i].InstanceID = instanceDesc.InstanceID;
 		instanceDescs[i].InstanceMask = instanceDesc.InstanceMask;
 		instanceDescs[i].InstanceContributionToHitGroupIndex = instanceDesc.InstanceContributionToHitGroupIndex;
 		instanceDescs[i].Flags = GetDXRInstanceFlags(static_cast<InstanceFlag>(instanceDesc.Flags));
-		instanceDescs[i].AccelerationStructure = pBottomLevelAS ? pBottomLevelAS->GetResultPointer() : WRAPPED_GPU_POINTER();
+		instanceDescs[i].AccelerationStructure = reinterpret_cast<const WRAPPED_GPU_POINTER&>(bottomLevelASPtr);
 	}
 
 	if (pDxInstances)
@@ -366,29 +351,4 @@ void TopLevelAS_DX12::SetInstances(const RayTracing::Device* pDevice, Resource* 
 	}
 	else AccelerationStructure_DX12::AllocateUploadBuffer(pDevice, pInstances,
 		sizeof(D3D12_RAYTRACING_FALLBACK_INSTANCE_DESC) * numInstances, instanceDescs.data());
-#else // DirectX Raytracing
-	vector<D3D12_RAYTRACING_INSTANCE_DESC> instanceDescs(numInstances);
-	for (auto i = 0u; i < numInstances; ++i)
-	{
-		const auto& instanceDesc = pInstanceDescs[i];
-		const auto& pBottomLevelAS = instanceDesc.pBottomLevelAS;
-		const auto pResource = pBottomLevelAS ? static_cast<ID3D12Resource*>(pBottomLevelAS->GetResult()->GetHandle()) : nullptr;
-		memcpy(instanceDescs[i].Transform, instanceDesc.pTransform, sizeof(instanceDescs[i].Transform));
-		instanceDescs[i].InstanceID = instanceDesc.InstanceID;
-		instanceDescs[i].InstanceMask = instanceDesc.InstanceMask;
-		instanceDescs[i].InstanceContributionToHitGroupIndex = instanceDesc.InstanceContributionToHitGroupIndex;
-		instanceDescs[i].Flags = GetDXRInstanceFlags(static_cast<InstanceFlag>(instanceDesc.Flags));
-		instanceDescs[i].AccelerationStructure = pResource->GetGPUVirtualAddress();
-	}
-
-	if (pDxInstances)
-	{
-		void* pMappedData;
-		pDxInstances->Map(0, nullptr, &pMappedData);
-		memcpy(pMappedData, instanceDescs.data(), sizeof(D3D12_RAYTRACING_INSTANCE_DESC) * numInstances);
-		pDxInstances->Unmap(0, nullptr);
-	}
-	else AccelerationStructure_DX12::AllocateUploadBuffer(pDevice, pInstances,
-		sizeof(D3D12_RAYTRACING_INSTANCE_DESC) * numInstances, instanceDescs.data());
-#endif
 }
