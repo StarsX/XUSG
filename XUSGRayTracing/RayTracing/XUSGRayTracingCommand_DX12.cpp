@@ -78,7 +78,11 @@ void RayTracing::CommandList_DX12::SetDescriptorPools(uint32_t numDescriptorPool
 
 void RayTracing::CommandList_DX12::SetTopLevelAccelerationStructure(uint32_t index, const TopLevelAS* pTopLevelAS) const
 {
-	const auto topLevelASPtr = pTopLevelAS ? pTopLevelAS->GetResultPointer() : 0;
+	SetTopLevelAccelerationStructure(index, pTopLevelAS ? pTopLevelAS->GetResultPointer() : 0);
+}
+
+void XUSG::RayTracing::CommandList_DX12::SetTopLevelAccelerationStructure(uint32_t index, uint64_t topLevelASPtr) const
+{
 	m_commandListRT->SetTopLevelAccelerationStructure(index,
 		reinterpret_cast<const WRAPPED_GPU_POINTER&>(topLevelASPtr));
 }

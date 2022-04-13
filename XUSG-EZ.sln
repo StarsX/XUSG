@@ -5,6 +5,11 @@ VisualStudioVersion = 16.0.31727.386
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "XUSG-EZ", "XUSG-EZ\XUSG-EZ.vcxproj", "{DF293052-E01A-410B-8995-942A0A9156DD}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "XUSGRayTracing-EZ", "XUSGRayTracing-EZ\XUSGRayTracing-EZ.vcxproj", "{4C60E443-13A7-4321-B1ED-ECE1E801403E}"
+	ProjectSection(ProjectDependencies) = postProject
+		{DF293052-E01A-410B-8995-942A0A9156DD} = {DF293052-E01A-410B-8995-942A0A9156DD}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -21,6 +26,14 @@ Global
 		{DF293052-E01A-410B-8995-942A0A9156DD}.Release|x64.Build.0 = Release|x64
 		{DF293052-E01A-410B-8995-942A0A9156DD}.Release|x86.ActiveCfg = Release|Win32
 		{DF293052-E01A-410B-8995-942A0A9156DD}.Release|x86.Build.0 = Release|Win32
+		{4C60E443-13A7-4321-B1ED-ECE1E801403E}.Debug|x64.ActiveCfg = Debug|x64
+		{4C60E443-13A7-4321-B1ED-ECE1E801403E}.Debug|x64.Build.0 = Debug|x64
+		{4C60E443-13A7-4321-B1ED-ECE1E801403E}.Debug|x86.ActiveCfg = Debug|Win32
+		{4C60E443-13A7-4321-B1ED-ECE1E801403E}.Debug|x86.Build.0 = Debug|Win32
+		{4C60E443-13A7-4321-B1ED-ECE1E801403E}.Release|x64.ActiveCfg = Release|x64
+		{4C60E443-13A7-4321-B1ED-ECE1E801403E}.Release|x64.Build.0 = Release|x64
+		{4C60E443-13A7-4321-B1ED-ECE1E801403E}.Release|x86.ActiveCfg = Release|Win32
+		{4C60E443-13A7-4321-B1ED-ECE1E801403E}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

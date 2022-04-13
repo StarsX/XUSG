@@ -271,6 +271,7 @@ namespace XUSG
 
 			virtual void SetDescriptorPools(uint32_t numDescriptorPools, const DescriptorPool* pDescriptorPools) const = 0;
 			virtual void SetTopLevelAccelerationStructure(uint32_t index, const TopLevelAS* pTopLevelAS) const = 0;
+			virtual void SetTopLevelAccelerationStructure(uint32_t index, uint64_t topLevelASPtr) const = 0;
 			virtual void SetRayTracingPipeline(const Pipeline& pipeline) const = 0;
 			virtual void DispatchRays(uint32_t width, uint32_t height, uint32_t depth,
 					const ShaderTable* pHitGroup, const ShaderTable* pMiss, const ShaderTable* pRayGen) const = 0;

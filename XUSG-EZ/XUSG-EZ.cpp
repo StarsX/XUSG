@@ -3,9 +3,7 @@
 //--------------------------------------------------------------------------------------
 
 #include "Core/XUSGCommand_DX12.h"
-#include "RayTracing/XUSGRayTracingCommand_DX12.h"
 #include "XUSG-EZ_DX12.h"
-#include "XUSG-EZ_DXR.h"
 
 using namespace std;
 using namespace XUSG;
@@ -211,41 +209,6 @@ EZ::CommandList::sptr EZ::CommandList::MakeShared(XUSG::CommandList* pCommandLis
 	uint32_t maxSrvSpaces, uint32_t maxUavSpaces, API api)
 {
 	return make_shared<EZ::CommandList_DX12>(pCommandList, samplerPoolSize, cbvSrvUavPoolSize,
-		maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
-		maxCbvSpaces, maxSrvSpaces, maxUavSpaces);
-}
-
-
-// EZ::RayTracing
-using EZ::RayTracing::CommandList_DXR;
-EZ::RayTracing::CommandList::uptr EZ::RayTracing::CommandList::MakeUnique(API api)
-{
-	return make_unique<CommandList_DXR>();
-}
-
-EZ::RayTracing::CommandList::sptr EZ::RayTracing::CommandList::MakeShared(API api)
-{
-	return make_shared<CommandList_DXR>();
-}
-
-EZ::RayTracing::CommandList::uptr EZ::RayTracing::CommandList::MakeUnique(XUSG::RayTracing::CommandList* pCommandList,
-	uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize, uint32_t maxSamplers,
-	const uint32_t* pMaxCbvsEachSpace, const uint32_t* pMaxSrvsEachSpace,
-	const uint32_t* pMaxUavsEachSpace, uint32_t maxCbvSpaces,
-	uint32_t maxSrvSpaces, uint32_t maxUavSpaces, API api)
-{
-	return make_unique<CommandList_DXR>(pCommandList, samplerPoolSize, cbvSrvUavPoolSize,
-		maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
-		maxCbvSpaces, maxSrvSpaces, maxUavSpaces);
-}
-
-EZ::RayTracing::CommandList::sptr EZ::RayTracing::CommandList::MakeShared(XUSG::RayTracing::CommandList* pCommandList,
-	uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize, uint32_t maxSamplers,
-	const uint32_t* pMaxCbvsEachSpace, const uint32_t* pMaxSrvsEachSpace,
-	const uint32_t* pMaxUavsEachSpace, uint32_t maxCbvSpaces,
-	uint32_t maxSrvSpaces, uint32_t maxUavSpaces, API api)
-{
-	return make_shared<CommandList_DXR>(pCommandList, samplerPoolSize, cbvSrvUavPoolSize,
 		maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
 		maxCbvSpaces, maxSrvSpaces, maxUavSpaces);
 }
