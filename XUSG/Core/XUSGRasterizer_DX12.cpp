@@ -8,7 +8,7 @@ using namespace std;
 using namespace XUSG;
 using namespace Graphics;
 
-Rasterizer PipelineCache_DX12::RasterizerDefault()
+Rasterizer PipelineLib_DX12::RasterizerDefault()
 {
 	Rasterizer rasterizer;
 	rasterizer.Fill = FillMode::SOLID;
@@ -26,12 +26,12 @@ Rasterizer PipelineCache_DX12::RasterizerDefault()
 	return rasterizer;
 }
 
-Rasterizer PipelineCache_DX12::CullBack()
+Rasterizer PipelineLib_DX12::CullBack()
 {
 	return RasterizerDefault();
 }
 
-Rasterizer PipelineCache_DX12::CullNone()
+Rasterizer PipelineLib_DX12::CullNone()
 {
 	auto rasterizer = RasterizerDefault();
 	rasterizer.Cull = CullMode::NONE;
@@ -39,7 +39,7 @@ Rasterizer PipelineCache_DX12::CullNone()
 	return rasterizer;
 }
 
-Rasterizer PipelineCache_DX12::CullFront()
+Rasterizer PipelineLib_DX12::CullFront()
 {
 	auto rasterizer = RasterizerDefault();
 	rasterizer.Cull = CullMode::FRONT;
@@ -47,7 +47,7 @@ Rasterizer PipelineCache_DX12::CullFront()
 	return rasterizer;
 }
 
-Rasterizer PipelineCache_DX12::FillWireframe()
+Rasterizer PipelineLib_DX12::FillWireframe()
 {
 	auto rasterizer = RasterizerDefault();
 	rasterizer.Fill = FillMode::WIREFRAME;

@@ -7,7 +7,7 @@
 using namespace std;
 using namespace XUSG;
 
-Sampler DescriptorTableCache_DX12::SamplerPointWrap()
+Sampler DescriptorTableLib_DX12::SamplerPointWrap()
 {
 	Sampler sampler = {};
 	sampler.Filter = SamplerFilter::MIN_MAG_MIP_POINT;
@@ -21,7 +21,7 @@ Sampler DescriptorTableCache_DX12::SamplerPointWrap()
 	return sampler;
 }
 
-Sampler DescriptorTableCache_DX12::SamplerPointMirror()
+Sampler DescriptorTableLib_DX12::SamplerPointMirror()
 {
 	Sampler sampler = {};
 	sampler.Filter = SamplerFilter::MIN_MAG_MIP_POINT;
@@ -35,7 +35,7 @@ Sampler DescriptorTableCache_DX12::SamplerPointMirror()
 	return sampler;
 }
 
-Sampler DescriptorTableCache_DX12::SamplerPointClamp()
+Sampler DescriptorTableLib_DX12::SamplerPointClamp()
 {
 	Sampler sampler = {};
 	sampler.Filter = SamplerFilter::MIN_MAG_MIP_POINT;
@@ -49,7 +49,7 @@ Sampler DescriptorTableCache_DX12::SamplerPointClamp()
 	return sampler;
 }
 
-Sampler DescriptorTableCache_DX12::SamplerPointBorder()
+Sampler DescriptorTableLib_DX12::SamplerPointBorder()
 {
 	Sampler sampler = {};
 	sampler.Filter = SamplerFilter::MIN_MAG_MIP_POINT;
@@ -63,7 +63,7 @@ Sampler DescriptorTableCache_DX12::SamplerPointBorder()
 	return sampler;
 }
 
-Sampler DescriptorTableCache_DX12::SamplerPointLessEqual()
+Sampler DescriptorTableLib_DX12::SamplerPointLessEqual()
 {
 	Sampler sampler = {};
 	sampler.Filter = SamplerFilter::COMPARISON_MIN_MAG_MIP_POINT;
@@ -81,7 +81,7 @@ Sampler DescriptorTableCache_DX12::SamplerPointLessEqual()
 	return sampler;
 }
 
-Sampler DescriptorTableCache_DX12::SamplerLinearWrap()
+Sampler DescriptorTableLib_DX12::SamplerLinearWrap()
 {
 	Sampler sampler = {};
 	sampler.Filter = SamplerFilter::MIN_MAG_MIP_LINEAR;
@@ -95,7 +95,7 @@ Sampler DescriptorTableCache_DX12::SamplerLinearWrap()
 	return sampler;
 }
 
-Sampler DescriptorTableCache_DX12::SamplerLinearMirror()
+Sampler DescriptorTableLib_DX12::SamplerLinearMirror()
 {
 	Sampler sampler = {};
 	sampler.Filter = SamplerFilter::MIN_MAG_MIP_LINEAR;
@@ -109,7 +109,7 @@ Sampler DescriptorTableCache_DX12::SamplerLinearMirror()
 	return sampler;
 }
 
-Sampler DescriptorTableCache_DX12::SamplerLinearClamp()
+Sampler DescriptorTableLib_DX12::SamplerLinearClamp()
 {
 	Sampler sampler = {};
 	sampler.Filter = SamplerFilter::MIN_MAG_MIP_LINEAR;
@@ -123,7 +123,7 @@ Sampler DescriptorTableCache_DX12::SamplerLinearClamp()
 	return sampler;
 }
 
-Sampler DescriptorTableCache_DX12::SamplerLinearBorder()
+Sampler DescriptorTableLib_DX12::SamplerLinearBorder()
 {
 	Sampler sampler = {};
 	sampler.Filter = SamplerFilter::MIN_MAG_MIP_LINEAR;
@@ -137,7 +137,7 @@ Sampler DescriptorTableCache_DX12::SamplerLinearBorder()
 	return sampler;
 }
 
-Sampler DescriptorTableCache_DX12::SamplerLinearLessEqual()
+Sampler DescriptorTableLib_DX12::SamplerLinearLessEqual()
 {
 	Sampler sampler = {};
 	sampler.Filter = SamplerFilter::COMPARISON_MIN_MAG_LINEAR_MIP_POINT;
@@ -155,7 +155,7 @@ Sampler DescriptorTableCache_DX12::SamplerLinearLessEqual()
 	return sampler;
 }
 
-Sampler DescriptorTableCache_DX12::SamplerAnisotropicWrap()
+Sampler DescriptorTableLib_DX12::SamplerAnisotropicWrap()
 {
 	Sampler sampler = {};
 	sampler.Filter = SamplerFilter::ANISOTROPIC;
@@ -170,7 +170,7 @@ Sampler DescriptorTableCache_DX12::SamplerAnisotropicWrap()
 	return sampler;
 }
 
-Sampler DescriptorTableCache_DX12::SamplerAnisotropicMirror()
+Sampler DescriptorTableLib_DX12::SamplerAnisotropicMirror()
 {
 	Sampler sampler = {};
 	sampler.Filter = SamplerFilter::ANISOTROPIC;
@@ -185,7 +185,7 @@ Sampler DescriptorTableCache_DX12::SamplerAnisotropicMirror()
 	return sampler;
 }
 
-Sampler DescriptorTableCache_DX12::SamplerAnisotropicClamp()
+Sampler DescriptorTableLib_DX12::SamplerAnisotropicClamp()
 {
 	Sampler sampler = {};
 	sampler.Filter = SamplerFilter::ANISOTROPIC;
@@ -200,7 +200,7 @@ Sampler DescriptorTableCache_DX12::SamplerAnisotropicClamp()
 	return sampler;
 }
 
-Sampler DescriptorTableCache_DX12::SamplerAnisotropicBorder()
+Sampler DescriptorTableLib_DX12::SamplerAnisotropicBorder()
 {
 	Sampler sampler = {};
 	sampler.Filter = SamplerFilter::ANISOTROPIC;
@@ -215,7 +215,7 @@ Sampler DescriptorTableCache_DX12::SamplerAnisotropicBorder()
 	return sampler;
 }
 
-Sampler DescriptorTableCache_DX12::SamplerAnisotropicLessEqual()
+Sampler DescriptorTableLib_DX12::SamplerAnisotropicLessEqual()
 {
 	Sampler sampler = {};
 	sampler.Filter = SamplerFilter::COMPARISON_ANISOTROPIC;
@@ -234,7 +234,7 @@ Sampler DescriptorTableCache_DX12::SamplerAnisotropicLessEqual()
 	return sampler;
 }
 
-Sampler DescriptorTableCache_DX12::SamplerMinLinearWrap()
+Sampler DescriptorTableLib_DX12::SamplerMinLinearWrap()
 {
 	Sampler sampler = {};
 	sampler.Filter = SamplerFilter::MINIMUM_MIN_MAG_MIP_LINEAR;
@@ -248,7 +248,7 @@ Sampler DescriptorTableCache_DX12::SamplerMinLinearWrap()
 	return sampler;
 }
 
-Sampler DescriptorTableCache_DX12::SamplerMinLinearMirror()
+Sampler DescriptorTableLib_DX12::SamplerMinLinearMirror()
 {
 	Sampler sampler = {};
 	sampler.Filter = SamplerFilter::MINIMUM_MIN_MAG_MIP_LINEAR;
@@ -262,7 +262,7 @@ Sampler DescriptorTableCache_DX12::SamplerMinLinearMirror()
 	return sampler;
 }
 
-Sampler DescriptorTableCache_DX12::SamplerMinLinearClamp()
+Sampler DescriptorTableLib_DX12::SamplerMinLinearClamp()
 {
 	Sampler sampler = {};
 	sampler.Filter = SamplerFilter::MINIMUM_MIN_MAG_MIP_LINEAR;
@@ -276,7 +276,7 @@ Sampler DescriptorTableCache_DX12::SamplerMinLinearClamp()
 	return sampler;
 }
 
-Sampler DescriptorTableCache_DX12::SamplerMinLinearBorder()
+Sampler DescriptorTableLib_DX12::SamplerMinLinearBorder()
 {
 	Sampler sampler = {};
 	sampler.Filter = SamplerFilter::MINIMUM_MIN_MAG_MIP_LINEAR;
@@ -290,7 +290,7 @@ Sampler DescriptorTableCache_DX12::SamplerMinLinearBorder()
 	return sampler;
 }
 
-Sampler DescriptorTableCache_DX12::SamplerMaxLinearWrap()
+Sampler DescriptorTableLib_DX12::SamplerMaxLinearWrap()
 {
 	Sampler sampler = {};
 	sampler.Filter = SamplerFilter::MAXIMUM_MIN_MAG_MIP_LINEAR;
@@ -304,7 +304,7 @@ Sampler DescriptorTableCache_DX12::SamplerMaxLinearWrap()
 	return sampler;
 }
 
-Sampler DescriptorTableCache_DX12::SamplerMaxLinearMirror()
+Sampler DescriptorTableLib_DX12::SamplerMaxLinearMirror()
 {
 	Sampler sampler = {};
 	sampler.Filter = SamplerFilter::MAXIMUM_MIN_MAG_MIP_LINEAR;
@@ -318,7 +318,7 @@ Sampler DescriptorTableCache_DX12::SamplerMaxLinearMirror()
 	return sampler;
 }
 
-Sampler DescriptorTableCache_DX12::SamplerMaxLinearClamp()
+Sampler DescriptorTableLib_DX12::SamplerMaxLinearClamp()
 {
 	Sampler sampler = {};
 	sampler.Filter = SamplerFilter::MAXIMUM_MIN_MAG_MIP_LINEAR;
@@ -332,7 +332,7 @@ Sampler DescriptorTableCache_DX12::SamplerMaxLinearClamp()
 	return sampler;
 }
 
-Sampler DescriptorTableCache_DX12::SamplerMaxLinearBorder()
+Sampler DescriptorTableLib_DX12::SamplerMaxLinearBorder()
 {
 	Sampler sampler = {};
 	sampler.Filter = SamplerFilter::MAXIMUM_MIN_MAG_MIP_LINEAR;
@@ -346,7 +346,7 @@ Sampler DescriptorTableCache_DX12::SamplerMaxLinearBorder()
 	return sampler;
 }
 
-Sampler DescriptorTableCache_DX12::SamplerMinAnisotropicWrap()
+Sampler DescriptorTableLib_DX12::SamplerMinAnisotropicWrap()
 {
 	Sampler sampler = {};
 	sampler.Filter = SamplerFilter::MINIMUM_ANISOTROPIC;
@@ -361,7 +361,7 @@ Sampler DescriptorTableCache_DX12::SamplerMinAnisotropicWrap()
 	return sampler;
 }
 
-Sampler DescriptorTableCache_DX12::SamplerMinAnisotropicMirror()
+Sampler DescriptorTableLib_DX12::SamplerMinAnisotropicMirror()
 {
 	Sampler sampler = {};
 	sampler.Filter = SamplerFilter::MINIMUM_ANISOTROPIC;
@@ -376,7 +376,7 @@ Sampler DescriptorTableCache_DX12::SamplerMinAnisotropicMirror()
 	return sampler;
 }
 
-Sampler DescriptorTableCache_DX12::SamplerMinAnisotropicClamp()
+Sampler DescriptorTableLib_DX12::SamplerMinAnisotropicClamp()
 {
 	Sampler sampler = {};
 	sampler.Filter = SamplerFilter::MINIMUM_ANISOTROPIC;
@@ -391,7 +391,7 @@ Sampler DescriptorTableCache_DX12::SamplerMinAnisotropicClamp()
 	return sampler;
 }
 
-Sampler DescriptorTableCache_DX12::SamplerMinAnisotropicBorder()
+Sampler DescriptorTableLib_DX12::SamplerMinAnisotropicBorder()
 {
 	Sampler sampler = {};
 	sampler.Filter = SamplerFilter::MINIMUM_ANISOTROPIC;
@@ -406,7 +406,7 @@ Sampler DescriptorTableCache_DX12::SamplerMinAnisotropicBorder()
 	return sampler;
 }
 
-Sampler DescriptorTableCache_DX12::SamplerMaxAnisotropicWrap()
+Sampler DescriptorTableLib_DX12::SamplerMaxAnisotropicWrap()
 {
 	Sampler sampler = {};
 	sampler.Filter = SamplerFilter::MAXIMUM_ANISOTROPIC;
@@ -421,7 +421,7 @@ Sampler DescriptorTableCache_DX12::SamplerMaxAnisotropicWrap()
 	return sampler;
 }
 
-Sampler DescriptorTableCache_DX12::SamplerMaxAnisotropicMirror()
+Sampler DescriptorTableLib_DX12::SamplerMaxAnisotropicMirror()
 {
 	Sampler sampler = {};
 	sampler.Filter = SamplerFilter::MAXIMUM_ANISOTROPIC;
@@ -436,7 +436,7 @@ Sampler DescriptorTableCache_DX12::SamplerMaxAnisotropicMirror()
 	return sampler;
 }
 
-Sampler DescriptorTableCache_DX12::SamplerMaxAnisotropicClamp()
+Sampler DescriptorTableLib_DX12::SamplerMaxAnisotropicClamp()
 {
 	Sampler sampler = {};
 	sampler.Filter = SamplerFilter::MAXIMUM_ANISOTROPIC;
@@ -451,7 +451,7 @@ Sampler DescriptorTableCache_DX12::SamplerMaxAnisotropicClamp()
 	return sampler;
 }
 
-Sampler DescriptorTableCache_DX12::SamplerMaxAnisotropicBorder()
+Sampler DescriptorTableLib_DX12::SamplerMaxAnisotropicBorder()
 {
 	Sampler sampler = {};
 	sampler.Filter = SamplerFilter::MAXIMUM_ANISOTROPIC;

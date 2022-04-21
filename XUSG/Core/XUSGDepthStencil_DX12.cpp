@@ -8,7 +8,7 @@ using namespace std;
 using namespace XUSG;
 using namespace Graphics;
 
-Graphics::DepthStencil PipelineCache_DX12::DepthStencilDefault()
+Graphics::DepthStencil PipelineLib_DX12::DepthStencilDefault()
 {
 	DepthStencil depthStencil;
 	depthStencil.DepthEnable = true;
@@ -26,7 +26,7 @@ Graphics::DepthStencil PipelineCache_DX12::DepthStencilDefault()
 	return depthStencil;
 }
 
-Graphics::DepthStencil PipelineCache_DX12::DepthStencilNone()
+Graphics::DepthStencil PipelineLib_DX12::DepthStencilNone()
 {
 	auto depthStencil = DepthStencilDefault();
 	depthStencil.DepthEnable = false;
@@ -35,7 +35,7 @@ Graphics::DepthStencil PipelineCache_DX12::DepthStencilNone()
 	return depthStencil;
 }
 
-Graphics::DepthStencil PipelineCache_DX12::DepthRead()
+Graphics::DepthStencil PipelineLib_DX12::DepthRead()
 {
 	auto depthStencil = DepthStencilDefault();
 	depthStencil.DepthWriteMask = false;
@@ -43,7 +43,7 @@ Graphics::DepthStencil PipelineCache_DX12::DepthRead()
 	return depthStencil;
 }
 
-Graphics::DepthStencil PipelineCache_DX12::DepthReadLessEqual()
+Graphics::DepthStencil PipelineLib_DX12::DepthReadLessEqual()
 {
 	auto depthStencil = DepthStencilDefault();
 	depthStencil.DepthWriteMask = false;
@@ -52,7 +52,7 @@ Graphics::DepthStencil PipelineCache_DX12::DepthReadLessEqual()
 	return depthStencil;
 }
 
-Graphics::DepthStencil PipelineCache_DX12::DepthReadEqual()
+Graphics::DepthStencil PipelineLib_DX12::DepthReadEqual()
 {
 	auto depthStencil = DepthStencilDefault();
 	depthStencil.DepthWriteMask = false;

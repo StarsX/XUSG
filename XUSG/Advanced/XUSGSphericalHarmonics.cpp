@@ -31,10 +31,10 @@ SphericalHarmonics::sptr SphericalHarmonics::MakeShared(API api)
 //--------------------------------------------------------------------------------------
 SphericalHarmonics_Impl::SphericalHarmonics_Impl(API api) :
 	m_api(api),
-	m_shaderPool(nullptr),
-	m_computePipelineCache(nullptr),
-	m_pipelineLayoutCache(nullptr),
-	m_descriptorTableCache(nullptr),
+	m_shaderLib(nullptr),
+	m_computePipelineLib(nullptr),
+	m_pipelineLayoutLib(nullptr),
+	m_descriptorTableLib(nullptr),
 	m_pipelineLayouts(),
 	m_pipelines(),
 	m_uavTables(),
@@ -48,17 +48,17 @@ SphericalHarmonics_Impl::~SphericalHarmonics_Impl()
 {
 }
 
-bool SphericalHarmonics_Impl::Init(const Device* pDevice, const ShaderPool::sptr& shaderPool,
-	const Compute::PipelineCache::sptr& computePipelineCache,
-	const PipelineLayoutCache::sptr& pipelineLayoutCache,
-	const DescriptorTableCache::sptr& descriptorTableCache,
+bool SphericalHarmonics_Impl::Init(const Device* pDevice, const ShaderLib::sptr& shaderLib,
+	const Compute::PipelineLib::sptr& computePipelineLib,
+	const PipelineLayoutLib::sptr& pipelineLayoutLib,
+	const DescriptorTableLib::sptr& descriptorTableLib,
 	uint8_t baseCSIndex, uint8_t descriptorPoolIndex)
 {
 	// Set shader pool and states
-	m_shaderPool = shaderPool;
-	m_computePipelineCache = computePipelineCache;
-	m_pipelineLayoutCache = pipelineLayoutCache;
-	m_descriptorTableCache = descriptorTableCache;
+	m_shaderLib = shaderLib;
+	m_computePipelineLib = computePipelineLib;
+	m_pipelineLayoutLib = pipelineLayoutLib;
+	m_descriptorTableLib = descriptorTableLib;
 	m_baseCSIndex = baseCSIndex;
 	m_descriptorPoolIndex = descriptorPoolIndex;
 
@@ -96,7 +96,7 @@ void SphericalHarmonics_Impl::Transform(CommandList* pCommandList, Resource* pRa
 	const DescriptorTable& srvTable, uint8_t order)
 {
 	// Set Descriptor pools
-	const auto descriptorPool = m_descriptorTableCache->GetDescriptorPool(CBV_SRV_UAV_POOL, m_descriptorPoolIndex);
+	const auto descriptorPool = m_descriptorTableLib->GetDescriptorPool(CBV_SRV_UAV_POOL, m_descriptorPoolIndex);
 	pCommandList->SetDescriptorPools(1, &descriptorPool);
 
 	shCubeMap(pCommandList, pRadiance, srvTable, order);
@@ -116,7 +116,7 @@ const DescriptorTable& SphericalHarmonics_Impl::GetSHCoeffSRVTable() const
 
 bool SphericalHarmonics_Impl::createPipelineLayouts()
 {
-	const auto pSampler = m_descriptorTableCache->GetSampler(ANISOTROPIC_WRAP);
+	const auto pSampler = m_descriptorTableLib->GetSampler(ANISOTROPIC_WRAP);
 
 	// SH cube map transform
 	{
@@ -127,10 +127,10 @@ bool SphericalHarmonics_Impl::createPipelineLayouts()
 		auto sampler = 0u;
 
 		// Load shader
-		XUSG_N_RETURN(m_shaderPool->CreateShader(Shader::Stage::CS, m_baseCSIndex + SH_CUBE_MAP, CSSHCubeMap, sizeof(CSSHCubeMap)), false);
+		XUSG_N_RETURN(m_shaderLib->CreateShader(Shader::Stage::CS, m_baseCSIndex + SH_CUBE_MAP, CSSHCubeMap, sizeof(CSSHCubeMap)), false);
 
 		// Get compute shader slots
-		const auto reflector = m_shaderPool->GetReflector(Shader::Stage::CS, m_baseCSIndex + SH_CUBE_MAP);
+		const auto reflector = m_shaderLib->GetReflector(Shader::Stage::CS, m_baseCSIndex + SH_CUBE_MAP);
 		if (reflector && reflector->IsValid())
 		{
 			// Get constant buffer slots
@@ -158,7 +158,7 @@ bool SphericalHarmonics_Impl::createPipelineLayouts()
 		utilPipelineLayout->SetStaticSamplers(&pSampler, 1, sampler);
 
 		XUSG_X_RETURN(m_pipelineLayouts[SH_CUBE_MAP], utilPipelineLayout->GetPipelineLayout(
-			m_pipelineLayoutCache.get(), PipelineLayoutFlag::NONE, L"SHCubeMapLayout"), false);
+			m_pipelineLayoutLib.get(), PipelineLayoutFlag::NONE, L"SHCubeMapLayout"), false);
 	}
 
 	// SH sum
@@ -170,10 +170,10 @@ bool SphericalHarmonics_Impl::createPipelineLayouts()
 		auto roWeight = roSHBuff + 1;
 
 		// Load shader
-		XUSG_N_RETURN(m_shaderPool->CreateShader(Shader::Stage::CS, m_baseCSIndex + SH_SUM, CSSHSum, sizeof(CSSHSum)), false);
+		XUSG_N_RETURN(m_shaderLib->CreateShader(Shader::Stage::CS, m_baseCSIndex + SH_SUM, CSSHSum, sizeof(CSSHSum)), false);
 
 		// Get compute shader slots
-		const auto reflector = m_shaderPool->GetReflector(Shader::Stage::CS, m_baseCSIndex + SH_SUM);
+		const auto reflector = m_shaderLib->GetReflector(Shader::Stage::CS, m_baseCSIndex + SH_SUM);
 		if (reflector && reflector->IsValid())
 		{
 			// Get constant buffer slots
@@ -200,7 +200,7 @@ bool SphericalHarmonics_Impl::createPipelineLayouts()
 		utilPipelineLayout->SetConstants(CONSTANTS, XUSG_UINT32_SIZE_OF(uint32_t[2]), cb);
 
 		XUSG_X_RETURN(m_pipelineLayouts[SH_SUM], utilPipelineLayout->GetPipelineLayout(
-			m_pipelineLayoutCache.get(), PipelineLayoutFlag::NONE, L"SHSumLayout"), false);
+			m_pipelineLayoutLib.get(), PipelineLayoutFlag::NONE, L"SHSumLayout"), false);
 	}
 
 	// SH normalization
@@ -210,10 +210,10 @@ bool SphericalHarmonics_Impl::createPipelineLayouts()
 		auto roWeight = roSHBuff + 1;
 
 		// Load shader
-		XUSG_N_RETURN(m_shaderPool->CreateShader(Shader::Stage::CS, m_baseCSIndex + SH_NORMALIZE, CSSHNormalize, sizeof(CSSHNormalize)), false);
+		XUSG_N_RETURN(m_shaderLib->CreateShader(Shader::Stage::CS, m_baseCSIndex + SH_NORMALIZE, CSSHNormalize, sizeof(CSSHNormalize)), false);
 
 		// Get compute shader slots
-		const auto reflector = m_shaderPool->GetReflector(Shader::Stage::CS, m_baseCSIndex + SH_NORMALIZE);
+		const auto reflector = m_shaderLib->GetReflector(Shader::Stage::CS, m_baseCSIndex + SH_NORMALIZE);
 		if (reflector && reflector->IsValid())
 		{
 			// Get UAV slots
@@ -232,7 +232,7 @@ bool SphericalHarmonics_Impl::createPipelineLayouts()
 		utilPipelineLayout->SetRange(SRV_BUFFERS, DescriptorType::SRV, 2, roSHBuff);
 
 		XUSG_X_RETURN(m_pipelineLayouts[SH_NORMALIZE], utilPipelineLayout->GetPipelineLayout(
-			m_pipelineLayoutCache.get(), PipelineLayoutFlag::NONE, L"SHNormalizeLayout"), false);
+			m_pipelineLayoutLib.get(), PipelineLayoutFlag::NONE, L"SHNormalizeLayout"), false);
 	}
 
 	return true;
@@ -244,24 +244,24 @@ bool SphericalHarmonics_Impl::createPipelines()
 	{
 		const auto state = Compute::State::MakeUnique();
 		state->SetPipelineLayout(m_pipelineLayouts[SH_CUBE_MAP]);
-		state->SetShader(m_shaderPool->GetShader(Shader::Stage::CS, m_baseCSIndex + SH_CUBE_MAP));
-		XUSG_X_RETURN(m_pipelines[SH_CUBE_MAP], state->GetPipeline(m_computePipelineCache.get(), L"SHCubeMap"), false);
+		state->SetShader(m_shaderLib->GetShader(Shader::Stage::CS, m_baseCSIndex + SH_CUBE_MAP));
+		XUSG_X_RETURN(m_pipelines[SH_CUBE_MAP], state->GetPipeline(m_computePipelineLib.get(), L"SHCubeMap"), false);
 	}
 
 	// SH sum
 	{
 		const auto state = Compute::State::MakeUnique();
 		state->SetPipelineLayout(m_pipelineLayouts[SH_SUM]);
-		state->SetShader(m_shaderPool->GetShader(Shader::Stage::CS, m_baseCSIndex + SH_SUM));
-		XUSG_X_RETURN(m_pipelines[SH_SUM], state->GetPipeline(m_computePipelineCache.get(), L"SHSum"), false);
+		state->SetShader(m_shaderLib->GetShader(Shader::Stage::CS, m_baseCSIndex + SH_SUM));
+		XUSG_X_RETURN(m_pipelines[SH_SUM], state->GetPipeline(m_computePipelineLib.get(), L"SHSum"), false);
 	}
 
 	// SH normalization
 	{
 		const auto state = Compute::State::MakeUnique();
 		state->SetPipelineLayout(m_pipelineLayouts[SH_NORMALIZE]);
-		state->SetShader(m_shaderPool->GetShader(Shader::Stage::CS, m_baseCSIndex + SH_NORMALIZE));
-		XUSG_X_RETURN(m_pipelines[SH_NORMALIZE], state->GetPipeline(m_computePipelineCache.get(), L"SHNormalize"), false);
+		state->SetShader(m_shaderLib->GetShader(Shader::Stage::CS, m_baseCSIndex + SH_NORMALIZE));
+		XUSG_X_RETURN(m_pipelines[SH_NORMALIZE], state->GetPipeline(m_computePipelineLib.get(), L"SHNormalize"), false);
 	}
 
 	return true;
@@ -279,7 +279,7 @@ bool SphericalHarmonics_Impl::createDescriptorTables()
 			m_weightSH[i]->GetUAV()
 		};
 		descriptorTable->SetDescriptors(0, static_cast<uint32_t>(size(descriptors)), descriptors, m_descriptorPoolIndex);
-		XUSG_X_RETURN(m_uavTables[UAV_SRV_SH + i], descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get()), false);
+		XUSG_X_RETURN(m_uavTables[UAV_SRV_SH + i], descriptorTable->GetCbvSrvUavTable(m_descriptorTableLib.get()), false);
 	}
 
 	// Create SH SRV tables
@@ -292,7 +292,7 @@ bool SphericalHarmonics_Impl::createDescriptorTables()
 			m_weightSH[i]->GetSRV()
 		};
 		descriptorTable->SetDescriptors(0, static_cast<uint32_t>(size(descriptors)), descriptors, m_descriptorPoolIndex);
-		XUSG_X_RETURN(m_srvTables[UAV_SRV_SH + i], descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get()), false);
+		XUSG_X_RETURN(m_srvTables[UAV_SRV_SH + i], descriptorTable->GetCbvSrvUavTable(m_descriptorTableLib.get()), false);
 	}
 
 	return true;

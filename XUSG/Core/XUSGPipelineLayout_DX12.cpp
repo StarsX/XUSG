@@ -90,28 +90,28 @@ void Util::PipelineLayout_DX12::SetStaticSamplers(const Sampler* const* ppSample
 	}
 }
 
-PipelineLayout Util::PipelineLayout_DX12::CreatePipelineLayout(PipelineLayoutCache* pPipelineLayoutCache,
+PipelineLayout Util::PipelineLayout_DX12::CreatePipelineLayout(PipelineLayoutLib* pPipelineLayoutLib,
 	PipelineLayoutFlag flags, const wchar_t* name)
 {
-	return pPipelineLayoutCache->CreatePipelineLayout(this, flags, name);
+	return pPipelineLayoutLib->CreatePipelineLayout(this, flags, name);
 }
 
-PipelineLayout Util::PipelineLayout_DX12::GetPipelineLayout(PipelineLayoutCache* pPipelineLayoutCache,
+PipelineLayout Util::PipelineLayout_DX12::GetPipelineLayout(PipelineLayoutLib* pPipelineLayoutLib,
 	PipelineLayoutFlag flags, const wchar_t* name)
 {
-	return pPipelineLayoutCache->GetPipelineLayout(this, flags, name);
+	return pPipelineLayoutLib->GetPipelineLayout(this, flags, name);
 }
 
 DescriptorTableLayout Util::PipelineLayout_DX12::CreateDescriptorTableLayout(uint32_t index,
-	PipelineLayoutCache* pPipelineLayoutCache) const
+	PipelineLayoutLib* pPipelineLayoutLib) const
 {
-	return pPipelineLayoutCache->CreateDescriptorTableLayout(index, this);
+	return pPipelineLayoutLib->CreateDescriptorTableLayout(index, this);
 }
 
 DescriptorTableLayout Util::PipelineLayout_DX12::GetDescriptorTableLayout(uint32_t index,
-	PipelineLayoutCache* pPipelineLayoutCache) const
+	PipelineLayoutLib* pPipelineLayoutLib) const
 {
-	return pPipelineLayoutCache->GetDescriptorTableLayout(index, this);
+	return pPipelineLayoutLib->GetDescriptorTableLayout(index, this);
 }
 
 const vector<string>& Util::PipelineLayout_DX12::GetDescriptorTableLayoutKeys() const
@@ -119,9 +119,9 @@ const vector<string>& Util::PipelineLayout_DX12::GetDescriptorTableLayoutKeys() 
 	return m_descriptorTableLayoutKeys;
 }
 
-string& Util::PipelineLayout_DX12::GetPipelineLayoutKey(PipelineLayoutCache* pPipelineLayoutCache)
+string& Util::PipelineLayout_DX12::GetPipelineLayoutKey(PipelineLayoutLib* pPipelineLayoutLib)
 {
-	if (!m_isTableLayoutsCompleted && pPipelineLayoutCache)
+	if (!m_isTableLayoutsCompleted && pPipelineLayoutLib)
 	{
 		const auto staticSamplerKeyOffset = DescriptorTableLayoutOffset + sizeof(DescriptorTableLayout) * m_descriptorTableLayoutKeys.size();
 		m_pipelineLayoutKey.resize(staticSamplerKeyOffset + sizeof(StaticSampler) * m_staticSamplers.size());
@@ -132,7 +132,7 @@ string& Util::PipelineLayout_DX12::GetPipelineLayoutKey(PipelineLayoutCache* pPi
 
 		descriptorTableLayoutCount = static_cast<uint16_t>(m_descriptorTableLayoutKeys.size());
 		for (auto i = 0u; i < descriptorTableLayoutCount; ++i)
-			pDescriptorTableLayouts[i] = GetDescriptorTableLayout(i, pPipelineLayoutCache);
+			pDescriptorTableLayouts[i] = GetDescriptorTableLayout(i, pPipelineLayoutLib);
 
 		for (auto i = 0u; i < m_staticSamplers.size(); ++i)
 			pStaticSamplers[i] = m_staticSamplers[i];
@@ -161,34 +161,34 @@ std::string& Util::PipelineLayout_DX12::checkKeyStorage(uint32_t index)
 
 //--------------------------------------------------------------------------------------
 
-PipelineLayoutCache_DX12::PipelineLayoutCache_DX12() :
+PipelineLayoutLib_DX12::PipelineLayoutLib_DX12() :
 	m_device(nullptr),
 	m_rootSignatures(0)
 {
 }
 
-PipelineLayoutCache_DX12::PipelineLayoutCache_DX12(const Device* pDevice) :
-	PipelineLayoutCache()
+PipelineLayoutLib_DX12::PipelineLayoutLib_DX12(const Device* pDevice) :
+	PipelineLayoutLib()
 {
 	SetDevice(pDevice);
 }
 
-PipelineLayoutCache_DX12::~PipelineLayoutCache_DX12()
+PipelineLayoutLib_DX12::~PipelineLayoutLib_DX12()
 {
 }
 
-void PipelineLayoutCache_DX12::SetDevice(const Device* pDevice)
+void PipelineLayoutLib_DX12::SetDevice(const Device* pDevice)
 {
 	m_device = pDevice->GetHandle();
 	assert(m_device);
 }
 
-void PipelineLayoutCache_DX12::SetPipelineLayout(const string& key, const PipelineLayout& pipelineLayout)
+void PipelineLayoutLib_DX12::SetPipelineLayout(const string& key, const PipelineLayout& pipelineLayout)
 {
 	m_rootSignatures[key] = pipelineLayout;
 }
 
-void PipelineLayoutCache_DX12::GetRootParameter(CD3DX12_ROOT_PARAMETER1& rootParam, vector<CD3DX12_DESCRIPTOR_RANGE1>& descriptorRanges,
+void PipelineLayoutLib_DX12::GetRootParameter(CD3DX12_ROOT_PARAMETER1& rootParam, vector<CD3DX12_DESCRIPTOR_RANGE1>& descriptorRanges,
 	const DescriptorTableLayout& descriptorTableLayout) const
 {
 	static const D3D12_DESCRIPTOR_RANGE_TYPE rangeTypes[] =
@@ -255,7 +255,7 @@ void PipelineLayoutCache_DX12::GetRootParameter(CD3DX12_ROOT_PARAMETER1& rootPar
 	else rootParam = {};
 }
 
-void PipelineLayoutCache_DX12::GetStaticSampler(CD3DX12_STATIC_SAMPLER_DESC& samplerDescs, const StaticSampler& staticSampler) const
+void PipelineLayoutLib_DX12::GetStaticSampler(CD3DX12_STATIC_SAMPLER_DESC& samplerDescs, const StaticSampler& staticSampler) const
 {
 	const auto borderColor = staticSampler.pSampler->BorderColor[3] ?
 		(staticSampler.pSampler->BorderColor[0] ? D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE : D3D12_STATIC_BORDER_COLOR_OPAQUE_BLACK) :
@@ -276,7 +276,7 @@ void PipelineLayoutCache_DX12::GetStaticSampler(CD3DX12_STATIC_SAMPLER_DESC& sam
 		staticSampler.Space);
 }
 
-PipelineLayout PipelineLayoutCache_DX12::CreatePipelineLayout(Util::PipelineLayout* pUtil,
+PipelineLayout PipelineLayoutLib_DX12::CreatePipelineLayout(Util::PipelineLayout* pUtil,
 	PipelineLayoutFlag flags, const wchar_t* name, uint32_t nodeMask)
 {
 	auto& pipelineLayoutKey = pUtil->GetPipelineLayoutKey(this);
@@ -285,7 +285,7 @@ PipelineLayout PipelineLayoutCache_DX12::CreatePipelineLayout(Util::PipelineLayo
 	return createPipelineLayout(pipelineLayoutKey, name, nodeMask);
 }
 
-PipelineLayout PipelineLayoutCache_DX12::GetPipelineLayout(Util::PipelineLayout* pUtil,
+PipelineLayout PipelineLayoutLib_DX12::GetPipelineLayout(Util::PipelineLayout* pUtil,
 	PipelineLayoutFlag flags, const wchar_t* name, bool create, uint32_t nodeMask)
 {
 	auto& pipelineLayoutKey = pUtil->GetPipelineLayoutKey(this);
@@ -294,7 +294,7 @@ PipelineLayout PipelineLayoutCache_DX12::GetPipelineLayout(Util::PipelineLayout*
 	return getPipelineLayout(pipelineLayoutKey, name, create, nodeMask);
 }
 
-PipelineLayout PipelineLayoutCache_DX12::CreateRootSignature(const void* pBlobSignature,
+PipelineLayout PipelineLayoutLib_DX12::CreateRootSignature(const void* pBlobSignature,
 	size_t size, const wchar_t* name, uint32_t nodeMask)
 {
 	string key(sizeof(pBlobSignature), 0);
@@ -303,7 +303,7 @@ PipelineLayout PipelineLayoutCache_DX12::CreateRootSignature(const void* pBlobSi
 	return createRootSignature(key, pBlobSignature, size, name, nodeMask);
 }
 
-PipelineLayout PipelineLayoutCache_DX12::GetRootSignature(const void* pBlobSignature,
+PipelineLayout PipelineLayoutLib_DX12::GetRootSignature(const void* pBlobSignature,
 	size_t size, const wchar_t* name, bool create, uint32_t nodeMask)
 {
 	string key(sizeof(pBlobSignature), 0);
@@ -312,21 +312,21 @@ PipelineLayout PipelineLayoutCache_DX12::GetRootSignature(const void* pBlobSigna
 	return getRootSignature(key, pBlobSignature, size, name, create, nodeMask);
 }
 
-DescriptorTableLayout PipelineLayoutCache_DX12::CreateDescriptorTableLayout(uint32_t index, const Util::PipelineLayout* pUtil)
+DescriptorTableLayout PipelineLayoutLib_DX12::CreateDescriptorTableLayout(uint32_t index, const Util::PipelineLayout* pUtil)
 {
 	const auto& keys = pUtil->GetDescriptorTableLayoutKeys();
 
 	return keys.size() > index ? createDescriptorTableLayout(keys[index]) : nullptr;
 }
 
-DescriptorTableLayout PipelineLayoutCache_DX12::GetDescriptorTableLayout(uint32_t index, const Util::PipelineLayout* pUtil)
+DescriptorTableLayout PipelineLayoutLib_DX12::GetDescriptorTableLayout(uint32_t index, const Util::PipelineLayout* pUtil)
 {
 	const auto& keys = pUtil->GetDescriptorTableLayoutKeys();
 
 	return keys.size() > index ? getDescriptorTableLayout(keys[index]) : nullptr;
 }
 
-D3D_ROOT_SIGNATURE_VERSION PipelineLayoutCache_DX12::GetRootSignatureHighestVersion() const
+D3D_ROOT_SIGNATURE_VERSION PipelineLayoutLib_DX12::GetRootSignatureHighestVersion() const
 {
 	D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = {};
 
@@ -337,7 +337,7 @@ D3D_ROOT_SIGNATURE_VERSION PipelineLayoutCache_DX12::GetRootSignatureHighestVers
 	return D3D_ROOT_SIGNATURE_VERSION_1_1;
 }
 
-PipelineLayout PipelineLayoutCache_DX12::createPipelineLayout(const string& key, const wchar_t* name, uint32_t nodeMask)
+PipelineLayout PipelineLayoutLib_DX12::createPipelineLayout(const string& key, const wchar_t* name, uint32_t nodeMask)
 {
 	const auto highestVersion = GetRootSignatureHighestVersion();
 
@@ -369,7 +369,7 @@ PipelineLayout PipelineLayoutCache_DX12::createPipelineLayout(const string& key,
 	return createRootSignature(key, signature->GetBufferPointer(), signature->GetBufferSize(), name, nodeMask);
 }
 
-PipelineLayout PipelineLayoutCache_DX12::createRootSignature(const string& key, const void* pBlobSignature,
+PipelineLayout PipelineLayoutLib_DX12::createRootSignature(const string& key, const void* pBlobSignature,
 	size_t size, const wchar_t* name, uint32_t nodeMask)
 {
 	com_ptr<ID3D12RootSignature> rootSignature;
@@ -380,7 +380,7 @@ PipelineLayout PipelineLayoutCache_DX12::createRootSignature(const string& key, 
 	return rootSignature.get();
 }
 
-PipelineLayout PipelineLayoutCache_DX12::getPipelineLayout(const string& key, const wchar_t* name, bool create, uint32_t nodeMask)
+PipelineLayout PipelineLayoutLib_DX12::getPipelineLayout(const string& key, const wchar_t* name, bool create, uint32_t nodeMask)
 {
 	const auto layoutIter = m_rootSignatures.find(key);
 
@@ -394,7 +394,7 @@ PipelineLayout PipelineLayoutCache_DX12::getPipelineLayout(const string& key, co
 	return layoutIter->second.get();
 }
 
-PipelineLayout PipelineLayoutCache_DX12::getRootSignature(const string& key, const void* pBlobSignature,
+PipelineLayout PipelineLayoutLib_DX12::getRootSignature(const string& key, const void* pBlobSignature,
 	size_t size, const wchar_t* name, bool create, uint32_t nodeMask)
 {
 	const auto layoutIter = m_rootSignatures.find(key);
@@ -409,7 +409,7 @@ PipelineLayout PipelineLayoutCache_DX12::getRootSignature(const string& key, con
 	return layoutIter->second.get();
 }
 
-DescriptorTableLayout PipelineLayoutCache_DX12::createDescriptorTableLayout(const string& key)
+DescriptorTableLayout PipelineLayoutLib_DX12::createDescriptorTableLayout(const string& key)
 {
 	const auto layout = &key;
 	m_descriptorTableLayouts[key] = nullptr;
@@ -419,7 +419,7 @@ DescriptorTableLayout PipelineLayoutCache_DX12::createDescriptorTableLayout(cons
 	return layoutPtrIter->second;
 };
 
-DescriptorTableLayout PipelineLayoutCache_DX12::getDescriptorTableLayout(const string& key)
+DescriptorTableLayout PipelineLayoutLib_DX12::getDescriptorTableLayout(const string& key)
 {
 	const auto layoutPtrIter = m_descriptorTableLayouts.find(key);
 
@@ -429,7 +429,7 @@ DescriptorTableLayout PipelineLayoutCache_DX12::getDescriptorTableLayout(const s
 	return layoutPtrIter->second;
 }
 
-D3D12_SHADER_VISIBILITY PipelineLayoutCache_DX12::getShaderVisibility(Shader::Stage stage) const
+D3D12_SHADER_VISIBILITY PipelineLayoutLib_DX12::getShaderVisibility(Shader::Stage stage) const
 {
 	const D3D12_SHADER_VISIBILITY visibilities[] =
 	{

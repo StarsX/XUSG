@@ -10,33 +10,33 @@ using namespace std;
 using namespace XUSG;
 using namespace Shader;
 
-ShaderPool_DX12::ShaderPool_DX12() :
+ShaderLib_DX12::ShaderLib_DX12() :
 	m_shaders(),
 	m_reflectors()
 {
 }
 
-ShaderPool_DX12::~ShaderPool_DX12()
+ShaderLib_DX12::~ShaderLib_DX12()
 {
 }
 
-void ShaderPool_DX12::SetShader(Shader::Stage stage, uint32_t index, const Blob& shader)
+void ShaderLib_DX12::SetShader(Shader::Stage stage, uint32_t index, const Blob& shader)
 {
 	checkShaderStorage(stage, index) = shader;
 }
 
-void ShaderPool_DX12::SetShader(Shader::Stage stage, uint32_t index, const Blob& shader, const Reflector::sptr& reflector)
+void ShaderLib_DX12::SetShader(Shader::Stage stage, uint32_t index, const Blob& shader, const Reflector::sptr& reflector)
 {
 	SetShader(stage, index, shader);
 	SetReflector(stage, index, reflector);
 }
 
-void ShaderPool_DX12::SetReflector(Shader::Stage stage, uint32_t index, const Reflector::sptr& reflector)
+void ShaderLib_DX12::SetReflector(Shader::Stage stage, uint32_t index, const Reflector::sptr& reflector)
 {
 	checkReflectorStorage(stage, index) = reflector;
 }
 
-Blob ShaderPool_DX12::CreateShader(Shader::Stage stage, uint32_t index, const wstring& fileName)
+Blob ShaderLib_DX12::CreateShader(Shader::Stage stage, uint32_t index, const wstring& fileName)
 {
 	auto& shader = checkShaderStorage(stage, index);
 	V_RETURN(D3DReadFileToBlob(fileName.c_str(), shader.put()), cerr, nullptr);
@@ -48,7 +48,7 @@ Blob ShaderPool_DX12::CreateShader(Shader::Stage stage, uint32_t index, const ws
 	return shader.get();
 }
 
-Blob ShaderPool_DX12::CreateShader(Shader::Stage stage, uint32_t index, const uint8_t* pData, size_t size)
+Blob ShaderLib_DX12::CreateShader(Shader::Stage stage, uint32_t index, const uint8_t* pData, size_t size)
 {
 	auto& shader = checkShaderStorage(stage, index);
 	V_RETURN(D3DCreateBlob(size, shader.put()), cerr, nullptr);
@@ -61,17 +61,17 @@ Blob ShaderPool_DX12::CreateShader(Shader::Stage stage, uint32_t index, const ui
 	return shader.get();
 }
 
-Blob ShaderPool_DX12::GetShader(Shader::Stage stage, uint32_t index) const
+Blob ShaderLib_DX12::GetShader(Shader::Stage stage, uint32_t index) const
 {
 	return index < m_shaders[stage].size() ? m_shaders[stage][index].get() : nullptr;
 }
 
-Reflector::sptr ShaderPool_DX12::GetReflector(Shader::Stage stage, uint32_t index) const
+Reflector::sptr ShaderLib_DX12::GetReflector(Shader::Stage stage, uint32_t index) const
 {
 	return index < m_reflectors[stage].size() ? m_reflectors[stage][index] : nullptr;
 }
 
-com_ptr<ID3DBlob>& ShaderPool_DX12::checkShaderStorage(Shader::Stage stage, uint32_t index)
+com_ptr<ID3DBlob>& ShaderLib_DX12::checkShaderStorage(Shader::Stage stage, uint32_t index)
 {
 	if (index >= m_shaders[stage].size())
 		m_shaders[stage].resize(index + 1);
@@ -79,7 +79,7 @@ com_ptr<ID3DBlob>& ShaderPool_DX12::checkShaderStorage(Shader::Stage stage, uint
 	return m_shaders[stage][index];
 }
 
-Reflector::sptr& ShaderPool_DX12::checkReflectorStorage(Shader::Stage stage, uint32_t index)
+Reflector::sptr& ShaderLib_DX12::checkReflectorStorage(Shader::Stage stage, uint32_t index)
 {
 	if (index >= m_reflectors[stage].size())
 		m_reflectors[stage].resize(index + 1);

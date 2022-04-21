@@ -8,12 +8,12 @@
 
 namespace XUSG
 {
-	class ShaderPool_DX12:
-		public virtual ShaderPool
+	class ShaderLib_DX12:
+		public virtual ShaderLib
 	{
 	public:
-		ShaderPool_DX12();
-		virtual ~ShaderPool_DX12();
+		ShaderLib_DX12();
+		virtual ~ShaderLib_DX12();
 
 		void SetShader(Shader::Stage stage, uint32_t index, const Blob& shader);
 		void SetShader(Shader::Stage stage, uint32_t index, const Blob& shader, const Reflector::sptr& reflector);

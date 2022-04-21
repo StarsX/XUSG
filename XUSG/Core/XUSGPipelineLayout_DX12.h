@@ -38,16 +38,16 @@ namespace XUSG
 			void SetStaticSamplers(const Sampler* const* ppSamplers, uint32_t num, uint32_t baseBinding,
 				uint32_t space = 0, Shader::Stage stage = Shader::Stage::ALL);
 
-			XUSG::PipelineLayout CreatePipelineLayout(PipelineLayoutCache* pPipelineLayoutCache, PipelineLayoutFlag flags,
+			XUSG::PipelineLayout CreatePipelineLayout(PipelineLayoutLib* pPipelineLayoutLib, PipelineLayoutFlag flags,
 				const wchar_t* name = nullptr);
-			XUSG::PipelineLayout GetPipelineLayout(PipelineLayoutCache* pPipelineLayoutCache, PipelineLayoutFlag flags,
+			XUSG::PipelineLayout GetPipelineLayout(PipelineLayoutLib* pPipelineLayoutLib, PipelineLayoutFlag flags,
 				const wchar_t* name = nullptr);
 
-			DescriptorTableLayout CreateDescriptorTableLayout(uint32_t index, PipelineLayoutCache* pPipelineLayoutCache) const;
-			DescriptorTableLayout GetDescriptorTableLayout(uint32_t index, PipelineLayoutCache* pPipelineLayoutCache) const;
+			DescriptorTableLayout CreateDescriptorTableLayout(uint32_t index, PipelineLayoutLib* pPipelineLayoutLib) const;
+			DescriptorTableLayout GetDescriptorTableLayout(uint32_t index, PipelineLayoutLib* pPipelineLayoutLib) const;
 
 			const std::vector<std::string>& GetDescriptorTableLayoutKeys() const;
-			std::string& GetPipelineLayoutKey(PipelineLayoutCache* pPipelineLayoutCache);
+			std::string& GetPipelineLayoutKey(PipelineLayoutLib* pPipelineLayoutLib);
 
 			static const uint8_t DescriptorTableLayoutCountOffset = sizeof(uint16_t);
 			static const uint8_t DescriptorTableLayoutOffset = DescriptorTableLayoutCountOffset + sizeof(uint16_t);
@@ -63,13 +63,13 @@ namespace XUSG
 		};
 	}
 
-	class PipelineLayoutCache_DX12 :
-		public virtual PipelineLayoutCache
+	class PipelineLayoutLib_DX12 :
+		public virtual PipelineLayoutLib
 	{
 	public:
-		PipelineLayoutCache_DX12();
-		PipelineLayoutCache_DX12(const Device* pDevice);
-		virtual ~PipelineLayoutCache_DX12();
+		PipelineLayoutLib_DX12();
+		PipelineLayoutLib_DX12(const Device* pDevice);
+		virtual ~PipelineLayoutLib_DX12();
 
 		void SetDevice(const Device* pDevice);
 		void SetPipelineLayout(const std::string& key, const PipelineLayout& pipelineLayout);

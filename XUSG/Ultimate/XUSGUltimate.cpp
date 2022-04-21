@@ -51,22 +51,22 @@ MeshShader::State::sptr MeshShader::State::MakeShared(API api)
 	return make_shared<State_DX12>();
 }
 
-MeshShader::PipelineCache::uptr MeshShader::PipelineCache::MakeUnique(API api)
+MeshShader::PipelineLib::uptr MeshShader::PipelineLib::MakeUnique(API api)
 {
-	return make_unique<PipelineCache_DX12>();
+	return make_unique<PipelineLib_DX12>();
 }
 
-MeshShader::PipelineCache::sptr MeshShader::PipelineCache::MakeShared(API api)
+MeshShader::PipelineLib::sptr MeshShader::PipelineLib::MakeShared(API api)
 {
-	return make_shared<PipelineCache_DX12>();
+	return make_shared<PipelineLib_DX12>();
 }
 
-MeshShader::PipelineCache::uptr MeshShader::PipelineCache::MakeUnique(const Device* pDevice, API api)
+MeshShader::PipelineLib::uptr MeshShader::PipelineLib::MakeUnique(const Device* pDevice, API api)
 {
-	return make_unique<PipelineCache_DX12>(pDevice);
+	return make_unique<PipelineLib_DX12>(pDevice);
 }
 
-MeshShader::PipelineCache::sptr MeshShader::PipelineCache::MakeShared(const Device* pDevice, API api)
+MeshShader::PipelineLib::sptr MeshShader::PipelineLib::MakeShared(const Device* pDevice, API api)
 {
-	return make_shared<PipelineCache_DX12>(pDevice);
+	return make_shared<PipelineLib_DX12>(pDevice);
 }

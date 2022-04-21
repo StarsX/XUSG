@@ -27,7 +27,7 @@ State_DX12::~State_DX12()
 
 void State_DX12::SetPipelineLayout(const PipelineLayout& layout)
 {
-	m_pKey->PipelineLayout = layout;
+	m_pKey->Layout = layout;
 }
 
 void State_DX12::SetShader(Shader::Stage stage, const Blob& shader)
@@ -35,10 +35,10 @@ void State_DX12::SetShader(Shader::Stage stage, const Blob& shader)
 	m_pKey->Shaders[stage] = shader;
 }
 
-void State_DX12::SetCachedPipeline(const void* pCachedBlob, size_t size)
+void State_DX12::SetCachedPipeline(const void* pCachedPipeline, size_t size)
 {
-	m_pKey->pCachedBlob = pCachedBlob;
-	m_pKey->CachedBlobSize = size;
+	m_pKey->pCachedPipeline = pCachedPipeline;
+	m_pKey->CachedPipelineSize = size;
 }
 
 void State_DX12::SetNodeMask(uint32_t nodeMask)
@@ -62,20 +62,20 @@ void State_DX12::DSSetState(const DepthStencil* pDepthStencil)
 	m_pKey->pDepthStencil = pDepthStencil;
 }
 
-void State_DX12::OMSetBlendState(BlendPreset preset, PipelineCache* pPipelineCache,
+void State_DX12::OMSetBlendState(BlendPreset preset, PipelineLib* pPipelineLib,
 	uint8_t numColorRTs, uint32_t sampleMask)
 {
-	OMSetBlendState(pPipelineCache->GetBlend(preset, numColorRTs), sampleMask);
+	OMSetBlendState(pPipelineLib->GetBlend(preset, numColorRTs), sampleMask);
 }
 
-void State_DX12::RSSetState(RasterizerPreset preset, PipelineCache* pPipelineCache)
+void State_DX12::RSSetState(RasterizerPreset preset, PipelineLib* pPipelineLib)
 {
-	RSSetState(pPipelineCache->GetRasterizer(preset));
+	RSSetState(pPipelineLib->GetRasterizer(preset));
 }
 
-void State_DX12::DSSetState(DepthStencilPreset preset, PipelineCache* pPipelineCache)
+void State_DX12::DSSetState(DepthStencilPreset preset, PipelineLib* pPipelineLib)
 {
-	DSSetState(pPipelineCache->GetDepthStencil(preset));
+	DSSetState(pPipelineLib->GetDepthStencil(preset));
 }
 
 void State_DX12::IASetInputLayout(const InputLayout* pLayout)
@@ -122,14 +122,14 @@ void State_DX12::OMSetSample(uint8_t count, uint8_t quality)
 	m_pKey->SampleQuality = quality;
 }
 
-Pipeline State_DX12::CreatePipeline(PipelineCache* pPipelineCache, const wchar_t* name) const
+Pipeline State_DX12::CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name) const
 {
-	return pPipelineCache->CreatePipeline(this, name);
+	return pPipelineLib->CreatePipeline(this, name);
 }
 
-Pipeline State_DX12::GetPipeline(PipelineCache* pPipelineCache, const wchar_t* name) const
+Pipeline State_DX12::GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name) const
 {
-	return pPipelineCache->GetPipeline(this, name);
+	return pPipelineLib->GetPipeline(this, name);
 }
 
 const string& State_DX12::GetKey() const
@@ -139,7 +139,7 @@ const string& State_DX12::GetKey() const
 
 //--------------------------------------------------------------------------------------
 
-PipelineCache_DX12::PipelineCache_DX12() :
+PipelineLib_DX12::PipelineLib_DX12() :
 	m_device(nullptr),
 	m_pipelines(),
 	m_blends(),
@@ -177,53 +177,53 @@ PipelineCache_DX12::PipelineCache_DX12() :
 	m_pfnDepthStencils[DepthStencilPreset::DEPTH_READ_EQUAL] = DepthReadEqual;
 }
 
-PipelineCache_DX12::PipelineCache_DX12(const Device* pDevice) :
-	PipelineCache_DX12()
+PipelineLib_DX12::PipelineLib_DX12(const Device* pDevice) :
+	PipelineLib_DX12()
 {
 	SetDevice(pDevice);
 }
 
-PipelineCache_DX12::~PipelineCache_DX12()
+PipelineLib_DX12::~PipelineLib_DX12()
 {
 }
 
-void PipelineCache_DX12::SetDevice(const Device* pDevice)
+void PipelineLib_DX12::SetDevice(const Device* pDevice)
 {
 	m_device = pDevice->GetHandle();
 	assert(m_device);
 }
 
-void PipelineCache_DX12::SetPipeline(const string& key, const Pipeline& pipeline)
+void PipelineLib_DX12::SetPipeline(const string& key, const Pipeline& pipeline)
 {
 	m_pipelines[key] = pipeline;
 }
 
-void PipelineCache_DX12::SetInputLayout(uint32_t index, const InputElement* pElements, uint32_t numElements)
+void PipelineLib_DX12::SetInputLayout(uint32_t index, const InputElement* pElements, uint32_t numElements)
 {
 	m_inputLayoutPool.SetLayout(index, pElements, numElements);
 }
 
-const InputLayout* PipelineCache_DX12::GetInputLayout(uint32_t index) const
+const InputLayout* PipelineLib_DX12::GetInputLayout(uint32_t index) const
 {
 	return m_inputLayoutPool.GetLayout(index);
 }
 
-const InputLayout* PipelineCache_DX12::CreateInputLayout(const InputElement* pElements, uint32_t numElements)
+const InputLayout* PipelineLib_DX12::CreateInputLayout(const InputElement* pElements, uint32_t numElements)
 {
 	return m_inputLayoutPool.CreateLayout(pElements, numElements);
 }
 
-Pipeline PipelineCache_DX12::CreatePipeline(const State* pState, const wchar_t* name)
+Pipeline PipelineLib_DX12::CreatePipeline(const State* pState, const wchar_t* name)
 {
 	return createPipeline(pState->GetKey(), name);
 }
 
-Pipeline PipelineCache_DX12::GetPipeline(const State* pState, const wchar_t* name)
+Pipeline PipelineLib_DX12::GetPipeline(const State* pState, const wchar_t* name)
 {
 	return getPipeline(pState->GetKey(), name);
 }
 
-const Blend* PipelineCache_DX12::GetBlend(BlendPreset preset, uint8_t numColorRTs)
+const Blend* PipelineLib_DX12::GetBlend(BlendPreset preset, uint8_t numColorRTs)
 {
 	if (m_blends[preset] == nullptr)
 		m_blends[preset] = make_unique<Blend>(m_pfnBlends[preset](numColorRTs));
@@ -231,7 +231,7 @@ const Blend* PipelineCache_DX12::GetBlend(BlendPreset preset, uint8_t numColorRT
 	return m_blends[preset].get();
 }
 
-const Rasterizer* PipelineCache_DX12::GetRasterizer(RasterizerPreset preset)
+const Rasterizer* PipelineLib_DX12::GetRasterizer(RasterizerPreset preset)
 {
 	if (m_rasterizers[preset] == nullptr)
 		m_rasterizers[preset] = make_unique<Rasterizer>(m_pfnRasterizers[preset]());
@@ -239,7 +239,7 @@ const Rasterizer* PipelineCache_DX12::GetRasterizer(RasterizerPreset preset)
 	return m_rasterizers[preset].get();
 }
 
-const Graphics::DepthStencil* PipelineCache_DX12::GetDepthStencil(DepthStencilPreset preset)
+const Graphics::DepthStencil* PipelineLib_DX12::GetDepthStencil(DepthStencilPreset preset)
 {
 	if (m_depthStencils[preset] == nullptr)
 		m_depthStencils[preset] = make_unique<DepthStencil>(m_pfnDepthStencils[preset]());
@@ -247,13 +247,13 @@ const Graphics::DepthStencil* PipelineCache_DX12::GetDepthStencil(DepthStencilPr
 	return m_depthStencils[preset].get();
 }
 
-Pipeline PipelineCache_DX12::createPipeline(const std::string& key, const wchar_t* name)
+Pipeline PipelineLib_DX12::createPipeline(const std::string& key, const wchar_t* name)
 {
 	// Fill desc
 	const auto pDesc = reinterpret_cast<const PipelineDesc*>(key.data());
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC desc = {};
-	if (pDesc->PipelineLayout)
-		desc.pRootSignature = static_cast<ID3D12RootSignature*>(pDesc->PipelineLayout);
+	if (pDesc->Layout)
+		desc.pRootSignature = static_cast<ID3D12RootSignature*>(pDesc->Layout);
 
 	if (pDesc->Shaders[Shader::Stage::VS])
 		desc.VS = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pDesc->Shaders[Shader::Stage::VS]));
@@ -350,8 +350,8 @@ Pipeline PipelineCache_DX12::createPipeline(const std::string& key, const wchar_
 	desc.SampleDesc.Count = pDesc->SampleCount;
 	desc.SampleDesc.Quality = pDesc->SampleQuality;
 
-	desc.CachedPSO.pCachedBlob = pDesc->pCachedBlob;
-	desc.CachedPSO.CachedBlobSizeInBytes = pDesc->CachedBlobSize;
+	desc.CachedPSO.pCachedBlob = pDesc->pCachedPipeline;
+	desc.CachedPSO.CachedBlobSizeInBytes = pDesc->CachedPipelineSize;
 	desc.NodeMask = pDesc->NodeMask;
 
 	switch (static_cast<IBStripCutValue>(pDesc->IBStripCutValue))
@@ -375,7 +375,7 @@ Pipeline PipelineCache_DX12::createPipeline(const std::string& key, const wchar_
 	return pipeline.get();
 }
 
-Pipeline PipelineCache_DX12::getPipeline(const string& key, const wchar_t* name)
+Pipeline PipelineLib_DX12::getPipeline(const string& key, const wchar_t* name)
 {
 	const auto pPipeline = m_pipelines.find(key);
 

@@ -23,7 +23,7 @@ State_DX12::~State_DX12()
 
 void State_DX12::SetPipelineLayout(const PipelineLayout& layout)
 {
-	m_pKey->PipelineLayout = layout;
+	m_pKey->Layout = layout;
 }
 
 void State_DX12::SetShader(const Blob& shader)
@@ -31,9 +31,9 @@ void State_DX12::SetShader(const Blob& shader)
 	m_pKey->Shader = shader;
 }
 
-void State_DX12::SetCachedPipeline(const void* pCachedBlob, size_t size)
+void State_DX12::SetCachedPipeline(const void* pCachedPipeline, size_t size)
 {
-	m_pKey->CachedPipeline = pCachedBlob;
+	m_pKey->pCachedPipeline = pCachedPipeline;
 	m_pKey->CachedPipelineSize = size;
 }
 
@@ -42,14 +42,14 @@ void State_DX12::SetNodeMask(uint32_t nodeMask)
 	m_pKey->NodeMask = nodeMask;
 }
 
-Pipeline State_DX12::CreatePipeline(PipelineCache* pPipelineCache, const wchar_t* name) const
+Pipeline State_DX12::CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name) const
 {
-	return pPipelineCache->CreatePipeline(this, name);
+	return pPipelineLib->CreatePipeline(this, name);
 }
 
-Pipeline State_DX12::GetPipeline(PipelineCache* pPipelineCache, const wchar_t* name) const
+Pipeline State_DX12::GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name) const
 {
-	return pPipelineCache->GetPipeline(this, name);
+	return pPipelineLib->GetPipeline(this, name);
 }
 
 const string& State_DX12::GetKey() const
@@ -59,55 +59,55 @@ const string& State_DX12::GetKey() const
 
 //--------------------------------------------------------------------------------------
 
-PipelineCache_DX12::PipelineCache_DX12() :
+PipelineLib_DX12::PipelineLib_DX12() :
 	m_device(nullptr),
 	m_pipelines()
 {
 }
 
-PipelineCache_DX12::PipelineCache_DX12(const Device* pDevice) :
-	PipelineCache_DX12()
+PipelineLib_DX12::PipelineLib_DX12(const Device* pDevice) :
+	PipelineLib_DX12()
 {
 	SetDevice(pDevice);
 }
 
-PipelineCache_DX12::~PipelineCache_DX12()
+PipelineLib_DX12::~PipelineLib_DX12()
 {
 }
 
-void PipelineCache_DX12::SetDevice(const Device* pDevice)
+void PipelineLib_DX12::SetDevice(const Device* pDevice)
 {
 	m_device = pDevice->GetHandle();
 	assert(m_device);
 }
 
-void PipelineCache_DX12::SetPipeline(const string& key, const Pipeline& pipeline)
+void PipelineLib_DX12::SetPipeline(const string& key, const Pipeline& pipeline)
 {
 	m_pipelines[key] = pipeline;
 }
 
-Pipeline PipelineCache_DX12::CreatePipeline(const State* pState, const wchar_t* name)
+Pipeline PipelineLib_DX12::CreatePipeline(const State* pState, const wchar_t* name)
 {
 	return createPipeline(pState->GetKey(), name);
 }
 
-Pipeline PipelineCache_DX12::GetPipeline(const State* pState, const wchar_t* name)
+Pipeline PipelineLib_DX12::GetPipeline(const State* pState, const wchar_t* name)
 {
 	return getPipeline(pState->GetKey(), name);
 }
 
-Pipeline PipelineCache_DX12::createPipeline(const string& key, const wchar_t* name)
+Pipeline PipelineLib_DX12::createPipeline(const string& key, const wchar_t* name)
 {
 	// Fill desc
 	const auto pDesc = reinterpret_cast<const PipelineDesc*>(key.data());
 	D3D12_COMPUTE_PIPELINE_STATE_DESC desc = {};
-	if (pDesc->PipelineLayout)
-		desc.pRootSignature = static_cast<ID3D12RootSignature*>(pDesc->PipelineLayout);
+	if (pDesc->Layout)
+		desc.pRootSignature = static_cast<ID3D12RootSignature*>(pDesc->Layout);
 
 	if (pDesc->Shader)
 		desc.CS = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pDesc->Shader));
 
-	desc.CachedPSO.pCachedBlob = pDesc->CachedPipeline;
+	desc.CachedPSO.pCachedBlob = pDesc->pCachedPipeline;
 	desc.CachedPSO.CachedBlobSizeInBytes = pDesc->CachedPipelineSize;
 	desc.NodeMask = pDesc->NodeMask;
 
@@ -120,7 +120,7 @@ Pipeline PipelineCache_DX12::createPipeline(const string& key, const wchar_t* na
 	return pipeline.get();
 }
 
-Pipeline PipelineCache_DX12::getPipeline(const string& key, const wchar_t* name)
+Pipeline PipelineLib_DX12::getPipeline(const string& key, const wchar_t* name)
 {
 	const auto pPipeline = m_pipelines.find(key);
 

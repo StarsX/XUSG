@@ -22,21 +22,21 @@ namespace XUSG
 			void SetSamplers(uint32_t start, uint32_t num, const Sampler* const* ppSamplers,
 				uint8_t descriptorPoolIndex = 0);
 			void SetSamplers(uint32_t start, uint32_t num, const SamplerPreset* presets,
-				DescriptorTableCache* pDescriptorTableCache, uint8_t descriptorPoolIndex = 0);
+				DescriptorTableLib* pDescriptorTableLib, uint8_t descriptorPoolIndex = 0);
 
-			XUSG::DescriptorTable CreateCbvSrvUavTable(DescriptorTableCache* pDescriptorTableCache,
+			XUSG::DescriptorTable CreateCbvSrvUavTable(DescriptorTableLib* pDescriptorTableLib,
 				const XUSG::DescriptorTable& table = nullptr);
-			XUSG::DescriptorTable GetCbvSrvUavTable(DescriptorTableCache* pDescriptorTableCache,
-				const XUSG::DescriptorTable& table = nullptr);
-
-			XUSG::DescriptorTable CreateSamplerTable(DescriptorTableCache* pDescriptorTableCache,
-				const XUSG::DescriptorTable& table = nullptr);
-			XUSG::DescriptorTable GetSamplerTable(DescriptorTableCache* pDescriptorTableCache,
+			XUSG::DescriptorTable GetCbvSrvUavTable(DescriptorTableLib* pDescriptorTableLib,
 				const XUSG::DescriptorTable& table = nullptr);
 
-			Framebuffer CreateFramebuffer(DescriptorTableCache* pDescriptorTableCache,
+			XUSG::DescriptorTable CreateSamplerTable(DescriptorTableLib* pDescriptorTableLib,
+				const XUSG::DescriptorTable& table = nullptr);
+			XUSG::DescriptorTable GetSamplerTable(DescriptorTableLib* pDescriptorTableLib,
+				const XUSG::DescriptorTable& table = nullptr);
+
+			Framebuffer CreateFramebuffer(DescriptorTableLib* pDescriptorTableLib,
 				const Descriptor* pDsv = nullptr, const Framebuffer* pFramebuffer = nullptr);
-			Framebuffer GetFramebuffer(DescriptorTableCache* pDescriptorTableCache,
+			Framebuffer GetFramebuffer(DescriptorTableLib* pDescriptorTableLib,
 				const Descriptor* pDsv = nullptr, const Framebuffer* pFramebuffer = nullptr);
 
 			const std::string& GetKey() const;
@@ -46,13 +46,13 @@ namespace XUSG
 		};
 	}
 
-	class DescriptorTableCache_DX12 :
-		public virtual DescriptorTableCache
+	class DescriptorTableLib_DX12 :
+		public virtual DescriptorTableLib
 	{
 	public:
-		DescriptorTableCache_DX12();
-		DescriptorTableCache_DX12(const Device* pDevice, const wchar_t* name = nullptr);
-		virtual ~DescriptorTableCache_DX12();
+		DescriptorTableLib_DX12();
+		DescriptorTableLib_DX12(const Device* pDevice, const wchar_t* name = nullptr);
+		virtual ~DescriptorTableLib_DX12();
 
 		void SetDevice(const Device* pDevice);
 		void SetName(const wchar_t* name);

@@ -1773,7 +1773,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Descriptor
 	//--------------------------------------------------------------------------------------
-	class DescriptorTableCache;
+	class DescriptorTableLib;
 
 	namespace Util
 	{
@@ -1788,21 +1788,21 @@ namespace XUSG
 			virtual void SetSamplers(uint32_t start, uint32_t num, const Sampler* const* ppSamplers,
 				uint8_t descriptorPoolIndex = 0) = 0;
 			virtual void SetSamplers(uint32_t start, uint32_t num, const SamplerPreset* presets,
-				DescriptorTableCache* pDescriptorTableCache, uint8_t descriptorPoolIndex = 0) = 0;
+				DescriptorTableLib* pDescriptorTableLib, uint8_t descriptorPoolIndex = 0) = 0;
 
-			virtual XUSG::DescriptorTable CreateCbvSrvUavTable(DescriptorTableCache* pDescriptorTableCache,
+			virtual XUSG::DescriptorTable CreateCbvSrvUavTable(DescriptorTableLib* pDescriptorTableLib,
 				const XUSG::DescriptorTable& table = nullptr) = 0;
-			virtual XUSG::DescriptorTable GetCbvSrvUavTable(DescriptorTableCache* pDescriptorTableCache,
-				const XUSG::DescriptorTable& table = nullptr) = 0;
-
-			virtual XUSG::DescriptorTable CreateSamplerTable(DescriptorTableCache* pDescriptorTableCache,
-				const XUSG::DescriptorTable& table = nullptr) = 0;
-			virtual XUSG::DescriptorTable GetSamplerTable(DescriptorTableCache* pDescriptorTableCache,
+			virtual XUSG::DescriptorTable GetCbvSrvUavTable(DescriptorTableLib* pDescriptorTableLib,
 				const XUSG::DescriptorTable& table = nullptr) = 0;
 
-			virtual Framebuffer CreateFramebuffer(DescriptorTableCache* pDescriptorTableCache,
+			virtual XUSG::DescriptorTable CreateSamplerTable(DescriptorTableLib* pDescriptorTableLib,
+				const XUSG::DescriptorTable& table = nullptr) = 0;
+			virtual XUSG::DescriptorTable GetSamplerTable(DescriptorTableLib* pDescriptorTableLib,
+				const XUSG::DescriptorTable& table = nullptr) = 0;
+
+			virtual Framebuffer CreateFramebuffer(DescriptorTableLib* pDescriptorTableLib,
 				const Descriptor* pDsv = nullptr, const Framebuffer* pFramebuffer = nullptr) = 0;
-			virtual Framebuffer GetFramebuffer(DescriptorTableCache* pDescriptorTableCache,
+			virtual Framebuffer GetFramebuffer(DescriptorTableLib* pDescriptorTableLib,
 				const Descriptor* pDsv = nullptr, const Framebuffer* pFramebuffer = nullptr) = 0;
 
 			virtual const std::string& GetKey() const = 0;
@@ -1815,12 +1815,12 @@ namespace XUSG
 		};
 	}
 
-	class XUSG_INTERFACE DescriptorTableCache
+	class XUSG_INTERFACE DescriptorTableLib
 	{
 	public:
-		//DescriptorTableCache();
-		//DescriptorTableCache(const Device* pDevice, const wchar_t* name = nullptr);
-		virtual ~DescriptorTableCache() {};
+		//DescriptorTableLib();
+		//DescriptorTableLib(const Device* pDevice, const wchar_t* name = nullptr);
+		virtual ~DescriptorTableLib() {};
 
 		virtual void SetDevice(const Device* pDevice) = 0;
 		virtual void SetName(const wchar_t* name) = 0;
@@ -1845,8 +1845,8 @@ namespace XUSG
 
 		virtual uint32_t GetDescriptorStride(DescriptorPoolType type) const = 0;
 
-		using uptr = std::unique_ptr<DescriptorTableCache>;
-		using sptr = std::shared_ptr<DescriptorTableCache>;
+		using uptr = std::unique_ptr<DescriptorTableLib>;
+		using sptr = std::shared_ptr<DescriptorTableLib>;
 
 		static uptr MakeUnique(API api = API::DIRECTX_12);
 		static sptr MakeShared(API api = API::DIRECTX_12);
@@ -1877,11 +1877,11 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Shader
 	//--------------------------------------------------------------------------------------
-	class XUSG_INTERFACE ShaderPool
+	class XUSG_INTERFACE ShaderLib
 	{
 	public:
-		//ShaderPool();
-		virtual ~ShaderPool() {};
+		//ShaderLib();
+		virtual ~ShaderLib() {};
 
 		virtual void SetShader(Shader::Stage stage, uint32_t index, const Blob& shader) = 0;
 		virtual void SetShader(Shader::Stage stage, uint32_t index, const Blob& shader, const Reflector::sptr& reflector) = 0;
@@ -1892,8 +1892,8 @@ namespace XUSG
 		virtual Blob GetShader(Shader::Stage stage, uint32_t index) const = 0;
 		virtual Reflector::sptr GetReflector(Shader::Stage stage, uint32_t index) const = 0;
 
-		using uptr = std::unique_ptr<ShaderPool>;
-		using sptr = std::shared_ptr<ShaderPool>;
+		using uptr = std::unique_ptr<ShaderLib>;
+		using sptr = std::shared_ptr<ShaderLib>;
 
 		static uptr MakeUnique(API api = API::DIRECTX_12);
 		static sptr MakeShared(API api = API::DIRECTX_12);
@@ -1902,7 +1902,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Pipeline layout
 	//--------------------------------------------------------------------------------------
-	class PipelineLayoutCache;
+	class PipelineLayoutLib;
 
 	namespace Util
 	{
@@ -1925,16 +1925,16 @@ namespace XUSG
 			virtual void SetStaticSamplers(const Sampler* const* ppSamplers, uint32_t num, uint32_t baseBinding,
 				uint32_t space = 0, Shader::Stage stage = Shader::Stage::ALL) = 0;
 
-			virtual XUSG::PipelineLayout CreatePipelineLayout(PipelineLayoutCache* pPipelineLayoutCache, PipelineLayoutFlag flags,
+			virtual XUSG::PipelineLayout CreatePipelineLayout(PipelineLayoutLib* pPipelineLayoutLib, PipelineLayoutFlag flags,
 				const wchar_t* name = nullptr) = 0;
-			virtual XUSG::PipelineLayout GetPipelineLayout(PipelineLayoutCache* pPipelineLayoutCache, PipelineLayoutFlag flags,
+			virtual XUSG::PipelineLayout GetPipelineLayout(PipelineLayoutLib* pPipelineLayoutLib, PipelineLayoutFlag flags,
 				const wchar_t* name = nullptr) = 0;
 
-			virtual DescriptorTableLayout CreateDescriptorTableLayout(uint32_t index, PipelineLayoutCache* pPipelineLayoutCache) const = 0;
-			virtual DescriptorTableLayout GetDescriptorTableLayout(uint32_t index, PipelineLayoutCache* pPipelineLayoutCache) const = 0;
+			virtual DescriptorTableLayout CreateDescriptorTableLayout(uint32_t index, PipelineLayoutLib* pPipelineLayoutLib) const = 0;
+			virtual DescriptorTableLayout GetDescriptorTableLayout(uint32_t index, PipelineLayoutLib* pPipelineLayoutLib) const = 0;
 
 			virtual const std::vector<std::string>& GetDescriptorTableLayoutKeys() const = 0;
-			virtual std::string& GetPipelineLayoutKey(PipelineLayoutCache* pPipelineLayoutCache) = 0;
+			virtual std::string& GetPipelineLayoutKey(PipelineLayoutLib* pPipelineLayoutLib) = 0;
 
 			using uptr = std::unique_ptr<PipelineLayout>;
 			using sptr = std::shared_ptr<PipelineLayout>;
@@ -1946,12 +1946,12 @@ namespace XUSG
 		};
 	}
 
-	class XUSG_INTERFACE PipelineLayoutCache
+	class XUSG_INTERFACE PipelineLayoutLib
 	{
 	public:
-		//PipelineLayoutCache();
-		//PipelineLayoutCache(const Device* pDevice) = 0;
-		virtual ~PipelineLayoutCache() {};
+		//PipelineLayoutLib();
+		//PipelineLayoutLib(const Device* pDevice) = 0;
+		virtual ~PipelineLayoutLib() {};
 
 		virtual void SetDevice(const Device* pDevice) = 0;
 		virtual void SetPipelineLayout(const std::string& key, const PipelineLayout& pipelineLayout) = 0;
@@ -1968,8 +1968,8 @@ namespace XUSG
 		virtual DescriptorTableLayout CreateDescriptorTableLayout(uint32_t index, const Util::PipelineLayout* pUtil) = 0;
 		virtual DescriptorTableLayout GetDescriptorTableLayout(uint32_t index, const Util::PipelineLayout* pUtil) = 0;
 
-		using uptr = std::unique_ptr<PipelineLayoutCache>;
-		using sptr = std::shared_ptr<PipelineLayoutCache>;
+		using uptr = std::unique_ptr<PipelineLayoutLib>;
+		using sptr = std::shared_ptr<PipelineLayoutLib>;
 
 		static uptr MakeUnique(API api = API::DIRECTX_12);
 		static sptr MakeShared(API api = API::DIRECTX_12);
@@ -2080,7 +2080,7 @@ namespace XUSG
 			DepthStencilOp BackFace;
 		};
 
-		class PipelineCache;
+		class PipelineLib;
 		
 		class XUSG_INTERFACE State
 		{
@@ -2090,17 +2090,17 @@ namespace XUSG
 
 			virtual void SetPipelineLayout(const PipelineLayout& layout) = 0;
 			virtual void SetShader(Shader::Stage stage, const Blob& shader) = 0;
-			virtual void SetCachedPipeline(const void* pCachedBlob, size_t size) = 0;
+			virtual void SetCachedPipeline(const void* pCachedPipeline, size_t size) = 0;
 			virtual void SetNodeMask(uint32_t nodeMask) = 0;
 
 			virtual void OMSetBlendState(const Blend* pBlend, uint32_t sampleMask = UINT_MAX) = 0;
 			virtual void RSSetState(const Rasterizer* pRasterizer) = 0;
 			virtual void DSSetState(const DepthStencil* pDepthStencil) = 0;
 
-			virtual void OMSetBlendState(BlendPreset preset, PipelineCache* pPipelineCache,
+			virtual void OMSetBlendState(BlendPreset preset, PipelineLib* pPipelineLib,
 				uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX) = 0;
-			virtual void RSSetState(RasterizerPreset preset, PipelineCache* pPipelineCache) = 0;
-			virtual void DSSetState(DepthStencilPreset preset, PipelineCache* pPipelineCache) = 0;
+			virtual void RSSetState(RasterizerPreset preset, PipelineLib* pPipelineLib) = 0;
+			virtual void DSSetState(DepthStencilPreset preset, PipelineLib* pPipelineLib) = 0;
 
 			virtual void IASetInputLayout(const InputLayout* pLayout) = 0;
 			virtual void IASetPrimitiveTopologyType(PrimitiveTopologyType type) = 0;
@@ -2112,8 +2112,8 @@ namespace XUSG
 			virtual void OMSetDSVFormat(Format format) = 0;
 			virtual void OMSetSample(uint8_t count, uint8_t quality = 0) = 0;
 
-			virtual Pipeline CreatePipeline(PipelineCache* pPipelineCache, const wchar_t* name = nullptr) const = 0;
-			virtual Pipeline GetPipeline(PipelineCache* pPipelineCache, const wchar_t* name = nullptr) const = 0;
+			virtual Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
+			virtual Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
 
 			virtual const std::string& GetKey() const = 0;
 
@@ -2124,12 +2124,12 @@ namespace XUSG
 			static sptr MakeShared(API api = API::DIRECTX_12);
 		};
 
-		class XUSG_INTERFACE PipelineCache
+		class XUSG_INTERFACE PipelineLib
 		{
 		public:
-			//PipelineCache();
-			//PipelineCache(const Device* pDevice);
-			virtual ~PipelineCache() {};
+			//PipelineLib();
+			//PipelineLib(const Device* pDevice);
+			virtual ~PipelineLib() {};
 
 			virtual void SetDevice(const Device* pDevice) = 0;
 			virtual void SetPipeline(const std::string& key, const Pipeline& pipeline) = 0;
@@ -2145,8 +2145,8 @@ namespace XUSG
 			virtual const Rasterizer* GetRasterizer(RasterizerPreset preset) = 0;
 			virtual const DepthStencil* GetDepthStencil(DepthStencilPreset preset) = 0;
 
-			using uptr = std::unique_ptr<PipelineCache>;
-			using sptr = std::shared_ptr<PipelineCache>;
+			using uptr = std::unique_ptr<PipelineLib>;
+			using sptr = std::shared_ptr<PipelineLib>;
 
 			static uptr MakeUnique(API api = API::DIRECTX_12);
 			static sptr MakeShared(API api = API::DIRECTX_12);
@@ -2160,7 +2160,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	namespace Compute
 	{
-		class PipelineCache;
+		class PipelineLib;
 		
 		class XUSG_INTERFACE State
 		{
@@ -2170,11 +2170,11 @@ namespace XUSG
 
 			virtual void SetPipelineLayout(const PipelineLayout& layout) = 0;
 			virtual void SetShader(const Blob& shader) = 0;
-			virtual void SetCachedPipeline(const void* pCachedBlob, size_t size) = 0;
+			virtual void SetCachedPipeline(const void* pCachedPipeline, size_t size) = 0;
 			virtual void SetNodeMask(uint32_t nodeMask) = 0;
 
-			virtual Pipeline CreatePipeline(PipelineCache* pPipelineCache, const wchar_t* name = nullptr) const = 0;
-			virtual Pipeline GetPipeline(PipelineCache* pPipelineCache, const wchar_t* name = nullptr) const = 0;
+			virtual Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
+			virtual Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
 
 			virtual const std::string& GetKey() const = 0;
 
@@ -2185,12 +2185,12 @@ namespace XUSG
 			static sptr MakeShared(API api = API::DIRECTX_12);
 		};
 
-		class XUSG_INTERFACE PipelineCache
+		class XUSG_INTERFACE PipelineLib
 		{
 		public:
-			//PipelineCache();
-			//PipelineCache(const Device* pDevice);
-			virtual ~PipelineCache() {};
+			//PipelineLib();
+			//PipelineLib(const Device* pDevice);
+			virtual ~PipelineLib() {};
 
 			virtual void SetDevice(const Device* pDevice) = 0;
 			virtual void SetPipeline(const std::string& key, const Pipeline& pipeline) = 0;
@@ -2198,8 +2198,8 @@ namespace XUSG
 			virtual Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr) = 0;
 			virtual Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr) = 0;
 
-			using uptr = std::unique_ptr<PipelineCache>;
-			using sptr = std::shared_ptr<PipelineCache>;
+			using uptr = std::unique_ptr<PipelineLib>;
+			using sptr = std::shared_ptr<PipelineLib>;
 
 			static uptr MakeUnique(API api = API::DIRECTX_12);
 			static sptr MakeShared(API api = API::DIRECTX_12);

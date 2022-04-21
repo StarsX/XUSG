@@ -12,9 +12,9 @@ namespace XUSG
 	{
 		struct PipelineDesc
 		{
-			void* PipelineLayout;
-			void* Shader;
-			const void* CachedPipeline;
+			PipelineLayout Layout;
+			Blob Shader;
+			const void* pCachedPipeline;
 			size_t CachedPipelineSize;
 			uint32_t NodeMask;
 		};
@@ -28,11 +28,11 @@ namespace XUSG
 
 			void SetPipelineLayout(const PipelineLayout& layout);
 			void SetShader(const Blob& shader);
-			void SetCachedPipeline(const void* pCachedBlob, size_t size);
+			void SetCachedPipeline(const void* pCachedPipeline, size_t size);
 			void SetNodeMask(uint32_t nodeMask);
 
-			Pipeline CreatePipeline(PipelineCache* pPipelineCache, const wchar_t* name = nullptr) const;
-			Pipeline GetPipeline(PipelineCache* pPipelineCache, const wchar_t* name = nullptr) const;
+			Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const;
+			Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const;
 
 			const std::string& GetKey() const;
 
@@ -41,13 +41,13 @@ namespace XUSG
 			std::string m_key;
 		};
 
-		class PipelineCache_DX12 :
-			public virtual PipelineCache
+		class PipelineLib_DX12 :
+			public virtual PipelineLib
 		{
 		public:
-			PipelineCache_DX12();
-			PipelineCache_DX12(const Device* pDevice);
-			virtual ~PipelineCache_DX12();
+			PipelineLib_DX12();
+			PipelineLib_DX12(const Device* pDevice);
+			virtual ~PipelineLib_DX12();
 
 			void SetDevice(const Device* pDevice);
 			void SetPipeline(const std::string& key, const Pipeline& pipeline);

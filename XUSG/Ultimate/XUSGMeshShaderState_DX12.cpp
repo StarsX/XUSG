@@ -28,7 +28,7 @@ State_DX12::~State_DX12()
 
 void State_DX12::SetPipelineLayout(const PipelineLayout& layout)
 {
-	m_pKey->PipelineLayout = layout;
+	m_pKey->Layout = layout;
 }
 
 void State_DX12::SetShader(Shader::Stage stage, const Blob& shader)
@@ -37,10 +37,10 @@ void State_DX12::SetShader(Shader::Stage stage, const Blob& shader)
 	m_pKey->Shaders[stageIdx] = shader;
 }
 
-void State_DX12::SetCachedPipeline(const void* pCachedBlob, size_t size)
+void State_DX12::SetCachedPipeline(const void* pCachedPipeline, size_t size)
 {
-	m_pKey->pCachedBlob = pCachedBlob;
-	m_pKey->CachedBlobSize = size;
+	m_pKey->pCachedPipeline = pCachedPipeline;
+	m_pKey->CachedPipelineSize = size;
 }
 
 void State_DX12::SetNodeMask(uint32_t nodeMask)
@@ -64,20 +64,20 @@ void State_DX12::DSSetState(const DepthStencil* pDepthStencil)
 	m_pKey->pDepthStencil = pDepthStencil;
 }
 
-void State_DX12::OMSetBlendState(BlendPreset preset, PipelineCache* pPipelineCache,
+void State_DX12::OMSetBlendState(BlendPreset preset, PipelineLib* pPipelineLib,
 	uint8_t numColorRTs, uint32_t sampleMask)
 {
-	OMSetBlendState(pPipelineCache->GetBlend(preset, numColorRTs), sampleMask);
+	OMSetBlendState(pPipelineLib->GetBlend(preset, numColorRTs), sampleMask);
 }
 
-void State_DX12::RSSetState(RasterizerPreset preset, PipelineCache* pPipelineCache)
+void State_DX12::RSSetState(RasterizerPreset preset, PipelineLib* pPipelineLib)
 {
-	RSSetState(pPipelineCache->GetRasterizer(preset));
+	RSSetState(pPipelineLib->GetRasterizer(preset));
 }
 
-void State_DX12::DSSetState(DepthStencilPreset preset, PipelineCache* pPipelineCache)
+void State_DX12::DSSetState(DepthStencilPreset preset, PipelineLib* pPipelineLib)
 {
-	DSSetState(pPipelineCache->GetDepthStencil(preset));
+	DSSetState(pPipelineLib->GetDepthStencil(preset));
 }
 
 void State_DX12::OMSetNumRenderTargets(uint8_t n)
@@ -109,14 +109,14 @@ void State_DX12::OMSetSample(uint8_t count, uint8_t quality)
 	m_pKey->SampleQuality = quality;
 }
 
-Pipeline State_DX12::CreatePipeline(PipelineCache* pPipelineCache, const wchar_t* name) const
+Pipeline State_DX12::CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name) const
 {
-	return pPipelineCache->CreatePipeline(this, name);
+	return pPipelineLib->CreatePipeline(this, name);
 }
 
-Pipeline State_DX12::GetPipeline(PipelineCache* pPipelineCache, const wchar_t* name) const
+Pipeline State_DX12::GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name) const
 {
-	return pPipelineCache->GetPipeline(this, name);
+	return pPipelineLib->GetPipeline(this, name);
 }
 
 const string& State_DX12::GetKey() const
@@ -126,37 +126,37 @@ const string& State_DX12::GetKey() const
 
 //--------------------------------------------------------------------------------------
 
-PipelineCache_DX12::PipelineCache_DX12() :
-	Graphics::PipelineCache_DX12()
+PipelineLib_DX12::PipelineLib_DX12() :
+	Graphics::PipelineLib_DX12()
 {
 }
 
-PipelineCache_DX12::PipelineCache_DX12(const Device* pDevice) :
-	Graphics::PipelineCache_DX12(pDevice)
+PipelineLib_DX12::PipelineLib_DX12(const Device* pDevice) :
+	Graphics::PipelineLib_DX12(pDevice)
 {
 }
 
-PipelineCache_DX12::~PipelineCache_DX12()
+PipelineLib_DX12::~PipelineLib_DX12()
 {
 }
 
-Pipeline PipelineCache_DX12::CreatePipeline(const State* pState, const wchar_t* name)
+Pipeline PipelineLib_DX12::CreatePipeline(const State* pState, const wchar_t* name)
 {
 	return createPipeline(pState->GetKey(), name);
 }
 
-Pipeline PipelineCache_DX12::GetPipeline(const State* pState, const wchar_t* name)
+Pipeline PipelineLib_DX12::GetPipeline(const State* pState, const wchar_t* name)
 {
 	return getPipeline(pState->GetKey(), name);
 }
 
-Pipeline PipelineCache_DX12::createPipeline(const string& key, const wchar_t* name)
+Pipeline PipelineLib_DX12::createPipeline(const string& key, const wchar_t* name)
 {
 	// Fill desc
 	const auto pKey = reinterpret_cast<const Key*>(key.data());
 	D3DX12_MESH_SHADER_PIPELINE_STATE_DESC psoDesc = {};
-	if (pKey->PipelineLayout)
-		psoDesc.pRootSignature = static_cast<ID3D12RootSignature*>(pKey->PipelineLayout);
+	if (pKey->Layout)
+		psoDesc.pRootSignature = static_cast<ID3D12RootSignature*>(pKey->Layout);
 	if (pKey->Shaders[AS])
 		psoDesc.AS = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pKey->Shaders[AS]));
 	if (pKey->Shaders[MS])
@@ -225,8 +225,8 @@ Pipeline PipelineCache_DX12::createPipeline(const string& key, const wchar_t* na
 	psoDesc.SampleDesc.Count = pKey->SampleCount;
 	psoDesc.SampleDesc.Quality = pKey->SampleQuality;
 
-	psoDesc.CachedPSO.pCachedBlob = pKey->pCachedBlob;
-	psoDesc.CachedPSO.CachedBlobSizeInBytes = pKey->CachedBlobSize;
+	psoDesc.CachedPSO.pCachedBlob = pKey->pCachedPipeline;
+	psoDesc.CachedPSO.CachedBlobSizeInBytes = pKey->CachedPipelineSize;
 	psoDesc.NodeMask = pKey->NodeMask;
 
 	CD3DX12_PIPELINE_MESH_STATE_STREAM psoStream(psoDesc);

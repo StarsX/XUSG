@@ -120,7 +120,7 @@ namespace XUSG
 		using Rasterizer = Graphics::Rasterizer;
 		using DepthStencil = Graphics::DepthStencil;
 
-		class PipelineCache;
+		class PipelineLib;
 
 		class XUSG_INTERFACE State
 		{
@@ -130,17 +130,17 @@ namespace XUSG
 
 			virtual void SetPipelineLayout(const PipelineLayout& layout) = 0;
 			virtual void SetShader(Shader::Stage stage, const Blob& shader) = 0;
-			virtual void SetCachedPipeline(const void* pCachedBlob, size_t size) = 0;
+			virtual void SetCachedPipeline(const void* pCachedPipeline, size_t size) = 0;
 			virtual void SetNodeMask(uint32_t nodeMask) = 0;
 
 			virtual void OMSetBlendState(const Blend* pBlend, uint32_t sampleMask = UINT_MAX) = 0;
 			virtual void RSSetState(const Rasterizer* pRasterizer) = 0;
 			virtual void DSSetState(const DepthStencil* pDepthStencil) = 0;
 
-			virtual void OMSetBlendState(BlendPreset preset, PipelineCache* pPipelineCache,
+			virtual void OMSetBlendState(BlendPreset preset, PipelineLib* pPipelineLib,
 				uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX) = 0;
-			virtual void RSSetState(RasterizerPreset preset, PipelineCache* pPipelineCache) = 0;
-			virtual void DSSetState(DepthStencilPreset preset, PipelineCache* pPipelineCache) = 0;
+			virtual void RSSetState(RasterizerPreset preset, PipelineLib* pPipelineLib) = 0;
+			virtual void DSSetState(DepthStencilPreset preset, PipelineLib* pPipelineLib) = 0;
 
 			virtual void OMSetNumRenderTargets(uint8_t n) = 0;
 			virtual void OMSetRTVFormat(uint8_t i, Format format) = 0;
@@ -148,8 +148,8 @@ namespace XUSG
 			virtual void OMSetDSVFormat(Format format) = 0;
 			virtual void OMSetSample(uint8_t count, uint8_t quality = 0) = 0;
 
-			virtual Pipeline CreatePipeline(PipelineCache* pPipelineCache, const wchar_t* name = nullptr) const = 0;
-			virtual Pipeline GetPipeline(PipelineCache* pPipelineCache, const wchar_t* name = nullptr) const = 0;
+			virtual Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
+			virtual Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
 
 			virtual const std::string& GetKey() const = 0;
 
@@ -160,19 +160,19 @@ namespace XUSG
 			static sptr MakeShared(API api = API::DIRECTX_12);
 		};
 
-		class XUSG_INTERFACE PipelineCache :
-			public virtual Graphics::PipelineCache
+		class XUSG_INTERFACE PipelineLib :
+			public virtual Graphics::PipelineLib
 		{
 		public:
-			//PipelineCache();
-			//PipelineCache(const Device* pDevice);
-			virtual ~PipelineCache() {};
+			//PipelineLib();
+			//PipelineLib(const Device* pDevice);
+			virtual ~PipelineLib() {};
 
 			virtual Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr) = 0;
 			virtual Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr) = 0;
 
-			using uptr = std::unique_ptr<PipelineCache>;
-			using sptr = std::shared_ptr<PipelineCache>;
+			using uptr = std::unique_ptr<PipelineLib>;
+			using sptr = std::shared_ptr<PipelineLib>;
 
 			static uptr MakeUnique(API api = API::DIRECTX_12);
 			static sptr MakeShared(API api = API::DIRECTX_12);

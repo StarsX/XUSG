@@ -16,10 +16,10 @@ namespace XUSG
 		//SphericalHarmonics();
 		virtual ~SphericalHarmonics() {}
 
-		virtual bool Init(const Device* pDevice, const ShaderPool::sptr& shaderPool,
-			const Compute::PipelineCache::sptr& computePipelineCache,
-			const PipelineLayoutCache::sptr& pipelineLayoutCache,
-			const DescriptorTableCache::sptr& descriptorTableCache,
+		virtual bool Init(const Device* pDevice, const ShaderLib::sptr& shaderLib,
+			const Compute::PipelineLib::sptr& computePipelineLib,
+			const PipelineLayoutLib::sptr& pipelineLayoutLib,
+			const DescriptorTableLib::sptr& descriptorTableLib,
 			uint8_t baseCSIndex, uint8_t descriptorPoolIndex = 0) = 0;
 
 		virtual void Transform(CommandList* pCommandList, Resource* pRadiance,
@@ -49,10 +49,10 @@ namespace XUSG
 		SphericalHarmonics_Impl(API api);
 		virtual ~SphericalHarmonics_Impl();
 
-		bool Init(const Device* pDevice, const ShaderPool::sptr& shaderPool,
-			const Compute::PipelineCache::sptr& computePipelineCache,
-			const PipelineLayoutCache::sptr& pipelineLayoutCache,
-			const DescriptorTableCache::sptr& descriptorTableCache,
+		bool Init(const Device* pDevice, const ShaderLib::sptr& shaderLib,
+			const Compute::PipelineLib::sptr& computePipelineLib,
+			const PipelineLayoutLib::sptr& pipelineLayoutLib,
+			const DescriptorTableLib::sptr& descriptorTableLib,
 			uint8_t baseCSIndex, uint8_t descriptorPoolIndex = 0);
 
 		void Transform(CommandList* pCommandList, Resource* pRadiance,
@@ -100,10 +100,10 @@ namespace XUSG
 
 		API m_api;
 
-		ShaderPool::sptr				m_shaderPool;
-		Compute::PipelineCache::sptr	m_computePipelineCache;
-		PipelineLayoutCache::sptr		m_pipelineLayoutCache;
-		DescriptorTableCache::sptr		m_descriptorTableCache;
+		ShaderLib::sptr				m_shaderLib;
+		Compute::PipelineLib::sptr	m_computePipelineLib;
+		PipelineLayoutLib::sptr		m_pipelineLayoutLib;
+		DescriptorTableLib::sptr		m_descriptorTableLib;
 
 		PipelineLayout	m_pipelineLayouts[NUM_PIPELINE];
 		Pipeline		m_pipelines[NUM_PIPELINE];
