@@ -24,6 +24,10 @@ namespace XUSG
 			bool Create(XUSG::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
 				uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
 				const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1);
+			bool Create(const Device* pDevice, void* pHandle, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+				uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
+				const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1,
+				const wchar_t* name = nullptr);
 			bool Close() const { return XUSG::CommandList_DX12::Close(); }
 			bool Reset(const CommandAllocator* pAllocator, const Pipeline& initialState);
 
@@ -156,15 +160,11 @@ namespace XUSG
 			void ResetDescriptorPool(DescriptorPoolType type);
 			void Resize();
 
-			bool Create(const Device* pDevice, void* pHandle, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
-				uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
-				const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1,
-				const wchar_t* name = nullptr);
-
 			void* GetHandle() const { return XUSG::CommandList_DX12::GetHandle(); }
 			void* GetDeviceHandle() const { return XUSG::CommandList_DX12::GetDeviceHandle(); }
 
 			const Device* GetDevice() const { return XUSG::CommandList_DX12::GetDevice(); }
+			XUSG::CommandList* AsCommandList() { return dynamic_cast<XUSG::CommandList*>(this); }
 
 		protected:
 			enum PipelineLayoutIndex

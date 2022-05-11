@@ -74,6 +74,18 @@ bool EZ::CommandList_DX12::Create(XUSG::CommandList* pCommandList, uint32_t samp
 	return true;
 }
 
+bool EZ::CommandList_DX12::Create(const Device* pDevice, void* pHandle, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+	uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace, const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
+	uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces, const wchar_t* name)
+{
+	m_pDevice = pDevice;
+	XUSG::CommandList_DX12::Create(pHandle, name);
+
+	return Create(this, samplerPoolSize, cbvSrvUavPoolSize, maxSamplers,
+		pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
+		maxCbvSpaces, maxSrvSpaces, maxUavSpaces);
+}
+
 bool EZ::CommandList_DX12::Reset(const CommandAllocator* pAllocator, const Pipeline& initialState)
 {
 	const auto ret = XUSG::CommandList_DX12::Reset(pAllocator, initialState);
@@ -481,18 +493,6 @@ void EZ::CommandList_DX12::ResetDescriptorPool(DescriptorPoolType type)
 void EZ::CommandList_DX12::Resize()
 {
 	ResetDescriptorPool(DescriptorPoolType::CBV_SRV_UAV_POOL);
-}
-
-bool EZ::CommandList_DX12::Create(const Device* pDevice, void* pHandle, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
-	uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace, const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
-	uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces, const wchar_t* name)
-{
-	m_pDevice = pDevice;
-	XUSG::CommandList_DX12::Create(pHandle, name);
-
-	return Create(this, samplerPoolSize, cbvSrvUavPoolSize, maxSamplers,
-		pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
-		maxCbvSpaces, maxSrvSpaces, maxUavSpaces);
 }
 
 bool EZ::CommandList_DX12::createPipelineLayouts(uint32_t maxSamplers,
