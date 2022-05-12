@@ -48,6 +48,7 @@ namespace XUSG
 			//CommandList();
 			virtual ~CommandList() {}
 
+			// By default maxCbvsEachSpace = 14, maxSrvsEachSpace = 32, and maxUavsEachSpace = 16
 			virtual bool Create(XUSG::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
 				uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
 				const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1) = 0;
