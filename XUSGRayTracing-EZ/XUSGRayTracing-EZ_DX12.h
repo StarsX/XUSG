@@ -34,6 +34,7 @@ namespace XUSG
 					const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1,
 					uint32_t maxTLASSrvs = 0, uint32_t spaceTLAS = 0, const wchar_t* name = nullptr);
 				bool Close();
+				bool CloseForPresent(RenderTarget* pBackBuffer);
 				bool PreBuildBLAS(BottomLevelAS* pBLAS, uint32_t numGeometries, const GeometryBuffer& geometries,
 					BuildFlag flags = BuildFlag::PREFER_FAST_TRACE);
 				bool PreBuildTLAS(TopLevelAS* pTLAS, uint32_t numInstances,

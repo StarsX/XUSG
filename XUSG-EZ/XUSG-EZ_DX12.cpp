@@ -86,6 +86,15 @@ bool EZ::CommandList_DX12::Create(const Device* pDevice, void* pHandle, uint32_t
 		maxCbvSpaces, maxSrvSpaces, maxUavSpaces);
 }
 
+bool EZ::CommandList_DX12::CloseForPresent(RenderTarget* pBackBuffer)
+{
+	ResourceBarrier barrier;
+	const auto numBarriers = pBackBuffer->SetBarrier(&barrier, ResourceState::PRESENT);
+	XUSG::CommandList_DX12::Barrier(numBarriers, &barrier);
+
+	return Close();
+}
+
 bool EZ::CommandList_DX12::Reset(const CommandAllocator* pAllocator, const Pipeline& initialState)
 {
 	const auto ret = XUSG::CommandList_DX12::Reset(pAllocator, initialState);

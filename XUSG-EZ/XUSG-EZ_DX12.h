@@ -29,6 +29,7 @@ namespace XUSG
 				const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1,
 				const wchar_t* name = nullptr);
 			bool Close() const { return XUSG::CommandList_DX12::Close(); }
+			bool CloseForPresent(RenderTarget* pBackBuffer);
 			bool Reset(const CommandAllocator* pAllocator, const Pipeline& initialState);
 
 			void ClearState(const Pipeline& initialState) const { XUSG::CommandList_DX12::ClearState(initialState); }

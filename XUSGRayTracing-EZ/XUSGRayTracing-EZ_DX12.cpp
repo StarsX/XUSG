@@ -95,6 +95,15 @@ bool EZ::CommandList_DXR::Close()
 	return XUSG::EZ::CommandList_DX12::Close();
 }
 
+bool EZ::CommandList_DXR::CloseForPresent(RenderTarget* pBackBuffer)
+{
+	ResourceBarrier barrier;
+	const auto numBarriers = pBackBuffer->SetBarrier(&barrier, ResourceState::PRESENT);
+	XUSG::CommandList_DX12::Barrier(numBarriers, &barrier);
+
+	return Close();
+}
+
 bool EZ::CommandList_DXR::PreBuildBLAS(BottomLevelAS* pBLAS, uint32_t numGeometries,
 	const GeometryBuffer& geometries, BuildFlag flags)
 {
