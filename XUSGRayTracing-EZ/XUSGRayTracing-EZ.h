@@ -26,6 +26,8 @@ namespace XUSG
 				using uptr = std::unique_ptr<CommandList>;
 				using sptr = std::shared_ptr<CommandList>;
 
+				// By default maxCbvsEachSpace = 14 for graphics or 12 for ray tracing and compute
+				// maxSrvsEachSpace = 32, and maxUavsEachSpace = 16
 				virtual bool Create(RayTracing::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
 					uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
 					const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1,
