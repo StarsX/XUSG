@@ -25,6 +25,13 @@ uint32_t EZ::CalcSubresource(const Texture* pResource, uint8_t mipSlice, uint32_
 	return mipSlice + arraySlice * numMips + planeSlice * numMips * pResource->GetArraySize();
 }
 
+uint32_t EZ::CalcSubresource(const Texture3D* pResource, uint8_t mipSlice, uint8_t planeSlice)
+{
+	const auto numMips = pResource->GetNumMips();
+
+	return mipSlice + planeSlice * numMips;
+}
+
 ResourceView EZ::GetCBV(ConstantBuffer* pResource, uint32_t index)
 {
 	ResourceView resourceView;
@@ -61,12 +68,37 @@ ResourceView EZ::GetSRV(Texture* pResource, uint32_t index)
 	return resourceView;
 }
 
+ResourceView EZ::GetSRV(Texture3D* pResource)
+{
+	ResourceView resourceView;
+	resourceView.pResource = pResource;
+	resourceView.view = pResource->GetSRV();
+
+	const auto numMips = pResource->GetNumMips();
+	resourceView.Subresources.resize(numMips);
+
+	for (uint8_t i = 0; i < numMips; ++i)
+			resourceView.Subresources[i] = CalcSubresource(pResource, i);
+
+	return resourceView;
+}
+
 ResourceView EZ::GetSRVLevel(Texture* pResource, uint8_t level)
 {
 	ResourceView resourceView;
 	resourceView.pResource = pResource;
 	resourceView.view = pResource->GetSRVLevel(level);
 	CalcSubresources(resourceView.Subresources, pResource, level);
+
+	return resourceView;
+}
+
+ResourceView EZ::GetSRVLevel(Texture3D* pResource, uint8_t level)
+{
+	ResourceView resourceView;
+	resourceView.pResource = pResource;
+	resourceView.view = pResource->GetSRVLevel(level);
+	resourceView.Subresources = { CalcSubresource(pResource, level) };
 
 	return resourceView;
 }
@@ -91,12 +123,32 @@ ResourceView EZ::GetUAV(Texture* pResource, uint8_t index)
 	return resourceView;
 }
 
-ResourceView EZ::GetPackedUAV(Texture* pResource, uint8_t index)
+ResourceView EZ::GetUAV(Texture3D* pResource, uint8_t index)
 {
 	ResourceView resourceView;
 	resourceView.pResource = pResource;
 	resourceView.view = pResource->GetUAV(index);
+	resourceView.Subresources = { CalcSubresource(pResource, index) };
+
+	return resourceView;
+}
+
+ResourceView EZ::GetPackedUAV(Texture* pResource, uint8_t index)
+{
+	ResourceView resourceView;
+	resourceView.pResource = pResource;
+	resourceView.view = pResource->GetPackedUAV(index);
 	CalcSubresources(resourceView.Subresources, pResource, index);
+
+	return resourceView;
+}
+
+ResourceView EZ::GetPackedUAV(Texture3D* pResource, uint8_t index)
+{
+	ResourceView resourceView;
+	resourceView.pResource = pResource;
+	resourceView.view = pResource->GetPackedUAV(index);
+	resourceView.Subresources = { CalcSubresource(pResource, index) };
 
 	return resourceView;
 }
@@ -105,7 +157,7 @@ ResourceView EZ::GetPackedUAV(TypedBuffer* pResource, uint8_t index)
 {
 	ResourceView resourceView;
 	resourceView.pResource = pResource;
-	resourceView.view = pResource->GetUAV(index);
+	resourceView.view = pResource->GetPackedUAV(index);
 	resourceView.Subresources = { XUSG_BARRIER_ALL_SUBRESOURCES };
 
 	return resourceView;
