@@ -21,15 +21,20 @@ namespace XUSG
 		XUSG_INTERFACE void CalcSubresources(std::vector<uint32_t>& subresources, const Texture* pResource, uint8_t mipSlice, uint8_t planeSlice = 0);
 
 		XUSG_INTERFACE uint32_t CalcSubresource(const Texture* pResource, uint8_t mipSlice, uint32_t arraySlice, uint8_t planeSlice = 0);
+		XUSG_INTERFACE uint32_t CalcSubresource(const Texture3D* pResource, uint8_t mipSlice, uint8_t planeSlice = 0);
 
 		// Resource view generation helpers coupled for XUSG resources
 		XUSG_INTERFACE ResourceView GetCBV(ConstantBuffer* pResource, uint32_t index = 0);
 		XUSG_INTERFACE ResourceView GetSRV(Buffer* pResource, uint32_t index = 0);
 		XUSG_INTERFACE ResourceView GetSRV(Texture* pResource, uint32_t index = 0);
+		XUSG_INTERFACE ResourceView GetSRV(Texture3D* pResource);
 		XUSG_INTERFACE ResourceView GetSRVLevel(Texture* pResource, uint8_t level);
+		XUSG_INTERFACE ResourceView GetSRVLevel(Texture3D* pResource, uint8_t level);
 		XUSG_INTERFACE ResourceView GetUAV(Buffer* pResource, uint8_t index = 0);
 		XUSG_INTERFACE ResourceView GetUAV(Texture* pResource, uint8_t index = 0);
+		XUSG_INTERFACE ResourceView GetUAV(Texture3D* pResource, uint8_t index = 0);
 		XUSG_INTERFACE ResourceView GetPackedUAV(Texture* pResource, uint8_t index = 0);
+		XUSG_INTERFACE ResourceView GetPackedUAV(Texture3D* pResource, uint8_t index = 0);
 		XUSG_INTERFACE ResourceView GetPackedUAV(TypedBuffer* pResource, uint8_t index = 0);
 		XUSG_INTERFACE ResourceView GetRTV(RenderTarget* pResource, uint32_t slice = 0, uint8_t mipLevel = 0);
 		XUSG_INTERFACE ResourceView GetArrayRTV(RenderTarget* pResource, uint8_t mipLevel = 0);
