@@ -38,11 +38,9 @@ https://github.com/StarsX/MeshShader
 
 https://github.com/StarsX/MSFallback
 
-Using XUSGRayTracing:
+Using XUSGRayTracing (supporting Tier 2 hardware with DXR fallback layer):
 
 https://github.com/StarsX/RayTracedGGX
-
-https://github.com/StarsX/DXRVoxelizer
 
 Using XUSGRayTracing (native DXR path only):
 
@@ -51,6 +49,10 @@ https://github.com/StarsX/SparseVolumeDXR (DXR fallback layer has a bug on Ignor
 Using XUSG-EZ:
 
 https://github.com/StarsX/SHIrradianceEZ
+
+Using XUSGRayTracing-EZ:
+
+https://github.com/StarsX/DXRVoxelizer (supporting Tier 2 hardware with DXR fallback layer)
 
 Using XUSGMachineLearning:
 
