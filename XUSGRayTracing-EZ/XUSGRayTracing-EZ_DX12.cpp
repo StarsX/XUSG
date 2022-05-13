@@ -57,6 +57,8 @@ bool EZ::CommandList_DXR::Create(RayTracing::CommandList* pCommandList, uint32_t
 	m_pipelineLayoutCache = PipelineLayoutCache::MakeUnique(m_pDevice, API::DIRECTX_12);
 	m_descriptorTableCache = DescriptorTableCache::MakeUnique(m_pDevice, L"EZDescirptorTableCache", API::DIRECTX_12);
 	m_rayTracingState = State::MakeUnique(API::DIRECTX_12);
+	m_graphicsState = Graphics::State::MakeUnique(API::DIRECTX_12);
+	m_computeState = Compute::State::MakeUnique(API::DIRECTX_12);
 
 	// Allocate descriptor pools
 	XUSG_N_RETURN(m_descriptorTableCache->AllocateDescriptorPool(

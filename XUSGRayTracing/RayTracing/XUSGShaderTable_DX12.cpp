@@ -144,7 +144,7 @@ bool ShaderTable_DX12::allocate(const XUSG::Device* pDevice, uint32_t byteWidth,
 	V_RETURN(pDxDevice->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE,
 		&bufferDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
 		IID_PPV_ARGS(&resource)), cerr, false);
-	resource->SetName(name);
+	if (name) resource->SetName(name);
 
 	return true;
 }
