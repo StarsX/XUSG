@@ -22,6 +22,11 @@ namespace XUSG
 				PipelineLayoutFlag flags, const wchar_t* name = nullptr);
 			XUSG::PipelineLayout GetPipelineLayout(const Device* pDevice, PipelineLayoutCache* pPipelineLayoutCache,
 				PipelineLayoutFlag flags, const wchar_t* name = nullptr);
+
+		protected:
+			void convertToRootParam1_0(D3D12_ROOT_PARAMETER& rootParam,
+				std::vector<D3D12_DESCRIPTOR_RANGE>& descriptorRanges,
+				const D3D12_ROOT_PARAMETER1& rootParam1);
 		};
 	}
 }
