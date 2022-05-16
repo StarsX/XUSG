@@ -44,13 +44,28 @@ XUSG::PipelineLayout RayTracing::PipelineLayout_DX12::CreatePipelineLayout(const
 	for (auto i = 0u; i < numSamplers; ++i)
 		pLayoutCache->GetStaticSampler(samplerDescs[i], pStaticSamplers[i]);
 
+	vector<D3D12_ROOT_PARAMETER> rootParams0;
+	vector<vector<D3D12_DESCRIPTOR_RANGE>> descriptorRanges0;
 	CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
-	rootSignatureDesc.Init_1_1(numRootParams, numRootParams ? rootParams.data() : nullptr,
-		numSamplers, numSamplers ? samplerDescs.data() : nullptr, GetDX12RootSignatureFlags(flags));
+	if (highestVersion == D3D_ROOT_SIGNATURE_VERSION_1_1)
+		rootSignatureDesc.Init_1_1(numRootParams, numRootParams ? rootParams.data() : nullptr,
+			numSamplers, numSamplers ? samplerDescs.data() : nullptr, GetDX12RootSignatureFlags(flags));
+	else
+	{
+		rootParams0.resize(numRootParams);
+		descriptorRanges0.resize(numRootParams);
+		for (auto i = 0u; i < numRootParams; ++i)
+			convertToRootParam1_0(rootParams0[i], descriptorRanges0[i], rootParams[i]);
+
+		descriptorRanges.clear();
+		rootParams.clear();
+
+		rootSignatureDesc.Init_1_0(numRootParams, numRootParams ? rootParams0.data() : nullptr,
+			numSamplers, numSamplers ? samplerDescs.data() : nullptr, GetDX12RootSignatureFlags(flags));
+	}
 
 	com_ptr<ID3D12RootSignature> rootSignature;
 	com_ptr<ID3DBlob> signature, error;
-	rootSignatureDesc.Version = highestVersion;
 	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(pDevice->GetRTHandle());
 	H_RETURN(pDxDevice->D3D12SerializeVersionedRootSignature(&rootSignatureDesc, &signature, &error,
 		AccelerationStructure::GetUAVCount()), cerr, reinterpret_cast<wchar_t*>(error->GetBufferPointer()), nullptr);
@@ -71,4 +86,43 @@ XUSG::PipelineLayout RayTracing::PipelineLayout_DX12::GetPipelineLayout(const De
 	if (!layout) return CreatePipelineLayout(pDevice, pPipelineLayoutCache, flags, name);
 
 	return layout;
+}
+
+void RayTracing::PipelineLayout_DX12::convertToRootParam1_0(D3D12_ROOT_PARAMETER& rootParam,
+	vector<D3D12_DESCRIPTOR_RANGE>& descriptorRanges, const D3D12_ROOT_PARAMETER1& rootParam1)
+{
+	rootParam.ParameterType = rootParam1.ParameterType;
+
+	switch (rootParam1.ParameterType)
+	{
+	case D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE:
+	{
+		descriptorRanges.resize(rootParam1.DescriptorTable.NumDescriptorRanges);
+		for (auto i = 0u; i < rootParam1.DescriptorTable.NumDescriptorRanges; ++i)
+		{
+			const auto& descriptorRange1 = rootParam1.DescriptorTable.pDescriptorRanges[i];
+			auto& descriptorRange = descriptorRanges[i];
+
+			descriptorRange.RangeType = descriptorRange1.RangeType;
+			descriptorRange.NumDescriptors = descriptorRange1.NumDescriptors;
+			descriptorRange.BaseShaderRegister = descriptorRange1.BaseShaderRegister;
+			descriptorRange.RegisterSpace = descriptorRange1.RegisterSpace;
+			descriptorRange.OffsetInDescriptorsFromTableStart = descriptorRange1.OffsetInDescriptorsFromTableStart;
+		}
+
+		rootParam.DescriptorTable.NumDescriptorRanges = rootParam1.DescriptorTable.NumDescriptorRanges;
+		rootParam.DescriptorTable.pDescriptorRanges = descriptorRanges.data();
+
+		break;
+	}
+	case D3D12_ROOT_PARAMETER_TYPE_CBV:
+	case D3D12_ROOT_PARAMETER_TYPE_SRV:
+	case D3D12_ROOT_PARAMETER_TYPE_UAV:
+		rootParam.Descriptor.ShaderRegister = rootParam1.Descriptor.ShaderRegister;
+		rootParam.Descriptor.RegisterSpace = rootParam1.Descriptor.RegisterSpace;
+		break;
+	default:
+		assert(rootParam1.ParameterType == D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS);
+		rootParam.Constants = rootParam1.Constants;
+	}
 }
