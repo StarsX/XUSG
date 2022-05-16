@@ -16,7 +16,7 @@ namespace XUSG
 		public:
 			struct KeyHeader
 			{
-				XUSG::PipelineLayout GlobalPipelineLayout;
+				XUSG::PipelineLayout GlobalLayout;
 				uint32_t NumShaderLibs;
 				uint32_t NumHitGroups;
 				uint32_t NumLocalPipelineLayouts;
@@ -72,8 +72,8 @@ namespace XUSG
 			void SetGlobalPipelineLayout(const XUSG::PipelineLayout& layout);
 			void SetMaxRecursionDepth(uint32_t depth);
 
-			Pipeline CreatePipeline(PipelineCache* pPipelineCache, const wchar_t* name = nullptr);
-			Pipeline GetPipeline(PipelineCache* pPipelineCache, const wchar_t* name = nullptr);
+			Pipeline CreatePipeline(PipelineLib* pPipelineCache, const wchar_t* name = nullptr);
+			Pipeline GetPipeline(PipelineLib* pPipelineCache, const wchar_t* name = nullptr);
 
 			const std::string& GetKey();
 
@@ -90,13 +90,13 @@ namespace XUSG
 			bool m_isComplete;
 		};
 
-		class PipelineCache_DX12 :
-			public PipelineCache
+		class PipelineLib_DX12 :
+			public PipelineLib
 		{
 		public:
-			PipelineCache_DX12();
-			PipelineCache_DX12(const Device* pDevice);
-			virtual ~PipelineCache_DX12();
+			PipelineLib_DX12();
+			PipelineLib_DX12(const Device* pDevice);
+			virtual ~PipelineLib_DX12();
 
 			void SetDevice(const Device* pDevice);
 			void SetPipeline(const std::string& key, const Pipeline& pipeline);

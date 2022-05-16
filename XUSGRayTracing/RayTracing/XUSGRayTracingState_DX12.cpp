@@ -83,7 +83,7 @@ void State_DX12::SetLocalPipelineLayout(uint32_t index, const XUSG::PipelineLayo
 void State_DX12::SetGlobalPipelineLayout(const XUSG::PipelineLayout& layout)
 {
 	m_isComplete = false;
-	m_pKeyHeader->GlobalPipelineLayout = layout;
+	m_pKeyHeader->GlobalLayout = layout;
 }
 
 void State_DX12::SetMaxRecursionDepth(uint32_t depth)
@@ -92,12 +92,12 @@ void State_DX12::SetMaxRecursionDepth(uint32_t depth)
 	m_pKeyHeader->MaxRecursionDepth = depth;
 }
 
-Pipeline State_DX12::CreatePipeline(PipelineCache* pPipelineCache, const wchar_t* name)
+Pipeline State_DX12::CreatePipeline(PipelineLib* pPipelineCache, const wchar_t* name)
 {
 	return pPipelineCache->CreatePipeline(this, name);
 }
 
-Pipeline State_DX12::GetPipeline(PipelineCache* pPipelineCache, const wchar_t* name)
+Pipeline State_DX12::GetPipeline(PipelineLib* pPipelineCache, const wchar_t* name)
 {
 	return pPipelineCache->GetPipeline(this, name);
 }
@@ -174,44 +174,44 @@ void State_DX12::complete()
 
 //--------------------------------------------------------------------------------------
 
-PipelineCache_DX12::PipelineCache_DX12() :
+PipelineLib_DX12::PipelineLib_DX12() :
 	m_device(nullptr),
 	m_stateObjects()
 {
 }
 
-PipelineCache_DX12::PipelineCache_DX12(const RayTracing::Device* pDevice) :
-	PipelineCache()
+PipelineLib_DX12::PipelineLib_DX12(const RayTracing::Device* pDevice) :
+	PipelineLib()
 {
 	SetDevice(pDevice);
 }
 
-PipelineCache_DX12::~PipelineCache_DX12()
+PipelineLib_DX12::~PipelineLib_DX12()
 {
 }
 
-void PipelineCache_DX12::SetDevice(const RayTracing::Device* pDevice)
+void PipelineLib_DX12::SetDevice(const RayTracing::Device* pDevice)
 {
 	m_device = static_cast<ID3D12RaytracingFallbackDevice*>(pDevice->GetRTHandle());
 	assert(m_device);
 }
 
-void PipelineCache_DX12::SetPipeline(const string& key, const Pipeline& pipeline)
+void PipelineLib_DX12::SetPipeline(const string& key, const Pipeline& pipeline)
 {
 	m_stateObjects[key] = static_cast<ID3D12RaytracingFallbackStateObject*>(pipeline);
 }
 
-Pipeline PipelineCache_DX12::CreatePipeline(State* pState, const wchar_t* name)
+Pipeline PipelineLib_DX12::CreatePipeline(State* pState, const wchar_t* name)
 {
 	return createPipeline(pState->GetKey(), name);
 }
 
-Pipeline PipelineCache_DX12::GetPipeline(State* pState, const wchar_t* name)
+Pipeline PipelineLib_DX12::GetPipeline(State* pState, const wchar_t* name)
 {
 	return getPipeline(pState->GetKey(), name);
 }
 
-Pipeline PipelineCache_DX12::createPipeline(const string& key, const wchar_t* name)
+Pipeline PipelineLib_DX12::createPipeline(const string& key, const wchar_t* name)
 {
 	// Get header
 	const auto& keyHeader = reinterpret_cast<const State_DX12::KeyHeader&>(key[0]);
@@ -293,7 +293,7 @@ Pipeline PipelineCache_DX12::createPipeline(const string& key, const wchar_t* na
 	// Global pipeline layout
 	// This is a pipeline layout that is shared across all raytracing shaders invoked during a DispatchRays() call.
 	const auto pGlobalRootSignature = pPsoDesc.CreateSubobject<CD3DX12_GLOBAL_ROOT_SIGNATURE_SUBOBJECT>();
-	pGlobalRootSignature->SetRootSignature(static_cast<ID3D12RootSignature*>(keyHeader.GlobalPipelineLayout));
+	pGlobalRootSignature->SetRootSignature(static_cast<ID3D12RootSignature*>(keyHeader.GlobalLayout));
 
 	// Pipeline config
 	// Defines the maximum TraceRay() recursion depth.
@@ -315,7 +315,7 @@ Pipeline PipelineCache_DX12::createPipeline(const string& key, const wchar_t* na
 	return stateObject.get();
 }
 
-Pipeline PipelineCache_DX12::getPipeline(const string& key, const wchar_t* name)
+Pipeline PipelineLib_DX12::getPipeline(const string& key, const wchar_t* name)
 {
 	const auto pStateObject = m_stateObjects.find(key);
 

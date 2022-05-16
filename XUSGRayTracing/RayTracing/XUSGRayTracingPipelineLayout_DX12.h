@@ -18,9 +18,9 @@ namespace XUSG
 			PipelineLayout_DX12();
 			virtual ~PipelineLayout_DX12();
 
-			XUSG::PipelineLayout CreatePipelineLayout(const Device* pDevice, PipelineLayoutCache* pPipelineLayoutCache,
+			XUSG::PipelineLayout CreatePipelineLayout(const Device* pDevice, PipelineLayoutLib* pPipelineLayoutLib,
 				PipelineLayoutFlag flags, const wchar_t* name = nullptr);
-			XUSG::PipelineLayout GetPipelineLayout(const Device* pDevice, PipelineLayoutCache* pPipelineLayoutCache,
+			XUSG::PipelineLayout GetPipelineLayout(const Device* pDevice, PipelineLayoutLib* pPipelineLayoutLib,
 				PipelineLayoutFlag flags, const wchar_t* name = nullptr);
 
 		protected:

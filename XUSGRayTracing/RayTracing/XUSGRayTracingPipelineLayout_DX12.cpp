@@ -21,10 +21,10 @@ RayTracing::PipelineLayout_DX12::~PipelineLayout_DX12()
 }
 
 XUSG::PipelineLayout RayTracing::PipelineLayout_DX12::CreatePipelineLayout(const Device* pDevice,
-	PipelineLayoutCache* pPipelineLayoutCache, PipelineLayoutFlag flags, const wchar_t* name)
+	PipelineLayoutLib* pPipelineLayoutLib, PipelineLayoutFlag flags, const wchar_t* name)
 {
-	const auto pLayoutCache = dynamic_cast<PipelineLayoutCache_DX12*>(pPipelineLayoutCache);
-	const auto highestVersion = pLayoutCache->GetRootSignatureHighestVersion();
+	const auto pLayoutLib = dynamic_cast<PipelineLayoutLib_DX12*>(pPipelineLayoutLib);
+	const auto highestVersion = pLayoutLib->GetRootSignatureHighestVersion();
 	reinterpret_cast<uint16_t&>(m_pipelineLayoutKey[0]) = static_cast<uint16_t>(flags);
 	const auto& key = m_pipelineLayoutKey;
 
@@ -34,7 +34,7 @@ XUSG::PipelineLayout RayTracing::PipelineLayout_DX12::CreatePipelineLayout(const
 	vector<CD3DX12_ROOT_PARAMETER1> rootParams(numRootParams);
 	vector<vector<CD3DX12_DESCRIPTOR_RANGE1>> descriptorRanges(numRootParams);
 	for (auto i = 0u; i < numRootParams; ++i)
-		pLayoutCache->GetRootParameter(rootParams[i], descriptorRanges[i], pDescriptorTableLayouts[i]);
+		pLayoutLib->GetRootParameter(rootParams[i], descriptorRanges[i], pDescriptorTableLayouts[i]);
 
 	const auto staticSamplerKeyOffset = Util::PipelineLayout_DX12::DescriptorTableLayoutOffset + sizeof(DescriptorTableLayout) * numRootParams;
 	const auto numSamplers = static_cast<uint32_t>((key.size() - staticSamplerKeyOffset) / sizeof(StaticSampler));
@@ -42,7 +42,7 @@ XUSG::PipelineLayout RayTracing::PipelineLayout_DX12::CreatePipelineLayout(const
 
 	vector<CD3DX12_STATIC_SAMPLER_DESC> samplerDescs(numSamplers);
 	for (auto i = 0u; i < numSamplers; ++i)
-		pLayoutCache->GetStaticSampler(samplerDescs[i], pStaticSamplers[i]);
+		pLayoutLib->GetStaticSampler(samplerDescs[i], pStaticSamplers[i]);
 
 	vector<D3D12_ROOT_PARAMETER> rootParams0;
 	vector<vector<D3D12_DESCRIPTOR_RANGE>> descriptorRanges0;
@@ -73,17 +73,17 @@ XUSG::PipelineLayout RayTracing::PipelineLayout_DX12::CreatePipelineLayout(const
 	V_RETURN(pDxDevice->CreateRootSignature(1, signature->GetBufferPointer(), signature->GetBufferSize(),
 		IID_PPV_ARGS(&rootSignature)), cerr, nullptr);
 	if (name) rootSignature->SetName(name);
-	pPipelineLayoutCache->SetPipelineLayout(key, rootSignature.get());
+	pPipelineLayoutLib->SetPipelineLayout(key, rootSignature.get());
 
 	return rootSignature.get();
 }
 
 XUSG::PipelineLayout RayTracing::PipelineLayout_DX12::GetPipelineLayout(const Device* pDevice,
-	PipelineLayoutCache* pPipelineLayoutCache, PipelineLayoutFlag flags, const wchar_t* name)
+	PipelineLayoutLib* pPipelineLayoutLib, PipelineLayoutFlag flags, const wchar_t* name)
 {
-	auto layout = pPipelineLayoutCache->GetPipelineLayout(this, flags, name, false);
+	auto layout = pPipelineLayoutLib->GetPipelineLayout(this, flags, name, false);
 
-	if (!layout) return CreatePipelineLayout(pDevice, pPipelineLayoutCache, flags, name);
+	if (!layout) return CreatePipelineLayout(pDevice, pPipelineLayoutLib, flags, name);
 
 	return layout;
 }

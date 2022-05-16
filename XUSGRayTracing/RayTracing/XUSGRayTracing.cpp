@@ -190,22 +190,22 @@ RayTracing::State::sptr RayTracing::State::MakeShared(API api)
 	return make_shared<RayTracing::State_DX12>();
 }
 
-RayTracing::PipelineCache::uptr RayTracing::PipelineCache::MakeUnique(API api)
+RayTracing::PipelineLib::uptr RayTracing::PipelineLib::MakeUnique(API api)
 {
-	return make_unique<RayTracing::PipelineCache_DX12>();
+	return make_unique<RayTracing::PipelineLib_DX12>();
 }
 
-RayTracing::PipelineCache::sptr RayTracing::PipelineCache::MakeShared(API api)
+RayTracing::PipelineLib::sptr RayTracing::PipelineLib::MakeShared(API api)
 {
-	return make_shared<RayTracing::PipelineCache_DX12>();
+	return make_shared<RayTracing::PipelineLib_DX12>();
 }
 
-RayTracing::PipelineCache::uptr RayTracing::PipelineCache::MakeUnique(const Device* pDevice, API api)
+RayTracing::PipelineLib::uptr RayTracing::PipelineLib::MakeUnique(const Device* pDevice, API api)
 {
-	return make_unique<RayTracing::PipelineCache_DX12>(pDevice);
+	return make_unique<RayTracing::PipelineLib_DX12>(pDevice);
 }
 
-RayTracing::PipelineCache::sptr RayTracing::PipelineCache::MakeShared(const Device* pDevice, API api)
+RayTracing::PipelineLib::sptr RayTracing::PipelineLib::MakeShared(const Device* pDevice, API api)
 {
-	return make_shared<RayTracing::PipelineCache_DX12>(pDevice);
+	return make_shared<RayTracing::PipelineLib_DX12>(pDevice);
 }
