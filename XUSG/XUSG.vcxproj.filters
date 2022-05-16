@@ -127,6 +127,9 @@
     <ClInclude Include="Common\dxgiformat.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="Common\dxgicommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
