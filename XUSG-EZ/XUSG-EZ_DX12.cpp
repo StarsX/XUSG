@@ -347,8 +347,10 @@ void EZ::CommandList_DX12::SetGraphicsResources(Shader::Stage stage, DescriptorT
 	if (descriptorType == DescriptorType::SRV || descriptorType == DescriptorType::UAV)
 	{
 		const auto dstState = descriptorType == DescriptorType::UAV ?
-			ResourceState::UNORDERED_ACCESS : ResourceState::NON_PIXEL_SHADER_RESOURCE |
-			ResourceState::PIXEL_SHADER_RESOURCE;
+			ResourceState::UNORDERED_ACCESS :
+			(ResourceState::NON_PIXEL_SHADER_RESOURCE |
+				ResourceState::PIXEL_SHADER_RESOURCE |
+				ResourceState::VERTEX_AND_CONSTANT_BUFFER);
 		setBarriers(numResources, pResourceViews, dstState);
 	}
 }
@@ -377,7 +379,10 @@ void EZ::CommandList_DX12::SetComputeResources(DescriptorType descriptorType, ui
 	if (descriptorType == DescriptorType::SRV || descriptorType == DescriptorType::UAV)
 	{
 		const auto dstState = descriptorType == DescriptorType::UAV ?
-			ResourceState::UNORDERED_ACCESS : ResourceState::NON_PIXEL_SHADER_RESOURCE;
+			ResourceState::UNORDERED_ACCESS :
+			(ResourceState::NON_PIXEL_SHADER_RESOURCE |
+				ResourceState::PIXEL_SHADER_RESOURCE |
+				ResourceState::VERTEX_AND_CONSTANT_BUFFER);
 		setBarriers(numResources, pResourceViews, dstState);
 	}
 }
@@ -684,7 +689,12 @@ void EZ::CommandList_DX12::setBarriers(uint32_t numResources, const ResourceView
 	m_barriers.resize(startIdx + numBarriersEst);
 	auto numBarriers = 0u;
 	for (auto i = 0u; i < numResources; ++i)
-		numBarriers = generateBarriers(&m_barriers[startIdx], pResourceViews[i], dstState, numBarriers);
+	{
+		const auto& resourceView = pResourceViews[i];
+		const auto destState = dstState & (dynamic_cast<VertexBuffer*>(resourceView.pResource) ?
+			(~ResourceState::VERTEX_AND_CONSTANT_BUFFER) : (~ResourceState::COMMON));
+		numBarriers = generateBarriers(&m_barriers[startIdx], resourceView, destState, numBarriers);
+	}
 
 	// Shrink the size of barrier list
 	if (numBarriers < numBarriersEst) m_barriers.resize(startIdx + numBarriers);

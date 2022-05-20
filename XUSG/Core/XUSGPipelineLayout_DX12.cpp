@@ -252,6 +252,7 @@ void PipelineLayoutCache_DX12::GetRootParameter(CD3DX12_ROOT_PARAMETER1& rootPar
 			rootParam.InitAsDescriptorTable(numRanges, descriptorRanges.data(), getShaderVisibility(stage));
 		}
 	}
+	else rootParam = {};
 }
 
 void PipelineLayoutCache_DX12::GetStaticSampler(CD3DX12_STATIC_SAMPLER_DESC& samplerDescs, const StaticSampler& staticSampler) const

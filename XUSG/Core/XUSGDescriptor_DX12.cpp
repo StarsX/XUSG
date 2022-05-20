@@ -381,7 +381,8 @@ DescriptorTable DescriptorTableCache_DX12::createCbvSrvUavTable(const string& ke
 		for (auto i = 0u; i < numDescriptors; ++i)
 		{
 			// Copy a descriptor
-			m_device->CopyDescriptorsSimple(1, dst, pSrc[i], D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+			const auto& src = pSrc[i];
+			if (src.ptr) m_device->CopyDescriptorsSimple(1, dst, src, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 			dst.Offset(descriptorStride);
 		}
 
@@ -570,7 +571,8 @@ Framebuffer DescriptorTableCache_DX12::createFramebuffer(const string& key,
 		for (auto i = 0u; i < framebuffer.NumRenderTargetDescriptors; ++i)
 		{
 			// Copy a descriptor
-			m_device->CopyDescriptorsSimple(1, dst, pSrc[i], D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+			const auto& src = pSrc[i];
+			if (src.ptr) m_device->CopyDescriptorsSimple(1, dst, src, D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 			dst.Offset(descriptorStride);
 		}
 	}
