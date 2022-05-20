@@ -10,12 +10,24 @@ namespace XUSG
 {
 	namespace EZ
 	{
-		// Resource view
+		// Resource views
 		struct ResourceView
 		{
 			Resource* pResource;
 			Descriptor view;
 			std::vector<uint32_t> Subresources;
+		};
+
+		struct VertexBufferView
+		{
+			VertexBuffer* pResource;
+			const XUSG::VertexBufferView* pView;
+		};
+
+		struct IndexBufferView
+		{
+			IndexBuffer* pResource;
+			const XUSG::IndexBufferView* pView;
 		};
 
 		XUSG_INTERFACE void CalcSubresources(std::vector<uint32_t>& subresources, const Texture* pResource, uint8_t mipSlice, uint8_t planeSlice = 0);
@@ -43,6 +55,10 @@ namespace XUSG
 		XUSG_INTERFACE ResourceView GetReadOnlyDSV(DepthStencil* pResource, uint32_t slice = 0, uint8_t mipLevel = 0);
 		XUSG_INTERFACE ResourceView GetReadOnlyArrayDSV(DepthStencil* pResource, uint8_t mipLevel = 0);
 		XUSG_INTERFACE ResourceView GetStencilSRV(DepthStencil* pResource);
+
+		XUSG_INTERFACE VertexBufferView GetVBV(VertexBuffer* pResource, uint32_t index = 0);
+
+		XUSG_INTERFACE IndexBufferView GetIBV(IndexBuffer* pResource, uint32_t index = 0);
 
 		//--------------------------------------------------------------------------------------
 		// Command list
@@ -116,8 +132,8 @@ namespace XUSG
 			virtual void SetComputeResources(DescriptorType descriptorType, uint32_t startBinding,
 				uint32_t numResources, const ResourceView* pResourceViews, uint32_t space = 0) = 0;
 			virtual void IASetPrimitiveTopology(PrimitiveTopology primitiveTopology) = 0;
-			virtual void IASetIndexBuffer(const IndexBufferView& view) const = 0;
-			virtual void IASetVertexBuffers(uint32_t startSlot, uint32_t numViews, const VertexBufferView* pViews) const = 0;
+			virtual void IASetIndexBuffer(const IndexBufferView& view) = 0;
+			virtual void IASetVertexBuffers(uint32_t startSlot, uint32_t numViews, const VertexBufferView* pViews) = 0;
 			virtual void SOSetTargets(uint32_t startSlot, uint32_t numViews, const StreamOutBufferView* pViews, Resource* const* ppResources) = 0;
 			virtual void OMSetRenderTargets(
 				uint32_t numRenderTargets,

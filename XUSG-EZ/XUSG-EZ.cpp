@@ -4,6 +4,7 @@
 
 #include "Core/XUSGCommand_DX12.h"
 #include "XUSG-EZ_DX12.h"
+#include "XUSG-EZ.h"
 
 using namespace std;
 using namespace XUSG;
@@ -229,6 +230,24 @@ ResourceView EZ::GetStencilSRV(DepthStencil* pResource)
 	resourceView.pResource = pResource;
 	resourceView.view = pResource->GetStencilSRV();
 	resourceView.Subresources = { XUSG_BARRIER_ALL_SUBRESOURCES };
+
+	return resourceView;
+}
+
+EZ::VertexBufferView EZ::GetVBV(VertexBuffer* pResource, uint32_t index)
+{
+	VertexBufferView resourceView;
+	resourceView.pResource = pResource;
+	resourceView.pView = &pResource->GetVBV(index);
+
+	return resourceView;
+}
+
+EZ::IndexBufferView EZ::GetIBV(IndexBuffer* pResource, uint32_t index)
+{
+	IndexBufferView resourceView;
+	resourceView.pResource = pResource;
+	resourceView.pView = &pResource->GetIBV(index);
 
 	return resourceView;
 }

@@ -412,6 +412,47 @@ void EZ::CommandList_DX12::IASetPrimitiveTopology(PrimitiveTopology primitiveTop
 	XUSG::CommandList_DX12::IASetPrimitiveTopology(primitiveTopology);
 }
 
+void EZ::CommandList_DX12::IASetIndexBuffer(const IndexBufferView& view)
+{
+	// Set barriers if the index buffers is not at the read states
+	const auto startIdx = m_barriers.size();
+	m_barriers.resize(startIdx + 1);
+	auto dstState = ResourceState::INDEX_BUFFER;
+	dstState |= view.pResource->GetSRV() ? ResourceState::NON_PIXEL_SHADER_RESOURCE |
+		ResourceState::PIXEL_SHADER_RESOURCE : dstState;
+	const auto numBarriers = view.pResource->SetBarrier(&m_barriers[startIdx], dstState);
+
+	// Shrink the size of barrier list
+	if (!numBarriers) m_barriers.resize(startIdx);
+
+	XUSG::CommandList_DX12::IASetIndexBuffer(*view.pView);
+}
+
+void EZ::CommandList_DX12::IASetVertexBuffers(uint32_t startSlot, uint32_t numViews, const VertexBufferView* pViews)
+{
+	vector<XUSG::VertexBufferView> views(numViews);
+
+	// Set barriers if the index buffers is not at the read states
+	const auto startIdx = m_barriers.size();
+	m_barriers.resize(startIdx + numViews);
+	auto numBarriers = 0u;
+	for (auto i = 0u; i < numViews; ++i)
+	{
+		auto& view = pViews[i];
+		auto dstState = ResourceState::VERTEX_AND_CONSTANT_BUFFER;
+		dstState |= view.pResource->GetSRV() ? ResourceState::NON_PIXEL_SHADER_RESOURCE |
+			ResourceState::PIXEL_SHADER_RESOURCE : dstState;
+		const auto numBarriers = view.pResource->SetBarrier(&m_barriers[startIdx], dstState);
+
+		views[i] = *view.pView;
+	}
+
+	// Shrink the size of barrier list
+	if (numBarriers < numViews) m_barriers.resize(startIdx + numBarriers);
+
+	XUSG::CommandList_DX12::IASetVertexBuffers(startSlot, numViews, views.data());
+}
+
 void EZ::CommandList_DX12::SOSetTargets(uint32_t startSlot, uint32_t numViews, const StreamOutBufferView* pViews, Resource* const* ppResources)
 {
 	vector<ResourceView> resourceViews(numViews);

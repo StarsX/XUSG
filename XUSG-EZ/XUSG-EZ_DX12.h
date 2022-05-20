@@ -90,12 +90,8 @@ namespace XUSG
 			void SetComputeResources(DescriptorType descriptorType, uint32_t startBinding,
 				uint32_t numResources, const ResourceView* pResourceViews, uint32_t space = 0);
 			void IASetPrimitiveTopology(PrimitiveTopology primitiveTopology);
-			void IASetIndexBuffer(const IndexBufferView& view) const { XUSG::CommandList_DX12::IASetIndexBuffer(view); }
-			void IASetVertexBuffers(uint32_t startSlot, uint32_t numViews, const VertexBufferView* pViews) const
-			{
-				XUSG::CommandList_DX12::IASetVertexBuffers(startSlot, numViews, pViews);
-			}
-
+			void IASetIndexBuffer(const IndexBufferView& view);
+			void IASetVertexBuffers(uint32_t startSlot, uint32_t numViews, const VertexBufferView* pViews);
 			void SOSetTargets(uint32_t startSlot, uint32_t numViews, const StreamOutBufferView* pViews, Resource* const* ppResources);
 			void OMSetRenderTargets(
 				uint32_t numRenderTargets,
