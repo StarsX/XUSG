@@ -14,21 +14,26 @@ namespace XUSG
 		struct ResourceView
 		{
 			Resource* pResource;
-			Descriptor view;
+			Descriptor View;
 			std::vector<uint32_t> Subresources;
+			ResourceState DstState;
 		};
 
 		struct VertexBufferView
 		{
 			VertexBuffer* pResource;
 			const XUSG::VertexBufferView* pView;
+			ResourceState DstState;
 		};
 
 		struct IndexBufferView
 		{
 			IndexBuffer* pResource;
 			const XUSG::IndexBufferView* pView;
+			ResourceState DstState;
 		};
+
+		static const auto SHADER_RESOURCE_STATE = ResourceState::NON_PIXEL_SHADER_RESOURCE | ResourceState::PIXEL_SHADER_RESOURCE;
 
 		XUSG_INTERFACE void CalcSubresources(std::vector<uint32_t>& subresources, const Texture* pResource, uint8_t mipSlice, uint8_t planeSlice = 0);
 
@@ -37,11 +42,20 @@ namespace XUSG
 
 		// Resource view generation helpers coupled for XUSG resources
 		XUSG_INTERFACE ResourceView GetCBV(ConstantBuffer* pResource, uint32_t index = 0);
-		XUSG_INTERFACE ResourceView GetSRV(Buffer* pResource, uint32_t index = 0);
-		XUSG_INTERFACE ResourceView GetSRV(Texture* pResource, uint32_t index = 0);
-		XUSG_INTERFACE ResourceView GetSRV(Texture3D* pResource);
-		XUSG_INTERFACE ResourceView GetSRVLevel(Texture* pResource, uint8_t level);
-		XUSG_INTERFACE ResourceView GetSRVLevel(Texture3D* pResource, uint8_t level);
+		XUSG_INTERFACE ResourceView GetSRV(Buffer* pResource, uint32_t index = 0,
+			ResourceState dstState = SHADER_RESOURCE_STATE);
+		XUSG_INTERFACE ResourceView GetSRV(VertexBuffer* pResource, uint32_t index = 0,
+			ResourceState dstState = SHADER_RESOURCE_STATE | ResourceState::VERTEX_AND_CONSTANT_BUFFER);
+		XUSG_INTERFACE ResourceView GetSRV(IndexBuffer* pResource, uint32_t index = 0,
+			ResourceState dstState = SHADER_RESOURCE_STATE | ResourceState::INDEX_BUFFER);
+		XUSG_INTERFACE ResourceView GetSRV(Texture* pResource, uint32_t index = 0,
+			ResourceState dstState = SHADER_RESOURCE_STATE);
+		XUSG_INTERFACE ResourceView GetSRV(Texture3D* pResource,
+			ResourceState dstState = SHADER_RESOURCE_STATE);
+		XUSG_INTERFACE ResourceView GetSRVLevel(Texture* pResource, uint8_t level,
+			ResourceState dstState = SHADER_RESOURCE_STATE);
+		XUSG_INTERFACE ResourceView GetSRVLevel(Texture3D* pResource, uint8_t level,
+			ResourceState dstState = SHADER_RESOURCE_STATE);
 		XUSG_INTERFACE ResourceView GetUAV(Buffer* pResource, uint8_t index = 0);
 		XUSG_INTERFACE ResourceView GetUAV(Texture* pResource, uint8_t index = 0);
 		XUSG_INTERFACE ResourceView GetUAV(Texture3D* pResource, uint8_t index = 0);
@@ -52,13 +66,17 @@ namespace XUSG
 		XUSG_INTERFACE ResourceView GetArrayRTV(RenderTarget* pResource, uint8_t mipLevel = 0);
 		XUSG_INTERFACE ResourceView GetDSV(DepthStencil* pResource, uint32_t slice = 0, uint8_t mipLevel = 0);
 		XUSG_INTERFACE ResourceView GetArrayDSV(DepthStencil* pResource, uint8_t mipLevel = 0);
-		XUSG_INTERFACE ResourceView GetReadOnlyDSV(DepthStencil* pResource, uint32_t slice = 0, uint8_t mipLevel = 0);
-		XUSG_INTERFACE ResourceView GetReadOnlyArrayDSV(DepthStencil* pResource, uint8_t mipLevel = 0);
+		XUSG_INTERFACE ResourceView GetReadOnlyDSV(DepthStencil* pResource, uint32_t slice = 0,
+			uint8_t mipLevel = 0, ResourceState dstSrvState = SHADER_RESOURCE_STATE);
+		XUSG_INTERFACE ResourceView GetReadOnlyArrayDSV(DepthStencil* pResource,
+			uint8_t mipLevel = 0, ResourceState dstSrvState = SHADER_RESOURCE_STATE);
 		XUSG_INTERFACE ResourceView GetStencilSRV(DepthStencil* pResource);
 
-		XUSG_INTERFACE VertexBufferView GetVBV(VertexBuffer* pResource, uint32_t index = 0);
+		XUSG_INTERFACE VertexBufferView GetVBV(VertexBuffer* pResource, uint32_t index = 0,
+			ResourceState dstSrvState = SHADER_RESOURCE_STATE);
 
-		XUSG_INTERFACE IndexBufferView GetIBV(IndexBuffer* pResource, uint32_t index = 0);
+		XUSG_INTERFACE IndexBufferView GetIBV(IndexBuffer* pResource, uint32_t index = 0,
+			ResourceState dstSrvState = SHADER_RESOURCE_STATE);
 
 		//--------------------------------------------------------------------------------------
 		// Command list

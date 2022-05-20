@@ -36,26 +36,51 @@ ResourceView EZ::GetCBV(ConstantBuffer* pResource, uint32_t index)
 {
 	ResourceView resourceView;
 	resourceView.pResource = pResource;
-	resourceView.view = pResource->GetCBV(index);
+	resourceView.View = pResource->GetCBV(index);
+	resourceView.DstState = ResourceState::VERTEX_AND_CONSTANT_BUFFER;
 
 	return resourceView;
 }
 
-ResourceView EZ::GetSRV(Buffer* pResource, uint32_t index)
+ResourceView EZ::GetSRV(Buffer* pResource, uint32_t index, ResourceState dstState)
 {
 	ResourceView resourceView;
 	resourceView.pResource = pResource;
-	resourceView.view = pResource->GetSRV(index);
+	resourceView.View = pResource->GetSRV(index);
 	resourceView.Subresources = { XUSG_BARRIER_ALL_SUBRESOURCES };
+	resourceView.DstState = dstState;
 
 	return resourceView;
 }
 
-ResourceView EZ::GetSRV(Texture* pResource, uint32_t index)
+ResourceView EZ::GetSRV(VertexBuffer* pResource, uint32_t index, ResourceState dstState)
 {
 	ResourceView resourceView;
 	resourceView.pResource = pResource;
-	resourceView.view = pResource->GetSRV(index);
+	resourceView.View = pResource->GetSRV(index);
+	resourceView.Subresources = { XUSG_BARRIER_ALL_SUBRESOURCES };
+	resourceView.DstState = dstState;
+
+	return resourceView;
+}
+
+ResourceView EZ::GetSRV(IndexBuffer* pResource, uint32_t index, ResourceState dstState)
+{
+	ResourceView resourceView;
+	resourceView.pResource = pResource;
+	resourceView.View = pResource->GetSRV(index);
+	resourceView.Subresources = { XUSG_BARRIER_ALL_SUBRESOURCES };
+	resourceView.DstState = dstState;
+
+	return resourceView;
+}
+
+ResourceView EZ::GetSRV(Texture* pResource, uint32_t index, ResourceState dstState)
+{
+	ResourceView resourceView;
+	resourceView.pResource = pResource;
+	resourceView.View = pResource->GetSRV(index);
+	resourceView.DstState = dstState;
 
 	const auto numMips = pResource->GetNumMips();
 	const auto arraySize = pResource->GetArraySize();
@@ -68,11 +93,12 @@ ResourceView EZ::GetSRV(Texture* pResource, uint32_t index)
 	return resourceView;
 }
 
-ResourceView EZ::GetSRV(Texture3D* pResource)
+ResourceView EZ::GetSRV(Texture3D* pResource, ResourceState dstState)
 {
 	ResourceView resourceView;
 	resourceView.pResource = pResource;
-	resourceView.view = pResource->GetSRV();
+	resourceView.View = pResource->GetSRV();
+	resourceView.DstState = dstState;
 
 	const auto numMips = pResource->GetNumMips();
 	resourceView.Subresources.resize(numMips);
@@ -83,21 +109,23 @@ ResourceView EZ::GetSRV(Texture3D* pResource)
 	return resourceView;
 }
 
-ResourceView EZ::GetSRVLevel(Texture* pResource, uint8_t level)
+ResourceView EZ::GetSRVLevel(Texture* pResource, uint8_t level, ResourceState dstState)
 {
 	ResourceView resourceView;
 	resourceView.pResource = pResource;
-	resourceView.view = pResource->GetSRVLevel(level);
+	resourceView.View = pResource->GetSRVLevel(level);
+	resourceView.DstState = dstState;
 	CalcSubresources(resourceView.Subresources, pResource, level);
 
 	return resourceView;
 }
 
-ResourceView EZ::GetSRVLevel(Texture3D* pResource, uint8_t level)
+ResourceView EZ::GetSRVLevel(Texture3D* pResource, uint8_t level, ResourceState dstState)
 {
 	ResourceView resourceView;
 	resourceView.pResource = pResource;
-	resourceView.view = pResource->GetSRVLevel(level);
+	resourceView.View = pResource->GetSRVLevel(level);
+	resourceView.DstState = dstState;
 	resourceView.Subresources = { CalcSubresource(pResource, level) };
 
 	return resourceView;
@@ -107,8 +135,9 @@ ResourceView EZ::GetUAV(Buffer* pResource, uint8_t index)
 {
 	ResourceView resourceView;
 	resourceView.pResource = pResource;
-	resourceView.view = pResource->GetUAV(index);
+	resourceView.View = pResource->GetUAV(index);
 	resourceView.Subresources = { XUSG_BARRIER_ALL_SUBRESOURCES };
+	resourceView.DstState = ResourceState::UNORDERED_ACCESS;
 
 	return resourceView;
 }
@@ -117,7 +146,8 @@ ResourceView EZ::GetUAV(Texture* pResource, uint8_t index)
 {
 	ResourceView resourceView;
 	resourceView.pResource = pResource;
-	resourceView.view = pResource->GetUAV(index);
+	resourceView.View = pResource->GetUAV(index);
+	resourceView.DstState = ResourceState::UNORDERED_ACCESS;
 	CalcSubresources(resourceView.Subresources, pResource, index);
 
 	return resourceView;
@@ -127,8 +157,9 @@ ResourceView EZ::GetUAV(Texture3D* pResource, uint8_t index)
 {
 	ResourceView resourceView;
 	resourceView.pResource = pResource;
-	resourceView.view = pResource->GetUAV(index);
+	resourceView.View = pResource->GetUAV(index);
 	resourceView.Subresources = { CalcSubresource(pResource, index) };
+	resourceView.DstState = ResourceState::UNORDERED_ACCESS;
 
 	return resourceView;
 }
@@ -137,7 +168,8 @@ ResourceView EZ::GetPackedUAV(Texture* pResource, uint8_t index)
 {
 	ResourceView resourceView;
 	resourceView.pResource = pResource;
-	resourceView.view = pResource->GetPackedUAV(index);
+	resourceView.View = pResource->GetPackedUAV(index);
+	resourceView.DstState = ResourceState::UNORDERED_ACCESS;
 	CalcSubresources(resourceView.Subresources, pResource, index);
 
 	return resourceView;
@@ -147,8 +179,9 @@ ResourceView EZ::GetPackedUAV(Texture3D* pResource, uint8_t index)
 {
 	ResourceView resourceView;
 	resourceView.pResource = pResource;
-	resourceView.view = pResource->GetPackedUAV(index);
+	resourceView.View = pResource->GetPackedUAV(index);
 	resourceView.Subresources = { CalcSubresource(pResource, index) };
+	resourceView.DstState = ResourceState::UNORDERED_ACCESS;
 
 	return resourceView;
 }
@@ -157,8 +190,9 @@ ResourceView EZ::GetPackedUAV(TypedBuffer* pResource, uint8_t index)
 {
 	ResourceView resourceView;
 	resourceView.pResource = pResource;
-	resourceView.view = pResource->GetPackedUAV(index);
+	resourceView.View = pResource->GetPackedUAV(index);
 	resourceView.Subresources = { XUSG_BARRIER_ALL_SUBRESOURCES };
+	resourceView.DstState = ResourceState::UNORDERED_ACCESS;
 
 	return resourceView;
 }
@@ -167,8 +201,9 @@ ResourceView EZ::GetRTV(RenderTarget* pResource, uint32_t slice, uint8_t mipLeve
 {
 	ResourceView resourceView;
 	resourceView.pResource = pResource;
-	resourceView.view = pResource->GetRTV(slice, mipLevel);
+	resourceView.View = pResource->GetRTV(slice, mipLevel);
 	resourceView.Subresources = { CalcSubresource(pResource, mipLevel, slice) };
+	resourceView.DstState = ResourceState::RENDER_TARGET;
 
 	return resourceView;
 }
@@ -177,7 +212,8 @@ ResourceView EZ::GetArrayRTV(RenderTarget* pResource, uint8_t mipLevel)
 {
 	ResourceView resourceView;
 	resourceView.pResource = pResource;
-	resourceView.view = pResource->GetRTV(0, mipLevel);
+	resourceView.View = pResource->GetRTV(0, mipLevel);
+	resourceView.DstState = ResourceState::RENDER_TARGET;
 	CalcSubresources(resourceView.Subresources, pResource, mipLevel);
 
 	return resourceView;
@@ -187,8 +223,9 @@ ResourceView EZ::GetDSV(DepthStencil* pResource, uint32_t slice, uint8_t mipLeve
 {
 	ResourceView resourceView;
 	resourceView.pResource = pResource;
-	resourceView.view = pResource->GetDSV(slice, mipLevel);
+	resourceView.View = pResource->GetDSV(slice, mipLevel);
 	resourceView.Subresources = { CalcSubresource(pResource, mipLevel, slice) };
+	resourceView.DstState = ResourceState::DEPTH_WRITE;
 
 	return resourceView;
 }
@@ -197,27 +234,32 @@ ResourceView EZ::GetArrayDSV(DepthStencil* pResource, uint8_t mipLevel)
 {
 	ResourceView resourceView;
 	resourceView.pResource = pResource;
-	resourceView.view = pResource->GetDSV(0, mipLevel);
+	resourceView.View = pResource->GetDSV(0, mipLevel);
+	resourceView.DstState = ResourceState::DEPTH_WRITE;
 	CalcSubresources(resourceView.Subresources, pResource, mipLevel);
 
 	return resourceView;
 }
 
-ResourceView EZ::GetReadOnlyDSV(DepthStencil* pResource, uint32_t slice, uint8_t mipLevel)
+ResourceView EZ::GetReadOnlyDSV(DepthStencil* pResource, uint32_t slice, uint8_t mipLevel, ResourceState dstSrvState)
 {
 	ResourceView resourceView;
 	resourceView.pResource = pResource;
-	resourceView.view = pResource->GetReadOnlyDSV(slice, mipLevel);
+	resourceView.View = pResource->GetReadOnlyDSV(slice, mipLevel);
 	resourceView.Subresources = { CalcSubresource(pResource, mipLevel, slice) };
+	resourceView.DstState = ResourceState::DEPTH_READ;
+	resourceView.DstState |= pResource->GetSRV() ? dstSrvState : resourceView.DstState;
 
 	return resourceView;
 }
 
-ResourceView EZ::GetReadOnlyArrayDSV(DepthStencil* pResource, uint8_t mipLevel)
+ResourceView EZ::GetReadOnlyArrayDSV(DepthStencil* pResource, uint8_t mipLevel, ResourceState dstSrvState)
 {
 	ResourceView resourceView;
 	resourceView.pResource = pResource;
-	resourceView.view = pResource->GetReadOnlyDSV(0, mipLevel);
+	resourceView.View = pResource->GetReadOnlyDSV(0, mipLevel);
+	resourceView.DstState = ResourceState::DEPTH_READ;
+	resourceView.DstState |= pResource->GetSRV() ? dstSrvState : resourceView.DstState;
 	CalcSubresources(resourceView.Subresources, pResource, mipLevel);
 
 	return resourceView;
@@ -227,26 +269,34 @@ ResourceView EZ::GetStencilSRV(DepthStencil* pResource)
 {
 	ResourceView resourceView;
 	resourceView.pResource = pResource;
-	resourceView.view = pResource->GetStencilSRV();
+	resourceView.View = pResource->GetStencilSRV();
 	resourceView.Subresources = { XUSG_BARRIER_ALL_SUBRESOURCES };
+	resourceView.DstState = ResourceState::NON_PIXEL_SHADER_RESOURCE | ResourceState::PIXEL_SHADER_RESOURCE;
 
 	return resourceView;
 }
 
-EZ::VertexBufferView EZ::GetVBV(VertexBuffer* pResource, uint32_t index)
+EZ::VertexBufferView EZ::GetVBV(VertexBuffer* pResource, uint32_t index, ResourceState dstSrvState)
 {
 	VertexBufferView resourceView;
 	resourceView.pResource = pResource;
 	resourceView.pView = &pResource->GetVBV(index);
+	resourceView.DstState = ResourceState::VERTEX_AND_CONSTANT_BUFFER;
+	resourceView.DstState |= pResource->GetSRV() ? dstSrvState : resourceView.DstState;
 
 	return resourceView;
 }
 
-EZ::IndexBufferView EZ::GetIBV(IndexBuffer* pResource, uint32_t index)
+EZ::IndexBufferView EZ::GetIBV(IndexBuffer* pResource, uint32_t index, ResourceState dstSrvState)
 {
 	IndexBufferView resourceView;
 	resourceView.pResource = pResource;
 	resourceView.pView = &pResource->GetIBV(index);
+	resourceView.DstState = ResourceState::INDEX_BUFFER;
+	resourceView.DstState |= pResource->GetSRV() ?
+		ResourceState::NON_PIXEL_SHADER_RESOURCE |
+		ResourceState::PIXEL_SHADER_RESOURCE :
+		resourceView.DstState;
 
 	return resourceView;
 }

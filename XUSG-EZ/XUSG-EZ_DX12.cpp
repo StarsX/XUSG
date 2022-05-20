@@ -340,20 +340,12 @@ void EZ::CommandList_DX12::SetGraphicsResources(Shader::Stage stage, DescriptorT
 	// Set descriptors to the descriptor table
 	if (!descriptorTable) descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
 	if (m_descriptors.size() < numResources) m_descriptors.resize(numResources);
-	for (auto i = 0u; i < numResources; ++i) m_descriptors[i] = pResourceViews[i].view;
+	for (auto i = 0u; i < numResources; ++i) m_descriptors[i] = pResourceViews[i].View;
 	descriptorTable->SetDescriptors(startBinding, numResources, m_descriptors.data());
 
 	// Set barriers
 	if (descriptorType == DescriptorType::SRV || descriptorType == DescriptorType::UAV)
-	{
-		const auto dstState = descriptorType == DescriptorType::UAV ?
-			ResourceState::UNORDERED_ACCESS :
-			(ResourceState::NON_PIXEL_SHADER_RESOURCE |
-				ResourceState::PIXEL_SHADER_RESOURCE |
-				ResourceState::VERTEX_AND_CONSTANT_BUFFER |
-				ResourceState::INDEX_BUFFER);
-		setBarriers(numResources, pResourceViews, dstState);
-	}
+		setBarriers(numResources, pResourceViews);
 }
 
 void EZ::CommandList_DX12::SetComputeSamplerStates(uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerPresets)
@@ -373,20 +365,12 @@ void EZ::CommandList_DX12::SetComputeResources(DescriptorType descriptorType, ui
 	// Set descriptors to the descriptor table
 	if (!descriptorTable) descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
 	if (m_descriptors.size() < numResources) m_descriptors.resize(numResources);
-	for (auto i = 0u; i < numResources; ++i) m_descriptors[i] = pResourceViews[i].view;
+	for (auto i = 0u; i < numResources; ++i) m_descriptors[i] = pResourceViews[i].View;
 	descriptorTable->SetDescriptors(startBinding, numResources, m_descriptors.data());
 
 	// Set barriers
 	if (descriptorType == DescriptorType::SRV || descriptorType == DescriptorType::UAV)
-	{
-		const auto dstState = descriptorType == DescriptorType::UAV ?
-			ResourceState::UNORDERED_ACCESS :
-			(ResourceState::NON_PIXEL_SHADER_RESOURCE |
-				ResourceState::PIXEL_SHADER_RESOURCE |
-				ResourceState::VERTEX_AND_CONSTANT_BUFFER |
-				ResourceState::INDEX_BUFFER);
-		setBarriers(numResources, pResourceViews, dstState);
-	}
+		setBarriers(numResources, pResourceViews);
 }
 
 void EZ::CommandList_DX12::IASetPrimitiveTopology(PrimitiveTopology primitiveTopology)
@@ -419,10 +403,7 @@ void EZ::CommandList_DX12::IASetIndexBuffer(const IndexBufferView& view)
 	// Set barriers if the index buffers is not at the read states
 	const auto startIdx = m_barriers.size();
 	m_barriers.resize(startIdx + 1);
-	auto dstState = ResourceState::INDEX_BUFFER;
-	dstState |= view.pResource->GetSRV() ? ResourceState::NON_PIXEL_SHADER_RESOURCE |
-		ResourceState::PIXEL_SHADER_RESOURCE : dstState;
-	const auto numBarriers = view.pResource->SetBarrier(&m_barriers[startIdx], dstState);
+	const auto numBarriers = view.pResource->SetBarrier(&m_barriers[startIdx], view.DstState);
 
 	// Shrink the size of barrier list
 	if (!numBarriers) m_barriers.resize(startIdx);
@@ -441,11 +422,7 @@ void EZ::CommandList_DX12::IASetVertexBuffers(uint32_t startSlot, uint32_t numVi
 	for (auto i = 0u; i < numViews; ++i)
 	{
 		auto& view = pViews[i];
-		auto dstState = ResourceState::VERTEX_AND_CONSTANT_BUFFER;
-		dstState |= view.pResource->GetSRV() ? ResourceState::NON_PIXEL_SHADER_RESOURCE |
-			ResourceState::PIXEL_SHADER_RESOURCE : dstState;
-		const auto numBarriers = view.pResource->SetBarrier(&m_barriers[startIdx], dstState);
-
+		const auto numBarriers = view.pResource->SetBarrier(&m_barriers[startIdx], view.DstState);
 		views[i] = *view.pView;
 	}
 
@@ -463,9 +440,10 @@ void EZ::CommandList_DX12::SOSetTargets(uint32_t startSlot, uint32_t numViews, c
 		auto& resourceView = resourceViews[i];
 		resourceView.pResource = ppResources[i];
 		resourceView.Subresources = { XUSG_BARRIER_ALL_SUBRESOURCES };
+		resourceView.DstState = ResourceState::STREAM_OUT;
 	}
 
-	setBarriers(numViews, resourceViews.data(), ResourceState::STREAM_OUT);
+	setBarriers(numViews, resourceViews.data());
 
 	XUSG::CommandList_DX12::SOSetTargets(startSlot, numViews, pViews);
 }
@@ -474,12 +452,12 @@ void EZ::CommandList_DX12::OMSetRenderTargets(uint32_t numRenderTargets,
 	const ResourceView* pRenderTargetViews, const ResourceView* pDepthStencilView)
 {
 	// Set RTV barriers
-	setBarriers(numRenderTargets, pRenderTargetViews, ResourceState::RENDER_TARGET);
+	setBarriers(numRenderTargets, pRenderTargetViews);
 
 	// Set DSV barriers
 	if (pDepthStencilView)
 	{
-		setBarriers(1, pDepthStencilView, ResourceState::DEPTH_WRITE);
+		setBarriers(1, pDepthStencilView);
 		m_graphicsState->OMSetDSVFormat(dynamic_cast<Texture*>(pDepthStencilView->pResource)->GetFormat());
 	}
 	else m_graphicsState->OMSetDSVFormat(Format::UNKNOWN);
@@ -489,7 +467,7 @@ void EZ::CommandList_DX12::OMSetRenderTargets(uint32_t numRenderTargets,
 	Descriptor pRTVs[D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT];
 	for (auto i = 0u; i < numRenderTargets; ++i)
 	{
-		pRTVs[i] = pRenderTargetViews[i].view;
+		pRTVs[i] = pRenderTargetViews[i].View;
 		m_graphicsState->OMSetRTVFormat(i, dynamic_cast<Texture*>(pRenderTargetViews[i].pResource)->GetFormat());
 	}
 
@@ -499,46 +477,46 @@ void EZ::CommandList_DX12::OMSetRenderTargets(uint32_t numRenderTargets,
 	m_isGraphicsDirty = true;
 
 	XUSG::CommandList_DX12::OMSetRenderTargets(numRenderTargets, pRTVs,
-		pDepthStencilView ? &pDepthStencilView->view : nullptr);
+		pDepthStencilView ? &pDepthStencilView->View : nullptr);
 }
 
 void EZ::CommandList_DX12::ClearDepthStencilView(ResourceView& depthStencilView, ClearFlag clearFlags,
 	float depth, uint8_t stencil, uint32_t numRects, const RectRange* pRects)
 {
-	setBarriers(1, &depthStencilView, ResourceState::DEPTH_WRITE);
-	m_clearDSVs.emplace_back(ClearDSV{ depthStencilView.view, clearFlags, depth, stencil, numRects, pRects });
+	setBarriers(1, &depthStencilView);
+	m_clearDSVs.emplace_back(ClearDSV{ depthStencilView.View, clearFlags, depth, stencil, numRects, pRects });
 }
 
 void EZ::CommandList_DX12::ClearRenderTargetView(ResourceView& renderTargetView,
 	const float colorRGBA[4], uint32_t numRects, const RectRange* pRects)
 {
-	setBarriers(1, &renderTargetView, ResourceState::RENDER_TARGET);
-	m_clearRTVs.emplace_back(ClearRTV{ renderTargetView.view, colorRGBA, numRects, pRects });
+	setBarriers(1, &renderTargetView);
+	m_clearRTVs.emplace_back(ClearRTV{ renderTargetView.View, colorRGBA, numRects, pRects });
 }
 
 void EZ::CommandList_DX12::ClearUnorderedAccessViewUint(ResourceView& unorderedAccessView,
 	const uint32_t values[4], uint32_t numRects, const RectRange* pRects)
 {
-	setBarriers(1, &unorderedAccessView, ResourceState::UNORDERED_ACCESS);
+	setBarriers(1, &unorderedAccessView);
 
 	const auto uavTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
-	uavTable->SetDescriptors(0, 1, &unorderedAccessView.view);
+	uavTable->SetDescriptors(0, 1, &unorderedAccessView.View);
 	const auto descriptorTable = uavTable->GetCbvSrvUavTable(m_descriptorTableCache.get());
 
-	XUSG::CommandList_DX12::ClearUnorderedAccessViewUint(descriptorTable, unorderedAccessView.view,
+	XUSG::CommandList_DX12::ClearUnorderedAccessViewUint(descriptorTable, unorderedAccessView.View,
 		unorderedAccessView.pResource, values, numRects, pRects);
 }
 
 void EZ::CommandList_DX12::ClearUnorderedAccessViewFloat(ResourceView& unorderedAccessView,
 	const float values[4], uint32_t numRects, const RectRange* pRects)
 {
-	setBarriers(1, &unorderedAccessView, ResourceState::UNORDERED_ACCESS);
+	setBarriers(1, &unorderedAccessView);
 
 	const auto uavTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
-	uavTable->SetDescriptors(0, 1, &unorderedAccessView.view);
+	uavTable->SetDescriptors(0, 1, &unorderedAccessView.View);
 	const auto descriptorTable = uavTable->GetCbvSrvUavTable(m_descriptorTableCache.get());
 
-	XUSG::CommandList_DX12::ClearUnorderedAccessViewFloat(descriptorTable, unorderedAccessView.view,
+	XUSG::CommandList_DX12::ClearUnorderedAccessViewFloat(descriptorTable, unorderedAccessView.View,
 		unorderedAccessView.pResource, values, numRects, pRects);
 }
 
@@ -720,7 +698,7 @@ void EZ::CommandList_DX12::predraw()
 	}
 }
 
-void EZ::CommandList_DX12::setBarriers(uint32_t numResources, const ResourceView* pResourceViews, ResourceState dstState)
+void EZ::CommandList_DX12::setBarriers(uint32_t numResources, const ResourceView* pResourceViews)
 {
 	// Estimate barrier count
 	auto numBarriersEst = 0u;
@@ -732,24 +710,17 @@ void EZ::CommandList_DX12::setBarriers(uint32_t numResources, const ResourceView
 	m_barriers.resize(startIdx + numBarriersEst);
 	auto numBarriers = 0u;
 	for (auto i = 0u; i < numResources; ++i)
-	{
-		const auto& resourceView = pResourceViews[i];
-		auto destState = dstState & (dynamic_cast<VertexBuffer*>(resourceView.pResource) ?
-			(~ResourceState::VERTEX_AND_CONSTANT_BUFFER) : (~ResourceState::COMMON));
-		destState &= (dynamic_cast<IndexBuffer*>(resourceView.pResource) ?
-			(~ResourceState::INDEX_BUFFER) : (~ResourceState::COMMON));
-		numBarriers = generateBarriers(&m_barriers[startIdx], resourceView, destState, numBarriers);
-	}
+		numBarriers = generateBarriers(&m_barriers[startIdx], pResourceViews[i], numBarriers);
 
 	// Shrink the size of barrier list
 	if (numBarriers < numBarriersEst) m_barriers.resize(startIdx + numBarriers);
 }
 
-uint32_t EZ::CommandList_DX12::generateBarriers(ResourceBarrier* pBarriers, const ResourceView& resrouceView,
-	ResourceState dstState, uint32_t numBarriers, BarrierFlag flags)
+uint32_t EZ::CommandList_DX12::generateBarriers(ResourceBarrier* pBarriers,
+	const ResourceView& resrouceView, uint32_t numBarriers, BarrierFlag flags)
 {
 	for (const auto& subresource : resrouceView.Subresources)
-		numBarriers = resrouceView.pResource->SetBarrier(pBarriers, dstState, numBarriers, subresource, flags);
+		numBarriers = resrouceView.pResource->SetBarrier(pBarriers, resrouceView.DstState, numBarriers, subresource, flags);
 
 	return numBarriers;
 }

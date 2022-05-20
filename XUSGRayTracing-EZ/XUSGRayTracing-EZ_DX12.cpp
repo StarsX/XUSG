@@ -150,11 +150,7 @@ void EZ::CommandList_DXR::SetTriangleGeometries(GeometryBuffer& geometries, uint
 	auto numBarriers = 0u;
 	for (auto i = 0u; i < numGeometries; ++i)
 	{
-		auto dstState = ResourceState::VERTEX_AND_CONSTANT_BUFFER;
-		dstState |= pVBs[i].pResource->GetSRV() ? ResourceState::NON_PIXEL_SHADER_RESOURCE |
-			ResourceState::PIXEL_SHADER_RESOURCE : dstState;
-		numBarriers = pVBs[i].pResource->SetBarrier(&m_barriers[startIdx], dstState, numBarriers);
-
+		numBarriers = pVBs[i].pResource->SetBarrier(&m_barriers[startIdx], pVBs[i].DstState, numBarriers);
 		vbvs[i] = *pVBs[i].pView;
 	}
 
@@ -163,11 +159,7 @@ void EZ::CommandList_DXR::SetTriangleGeometries(GeometryBuffer& geometries, uint
 		ibvs.resize(numGeometries);
 		for (auto i = 0u; i < numGeometries; ++i)
 		{
-			auto dstState = ResourceState::INDEX_BUFFER;
-			dstState |= pVBs[i].pResource->GetSRV() ? ResourceState::NON_PIXEL_SHADER_RESOURCE |
-				ResourceState::PIXEL_SHADER_RESOURCE : dstState;
-			numBarriers = pIBs[i].pResource->SetBarrier(&m_barriers[startIdx], dstState, numBarriers);
-
+			numBarriers = pIBs[i].pResource->SetBarrier(&m_barriers[startIdx], pIBs[i].DstState, numBarriers);
 			ibvs[i] = *pIBs[i].pView;
 		}
 	}
@@ -191,11 +183,7 @@ void EZ::CommandList_DXR::SetAABBGeometries(GeometryBuffer& geometries, uint32_t
 	auto numBarriers = 0u;
 	for (auto i = 0u; i < numGeometries; ++i)
 	{
-		auto dstState = ResourceState::INDEX_BUFFER;
-		dstState |= pVBs[i].pResource->GetSRV() ? ResourceState::NON_PIXEL_SHADER_RESOURCE |
-			ResourceState::PIXEL_SHADER_RESOURCE : dstState;
-		numBarriers = pVBs[i].pResource->SetBarrier(&m_barriers[startIdx], dstState, numBarriers);
-
+		numBarriers = pVBs[i].pResource->SetBarrier(&m_barriers[startIdx], pVBs[i].DstState, numBarriers);
 		vbvs[i] = *pVBs[i].pView;
 	}
 
