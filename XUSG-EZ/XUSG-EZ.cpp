@@ -4,7 +4,6 @@
 
 #include "Core/XUSGCommand_DX12.h"
 #include "XUSG-EZ_DX12.h"
-#include "XUSG-EZ.h"
 
 using namespace std;
 using namespace XUSG;

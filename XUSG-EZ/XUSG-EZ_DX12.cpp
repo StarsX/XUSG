@@ -350,7 +350,8 @@ void EZ::CommandList_DX12::SetGraphicsResources(Shader::Stage stage, DescriptorT
 			ResourceState::UNORDERED_ACCESS :
 			(ResourceState::NON_PIXEL_SHADER_RESOURCE |
 				ResourceState::PIXEL_SHADER_RESOURCE |
-				ResourceState::VERTEX_AND_CONSTANT_BUFFER);
+				ResourceState::VERTEX_AND_CONSTANT_BUFFER |
+				ResourceState::INDEX_BUFFER);
 		setBarriers(numResources, pResourceViews, dstState);
 	}
 }
@@ -382,7 +383,8 @@ void EZ::CommandList_DX12::SetComputeResources(DescriptorType descriptorType, ui
 			ResourceState::UNORDERED_ACCESS :
 			(ResourceState::NON_PIXEL_SHADER_RESOURCE |
 				ResourceState::PIXEL_SHADER_RESOURCE |
-				ResourceState::VERTEX_AND_CONSTANT_BUFFER);
+				ResourceState::VERTEX_AND_CONSTANT_BUFFER |
+				ResourceState::INDEX_BUFFER);
 		setBarriers(numResources, pResourceViews, dstState);
 	}
 }
@@ -732,8 +734,10 @@ void EZ::CommandList_DX12::setBarriers(uint32_t numResources, const ResourceView
 	for (auto i = 0u; i < numResources; ++i)
 	{
 		const auto& resourceView = pResourceViews[i];
-		const auto destState = dstState & (dynamic_cast<VertexBuffer*>(resourceView.pResource) ?
+		auto destState = dstState & (dynamic_cast<VertexBuffer*>(resourceView.pResource) ?
 			(~ResourceState::VERTEX_AND_CONSTANT_BUFFER) : (~ResourceState::COMMON));
+		destState &= (dynamic_cast<IndexBuffer*>(resourceView.pResource) ?
+			(~ResourceState::INDEX_BUFFER) : (~ResourceState::COMMON));
 		numBarriers = generateBarriers(&m_barriers[startIdx], resourceView, destState, numBarriers);
 	}
 
