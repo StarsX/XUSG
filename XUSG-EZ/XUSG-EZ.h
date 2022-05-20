@@ -10,13 +10,30 @@ namespace XUSG
 {
 	namespace EZ
 	{
-		// Resource view
+		// Resource views
 		struct ResourceView
 		{
 			Resource* pResource;
-			Descriptor view;
+			Descriptor View;
 			std::vector<uint32_t> Subresources;
+			ResourceState DstState;
 		};
+
+		struct VertexBufferView
+		{
+			VertexBuffer* pResource;
+			const XUSG::VertexBufferView* pView;
+			ResourceState DstState;
+		};
+
+		struct IndexBufferView
+		{
+			IndexBuffer* pResource;
+			const XUSG::IndexBufferView* pView;
+			ResourceState DstState;
+		};
+
+		static const auto SHADER_RESOURCE_STATE = ResourceState::NON_PIXEL_SHADER_RESOURCE | ResourceState::PIXEL_SHADER_RESOURCE;
 
 		XUSG_INTERFACE void CalcSubresources(std::vector<uint32_t>& subresources, const Texture* pResource, uint8_t mipSlice, uint8_t planeSlice = 0);
 
@@ -25,11 +42,20 @@ namespace XUSG
 
 		// Resource view generation helpers coupled for XUSG resources
 		XUSG_INTERFACE ResourceView GetCBV(ConstantBuffer* pResource, uint32_t index = 0);
-		XUSG_INTERFACE ResourceView GetSRV(Buffer* pResource, uint32_t index = 0);
-		XUSG_INTERFACE ResourceView GetSRV(Texture* pResource, uint32_t index = 0);
-		XUSG_INTERFACE ResourceView GetSRV(Texture3D* pResource);
-		XUSG_INTERFACE ResourceView GetSRVLevel(Texture* pResource, uint8_t level);
-		XUSG_INTERFACE ResourceView GetSRVLevel(Texture3D* pResource, uint8_t level);
+		XUSG_INTERFACE ResourceView GetSRV(Buffer* pResource, uint32_t index = 0,
+			ResourceState dstState = SHADER_RESOURCE_STATE);
+		XUSG_INTERFACE ResourceView GetSRV(VertexBuffer* pResource, uint32_t index = 0,
+			ResourceState dstState = SHADER_RESOURCE_STATE | ResourceState::VERTEX_AND_CONSTANT_BUFFER);
+		XUSG_INTERFACE ResourceView GetSRV(IndexBuffer* pResource, uint32_t index = 0,
+			ResourceState dstState = SHADER_RESOURCE_STATE | ResourceState::INDEX_BUFFER);
+		XUSG_INTERFACE ResourceView GetSRV(Texture* pResource, uint32_t index = 0,
+			ResourceState dstState = SHADER_RESOURCE_STATE);
+		XUSG_INTERFACE ResourceView GetSRV(Texture3D* pResource,
+			ResourceState dstState = SHADER_RESOURCE_STATE);
+		XUSG_INTERFACE ResourceView GetSRVLevel(Texture* pResource, uint8_t level,
+			ResourceState dstState = SHADER_RESOURCE_STATE);
+		XUSG_INTERFACE ResourceView GetSRVLevel(Texture3D* pResource, uint8_t level,
+			ResourceState dstState = SHADER_RESOURCE_STATE);
 		XUSG_INTERFACE ResourceView GetUAV(Buffer* pResource, uint8_t index = 0);
 		XUSG_INTERFACE ResourceView GetUAV(Texture* pResource, uint8_t index = 0);
 		XUSG_INTERFACE ResourceView GetUAV(Texture3D* pResource, uint8_t index = 0);
@@ -40,9 +66,17 @@ namespace XUSG
 		XUSG_INTERFACE ResourceView GetArrayRTV(RenderTarget* pResource, uint8_t mipLevel = 0);
 		XUSG_INTERFACE ResourceView GetDSV(DepthStencil* pResource, uint32_t slice = 0, uint8_t mipLevel = 0);
 		XUSG_INTERFACE ResourceView GetArrayDSV(DepthStencil* pResource, uint8_t mipLevel = 0);
-		XUSG_INTERFACE ResourceView GetReadOnlyDSV(DepthStencil* pResource, uint32_t slice = 0, uint8_t mipLevel = 0);
-		XUSG_INTERFACE ResourceView GetReadOnlyArrayDSV(DepthStencil* pResource, uint8_t mipLevel = 0);
+		XUSG_INTERFACE ResourceView GetReadOnlyDSV(DepthStencil* pResource, uint32_t slice = 0,
+			uint8_t mipLevel = 0, ResourceState dstSrvState = SHADER_RESOURCE_STATE);
+		XUSG_INTERFACE ResourceView GetReadOnlyArrayDSV(DepthStencil* pResource,
+			uint8_t mipLevel = 0, ResourceState dstSrvState = SHADER_RESOURCE_STATE);
 		XUSG_INTERFACE ResourceView GetStencilSRV(DepthStencil* pResource);
+
+		XUSG_INTERFACE VertexBufferView GetVBV(VertexBuffer* pResource, uint32_t index = 0,
+			ResourceState dstSrvState = SHADER_RESOURCE_STATE);
+
+		XUSG_INTERFACE IndexBufferView GetIBV(IndexBuffer* pResource, uint32_t index = 0,
+			ResourceState dstSrvState = SHADER_RESOURCE_STATE);
 
 		//--------------------------------------------------------------------------------------
 		// Command list
@@ -116,8 +150,8 @@ namespace XUSG
 			virtual void SetComputeResources(DescriptorType descriptorType, uint32_t startBinding,
 				uint32_t numResources, const ResourceView* pResourceViews, uint32_t space = 0) = 0;
 			virtual void IASetPrimitiveTopology(PrimitiveTopology primitiveTopology) = 0;
-			virtual void IASetIndexBuffer(const IndexBufferView& view) const = 0;
-			virtual void IASetVertexBuffers(uint32_t startSlot, uint32_t numViews, const VertexBufferView* pViews) const = 0;
+			virtual void IASetIndexBuffer(const IndexBufferView& view) = 0;
+			virtual void IASetVertexBuffers(uint32_t startSlot, uint32_t numViews, const VertexBufferView* pViews) = 0;
 			virtual void SOSetTargets(uint32_t startSlot, uint32_t numViews, const StreamOutBufferView* pViews, Resource* const* ppResources) = 0;
 			virtual void OMSetRenderTargets(
 				uint32_t numRenderTargets,

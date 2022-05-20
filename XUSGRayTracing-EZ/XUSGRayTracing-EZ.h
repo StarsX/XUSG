@@ -43,6 +43,11 @@ namespace XUSG
 				virtual bool PreBuildTLAS(TopLevelAS* pTLAS, uint32_t numInstances,
 					BuildFlag flags = BuildFlag::PREFER_FAST_TRACE) = 0;
 
+				virtual void SetTriangleGeometries(GeometryBuffer& geometries, uint32_t numGeometries, Format vertexFormat,
+					XUSG::EZ::VertexBufferView* pVBs, XUSG::EZ::IndexBufferView* pIBs = nullptr,
+					const GeometryFlag* pGeometryFlags = nullptr, const ResourceView* pTransforms = nullptr) = 0;
+				virtual void SetAABBGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
+					XUSG::EZ::VertexBufferView* pVBs, const GeometryFlag* pGeometryFlags = nullptr) = 0;
 				virtual void BuildBLAS(BottomLevelAS* pBLAS, bool update = false) = 0;
 				virtual void BuildTLAS(TopLevelAS* pTLAS, const Resource* pInstanceDescs, bool update = false) = 0;
 				virtual void SetTopLevelAccelerationStructure(uint32_t binding, const TopLevelAS* pTopLevelAS) const = 0;

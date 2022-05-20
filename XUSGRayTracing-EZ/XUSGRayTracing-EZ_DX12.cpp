@@ -137,6 +137,63 @@ bool EZ::CommandList_DXR::PreBuildTLAS(TopLevelAS* pTLAS, uint32_t numInstances,
 	return true;
 }
 
+void EZ::CommandList_DXR::SetTriangleGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
+	Format vertexFormat, XUSG::EZ::VertexBufferView* pVBs, XUSG::EZ::IndexBufferView* pIBs,
+	const GeometryFlag* pGeometryFlags, const ResourceView* pTransforms)
+{
+	vector<VertexBufferView> vbvs(numGeometries);
+	vector<IndexBufferView> ibvs;
+
+	// Set barriers if the vertex buffers or index buffers are not at the read states
+	const auto startIdx = m_barriers.size();
+	m_barriers.resize(startIdx + numGeometries * 2);
+	auto numBarriers = 0u;
+	for (auto i = 0u; i < numGeometries; ++i)
+	{
+		numBarriers = pVBs[i].pResource->SetBarrier(&m_barriers[startIdx], pVBs[i].DstState, numBarriers);
+		vbvs[i] = *pVBs[i].pView;
+	}
+
+	if (pIBs)
+	{
+		ibvs.resize(numGeometries);
+		for (auto i = 0u; i < numGeometries; ++i)
+		{
+			numBarriers = pIBs[i].pResource->SetBarrier(&m_barriers[startIdx], pIBs[i].DstState, numBarriers);
+			ibvs[i] = *pIBs[i].pView;
+		}
+	}
+
+	// Shrink the size of barrier list
+	if (numBarriers < numGeometries * 2) m_barriers.resize(startIdx + numBarriers);
+
+	// Set geometries
+	BottomLevelAS::SetTriangleGeometries(geometries, numGeometries, vertexFormat,
+		vbvs.data(), pIBs ? ibvs.data() : nullptr, pGeometryFlags, pTransforms);
+}
+
+void EZ::CommandList_DXR::SetAABBGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
+	XUSG::EZ::VertexBufferView* pVBs, const GeometryFlag* pGeometryFlags)
+{
+	vector<VertexBufferView> vbvs(numGeometries);
+
+	// Set barriers if the vertex buffers or index buffers are not at the read states
+	const auto startIdx = m_barriers.size();
+	m_barriers.resize(startIdx + numGeometries);
+	auto numBarriers = 0u;
+	for (auto i = 0u; i < numGeometries; ++i)
+	{
+		numBarriers = pVBs[i].pResource->SetBarrier(&m_barriers[startIdx], pVBs[i].DstState, numBarriers);
+		vbvs[i] = *pVBs[i].pView;
+	}
+
+	// Shrink the size of barrier list
+	if (numBarriers < numGeometries) m_barriers.resize(startIdx + numBarriers);
+
+	// Set geometries
+	BottomLevelAS::SetAABBGeometries(geometries, numGeometries, vbvs.data(), pGeometryFlags);
+}
+
 void EZ::CommandList_DXR::BuildBLAS(BottomLevelAS* pBLAS, bool update)
 {
 	assert(pBLAS);
