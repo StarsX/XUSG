@@ -309,6 +309,9 @@ void EZ::CommandList_DXR::DispatchRays(uint32_t width, uint32_t height, uint32_t
 				}
 				pHitGroup = getShaderTable(key, m_hitGroupTables, numHitGroups);
 			}
+			// m_rayTracingState is different from other states, it cannot be reused
+			// for the next different pipeline, so we need to recreate it
+			m_rayTracingState = State::MakeUnique(API::DIRECTX_12);
 			m_isRTStateDirty = false;
 		}
 	}
