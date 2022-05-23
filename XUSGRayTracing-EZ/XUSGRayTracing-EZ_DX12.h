@@ -65,6 +65,10 @@ namespace XUSG
 					const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
 					uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces,
 					uint32_t maxTLASSrvs, uint32_t spaceTLAS);
+				bool createComputePipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
+					const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
+					uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces,
+					uint32_t maxTLASSrvs, uint32_t spaceTLAS);
 
 				Resource* needScratch(uint32_t size);
 

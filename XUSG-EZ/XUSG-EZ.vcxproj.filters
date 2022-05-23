@@ -16,6 +16,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Ultimate">
+      <UniqueIdentifier>{5049027c-edea-4e7a-9af6-dbbea6e77bf9}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -35,6 +38,12 @@
     </ClInclude>
     <ClInclude Include="..\XUSG\Core\XUSGEnum_DX12.h">
       <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="XUSGUltimate-EZ.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Ultimate\XUSGUltimate.h">
+      <Filter>Ultimate</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
