@@ -45,6 +45,15 @@
     <ClInclude Include="..\XUSG\Ultimate\XUSGUltimate.h">
       <Filter>Ultimate</Filter>
     </ClInclude>
+    <ClInclude Include="XUSGUltimate-EZ_DX12.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Ultimate\XUSGUltimate_DX12.h">
+      <Filter>Ultimate</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Core\XUSGResource_DX12.h">
+      <Filter>Core</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -61,6 +70,15 @@
     </ClCompile>
     <ClCompile Include="XUSG-EZ.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="XUSGUltimate-EZ_DX12.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSG\Ultimate\XUSGUltimate_DX12.cpp">
+      <Filter>Ultimate</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSG\Core\XUSGResource_DX12.cpp">
+      <Filter>Core</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
