@@ -526,6 +526,7 @@ bool EZ::CommandList_DX12::createGraphicsPipelineLayouts(uint32_t maxSamplers,
 	const auto pipelineLayout = Util::PipelineLayout::MakeUnique(API::DIRECTX_12);
 	const auto maxSpaces = (max)(maxCbvSpaces, (max)(maxSrvSpaces, maxUavSpaces));
 
+	// Handle all samplers to take up the first N root params with fixed param indices 
 	for (uint8_t i = 0; i < Shader::Stage::NUM_GRAPHICS; ++i)
 	{
 		const Shader::Stage stage = static_cast<Shader::Stage>(i);
@@ -533,15 +534,16 @@ bool EZ::CommandList_DX12::createGraphicsPipelineLayouts(uint32_t maxSamplers,
 		pipelineLayout->SetShaderStage(paramIndex++, stage);
 	}
 
+	// Then, handle the CBVs, SRVs, and UAVs
 	for (uint8_t i = 0; i < Shader::Stage::NUM_GRAPHICS; ++i)
 	{
 		auto& descriptorTables = m_cbvSrvUavTables[i];
 		if (descriptorTables[static_cast<uint32_t>(DescriptorType::CBV)].empty())
-		descriptorTables[static_cast<uint32_t>(DescriptorType::CBV)].resize(maxCbvSpaces);
-		if (descriptorTables[static_cast<uint32_t>(DescriptorType::CBV)].empty())
-		descriptorTables[static_cast<uint32_t>(DescriptorType::SRV)].resize(maxSrvSpaces);
-		if (descriptorTables[static_cast<uint32_t>(DescriptorType::CBV)].empty())
-		descriptorTables[static_cast<uint32_t>(DescriptorType::UAV)].resize(maxUavSpaces);
+			descriptorTables[static_cast<uint32_t>(DescriptorType::CBV)].resize(maxCbvSpaces);
+		if (descriptorTables[static_cast<uint32_t>(DescriptorType::SRV)].empty())
+			descriptorTables[static_cast<uint32_t>(DescriptorType::SRV)].resize(maxSrvSpaces);
+		if (descriptorTables[static_cast<uint32_t>(DescriptorType::UAV)].empty())
+			descriptorTables[static_cast<uint32_t>(DescriptorType::UAV)].resize(maxUavSpaces);
 
 		auto& spaceToParamIndexMap = m_graphicsSpaceToParamIndexMap[i];
 		spaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::CBV)].resize(maxCbvSpaces);
