@@ -19,7 +19,7 @@ namespace XUSG
 			{
 			public:
 				CommandList_DX12();
-				CommandList_DX12(XUSG::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+				CommandList_DX12(Ultimate::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
 					uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
 					const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1);
 				virtual ~CommandList_DX12();
@@ -60,7 +60,7 @@ namespace XUSG
 				Ultimate::CommandList* AsUltimateCommandList() { return dynamic_cast<Ultimate::CommandList*>(this); }
 
 			protected:
-				enum Stage : uint8_t
+				enum StageIndex : uint8_t
 				{
 					PS,
 					MS,
@@ -69,12 +69,11 @@ namespace XUSG
 					NUM_STAGE
 				};
 
-				bool createPipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
-					const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
-					uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces);
 				bool createMeshShaderPipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
 					const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
 					uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces);
+
+				const Shader::Stage& getShaderStage(uint8_t index) const;
 
 				MeshShader::PipelineCache::uptr m_meshShaderPipelineCache;
 
@@ -83,7 +82,7 @@ namespace XUSG
 				MeshShader::State::uptr m_meshShaderState;
 				bool m_isMSStateDirty;
 
-				std::vector<uint32_t> m_meshShaderSpaceToParamIndexMap[Stage::NUM_STAGE][CbvSrvUavTypes];
+				std::vector<uint32_t> m_meshShaderSpaceToParamIndexMap[NUM_STAGE][CbvSrvUavTypes];
 			};
 		}
 	}

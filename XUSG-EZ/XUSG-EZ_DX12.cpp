@@ -32,10 +32,6 @@ EZ::CommandList_DX12::CommandList_DX12() :
 {
 }
 
-EZ::CommandList_DX12::~CommandList_DX12()
-{
-}
-
 EZ::CommandList_DX12::CommandList_DX12(XUSG::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
 	uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace, const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
 	uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces) :
@@ -46,28 +42,20 @@ EZ::CommandList_DX12::CommandList_DX12(XUSG::CommandList* pCommandList, uint32_t
 		maxCbvSpaces, maxSrvSpaces, maxUavSpaces);
 }
 
+EZ::CommandList_DX12::~CommandList_DX12()
+{
+}
+
 bool EZ::CommandList_DX12::Create(XUSG::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
 	uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace, const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
 	uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces)
 {
-	m_pDevice = pCommandList->GetDevice();
-	m_commandList = dynamic_cast<XUSG::CommandList_DX12*>(pCommandList)->GetGraphicsCommandList();
-
-	m_graphicsPipelineCache = Graphics::PipelineCache::MakeUnique(m_pDevice, API::DIRECTX_12);
-	m_computePipelineCache = Compute::PipelineCache::MakeUnique(m_pDevice, API::DIRECTX_12);
-	m_pipelineLayoutCache = PipelineLayoutCache::MakeUnique(m_pDevice, API::DIRECTX_12);
-	m_descriptorTableCache = DescriptorTableCache::MakeUnique(m_pDevice, L"EZDescirptorTableCache", API::DIRECTX_12);
-	m_graphicsState = Graphics::State::MakeUnique(API::DIRECTX_12);
-	m_computeState = Compute::State::MakeUnique(API::DIRECTX_12);
-
-	// Allocate descriptor pools
-	XUSG_N_RETURN(m_descriptorTableCache->AllocateDescriptorPool(
-		DescriptorPoolType::SAMPLER_POOL, samplerPoolSize), false);
-	XUSG_N_RETURN(m_descriptorTableCache->AllocateDescriptorPool(
-		DescriptorPoolType::CBV_SRV_UAV_POOL, cbvSrvUavPoolSize), false);
+	XUSG_N_RETURN(init(pCommandList, samplerPoolSize, cbvSrvUavPoolSize), false);
 
 	// Create common pipeline layouts
-	XUSG_N_RETURN(createPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
+	XUSG_N_RETURN(createGraphicsPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
+		pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces), false);
+	XUSG_N_RETURN(createComputePipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
 		pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces), false);
 
 	return true;
@@ -289,6 +277,7 @@ void EZ::CommandList_DX12::DSSetState(Graphics::DepthStencilPreset preset)
 
 void EZ::CommandList_DX12::SetGraphicsShader(Shader::Stage stage, const Blob& shader)
 {
+	assert(stage < Shader::Stage::NUM_GRAPHICS);
 	assert(m_graphicsState);
 	m_graphicsState->SetShader(stage, shader);
 	m_isGraphicsDirty = true;
@@ -504,15 +493,23 @@ void EZ::CommandList_DX12::Resize()
 	ResetDescriptorPool(DescriptorPoolType::CBV_SRV_UAV_POOL);
 }
 
-bool EZ::CommandList_DX12::createPipelineLayouts(uint32_t maxSamplers,
-	const uint32_t* pMaxCbvsEachSpace, const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
-	uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces)
+bool EZ::CommandList_DX12::init(XUSG::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize)
 {
-	XUSG_N_RETURN(createGraphicsPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
-		pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces), false);
+	m_pDevice = pCommandList->GetDevice();
+	m_commandList = dynamic_cast<XUSG::CommandList_DX12*>(pCommandList)->GetGraphicsCommandList();
 
-	XUSG_N_RETURN(createComputePipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
-		pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces), false);
+	m_graphicsPipelineCache = Graphics::PipelineCache::MakeUnique(m_pDevice, API::DIRECTX_12);
+	m_computePipelineCache = Compute::PipelineCache::MakeUnique(m_pDevice, API::DIRECTX_12);
+	m_pipelineLayoutCache = PipelineLayoutCache::MakeUnique(m_pDevice, API::DIRECTX_12);
+	m_descriptorTableCache = DescriptorTableCache::MakeUnique(m_pDevice, L"EZDescirptorTableCache", API::DIRECTX_12);
+	m_graphicsState = Graphics::State::MakeUnique(API::DIRECTX_12);
+	m_computeState = Compute::State::MakeUnique(API::DIRECTX_12);
+
+	// Allocate descriptor pools
+	XUSG_N_RETURN(m_descriptorTableCache->AllocateDescriptorPool(
+		DescriptorPoolType::SAMPLER_POOL, samplerPoolSize), false);
+	XUSG_N_RETURN(m_descriptorTableCache->AllocateDescriptorPool(
+		DescriptorPoolType::CBV_SRV_UAV_POOL, cbvSrvUavPoolSize), false);
 
 	return true;
 }
