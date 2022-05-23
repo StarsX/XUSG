@@ -309,8 +309,8 @@ void EZ::CommandList_DXR::DispatchRays(uint32_t width, uint32_t height, uint32_t
 				}
 				pHitGroup = getShaderTable(key, m_hitGroupTables, numHitGroups);
 			}
-			// m_rayTracingState is different from other states, it cannot be reused
-			// for the next different pipeline, so we need to recreate it
+			// Different from other types of state objects, m_rayTracingState cannot be reused
+			// for the next different pipeline, so we need to remake it
 			m_rayTracingState = State::MakeUnique(API::DIRECTX_12);
 			m_isRTStateDirty = false;
 		}
@@ -340,108 +340,67 @@ bool EZ::CommandList_DXR::createPipelineLayouts(uint32_t maxSamplers, const uint
 	const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
 	uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces, uint32_t maxTLASSrvs, uint32_t spaceTLAS)
 {
+	XUSG_N_RETURN(createGraphicsPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
+		pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces), false);
+
+	XUSG_N_RETURN(createComputePipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
+		maxCbvSpaces, maxSrvSpaces, maxUavSpaces, maxTLASSrvs, spaceTLAS), false);
+
+	return true;
+}
+
+bool EZ::CommandList_DXR::createComputePipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
+	const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
+	uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces, uint32_t maxTLASSrvs, uint32_t spaceTLAS)
+{
+	// Create common compute pipeline layout with ray tracing
+	auto paramIndex = 0u;
+	const auto pipelineLayout = PipelineLayout::MakeUnique(API::DIRECTX_12);
 	const auto maxSpaces = (max)(maxCbvSpaces, (max)(maxSrvSpaces, maxUavSpaces));
+	pipelineLayout->SetRange(paramIndex++, DescriptorType::SAMPLER, maxSamplers, 0, 0, DescriptorFlag::DATA_STATIC);
+
+	auto& descriptorTables = m_computeCbvSrvUavTables;
+	descriptorTables[static_cast<uint32_t>(DescriptorType::CBV)].resize(maxCbvSpaces);
+	descriptorTables[static_cast<uint32_t>(DescriptorType::SRV)].resize(maxSrvSpaces);
+	descriptorTables[static_cast<uint32_t>(DescriptorType::UAV)].resize(maxUavSpaces);
+
+	m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::CBV)].resize(maxCbvSpaces);
+	m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::SRV)].resize(maxSrvSpaces);
+	m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::UAV)].resize(maxUavSpaces);
+	m_tlasBindingToParamIndexMap.resize(maxTLASSrvs);
+
+	for (auto s = 0u; s < maxSpaces; ++s)
 	{
-		// Create common graphics pipeline layout
-		auto paramIndex = 0u;
-		const auto pipelineLayout = Util::PipelineLayout::MakeUnique(API::DIRECTX_12);
-		const auto maxSpaces = (max)(maxCbvSpaces, (max)(maxSrvSpaces, maxUavSpaces));
-		pipelineLayout->SetRange(paramIndex++, DescriptorType::SAMPLER, maxSamplers, 0, 0, DescriptorFlag::DATA_STATIC);
-
-		for (uint8_t i = 0; i < Shader::Stage::NUM_GRAPHICS; ++i)
+		if (s < maxCbvSpaces)
 		{
-			auto& descriptorTables = m_graphicsCbvSrvUavTables[i];
-			descriptorTables[static_cast<uint32_t>(DescriptorType::CBV)].resize(maxCbvSpaces);
-			descriptorTables[static_cast<uint32_t>(DescriptorType::SRV)].resize(maxSrvSpaces);
-			descriptorTables[static_cast<uint32_t>(DescriptorType::UAV)].resize(maxUavSpaces);
-
-			auto& spaceToParamIndexMap = m_graphicsSpaceToParamIndexMap[i];
-			spaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::CBV)].resize(maxCbvSpaces);
-			spaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::SRV)].resize(maxSrvSpaces);
-			spaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::UAV)].resize(maxUavSpaces);
-			for (auto s = 0u; s < maxSpaces; ++s)
-			{
-				const auto stage = static_cast<Shader::Stage>(i);
-
-				if (s < maxCbvSpaces)
-				{
-					const auto maxDescriptors = pMaxCbvsEachSpace ? pMaxCbvsEachSpace[s] : 14;
-					spaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::CBV)][s] = paramIndex;
-					pipelineLayout->SetRange(paramIndex, DescriptorType::CBV, maxDescriptors, 0, s, DescriptorFlag::DATA_STATIC);
-					pipelineLayout->SetShaderStage(paramIndex++, stage);
-				}
-
-				if (s < maxSrvSpaces)
-				{
-					const auto maxDescriptors = pMaxSrvsEachSpace ? pMaxSrvsEachSpace[s] : 32;
-					spaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::SRV)][s] = paramIndex;
-					pipelineLayout->SetRange(paramIndex, DescriptorType::SRV, maxDescriptors, 0, s);
-					pipelineLayout->SetShaderStage(paramIndex++, stage);
-				}
-
-				if (s < maxUavSpaces)
-				{
-					const auto maxDescriptors = pMaxUavsEachSpace ? pMaxUavsEachSpace[s] : 16;
-					spaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::UAV)][s] = paramIndex;
-					pipelineLayout->SetRange(paramIndex, DescriptorType::UAV, maxDescriptors, 0, s);
-					pipelineLayout->SetShaderStage(paramIndex++, stage);
-				}
-			}
+			const auto maxDescriptors = pMaxCbvsEachSpace ? pMaxCbvsEachSpace[s] : 12;
+			m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::CBV)][s] = paramIndex;
+			pipelineLayout->SetRange(paramIndex++, DescriptorType::CBV, maxDescriptors, 0, s, DescriptorFlag::DATA_STATIC);
 		}
 
-		XUSG_X_RETURN(m_pipelineLayouts[GRAPHICS], pipelineLayout->GetPipelineLayout(m_pipelineLayoutCache.get(),
-			PipelineLayoutFlag::ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT, L"EZGraphicsLayout"), false);
+		if (s < maxSrvSpaces && !(s == spaceTLAS && maxTLASSrvs > 0))
+		{
+			const auto maxDescriptors = pMaxSrvsEachSpace ? pMaxSrvsEachSpace[s] : 32;
+			m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::SRV)][s] = paramIndex;
+			pipelineLayout->SetRange(paramIndex++, DescriptorType::SRV, maxDescriptors, 0, s);
+		}
+
+		if (s < maxUavSpaces)
+		{
+			const auto maxDescriptors = pMaxUavsEachSpace ? pMaxUavsEachSpace[s] : 16;
+			m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::UAV)][s] = paramIndex;
+			pipelineLayout->SetRange(paramIndex++, DescriptorType::UAV, maxDescriptors, 0, s);
+		}
 	}
 
+	for (auto slot = 0u; slot < maxTLASSrvs; ++slot)
 	{
-		// Create common compute pipeline layout
-		auto paramIndex = 0u;
-		const auto pipelineLayout = PipelineLayout::MakeUnique(API::DIRECTX_12);
-		pipelineLayout->SetRange(paramIndex++, DescriptorType::SAMPLER, maxSamplers, 0, 0, DescriptorFlag::DATA_STATIC);
-
-		auto& descriptorTables = m_computeCbvSrvUavTables;
-		descriptorTables[static_cast<uint32_t>(DescriptorType::CBV)].resize(maxCbvSpaces);
-		descriptorTables[static_cast<uint32_t>(DescriptorType::SRV)].resize(maxSrvSpaces);
-		descriptorTables[static_cast<uint32_t>(DescriptorType::UAV)].resize(maxUavSpaces);
-
-		m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::CBV)].resize(maxCbvSpaces);
-		m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::SRV)].resize(maxSrvSpaces);
-		m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::UAV)].resize(maxUavSpaces);
-		m_tlasBindingToParamIndexMap.resize(maxTLASSrvs);
-
-		for (auto s = 0u; s < maxSpaces; ++s)
-		{
-			if (s < maxCbvSpaces)
-			{
-				const auto maxDescriptors = pMaxCbvsEachSpace ? pMaxCbvsEachSpace[s] : 12;
-				m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::CBV)][s] = paramIndex;
-				pipelineLayout->SetRange(paramIndex++, DescriptorType::CBV, maxDescriptors, 0, s, DescriptorFlag::DATA_STATIC);
-			}
-
-			if (s < maxSrvSpaces && !(s == spaceTLAS && maxTLASSrvs > 0))
-			{
-				const auto maxDescriptors = pMaxSrvsEachSpace ? pMaxSrvsEachSpace[s] : 32;
-				m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::SRV)][s] = paramIndex;
-				pipelineLayout->SetRange(paramIndex++, DescriptorType::SRV, maxDescriptors, 0, s);
-			}
-
-			if (s < maxUavSpaces)
-			{
-				const auto maxDescriptors = pMaxUavsEachSpace ? pMaxUavsEachSpace[s] : 16;
-				m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::UAV)][s] = paramIndex;
-				pipelineLayout->SetRange(paramIndex++, DescriptorType::UAV, maxDescriptors, 0, s);
-			}
-		}
-
-		for (auto slot = 0u; slot < maxTLASSrvs; ++slot)
-		{
-			m_tlasBindingToParamIndexMap[slot] = paramIndex;
-			pipelineLayout->SetRootSRV(paramIndex++, slot, spaceTLAS, DescriptorFlag::DATA_STATIC);
-		}
-
-		XUSG_X_RETURN(m_pipelineLayouts[COMPUTE], pipelineLayout->GetPipelineLayout(m_pDeviceRT, m_pipelineLayoutCache.get(),
-			PipelineLayoutFlag::NONE, L"EZComputeLayout"), false);
+		m_tlasBindingToParamIndexMap[slot] = paramIndex;
+		pipelineLayout->SetRootSRV(paramIndex++, slot, spaceTLAS, DescriptorFlag::DATA_STATIC);
 	}
+
+	XUSG_X_RETURN(m_pipelineLayouts[COMPUTE], pipelineLayout->GetPipelineLayout(m_pDeviceRT, m_pipelineLayoutCache.get(),
+		PipelineLayoutFlag::NONE, L"RayTracingEZComputeLayout"), false);
 
 	return true;
 }

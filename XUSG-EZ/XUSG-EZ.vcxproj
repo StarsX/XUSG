@@ -166,9 +166,11 @@
     <ClInclude Include="..\XUSG\Core\XUSG.h" />
     <ClInclude Include="..\XUSG\Core\XUSGCommand_DX12.h" />
     <ClInclude Include="..\XUSG\Core\XUSGEnum_DX12.h" />
+    <ClInclude Include="..\XUSG\Ultimate\XUSGUltimate.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="XUSG-EZ.h" />
     <ClInclude Include="XUSG-EZ_DX12.h" />
+    <ClInclude Include="XUSGUltimate-EZ.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\XUSG\Core\XUSGCommand_DX12.cpp">
