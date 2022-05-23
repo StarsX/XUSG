@@ -143,11 +143,9 @@ namespace XUSG
 			virtual void SetComputeNodeMask(uint32_t nodeMask) = 0;
 			virtual void SetPipelineState(const Pipeline& pipelineState) = 0;
 			virtual void ExecuteBundle(const XUSG::CommandList* pCommandList) const = 0;
-			virtual void SetGraphicsSamplerStates(uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerPresets) = 0;
-			virtual void SetGraphicsResources(Shader::Stage stage, DescriptorType descriptorType, uint32_t startBinding,
-				uint32_t numResources, const ResourceView* pResourceViews, uint32_t space = 0) = 0;
-			virtual void SetComputeSamplerStates(uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerPresets) = 0;
-			virtual void SetComputeResources(DescriptorType descriptorType, uint32_t startBinding,
+			virtual void SetSamplerStates(Shader::Stage stage, uint32_t startBinding,
+				uint32_t numSamplers, const SamplerPreset* pSamplerPresets) = 0;
+			virtual void SetResources(Shader::Stage stage, DescriptorType descriptorType, uint32_t startBinding,
 				uint32_t numResources, const ResourceView* pResourceViews, uint32_t space = 0) = 0;
 			virtual void IASetPrimitiveTopology(PrimitiveTopology primitiveTopology) = 0;
 			virtual void IASetIndexBuffer(const IndexBufferView& view) = 0;

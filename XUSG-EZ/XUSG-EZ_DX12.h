@@ -83,11 +83,8 @@ namespace XUSG
 			void SetComputeNodeMask(uint32_t nodeMask);
 			void SetPipelineState(const Pipeline& pipelineState);
 			void ExecuteBundle(const XUSG::CommandList* pCommandList) const { XUSG::CommandList_DX12::ExecuteBundle(pCommandList); }
-			void SetGraphicsSamplerStates(uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerPresets);
-			void SetGraphicsResources(Shader::Stage stage, DescriptorType descriptorType, uint32_t startBinding,
-				uint32_t numResources, const ResourceView* pResourceViews, uint32_t space = 0);
-			void SetComputeSamplerStates(uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerPresets);
-			void SetComputeResources(DescriptorType descriptorType, uint32_t startBinding,
+			void SetSamplerStates(Shader::Stage stage, uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerPresets);
+			void SetResources(Shader::Stage stage, DescriptorType descriptorType, uint32_t startBinding,
 				uint32_t numResources, const ResourceView* pResourceViews, uint32_t space = 0);
 			void IASetPrimitiveTopology(PrimitiveTopology primitiveTopology);
 			void IASetIndexBuffer(const IndexBufferView& view);
@@ -224,15 +221,14 @@ namespace XUSG
 			uint32_t m_isComputeDirty;
 
 			std::vector<Descriptor> m_descriptors;
-			std::vector<Util::DescriptorTable::uptr> m_graphicsCbvSrvUavTables[Shader::Stage::NUM_GRAPHICS][CbvSrvUavTypes];
-			std::vector<Util::DescriptorTable::uptr> m_computeCbvSrvUavTables[CbvSrvUavTypes];
-			Util::DescriptorTable::uptr m_samplerTables[NUM_PIPELINE_LAYOUT];
+			std::vector<Util::DescriptorTable::uptr> m_cbvSrvUavTables[Shader::Stage::NUM_STAGE][CbvSrvUavTypes];
+			Util::DescriptorTable::uptr m_samplerTables[Shader::Stage::NUM_STAGE];
 
 			std::vector<ResourceBarrier> m_barriers;
 			std::vector<ClearDSV> m_clearDSVs;
 			std::vector<ClearRTV> m_clearRTVs;
 
-			std::vector<uint32_t> m_graphicsSpaceToParamIndexMap[Shader::Stage::NUM_GRAPHICS][3];
+			std::vector<uint32_t> m_graphicsSpaceToParamIndexMap[Shader::Stage::NUM_GRAPHICS][CbvSrvUavTypes];
 			std::vector<uint32_t> m_computeSpaceToParamIndexMap[CbvSrvUavTypes];
 		};
 	}

@@ -60,10 +60,30 @@ namespace XUSG
 				Ultimate::CommandList* AsUltimateCommandList() { return dynamic_cast<Ultimate::CommandList*>(this); }
 
 			protected:
+				enum Stage : uint8_t
+				{
+					PS,
+					MS,
+					AS,
+
+					NUM_STAGE
+				};
+
+				bool createPipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
+					const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
+					uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces);
+				bool createMeshShaderPipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
+					const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
+					uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces);
+
 				MeshShader::PipelineCache::uptr m_meshShaderPipelineCache;
 
-				bool m_isMSStateDirty;
+				XUSG::PipelineLayout m_pipelineLayout;
+
 				MeshShader::State::uptr m_meshShaderState;
+				bool m_isMSStateDirty;
+
+				std::vector<uint32_t> m_meshShaderSpaceToParamIndexMap[Stage::NUM_STAGE][CbvSrvUavTypes];
 			};
 		}
 	}
