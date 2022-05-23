@@ -21,6 +21,16 @@ EZ::CommandList_DX12::CommandList_DX12() :
 {
 }
 
+EZ::CommandList_DX12::CommandList_DX12(Ultimate::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+	uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace, const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
+	uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces) :
+	CommandList_DX12()
+{
+	Create(pCommandList, samplerPoolSize, cbvSrvUavPoolSize, maxSamplers,
+		pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
+		maxCbvSpaces, maxSrvSpaces, maxUavSpaces);
+}
+
 EZ::CommandList_DX12::~CommandList_DX12()
 {
 }
@@ -29,6 +39,18 @@ bool EZ::CommandList_DX12::Create(Ultimate::CommandList* pCommandList, uint32_t 
 	uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace, const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
 	uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces)
 {
+	XUSG::EZ::CommandList_DX12::Create(pCommandList, samplerPoolSize, cbvSrvUavPoolSize,
+		maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
+		maxCbvSpaces, maxSrvSpaces, maxUavSpaces);
+
+	m_commandListU = dynamic_cast<Ultimate::CommandList_DX12*>(pCommandList)->GetGraphicsCommandList();
+	m_meshShaderPipelineCache = MeshShader::PipelineCache::MakeUnique(m_pDevice, API::DIRECTX_12);
+	m_meshShaderState = MeshShader::State::MakeUnique(API::DIRECTX_12);
+
+	// Create common mesh-shader pipeline layouts
+	XUSG_N_RETURN(createMeshShaderPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
+		pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces), false);
+
 	return true;
 }
 
@@ -64,30 +86,113 @@ void EZ::CommandList_DX12::SetPipelineState(const Pipeline& pipelineState)
 
 void EZ::CommandList_DX12::MSSetBlendState(MeshShader::BlendPreset preset, uint8_t numColorRTs, uint32_t sampleMask)
 {
+	assert(m_meshShaderState);
+	m_meshShaderState->OMSetBlendState(preset, m_meshShaderPipelineCache.get(), numColorRTs, sampleMask);
+	m_isMSStateDirty = true;
 }
 
 void EZ::CommandList_DX12::MSSetSample(uint8_t count, uint8_t quality)
 {
+	assert(m_meshShaderState);
+	m_meshShaderState->OMSetSample(count, quality);
+	m_isMSStateDirty = true;
 }
 
 void EZ::CommandList_DX12::MSSetRasterizerState(MeshShader::RasterizerPreset preset)
 {
+	assert(m_meshShaderState);
+	m_meshShaderState->RSSetState(preset, m_meshShaderPipelineCache.get());
+	m_isMSStateDirty = true;
 }
 
 void EZ::CommandList_DX12::MSSetDepthStencilState(MeshShader::DepthStencilPreset preset)
 {
+	assert(m_meshShaderState);
+	m_meshShaderState->DSSetState(preset, m_meshShaderPipelineCache.get());
+	m_isMSStateDirty = true;
 }
 
 void EZ::CommandList_DX12::MSSetShader(Shader::Stage stage, const Blob& shader)
 {
+	assert(stage == Shader::Stage::PS || stage == Shader::Stage::MS || stage == Shader::Stage::AS);
+	assert(m_meshShaderState);
+	m_meshShaderState->SetShader(stage, shader);
+	m_isMSStateDirty = true;
 }
 
 void EZ::CommandList_DX12::MSSetNodeMask(uint32_t nodeMask)
 {
+	assert(m_meshShaderState);
+	m_meshShaderState->SetNodeMask(nodeMask);
+	m_isMSStateDirty = true;
 }
 
 void EZ::CommandList_DX12::DispatchMesh(uint32_t ThreadGroupCountX, uint32_t ThreadGroupCountY, uint32_t ThreadGroupCountZ)
 {
+	for (uint8_t i = 0; i < NUM_STAGE; ++i)
+	{
+		const auto& stage = getShaderStage(i);
+
+		// Create and set sampler table
+		auto& samplerTable = m_samplerTables[stage];
+		if (samplerTable)
+		{
+			const auto descriptorTable = samplerTable->GetSamplerTable(m_descriptorTableCache.get());
+			if (descriptorTable) XUSG::CommandList_DX12::SetGraphicsDescriptorTable(i, descriptorTable);
+			samplerTable.reset();
+		}
+
+		// Create and set CBV/SRV/UAV tables
+		for (uint8_t t = 0; t < CbvSrvUavTypes; ++t)
+		{
+			auto& cbvSrvUavTables = m_cbvSrvUavTables[stage][t];
+			const auto numSpaces = static_cast<uint32_t>(cbvSrvUavTables.size());
+			for (auto s = 0u; s < numSpaces; ++s)
+			{
+				auto& cbvSrvUavTable = cbvSrvUavTables[s];
+				if (cbvSrvUavTable)
+				{
+					const auto descriptorTable = cbvSrvUavTable->GetCbvSrvUavTable(m_descriptorTableCache.get());
+					if (descriptorTable) XUSG::CommandList_DX12::SetGraphicsDescriptorTable(
+						m_meshShaderSpaceToParamIndexMap[stage][t][s], descriptorTable);
+					cbvSrvUavTable.reset();
+				}
+			}
+		}
+	}
+
+	// Set barrier command
+	XUSG::CommandList_DX12::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
+	m_barriers.clear();
+
+	// Clear DSVs
+	for (const auto& args : m_clearDSVs)
+		XUSG::CommandList_DX12::ClearDepthStencilView(args.DepthStencilView,
+			args.ClearFlags, args.Depth, args.Stencil, args.NumRects, args.pRects);
+	m_clearDSVs.clear();
+
+	// Clear RTVs
+	for (const auto& args : m_clearRTVs)
+		XUSG::CommandList_DX12::ClearRenderTargetView(args.RenderTargetView,
+			args.ColorRGBA, args.NumRects, args.pRects);
+	m_clearRTVs.clear();
+
+	// Create pipeline for dynamic states
+	assert(m_meshShaderState);
+	if (m_isMSStateDirty)
+	{
+		m_meshShaderState->SetPipelineLayout(m_pipelineLayouts[GRAPHICS]);
+		const auto pipeline = m_meshShaderState->GetPipeline(m_meshShaderPipelineCache.get());
+		if (pipeline)
+		{
+			if (m_pipeline != pipeline)
+			{
+				XUSG::CommandList_DX12::SetPipelineState(pipeline);
+				m_pipeline = pipeline;
+			}
+			m_isMSStateDirty = false;
+		}
+	}
 }
 
 bool EZ::CommandList_DX12::createMeshShaderPipelineLayouts(uint32_t maxSamplers,
@@ -99,18 +204,13 @@ bool EZ::CommandList_DX12::createMeshShaderPipelineLayouts(uint32_t maxSamplers,
 	const auto pipelineLayout = Util::PipelineLayout::MakeUnique(API::DIRECTX_12);
 	const auto maxSpaces = (max)(maxCbvSpaces, (max)(maxSrvSpaces, maxUavSpaces));
 
-	Shader::Stage stages[Stage::NUM_STAGE];
-	stages[Stage::PS] = Shader::Stage::PS;
-	stages[Stage::MS] = Shader::Stage::MS;
-	stages[Stage::AS] = Shader::Stage::AS;
-	
-	for (uint8_t i = 0; i < Stage::NUM_STAGE; ++i)
+	for (uint8_t i = 0; i < NUM_STAGE; ++i)
 	{
 		pipelineLayout->SetRange(paramIndex, DescriptorType::SAMPLER, maxSamplers, 0, 0, DescriptorFlag::DATA_STATIC);
-		pipelineLayout->SetShaderStage(paramIndex++, stages[i]);
+		pipelineLayout->SetShaderStage(paramIndex++, getShaderStage(i));
 	}
 
-	for (uint8_t i = 0; i < Stage::NUM_STAGE; ++i)
+	for (uint8_t i = 0; i < NUM_STAGE; ++i)
 	{
 		auto& descriptorTables = m_cbvSrvUavTables[i];
 		if (descriptorTables[static_cast<uint32_t>(DescriptorType::CBV)].empty())
@@ -126,7 +226,7 @@ bool EZ::CommandList_DX12::createMeshShaderPipelineLayouts(uint32_t maxSamplers,
 		spaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::UAV)].resize(maxUavSpaces);
 		for (auto s = 0u; s < maxSpaces; ++s)
 		{
-			const auto& stage = stages[i];
+			const auto& stage = getShaderStage(i);
 
 			if (s < maxCbvSpaces)
 			{
@@ -158,4 +258,19 @@ bool EZ::CommandList_DX12::createMeshShaderPipelineLayouts(uint32_t maxSamplers,
 		PipelineLayoutFlag::NONE, L"EZMeshShaderLayout"), false);
 
 	return true;
+}
+
+const XUSG::Shader::Stage& EZ::CommandList_DX12::getShaderStage(uint8_t index) const
+{
+	static const Shader::Stage stages[] =
+	{
+		Shader::Stage::PS,
+		Shader::Stage::MS,
+		Shader::Stage::AS
+	};
+	assert(stages[Stage::PS] == Shader::Stage::PS);
+	assert(stages[Stage::MS] == Shader::Stage::MS);
+	assert(stages[Stage::AS] == Shader::Stage::AS);
+
+	return stages[index];
 }

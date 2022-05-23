@@ -61,10 +61,6 @@ namespace XUSG
 				RayTracing::CommandList* AsRTCommandList() { return dynamic_cast<RayTracing::CommandList*>(this); }
 
 			protected:
-				bool createPipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
-					const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
-					uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces,
-					uint32_t maxTLASSrvs, uint32_t spaceTLAS);
 				bool createComputePipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
 					const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
 					uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces,
@@ -85,8 +81,8 @@ namespace XUSG
 				uint32_t m_scratchSize;
 				std::vector<Resource::uptr> m_scratches;
 
-				bool m_isRTStateDirty;
 				RayTracing::State::uptr m_rayTracingState;
+				bool m_isRTStateDirty;
 
 				uint32_t m_asUavCount;
 				std::vector<uint32_t> m_tlasBindingToParamIndexMap;

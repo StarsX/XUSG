@@ -189,9 +189,7 @@ namespace XUSG
 
 			static const uint8_t CbvSrvUavTypes = 3;
 
-			bool createPipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
-				const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
-				uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces);
+			bool init(XUSG::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize);
 			bool createGraphicsPipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
 				const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
 				uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces);

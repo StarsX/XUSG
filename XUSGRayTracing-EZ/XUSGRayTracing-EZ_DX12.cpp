@@ -24,10 +24,6 @@ EZ::CommandList_DXR::CommandList_DXR() :
 {
 }
 
-EZ::CommandList_DXR::~CommandList_DXR()
-{
-}
-
 EZ::CommandList_DXR::CommandList_DXR(RayTracing::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
 	uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace, const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
 	uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces, uint32_t maxTLASSrvs, uint32_t spaceTLAS) :
@@ -38,37 +34,31 @@ EZ::CommandList_DXR::CommandList_DXR(RayTracing::CommandList* pCommandList, uint
 		maxCbvSpaces, maxSrvSpaces, maxUavSpaces, maxTLASSrvs, spaceTLAS);
 }
 
+EZ::CommandList_DXR::~CommandList_DXR()
+{
+}
+
 bool EZ::CommandList_DXR::Create(RayTracing::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
 	uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace, const uint32_t* pMaxSrvsEachSpace,
 	const uint32_t* pMaxUavsEachSpace, uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces,
 	uint32_t maxTLASSrvs, uint32_t spaceTLAS)
 {
+	XUSG_N_RETURN(init(pCommandList, samplerPoolSize, cbvSrvUavPoolSize), false);
+
 	m_pDeviceRT = pCommandList->GetRTDevice();
-	m_pDevice = m_pDeviceRT;
-	m_commandList = dynamic_cast<XUSG::CommandList_DX12*>(pCommandList)->GetGraphicsCommandList();
 
 	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(m_pDeviceRT->GetRTHandle());
 	XUSG_N_RETURN(pDxDevice, false);
 	pDxDevice->QueryRaytracingCommandList(m_commandList.get(), IID_PPV_ARGS(&m_commandListRT));
 
-	m_graphicsPipelineCache = Graphics::PipelineCache::MakeUnique(m_pDevice, API::DIRECTX_12);
-	m_computePipelineCache = Compute::PipelineCache::MakeUnique(m_pDevice, API::DIRECTX_12);
 	m_RayTracingPipelineCache = PipelineCache::MakeUnique(m_pDeviceRT, API::DIRECTX_12);
-	m_pipelineLayoutCache = PipelineLayoutCache::MakeUnique(m_pDevice, API::DIRECTX_12);
-	m_descriptorTableCache = DescriptorTableCache::MakeUnique(m_pDevice, L"EZDescirptorTableCache", API::DIRECTX_12);
 	m_rayTracingState = State::MakeUnique(API::DIRECTX_12);
-	m_graphicsState = Graphics::State::MakeUnique(API::DIRECTX_12);
-	m_computeState = Compute::State::MakeUnique(API::DIRECTX_12);
-
-	// Allocate descriptor pools
-	XUSG_N_RETURN(m_descriptorTableCache->AllocateDescriptorPool(
-		DescriptorPoolType::SAMPLER_POOL, samplerPoolSize), false);
-	XUSG_N_RETURN(m_descriptorTableCache->AllocateDescriptorPool(
-		DescriptorPoolType::CBV_SRV_UAV_POOL, cbvSrvUavPoolSize), false);
 
 	// Create common pipeline layouts
-	XUSG_N_RETURN(createPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
-		maxCbvSpaces, maxSrvSpaces, maxUavSpaces, maxTLASSrvs, spaceTLAS), false);
+	XUSG_N_RETURN(createGraphicsPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
+		pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces), false);
+	XUSG_N_RETURN(createComputePipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
+		pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces, maxTLASSrvs, spaceTLAS), false);
 
 	return true;
 }
@@ -334,19 +324,6 @@ void EZ::CommandList_DXR::DispatchRays(uint32_t width, uint32_t height, uint32_t
 	}
 
 	RayTracing::CommandList_DX12::DispatchRays(width, height, depth, pHitGroup, pMiss, pRayGen);
-}
-
-bool EZ::CommandList_DXR::createPipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
-	const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
-	uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces, uint32_t maxTLASSrvs, uint32_t spaceTLAS)
-{
-	XUSG_N_RETURN(createGraphicsPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
-		pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces), false);
-
-	XUSG_N_RETURN(createComputePipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
-		maxCbvSpaces, maxSrvSpaces, maxUavSpaces, maxTLASSrvs, spaceTLAS), false);
-
-	return true;
 }
 
 bool EZ::CommandList_DXR::createComputePipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
