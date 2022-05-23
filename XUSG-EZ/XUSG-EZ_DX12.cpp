@@ -22,8 +22,7 @@ EZ::CommandList_DX12::CommandList_DX12() :
 	m_isGraphicsDirty(false),
 	m_isComputeDirty(false),
 	m_descriptors(0),
-	m_graphicsCbvSrvUavTables(),
-	m_computeCbvSrvUavTables(),
+	m_cbvSrvUavTables(),
 	m_samplerTables(),
 	m_barriers(0),
 	m_clearDSVs(0),
@@ -136,7 +135,7 @@ void EZ::CommandList_DX12::DrawIndexed(uint32_t indexCountPerInstance, uint32_t 
 void EZ::CommandList_DX12::Dispatch(uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ)
 {
 	// Create and set sampler table
-	auto& samplerTable = m_samplerTables[COMPUTE];
+	auto& samplerTable = m_samplerTables[Shader::Stage::CS];
 	if (samplerTable)
 	{
 		const auto descriptorTable = samplerTable->GetSamplerTable(m_descriptorTableCache.get());
@@ -147,7 +146,7 @@ void EZ::CommandList_DX12::Dispatch(uint32_t threadGroupCountX, uint32_t threadG
 	// Create and set CBV/SRV/UAV tables
 	for (uint8_t t = 0; t < CbvSrvUavTypes; ++t)
 	{
-		auto& cbvSrvUavTables = m_computeCbvSrvUavTables[t];
+		auto& cbvSrvUavTables = m_cbvSrvUavTables[Shader::Stage::CS][t];
 		const auto numSpaces = static_cast<uint32_t>(cbvSrvUavTables.size());
 		for (auto s = 0u; s < numSpaces; ++s)
 		{
@@ -323,42 +322,17 @@ void EZ::CommandList_DX12::SetPipelineState(const Pipeline& pipelineState)
 	m_isComputeDirty = false;
 }
 
-void EZ::CommandList_DX12::SetGraphicsSamplerStates(uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerPresets)
+void EZ::CommandList_DX12::SetSamplerStates(Shader::Stage stage, uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerPresets)
 {
-	auto& descriptorTable = m_samplerTables[GRAPHICS];
+	auto& descriptorTable = m_samplerTables[stage];
 	if (!descriptorTable) descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
 	descriptorTable->SetSamplers(startBinding, numSamplers, pSamplerPresets, m_descriptorTableCache.get());
 }
 
-void EZ::CommandList_DX12::SetGraphicsResources(Shader::Stage stage, DescriptorType descriptorType,
-	uint32_t startBinding, uint32_t numResources, const ResourceView* pResourceViews, uint32_t space)
-{
-	auto& descriptorTables = m_graphicsCbvSrvUavTables[stage][static_cast<uint32_t>(descriptorType)];
-	assert(space < descriptorTables.size());
-	auto& descriptorTable = descriptorTables[space];
-
-	// Set descriptors to the descriptor table
-	if (!descriptorTable) descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
-	if (m_descriptors.size() < numResources) m_descriptors.resize(numResources);
-	for (auto i = 0u; i < numResources; ++i) m_descriptors[i] = pResourceViews[i].View;
-	descriptorTable->SetDescriptors(startBinding, numResources, m_descriptors.data());
-
-	// Set barriers
-	if (descriptorType == DescriptorType::SRV || descriptorType == DescriptorType::UAV)
-		setBarriers(numResources, pResourceViews);
-}
-
-void EZ::CommandList_DX12::SetComputeSamplerStates(uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerPresets)
-{
-	auto& descriptorTable = m_samplerTables[COMPUTE];
-	if (!descriptorTable) descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
-	descriptorTable->SetSamplers(startBinding, numSamplers, pSamplerPresets, m_descriptorTableCache.get());
-}
-
-void EZ::CommandList_DX12::SetComputeResources(DescriptorType descriptorType, uint32_t startBinding,
+void EZ::CommandList_DX12::SetResources(Shader::Stage stage, DescriptorType descriptorType, uint32_t startBinding,
 	uint32_t numResources, const ResourceView* pResourceViews, uint32_t space)
 {
-	auto& descriptorTables = m_computeCbvSrvUavTables[static_cast<uint32_t>(descriptorType)];
+	auto& descriptorTables = m_cbvSrvUavTables[stage][static_cast<uint32_t>(descriptorType)];
 	assert(space < descriptorTables.size());
 	auto& descriptorTable = descriptorTables[space];
 
@@ -551,23 +525,34 @@ bool EZ::CommandList_DX12::createGraphicsPipelineLayouts(uint32_t maxSamplers,
 	auto paramIndex = 0u;
 	const auto pipelineLayout = Util::PipelineLayout::MakeUnique(API::DIRECTX_12);
 	const auto maxSpaces = (max)(maxCbvSpaces, (max)(maxSrvSpaces, maxUavSpaces));
-	pipelineLayout->SetRange(paramIndex++, DescriptorType::SAMPLER, maxSamplers, 0, 0, DescriptorFlag::DATA_STATIC);
 
+	// Handle all samplers to take up the first N root params with fixed param indices 
 	for (uint8_t i = 0; i < Shader::Stage::NUM_GRAPHICS; ++i)
 	{
-		auto& descriptorTables = m_graphicsCbvSrvUavTables[i];
-		descriptorTables[static_cast<uint32_t>(DescriptorType::CBV)].resize(maxCbvSpaces);
-		descriptorTables[static_cast<uint32_t>(DescriptorType::SRV)].resize(maxSrvSpaces);
-		descriptorTables[static_cast<uint32_t>(DescriptorType::UAV)].resize(maxUavSpaces);
+		const Shader::Stage stage = static_cast<Shader::Stage>(i);
+		pipelineLayout->SetRange(paramIndex, DescriptorType::SAMPLER, maxSamplers, 0, 0, DescriptorFlag::DATA_STATIC);
+		pipelineLayout->SetShaderStage(paramIndex++, stage);
+	}
+
+	// Then, handle the CBVs, SRVs, and UAVs
+	for (uint8_t i = 0; i < Shader::Stage::NUM_GRAPHICS; ++i)
+	{
+		auto& descriptorTables = m_cbvSrvUavTables[i];
+		if (descriptorTables[static_cast<uint32_t>(DescriptorType::CBV)].empty())
+			descriptorTables[static_cast<uint32_t>(DescriptorType::CBV)].resize(maxCbvSpaces);
+		if (descriptorTables[static_cast<uint32_t>(DescriptorType::SRV)].empty())
+			descriptorTables[static_cast<uint32_t>(DescriptorType::SRV)].resize(maxSrvSpaces);
+		if (descriptorTables[static_cast<uint32_t>(DescriptorType::UAV)].empty())
+			descriptorTables[static_cast<uint32_t>(DescriptorType::UAV)].resize(maxUavSpaces);
 
 		auto& spaceToParamIndexMap = m_graphicsSpaceToParamIndexMap[i];
 		spaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::CBV)].resize(maxCbvSpaces);
 		spaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::SRV)].resize(maxSrvSpaces);
 		spaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::UAV)].resize(maxUavSpaces);
+
+		const Shader::Stage stage = static_cast<Shader::Stage>(i);
 		for (auto s = 0u; s < maxSpaces; ++s)
 		{
-			const auto stage = static_cast<Shader::Stage>(i);
-
 			if (s < maxCbvSpaces)
 			{
 				const auto maxDescriptors = pMaxCbvsEachSpace ? pMaxCbvsEachSpace[s] : 14;
@@ -608,16 +593,21 @@ bool EZ::CommandList_DX12::createComputePipelineLayouts(uint32_t maxSamplers,
 	auto paramIndex = 0u;
 	const auto pipelineLayout = Util::PipelineLayout::MakeUnique(API::DIRECTX_12);
 	const auto maxSpaces = (max)(maxCbvSpaces, (max)(maxSrvSpaces, maxUavSpaces));
-	pipelineLayout->SetRange(paramIndex++, DescriptorType::SAMPLER, maxSamplers, 0, 0, DescriptorFlag::DATA_STATIC);
 
-	auto& descriptorTables = m_computeCbvSrvUavTables;
-	descriptorTables[static_cast<uint32_t>(DescriptorType::CBV)].resize(maxCbvSpaces);
-	descriptorTables[static_cast<uint32_t>(DescriptorType::SRV)].resize(maxSrvSpaces);
-	descriptorTables[static_cast<uint32_t>(DescriptorType::UAV)].resize(maxUavSpaces);
+	auto& descriptorTables = m_cbvSrvUavTables[Shader::Stage::CS];
+	if (descriptorTables[static_cast<uint32_t>(DescriptorType::CBV)].empty())
+		descriptorTables[static_cast<uint32_t>(DescriptorType::CBV)].resize(maxCbvSpaces);
+	if (descriptorTables[static_cast<uint32_t>(DescriptorType::SRV)].empty())
+		descriptorTables[static_cast<uint32_t>(DescriptorType::SRV)].resize(maxSrvSpaces);
+	if (descriptorTables[static_cast<uint32_t>(DescriptorType::UAV)].empty())
+		descriptorTables[static_cast<uint32_t>(DescriptorType::UAV)].resize(maxUavSpaces);
 
 	m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::CBV)].resize(maxCbvSpaces);
 	m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::SRV)].resize(maxSrvSpaces);
 	m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::UAV)].resize(maxUavSpaces);
+
+	pipelineLayout->SetRange(paramIndex++, DescriptorType::SAMPLER, maxSamplers, 0, 0, DescriptorFlag::DATA_STATIC);
+
 	for (auto s = 0u; s < maxSpaces; ++s)
 	{
 		if (s < maxCbvSpaces)
@@ -650,21 +640,21 @@ bool EZ::CommandList_DX12::createComputePipelineLayouts(uint32_t maxSamplers,
 
 void EZ::CommandList_DX12::predraw()
 {
-	// Create and set sampler table
-	auto& samplerTable = m_samplerTables[GRAPHICS];
-	if (samplerTable)
-	{
-		const auto descriptorTable = samplerTable->GetSamplerTable(m_descriptorTableCache.get());
-		if (descriptorTable) XUSG::CommandList_DX12::SetGraphicsDescriptorTable(0, descriptorTable);
-		samplerTable.reset();
-	}
-
-	// Create and set CBV/SRV/UAV tables
 	for (uint8_t i = 0; i < Shader::Stage::NUM_GRAPHICS; ++i)
 	{
+		// Create and set sampler table
+		auto& samplerTable = m_samplerTables[i];
+		if (samplerTable)
+		{
+			const auto descriptorTable = samplerTable->GetSamplerTable(m_descriptorTableCache.get());
+			if (descriptorTable) XUSG::CommandList_DX12::SetGraphicsDescriptorTable(i, descriptorTable);
+			samplerTable.reset();
+		}
+
+		// Create and set CBV/SRV/UAV tables
 		for (uint8_t t = 0; t < CbvSrvUavTypes; ++t)
 		{
-			auto& cbvSrvUavTables = m_graphicsCbvSrvUavTables[i][t];
+			auto& cbvSrvUavTables = m_cbvSrvUavTables[i][t];
 			const auto numSpaces = static_cast<uint32_t>(cbvSrvUavTables.size());
 			for (auto s = 0u; s < numSpaces; ++s)
 			{

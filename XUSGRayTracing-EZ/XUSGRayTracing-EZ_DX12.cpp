@@ -264,7 +264,7 @@ void EZ::CommandList_DXR::DispatchRays(uint32_t width, uint32_t height, uint32_t
 	// Create and set CBV/SRV/UAV tables
 	for (uint8_t t = 0; t < CbvSrvUavTypes; ++t)
 	{
-		auto& cbvSrvUavTables = m_computeCbvSrvUavTables[t];
+		auto& cbvSrvUavTables = m_cbvSrvUavTables[Shader::Stage::CS][t];
 		const auto numSpaces = static_cast<uint32_t>(cbvSrvUavTables.size());
 		for (auto s = 0u; s < numSpaces; ++s)
 		{
@@ -357,17 +357,21 @@ bool EZ::CommandList_DXR::createComputePipelineLayouts(uint32_t maxSamplers, con
 	auto paramIndex = 0u;
 	const auto pipelineLayout = PipelineLayout::MakeUnique(API::DIRECTX_12);
 	const auto maxSpaces = (max)(maxCbvSpaces, (max)(maxSrvSpaces, maxUavSpaces));
-	pipelineLayout->SetRange(paramIndex++, DescriptorType::SAMPLER, maxSamplers, 0, 0, DescriptorFlag::DATA_STATIC);
 
-	auto& descriptorTables = m_computeCbvSrvUavTables;
-	descriptorTables[static_cast<uint32_t>(DescriptorType::CBV)].resize(maxCbvSpaces);
-	descriptorTables[static_cast<uint32_t>(DescriptorType::SRV)].resize(maxSrvSpaces);
-	descriptorTables[static_cast<uint32_t>(DescriptorType::UAV)].resize(maxUavSpaces);
+	auto& descriptorTables = m_cbvSrvUavTables[Shader::Stage::CS];
+	if (descriptorTables[static_cast<uint32_t>(DescriptorType::CBV)].empty())
+		descriptorTables[static_cast<uint32_t>(DescriptorType::CBV)].resize(maxCbvSpaces);
+	if (descriptorTables[static_cast<uint32_t>(DescriptorType::SRV)].empty())
+		descriptorTables[static_cast<uint32_t>(DescriptorType::SRV)].resize(maxSrvSpaces);
+	if (descriptorTables[static_cast<uint32_t>(DescriptorType::UAV)].empty())
+		descriptorTables[static_cast<uint32_t>(DescriptorType::UAV)].resize(maxUavSpaces);
 
 	m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::CBV)].resize(maxCbvSpaces);
 	m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::SRV)].resize(maxSrvSpaces);
 	m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::UAV)].resize(maxUavSpaces);
 	m_tlasBindingToParamIndexMap.resize(maxTLASSrvs);
+
+	pipelineLayout->SetRange(paramIndex++, DescriptorType::SAMPLER, maxSamplers, 0, 0, DescriptorFlag::DATA_STATIC);
 
 	for (auto s = 0u; s < maxSpaces; ++s)
 	{
