@@ -14,7 +14,7 @@ namespace XUSG
 		namespace EZ
 		{
 			//--------------------------------------------------------------------------------------
-			// RayTracing Command list
+			// Ultimate command list
 			//--------------------------------------------------------------------------------------
 			class XUSG_INTERFACE CommandList :
 				public virtual XUSG::EZ::CommandList
@@ -38,10 +38,10 @@ namespace XUSG
 				virtual void SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions) const = 0;
 				virtual void ResolveSubresourceRegion(const Resource* pDstResource, uint32_t dstSubresource,
 					uint32_t dstX, uint32_t dstY, const Resource* pSrcResource, uint32_t srcSubresource,
-					const RectRange& srcRect, Format format, ResolveMode resolveMode) const = 0;
+					const RectRange& srcRect, Format format, ResolveMode resolveMode) = 0;
 
 				virtual void RSSetShadingRate(ShadingRate baseShadingRate, const ShadingRateCombiner* pCombiners) const = 0;
-				virtual void RSSetShadingRateImage(const Resource* pShadingRateImage) const = 0;
+				virtual void RSSetShadingRateImage(const Resource* pShadingRateImage) = 0;
 
 				virtual void SetPipelineState(const Pipeline& pipelineState) = 0;
 				virtual void MSSetBlendState(MeshShader::BlendPreset preset, uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX) = 0;
@@ -50,7 +50,7 @@ namespace XUSG
 				virtual void MSSetDepthStencilState(MeshShader::DepthStencilPreset preset) = 0;
 				virtual void MSSetShader(Shader::Stage stage, const Blob& shader) = 0;
 				virtual void MSSetNodeMask(uint32_t nodeMask) = 0;
-				virtual void DispatchMesh(uint32_t ThreadGroupCountX, uint32_t ThreadGroupCountY, uint32_t ThreadGroupCountZ) const = 0;
+				virtual void DispatchMesh(uint32_t ThreadGroupCountX, uint32_t ThreadGroupCountY, uint32_t ThreadGroupCountZ) = 0;
 
 				static uptr MakeUnique(API api = API::DIRECTX_12);
 				static sptr MakeShared(API api = API::DIRECTX_12);
