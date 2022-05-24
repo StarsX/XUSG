@@ -224,6 +224,9 @@ void EZ::CommandList_DX12::CopyTiles(Resource* pTiledResource, const TiledResour
 void EZ::CommandList_DX12::ResolveSubresource(Resource* pDstResource, uint32_t dstSubresource,
 	Resource* pSrcResource, uint32_t srcSubresource, Format format)
 {
+	assert(pDstResource);
+	assert(pSrcResource);
+
 	// Generate barriers for each resource
 	ResourceBarrier barriers[2];
 	auto numBarriers = pDstResource->SetBarrier(barriers, ResourceState::RESOLVE_DEST, 0, dstSubresource);
