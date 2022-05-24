@@ -191,7 +191,7 @@ void PipelineLayoutCache_DX12::SetPipelineLayout(const string& key, const Pipeli
 void PipelineLayoutCache_DX12::GetRootParameter(CD3DX12_ROOT_PARAMETER1& rootParam, vector<CD3DX12_DESCRIPTOR_RANGE1>& descriptorRanges,
 	const DescriptorTableLayout& descriptorTableLayout) const
 {
-	const D3D12_DESCRIPTOR_RANGE_TYPE rangeTypes[] =
+	static const D3D12_DESCRIPTOR_RANGE_TYPE rangeTypes[] =
 	{
 		D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
 		D3D12_DESCRIPTOR_RANGE_TYPE_UAV,

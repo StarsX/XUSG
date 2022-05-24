@@ -36,12 +36,12 @@ namespace XUSG
 					const wchar_t* name = nullptr) = 0;
 
 				virtual void SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions) const = 0;
-				virtual void ResolveSubresourceRegion(const Resource* pDstResource, uint32_t dstSubresource,
-					uint32_t dstX, uint32_t dstY, const Resource* pSrcResource, uint32_t srcSubresource,
+				virtual void ResolveSubresourceRegion(Resource* pDstResource, uint32_t dstSubresource,
+					uint32_t dstX, uint32_t dstY, Resource* pSrcResource, uint32_t srcSubresource,
 					const RectRange& srcRect, Format format, ResolveMode resolveMode) = 0;
 
 				virtual void RSSetShadingRate(ShadingRate baseShadingRate, const ShadingRateCombiner* pCombiners) const = 0;
-				virtual void RSSetShadingRateImage(const Resource* pShadingRateImage) = 0;
+				virtual void RSSetShadingRateImage(Resource* pShadingRateImage) = 0;
 
 				virtual void SetPipelineState(const Pipeline& pipelineState) = 0;
 				virtual void MSSetBlendState(MeshShader::BlendPreset preset, uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX) = 0;
