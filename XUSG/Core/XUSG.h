@@ -596,7 +596,7 @@ namespace XUSG
 			MS,
 			AS,
 
-			NUM_STAGE,
+			NUM_STAGE
 		};
 	}
 

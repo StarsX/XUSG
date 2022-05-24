@@ -37,8 +37,8 @@ namespace XUSG
 					Ultimate::CommandList_DX12::SetSamplePositions(numSamplesPerPixel, numPixels, pPositions);
 				}
 
-				void ResolveSubresourceRegion(const Resource* pDstResource, uint32_t dstSubresource,
-					uint32_t dstX, uint32_t dstY, const Resource* pSrcResource, uint32_t srcSubresource,
+				void ResolveSubresourceRegion(Resource* pDstResource, uint32_t dstSubresource,
+					uint32_t dstX, uint32_t dstY, Resource* pSrcResource, uint32_t srcSubresource,
 					const RectRange& srcRect, Format format, ResolveMode resolveMode);
 
 				void RSSetShadingRate(ShadingRate baseShadingRate, const ShadingRateCombiner* pCombiners) const
@@ -46,7 +46,7 @@ namespace XUSG
 					Ultimate::CommandList_DX12::RSSetShadingRate(baseShadingRate, pCombiners);
 				}
 
-				void RSSetShadingRateImage(const Resource* pShadingRateImage);
+				void RSSetShadingRateImage(Resource* pShadingRateImage);
 
 				void SetPipelineState(const Pipeline& pipelineState);
 				void MSSetBlendState(MeshShader::BlendPreset preset, uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX);

@@ -66,14 +66,33 @@ bool EZ::CommandList_DX12::Create(const Device* pDevice, void* pHandle, uint32_t
 		maxCbvSpaces, maxSrvSpaces, maxUavSpaces);
 }
 
-void EZ::CommandList_DX12::ResolveSubresourceRegion(const Resource* pDstResource,
-	uint32_t dstSubresource, uint32_t dstX, uint32_t dstY, const Resource* pSrcResource,
-	uint32_t srcSubresource, const RectRange& srcRect, Format format, ResolveMode resolveMode)
+void EZ::CommandList_DX12::ResolveSubresourceRegion(Resource* pDstResource, uint32_t dstSubresource,
+	uint32_t dstX, uint32_t dstY, Resource* pSrcResource, uint32_t srcSubresource,
+	const RectRange& srcRect, Format format, ResolveMode resolveMode)
 {
+	// Generate barriers for each resource
+	ResourceBarrier barriers[2];
+	auto numBarriers = pDstResource->SetBarrier(barriers, ResourceState::RESOLVE_DEST, 0, dstSubresource);
+	numBarriers = pSrcResource->SetBarrier(barriers, ResourceState::RESOLVE_SOURCE, numBarriers, srcSubresource);
+	XUSG::CommandList_DX12::Barrier(numBarriers, barriers);
+
+	Ultimate::CommandList_DX12::ResolveSubresourceRegion(pDstResource, dstSubresource,
+		dstX, dstY, pSrcResource, srcSubresource, srcRect, format, resolveMode);
 }
 
-void EZ::CommandList_DX12::RSSetShadingRateImage(const Resource* pShadingRateImage)
+void EZ::CommandList_DX12::RSSetShadingRateImage(Resource* pShadingRateImage)
 {
+	// Set a barrier
+	const auto numBarriersEst = 1u;
+	const auto startIdx = m_barriers.size();
+	m_barriers.resize(startIdx + numBarriersEst);
+	const auto numBarriers = pShadingRateImage->SetBarrier(&m_barriers[startIdx], ResourceState::SHADING_RATE_SOURCE);
+
+	// Shrink the size of barrier list
+	if (numBarriers < numBarriersEst) m_barriers.resize(startIdx + numBarriers);
+
+	// Set the shading-rate image
+	Ultimate::CommandList_DX12::RSSetShadingRateImage(pShadingRateImage);
 }
 
 void EZ::CommandList_DX12::SetPipelineState(const Pipeline& pipelineState)
