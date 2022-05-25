@@ -2,7 +2,6 @@
 // Copyright (c) XU, Tianchen. All rights reserved.
 //--------------------------------------------------------------------------------------
 
-//#include "Core/XUSG_DX12.h"
 #include "Core/XUSGCommand_DX12.h"
 #include "Core/XUSGResource_DX12.h"
 #include "Ultimate/XUSGUltimate_DX12.h"
@@ -293,9 +292,9 @@ const XUSG::Shader::Stage& EZ::CommandList_DX12::getShaderStage(uint8_t index) c
 		Shader::Stage::MS,
 		Shader::Stage::AS
 	};
-	assert(stages[Stage::PS] == Shader::Stage::PS);
-	assert(stages[Stage::MS] == Shader::Stage::MS);
-	assert(stages[Stage::AS] == Shader::Stage::AS);
+	assert(stages[PS] == Shader::Stage::PS);
+	assert(stages[MS] == Shader::Stage::MS);
+	assert(stages[AS] == Shader::Stage::AS);
 
 	return stages[index];
 }
