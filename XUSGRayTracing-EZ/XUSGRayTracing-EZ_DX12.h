@@ -15,7 +15,7 @@ namespace XUSG
 			class CommandList_DXR :
 				virtual public CommandList,
 				virtual public RayTracing::CommandList_DX12,
-				virtual public XUSG::EZ::CommandList_DX12
+				virtual public Ultimate::EZ::CommandList_DX12
 			{
 			public:
 				CommandList_DXR();

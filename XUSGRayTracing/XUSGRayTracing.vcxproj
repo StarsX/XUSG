@@ -168,6 +168,8 @@
     <ClInclude Include="..\XUSG\Core\XUSGPipelineLayout_DX12.h" />
     <ClInclude Include="..\XUSG\Core\XUSGResource_DX12.h" />
     <ClInclude Include="..\XUSG\Core\XUSG_DX12.h" />
+    <ClInclude Include="..\XUSG\Ultimate\XUSGUltimate.h" />
+    <ClInclude Include="..\XUSG\Ultimate\XUSGUltimate_DX12.h" />
     <ClInclude Include="Common\D3D12RaytracingHelpers.hpp" />
     <ClInclude Include="RayTracing\XUSGAccelerationStructure_DX12.h" />
     <ClInclude Include="RayTracing\XUSGRayTracing.h" />
@@ -204,6 +206,12 @@
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdafx.h</ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\XUSG\Core\XUSG_DX12.cpp">
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">stdafx.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdafx.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdafx.h</ForcedIncludeFiles>
+    </ClCompile>
+    <ClCompile Include="..\XUSG\Ultimate\XUSGUltimate_DX12.cpp">
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">stdafx.h</ForcedIncludeFiles>
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdafx.h</ForcedIncludeFiles>
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h</ForcedIncludeFiles>

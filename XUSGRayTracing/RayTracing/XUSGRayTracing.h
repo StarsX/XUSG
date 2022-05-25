@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "Core/XUSG.h"
+#include "Ultimate/XUSGUltimate.h"
 
 namespace XUSG
 {
@@ -256,7 +256,7 @@ namespace XUSG
 		// Command list
 		//--------------------------------------------------------------------------------------
 		class XUSG_INTERFACE CommandList :
-			public virtual XUSG::CommandList
+			public virtual Ultimate::CommandList
 		{
 		public:
 			//CommandList();

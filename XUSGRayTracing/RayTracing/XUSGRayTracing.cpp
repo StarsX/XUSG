@@ -4,7 +4,9 @@
 
 #include "Core/XUSG_DX12.h"
 #include "Core/XUSGCommand_DX12.h"
+#include "Core/XUSGResource_DX12.h"
 #include "Core/XUSGPipelineLayout_DX12.h"
+#include "Ultimate/XUSGUltimate_DX12.h"
 #include "XUSGRayTracing.h"
 #include "XUSGRayTracing_DX12.h"
 #include "XUSGAccelerationStructure_DX12.h"

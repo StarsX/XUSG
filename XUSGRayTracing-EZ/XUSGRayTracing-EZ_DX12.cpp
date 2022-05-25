@@ -3,17 +3,20 @@
 //--------------------------------------------------------------------------------------
 
 #include "Core/XUSGCommand_DX12.h"
+#include "Core/XUSGResource_DX12.h"
+#include "Ultimate/XUSGUltimate_DX12.h"
 #include "RayTracing/XUSGRayTracingCommand_DX12.h"
 #include "RayTracing/XUSGRayTracingState_DX12.h"
 #include "XUSG-EZ_DX12.h"
+#include "XUSGUltimate-EZ_DX12.h"
 #include "XUSGRayTracing-EZ_DX12.h"
 
 using namespace std;
 using namespace XUSG::RayTracing;
 
 EZ::CommandList_DXR::CommandList_DXR() :
-	XUSG::CommandList_DX12(),
-	XUSG::EZ::CommandList_DX12(),
+	Ultimate::CommandList_DX12(),
+	Ultimate::EZ::CommandList_DX12(),
 	m_RayTracingPipelineCache(nullptr),
 	m_scratchSize(0),
 	m_scratches(0),
@@ -43,7 +46,7 @@ bool EZ::CommandList_DXR::Create(RayTracing::CommandList* pCommandList, uint32_t
 	const uint32_t* pMaxUavsEachSpace, uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces,
 	uint32_t maxTLASSrvs, uint32_t spaceTLAS)
 {
-	XUSG_N_RETURN(init(pCommandList, samplerPoolSize, cbvSrvUavPoolSize), false);
+	XUSG_N_RETURN(Ultimate::EZ::CommandList_DX12::init(pCommandList, samplerPoolSize, cbvSrvUavPoolSize), false);
 
 	m_pDeviceRT = pCommandList->GetRTDevice();
 
@@ -59,6 +62,9 @@ bool EZ::CommandList_DXR::Create(RayTracing::CommandList* pCommandList, uint32_t
 		pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces), false);
 	XUSG_N_RETURN(createComputePipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
 		pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces, maxTLASSrvs, spaceTLAS), false);
+	if (m_commandListU)
+		XUSG_N_RETURN(createMeshShaderPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
+			pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces), false);
 
 	return true;
 }

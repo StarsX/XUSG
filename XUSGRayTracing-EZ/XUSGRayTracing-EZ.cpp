@@ -3,8 +3,11 @@
 //--------------------------------------------------------------------------------------
 
 #include "Core/XUSGCommand_DX12.h"
+#include "Core/XUSGResource_DX12.h"
+#include "Ultimate/XUSGUltimate_DX12.h"
 #include "RayTracing/XUSGRayTracingCommand_DX12.h"
 #include "XUSG-EZ_DX12.h"
+#include "XUSGUltimate-EZ_DX12.h"
 #include "XUSGRayTracing-EZ_DX12.h"
 
 using namespace std;
