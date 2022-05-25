@@ -22,6 +22,9 @@
     <Filter Include="XUSG-EZ">
       <UniqueIdentifier>{ca3a2565-f851-45c1-a2af-d94ccf343eec}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Ultimate">
+      <UniqueIdentifier>{6c776e30-40de-403b-9465-e55f20a1e227}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -54,6 +57,18 @@
     <ClInclude Include="..\XUSG-EZ\XUSG-EZ_DX12.h">
       <Filter>XUSG-EZ</Filter>
     </ClInclude>
+    <ClInclude Include="..\XUSG\Ultimate\XUSGUltimate.h">
+      <Filter>Ultimate</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Ultimate\XUSGUltimate_DX12.h">
+      <Filter>Ultimate</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG-EZ\XUSGUltimate-EZ_DX12.h">
+      <Filter>XUSG-EZ</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Core\XUSGResource_DX12.h">
+      <Filter>Core</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -76,6 +91,15 @@
     </ClCompile>
     <ClCompile Include="..\XUSG-EZ\XUSG-EZ_DX12.cpp">
       <Filter>XUSG-EZ</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSG\Ultimate\XUSGUltimate_DX12.cpp">
+      <Filter>Ultimate</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSG-EZ\XUSGUltimate-EZ_DX12.cpp">
+      <Filter>XUSG-EZ</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSG\Core\XUSGResource_DX12.cpp">
+      <Filter>Core</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

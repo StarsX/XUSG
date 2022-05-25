@@ -38,15 +38,13 @@ bool EZ::CommandList_DX12::Create(Ultimate::CommandList* pCommandList, uint32_t 
 	uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace, const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
 	uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces)
 {
-	XUSG::EZ::CommandList_DX12::Create(pCommandList, samplerPoolSize, cbvSrvUavPoolSize,
-		maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
-		maxCbvSpaces, maxSrvSpaces, maxUavSpaces);
+	XUSG_N_RETURN(init(pCommandList, samplerPoolSize, cbvSrvUavPoolSize), false);
 
-	m_commandListU = dynamic_cast<Ultimate::CommandList_DX12*>(pCommandList)->GetGraphicsCommandList();
-	m_meshShaderPipelineCache = MeshShader::PipelineCache::MakeUnique(m_pDevice, API::DIRECTX_12);
-	m_meshShaderState = MeshShader::State::MakeUnique(API::DIRECTX_12);
-
-	// Create common mesh-shader pipeline layouts
+	// Create common pipeline layouts
+	XUSG_N_RETURN(createGraphicsPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
+		pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces), false);
+	XUSG_N_RETURN(createComputePipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
+		pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces), false);
 	XUSG_N_RETURN(createMeshShaderPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
 		pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces), false);
 
@@ -217,6 +215,21 @@ void EZ::CommandList_DX12::DispatchMesh(uint32_t ThreadGroupCountX, uint32_t Thr
 			m_isMSStateDirty = false;
 		}
 	}
+}
+
+bool EZ::CommandList_DX12::init(Ultimate::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize)
+{
+	XUSG_N_RETURN(XUSG::EZ::CommandList_DX12::init(pCommandList, samplerPoolSize, cbvSrvUavPoolSize), false);
+
+	m_commandListU = dynamic_cast<Ultimate::CommandList_DX12*>(pCommandList)->GetGraphicsCommandList();
+
+	if (m_commandListU)
+	{
+		m_meshShaderPipelineCache = MeshShader::PipelineCache::MakeUnique(m_pDevice, API::DIRECTX_12);
+		m_meshShaderState = MeshShader::State::MakeUnique(API::DIRECTX_12);
+	}
+
+	return true;
 }
 
 bool EZ::CommandList_DX12::createMeshShaderPipelineLayouts(uint32_t maxSamplers,

@@ -165,17 +165,27 @@
   <ItemGroup>
     <ClInclude Include="..\XUSG-EZ\XUSG-EZ.h" />
     <ClInclude Include="..\XUSG-EZ\XUSG-EZ_DX12.h" />
+    <ClInclude Include="..\XUSG-EZ\XUSGUltimate-EZ_DX12.h" />
     <ClInclude Include="..\XUSGRayTracing\RayTracing\XUSGRayTracing.h" />
     <ClInclude Include="..\XUSGRayTracing\RayTracing\XUSGRayTracingCommand_DX12.h" />
     <ClInclude Include="..\XUSG\Core\XUSG.h" />
     <ClInclude Include="..\XUSG\Core\XUSGCommand_DX12.h" />
     <ClInclude Include="..\XUSG\Core\XUSGEnum_DX12.h" />
+    <ClInclude Include="..\XUSG\Core\XUSGResource_DX12.h" />
+    <ClInclude Include="..\XUSG\Ultimate\XUSGUltimate.h" />
+    <ClInclude Include="..\XUSG\Ultimate\XUSGUltimate_DX12.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="XUSGRayTracing-EZ.h" />
     <ClInclude Include="XUSGRayTracing-EZ_DX12.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\XUSG-EZ\XUSG-EZ_DX12.cpp">
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">stdafx.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdafx.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdafx.h</ForcedIncludeFiles>
+    </ClCompile>
+    <ClCompile Include="..\XUSG-EZ\XUSGUltimate-EZ_DX12.cpp">
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">stdafx.h</ForcedIncludeFiles>
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdafx.h</ForcedIncludeFiles>
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h</ForcedIncludeFiles>
@@ -194,6 +204,18 @@
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdafx.h</ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\XUSG\Core\XUSGEnum_DX12.cpp">
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">stdafx.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdafx.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdafx.h</ForcedIncludeFiles>
+    </ClCompile>
+    <ClCompile Include="..\XUSG\Core\XUSGResource_DX12.cpp">
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">stdafx.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdafx.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdafx.h</ForcedIncludeFiles>
+    </ClCompile>
+    <ClCompile Include="..\XUSG\Ultimate\XUSGUltimate_DX12.cpp">
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">stdafx.h</ForcedIncludeFiles>
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdafx.h</ForcedIncludeFiles>
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h</ForcedIncludeFiles>

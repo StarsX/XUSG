@@ -3,6 +3,8 @@
 //--------------------------------------------------------------------------------------
 
 #include "Core/XUSGCommand_DX12.h"
+#include "Core/XUSGResource_DX12.h"
+#include "Ultimate/XUSGUltimate_DX12.h"
 #include "XUSGRayTracingCommand_DX12.h"
 #include "XUSGAccelerationStructure_DX12.h"
 
@@ -11,7 +13,7 @@ using namespace XUSG;
 using namespace XUSG::RayTracing;
 
 RayTracing::CommandList_DX12::CommandList_DX12() :
-	XUSG::CommandList_DX12()
+	Ultimate::CommandList_DX12()
 {
 }
 
@@ -28,6 +30,8 @@ RayTracing::CommandList_DX12::CommandList_DX12(XUSG::CommandList* pCommandList, 
 
 bool RayTracing::CommandList_DX12::CreateInterface()
 {
+	if (!Ultimate::CommandList_DX12::CreateInterface()) m_commandListU = nullptr;
+
 	m_pDeviceRT = dynamic_cast<const RayTracing::Device*>(m_pDevice);
 	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(m_pDeviceRT->GetRTHandle());
 	XUSG_N_RETURN(pDxDevice, false);

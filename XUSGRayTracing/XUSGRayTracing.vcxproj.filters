@@ -28,6 +28,9 @@
     <Filter Include="Common">
       <UniqueIdentifier>{aae4d1cc-2eee-458b-94fd-beda7f12dac4}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Ultimate">
+      <UniqueIdentifier>{945add82-a0cc-4c06-afaf-dd7f9df620c6}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="RayTracing\XUSGRayTracing.h">
@@ -75,6 +78,12 @@
     <ClInclude Include="..\XUSG\Core\XUSGResource_DX12.h">
       <Filter>Core</Filter>
     </ClInclude>
+    <ClInclude Include="..\XUSG\Ultimate\XUSGUltimate.h">
+      <Filter>Ultimate</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Ultimate\XUSGUltimate_DX12.h">
+      <Filter>Ultimate</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="RayTracing\XUSGRayTracing.cpp">
@@ -115,6 +124,9 @@
     </ClCompile>
     <ClCompile Include="RayTracing\XUSGRayTracing_DX12.cpp">
       <Filter>RayTracing\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSG\Ultimate\XUSGUltimate_DX12.cpp">
+      <Filter>Ultimate</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
