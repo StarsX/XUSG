@@ -62,7 +62,12 @@ bool EZ::CommandList_DXR::Create(RayTracing::CommandList* pCommandList, uint32_t
 		pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces), false);
 	XUSG_N_RETURN(createComputePipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
 		pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces, maxTLASSrvs, spaceTLAS), false);
-	if (m_commandListU)
+
+	D3D12_FEATURE_DATA_D3D12_OPTIONS7 featureSupportData = {};
+	const auto hr = static_cast<ID3D12Device*>(m_pDevice->GetHandle())->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS7,
+		&featureSupportData, sizeof(featureSupportData));
+
+	if (m_commandListU && SUCCEEDED(hr) && featureSupportData.MeshShaderTier != D3D12_MESH_SHADER_TIER_NOT_SUPPORTED)
 		XUSG_N_RETURN(createMeshShaderPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
 			pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces), false);
 
