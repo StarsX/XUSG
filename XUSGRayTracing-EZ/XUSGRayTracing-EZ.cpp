@@ -14,6 +14,19 @@ using namespace std;
 using namespace XUSG::RayTracing;
 using namespace XUSG::RayTracing::EZ;
 
+XUSG::EZ::ResourceView EZ::GetSRV(AccelerationStructure* pAS)
+{
+	const auto pResource = pAS->GetResult().get();
+
+	XUSG::EZ::ResourceView resourceView;
+	resourceView.pResource = pResource;
+	resourceView.View = pResource->GetSRV();
+	resourceView.Subresources = { XUSG_BARRIER_ALL_SUBRESOURCES };
+	resourceView.DstState = XUSG::ResourceState::RAYTRACING_ACCELERATION_STRUCTURE;
+
+	return resourceView;
+}
+
 EZ::CommandList::uptr EZ::CommandList::MakeUnique(API api)
 {
 	return make_unique<CommandList_DXR>();

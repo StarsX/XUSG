@@ -265,13 +265,13 @@ ResourceView EZ::GetReadOnlyArrayDSV(DepthStencil* pResource, uint8_t mipLevel, 
 	return resourceView;
 }
 
-ResourceView EZ::GetStencilSRV(DepthStencil* pResource)
+ResourceView EZ::GetStencilSRV(DepthStencil* pResource, ResourceState dstSrvState)
 {
 	ResourceView resourceView;
 	resourceView.pResource = pResource;
 	resourceView.View = pResource->GetStencilSRV();
 	resourceView.Subresources = { XUSG_BARRIER_ALL_SUBRESOURCES };
-	resourceView.DstState = ResourceState::NON_PIXEL_SHADER_RESOURCE | ResourceState::PIXEL_SHADER_RESOURCE;
+	resourceView.DstState = dstSrvState;
 
 	return resourceView;
 }
@@ -293,10 +293,7 @@ EZ::IndexBufferView EZ::GetIBV(IndexBuffer* pResource, uint32_t index, ResourceS
 	resourceView.pResource = pResource;
 	resourceView.pView = &pResource->GetIBV(index);
 	resourceView.DstState = ResourceState::INDEX_BUFFER;
-	resourceView.DstState |= pResource->GetSRV() ?
-		ResourceState::NON_PIXEL_SHADER_RESOURCE |
-		ResourceState::PIXEL_SHADER_RESOURCE :
-		resourceView.DstState;
+	resourceView.DstState |= pResource->GetSRV() ? dstSrvState : resourceView.DstState;
 
 	return resourceView;
 }

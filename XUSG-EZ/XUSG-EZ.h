@@ -70,7 +70,8 @@ namespace XUSG
 			uint8_t mipLevel = 0, ResourceState dstSrvState = SHADER_RESOURCE_STATE);
 		XUSG_INTERFACE ResourceView GetReadOnlyArrayDSV(DepthStencil* pResource,
 			uint8_t mipLevel = 0, ResourceState dstSrvState = SHADER_RESOURCE_STATE);
-		XUSG_INTERFACE ResourceView GetStencilSRV(DepthStencil* pResource);
+		XUSG_INTERFACE ResourceView GetStencilSRV(DepthStencil* pResource,
+			ResourceState dstSrvState = SHADER_RESOURCE_STATE);
 
 		XUSG_INTERFACE VertexBufferView GetVBV(VertexBuffer* pResource, uint32_t index = 0,
 			ResourceState dstSrvState = SHADER_RESOURCE_STATE);

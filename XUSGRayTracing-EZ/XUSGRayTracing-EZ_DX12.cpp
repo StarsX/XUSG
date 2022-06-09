@@ -110,6 +110,10 @@ bool EZ::CommandList_DXR::CloseForPresent(RenderTarget* pBackBuffer)
 bool EZ::CommandList_DXR::PreBuildBLAS(BottomLevelAS* pBLAS, uint32_t numGeometries,
 	const GeometryBuffer& geometries, BuildFlag flags)
 {
+	// Set barrier command
+	XUSG::CommandList_DX12::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
+	m_barriers.clear();
+
 	assert(pBLAS);
 	XUSG_N_RETURN(pBLAS->PreBuild(m_pDeviceRT, numGeometries, geometries, m_asUavCount++, flags), false);
 
@@ -125,6 +129,10 @@ bool EZ::CommandList_DXR::PreBuildBLAS(BottomLevelAS* pBLAS, uint32_t numGeometr
 
 bool EZ::CommandList_DXR::PreBuildTLAS(TopLevelAS* pTLAS, uint32_t numInstances, BuildFlag flags)
 {
+	// Set barrier command
+	XUSG::CommandList_DX12::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
+	m_barriers.clear();
+
 	assert(pTLAS);
 	XUSG_N_RETURN(pTLAS->PreBuild(m_pDeviceRT, numInstances, m_asUavCount++, flags), false);
 
@@ -151,8 +159,12 @@ void EZ::CommandList_DXR::SetTriangleGeometries(GeometryBuffer& geometries, uint
 	auto numBarriers = 0u;
 	for (auto i = 0u; i < numGeometries; ++i)
 	{
-		numBarriers = pVBs[i].pResource->SetBarrier(&m_barriers[startIdx], pVBs[i].DstState, numBarriers);
-		vbvs[i] = *pVBs[i].pView;
+		const auto& vb = pVBs[i];
+		const auto pBarrier = &m_barriers[startIdx];
+		if (vb.pResource->GetResourceState() == ResourceState::COMMON)
+			vb.pResource->SetBarrier(pBarrier, ResourceState::COPY_DEST, numBarriers);
+		numBarriers = vb.pResource->SetBarrier(pBarrier, vb.DstState, numBarriers);
+		vbvs[i] = *vb.pView;
 	}
 
 	if (pIBs)
@@ -160,8 +172,12 @@ void EZ::CommandList_DXR::SetTriangleGeometries(GeometryBuffer& geometries, uint
 		ibvs.resize(numGeometries);
 		for (auto i = 0u; i < numGeometries; ++i)
 		{
-			numBarriers = pIBs[i].pResource->SetBarrier(&m_barriers[startIdx], pIBs[i].DstState, numBarriers);
-			ibvs[i] = *pIBs[i].pView;
+			const auto& ib = pIBs[i];
+			const auto pBarrier = &m_barriers[startIdx];
+			if (ib.pResource->GetResourceState() == ResourceState::COMMON)
+				ib.pResource->SetBarrier(pBarrier, ResourceState::COPY_DEST, numBarriers);
+			numBarriers = ib.pResource->SetBarrier(pBarrier, ib.DstState, numBarriers);
+			ibvs[i] = *ib.pView;
 		}
 	}
 
@@ -184,8 +200,12 @@ void EZ::CommandList_DXR::SetAABBGeometries(GeometryBuffer& geometries, uint32_t
 	auto numBarriers = 0u;
 	for (auto i = 0u; i < numGeometries; ++i)
 	{
-		numBarriers = pVBs[i].pResource->SetBarrier(&m_barriers[startIdx], pVBs[i].DstState, numBarriers);
-		vbvs[i] = *pVBs[i].pView;
+		const auto& vb = pVBs[i];
+		const auto pBarrier = &m_barriers[startIdx];
+		if (vb.pResource->GetResourceState() == ResourceState::COMMON)
+			vb.pResource->SetBarrier(pBarrier, ResourceState::COPY_DEST, numBarriers);
+		numBarriers = vb.pResource->SetBarrier(pBarrier, vb.DstState, numBarriers);
+		vbvs[i] = *vb.pView;
 	}
 
 	// Shrink the size of barrier list
