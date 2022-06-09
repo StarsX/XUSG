@@ -13,6 +13,8 @@ namespace XUSG
 	{
 		namespace EZ
 		{
+			XUSG_INTERFACE XUSG::EZ::ResourceView GetSRV(AccelerationStructure* pAS);
+
 			//--------------------------------------------------------------------------------------
 			// RayTracing command list
 			//--------------------------------------------------------------------------------------
