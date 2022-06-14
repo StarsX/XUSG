@@ -41,6 +41,12 @@
     <Filter Include="Advanced\Source Files">
       <UniqueIdentifier>{370c352c-4d93-4a7a-ab4b-7fe853657441}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{ba5706a0-c8be-4283-aa9d-fb0499410ec0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders\SHMath">
+      <UniqueIdentifier>{0641fb03-51fb-4e76-b2ca-47b302d17d87}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\XUSG.h">
@@ -105,6 +111,15 @@
     </ClInclude>
     <ClInclude Include="Common\d3d12.h">
       <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Advanced\XUSGHalton.h">
+      <Filter>Advanced\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Advanced\XUSGSHSharedConsts.h">
+      <Filter>Advanced\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Advanced\XUSGSphericalHarmonics.h">
+      <Filter>Advanced\Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -171,5 +186,42 @@
     <ClCompile Include="Core\XUSGEnum_DX12.cpp">
       <Filter>Core\Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Advanced\XUSGHalton.cpp">
+      <Filter>Advanced\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Advanced\XUSGSphericalHarmonics.cpp">
+      <Filter>Advanced\Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Shaders\CSWaveOp.hlsli">
+      <Filter>Shaders\SHMath</Filter>
+    </None>
+    <None Include="Shaders\CubeMap.hlsli">
+      <Filter>Shaders\SHMath</Filter>
+    </None>
+    <None Include="Shaders\SHIrradiance.hlsli">
+      <Filter>Shaders\SHMath</Filter>
+    </None>
+    <None Include="Shaders\SHIrradianceTypeless.hlsli">
+      <Filter>Shaders\SHMath</Filter>
+    </None>
+    <None Include="Shaders\SHMath.hlsli">
+      <Filter>Shaders\SHMath</Filter>
+    </None>
+    <None Include="Shaders\WaveOpTypeless.hlsli">
+      <Filter>Shaders\SHMath</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="Shaders\CSSHCubeMap.hlsl">
+      <Filter>Shaders\SHMath</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\CSSHNormalize.hlsl">
+      <Filter>Shaders\SHMath</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\CSSHSum.hlsl">
+      <Filter>Shaders\SHMath</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>
