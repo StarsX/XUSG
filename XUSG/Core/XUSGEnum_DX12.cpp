@@ -21,6 +21,8 @@ using namespace XUSG;
 #define APPEND_ROOT_SIGNATURE_FLAG(flags, flag) APPEND_FLAG(PipelineLayoutFlag, D3D12_ROOT_SIGNATURE_FLAG, flags, flag, NONE)
 #define APPEND_FENCE_FLAG(flags, flag) APPEND_FLAG(FenceFlag, D3D12_FENCE_FLAG, flags, flag, NONE)
 #define APPEND_TILE_COPY_FLAG(flags, flag) APPEND_FLAG(TileCopyFlag, D3D12_TILE_COPY_FLAG, flags, flag, NONE)
+#define APPEND_SWAP_CHAIN_FLAG(flags, flag) (static_cast<bool>(flags & SwapChainFlag::flag) ? DXGI_SWAP_CHAIN_FLAG_##flag : 0)
+#define APPEND_PRESENT_FLAG(flags, flag) (static_cast<bool>(flags & PresentFlag::flag) ? DXGI_PRESENT_##flag : 0)
 
 DXGI_FORMAT XUSG::GetDXGIFormat(Format format)
 {
@@ -839,4 +841,89 @@ uint32_t XUSG::GetDX12Requirement(Requirement requirement)
 	};
 
 	return requirements[static_cast<uint32_t>(requirement)];
+}
+
+uint32_t XUSG::GetDXGISwapChainFlag(SwapChainFlag swapChainFlag)
+{
+	static const DXGI_SWAP_CHAIN_FLAG swapChainFlags[] =
+	{
+		DXGI_SWAP_CHAIN_FLAG_NONPREROTATED,
+		DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH,
+		DXGI_SWAP_CHAIN_FLAG_GDI_COMPATIBLE,
+		DXGI_SWAP_CHAIN_FLAG_RESTRICTED_CONTENT,
+		DXGI_SWAP_CHAIN_FLAG_RESTRICT_SHARED_RESOURCE_DRIVER,
+		DXGI_SWAP_CHAIN_FLAG_DISPLAY_ONLY,
+		DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT,
+		DXGI_SWAP_CHAIN_FLAG_FOREGROUND_LAYER,
+		DXGI_SWAP_CHAIN_FLAG_FULLSCREEN_VIDEO,
+		DXGI_SWAP_CHAIN_FLAG_YUV_VIDEO,
+		DXGI_SWAP_CHAIN_FLAG_HW_PROTECTED,
+		DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING,
+		DXGI_SWAP_CHAIN_FLAG_RESTRICTED_TO_ALL_HOLOGRAPHIC_DISPLAYS
+	};
+
+	if (swapChainFlag == SwapChainFlag::NONE) return 0;
+
+	const auto index = Log2(static_cast<uint32_t>(swapChainFlag));
+
+	return swapChainFlags[index];
+}
+
+uint32_t XUSG::GetDXGISwapChainFlags(SwapChainFlag swapChainFlags)
+{
+	auto flags = 0u;
+	flags |= APPEND_SWAP_CHAIN_FLAG(swapChainFlags, NONPREROTATED);
+	flags |= APPEND_SWAP_CHAIN_FLAG(swapChainFlags, ALLOW_MODE_SWITCH);
+	flags |= APPEND_SWAP_CHAIN_FLAG(swapChainFlags, GDI_COMPATIBLE);
+	flags |= APPEND_SWAP_CHAIN_FLAG(swapChainFlags, RESTRICTED_CONTENT);
+	flags |= APPEND_SWAP_CHAIN_FLAG(swapChainFlags, RESTRICT_SHARED_RESOURCE_DRIVER);
+	flags |= APPEND_SWAP_CHAIN_FLAG(swapChainFlags, DISPLAY_ONLY);
+	flags |= APPEND_SWAP_CHAIN_FLAG(swapChainFlags, FRAME_LATENCY_WAITABLE_OBJECT);
+	flags |= APPEND_SWAP_CHAIN_FLAG(swapChainFlags, FOREGROUND_LAYER);
+	flags |= APPEND_SWAP_CHAIN_FLAG(swapChainFlags, FULLSCREEN_VIDEO);
+	flags |= APPEND_SWAP_CHAIN_FLAG(swapChainFlags, YUV_VIDEO);
+	flags |= APPEND_SWAP_CHAIN_FLAG(swapChainFlags, HW_PROTECTED);
+	flags |= APPEND_SWAP_CHAIN_FLAG(swapChainFlags, ALLOW_TEARING);
+	flags |= APPEND_SWAP_CHAIN_FLAG(swapChainFlags, RESTRICTED_TO_ALL_HOLOGRAPHIC_DISPLAYS);
+
+	return flags;
+}
+
+uint32_t XUSG::GetDXGIPresentFlag(PresentFlag presentFlag)
+{
+	static const uint32_t presentFlags[] =
+	{
+		DXGI_PRESENT_TEST,
+		DXGI_PRESENT_DO_NOT_SEQUENCE,
+		DXGI_PRESENT_RESTART,
+		DXGI_PRESENT_DO_NOT_WAIT,
+		DXGI_PRESENT_STEREO_PREFER_RIGHT,
+		DXGI_PRESENT_STEREO_TEMPORARY_MONO,
+		DXGI_PRESENT_RESTRICT_TO_OUTPUT,
+		0,
+		DXGI_PRESENT_USE_DURATION,
+		DXGI_PRESENT_ALLOW_TEARING
+	};
+
+	if (presentFlag == PresentFlag::NONE) return 0;
+
+	const auto index = Log2(static_cast<uint32_t>(presentFlag));
+
+	return presentFlags[index];
+}
+
+uint32_t XUSG::GetDXGIPresentFlags(PresentFlag presentFlags)
+{
+	auto flags = 0u;
+	flags |= APPEND_PRESENT_FLAG(presentFlags, TEST);
+	flags |= APPEND_PRESENT_FLAG(presentFlags, DO_NOT_SEQUENCE);
+	flags |= APPEND_PRESENT_FLAG(presentFlags, RESTART);
+	flags |= APPEND_PRESENT_FLAG(presentFlags, DO_NOT_WAIT);
+	flags |= APPEND_PRESENT_FLAG(presentFlags, STEREO_PREFER_RIGHT);
+	flags |= APPEND_PRESENT_FLAG(presentFlags, STEREO_TEMPORARY_MONO);
+	flags |= APPEND_PRESENT_FLAG(presentFlags, RESTRICT_TO_OUTPUT);
+	flags |= APPEND_PRESENT_FLAG(presentFlags, USE_DURATION);
+	flags |= APPEND_PRESENT_FLAG(presentFlags, ALLOW_TEARING);
+
+	return flags;
 }

@@ -663,6 +663,42 @@ namespace XUSG
 		REQ_TEXTURE2D_ARRAY_AXIS_DIMENSION
 	};
 
+	enum class SwapChainFlag : uint32_t
+	{
+		NONE = 0,
+		NONPREROTATED = (1 << 0),
+		ALLOW_MODE_SWITCH = (1 << 1),
+		GDI_COMPATIBLE = (1 << 2),
+		RESTRICTED_CONTENT = (1 << 3),
+		RESTRICT_SHARED_RESOURCE_DRIVER = (1 << 4),
+		DISPLAY_ONLY = (1 << 5),
+		FRAME_LATENCY_WAITABLE_OBJECT = (1 << 6),
+		FOREGROUND_LAYER = (1 << 7),
+		FULLSCREEN_VIDEO = (1 << 8),
+		YUV_VIDEO = (1 << 9),
+		HW_PROTECTED = (1 << 10),
+		ALLOW_TEARING = (1 << 11),
+		RESTRICTED_TO_ALL_HOLOGRAPHIC_DISPLAYS = (1 << 12)
+	};
+
+	XUSG_DEF_ENUM_FLAG_OPERATORS(SwapChainFlag);
+
+	enum class PresentFlag : uint32_t
+	{
+		NONE = 0,
+		TEST = (1 << 0),
+		DO_NOT_SEQUENCE = (1 << 1),
+		RESTART = (1 << 2),
+		DO_NOT_WAIT = (1 << 3),
+		STEREO_PREFER_RIGHT = (1 << 4),
+		STEREO_TEMPORARY_MONO = (1 << 5),
+		RESTRICT_TO_OUTPUT = (1 << 6),
+		USE_DURATION = (1 << 8),
+		ALLOW_TEARING = (1 << 9)
+	};
+
+	XUSG_DEF_ENUM_FLAG_OPERATORS(PresentFlag);
+
 	// Resources related
 	class Resource;
 
@@ -753,6 +789,19 @@ namespace XUSG
 
 		uintptr_t Begin;
 		uintptr_t End;
+	};
+
+	struct Point
+	{
+		Point() = default;
+		Point(long x, long y)
+		{
+			X = x;
+			Y = y;
+		}
+
+		long X;
+		long Y;
 	};
 
 	struct RectRange
@@ -1202,12 +1251,15 @@ namespace XUSG
 
 		virtual bool Create(void* pFactory, void* hWnd, const CommandQueue* pCommandQueue,
 			uint8_t bufferCount, uint32_t width, uint32_t height, Format format,
-			uint8_t sampleCount = 1) = 0;
-		virtual bool Present(uint8_t syncInterval = 0, uint32_t flags = 0) = 0;
+			SwapChainFlag flags = SwapChainFlag::NONE, bool windowed = true) = 0;
+		virtual bool Present(uint8_t syncInterval = 0, PresentFlag flags = PresentFlag::NONE) = 0;
+		virtual bool PresentEx(uint8_t syncInterval, PresentFlag flags, uint32_t dirtyRectsCount,
+			const RectRange* pDirtyRects, const RectRange* pScrollRect = nullptr,
+			const Point* pScrollOffset = nullptr) = 0;
 		virtual bool GetBuffer(uint8_t buffer, Resource* pResource) const = 0;
 
-		virtual uint32_t ResizeBuffers(uint8_t bufferCount, uint32_t width,
-			uint32_t height, Format format, uint8_t flag = 0) = 0;
+		virtual uint32_t ResizeBuffers(uint8_t bufferCount, uint32_t width, uint32_t height,
+			Format format, SwapChainFlag flags = SwapChainFlag::NONE) = 0;
 
 		virtual uint8_t GetCurrentBackBufferIndex() const = 0;
 
@@ -2082,8 +2134,6 @@ namespace XUSG
 			static sptr MakeShared(const Device* pDevice, API api = API::DIRECTX_12);
 		};
 	}
-
-	XUSG_INTERFACE uint32_t DivideAndRoundUp(uint32_t x, uint32_t n);
 
 	inline uint8_t Log2(uint32_t value)
 	{

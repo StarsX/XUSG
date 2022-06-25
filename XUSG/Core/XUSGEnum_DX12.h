@@ -63,4 +63,10 @@ namespace XUSG
 	D3D12_TILE_COPY_FLAGS GetDX12TileCopyFlags(TileCopyFlag tileCopyFlags);
 
 	uint32_t GetDX12Requirement(Requirement requirement);
+
+	uint32_t GetDXGISwapChainFlag(SwapChainFlag swapChainFlag);
+	uint32_t GetDXGISwapChainFlags(SwapChainFlag swapChainFlags);
+
+	uint32_t GetDXGIPresentFlag(PresentFlag presentFlag);
+	uint32_t GetDXGIPresentFlags(PresentFlag presentFlags);
 }

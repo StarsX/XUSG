@@ -94,12 +94,16 @@ namespace XUSG
 		virtual ~SwapChain_DX12();
 
 		bool Create(void* pFactory, void* hWnd, const CommandQueue* pCommandQueue, uint8_t bufferCount,
-			uint32_t width, uint32_t height, Format format, uint8_t sampleCount = 1);
-		bool Present(uint8_t syncInterval = 0, uint32_t flags = 0);
+			uint32_t width, uint32_t height, Format format, SwapChainFlag flags = SwapChainFlag::NONE,
+			bool windowed = true);
+		bool Present(uint8_t syncInterval = 0, PresentFlag flags = PresentFlag::NONE);
+		bool PresentEx(uint8_t syncInterval, PresentFlag flags, uint32_t dirtyRectsCount,
+			const RectRange* pDirtyRects, const RectRange* pScrollRect = nullptr,
+			const Point* pScrollOffset = nullptr);
 		bool GetBuffer(uint8_t buffer, Resource* pResource) const;
 
-		uint32_t ResizeBuffers(uint8_t bufferCount, uint32_t width,
-			uint32_t height, Format format, uint8_t flag = 0);
+		uint32_t ResizeBuffers(uint8_t bufferCount, uint32_t width, uint32_t height,
+			Format format, SwapChainFlag flags = SwapChainFlag::NONE);
 
 		uint8_t GetCurrentBackBufferIndex() const;
 
@@ -107,5 +111,9 @@ namespace XUSG
 
 	protected:
 		com_ptr<IDXGISwapChain3> m_swapChain;
+
+		bool m_allowTearing;
+
+		std::vector<RECT> m_dirtyRects;
 	};
 }

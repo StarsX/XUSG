@@ -155,8 +155,17 @@ SwapChain_DX12::~SwapChain_DX12()
 }
 
 bool SwapChain_DX12::Create(void* pFactory, void* hWnd, const CommandQueue* pCommandQueue,
-	uint8_t bufferCount, uint32_t width, uint32_t height, Format format, uint8_t sampleCount)
+	uint8_t bufferCount, uint32_t width, uint32_t height, Format format, SwapChainFlag flags,
+	bool windowed)
 {
+	const auto pDXGIFactory = static_cast<IDXGIFactory5*>(pFactory);
+
+	BOOL allowTearing = FALSE;
+	const auto hr = pDXGIFactory->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING,
+		&allowTearing, sizeof(allowTearing));
+	m_allowTearing = SUCCEEDED(hr) && allowTearing;
+	if (!m_allowTearing) flags &= ~SwapChainFlag::ALLOW_TEARING;
+
 	// Describe and create the swap chain.
 	DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
 	swapChainDesc.BufferCount = bufferCount;
@@ -165,14 +174,18 @@ bool SwapChain_DX12::Create(void* pFactory, void* hWnd, const CommandQueue* pCom
 	swapChainDesc.Format = GetDXGIFormat(format);
 	swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-	swapChainDesc.SampleDesc.Count = sampleCount;
+	swapChainDesc.SampleDesc.Count = 1;
+	swapChainDesc.Flags = GetDXGISwapChainFlags(flags);
+
+	DXGI_SWAP_CHAIN_FULLSCREEN_DESC fullscreenDesc = {};
+	fullscreenDesc.Windowed = windowed;
 
 	com_ptr<IDXGISwapChain1> swapChain = nullptr;
-	V_RETURN(static_cast<IDXGIFactory4*>(pFactory)->CreateSwapChainForHwnd(
+	V_RETURN(pDXGIFactory->CreateSwapChainForHwnd(
 		static_cast<ID3D12CommandQueue*>(pCommandQueue->GetHandle()),	// Swap chain needs the queue so that it can force a flush on it.
 		static_cast<HWND>(hWnd),
 		&swapChainDesc,
-		nullptr,
+		windowed ? nullptr : &fullscreenDesc,
 		nullptr,
 		swapChain.put()),
 		cerr, false);
@@ -183,9 +196,50 @@ bool SwapChain_DX12::Create(void* pFactory, void* hWnd, const CommandQueue* pCom
 	return true;
 }
 
-bool SwapChain_DX12::Present(uint8_t syncInterval, uint32_t flags)
+bool SwapChain_DX12::Present(uint8_t syncInterval, PresentFlag flags)
 {
-	V_RETURN(m_swapChain->Present(syncInterval, flags), cerr, false);
+	if (!m_allowTearing) flags &= ~PresentFlag::ALLOW_TEARING;
+	V_RETURN(m_swapChain->Present(syncInterval, GetDXGIPresentFlags(flags)), cerr, false);
+
+	return true;
+}
+
+bool SwapChain_DX12::PresentEx(uint8_t syncInterval, PresentFlag flags, uint32_t dirtyRectsCount,
+	const RectRange* pDirtyRects, const RectRange* pScrollRect, const Point* pScrollOffset)
+{
+	m_dirtyRects.resize(dirtyRectsCount);
+	for (auto i = 0u; i < dirtyRectsCount; ++i)
+	{
+		m_dirtyRects[i].left = pDirtyRects[i].Left;
+		m_dirtyRects[i].top = pDirtyRects[i].Top;
+		m_dirtyRects[i].right = pDirtyRects[i].Right;
+		m_dirtyRects[i].bottom = pDirtyRects[i].Bottom;
+	}
+
+	RECT scrollRect = {};
+	if (pScrollRect)
+	{
+		scrollRect.left = pScrollRect->Left;
+		scrollRect.top = pScrollRect->Top;
+		scrollRect.right = pScrollRect->Right;
+		scrollRect.bottom = pScrollRect->Bottom;
+	}
+
+	POINT scrollOffset = {};
+	if (pScrollOffset)
+	{
+		scrollOffset.x = pScrollOffset->X;
+		scrollOffset.y = pScrollOffset->Y;
+	}
+
+	DXGI_PRESENT_PARAMETERS params = {};
+	params.DirtyRectsCount = dirtyRectsCount;
+	params.pDirtyRects = pDirtyRects ? m_dirtyRects.data() : nullptr;
+	params.pScrollRect = pScrollRect ? &scrollRect : nullptr;
+	params.pScrollOffset = pScrollOffset ? &scrollOffset : nullptr;
+
+	if (!m_allowTearing) flags &= ~PresentFlag::ALLOW_TEARING;
+	V_RETURN(m_swapChain->Present1(syncInterval, GetDXGIPresentFlags(flags), &params), cerr, false);
 
 	return true;
 }
@@ -198,9 +252,11 @@ bool SwapChain_DX12::GetBuffer(uint8_t buffer, Resource* pResource) const
 }
 
 uint32_t SwapChain_DX12::ResizeBuffers(uint8_t bufferCount, uint32_t width,
-	uint32_t height, Format format, uint8_t flag)
+	uint32_t height, Format format, SwapChainFlag flags)
 {
-	return m_swapChain->ResizeBuffers(bufferCount, width, height, GetDXGIFormat(format), flag);
+	if (!m_allowTearing) flags &= ~SwapChainFlag::ALLOW_TEARING;
+	return m_swapChain->ResizeBuffers(bufferCount, width, height,
+		GetDXGIFormat(format), GetDXGISwapChainFlags(flags));
 }
 
 uint8_t SwapChain_DX12::GetCurrentBackBufferIndex() const
