@@ -24,9 +24,11 @@
     <ClInclude Include="Advanced\XUSGSHSharedConsts.h" />
     <ClInclude Include="Advanced\XUSGSphericalHarmonics.h" />
     <ClInclude Include="Common\d3d12.h" />
+    <ClInclude Include="Common\d3dcommon.h" />
     <ClInclude Include="Common\d3dx12.h" />
     <ClInclude Include="Common\dds.h" />
     <ClInclude Include="Common\DXFrameworkHelper.h" />
+    <ClInclude Include="Common\dxgiformat.h" />
     <ClInclude Include="Core\XUSG.h" />
     <ClInclude Include="Core\XUSGCommand_DX12.h" />
     <ClInclude Include="Core\XUSGComputeState_DX12.h" />

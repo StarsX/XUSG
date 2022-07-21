@@ -1019,6 +1019,8 @@ namespace XUSG
 
 		virtual uint64_t GetCompletedValue() const = 0;
 
+		virtual void Create(void* pHandle, const wchar_t* name = nullptr) = 0;
+
 		virtual void* GetHandle() const = 0;
 
 		using uptr = std::unique_ptr<Fence>;
@@ -1046,6 +1048,8 @@ namespace XUSG
 		virtual bool Create(const Device* pDevice, uint32_t byteStride, uint32_t numArguments,
 			const IndirectArgument* pArguments, uint32_t nodeMask = 0, const wchar_t* name = nullptr) = 0;
 
+		virtual void Create(void* pHandle, const wchar_t* name = nullptr) = 0;
+
 		virtual void* GetHandle() const = 0;
 
 		using uptr = std::unique_ptr<CommandLayout>;
@@ -1066,6 +1070,8 @@ namespace XUSG
 
 		virtual bool Create(const Device* pDevice, CommandListType type, const wchar_t* name = nullptr) = 0;
 		virtual bool Reset() = 0;
+
+		virtual void Create(void* pHandle, const wchar_t* name = nullptr) = 0;
 
 		virtual void* GetHandle() const = 0;
 		virtual void* GetDeviceHandle() const = 0;
@@ -1226,6 +1232,8 @@ namespace XUSG
 		virtual void ExecuteCommandLists(uint32_t numCommandLists, const CommandList* const* ppCommandLists) = 0;
 		virtual void ExecuteCommandList(const CommandList* pCommandList) = 0;
 
+		virtual void Create(void* pHandle, const wchar_t* name = nullptr) = 0;
+
 		virtual void* GetHandle() const = 0;
 		virtual void* GetDeviceHandle() const = 0;
 
@@ -1249,7 +1257,7 @@ namespace XUSG
 		//SwapChain();
 		virtual ~SwapChain() {};
 
-		virtual bool Create(void* pFactory, void* hWnd, const CommandQueue* pCommandQueue,
+		virtual bool Create(void* pFactory, void* hWnd, void* pDevice,
 			uint8_t bufferCount, uint32_t width, uint32_t height, Format format,
 			SwapChainFlag flags = SwapChainFlag::NONE, bool windowed = true) = 0;
 		virtual bool Present(uint8_t syncInterval = 0, PresentFlag flags = PresentFlag::NONE) = 0;
@@ -1262,6 +1270,8 @@ namespace XUSG
 			Format format, SwapChainFlag flags = SwapChainFlag::NONE) = 0;
 
 		virtual uint8_t GetCurrentBackBufferIndex() const = 0;
+
+		virtual void Create(void* pHandle) = 0;
 
 		virtual void* GetHandle() const = 0;
 
@@ -2134,6 +2144,8 @@ namespace XUSG
 			static sptr MakeShared(const Device* pDevice, API api = API::DIRECTX_12);
 		};
 	}
+
+	XUSG_INTERFACE uint32_t DivideAndRoundUp(uint32_t x, uint32_t n);
 
 	inline uint8_t Log2(uint32_t value)
 	{

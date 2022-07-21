@@ -106,6 +106,12 @@ uint64_t Fence_DX12::GetCompletedValue() const
 	return m_fence->GetCompletedValue();
 }
 
+void Fence_DX12::Create(void* pHandle, const wchar_t* name)
+{
+	m_fence = pHandle;
+	if (name) m_fence->SetName(name);
+}
+
 void* Fence_DX12::GetHandle() const
 {
 	return m_fence.get();
@@ -139,6 +145,12 @@ bool CommandLayout_DX12::Create(const Device* pDevice, uint32_t byteStride, uint
 	return true;
 }
 
+void CommandLayout_DX12::Create(void* pHandle, const wchar_t* name)
+{
+	m_commandSignature = pHandle;
+	if (name) m_commandSignature->SetName(name);
+}
+
 void* CommandLayout_DX12::GetHandle() const
 {
 	return m_commandSignature.get();
@@ -154,9 +166,8 @@ SwapChain_DX12::~SwapChain_DX12()
 {
 }
 
-bool SwapChain_DX12::Create(void* pFactory, void* hWnd, const CommandQueue* pCommandQueue,
-	uint8_t bufferCount, uint32_t width, uint32_t height, Format format, SwapChainFlag flags,
-	bool windowed)
+bool SwapChain_DX12::Create(void* pFactory, void* hWnd, void* pDevice, uint8_t bufferCount,
+	uint32_t width, uint32_t height, Format format, SwapChainFlag flags, bool windowed)
 {
 	const auto pDXGIFactory = static_cast<IDXGIFactory5*>(pFactory);
 
@@ -182,7 +193,7 @@ bool SwapChain_DX12::Create(void* pFactory, void* hWnd, const CommandQueue* pCom
 
 	com_ptr<IDXGISwapChain1> swapChain = nullptr;
 	V_RETURN(pDXGIFactory->CreateSwapChainForHwnd(
-		static_cast<ID3D12CommandQueue*>(pCommandQueue->GetHandle()),	// Swap chain needs the queue so that it can force a flush on it.
+		static_cast<IUnknown*>(pDevice),	// Swap chain needs the queue so that it can force a flush on it.
 		static_cast<HWND>(hWnd),
 		&swapChainDesc,
 		windowed ? nullptr : &fullscreenDesc,
@@ -262,6 +273,11 @@ uint32_t SwapChain_DX12::ResizeBuffers(uint8_t bufferCount, uint32_t width,
 uint8_t SwapChain_DX12::GetCurrentBackBufferIndex() const
 {
 	return m_swapChain->GetCurrentBackBufferIndex();
+}
+
+void SwapChain_DX12::Create(void* pHandle)
+{
+	m_swapChain = pHandle;
 }
 
 void* SwapChain_DX12::GetHandle() const

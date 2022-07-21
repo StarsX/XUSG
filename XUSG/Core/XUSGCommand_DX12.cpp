@@ -39,6 +39,12 @@ bool CommandAllocator_DX12::Reset()
 	return true;
 }
 
+void CommandAllocator_DX12::Create(void* pHandle, const wchar_t* name)
+{
+	m_commandAllocator = pHandle;
+	if (name) m_commandAllocator->SetName(name);
+}
+
 void* CommandAllocator_DX12::GetHandle() const
 {
 	return m_commandAllocator.get();
@@ -737,6 +743,12 @@ bool CommandQueue_DX12::Signal(const Fence* pFence, uint64_t value)
 	V_RETURN(m_commandQueue->Signal(static_cast<ID3D12Fence*>(pFence->GetHandle()), value), cerr, false);
 
 	return true;
+}
+
+void CommandQueue_DX12::Create(void* pHandle, const wchar_t* name)
+{
+	m_commandQueue = pHandle;
+	if (name) m_commandQueue->SetName(name);
 }
 
 void* CommandQueue_DX12::GetHandle() const

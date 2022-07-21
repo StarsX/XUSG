@@ -62,7 +62,9 @@ namespace XUSG
 		bool SetEventOnCompletion(uint64_t value, void* hEvent);
 		bool Signal(uint64_t value);
 
-		virtual uint64_t GetCompletedValue() const;
+		uint64_t GetCompletedValue() const;
+
+		void Create(void* pHandle, const wchar_t* name = nullptr);
 
 		void* GetHandle() const;
 
@@ -80,6 +82,8 @@ namespace XUSG
 		bool Create(const Device* pDevice, uint32_t byteStride, uint32_t numArguments,
 			const IndirectArgument* pArguments, uint32_t nodeMask = 0, const wchar_t* name = nullptr);
 
+		void Create(void* pHandle, const wchar_t* name = nullptr);
+
 		void* GetHandle() const;
 
 	protected:
@@ -93,7 +97,7 @@ namespace XUSG
 		SwapChain_DX12();
 		virtual ~SwapChain_DX12();
 
-		bool Create(void* pFactory, void* hWnd, const CommandQueue* pCommandQueue, uint8_t bufferCount,
+		bool Create(void* pFactory, void* hWnd, void* pDevice, uint8_t bufferCount,
 			uint32_t width, uint32_t height, Format format, SwapChainFlag flags = SwapChainFlag::NONE,
 			bool windowed = true);
 		bool Present(uint8_t syncInterval = 0, PresentFlag flags = PresentFlag::NONE);
@@ -106,6 +110,8 @@ namespace XUSG
 			Format format, SwapChainFlag flags = SwapChainFlag::NONE);
 
 		uint8_t GetCurrentBackBufferIndex() const;
+
+		void Create(void* pHandle);
 
 		void* GetHandle() const;
 

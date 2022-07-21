@@ -121,6 +121,12 @@
     <ClInclude Include="Advanced\XUSGSphericalHarmonics.h">
       <Filter>Advanced\Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Common\d3dcommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\dxgiformat.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">

@@ -18,6 +18,8 @@ namespace XUSG
 		bool Create(const Device* pDevice, CommandListType type, const wchar_t* name = nullptr);
 		bool Reset();
 
+		void Create(void* pHandle, const wchar_t* name = nullptr);
+
 		void* GetHandle() const;
 		void* GetDeviceHandle() const;
 
@@ -175,6 +177,8 @@ namespace XUSG
 
 		void ExecuteCommandLists(uint32_t numCommandLists, const CommandList* const* ppCommandLists);
 		void ExecuteCommandList(const CommandList* pCommandList);
+
+		void Create(void* pHandle, const wchar_t* name = nullptr);
 
 		void* GetHandle() const;
 		void* GetDeviceHandle() const;
