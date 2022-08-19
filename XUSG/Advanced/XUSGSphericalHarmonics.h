@@ -10,7 +10,7 @@
 
 namespace XUSG
 {
-	class SphericalHarmonics
+	class XUSG_INTERFACE SphericalHarmonics
 	{
 	public:
 		//SphericalHarmonics();
