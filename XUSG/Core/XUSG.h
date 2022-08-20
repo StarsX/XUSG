@@ -2145,8 +2145,6 @@ namespace XUSG
 		};
 	}
 
-	XUSG_INTERFACE uint32_t Divide_RoundUp(uint32_t x, uint32_t n);
-
 	inline uint8_t Log2(uint32_t value)
 	{
 #if defined(WIN32) || (_WIN32)
