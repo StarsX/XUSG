@@ -53,7 +53,7 @@ namespace XUSG
 			const Compute::PipelineCache::sptr& computePipelineCache,
 			const PipelineLayoutCache::sptr& pipelineLayoutCache,
 			const DescriptorTableCache::sptr& descriptorTableCache,
-			uint8_t baseCSIndex, uint8_t descriptorPoolIndex);
+			uint8_t baseCSIndex, uint8_t descriptorPoolIndex = 0);
 
 		void Transform(CommandList* pCommandList, Resource* pRadiance,
 			const DescriptorTable& srvTable, uint8_t order = 3);

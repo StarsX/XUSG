@@ -54,7 +54,7 @@ namespace XUSG
 
 		void SetDevice(const Device* pDevice);
 		void SetName(const wchar_t* name);
-		void ResetDescriptorPool(DescriptorPoolType type, uint8_t index);
+		void ResetDescriptorPool(DescriptorPoolType type, uint8_t index = 0);
 
 		bool AllocateDescriptorPool(DescriptorPoolType type, uint32_t numDescriptors, uint8_t index = 0);
 

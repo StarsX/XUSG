@@ -1761,7 +1761,7 @@ namespace XUSG
 
 		virtual void SetDevice(const Device* pDevice) = 0;
 		virtual void SetName(const wchar_t* name) = 0;
-		virtual void ResetDescriptorPool(DescriptorPoolType type, uint8_t index) = 0;
+		virtual void ResetDescriptorPool(DescriptorPoolType type, uint8_t index = 0) = 0;
 
 		virtual bool AllocateDescriptorPool(DescriptorPoolType type, uint32_t numDescriptors, uint8_t index = 0) = 0;
 
@@ -2144,6 +2144,8 @@ namespace XUSG
 			static sptr MakeShared(const Device* pDevice, API api = API::DIRECTX_12);
 		};
 	}
+
+	XUSG_INTERFACE uint32_t DivideAndRoundUp(uint32_t x, uint32_t n);
 
 	inline uint8_t Log2(uint32_t value)
 	{
