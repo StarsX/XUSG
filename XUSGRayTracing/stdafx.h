@@ -49,7 +49,6 @@
 #include <shellapi.h>
 
 #include "D3D12RaytracingFallback.h"
-#include "D3D12RaytracingHelpers.hpp"
 
 #if defined(DEBUG) | defined(_DEBUG)
 #ifndef DBG_NEW

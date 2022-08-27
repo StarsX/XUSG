@@ -184,12 +184,12 @@ Pipeline PipelineCache_DX12::createPipeline(const string& key, const wchar_t* na
 	// Get header
 	const auto& keyHeader = reinterpret_cast<const State_DX12::KeyHeader&>(key[0]);
 
-	CD3D12_STATE_OBJECT_DESC pDesc(D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE);
+	CD3DX12_STATE_OBJECT_DESC pPsoDesc(D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE);
 
 	// DXIL library
-	auto lib = pDesc.CreateSubobject<CD3D12_DXIL_LIBRARY_SUBOBJECT>();
-	auto libdxil = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(keyHeader.ShaderLib));
-	lib->SetDXILLibrary(&libdxil);
+	const auto pLib = pPsoDesc.CreateSubobject<CD3DX12_DXIL_LIBRARY_SUBOBJECT>();
+	CD3DX12_SHADER_BYTECODE libdxil(static_cast<ID3DBlob*>(keyHeader.ShaderLib));
+	pLib->SetDXILLibrary(&libdxil);
 	// Use default shader exports for a DXIL library/collection subobject ~ surface all shaders.
 
 	// Hit groups
@@ -197,21 +197,21 @@ Pipeline PipelineCache_DX12::createPipeline(const string& key, const wchar_t* na
 	for (auto i = 0u; i < keyHeader.NumHitGroups; ++i)
 	{
 		const auto& keyHitGroup = pKeyHitGroups[i];
-		auto hitGroup = pDesc.CreateSubobject<CD3D12_HIT_GROUP_SUBOBJECT>();
+		const auto pHitGroup = pPsoDesc.CreateSubobject<CD3DX12_HIT_GROUP_SUBOBJECT>();
 		if (keyHitGroup.ClosestHitShader)
-			hitGroup->SetClosestHitShaderImport(reinterpret_cast<const wchar_t*>(keyHitGroup.ClosestHitShader));
+			pHitGroup->SetClosestHitShaderImport(reinterpret_cast<const wchar_t*>(keyHitGroup.ClosestHitShader));
 		if (keyHitGroup.AnyHitShader)
-			hitGroup->SetAnyHitShaderImport(reinterpret_cast<const wchar_t*>(keyHitGroup.AnyHitShader));
+			pHitGroup->SetAnyHitShaderImport(reinterpret_cast<const wchar_t*>(keyHitGroup.AnyHitShader));
 		if (keyHitGroup.IntersectionShader)
-			hitGroup->SetIntersectionShaderImport(reinterpret_cast<const wchar_t*>(keyHitGroup.IntersectionShader));
+			pHitGroup->SetIntersectionShaderImport(reinterpret_cast<const wchar_t*>(keyHitGroup.IntersectionShader));
 
-		hitGroup->SetHitGroupExport(reinterpret_cast<const wchar_t*>(keyHitGroup.HitGroup));
-		hitGroup->SetHitGroupType(D3D12_HIT_GROUP_TYPE(keyHitGroup.Type));
+		pHitGroup->SetHitGroupExport(reinterpret_cast<const wchar_t*>(keyHitGroup.HitGroup));
+		pHitGroup->SetHitGroupType(D3D12_HIT_GROUP_TYPE(keyHitGroup.Type));
 	}
 
 	// Shader config
 	// Defines the maximum sizes in bytes for the ray rayPayload and attribute structure.
-	auto shaderConfig = pDesc.CreateSubobject<CD3D12_RAYTRACING_SHADER_CONFIG_SUBOBJECT>();
+	auto shaderConfig = pPsoDesc.CreateSubobject<CD3DX12_RAYTRACING_SHADER_CONFIG_SUBOBJECT>();
 	shaderConfig->Config(keyHeader.MaxPayloadSize, keyHeader.MaxAttributeSize);
 
 	// Local pipeline layout and shader association
@@ -220,18 +220,18 @@ Pipeline PipelineCache_DX12::createPipeline(const string& key, const wchar_t* na
 		(&key[sizeof(State_DX12::KeyHeader) + sizeof(State_DX12::KeyHitGroup) * keyHeader.NumHitGroups]);
 	for (auto i = 0u; i < keyHeader.NumLocalPipelineLayouts; ++i)
 	{
-		const auto rootSignature = static_cast<ID3D12RootSignature*>(pkeyLocalPipelineLayoutHeader->PipelineLayout);
+		const auto pRootSignature = static_cast<ID3D12RootSignature*>(pkeyLocalPipelineLayoutHeader->PipelineLayout);
 
 		// Set pipeline layout
-		auto localRootSignature = pDesc.CreateSubobject<CD3D12_LOCAL_ROOT_SIGNATURE_SUBOBJECT>();
-		localRootSignature->SetRootSignature(rootSignature);
+		const auto pLocalRootSignature = pPsoDesc.CreateSubobject<CD3DX12_LOCAL_ROOT_SIGNATURE_SUBOBJECT>();
+		pLocalRootSignature->SetRootSignature(pRootSignature);
 
 		// Shader association
 		const auto pkeyLocalPipelineAssociation = reinterpret_cast<void* const*>(&pkeyLocalPipelineLayoutHeader[1]);
-		auto rootSignatureAssociation = pDesc.CreateSubobject<CD3D12_SUBOBJECT_TO_EXPORTS_ASSOCIATION_SUBOBJECT>();
-		rootSignatureAssociation->SetSubobjectToAssociate(*localRootSignature);
+		const auto pRootSignatureAssociation = pPsoDesc.CreateSubobject<CD3DX12_SUBOBJECT_TO_EXPORTS_ASSOCIATION_SUBOBJECT>();
+		pRootSignatureAssociation->SetSubobjectToAssociate(*pLocalRootSignature);
 		for (auto j = 0u; j < pkeyLocalPipelineLayoutHeader->NumShaders; ++j)
-			rootSignatureAssociation->AddExport(reinterpret_cast<const wchar_t*>(pkeyLocalPipelineAssociation[j]));
+			pRootSignatureAssociation->AddExport(reinterpret_cast<const wchar_t*>(pkeyLocalPipelineAssociation[j]));
 
 		// Update the pointer
 		pkeyLocalPipelineLayoutHeader = reinterpret_cast<const State_DX12::KeyLocalPipelineLayoutHeader*>
@@ -240,21 +240,21 @@ Pipeline PipelineCache_DX12::createPipeline(const string& key, const wchar_t* na
 
 	// Global pipeline layout
 	// This is a pipeline layout that is shared across all raytracing shaders invoked during a DispatchRays() call.
-	auto globalRootSignature = pDesc.CreateSubobject<CD3D12_GLOBAL_ROOT_SIGNATURE_SUBOBJECT>();
-	globalRootSignature->SetRootSignature(static_cast<ID3D12RootSignature*>(keyHeader.GlobalPipelineLayout));
+	const auto pGlobalRootSignature = pPsoDesc.CreateSubobject<CD3DX12_GLOBAL_ROOT_SIGNATURE_SUBOBJECT>();
+	pGlobalRootSignature->SetRootSignature(static_cast<ID3D12RootSignature*>(keyHeader.GlobalPipelineLayout));
 
 	// Pipeline config
 	// Defines the maximum TraceRay() recursion depth.
-	auto pipelineConfig = pDesc.CreateSubobject<CD3D12_RAYTRACING_PIPELINE_CONFIG_SUBOBJECT>();
+	const auto pPipelineConfig = pPsoDesc.CreateSubobject<CD3DX12_RAYTRACING_PIPELINE_CONFIG_SUBOBJECT>();
 	// PERFOMANCE TIP: Set max recursion depth as low as needed
 	// as drivers may apply optimization strategies for low recursion depths.
-	pipelineConfig->Config(keyHeader.MaxRecursionDepth);
+	pPipelineConfig->Config(keyHeader.MaxRecursionDepth);
 
 	//PrintStateObjectDesc(desc);
 
 	// Create pipeline
 	com_ptr<ID3D12RaytracingFallbackStateObject> stateObject = nullptr;
-	H_RETURN(m_device->CreateStateObject(pDesc, IID_PPV_ARGS(&stateObject)), cerr,
+	H_RETURN(m_device->CreateStateObject(pPsoDesc, IID_PPV_ARGS(&stateObject)), cerr,
 		L"Couldn't create DirectX Raytracing state object.\n", stateObject.get());
 
 	if (name) stateObject->GetStateObject()->SetName(name);
