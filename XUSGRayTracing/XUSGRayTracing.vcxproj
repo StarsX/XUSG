@@ -170,7 +170,6 @@
     <ClInclude Include="..\XUSG\Core\XUSG_DX12.h" />
     <ClInclude Include="..\XUSG\Ultimate\XUSGUltimate.h" />
     <ClInclude Include="..\XUSG\Ultimate\XUSGUltimate_DX12.h" />
-    <ClInclude Include="Common\D3D12RaytracingHelpers.hpp" />
     <ClInclude Include="RayTracing\XUSGAccelerationStructure_DX12.h" />
     <ClInclude Include="RayTracing\XUSGRayTracing.h" />
     <ClInclude Include="RayTracing\XUSGRayTracingCommand_DX12.h" />

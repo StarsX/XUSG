@@ -25,9 +25,6 @@
     <Filter Include="Core">
       <UniqueIdentifier>{1ad7eef2-f612-47a1-84fa-91d28996090e}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Common">
-      <UniqueIdentifier>{aae4d1cc-2eee-458b-94fd-beda7f12dac4}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Ultimate">
       <UniqueIdentifier>{945add82-a0cc-4c06-afaf-dd7f9df620c6}</UniqueIdentifier>
     </Filter>
@@ -38,9 +35,6 @@
     </ClInclude>
     <ClInclude Include="stdafx.h">
       <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Common\D3D12RaytracingHelpers.hpp">
-      <Filter>Common</Filter>
     </ClInclude>
     <ClInclude Include="RayTracing\XUSGRayTracing_DX12.h">
       <Filter>RayTracing\Header Files</Filter>
