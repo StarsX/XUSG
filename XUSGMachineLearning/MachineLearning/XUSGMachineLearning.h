@@ -666,7 +666,7 @@ namespace XUSG
 		//--------------------------------------------------------------------------------------
 		class CommandRecorder;
 
-		class DLL_INTERFACE Device
+		class XUSG_INTERFACE Device
 		{
 		public:
 			//Device();
@@ -689,7 +689,7 @@ namespace XUSG
 		//--------------------------------------------------------------------------------------
 		// Tensor
 		//--------------------------------------------------------------------------------------
-		class DLL_INTERFACE Tensor
+		class XUSG_INTERFACE Tensor
 		{
 		public:
 			//Tensor();
@@ -712,7 +712,7 @@ namespace XUSG
 		//--------------------------------------------------------------------------------------
 		// Operator
 		//--------------------------------------------------------------------------------------
-		class DLL_INTERFACE Operator
+		class XUSG_INTERFACE Operator
 		{
 		public:
 			//Operator();
@@ -741,7 +741,7 @@ namespace XUSG
 		//--------------------------------------------------------------------------------------
 		// Operator initializer
 		//--------------------------------------------------------------------------------------
-		class DLL_INTERFACE OperatorInitializer :
+		class XUSG_INTERFACE OperatorInitializer :
 			public virtual Operator
 		{
 		public:
@@ -760,7 +760,7 @@ namespace XUSG
 		//--------------------------------------------------------------------------------------
 		// Binding
 		//--------------------------------------------------------------------------------------
-		class DLL_INTERFACE Binding
+		class XUSG_INTERFACE Binding
 		{
 		public:
 			//Binding();
@@ -799,7 +799,7 @@ namespace XUSG
 		//--------------------------------------------------------------------------------------
 		// Command recorder
 		//--------------------------------------------------------------------------------------
-		class DLL_INTERFACE CommandRecorder
+		class XUSG_INTERFACE CommandRecorder
 		{
 		public:
 			//CommandRecorder();
@@ -837,7 +837,7 @@ namespace XUSG
 		//--------------------------------------------------------------------------------------
 		// Util
 		//--------------------------------------------------------------------------------------
-		class DLL_INTERFACE Util
+		class XUSG_INTERFACE Util
 		{
 		public:
 			//Util(TensorDataType tensorDataType = TensorDataType::FLOAT32,
