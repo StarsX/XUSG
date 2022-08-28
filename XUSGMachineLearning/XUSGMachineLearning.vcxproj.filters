@@ -66,6 +66,21 @@
     <ClInclude Include="..\XUSG\Core\XUSGEnum_DX12.h">
       <Filter>Core</Filter>
     </ClInclude>
+    <ClInclude Include="..\XUSG\Common\d3d12.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Common\d3dx12.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Common\dxgicommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Common\dxgiformat.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Common\d3dcommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">

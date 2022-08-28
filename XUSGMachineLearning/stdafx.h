@@ -19,14 +19,14 @@
 #define WIN32_LEAN_AND_MEAN             // Exclude rarely-used stuff from Windows headers.
 #endif
 
-#define DLL_INTERFACE __declspec(dllexport)
+#define XUSG_INTERFACE __declspec(dllexport)
 
 #include <windows.h>
 
-#include <dxgi1_4.h>
+#include "d3dx12.h"
+#include <dxgi1_5.h>
 #include <D3Dcompiler.h>
 #include <DirectXMath.h>
-#include "d3dx12.h"
 
 #include <DirectML.h>					// The DirectML header from the Windows SDK.
 

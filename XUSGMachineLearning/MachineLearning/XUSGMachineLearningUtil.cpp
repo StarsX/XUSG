@@ -93,7 +93,7 @@ bool Util_Impl::CreateConvolutionLayer(const Device* pDevice, const uint32_t inp
 	const auto filterBufferSize = filterTensor.Create(m_tensorDataType,
 		static_cast<uint32_t>(size(filterStrides)), filterSizes, filterStrides);
 #endif
-	N_RETURN(filterBufferSize > 0, false);
+	XUSG_N_RETURN(filterBufferSize > 0, false);
 
 	const uint32_t biasSizes[] = { 1, filterSizes[0], 1, 1 };	// One bias per output channel    
 	uint32_t biasStrides[4];
@@ -107,7 +107,7 @@ bool Util_Impl::CreateConvolutionLayer(const Device* pDevice, const uint32_t inp
 	const auto biasBufferSize = biasTensor.Create(m_tensorDataType,
 		static_cast<uint32_t>(size(biasStrides)), biasSizes, biasStrides);
 #endif
-	N_RETURN(biasBufferSize > 0, false);
+	XUSG_N_RETURN(biasBufferSize > 0, false);
 
 	// Describe, create, and compile convolution operator
 

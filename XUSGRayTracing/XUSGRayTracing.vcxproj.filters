@@ -28,6 +28,9 @@
     <Filter Include="Ultimate">
       <UniqueIdentifier>{945add82-a0cc-4c06-afaf-dd7f9df620c6}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Common">
+      <UniqueIdentifier>{1c047f1b-7d16-4af7-b19e-37a1a922c696}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="RayTracing\XUSGRayTracing.h">
@@ -77,6 +80,24 @@
     </ClInclude>
     <ClInclude Include="..\XUSG\Ultimate\XUSGUltimate_DX12.h">
       <Filter>Ultimate</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Common\d3d12.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Common\d3dcommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Common\d3dx12.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Common\DXFrameworkHelper.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Common\dxgicommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Common\dxgiformat.h">
+      <Filter>Common</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
