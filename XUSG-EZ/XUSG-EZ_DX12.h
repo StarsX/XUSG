@@ -94,13 +94,13 @@ namespace XUSG
 				uint32_t numRenderTargets,
 				const ResourceView* pRenderTargetViews,
 				const ResourceView* pDepthStencilView = nullptr);
-			void ClearDepthStencilView(ResourceView& depthStencilView, ClearFlag clearFlags,
+			void ClearDepthStencilView(const ResourceView& depthStencilView, ClearFlag clearFlags,
 				float depth, uint8_t stencil = 0, uint32_t numRects = 0, const RectRange* pRects = nullptr);
-			void ClearRenderTargetView(ResourceView& renderTargetView, const float colorRGBA[4],
+			void ClearRenderTargetView(const ResourceView& renderTargetView, const float colorRGBA[4],
 				uint32_t numRects = 0, const RectRange* pRects = nullptr);
-			void ClearUnorderedAccessViewUint(ResourceView& unorderedAccessView, const uint32_t values[4],
+			void ClearUnorderedAccessViewUint(const ResourceView& unorderedAccessView, const uint32_t values[4],
 				uint32_t numRects = 0, const RectRange* pRects = nullptr);
-			void ClearUnorderedAccessViewFloat(ResourceView& unorderedAccessView, const float values[4],
+			void ClearUnorderedAccessViewFloat(const ResourceView& unorderedAccessView, const float values[4],
 				uint32_t numRects = 0, const RectRange* pRects = nullptr);
 			void DiscardResource(const Resource* pResource, uint32_t numRects, const RectRange* pRects,
 				uint32_t firstSubresource, uint32_t numSubresources)
@@ -171,6 +171,7 @@ namespace XUSG
 
 			struct ClearDSV
 			{
+				const Resource* pResource;
 				Descriptor DepthStencilView;
 				ClearFlag ClearFlags;
 				float Depth;
@@ -181,6 +182,7 @@ namespace XUSG
 
 			struct ClearRTV
 			{
+				const Resource* pResource;
 				Descriptor RenderTargetView;
 				const float* ColorRGBA;
 				uint32_t NumRects;
@@ -198,6 +200,8 @@ namespace XUSG
 				uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces);
 
 			void predraw();
+			void clearDSVs();
+			void clearRTVs();
 			void setBarriers(uint32_t numResources, const ResourceView* pResourceViews);
 
 			static uint32_t generateBarriers(ResourceBarrier* pBarriers, const ResourceView& resrouceView,

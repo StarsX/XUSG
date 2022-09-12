@@ -12,7 +12,7 @@ using namespace std;
 using namespace XUSG::Ultimate;
 using namespace XUSG::Ultimate::EZ;
 
-XUSG_INTERFACE XUSG::EZ::ResourceView XUSG::Ultimate::EZ::GetUAV(SamplerFeedBack* pResource)
+XUSG::EZ::ResourceView XUSG::Ultimate::EZ::GetUAV(SamplerFeedBack* pResource)
 {
 	XUSG::EZ::ResourceView resourceView;
 	resourceView.pResource = pResource;

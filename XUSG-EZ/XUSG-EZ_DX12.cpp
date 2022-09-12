@@ -122,6 +122,10 @@ void EZ::CommandList_DX12::DrawIndexed(uint32_t indexCountPerInstance, uint32_t 
 
 void EZ::CommandList_DX12::Dispatch(uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ)
 {
+	// Set barrier command
+	XUSG::CommandList_DX12::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
+	m_barriers.clear();
+
 	// Create and set sampler table
 	auto& samplerTable = m_samplerTables[Shader::Stage::CS];
 	if (samplerTable)
@@ -148,10 +152,6 @@ void EZ::CommandList_DX12::Dispatch(uint32_t threadGroupCountX, uint32_t threadG
 			}
 		}
 	}
-
-	// Set barrier command
-	XUSG::CommandList_DX12::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
-	m_barriers.clear();
 
 	// Create pipeline for dynamic states
 	assert(m_computeState);
@@ -324,6 +324,47 @@ void EZ::CommandList_DX12::SetSamplerStates(Shader::Stage stage, uint32_t startB
 void EZ::CommandList_DX12::SetResources(Shader::Stage stage, DescriptorType descriptorType, uint32_t startBinding,
 	uint32_t numResources, const ResourceView* pResourceViews, uint32_t space)
 {
+	// Handle the remaining clear-views commands
+	if (descriptorType == DescriptorType::SRV)
+	{
+		auto needClearDSVs = false;
+		for (const auto& args : m_clearDSVs)
+		{
+			for (auto i = 0u; i < numResources; ++i)
+			{
+				if (pResourceViews[i].pResource == args.pResource)
+				{
+					needClearDSVs = true;
+					break;
+				}
+			}
+		}
+		
+		auto needClearRTVs = false;
+		for (const auto& args : m_clearRTVs)
+		{
+			for (auto i = 0u; i < numResources; ++i)
+			{
+				if (pResourceViews[i].pResource == args.pResource)
+				{
+					needClearRTVs = true;
+					break;
+				}
+			}
+		}
+
+		if (needClearDSVs || needClearRTVs)
+		{
+			// Set barrier command
+			XUSG::CommandList_DX12::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
+			m_barriers.clear();
+
+			if (needClearDSVs) clearDSVs();
+			if (needClearRTVs) clearRTVs();
+		}
+	}
+
+	// Map descriptor table
 	auto& descriptorTables = m_cbvSrvUavTables[stage][static_cast<uint32_t>(descriptorType)];
 	assert(space < descriptorTables.size());
 	auto& descriptorTable = descriptorTables[space];
@@ -446,21 +487,21 @@ void EZ::CommandList_DX12::OMSetRenderTargets(uint32_t numRenderTargets,
 		pDepthStencilView ? &pDepthStencilView->View : nullptr);
 }
 
-void EZ::CommandList_DX12::ClearDepthStencilView(ResourceView& depthStencilView, ClearFlag clearFlags,
+void EZ::CommandList_DX12::ClearDepthStencilView(const ResourceView& depthStencilView, ClearFlag clearFlags,
 	float depth, uint8_t stencil, uint32_t numRects, const RectRange* pRects)
 {
 	setBarriers(1, &depthStencilView);
-	m_clearDSVs.emplace_back(ClearDSV{ depthStencilView.View, clearFlags, depth, stencil, numRects, pRects });
+	m_clearDSVs.emplace_back(ClearDSV{ depthStencilView.pResource, depthStencilView.View, clearFlags, depth, stencil, numRects, pRects });
 }
 
-void EZ::CommandList_DX12::ClearRenderTargetView(ResourceView& renderTargetView,
+void EZ::CommandList_DX12::ClearRenderTargetView(const ResourceView& renderTargetView,
 	const float colorRGBA[4], uint32_t numRects, const RectRange* pRects)
 {
 	setBarriers(1, &renderTargetView);
-	m_clearRTVs.emplace_back(ClearRTV{ renderTargetView.View, colorRGBA, numRects, pRects });
+	m_clearRTVs.emplace_back(ClearRTV{ renderTargetView.pResource, renderTargetView.View, colorRGBA, numRects, pRects });
 }
 
-void EZ::CommandList_DX12::ClearUnorderedAccessViewUint(ResourceView& unorderedAccessView,
+void EZ::CommandList_DX12::ClearUnorderedAccessViewUint(const ResourceView& unorderedAccessView,
 	const uint32_t values[4], uint32_t numRects, const RectRange* pRects)
 {
 	setBarriers(1, &unorderedAccessView);
@@ -473,7 +514,7 @@ void EZ::CommandList_DX12::ClearUnorderedAccessViewUint(ResourceView& unorderedA
 		unorderedAccessView.pResource, values, numRects, pRects);
 }
 
-void EZ::CommandList_DX12::ClearUnorderedAccessViewFloat(ResourceView& unorderedAccessView,
+void EZ::CommandList_DX12::ClearUnorderedAccessViewFloat(const ResourceView& unorderedAccessView,
 	const float values[4], uint32_t numRects, const RectRange* pRects)
 {
 	setBarriers(1, &unorderedAccessView);
@@ -640,6 +681,10 @@ bool EZ::CommandList_DX12::createComputePipelineLayouts(uint32_t maxSamplers,
 
 void EZ::CommandList_DX12::predraw()
 {
+	// Set barrier command
+	XUSG::CommandList_DX12::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
+	m_barriers.clear();
+
 	for (uint8_t i = 0; i < Shader::Stage::NUM_GRAPHICS; ++i)
 	{
 		// Create and set sampler table
@@ -670,21 +715,9 @@ void EZ::CommandList_DX12::predraw()
 		}
 	}
 
-	// Set barrier command
-	XUSG::CommandList_DX12::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
-	m_barriers.clear();
-
-	// Clear DSVs
-	for (const auto& args : m_clearDSVs)
-		XUSG::CommandList_DX12::ClearDepthStencilView(args.DepthStencilView,
-			args.ClearFlags, args.Depth, args.Stencil, args.NumRects, args.pRects);
-	m_clearDSVs.clear();
-
-	// Clear RTVs
-	for (const auto& args : m_clearRTVs)
-		XUSG::CommandList_DX12::ClearRenderTargetView(args.RenderTargetView,
-			args.ColorRGBA, args.NumRects, args.pRects);
-	m_clearRTVs.clear();
+	// Clear DSVs and RTVs
+	clearDSVs();
+	clearRTVs();
 
 	// Create pipeline for dynamic states
 	assert(m_graphicsState);
@@ -702,6 +735,22 @@ void EZ::CommandList_DX12::predraw()
 			m_isGraphicsDirty = false;
 		}
 	}
+}
+
+void EZ::CommandList_DX12::clearDSVs()
+{
+	for (const auto& args : m_clearDSVs)
+		XUSG::CommandList_DX12::ClearDepthStencilView(args.DepthStencilView,
+			args.ClearFlags, args.Depth, args.Stencil, args.NumRects, args.pRects);
+	m_clearDSVs.clear();
+}
+
+void EZ::CommandList_DX12::clearRTVs()
+{
+	for (const auto& args : m_clearRTVs)
+		XUSG::CommandList_DX12::ClearRenderTargetView(args.RenderTargetView,
+			args.ColorRGBA, args.NumRects, args.pRects);
+	m_clearRTVs.clear();
 }
 
 void EZ::CommandList_DX12::setBarriers(uint32_t numResources, const ResourceView* pResourceViews)
