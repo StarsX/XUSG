@@ -74,6 +74,8 @@ namespace XUSG
 					const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
 					uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces);
 
+				void predispatchMesh();
+
 				const Shader::Stage& getShaderStage(uint8_t index) const;
 
 				MeshShader::PipelineCache::uptr m_meshShaderPipelineCache;

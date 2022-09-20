@@ -243,9 +243,6 @@ namespace XUSG
 		const Descriptor& GetReadOnlyDSV(uint16_t slice = 0, uint8_t mipLevel = 0) const;
 		const Descriptor& GetStencilSRV() const;
 
-		uint16_t	GetArraySize() const;
-		uint8_t		GetNumMips() const;
-
 	protected:
 		bool create(const Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize,
 			uint8_t numMips, uint8_t sampleCount, Format format, ResourceFlag resourceFlags,

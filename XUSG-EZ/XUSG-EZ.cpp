@@ -37,7 +37,7 @@ ResourceView EZ::GetCBV(ConstantBuffer* pResource, uint32_t index)
 	ResourceView resourceView;
 	resourceView.pResource = pResource;
 	resourceView.View = pResource->GetCBV(index);
-	resourceView.DstState = ResourceState::VERTEX_AND_CONSTANT_BUFFER;
+	resourceView.DstState = ResourceState::GENERAL_READ;
 
 	return resourceView;
 }
@@ -48,7 +48,8 @@ ResourceView EZ::GetSRV(Buffer* pResource, uint32_t index, ResourceState dstStat
 	resourceView.pResource = pResource;
 	resourceView.View = pResource->GetSRV(index);
 	resourceView.Subresources = { XUSG_BARRIER_ALL_SUBRESOURCES };
-	resourceView.DstState = dstState;
+	resourceView.DstState = pResource->GetResourceState() == ResourceState::GENERAL_READ ?
+		ResourceState::GENERAL_READ : dstState;
 
 	return resourceView;
 }
@@ -59,7 +60,8 @@ ResourceView EZ::GetSRV(VertexBuffer* pResource, uint32_t index, ResourceState d
 	resourceView.pResource = pResource;
 	resourceView.View = pResource->GetSRV(index);
 	resourceView.Subresources = { XUSG_BARRIER_ALL_SUBRESOURCES };
-	resourceView.DstState = dstState;
+	resourceView.DstState = pResource->GetResourceState() == ResourceState::GENERAL_READ ?
+		ResourceState::GENERAL_READ : dstState;
 
 	return resourceView;
 }
@@ -70,7 +72,8 @@ ResourceView EZ::GetSRV(IndexBuffer* pResource, uint32_t index, ResourceState ds
 	resourceView.pResource = pResource;
 	resourceView.View = pResource->GetSRV(index);
 	resourceView.Subresources = { XUSG_BARRIER_ALL_SUBRESOURCES };
-	resourceView.DstState = dstState;
+	resourceView.DstState = pResource->GetResourceState() == ResourceState::GENERAL_READ ?
+		ResourceState::GENERAL_READ : dstState;
 
 	return resourceView;
 }

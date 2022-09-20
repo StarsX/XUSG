@@ -62,6 +62,9 @@ namespace XUSG
 	D3D12_TILE_COPY_FLAGS GetDX12TileCopyFlag(TileCopyFlag tileCopyFlag);
 	D3D12_TILE_COPY_FLAGS GetDX12TileCopyFlags(TileCopyFlag tileCopyFlags);
 
+	D3D12_FILTER GetDX12Filter(SamplerFilter filter);
+	D3D12_TEXTURE_ADDRESS_MODE GetDX12TextureAddressMode(TextureAddressMode textureAddressMode);
+
 	uint32_t GetDX12Requirement(Requirement requirement);
 
 	uint32_t GetDXGISwapChainFlag(SwapChainFlag swapChainFlag);

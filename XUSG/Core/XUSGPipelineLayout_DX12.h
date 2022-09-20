@@ -12,7 +12,7 @@ namespace XUSG
 	{
 		uint32_t Binding;
 		uint32_t Space;
-		const SamplerDesc* pSampler;
+		const Sampler* pSampler;
 		uint8_t Stage;
 	};
 
@@ -35,7 +35,7 @@ namespace XUSG
 			void SetRootUAV(uint32_t index, uint32_t binding, uint32_t space = 0,
 				DescriptorFlag flags = DescriptorFlag::DATA_STATIC_WHILE_SET_AT_EXECUTE, Shader::Stage stage = Shader::Stage::ALL);
 			void SetRootCBV(uint32_t index, uint32_t binding, uint32_t space = 0, Shader::Stage stage = Shader::Stage::ALL);
-			void SetStaticSamplers(const Sampler* pSamplers, uint32_t num, uint32_t baseBinding,
+			void SetStaticSamplers(const Sampler* const* ppSamplers, uint32_t num, uint32_t baseBinding,
 				uint32_t space = 0, Shader::Stage stage = Shader::Stage::ALL);
 
 			XUSG::PipelineLayout CreatePipelineLayout(PipelineLayoutCache* pPipelineLayoutCache, PipelineLayoutFlag flags,

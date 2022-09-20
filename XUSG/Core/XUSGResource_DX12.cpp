@@ -287,13 +287,17 @@ uint32_t ConstantBuffer_DX12::GetCBVOffset(uint32_t index) const
 Descriptor ConstantBuffer_DX12::allocateCbvHeap(const wchar_t* name)
 {
 	m_cbvHeaps.emplace_back();
-	auto& cbvPool = m_cbvHeaps.back();
+	auto& cbvHeap = m_cbvHeaps.back();
 
 	D3D12_DESCRIPTOR_HEAP_DESC desc = { D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1 };
-	V_RETURN(m_device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&cbvPool)), cerr, 0);
-	if (name) cbvPool->SetName((wstring(name) + L".CbvPool").c_str());
+	V_RETURN(m_device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&cbvHeap)), cerr, 0);
+	if (name)
+	{
+		const auto i = to_wstring(m_cbvHeaps.size() - 1);
+		cbvHeap->SetName((wstring(name) + L".CbvHeap" + i).c_str());
+	}
 
-	return cbvPool->GetCPUDescriptorHandleForHeapStart().ptr;
+	return cbvHeap->GetCPUDescriptorHandleForHeapStart().ptr;
 }
 
 //--------------------------------------------------------------------------------------
@@ -335,13 +339,17 @@ bool ShaderResource_DX12::setDevice(const Device* pDevice)
 Descriptor ShaderResource_DX12::allocateSrvUavHeap()
 {
 	m_srvUavHeaps.emplace_back();
-	auto& srvUavPool = m_srvUavHeaps.back();
+	auto& srvUavHeap = m_srvUavHeaps.back();
 
 	D3D12_DESCRIPTOR_HEAP_DESC desc = { D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1 };
-	V_RETURN(m_device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&srvUavPool)), cerr, 0);
-	if (!m_name.empty()) srvUavPool->SetName((m_name + L".SrvUavPool").c_str());
+	V_RETURN(m_device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&srvUavHeap)), cerr, 0);
+	if (!m_name.empty())
+	{
+		const auto i = to_wstring(m_srvUavHeaps.size() - 1);
+		srvUavHeap->SetName((m_name + L".SrvUavHeap" + i).c_str());
+	}
 
-	return srvUavPool->GetCPUDescriptorHandleForHeapStart().ptr;
+	return srvUavHeap->GetCPUDescriptorHandleForHeapStart().ptr;
 }
 
 //--------------------------------------------------------------------------------------
@@ -1099,13 +1107,17 @@ bool RenderTarget_DX12::create(const Device* pDevice, uint32_t width, uint32_t h
 Descriptor RenderTarget_DX12::allocateRtvHeap()
 {
 	m_rtvHeaps.emplace_back();
-	auto& rtvPool = m_rtvHeaps.back();
+	auto& rtvHeap = m_rtvHeaps.back();
 
 	D3D12_DESCRIPTOR_HEAP_DESC desc = { D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1 };
-	V_RETURN(m_device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&rtvPool)), cerr, 0);
-	if (!m_name.empty()) rtvPool->SetName((m_name + L".RtvPool").c_str());
+	V_RETURN(m_device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&rtvHeap)), cerr, 0);
+	if (!m_name.empty())
+	{
+		const auto i = to_wstring(m_rtvHeaps.size() - 1);
+		rtvHeap->SetName((m_name + L".RtvHeap" + i).c_str());
+	}
 
-	return rtvPool->GetCPUDescriptorHandleForHeapStart().ptr;
+	return rtvHeap->GetCPUDescriptorHandleForHeapStart().ptr;
 }
 
 //--------------------------------------------------------------------------------------
@@ -1296,16 +1308,6 @@ const Descriptor& DepthStencil_DX12::GetStencilSRV() const
 	return m_stencilSrv;
 }
 
-uint16_t DepthStencil_DX12::GetArraySize() const
-{
-	return static_cast<uint16_t>(m_dsvs.size());
-}
-
-uint8_t DepthStencil_DX12::GetNumMips() const
-{
-	return static_cast<uint8_t>(m_dsvs.size());
-}
-
 bool DepthStencil_DX12::create(const Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize,
 	uint8_t numMips, uint8_t sampleCount, Format format, ResourceFlag resourceFlags, float clearDepth,
 	uint8_t clearStencil, bool& hasSRV, Format& formatStencil, bool isCubeMap, MemoryFlag memoryFlags,
@@ -1441,13 +1443,17 @@ bool DepthStencil_DX12::create(const Device* pDevice, uint32_t width, uint32_t h
 Descriptor DepthStencil_DX12::allocateDsvHeap()
 {
 	m_dsvHeaps.emplace_back();
-	auto& dsvPool = m_dsvHeaps.back();
+	auto& dsvHeap = m_dsvHeaps.back();
 
 	D3D12_DESCRIPTOR_HEAP_DESC desc = { D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1 };
-	V_RETURN(m_device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&dsvPool)), cerr, 0);
-	if (!m_name.empty()) dsvPool->SetName((m_name + L".DsvPool").c_str());
+	V_RETURN(m_device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&dsvHeap)), cerr, 0);
+	if (!m_name.empty())
+	{
+		const auto i = to_wstring(m_dsvHeaps.size() - 1);
+		dsvHeap->SetName((m_name + L".DsvPool" + i).c_str());
+	}
 
-	return dsvPool->GetCPUDescriptorHandleForHeapStart().ptr;
+	return dsvHeap->GetCPUDescriptorHandleForHeapStart().ptr;
 }
 
 //--------------------------------------------------------------------------------------

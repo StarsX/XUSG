@@ -13,7 +13,7 @@ Graphics::DepthStencil PipelineCache_DX12::DepthStencilDefault()
 	DepthStencil depthStencil;
 	depthStencil.DepthEnable = true;
 	depthStencil.DepthWriteMask = true;
-	depthStencil.DepthFunc = ComparisonFunc::LESS;
+	depthStencil.Comparison = ComparisonFunc::LESS;
 	depthStencil.StencilEnable = false;
 	depthStencil.StencilReadMask = 0xff;
 	depthStencil.StencilWriteMask = 0xff;
@@ -47,7 +47,7 @@ Graphics::DepthStencil PipelineCache_DX12::DepthReadLessEqual()
 {
 	auto depthStencil = DepthStencilDefault();
 	depthStencil.DepthWriteMask = false;
-	depthStencil.DepthFunc = ComparisonFunc::LESS_EQUAL;
+	depthStencil.Comparison = ComparisonFunc::LESS_EQUAL;
 
 	return depthStencil;
 }
@@ -56,7 +56,7 @@ Graphics::DepthStencil PipelineCache_DX12::DepthReadEqual()
 {
 	auto depthStencil = DepthStencilDefault();
 	depthStencil.DepthWriteMask = false;
-	depthStencil.DepthFunc = ComparisonFunc::EQUAL;
+	depthStencil.Comparison = ComparisonFunc::EQUAL;
 
 	return depthStencil;
 }

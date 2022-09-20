@@ -4,6 +4,7 @@
 
 #include "XUSG_DX12.h"
 #include "XUSGDescriptor_DX12.h"
+#include "XUSGEnum_DX12.h"
 
 using namespace std;
 using namespace XUSG;
@@ -29,18 +30,31 @@ void Util::DescriptorTable_DX12::SetDescriptors(uint32_t start, uint32_t num,
 	memcpy(&descriptors[start], srcDescriptors, sizeof(Descriptor) * num);
 }
 
-void Util::DescriptorTable_DX12::SetSamplers(uint32_t start, uint32_t num, const SamplerPreset* presets,
-	DescriptorTableCache* pDescriptorTableCache, uint8_t descriptorPoolIndex)
+void Util::DescriptorTable_DX12::SetSamplers(uint32_t start, uint32_t num,
+	const Sampler* const* ppSamplers, uint8_t descriptorPoolIndex)
 {
-	const auto size = sizeof(SamplerDesc*) * (start + num) + 1;
+	const auto size = sizeof(Sampler*) * (start + num) + 1;
 	if (size > m_key.size())
 		m_key.resize(size);
 
 	m_key[0] = descriptorPoolIndex;
-	const auto descriptors = reinterpret_cast<const SamplerDesc**>(&m_key[1]);
+	const auto descriptors = reinterpret_cast<const Sampler**>(&m_key[1]);
+
+	for (auto i = 0u; i < num; ++i) descriptors[start + i] = ppSamplers[i];
+}
+
+void Util::DescriptorTable_DX12::SetSamplers(uint32_t start, uint32_t num, const SamplerPreset* presets,
+	DescriptorTableCache* pDescriptorTableCache, uint8_t descriptorPoolIndex)
+{
+	const auto size = sizeof(Sampler*) * (start + num) + 1;
+	if (size > m_key.size())
+		m_key.resize(size);
+
+	m_key[0] = descriptorPoolIndex;
+	const auto descriptors = reinterpret_cast<const Sampler**>(&m_key[1]);
 
 	for (auto i = 0u; i < num; ++i)
-		descriptors[start + i] = pDescriptorTableCache->GetSampler(presets[i]).get();
+		descriptors[start + i] = pDescriptorTableCache->GetSampler(presets[i]);
 }
 
 DescriptorTable Util::DescriptorTable_DX12::CreateCbvSrvUavTable(DescriptorTableCache* pDescriptorTableCache, const XUSG::DescriptorTable& table)
@@ -91,7 +105,7 @@ DescriptorTableCache_DX12::DescriptorTableCache_DX12() :
 	m_descriptorPools(),
 	m_descriptorStrides(),
 	m_descriptorCounts(),
-	m_samplerPresets()
+	m_samplers()
 {
 	// Sampler presets
 	m_pfnSamplers[SamplerPreset::POINT_WRAP] = SamplerPointWrap;
@@ -229,12 +243,12 @@ DescriptorPool DescriptorTableCache_DX12::GetDescriptorPool(DescriptorPoolType t
 	return m_descriptorPools[type][index].get();
 }
 
-const Sampler& DescriptorTableCache_DX12::GetSampler(SamplerPreset preset)
+const Sampler* DescriptorTableCache_DX12::GetSampler(SamplerPreset preset)
 {
-	if (m_samplerPresets[preset] == nullptr)
-		m_samplerPresets[preset] = m_pfnSamplers[preset]();
+	if (m_samplers[preset] == nullptr)
+		m_samplers[preset] = make_unique<Sampler>(m_pfnSamplers[preset]());
 
-	return m_samplerPresets[preset];
+	return m_samplers[preset].get();
 }
 
 uint32_t DescriptorTableCache_DX12::GetDescriptorStride(DescriptorPoolType type) const
@@ -263,11 +277,11 @@ bool DescriptorTableCache_DX12::allocateDescriptorPool(DescriptorPoolType type, 
 		D3D12_DESCRIPTOR_HEAP_TYPE_RTV
 	};
 
-	static const wchar_t* poolNames[] =
+	static const wchar_t* heapNames[] =
 	{
-		L".CbvSrvUavPool",
-		L".SamplerPool",
-		L".RtvPool"
+		L".CbvSrvUavHeap",
+		L".SamplerHeap",
+		L".RtvHeap"
 	};
 
 	D3D12_DESCRIPTOR_HEAP_DESC desc = {};
@@ -276,7 +290,7 @@ bool DescriptorTableCache_DX12::allocateDescriptorPool(DescriptorPoolType type, 
 	if (type != D3D12_DESCRIPTOR_HEAP_TYPE_RTV) desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	m_descriptorPools[type][index] = nullptr;
 	V_RETURN(m_device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&m_descriptorPools[type][index])), cerr, false);
-	if (!m_name.empty()) m_descriptorPools[type][index]->SetName((m_name + poolNames[type]).c_str());
+	if (!m_name.empty()) m_descriptorPools[type][index]->SetName((m_name + heapNames[type] + to_wstring(index)).c_str());
 
 	m_descriptorCounts[type][index] = 0;
 
@@ -443,7 +457,7 @@ DescriptorTable DescriptorTableCache_DX12::createSamplerTable(const string& key,
 	{
 		const auto& index = key[0];
 		const auto numDescriptors = static_cast<uint32_t>(key.size() / sizeof(uintptr_t));
-		const auto pSamplers = reinterpret_cast<const SamplerDesc* const*>(&key[1]);
+		const auto pSamplers = reinterpret_cast<Sampler* const*>(&key[1]);
 
 		// Compute start addresses for CPU and GPU handles
 		const auto& descriptorPool = m_descriptorPools[SAMPLER_POOL][index];
@@ -466,13 +480,13 @@ DescriptorTable DescriptorTableCache_DX12::createSamplerTable(const string& key,
 		for (auto i = 0u; i < numDescriptors; ++i)
 		{
 			D3D12_SAMPLER_DESC desc;
-			desc.Filter = static_cast<D3D12_FILTER>(pSamplers[i]->Filter);
-			desc.AddressU = static_cast<D3D12_TEXTURE_ADDRESS_MODE>(pSamplers[i]->AddressU);
-			desc.AddressV = static_cast<D3D12_TEXTURE_ADDRESS_MODE>(pSamplers[i]->AddressV);
-			desc.AddressW = static_cast<D3D12_TEXTURE_ADDRESS_MODE>(pSamplers[i]->AddressW);
+			desc.Filter = GetDX12Filter(pSamplers[i]->Filter);
+			desc.AddressU = GetDX12TextureAddressMode(pSamplers[i]->AddressU);
+			desc.AddressV = GetDX12TextureAddressMode(pSamplers[i]->AddressV);
+			desc.AddressW = GetDX12TextureAddressMode(pSamplers[i]->AddressW);
 			desc.MipLODBias = pSamplers[i]->MipLODBias;
 			desc.MaxAnisotropy = pSamplers[i]->MaxAnisotropy;
-			desc.ComparisonFunc = static_cast<D3D12_COMPARISON_FUNC>(pSamplers[i]->ComparisonFunc);
+			desc.ComparisonFunc = GetDX12ComparisonFunc(pSamplers[i]->Comparison);
 			desc.BorderColor[0] = pSamplers[i]->BorderColor[0];
 			desc.BorderColor[1] = pSamplers[i]->BorderColor[1];
 			desc.BorderColor[2] = pSamplers[i]->BorderColor[2];

@@ -44,10 +44,22 @@ namespace XUSG
 				uint32_t startIndexLocation,
 				int32_t baseVertexLocation,
 				uint32_t startInstanceLocation);
+			void DrawIndirect(const CommandLayout* pCommandlayout,
+				uint32_t maxCommandCount,
+				Resource* pArgumentBuffer,
+				uint64_t argumentBufferOffset = 0,
+				Resource* pCountBuffer = nullptr,
+				uint64_t countBufferOffset = 0);
 			void Dispatch(
 				uint32_t threadGroupCountX,
 				uint32_t threadGroupCountY,
 				uint32_t threadGroupCountZ);
+			void DispatchIndirect(const CommandLayout* pCommandlayout,
+				uint32_t maxCommandCount,
+				Resource* pArgumentBuffer,
+				uint64_t argumentBufferOffset = 0,
+				Resource* pCountBuffer = nullptr,
+				uint64_t countBufferOffset = 0);
 			void CopyBufferRegion(Resource* pDstBuffer, uint64_t dstOffset,
 				Resource* pSrcBuffer, uint64_t srcOffset, uint64_t numBytes);
 			void CopyTextureRegion(const TextureCopyLocation& dst,
@@ -61,6 +73,7 @@ namespace XUSG
 				Resource* pSrcResource, uint32_t srcSubresource, Format format);
 			void IASetInputLayout(const InputLayout* pLayout);
 			void IASetIndexBufferStripCutValue(IBStripCutValue ibStripCutValue);
+			void RSSetState(const Graphics::Rasterizer* pRasterizer);
 			void RSSetState(Graphics::RasterizerPreset preset);
 			void RSSetViewports(uint32_t numViewports, const Viewport* pViewports) const
 			{
@@ -72,10 +85,12 @@ namespace XUSG
 				XUSG::CommandList_DX12::RSSetScissorRects(numRects, pRects);
 			}
 
+			void OMSetBlendState(const Graphics::Blend* pBlend, uint32_t sampleMask = UINT_MAX);
 			void OMSetBlendState(Graphics::BlendPreset preset, uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX);
 			void OMSetBlendFactor(const float blendFactor[4]) const { XUSG::CommandList_DX12::OMSetBlendFactor(blendFactor); }
 			void OMSetStencilRef(uint32_t stencilRef) const { XUSG::CommandList_DX12::OMSetStencilRef(stencilRef); }
 			void OMSetSample(uint8_t count, uint8_t quality = 0);
+			void DSSetState(const Graphics::DepthStencil* pDepthStencil);
 			void DSSetState(Graphics::DepthStencilPreset preset);
 			void SetGraphicsShader(Shader::Stage stage, const Blob& shader);
 			void SetGraphicsNodeMask(uint32_t nodeMask);
@@ -83,6 +98,7 @@ namespace XUSG
 			void SetComputeNodeMask(uint32_t nodeMask);
 			void SetPipelineState(const Pipeline& pipelineState);
 			void ExecuteBundle(const XUSG::CommandList* pCommandList) const { XUSG::CommandList_DX12::ExecuteBundle(pCommandList); }
+			void SetSamplers(Shader::Stage stage, uint32_t startBinding, uint32_t numSamplers, const Sampler* const* ppSamplers);
 			void SetSamplerStates(Shader::Stage stage, uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerPresets);
 			void SetResources(Shader::Stage stage, DescriptorType descriptorType, uint32_t startBinding,
 				uint32_t numResources, const ResourceView* pResourceViews, uint32_t space = 0);
@@ -142,13 +158,6 @@ namespace XUSG
 			}
 
 			void EndEvent() { XUSG::CommandList_DX12::EndEvent(); }
-			void ExecuteIndirect(const CommandLayout* pCommandlayout, uint32_t maxCommandCount,
-				const Resource* pArgumentBuffer, uint64_t argumentBufferOffset = 0,
-				const Resource* pCountBuffer = nullptr, uint64_t countBufferOffset = 0)
-			{
-				XUSG::CommandList_DX12::ExecuteIndirect(pCommandlayout, maxCommandCount,
-					pArgumentBuffer, argumentBufferOffset, pCountBuffer, countBufferOffset);
-			}
 
 			// For resize window
 			void ResetDescriptorPool(DescriptorPoolType type);
@@ -176,17 +185,33 @@ namespace XUSG
 				ClearFlag ClearFlags;
 				float Depth;
 				uint8_t Stencil;
-				uint32_t NumRects;
-				const RectRange* pRects;
+				std::vector<RectRange> Rects;
 			};
 
 			struct ClearRTV
 			{
 				const Resource* pResource;
 				Descriptor RenderTargetView;
-				const float* ColorRGBA;
-				uint32_t NumRects;
-				const RectRange* pRects;
+				float ColorRGBA[4];
+				std::vector<RectRange> Rects;
+			};
+
+			struct ClearUAVUint
+			{
+				const Resource* pResource;
+				Descriptor UnorderedAccessView;
+				DescriptorTable UAVTable;
+				uint32_t Values[4];
+				std::vector<RectRange> Rects;
+			};
+
+			struct ClearUAVFloat
+			{
+				const Resource* pResource;
+				Descriptor UnorderedAccessView;
+				DescriptorTable UAVTable;
+				float Values[4];
+				std::vector<RectRange> Rects;
 			};
 
 			static const uint8_t CbvSrvUavTypes = 3;
@@ -200,8 +225,12 @@ namespace XUSG
 				uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces);
 
 			void predraw();
+			void predispatch();
+			void preexecuteIndirect(Resource* pArgumentBuffer, Resource* pCountBuffer);
 			void clearDSVs();
 			void clearRTVs();
+			void clearUAVsUint();
+			void clearUAVsFloat();
 			void setBarriers(uint32_t numResources, const ResourceView* pResourceViews);
 
 			static uint32_t generateBarriers(ResourceBarrier* pBarriers, const ResourceView& resrouceView,
@@ -229,6 +258,8 @@ namespace XUSG
 			std::vector<ResourceBarrier> m_barriers;
 			std::vector<ClearDSV> m_clearDSVs;
 			std::vector<ClearRTV> m_clearRTVs;
+			std::vector<ClearUAVUint> m_clearUAVsUint;
+			std::vector<ClearUAVFloat> m_clearUAVsFloat;
 
 			std::vector<uint32_t> m_graphicsSpaceToParamIndexMap[Shader::Stage::NUM_GRAPHICS][CbvSrvUavTypes];
 			std::vector<uint32_t> m_computeSpaceToParamIndexMap[CbvSrvUavTypes];

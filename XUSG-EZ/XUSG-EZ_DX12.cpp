@@ -120,57 +120,30 @@ void EZ::CommandList_DX12::DrawIndexed(uint32_t indexCountPerInstance, uint32_t 
 	XUSG::CommandList_DX12::DrawIndexed(indexCountPerInstance, instanceCount, startIndexLocation, baseVertexLocation, startInstanceLocation);
 }
 
+void EZ::CommandList_DX12::DrawIndirect(const CommandLayout* pCommandlayout, uint32_t maxCommandCount,
+	Resource* pArgumentBuffer, uint64_t argumentBufferOffset, Resource* pCountBuffer, uint64_t countBufferOffset)
+{
+	preexecuteIndirect(pArgumentBuffer, pCountBuffer);
+	predraw();
+
+	XUSG::CommandList_DX12::ExecuteIndirect(pCommandlayout, maxCommandCount,
+		pArgumentBuffer, argumentBufferOffset, pCountBuffer, countBufferOffset);
+}
+
 void EZ::CommandList_DX12::Dispatch(uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ)
 {
-	// Set barrier command
-	XUSG::CommandList_DX12::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
-	m_barriers.clear();
-
-	// Create and set sampler table
-	auto& samplerTable = m_samplerTables[Shader::Stage::CS];
-	if (samplerTable)
-	{
-		const auto descriptorTable = samplerTable->GetSamplerTable(m_descriptorTableCache.get());
-		if (descriptorTable) XUSG::CommandList_DX12::SetComputeDescriptorTable(0, descriptorTable);
-		samplerTable.reset();
-	}
-
-	// Create and set CBV/SRV/UAV tables
-	for (uint8_t t = 0; t < CbvSrvUavTypes; ++t)
-	{
-		auto& cbvSrvUavTables = m_cbvSrvUavTables[Shader::Stage::CS][t];
-		const auto numSpaces = static_cast<uint32_t>(cbvSrvUavTables.size());
-		for (auto s = 0u; s < numSpaces; ++s)
-		{
-			auto& cbvSrvUavTable = cbvSrvUavTables[s];
-			if (cbvSrvUavTable)
-			{
-				const auto descriptorTable = cbvSrvUavTable->GetCbvSrvUavTable(m_descriptorTableCache.get());
-				if (descriptorTable) XUSG::CommandList_DX12::SetComputeDescriptorTable(
-					m_computeSpaceToParamIndexMap[t][s], descriptorTable);
-				cbvSrvUavTable.reset();
-			}
-		}
-	}
-
-	// Create pipeline for dynamic states
-	assert(m_computeState);
-	if (m_isComputeDirty)
-	{
-		m_computeState->SetPipelineLayout(m_pipelineLayouts[COMPUTE]);
-		const auto pipeline = m_computeState->GetPipeline(m_computePipelineCache.get());
-		if (pipeline)
-		{
-			if (m_pipeline != pipeline)
-			{
-				XUSG::CommandList_DX12::SetPipelineState(pipeline);
-				m_pipeline = pipeline;
-			}
-			m_isComputeDirty = false;
-		}
-	}
-
+	predispatch();
 	XUSG::CommandList_DX12::Dispatch(threadGroupCountX, threadGroupCountY, threadGroupCountZ);
+}
+
+void EZ::CommandList_DX12::DispatchIndirect(const CommandLayout* pCommandlayout, uint32_t maxCommandCount,
+	Resource* pArgumentBuffer, uint64_t argumentBufferOffset, Resource* pCountBuffer, uint64_t countBufferOffset)
+{
+	preexecuteIndirect(pArgumentBuffer, pCountBuffer);
+	predispatch();
+
+	XUSG::CommandList_DX12::ExecuteIndirect(pCommandlayout, maxCommandCount,
+		pArgumentBuffer, argumentBufferOffset, pCountBuffer, countBufferOffset);
 }
 
 void EZ::CommandList_DX12::CopyBufferRegion(Resource* pDstBuffer, uint64_t dstOffset,
@@ -250,10 +223,24 @@ void EZ::CommandList_DX12::IASetIndexBufferStripCutValue(IBStripCutValue ibStrip
 	m_isGraphicsDirty = true;
 }
 
+void EZ::CommandList_DX12::RSSetState(const Graphics::Rasterizer* pRasterizer)
+{
+	assert(m_graphicsState);
+	m_graphicsState->RSSetState(pRasterizer);
+	m_isGraphicsDirty = true;
+}
+
 void EZ::CommandList_DX12::RSSetState(Graphics::RasterizerPreset preset)
 {
 	assert(m_graphicsState);
 	m_graphicsState->RSSetState(preset, m_graphicsPipelineCache.get());
+	m_isGraphicsDirty = true;
+}
+
+void EZ::CommandList_DX12::OMSetBlendState(const Graphics::Blend* pBlend, uint32_t sampleMask)
+{
+	assert(m_graphicsState);
+	m_graphicsState->OMSetBlendState(pBlend, sampleMask);
 	m_isGraphicsDirty = true;
 }
 
@@ -268,6 +255,13 @@ void EZ::CommandList_DX12::OMSetSample(uint8_t count, uint8_t quality)
 {
 	assert(m_graphicsState);
 	m_graphicsState->OMSetSample(count, quality);
+	m_isGraphicsDirty = true;
+}
+
+void EZ::CommandList_DX12::DSSetState(const Graphics::DepthStencil* pDepthStencil)
+{
+	assert(m_graphicsState);
+	m_graphicsState->DSSetState(pDepthStencil);
 	m_isGraphicsDirty = true;
 }
 
@@ -312,6 +306,13 @@ void EZ::CommandList_DX12::SetPipelineState(const Pipeline& pipelineState)
 	XUSG::CommandList_DX12::SetPipelineState(pipelineState);
 	m_isGraphicsDirty = false;
 	m_isComputeDirty = false;
+}
+
+void EZ::CommandList_DX12::SetSamplers(Shader::Stage stage, uint32_t startBinding, uint32_t numSamplers, const Sampler* const* ppSamplers)
+{
+	auto& descriptorTable = m_samplerTables[stage];
+	if (!descriptorTable) descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
+	descriptorTable->SetSamplers(startBinding, numSamplers, ppSamplers);
 }
 
 void EZ::CommandList_DX12::SetSamplerStates(Shader::Stage stage, uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerPresets)
@@ -491,14 +492,23 @@ void EZ::CommandList_DX12::ClearDepthStencilView(const ResourceView& depthStenci
 	float depth, uint8_t stencil, uint32_t numRects, const RectRange* pRects)
 {
 	setBarriers(1, &depthStencilView);
-	m_clearDSVs.emplace_back(ClearDSV{ depthStencilView.pResource, depthStencilView.View, clearFlags, depth, stencil, numRects, pRects });
+	m_clearDSVs.emplace_back(ClearDSV{ depthStencilView.pResource, depthStencilView.View, clearFlags, depth, stencil });
+
+	auto& clearView = m_clearDSVs.back();
+	clearView.Rects.resize(numRects);
+	for (auto i = 0u; i < numRects; ++i) clearView.Rects[i] = pRects[i];
 }
 
 void EZ::CommandList_DX12::ClearRenderTargetView(const ResourceView& renderTargetView,
 	const float colorRGBA[4], uint32_t numRects, const RectRange* pRects)
 {
 	setBarriers(1, &renderTargetView);
-	m_clearRTVs.emplace_back(ClearRTV{ renderTargetView.pResource, renderTargetView.View, colorRGBA, numRects, pRects });
+	m_clearRTVs.emplace_back(ClearRTV{ renderTargetView.pResource, renderTargetView.View,
+		colorRGBA[0], colorRGBA[1], colorRGBA[2], colorRGBA[3] });
+
+	auto& clearView = m_clearRTVs.back();
+	clearView.Rects.resize(numRects);
+	for (auto i = 0u; i < numRects; ++i) clearView.Rects[i] = pRects[i];
 }
 
 void EZ::CommandList_DX12::ClearUnorderedAccessViewUint(const ResourceView& unorderedAccessView,
@@ -510,8 +520,12 @@ void EZ::CommandList_DX12::ClearUnorderedAccessViewUint(const ResourceView& unor
 	uavTable->SetDescriptors(0, 1, &unorderedAccessView.View);
 	const auto descriptorTable = uavTable->GetCbvSrvUavTable(m_descriptorTableCache.get());
 
-	XUSG::CommandList_DX12::ClearUnorderedAccessViewUint(descriptorTable, unorderedAccessView.View,
-		unorderedAccessView.pResource, values, numRects, pRects);
+	m_clearUAVsUint.emplace_back(ClearUAVUint{ unorderedAccessView.pResource, unorderedAccessView.View,
+		descriptorTable, values[0], values[1], values[2], values[3] });
+
+	auto& clearView = m_clearUAVsUint.back();
+	clearView.Rects.resize(numRects);
+	for (auto i = 0u; i < numRects; ++i) clearView.Rects[i] = pRects[i];
 }
 
 void EZ::CommandList_DX12::ClearUnorderedAccessViewFloat(const ResourceView& unorderedAccessView,
@@ -523,8 +537,12 @@ void EZ::CommandList_DX12::ClearUnorderedAccessViewFloat(const ResourceView& uno
 	uavTable->SetDescriptors(0, 1, &unorderedAccessView.View);
 	const auto descriptorTable = uavTable->GetCbvSrvUavTable(m_descriptorTableCache.get());
 
-	XUSG::CommandList_DX12::ClearUnorderedAccessViewFloat(descriptorTable, unorderedAccessView.View,
-		unorderedAccessView.pResource, values, numRects, pRects);
+	m_clearUAVsFloat.emplace_back(ClearUAVFloat{ unorderedAccessView.pResource, unorderedAccessView.View,
+		descriptorTable, values[0], values[1], values[2], values[3] });
+
+	auto& clearView = m_clearUAVsFloat.back();
+	clearView.Rects.resize(numRects);
+	for (auto i = 0u; i < numRects; ++i) clearView.Rects[i] = pRects[i];
 }
 
 void EZ::CommandList_DX12::ResetDescriptorPool(DescriptorPoolType type)
@@ -685,6 +703,13 @@ void EZ::CommandList_DX12::predraw()
 	XUSG::CommandList_DX12::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
 	m_barriers.clear();
 
+	// Clear DSVs, RTVs, and UAVs
+	clearDSVs();
+	clearRTVs();
+	clearUAVsUint();
+	clearUAVsFloat();
+
+	// Set descriptor tables
 	for (uint8_t i = 0; i < Shader::Stage::NUM_GRAPHICS; ++i)
 	{
 		// Create and set sampler table
@@ -715,10 +740,6 @@ void EZ::CommandList_DX12::predraw()
 		}
 	}
 
-	// Clear DSVs and RTVs
-	clearDSVs();
-	clearRTVs();
-
 	// Create pipeline for dynamic states
 	assert(m_graphicsState);
 	if (m_isGraphicsDirty)
@@ -737,11 +758,78 @@ void EZ::CommandList_DX12::predraw()
 	}
 }
 
+void EZ::CommandList_DX12::predispatch()
+{
+	// Set barrier command
+	XUSG::CommandList_DX12::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
+	m_barriers.clear();
+
+	// Clear UAVs
+	clearUAVsUint();
+	clearUAVsFloat();
+
+	// Create and set sampler table
+	auto& samplerTable = m_samplerTables[Shader::Stage::CS];
+	if (samplerTable)
+	{
+		const auto descriptorTable = samplerTable->GetSamplerTable(m_descriptorTableCache.get());
+		if (descriptorTable) XUSG::CommandList_DX12::SetComputeDescriptorTable(0, descriptorTable);
+		samplerTable.reset();
+	}
+
+	// Create and set CBV/SRV/UAV tables
+	for (uint8_t t = 0; t < CbvSrvUavTypes; ++t)
+	{
+		auto& cbvSrvUavTables = m_cbvSrvUavTables[Shader::Stage::CS][t];
+		const auto numSpaces = static_cast<uint32_t>(cbvSrvUavTables.size());
+		for (auto s = 0u; s < numSpaces; ++s)
+		{
+			auto& cbvSrvUavTable = cbvSrvUavTables[s];
+			if (cbvSrvUavTable)
+			{
+				const auto descriptorTable = cbvSrvUavTable->GetCbvSrvUavTable(m_descriptorTableCache.get());
+				if (descriptorTable) XUSG::CommandList_DX12::SetComputeDescriptorTable(
+					m_computeSpaceToParamIndexMap[t][s], descriptorTable);
+				cbvSrvUavTable.reset();
+			}
+		}
+	}
+
+	// Create pipeline for dynamic states
+	assert(m_computeState);
+	if (m_isComputeDirty)
+	{
+		m_computeState->SetPipelineLayout(m_pipelineLayouts[COMPUTE]);
+		const auto pipeline = m_computeState->GetPipeline(m_computePipelineCache.get());
+		if (pipeline)
+		{
+			if (m_pipeline != pipeline)
+			{
+				XUSG::CommandList_DX12::SetPipelineState(pipeline);
+				m_pipeline = pipeline;
+			}
+			m_isComputeDirty = false;
+		}
+	}
+}
+
+void EZ::CommandList_DX12::preexecuteIndirect(Resource* pArgumentBuffer, Resource* pCountBuffer)
+{
+	assert(pArgumentBuffer);
+	auto numBarriers = static_cast<uint32_t>(m_barriers.size());
+	m_barriers.resize(numBarriers + 2);
+	numBarriers = pArgumentBuffer->SetBarrier(m_barriers.data(), ResourceState::INDIRECT_ARGUMENT, numBarriers);
+	if (pCountBuffer) numBarriers = pArgumentBuffer->SetBarrier(m_barriers.data(), ResourceState::INDIRECT_ARGUMENT, numBarriers);
+
+	// Shrink the size of barrier list
+	if (numBarriers < m_barriers.size()) m_barriers.resize(numBarriers);
+}
+
 void EZ::CommandList_DX12::clearDSVs()
 {
 	for (const auto& args : m_clearDSVs)
-		XUSG::CommandList_DX12::ClearDepthStencilView(args.DepthStencilView,
-			args.ClearFlags, args.Depth, args.Stencil, args.NumRects, args.pRects);
+		XUSG::CommandList_DX12::ClearDepthStencilView(args.DepthStencilView, args.ClearFlags,
+			args.Depth, args.Stencil, static_cast<uint32_t>(args.Rects.size()), args.Rects.data());
 	m_clearDSVs.clear();
 }
 
@@ -749,8 +837,24 @@ void EZ::CommandList_DX12::clearRTVs()
 {
 	for (const auto& args : m_clearRTVs)
 		XUSG::CommandList_DX12::ClearRenderTargetView(args.RenderTargetView,
-			args.ColorRGBA, args.NumRects, args.pRects);
+			args.ColorRGBA, static_cast<uint32_t>(args.Rects.size()), args.Rects.data());
 	m_clearRTVs.clear();
+}
+
+void EZ::CommandList_DX12::clearUAVsUint()
+{
+	for (const auto& args : m_clearUAVsUint)
+		XUSG::CommandList_DX12::ClearUnorderedAccessViewUint(args.UAVTable, args.UnorderedAccessView,
+			args.pResource, args.Values, static_cast<uint32_t>(args.Rects.size()), args.Rects.data());
+	m_clearUAVsUint.clear();
+}
+
+void EZ::CommandList_DX12::clearUAVsFloat()
+{
+	for (const auto& args : m_clearUAVsFloat)
+		XUSG::CommandList_DX12::ClearUnorderedAccessViewFloat(args.UAVTable, args.UnorderedAccessView,
+			args.pResource, args.Values, static_cast<uint32_t>(args.Rects.size()), args.Rects.data());
+	m_clearUAVsFloat.clear();
 }
 
 void EZ::CommandList_DX12::setBarriers(uint32_t numResources, const ResourceView* pResourceViews)

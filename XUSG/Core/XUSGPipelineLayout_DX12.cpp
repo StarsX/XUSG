@@ -74,7 +74,7 @@ void Util::PipelineLayout_DX12::SetRootCBV(uint32_t index, uint32_t binding, uin
 	SetShaderStage(index, stage);
 }
 
-void Util::PipelineLayout_DX12::SetStaticSamplers(const Sampler* pSamplers,
+void Util::PipelineLayout_DX12::SetStaticSamplers(const Sampler* const* ppSamplers,
 	uint32_t num, uint32_t baseBinding, uint32_t space, Shader::Stage stage)
 {
 	const auto startIdx = static_cast<uint32_t>(m_staticSamplers.size());
@@ -85,7 +85,7 @@ void Util::PipelineLayout_DX12::SetStaticSamplers(const Sampler* pSamplers,
 		auto& staticSampler = m_staticSamplers[startIdx + i];
 		staticSampler.Binding = baseBinding + i;
 		staticSampler.Space = space;
-		staticSampler.pSampler = pSamplers[i].get();
+		staticSampler.pSampler = ppSamplers[i];
 		staticSampler.Stage = stage;
 	}
 }
@@ -262,13 +262,13 @@ void PipelineLayoutCache_DX12::GetStaticSampler(CD3DX12_STATIC_SAMPLER_DESC& sam
 		D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
 
 	samplerDescs.Init(staticSampler.Binding,
-		static_cast<D3D12_FILTER>(staticSampler.pSampler->Filter),
-		static_cast<D3D12_TEXTURE_ADDRESS_MODE>(staticSampler.pSampler->AddressU),
-		static_cast<D3D12_TEXTURE_ADDRESS_MODE>(staticSampler.pSampler->AddressV),
-		static_cast<D3D12_TEXTURE_ADDRESS_MODE>(staticSampler.pSampler->AddressW),
+		GetDX12Filter(staticSampler.pSampler->Filter),
+		GetDX12TextureAddressMode(staticSampler.pSampler->AddressU),
+		GetDX12TextureAddressMode(staticSampler.pSampler->AddressV),
+		GetDX12TextureAddressMode(staticSampler.pSampler->AddressW),
 		staticSampler.pSampler->MipLODBias,
 		staticSampler.pSampler->MaxAnisotropy,
-		static_cast<D3D12_COMPARISON_FUNC>(staticSampler.pSampler->ComparisonFunc),
+		GetDX12ComparisonFunc(staticSampler.pSampler->Comparison),
 		borderColor,
 		staticSampler.pSampler->MinLOD,
 		staticSampler.pSampler->MaxLOD,

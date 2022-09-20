@@ -203,7 +203,7 @@ Pipeline PipelineCache_DX12::createPipeline(const string& key, const wchar_t* na
 	const auto pDepthStencil = pKey->pDepthStencil ? pKey->pDepthStencil : GetDepthStencil(DepthStencilPreset::DEFAULT_LESS);
 	psoDesc.DepthStencilState.DepthEnable = pDepthStencil->DepthEnable ? TRUE : FALSE;
 	psoDesc.DepthStencilState.DepthWriteMask = pDepthStencil->DepthWriteMask ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
-	psoDesc.DepthStencilState.DepthFunc = GetDX12ComparisonFunc(pDepthStencil->DepthFunc);
+	psoDesc.DepthStencilState.DepthFunc = GetDX12ComparisonFunc(pDepthStencil->Comparison);
 	psoDesc.DepthStencilState.StencilEnable = pDepthStencil->StencilEnable ? TRUE : FALSE;
 	psoDesc.DepthStencilState.StencilReadMask = pDepthStencil->StencilReadMask;
 	psoDesc.DepthStencilState.StencilWriteMask = pDepthStencil->StencilWriteMask;

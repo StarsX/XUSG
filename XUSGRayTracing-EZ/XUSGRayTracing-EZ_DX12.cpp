@@ -272,88 +272,11 @@ void EZ::CommandList_DXR::RTSetMaxRecursionDepth(uint32_t depth)
 void EZ::CommandList_DXR::DispatchRays(uint32_t width, uint32_t height, uint32_t depth,
 	const void* rayGenShader, const void* missShader)
 {
-	//TODO: fix raytracing shadertables.
-	// Create and set sampler table
-	auto& samplerTable = m_samplerTables[COMPUTE];
-	if (samplerTable)
-	{
-		const auto descriptorTable = samplerTable->GetSamplerTable(m_descriptorTableCache.get());
-		if (descriptorTable) XUSG::CommandList_DX12::SetComputeDescriptorTable(0, descriptorTable);
-		samplerTable.reset();
-	}
+	CShaderTablePtr pRayGen = nullptr;
+	CShaderTablePtr pHitGroup = nullptr;
+	CShaderTablePtr pMiss = nullptr;
 
-	// Create and set CBV/SRV/UAV tables
-	for (uint8_t t = 0; t < CbvSrvUavTypes; ++t)
-	{
-		auto& cbvSrvUavTables = m_cbvSrvUavTables[Shader::Stage::CS][t];
-		const auto numSpaces = static_cast<uint32_t>(cbvSrvUavTables.size());
-		for (auto s = 0u; s < numSpaces; ++s)
-		{
-			auto& cbvSrvUavTable = cbvSrvUavTables[s];
-			if (cbvSrvUavTable)
-			{
-				const auto descriptorTable = cbvSrvUavTable->GetCbvSrvUavTable(m_descriptorTableCache.get());
-				if (descriptorTable) XUSG::CommandList_DX12::SetComputeDescriptorTable(
-					m_computeSpaceToParamIndexMap[t][s], descriptorTable);
-				cbvSrvUavTable.reset();
-			}
-		}
-	}
-
-	// Set barrier command
-	XUSG::CommandList_DX12::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
-	m_barriers.clear();
-
-	const ShaderTable* pHitGroup = nullptr;
-
-	// Create pipeline for dynamic states
-	assert(m_rayTracingState);
-	if (m_isRTStateDirty)
-	{
-		m_rayTracingState->SetGlobalPipelineLayout(m_pipelineLayouts[COMPUTE]);
-		const auto pipeline = m_rayTracingState->GetPipeline(m_RayTracingPipelineCache.get());
-		if (pipeline)
-		{
-			if (m_pipeline != pipeline)
-			{
-				XUSG::RayTracing::CommandList_DX12::SetRayTracingPipeline(pipeline);
-				m_pipeline = pipeline;
-
-				// Get hit-group table; the hit-group has been bound on the pipeline
-				const auto numHitGroups = getNumHitGroupsFromState(m_rayTracingState.get());
-				string key(sizeof(void*) * numHitGroups, '\0');
-				const auto pShaderIDs = reinterpret_cast<const void**>(&key[0]);
-				for (auto i = 0u; i < numHitGroups; ++i) // Set hit-group shader IDs into the key
-				{
-					const void* hitGroup = getHitGroupFromState(i, m_rayTracingState.get());
-					pShaderIDs[i] = ShaderRecord::GetShaderID(pipeline, hitGroup, API::DIRECTX_12);
-				}
-				pHitGroup = getShaderTable(key, m_hitGroupTables, numHitGroups);
-			}
-			// Different from other types of state objects, m_rayTracingState cannot be reused
-			// for the next different pipeline, so we need to remake it
-			m_rayTracingState = State::MakeUnique(API::DIRECTX_12);
-			m_isRTStateDirty = false;
-		}
-	}
-
-	// Get ray-generation shader table; the ray-generation shader is independent of the pipeline
-	const ShaderTable* pRayGen = nullptr;
-	{
-		string key(sizeof(void*), '\0');
-		auto& shaderID = reinterpret_cast<const void*&>(key[0]);
-		shaderID = ShaderRecord::GetShaderID(m_pipeline, rayGenShader, API::DIRECTX_12);
-		pRayGen = getShaderTable(key, m_rayGenTables, 1);
-	}
-
-	const ShaderTable* pMiss = nullptr;
-	{
-		string key(sizeof(void*), '\0');
-		auto& shaderID = reinterpret_cast<const void*&>(key[0]);
-		shaderID = ShaderRecord::GetShaderID(m_pipeline, missShader, API::DIRECTX_12);
-		pMiss = getShaderTable(key, m_missTables, 1);
-	}
-
+	predispatchRays(pRayGen, pHitGroup, pMiss, rayGenShader, missShader);
 	RayTracing::CommandList_DX12::DispatchRays(width, height, depth, pHitGroup, pMiss, pRayGen);
 }
 
@@ -415,6 +338,91 @@ bool EZ::CommandList_DXR::createComputePipelineLayouts(uint32_t maxSamplers, con
 		PipelineLayoutFlag::NONE, L"RayTracingEZComputeLayout"), false);
 
 	return true;
+}
+
+void EZ::CommandList_DXR::predispatchRays(CShaderTablePtr& pRayGen, CShaderTablePtr& pHitGroup, CShaderTablePtr& pMiss,
+	const void* rayGenShader, const void* missShader)
+{
+	// Set barrier command
+	XUSG::CommandList_DX12::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
+	m_barriers.clear();
+
+	// Clear UAVs
+	clearUAVsUint();
+	clearUAVsFloat();
+
+	// Create and set sampler table
+	auto& samplerTable = m_samplerTables[COMPUTE];
+	if (samplerTable)
+	{
+		const auto descriptorTable = samplerTable->GetSamplerTable(m_descriptorTableCache.get());
+		if (descriptorTable) XUSG::CommandList_DX12::SetComputeDescriptorTable(0, descriptorTable);
+		samplerTable.reset();
+	}
+
+	// Create and set CBV/SRV/UAV tables
+	for (uint8_t t = 0; t < CbvSrvUavTypes; ++t)
+	{
+		auto& cbvSrvUavTables = m_cbvSrvUavTables[Shader::Stage::CS][t];
+		const auto numSpaces = static_cast<uint32_t>(cbvSrvUavTables.size());
+		for (auto s = 0u; s < numSpaces; ++s)
+		{
+			auto& cbvSrvUavTable = cbvSrvUavTables[s];
+			if (cbvSrvUavTable)
+			{
+				const auto descriptorTable = cbvSrvUavTable->GetCbvSrvUavTable(m_descriptorTableCache.get());
+				if (descriptorTable) XUSG::CommandList_DX12::SetComputeDescriptorTable(
+					m_computeSpaceToParamIndexMap[t][s], descriptorTable);
+				cbvSrvUavTable.reset();
+			}
+		}
+	}
+
+	// Create pipeline for dynamic states
+	assert(m_rayTracingState);
+	if (m_isRTStateDirty)
+	{
+		m_rayTracingState->SetGlobalPipelineLayout(m_pipelineLayouts[COMPUTE]);
+		const auto pipeline = m_rayTracingState->GetPipeline(m_RayTracingPipelineCache.get());
+		if (pipeline)
+		{
+			if (m_pipeline != pipeline)
+			{
+				XUSG::RayTracing::CommandList_DX12::SetRayTracingPipeline(pipeline);
+				m_pipeline = pipeline;
+
+				// Get hit-group table; the hit-group has been bound on the pipeline
+				const auto numHitGroups = getNumHitGroupsFromState(m_rayTracingState.get());
+				string key(sizeof(void*) * numHitGroups, '\0');
+				const auto pShaderIDs = reinterpret_cast<const void**>(&key[0]);
+				for (auto i = 0u; i < numHitGroups; ++i) // Set hit-group shader IDs into the key
+				{
+					const void* hitGroup = getHitGroupFromState(i, m_rayTracingState.get());
+					pShaderIDs[i] = ShaderRecord::GetShaderID(pipeline, hitGroup, API::DIRECTX_12);
+				}
+				pHitGroup = getShaderTable(key, m_hitGroupTables, numHitGroups);
+			}
+			// Different from other types of state objects, m_rayTracingState cannot be reused
+			// for the next different pipeline, so we need to remake it
+			m_rayTracingState = State::MakeUnique(API::DIRECTX_12);
+			m_isRTStateDirty = false;
+		}
+	}
+
+	// Get ray-generation shader table; the ray-generation shader is independent of the pipeline
+	{
+		string key(sizeof(void*), '\0');
+		auto& shaderID = reinterpret_cast<const void*&>(key[0]);
+		shaderID = ShaderRecord::GetShaderID(m_pipeline, rayGenShader, API::DIRECTX_12);
+		pRayGen = getShaderTable(key, m_rayGenTables, 1);
+	}
+
+	{
+		string key(sizeof(void*), '\0');
+		auto& shaderID = reinterpret_cast<const void*&>(key[0]);
+		shaderID = ShaderRecord::GetShaderID(m_pipeline, missShader, API::DIRECTX_12);
+		pMiss = getShaderTable(key, m_missTables, 1);
+	}
 }
 
 XUSG::Resource* EZ::CommandList_DXR::needScratch(uint32_t size)

@@ -19,6 +19,8 @@ namespace XUSG
 
 			void SetDescriptors(uint32_t start, uint32_t num, const Descriptor* srcDescriptors,
 				uint8_t descriptorPoolIndex = 0);
+			void SetSamplers(uint32_t start, uint32_t num, const Sampler* const* ppSamplers,
+				uint8_t descriptorPoolIndex = 0);
 			void SetSamplers(uint32_t start, uint32_t num, const SamplerPreset* presets,
 				DescriptorTableCache* pDescriptorTableCache, uint8_t descriptorPoolIndex = 0);
 
@@ -71,7 +73,7 @@ namespace XUSG
 
 		DescriptorPool GetDescriptorPool(DescriptorPoolType type, uint8_t index = 0) const;
 
-		const Sampler& GetSampler(SamplerPreset preset);
+		const Sampler* GetSampler(SamplerPreset preset);
 
 		uint32_t GetDescriptorStride(DescriptorPoolType type) const;
 
@@ -108,7 +110,7 @@ namespace XUSG
 		std::vector<uint32_t> m_descriptorCounts[NUM_DESCRIPTOR_POOL];
 		uint32_t m_descriptorStrides[NUM_DESCRIPTOR_POOL];
 
-		Sampler m_samplerPresets[NUM_SAMPLER_PRESET];
+		std::unique_ptr<Sampler> m_samplers[NUM_SAMPLER_PRESET];
 		std::function<Sampler()> m_pfnSamplers[NUM_SAMPLER_PRESET];
 
 		std::wstring m_name;

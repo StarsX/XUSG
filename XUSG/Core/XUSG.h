@@ -69,7 +69,7 @@ namespace XUSG
 		DIRECTX_12
 	};
 
-	enum class Format : uint32_t
+	enum class Format : uint8_t
 	{
 		UNKNOWN,
 		R32G32B32A32_TYPELESS,
@@ -240,6 +240,7 @@ namespace XUSG
 		LINESTRIP,
 		TRIANGLELIST,
 		TRIANGLESTRIP,
+		TRIANGLEFAN,
 		LINELIST_ADJ,
 		LINESTRIP_ADJ,
 		TRIANGLELIST_ADJ,
@@ -278,13 +279,13 @@ namespace XUSG
 		CONTROL_POINT32_PATCHLIST
 	};
 
-	enum class FillMode
+	enum class FillMode : uint8_t
 	{
 		WIREFRAME,
 		SOLID
 	};
 
-	enum class CullMode
+	enum class CullMode : uint8_t
 	{
 		NONE,
 		FRONT,
@@ -609,6 +610,55 @@ namespace XUSG
 		NUM_DESCRIPTOR_POOL
 	};
 
+	enum class SamplerFilter : uint8_t
+	{
+		MIN_MAG_MIP_POINT,
+		MIN_MAG_POINT_MIP_LINEAR,
+		MIN_POINT_MAG_LINEAR_MIP_POINT,
+		MIN_POINT_MAG_MIP_LINEAR,
+		MIN_LINEAR_MAG_MIP_POINT,
+		MIN_LINEAR_MAG_POINT_MIP_LINEAR,
+		MIN_MAG_LINEAR_MIP_POINT,
+		MIN_MAG_MIP_LINEAR,
+		ANISOTROPIC,
+		COMPARISON_MIN_MAG_MIP_POINT,
+		COMPARISON_MIN_MAG_POINT_MIP_LINEAR,
+		COMPARISON_MIN_POINT_MAG_LINEAR_MIP_POINT,
+		COMPARISON_MIN_POINT_MAG_MIP_LINEAR,
+		COMPARISON_MIN_LINEAR_MAG_MIP_POINT,
+		COMPARISON_MIN_LINEAR_MAG_POINT_MIP_LINEAR,
+		COMPARISON_MIN_MAG_LINEAR_MIP_POINT,
+		COMPARISON_MIN_MAG_MIP_LINEAR,
+		COMPARISON_ANISOTROPIC,
+		MINIMUM_MIN_MAG_MIP_POINT,
+		MINIMUM_MIN_MAG_POINT_MIP_LINEAR,
+		MINIMUM_MIN_POINT_MAG_LINEAR_MIP_POINT,
+		MINIMUM_MIN_POINT_MAG_MIP_LINEAR,
+		MINIMUM_MIN_LINEAR_MAG_MIP_POINT,
+		MINIMUM_MIN_LINEAR_MAG_POINT_MIP_LINEAR,
+		MINIMUM_MIN_MAG_LINEAR_MIP_POINT,
+		MINIMUM_MIN_MAG_MIP_LINEAR,
+		MINIMUM_ANISOTROPIC,
+		MAXIMUM_MIN_MAG_MIP_POINT,
+		MAXIMUM_MIN_MAG_POINT_MIP_LINEAR,
+		MAXIMUM_MIN_POINT_MAG_LINEAR_MIP_POINT,
+		MAXIMUM_MIN_POINT_MAG_MIP_LINEAR,
+		MAXIMUM_MIN_LINEAR_MAG_MIP_POINT,
+		MAXIMUM_MIN_LINEAR_MAG_POINT_MIP_LINEAR,
+		MAXIMUM_MIN_MAG_LINEAR_MIP_POINT,
+		MAXIMUM_MIN_MAG_MIP_LINEAR,
+		MAXIMUM_ANISOTROPIC
+	};
+
+	enum class TextureAddressMode : uint8_t
+	{
+		WRAP,
+		MIRROR,
+		CLAMP,
+		BORDER,
+		MIRROR_ONCE
+	};
+
 	enum SamplerPreset : uint8_t
 	{
 		POINT_WRAP,
@@ -740,21 +790,19 @@ namespace XUSG
 		uint64_t BufferFilledSizeLocation;
 	};
 
-	struct SamplerDesc
+	struct Sampler
 	{
-		uint16_t Filter;
-		uint8_t AddressU;
-		uint8_t AddressV;
-		uint8_t AddressW;
+		SamplerFilter Filter;
+		TextureAddressMode AddressU;
+		TextureAddressMode AddressV;
+		TextureAddressMode AddressW;
 		float MipLODBias;
 		uint8_t MaxAnisotropy;
-		uint8_t ComparisonFunc;
+		ComparisonFunc Comparison;
 		float BorderColor[4];
 		float MinLOD;
 		float MaxLOD;
 	};
-
-	using Sampler = std::shared_ptr<SamplerDesc>;
 
 	// Pipeline state related
 	struct Viewport
@@ -1509,9 +1557,6 @@ namespace XUSG
 		virtual const Descriptor& GetReadOnlyDSV(uint16_t slice = 0, uint8_t mipLevel = 0) const = 0;
 		virtual const Descriptor& GetStencilSRV() const = 0;
 
-		virtual uint16_t	GetArraySize() const = 0;
-		virtual uint8_t		GetNumMips() const = 0;
-
 		using uptr = std::unique_ptr<DepthStencil>;
 		using sptr = std::shared_ptr<DepthStencil>;
 
@@ -1724,6 +1769,8 @@ namespace XUSG
 
 			virtual void SetDescriptors(uint32_t start, uint32_t num, const Descriptor* srcDescriptors,
 				uint8_t descriptorPoolIndex = 0) = 0;
+			virtual void SetSamplers(uint32_t start, uint32_t num, const Sampler* const* ppSamplers,
+				uint8_t descriptorPoolIndex = 0) = 0;
 			virtual void SetSamplers(uint32_t start, uint32_t num, const SamplerPreset* presets,
 				DescriptorTableCache* pDescriptorTableCache, uint8_t descriptorPoolIndex = 0) = 0;
 
@@ -1778,7 +1825,7 @@ namespace XUSG
 
 		virtual DescriptorPool GetDescriptorPool(DescriptorPoolType type, uint8_t index = 0) const = 0;
 
-		virtual const Sampler& GetSampler(SamplerPreset preset) = 0;
+		virtual const Sampler* GetSampler(SamplerPreset preset) = 0;
 
 		virtual uint32_t GetDescriptorStride(DescriptorPoolType type) const = 0;
 
@@ -1859,7 +1906,7 @@ namespace XUSG
 			virtual void SetRootUAV(uint32_t index, uint32_t binding, uint32_t space = 0,
 				DescriptorFlag flags = DescriptorFlag::DATA_STATIC_WHILE_SET_AT_EXECUTE, Shader::Stage stage = Shader::Stage::ALL) = 0;
 			virtual void SetRootCBV(uint32_t index, uint32_t binding, uint32_t space = 0, Shader::Stage stage = Shader::Stage::ALL) = 0;
-			virtual void SetStaticSamplers(const Sampler* pSamplers, uint32_t num, uint32_t baseBinding,
+			virtual void SetStaticSamplers(const Sampler* const* ppSamplers, uint32_t num, uint32_t baseBinding,
 				uint32_t space = 0, Shader::Stage stage = Shader::Stage::ALL) = 0;
 
 			virtual XUSG::PipelineLayout CreatePipelineLayout(PipelineLayoutCache* pPipelineLayoutCache, PipelineLayoutFlag flags,
@@ -2009,7 +2056,7 @@ namespace XUSG
 		{
 			bool DepthEnable;
 			bool DepthWriteMask;
-			ComparisonFunc DepthFunc;
+			ComparisonFunc Comparison;
 			bool StencilEnable;
 			uint8_t StencilReadMask;
 			uint8_t StencilWriteMask;
@@ -2032,7 +2079,7 @@ namespace XUSG
 
 			virtual void OMSetBlendState(const Blend* pBlend, uint32_t sampleMask = UINT_MAX) = 0;
 			virtual void RSSetState(const Rasterizer* pRasterizer) = 0;
-			virtual void DSSetState(const DepthStencil* DepthStencil) = 0;
+			virtual void DSSetState(const DepthStencil* pDepthStencil) = 0;
 
 			virtual void OMSetBlendState(BlendPreset preset, PipelineCache* pPipelineCache,
 				uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX) = 0;
@@ -2144,8 +2191,6 @@ namespace XUSG
 			static sptr MakeShared(const Device* pDevice, API api = API::DIRECTX_12);
 		};
 	}
-
-	XUSG_INTERFACE uint32_t DivideAndRoundUp(uint32_t x, uint32_t n);
 
 	inline uint8_t Log2(uint32_t value)
 	{

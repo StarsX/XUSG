@@ -61,10 +61,16 @@ namespace XUSG
 				RayTracing::CommandList* AsRTCommandList() { return dynamic_cast<RayTracing::CommandList*>(this); }
 
 			protected:
+				using ShaderTablePtr = ShaderTable*;
+				using CShaderTablePtr = const ShaderTable*;
+
 				bool createComputePipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
 					const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
 					uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces,
 					uint32_t maxTLASSrvs, uint32_t spaceTLAS);
+
+				void predispatchRays(CShaderTablePtr& pRayGen, CShaderTablePtr& pHitGroup, CShaderTablePtr& pMiss,
+					const void* rayGenShader, const void* missShader);
 
 				Resource* needScratch(uint32_t size);
 
