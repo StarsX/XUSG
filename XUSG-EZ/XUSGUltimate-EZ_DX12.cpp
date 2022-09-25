@@ -155,6 +155,16 @@ void EZ::CommandList_DX12::DispatchMesh(uint32_t ThreadGroupCountX, uint32_t Thr
 	Ultimate::CommandList_DX12::DispatchMesh(ThreadGroupCountX, ThreadGroupCountY, ThreadGroupCountZ);
 }
 
+void EZ::CommandList_DX12::DispatchMeshIndirect(const CommandLayout* pCommandlayout, uint32_t maxCommandCount,
+	Resource* pArgumentBuffer, uint64_t argumentBufferOffset, Resource* pCountBuffer, uint64_t countBufferOffset)
+{
+	preexecuteIndirect(pArgumentBuffer, pCountBuffer);
+	predispatchMesh();
+
+	XUSG::CommandList_DX12::ExecuteIndirect(pCommandlayout, maxCommandCount,
+		pArgumentBuffer, argumentBufferOffset, pCountBuffer, countBufferOffset);
+}
+
 bool EZ::CommandList_DX12::init(Ultimate::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize)
 {
 	XUSG_N_RETURN(XUSG::EZ::CommandList_DX12::init(pCommandList, samplerPoolSize, cbvSrvUavPoolSize), false);

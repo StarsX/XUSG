@@ -43,6 +43,7 @@
 #include <vector>
 #include <map>
 #include <unordered_map>
+#include <unordered_set>
 #endif
 #include <functional>
 #include <wrl.h>

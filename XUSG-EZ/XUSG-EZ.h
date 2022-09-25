@@ -96,8 +96,7 @@ namespace XUSG
 				uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
 				const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1,
 				const wchar_t* name = nullptr) = 0;
-			virtual bool Close() const = 0;
-			virtual bool CloseForPresent(RenderTarget* pBackBuffer) = 0;
+			virtual bool Close(RenderTarget* pBackBuffer = nullptr) = 0;
 			virtual bool Reset(const CommandAllocator* pAllocator, const Pipeline& initialState) = 0;
 
 			virtual void ClearState(const Pipeline& initialState) const = 0;

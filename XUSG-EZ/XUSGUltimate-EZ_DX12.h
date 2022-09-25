@@ -56,6 +56,12 @@ namespace XUSG
 				void MSSetShader(Shader::Stage stage, const Blob& shader);
 				void MSSetNodeMask(uint32_t nodeMask);
 				void DispatchMesh(uint32_t ThreadGroupCountX, uint32_t ThreadGroupCountY, uint32_t ThreadGroupCountZ);
+				void DispatchMeshIndirect(const CommandLayout* pCommandlayout,
+					uint32_t maxCommandCount,
+					Resource* pArgumentBuffer,
+					uint64_t argumentBufferOffset = 0,
+					Resource* pCountBuffer = nullptr,
+					uint64_t countBufferOffset = 0);
 
 				Ultimate::CommandList* AsUltimateCommandList() { return dynamic_cast<Ultimate::CommandList*>(this); }
 

@@ -10,7 +10,7 @@
 #define SH_COEFFS shCoeffs
 #endif
 
-float3 EvaluateSHIrradiance(T SH_COEFFS, float3 norm)
+float4 EvaluateSHIrradiance(T SH_COEFFS, float3 norm)
 {
 	const float c1 = 0.42904276540489171563379376569857;	// 4 * A2.Y22 = 1/16 * sqrt(15.PI)
 	const float c2 = 0.51166335397324424423977581244463;	// 0.5 * A1.Y10 = 1/2 * sqrt(PI/3)
@@ -28,5 +28,7 @@ float3 EvaluateSHIrradiance(T SH_COEFFS, float3 norm)
 		+ 2.0 * c1 * (shCoeffs[4] * x * y + shCoeffs[7] * x * z + shCoeffs[5] * y * z)	// 2.c1.(L2-2.xy + L21.xz + L2-1.yz)
 		+ 2.0 * c2 * (shCoeffs[3] * x + shCoeffs[1] * y + shCoeffs[2] * z));			// 2.c2.(L11.x + L1-1.y + L10.z)
 
-	return irradiance / PI;
+	const float avgLum = dot(shCoeffs[0], float3(0.25, 0.5, 0.25));
+
+	return float4(irradiance, avgLum);
 }

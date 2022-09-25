@@ -116,7 +116,7 @@ const DescriptorTable& SphericalHarmonics_Impl::GetSHCoeffSRVTable() const
 
 bool SphericalHarmonics_Impl::createPipelineLayouts()
 {
-	const auto samplerAniso = m_descriptorTableCache->GetSampler(ANISOTROPIC_WRAP);
+	const auto pSampler = m_descriptorTableCache->GetSampler(ANISOTROPIC_WRAP);
 
 	// SH cube map transform
 	{
@@ -155,7 +155,7 @@ bool SphericalHarmonics_Impl::createPipelineLayouts()
 
 		utilPipelineLayout->SetRange(SRV_BUFFERS, DescriptorType::SRV, 1, txCubeMap);
 		utilPipelineLayout->SetConstants(CONSTANTS, XUSG_SizeOfInUint32(uint32_t[2]), cb);
-		utilPipelineLayout->SetStaticSamplers(&samplerAniso, 1, sampler);
+		utilPipelineLayout->SetStaticSamplers(&pSampler, 1, sampler);
 
 		XUSG_X_RETURN(m_pipelineLayouts[SH_CUBE_MAP], utilPipelineLayout->GetPipelineLayout(
 			m_pipelineLayoutCache.get(), PipelineLayoutFlag::NONE, L"SHCubeMapLayout"), false);

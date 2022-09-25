@@ -33,8 +33,7 @@ namespace XUSG
 					uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
 					const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1,
 					uint32_t maxTLASSrvs = 0, uint32_t spaceTLAS = 0, const wchar_t* name = nullptr);
-				bool Close();
-				bool CloseForPresent(RenderTarget* pBackBuffer);
+				bool Reset(const CommandAllocator* pAllocator, const Pipeline& initialState);
 				bool PreBuildBLAS(BottomLevelAS* pBLAS, uint32_t numGeometries, const GeometryBuffer& geometries,
 					BuildFlag flags = BuildFlag::PREFER_FAST_TRACE);
 				bool PreBuildTLAS(TopLevelAS* pTLAS, uint32_t numInstances,
@@ -50,19 +49,43 @@ namespace XUSG
 				void SetTopLevelAccelerationStructure(uint32_t index, const TopLevelAS* pTopLevelAS) const;
 				void RTSetShaderLibrary(Blob shaderLib);
 				void RTSetShaderConfig(uint32_t maxPayloadSize, uint32_t maxAttributeSize = sizeof(float[2]));
-				void RTSetHitGroup(uint32_t index, const void* hitGroup, const void* closestHitShader,
-					const void* anyHitShader = nullptr, const void* intersectionShader = nullptr,
+				void RTSetHitGroup(uint32_t index, const void* pHitGroup, const void* pClosestHitShader,
+					const void* pAnyHitShader = nullptr, const void* pIntersectionShader = nullptr,
 					HitGroupType type = HitGroupType::TRIANGLES);
 				void RTSetMaxRecursionDepth(uint32_t depth);
 				void DispatchRays(uint32_t width, uint32_t height, uint32_t depth,
-					const void* rayGenShader, const void* missShader);
+					const void* pRayGenShader, const void* pMissShader);
+				void DispatchRaysIndirect(const CommandLayout* pCommandlayout,
+					uint32_t maxCommandCount,
+					const void* pRayGenShader,
+					const void* pMissShader,
+					Resource* pArgumentBuffer,
+					uint64_t argumentBufferOffset = 0,
+					Resource* pCountBuffer = nullptr,
+					uint64_t countBufferOffset = 0);
+
+				size_t GetDispatchRaysArgReservedOffset() const { return sizeof(DX12DispatchRaysDescHeader); }
 
 				const Device* GetRTDevice() const { return RayTracing::CommandList_DX12::GetRTDevice(); }
 				RayTracing::CommandList* AsRTCommandList() { return dynamic_cast<RayTracing::CommandList*>(this); }
 
 			protected:
-				using ShaderTablePtr = ShaderTable*;
+				//using ShaderTablePtr = ShaderTable*;
 				using CShaderTablePtr = const ShaderTable*;
+
+				struct DX12DispatchRaysDescHeader
+				{
+					D3D12_GPU_VIRTUAL_ADDRESS_RANGE RayGenerationShaderRecord;
+					D3D12_GPU_VIRTUAL_ADDRESS_RANGE_AND_STRIDE MissShaderTable;
+					D3D12_GPU_VIRTUAL_ADDRESS_RANGE_AND_STRIDE HitGroupTable;
+					D3D12_GPU_VIRTUAL_ADDRESS_RANGE_AND_STRIDE CallableShaderTable;
+				};
+
+				struct ArgumentBufferVA
+				{
+					Resource* pBuffer;
+					uint64_t Offset;
+				};
 
 				bool createComputePipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
 					const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
@@ -70,7 +93,7 @@ namespace XUSG
 					uint32_t maxTLASSrvs, uint32_t spaceTLAS);
 
 				void predispatchRays(CShaderTablePtr& pRayGen, CShaderTablePtr& pHitGroup, CShaderTablePtr& pMiss,
-					const void* rayGenShader, const void* missShader);
+					const void* pRayGenShader, const void* pMissShader);
 
 				Resource* needScratch(uint32_t size);
 
@@ -93,9 +116,13 @@ namespace XUSG
 				uint32_t m_asUavCount;
 				std::vector<uint32_t> m_tlasBindingToParamIndexMap;
 
+				std::vector<Buffer::uptr> m_uploaders;
+
 				std::unordered_map<std::string, ShaderTable::uptr> m_rayGenTables;
 				std::unordered_map<std::string, ShaderTable::uptr> m_hitGroupTables;
 				std::unordered_map<std::string, ShaderTable::uptr> m_missTables;
+
+				std::unordered_set<std::string> m_argumentBufferVAs;
 			};
 		}
 	}

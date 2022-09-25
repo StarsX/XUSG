@@ -131,7 +131,8 @@ SamplerFeedBack_DX12::~SamplerFeedBack_DX12()
 
 bool SamplerFeedBack_DX12::Create(const Device* pDevice, const Texture* pTarget, Format format,
 	uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
-	ResourceFlag resourceFlags, bool isCubeMap, MemoryFlag memoryFlags, const wchar_t* name)
+	ResourceFlag resourceFlags, bool isCubeMap, MemoryFlag memoryFlags,
+	const wchar_t* name, uint32_t maxThreads)
 {
 	XUSG_N_RETURN(setDevice(pDevice), false);
 	V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&m_deviceU)), cerr, false);
@@ -153,10 +154,13 @@ bool SamplerFeedBack_DX12::Create(const Device* pDevice, const Texture* pTarget,
 		D3D12_TEXTURE_LAYOUT_UNKNOWN, 0, mipRegionWidth, mipRegionHeight, mipRegionDepth);
 
 	// Determine initial state
-	m_states.resize(arraySize * numMips, ResourceState::COMMON);
+	assert(maxThreads > 0);
+	m_states.resize(maxThreads);
+	for (auto& states : m_states)
+		states.resize(arraySize * numMips, ResourceState::COMMON);
 
 	V_RETURN(m_deviceU->CreateCommittedResource2(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
-		GetDX12ResourceStates(m_states[0]), nullptr, nullptr,  IID_PPV_ARGS(&m_resource)), clog, false);
+		GetDX12ResourceStates(m_states[0][0]), nullptr, nullptr,  IID_PPV_ARGS(&m_resource)), clog, false);
 	if (!m_name.empty()) m_resource->SetName((m_name + L".Resource").c_str());
 
 	// Create SRV

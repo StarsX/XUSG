@@ -365,3 +365,28 @@ Compute::PipelineCache::sptr Compute::PipelineCache::MakeShared(const Device* pD
 {
 	return make_shared<PipelineCache_DX12>(pDevice);
 }
+
+uint8_t XUSG::CalculateMipLevels(uint32_t width, uint32_t height, uint32_t depth)
+{
+	const auto texSize = (std::max)((std::max)(width, height), depth);
+
+	return Log2(texSize) + 1;
+}
+
+uint8_t XUSG::CalculateMipLevels(uint64_t width, uint32_t height, uint32_t depth)
+{
+	return CalculateMipLevels(static_cast<uint32_t>(width), height, depth);
+}
+
+uint8_t XUSG::Log2(uint32_t value)
+{
+#if defined(WIN32) || (_WIN32)
+	unsigned long mssb; // most significant set bit
+
+	if (BitScanReverse(&mssb, value) > 0)
+		return static_cast<uint8_t>(mssb);
+	else return 0;
+#else
+	return static_cast<uint8_t>(log2(value));
+#endif
+}
