@@ -130,10 +130,39 @@ CommandLayout_DX12::~CommandLayout_DX12()
 bool CommandLayout_DX12::Create(const Device* pDevice, uint32_t byteStride, uint32_t numArguments,
 	const IndirectArgument* pArguments, uint32_t nodeMask, const wchar_t* name)
 {
+	vector<D3D12_INDIRECT_ARGUMENT_DESC> argDescs(numArguments);
+	for (auto i = 0u; i < numArguments; ++i)
+	{
+		const auto& argument = pArguments[i];
+		auto& argDesc = argDescs[i];
+		argDesc.Type = static_cast<D3D12_INDIRECT_ARGUMENT_TYPE>(argument.Type);
+
+		switch (argument.Type)
+		{
+		case IndirectArgumentType::VERTEX_BUFFER_VIEW:
+			argDesc.VertexBuffer.Slot = argument.VertexBuffer.Slot;
+			break;
+		case IndirectArgumentType::CONSTANT:
+			argDesc.Constant.RootParameterIndex = argument.Constant.Index;
+			argDesc.Constant.DestOffsetIn32BitValues = argument.Constant.DestOffsetIn32BitValues;
+			argDesc.Constant.Num32BitValuesToSet = argument.Constant.Num32BitValuesToSet;
+			break;
+		case IndirectArgumentType::CONSTANT_BUFFER_VIEW:
+			argDesc.ConstantBufferView.RootParameterIndex = argument.CbvSrvUav.Index;
+			break;
+		case IndirectArgumentType::SHADER_RESOURCE_VIEW:
+			argDesc.ShaderResourceView.RootParameterIndex = argument.CbvSrvUav.Index;
+			break;
+		case IndirectArgumentType::UNORDERED_ACCESS_VIEW:
+			argDesc.UnorderedAccessView.RootParameterIndex = argument.CbvSrvUav.Index;
+			break;
+		}
+	}
+
 	D3D12_COMMAND_SIGNATURE_DESC desc;
 	desc.ByteStride = byteStride;
 	desc.NumArgumentDescs = numArguments;
-	desc.pArgumentDescs = reinterpret_cast<const D3D12_INDIRECT_ARGUMENT_DESC*>(pArguments);
+	desc.pArgumentDescs = argDescs.data();
 	desc.NodeMask = nodeMask;
 
 	const auto pDxDevice = static_cast<ID3D12Device*>(pDevice->GetHandle());
