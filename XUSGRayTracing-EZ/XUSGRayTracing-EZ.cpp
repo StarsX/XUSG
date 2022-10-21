@@ -38,23 +38,33 @@ EZ::CommandList::sptr EZ::CommandList::MakeShared(API api)
 }
 
 EZ::CommandList::uptr EZ::CommandList::MakeUnique(RayTracing::CommandList* pCommandList,
-	uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize, uint32_t maxSamplers,
-	const uint32_t* pMaxCbvsEachSpace, const uint32_t* pMaxSrvsEachSpace,
-	const uint32_t* pMaxUavsEachSpace, uint32_t maxCbvSpaces,
-	uint32_t maxSrvSpaces, uint32_t maxUavSpaces, API api)
+	uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+	const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
+	const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
+	const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE],
+	const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE],
+	const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
+	uint32_t maxTLASSrvs, uint32_t spaceTLAS, API api)
 {
 	return make_unique<CommandList_DXR>(pCommandList, samplerPoolSize, cbvSrvUavPoolSize,
 		maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
-		maxCbvSpaces, maxSrvSpaces, maxUavSpaces);
+		maxCbvSpaces, maxSrvSpaces, maxUavSpaces, maxTLASSrvs, spaceTLAS);
 }
 
 EZ::CommandList::sptr EZ::CommandList::MakeShared(RayTracing::CommandList* pCommandList,
-	uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize, uint32_t maxSamplers,
-	const uint32_t* pMaxCbvsEachSpace, const uint32_t* pMaxSrvsEachSpace,
-	const uint32_t* pMaxUavsEachSpace, uint32_t maxCbvSpaces,
-	uint32_t maxSrvSpaces, uint32_t maxUavSpaces, API api)
+	uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+	const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
+	const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
+	const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE],
+	const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE],
+	const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
+	uint32_t maxTLASSrvs, uint32_t spaceTLAS, API api)
 {
 	return make_shared<CommandList_DXR>(pCommandList, samplerPoolSize, cbvSrvUavPoolSize,
 		maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
-		maxCbvSpaces, maxSrvSpaces, maxUavSpaces);
+		maxCbvSpaces, maxSrvSpaces, maxUavSpaces, maxTLASSrvs, spaceTLAS);
 }

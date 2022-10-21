@@ -16,17 +16,35 @@ namespace XUSG
 		{
 		public:
 			CommandList_DX12();
-			CommandList_DX12(XUSG::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
-				uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
-				const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1);
+			CommandList_DX12(XUSG::CommandList* pCommandList,
+				uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+				const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
+				const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
+				const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE],
+				const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE],
+				const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
+				const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
+				const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE]);
 			virtual ~CommandList_DX12();
 
-			bool Create(XUSG::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
-				uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
-				const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1);
-			bool Create(const Device* pDevice, void* pHandle, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
-				uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
-				const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1,
+			bool Create(XUSG::CommandList* pCommandList,
+				uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+				const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr);
+			bool Create(const Device* pDevice, void* pHandle,
+				uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+				const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const wchar_t* name = nullptr);
 			bool Close(RenderTarget* pBackBuffer = nullptr);
 			bool Reset(const CommandAllocator* pAllocator, const Pipeline& initialState);
@@ -216,9 +234,14 @@ namespace XUSG
 			static const uint8_t CbvSrvUavTypes = 3;
 
 			bool init(XUSG::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize);
-			bool createGraphicsPipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
-				const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
-				uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces);
+			bool createGraphicsPipelineLayouts(
+				const uint32_t maxSamplers[Shader::Stage::NUM_GRAPHICS],
+				const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_GRAPHICS],
+				const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_GRAPHICS],
+				const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_GRAPHICS],
+				const uint32_t maxCbvSpaces[Shader::Stage::NUM_GRAPHICS],
+				const uint32_t maxSrvSpaces[Shader::Stage::NUM_GRAPHICS],
+				const uint32_t maxUavSpaces[Shader::Stage::NUM_GRAPHICS]);
 			bool createComputePipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
 				const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
 				uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces);

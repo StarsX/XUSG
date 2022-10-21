@@ -28,16 +28,29 @@ namespace XUSG
 				using uptr = std::unique_ptr<CommandList>;
 				using sptr = std::shared_ptr<CommandList>;
 
-				// By default maxCbvsEachSpace = 14 for graphics or 12 for ray tracing and compute
-				// maxSrvsEachSpace = 32, and maxUavsEachSpace = 16
-				virtual bool Create(RayTracing::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
-					uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
-					const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1,
+				// By default maxCbvsEachSpace[stage] = 14 for graphics or 12 for ray tracing and compute
+				// maxSamplers[stage] = 16, maxSrvsEachSpace[stage] = 32, and maxUavsEachSpace[stage] = 16
+				virtual bool Create(RayTracing::CommandList* pCommandList,
+					uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					uint32_t maxTLASSrvs = 0, uint32_t spaceTLAS = 0) = 0;
-				virtual bool Create(const RayTracing::Device* pDevice, void* pHandle, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
-					uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
-					const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1,
-					uint32_t maxTLASSrvs = 0, uint32_t spaceTLAS = 0, const wchar_t* name = nullptr) = 0;
+				virtual bool Create(const RayTracing::Device* pDevice, void* pHandle,
+					uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					uint32_t maxTLASSrvs = 0, uint32_t spaceTLAS = 0,
+					const wchar_t* name = nullptr) = 0;
 				virtual bool Reset(const CommandAllocator* pAllocator, const Pipeline& initialState) = 0;
 				virtual bool PreBuildBLAS(BottomLevelAS* pBLAS, uint32_t numGeometries, const GeometryBuffer& geometries,
 					BuildFlag flags = BuildFlag::PREFER_FAST_TRACE) = 0;
@@ -76,13 +89,27 @@ namespace XUSG
 
 				static uptr MakeUnique(API api = API::DIRECTX_12);
 				static sptr MakeShared(API api = API::DIRECTX_12);
-				static uptr MakeUnique(RayTracing::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
-					uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
-					const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1,
+				static uptr MakeUnique(RayTracing::CommandList* pCommandList,
+					uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					uint32_t maxTLASSrvs = 0, uint32_t spaceTLAS = 0,
 					API api = API::DIRECTX_12);
-				static sptr MakeShared(RayTracing::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
-					uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
-					const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1,
+				static sptr MakeShared(RayTracing::CommandList* pCommandList,
+					uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					uint32_t maxTLASSrvs = 0, uint32_t spaceTLAS = 0,
 					API api = API::DIRECTX_12);
 			};
 		}

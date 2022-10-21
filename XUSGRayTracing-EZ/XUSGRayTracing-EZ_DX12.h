@@ -19,20 +19,39 @@ namespace XUSG
 			{
 			public:
 				CommandList_DXR();
-				CommandList_DXR(RayTracing::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
-					uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
-					const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1,
+				CommandList_DXR(RayTracing::CommandList* pCommandList,
+					uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					uint32_t maxTLASSrvs = 0, uint32_t spaceTLAS = 0);
 				virtual ~CommandList_DXR();
 
-				bool Create(RayTracing::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
-					uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
-					const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1,
+				bool Create(RayTracing::CommandList* pCommandList,
+					uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					uint32_t maxTLASSrvs = 0, uint32_t spaceTLAS = 0);
-				bool Create(const RayTracing::Device* pDevice, void* pHandle, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
-					uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
-					const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1,
-					uint32_t maxTLASSrvs = 0, uint32_t spaceTLAS = 0, const wchar_t* name = nullptr);
+				bool Create(const RayTracing::Device* pDevice, void* pHandle,
+					uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					uint32_t maxTLASSrvs = 0, uint32_t spaceTLAS = 0,
+					const wchar_t* name = nullptr);
 				bool Reset(const CommandAllocator* pAllocator, const Pipeline& initialState);
 				bool PreBuildBLAS(BottomLevelAS* pBLAS, uint32_t numGeometries, const GeometryBuffer& geometries,
 					BuildFlag flags = BuildFlag::PREFER_FAST_TRACE);

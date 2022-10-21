@@ -19,17 +19,35 @@ namespace XUSG
 			{
 			public:
 				CommandList_DX12();
-				CommandList_DX12(Ultimate::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
-					uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
-					const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1);
+				CommandList_DX12(Ultimate::CommandList* pCommandList,
+					uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr);
 				virtual ~CommandList_DX12();
 
-				bool Create(Ultimate::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
-					uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
-					const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1);
-				bool Create(const Device* pDevice, void* pHandle, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
-					uint32_t maxSamplers = 16, const uint32_t* pMaxCbvsEachSpace = nullptr, const uint32_t* pMaxSrvsEachSpace = nullptr,
-					const uint32_t* pMaxUavsEachSpace = nullptr, uint32_t maxCbvSpaces = 1, uint32_t maxSrvSpaces = 1, uint32_t maxUavSpaces = 1,
+				bool Create(Ultimate::CommandList* pCommandList,
+					uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr);
+				bool Create(const Device* pDevice, void* pHandle,
+					uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const wchar_t* name = nullptr);
 
 				void SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions) const
@@ -76,9 +94,14 @@ namespace XUSG
 				};
 
 				bool init(Ultimate::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize);
-				bool createMeshShaderPipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
-					const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
-					uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces);
+				bool createMeshShaderPipelineLayouts(
+					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
+					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
+					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE],
+					const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE],
+					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
+					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
+					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE]);
 
 				void predispatchMesh();
 

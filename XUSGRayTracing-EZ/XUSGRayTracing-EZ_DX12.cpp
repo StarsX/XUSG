@@ -27,9 +27,16 @@ EZ::CommandList_DXR::CommandList_DXR() :
 {
 }
 
-EZ::CommandList_DXR::CommandList_DXR(RayTracing::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
-	uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace, const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
-	uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces, uint32_t maxTLASSrvs, uint32_t spaceTLAS) :
+EZ::CommandList_DXR::CommandList_DXR(RayTracing::CommandList* pCommandList,
+	uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+	const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
+	const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
+	const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE],
+	const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE],
+	const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
+	uint32_t maxTLASSrvs, uint32_t spaceTLAS) :
 	CommandList_DXR()
 {
 	Create(pCommandList, samplerPoolSize, cbvSrvUavPoolSize, maxSamplers,
@@ -41,9 +48,15 @@ EZ::CommandList_DXR::~CommandList_DXR()
 {
 }
 
-bool EZ::CommandList_DXR::Create(RayTracing::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
-	uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace, const uint32_t* pMaxSrvsEachSpace,
-	const uint32_t* pMaxUavsEachSpace, uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces,
+bool EZ::CommandList_DXR::Create(RayTracing::CommandList* pCommandList,
+	uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+	const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
+	const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
+	const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE],
+	const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE],
+	const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
 	uint32_t maxTLASSrvs, uint32_t spaceTLAS)
 {
 	XUSG_N_RETURN(Ultimate::EZ::CommandList_DX12::init(pCommandList, samplerPoolSize, cbvSrvUavPoolSize), false);
@@ -60,8 +73,15 @@ bool EZ::CommandList_DXR::Create(RayTracing::CommandList* pCommandList, uint32_t
 	// Create common pipeline layouts
 	XUSG_N_RETURN(createGraphicsPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
 		pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces), false);
-	XUSG_N_RETURN(createComputePipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
-		pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces, maxTLASSrvs, spaceTLAS), false);
+
+	XUSG_N_RETURN(createComputePipelineLayouts(maxSamplers ? maxSamplers[Shader::Stage::CS] : 16,
+		pMaxCbvsEachSpace ? pMaxCbvsEachSpace[Shader::Stage::CS] : nullptr,
+		pMaxSrvsEachSpace ? pMaxSrvsEachSpace[Shader::Stage::CS] : nullptr,
+		pMaxUavsEachSpace ? pMaxUavsEachSpace[Shader::Stage::CS] : nullptr,
+		maxCbvSpaces ? maxCbvSpaces[Shader::Stage::CS] : 1,
+		maxSrvSpaces ? maxSrvSpaces[Shader::Stage::CS] : 1,
+		maxUavSpaces ? maxUavSpaces[Shader::Stage::CS] : 1,
+		maxTLASSrvs, spaceTLAS), false);
 
 	D3D12_FEATURE_DATA_D3D12_OPTIONS7 featureSupportData = {};
 	const auto hr = static_cast<ID3D12Device*>(m_pDevice->GetHandle())->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS7,
@@ -74,9 +94,16 @@ bool EZ::CommandList_DXR::Create(RayTracing::CommandList* pCommandList, uint32_t
 	return true;
 }
 
-bool EZ::CommandList_DXR::Create(const RayTracing::Device* pDevice, void* pHandle, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
-	uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace, const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
-	uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces, uint32_t maxTLASSrvs, uint32_t spaceTLAS, const wchar_t* name)
+bool EZ::CommandList_DXR::Create(const RayTracing::Device* pDevice, void* pHandle,
+	uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+	const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
+	const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
+	const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE],
+	const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE],
+	const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
+	uint32_t maxTLASSrvs, uint32_t spaceTLAS, const wchar_t* name)
 {
 	m_pDeviceRT = pDevice;
 	RayTracing::CommandList_DX12::Create(pHandle, name);
@@ -324,7 +351,8 @@ void EZ::CommandList_DXR::DispatchRaysIndirect(const CommandLayout* pCommandlayo
 
 bool EZ::CommandList_DXR::createComputePipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
 	const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
-	uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces, uint32_t maxTLASSrvs, uint32_t spaceTLAS)
+	uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces,
+	uint32_t maxTLASSrvs, uint32_t spaceTLAS)
 {
 	// Create common compute pipeline layout with ray tracing
 	auto paramIndex = 0u;
