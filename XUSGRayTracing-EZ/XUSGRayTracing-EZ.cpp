@@ -23,6 +23,7 @@ XUSG::EZ::ResourceView EZ::GetSRV(AccelerationStructure* pAS)
 	resourceView.View = pResource->GetSRV();
 	resourceView.Subresources = { XUSG_BARRIER_ALL_SUBRESOURCES };
 	resourceView.DstState = XUSG::ResourceState::RAYTRACING_ACCELERATION_STRUCTURE;
+	resourceView.pCounter = nullptr;
 
 	return resourceView;
 }
