@@ -57,7 +57,8 @@ Format MapToPackedFormat(Format& format)
 Resource_DX12::Resource_DX12() :
 	m_device(nullptr),
 	m_resource(nullptr),
-	m_states()
+	m_states(),
+	m_hasPromotion(false)
 {
 }
 
@@ -69,29 +70,40 @@ uint32_t Resource_DX12::SetBarrier(ResourceBarrier* pBarriers, ResourceState dst
 	uint32_t numBarriers, uint32_t subresource, BarrierFlag flags, uint32_t threadIdx)
 {
 	const auto& state = m_states[threadIdx][subresource == XUSG_BARRIER_ALL_SUBRESOURCES ? 0 : subresource];
-	if (state != dstState || dstState == ResourceState::UNORDERED_ACCESS)
-		pBarriers[numBarriers++] = Transition(dstState, subresource, flags, threadIdx);
+	if ((state & dstState) != dstState || dstState == ResourceState::UNORDERED_ACCESS)
+	{
+		const auto srcState = Transition(dstState, subresource, flags, threadIdx);
+
+		static const auto depthOpState = ResourceState::DEPTH_READ | ResourceState::DEPTH_WRITE;
+		static const auto promotionState = ResourceState::SHADER_RESOURCE | ResourceState::COPY_SOURCE | ResourceState::COPY_DEST;
+		const auto isSrcStateReset = srcState == ResourceState::COMMON || (flags & BarrierFlag::RESET_SRC_STATE) == BarrierFlag::RESET_SRC_STATE;
+		const auto isPromoted = isSrcStateReset && (dstState & depthOpState) == ResourceState::COMMON &&
+			(m_hasPromotion || (dstState & promotionState) != ResourceState::COMMON);
+
+		if (!isPromoted) pBarriers[numBarriers++] = { this, srcState, dstState, subresource, flags };
+	}
 
 	return numBarriers;
 }
 
-ResourceBarrier Resource_DX12::Transition(ResourceState dstState,
+ResourceState Resource_DX12::Transition(ResourceState dstState,
 	uint32_t subresource, BarrierFlag flags, uint32_t threadIdx)
 {
 	ResourceState srcState;
+	const bool isBeginOnly = (flags & BarrierFlag::BEGIN_ONLY) == BarrierFlag::BEGIN_ONLY;
 	if (subresource == XUSG_BARRIER_ALL_SUBRESOURCES)
 	{
 		srcState = m_states[threadIdx][0];
-		if (flags != BarrierFlag::BEGIN_ONLY)
+		if (!isBeginOnly)
 			for (auto& state : m_states[threadIdx]) state = dstState;
 	}
 	else
 	{
 		srcState = m_states[threadIdx][subresource];
-		m_states[threadIdx][subresource] = flags == BarrierFlag::BEGIN_ONLY ? srcState : dstState;
+		m_states[threadIdx][subresource] = isBeginOnly ? srcState : dstState;
 	}
 
-	return { this, srcState, dstState, subresource, flags };
+	return srcState;
 }
 
 ResourceState Resource_DX12::GetResourceState(uint32_t subresource, uint32_t threadIdx) const
@@ -387,7 +399,8 @@ bool Texture_DX12::Create(const Device* pDevice, uint32_t width, uint32_t height
 
 	const auto needPackedUAV = (resourceFlags & ResourceFlag::NEED_PACKED_UAV) == ResourceFlag::NEED_PACKED_UAV;
 	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
-	const bool hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
+	const auto hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
+	m_hasPromotion = (resourceFlags & ResourceFlag::ALLOW_SIMULTANEOUS_ACCESS) == ResourceFlag::ALLOW_SIMULTANEOUS_ACCESS;
 
 	// Map formats
 	m_format = format;
@@ -454,11 +467,10 @@ bool Texture_DX12::Upload(CommandList* pCommandList, Resource* pUploader,
 
 	// Copy data to the intermediate upload heap and then schedule a copy 
 	// from the upload heap to the Texture2D.
-	const bool decay = m_resource->GetDesc().Flags & D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS;
 	ResourceBarrier barrier;
 	auto numBarriers = SetBarrier(&barrier, ResourceState::COPY_DEST, 0,
 		XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::NONE, threadIdx);
-	if (m_states[threadIdx][0] != ResourceState::COMMON || !decay) pCommandList->Barrier(numBarriers, &barrier);
+	pCommandList->Barrier(numBarriers, &barrier);
 
 	const auto pGraphicsCommandList = static_cast<ID3D12GraphicsCommandList*>(pCommandList->GetHandle());
 	XUSG_M_RETURN(UpdateSubresources(pGraphicsCommandList, m_resource.get(), uploaderResource.get(), 0, firstSubresource,
@@ -466,7 +478,7 @@ bool Texture_DX12::Upload(CommandList* pCommandList, Resource* pUploader,
 		clog, "Failed to upload the resource.", false);
 
 	numBarriers = SetBarrier(&barrier, dstState, 0, XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::NONE, threadIdx);
-	if (dstState != ResourceState::COMMON || !decay) pCommandList->Barrier(numBarriers, &barrier);
+	if (dstState != ResourceState::COMMON) pCommandList->Barrier(numBarriers, &barrier);
 
 	return true;
 }
@@ -1097,7 +1109,8 @@ bool RenderTarget_DX12::create(const Device* pDevice, uint32_t width, uint32_t h
 
 	const auto needPackedUAV = (resourceFlags & ResourceFlag::NEED_PACKED_UAV) == ResourceFlag::NEED_PACKED_UAV;
 	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
-	const bool hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
+	const auto hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
+	m_hasPromotion = (resourceFlags & ResourceFlag::ALLOW_SIMULTANEOUS_ACCESS) == ResourceFlag::ALLOW_SIMULTANEOUS_ACCESS;
 
 	// Map formats
 	m_format = format;
@@ -1520,7 +1533,8 @@ bool Texture3D_DX12::Create(const Device* pDevice, uint32_t width, uint32_t heig
 
 	const auto needPackedUAV = (resourceFlags & ResourceFlag::NEED_PACKED_UAV) == ResourceFlag::NEED_PACKED_UAV;
 	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
-	const bool hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
+	const auto hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
+	m_hasPromotion = (resourceFlags & ResourceFlag::ALLOW_SIMULTANEOUS_ACCESS) == ResourceFlag::ALLOW_SIMULTANEOUS_ACCESS;
 
 	// Map formats
 	m_format = format;
@@ -1650,6 +1664,7 @@ Buffer_DX12::Buffer_DX12() :
 	m_srvOffsets(0),
 	m_pDataBegin(nullptr)
 {
+	m_hasPromotion = true;
 }
 
 Buffer_DX12::~Buffer_DX12()
@@ -1663,7 +1678,7 @@ bool Buffer_DX12::Create(const Device* pDevice, size_t byteWidth, ResourceFlag r
 	const wchar_t* name, uint32_t maxThreads)
 {
 	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
-	const bool hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
+	const auto hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
 
 	numSRVs = hasSRV ? numSRVs : 0;
 	numUAVs = hasUAV ? numUAVs : 0;
@@ -1905,7 +1920,7 @@ bool StructuredBuffer_DX12::Create(const Device* pDevice, uint32_t numElements, 
 	const size_t* counterOffsetsInBytes, uint32_t maxThreads)
 {
 	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
-	const bool hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
+	const auto hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
 
 	numSRVs = hasSRV ? numSRVs : 0;
 	numUAVs = hasUAV ? numUAVs : 0;
@@ -2011,7 +2026,7 @@ bool TypedBuffer_DX12::Create(const Device* pDevice, uint32_t numElements, uint3
 	const auto needPackedUAV = (resourceFlags & ResourceFlag::NEED_PACKED_UAV) == ResourceFlag::NEED_PACKED_UAV;
 
 	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
-	const bool hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
+	const auto hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
 
 	numSRVs = hasSRV ? numSRVs : 0;
 	numUAVs = hasUAV ? numUAVs : 0;
@@ -2117,7 +2132,7 @@ bool VertexBuffer_DX12::Create(const Device* pDevice, uint32_t numVertices, uint
 	const wchar_t* name)
 {
 	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
-	const bool hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
+	const auto hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
 
 	XUSG_N_RETURN(StructuredBuffer_DX12::Create(pDevice, numVertices, stride, resourceFlags, memoryType,
 		numSRVs, firstSRVElements, numUAVs, firstUAVElements, memoryFlags, name), false);
@@ -2143,7 +2158,7 @@ bool VertexBuffer_DX12::CreateAsRaw(const Device* pDevice, uint32_t numVertices,
 	const wchar_t* name)
 {
 	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
-	const bool hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
+	const auto hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
 
 	XUSG_N_RETURN(Buffer_DX12::Create(pDevice, static_cast<size_t>(stride) * numVertices, resourceFlags,
 		memoryType, numSRVs, firstSRVElements, numUAVs, firstUAVElements, memoryFlags, name), false);
@@ -2189,7 +2204,7 @@ bool IndexBuffer_DX12::Create(const Device* pDevice, size_t byteWidth, Format fo
 	const wchar_t* name)
 {
 	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
-	const bool hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
+	const auto hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
 
 	assert(format == Format::R32_UINT || format == Format::R16_UINT);
 	const uint32_t stride = format == Format::R32_UINT ? sizeof(uint32_t) : sizeof(uint16_t);

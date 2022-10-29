@@ -14,8 +14,8 @@
 #define XUSG_N_RETURN(x, r)				XUSG_C_RETURN(!(x), r)
 #define XUSG_X_RETURN(x, f, r)			{ x = f; XUSG_N_RETURN(x, r); }
 
-#define XUSG_DIV_UP(x, n)				(((x) - 1) / (n) + 1)
-#define XUSG_SizeOfInUint32(obj)		XUSG_DIV_UP(sizeof(obj), sizeof(uint32_t))
+#define XUSG_DIV_UP(x, n)				(((x) + (n) - 1) / (n))
+#define XUSG_UINT32_SIZE_OF(obj)		XUSG_DIV_UP(sizeof(obj), sizeof(uint32_t))
 
 #define XUSG_APPEND_ALIGNED_ELEMENT		0xffffffff
 #define XUSG_BARRIER_ALL_SUBRESOURCES	0xffffffff
@@ -389,7 +389,8 @@ namespace XUSG
 		RAYTRACING_ACCELERATION_STRUCTURE = (1 << 15),
 		SHADING_RATE_SOURCE = (1 << 16),
 
-		GENERAL_READ = (VERTEX_AND_CONSTANT_BUFFER | INDEX_BUFFER | NON_PIXEL_SHADER_RESOURCE | PIXEL_SHADER_RESOURCE | INDIRECT_ARGUMENT | COPY_SOURCE | PREDICATION),
+		SHADER_RESOURCE = NON_PIXEL_SHADER_RESOURCE | PIXEL_SHADER_RESOURCE,
+		GENERAL_READ = VERTEX_AND_CONSTANT_BUFFER | INDEX_BUFFER | SHADER_RESOURCE | INDIRECT_ARGUMENT | COPY_SOURCE | PREDICATION,
 		PRESENT = 0,
 
 		VIDEO_DECODE_READ = (1 << 17),
@@ -406,7 +407,8 @@ namespace XUSG
 	{
 		NONE = 0,
 		BEGIN_ONLY = (1 << 0),
-		END_ONLY = (1 << 1)
+		END_ONLY = (1 << 1),
+		RESET_SRC_STATE = (1 << 2)
 	};
 
 	XUSG_DEF_ENUM_FLAG_OPERATORS(BarrierFlag);
@@ -1345,9 +1347,9 @@ namespace XUSG
 			uint32_t numBarriers = 0, uint32_t subresource = XUSG_BARRIER_ALL_SUBRESOURCES,
 			BarrierFlag flags = BarrierFlag::NONE, uint32_t threadIdx = 0) = 0;
 
-		virtual ResourceBarrier	Transition(ResourceState dstState, uint32_t subresource = XUSG_BARRIER_ALL_SUBRESOURCES,
+		virtual ResourceState Transition(ResourceState dstState, uint32_t subresource = XUSG_BARRIER_ALL_SUBRESOURCES,
 			BarrierFlag flag = BarrierFlag::NONE, uint32_t threadIdx = 0) = 0;
-		virtual ResourceState	GetResourceState(uint32_t subresource = 0, uint32_t threadIdx = 0) const = 0;
+		virtual ResourceState GetResourceState(uint32_t subresource = 0, uint32_t threadIdx = 0) const = 0;
 
 		virtual uint64_t GetWidth() const = 0;
 
@@ -2209,5 +2211,4 @@ namespace XUSG
 	XUSG_INTERFACE uint8_t CalculateMipLevels(uint32_t width, uint32_t height, uint32_t depth = 1);
 	XUSG_INTERFACE uint8_t CalculateMipLevels(uint64_t width, uint32_t height, uint32_t depth = 1);
 	XUSG_INTERFACE uint8_t Log2(uint32_t value);
-	XUSG_INTERFACE uint32_t DivideAndRoundUp(uint32_t x, uint32_t n);
 }

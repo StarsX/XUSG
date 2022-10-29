@@ -53,7 +53,7 @@ static bool LoadTextureDataFromFile(const wchar_t* fileName,
 		cerr, GetLastError(), false);
 
 	// DDS files always start with the same magic number ("DDS ")
-	const auto dwMagicNumber = *(const uint32_t*)(ddsData.get());
+	const auto dwMagicNumber = *reinterpret_cast<const uint32_t*>(ddsData.get());
 	XUSG_C_RETURN(dwMagicNumber != DDS_MAGIC, false);
 
 	const auto hdr = reinterpret_cast<DDS_HEADER*>(ddsData.get() + sizeof(uint32_t));
@@ -522,7 +522,7 @@ static bool FillInitData(uint32_t width, uint32_t height, uint32_t depth,
 
 				assert(index < mipCount * arraySize);
 				_Analysis_assume_(index < mipCount * arraySize);
-				initData[index].pData = reinterpret_cast<const void*>(pSrcBits);
+				initData[index].pData = static_cast<const void*>(pSrcBits);
 				initData[index].RowPitch = static_cast<uint32_t>(RowBytes);
 				initData[index].SlicePitch = static_cast<uint32_t>(NumBytes);
 				++index;

@@ -22,9 +22,9 @@ namespace XUSG
 			uint32_t numBarriers = 0, uint32_t subresource = XUSG_BARRIER_ALL_SUBRESOURCES,
 			BarrierFlag flags = BarrierFlag::NONE, uint32_t threadIdx = 0);
 
-		ResourceBarrier	Transition(ResourceState dstState, uint32_t subresource = XUSG_BARRIER_ALL_SUBRESOURCES,
+		ResourceState Transition(ResourceState dstState, uint32_t subresource = XUSG_BARRIER_ALL_SUBRESOURCES,
 			BarrierFlag flag = BarrierFlag::NONE, uint32_t threadIdx = 0);
-		ResourceState	GetResourceState(uint32_t subresource = 0, uint32_t threadIdx = 0) const;
+		ResourceState GetResourceState(uint32_t subresource = 0, uint32_t threadIdx = 0) const;
 
 		uint64_t GetWidth() const;
 
@@ -41,6 +41,8 @@ namespace XUSG
 		com_ptr<ID3D12Device>	m_device;
 		com_ptr<ID3D12Resource>	m_resource;
 		std::vector<std::vector<ResourceState>> m_states;
+
+		bool m_hasPromotion;
 
 		std::wstring m_name;
 	};
