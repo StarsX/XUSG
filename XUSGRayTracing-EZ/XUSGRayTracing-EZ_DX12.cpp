@@ -260,10 +260,10 @@ void EZ::CommandList_DXR::SetTopLevelAccelerationStructure(uint32_t binding, con
 	RayTracing::CommandList_DX12::SetTopLevelAccelerationStructure(m_tlasBindingToParamIndexMap[binding], pTopLevelAS);
 }
 
-void EZ::CommandList_DXR::RTSetShaderLibrary(Blob shaderLib)
+void EZ::CommandList_DXR::RTSetShaderLibrary(uint32_t index, const Blob& shaderLib, uint32_t numShaders, const void** pShaders)
 {
 	assert(m_rayTracingState);
-	m_rayTracingState->SetShaderLibrary(shaderLib);
+	m_rayTracingState->SetShaderLibrary(index, shaderLib, numShaders, pShaders);
 	m_isRTStateDirty = true;
 }
 

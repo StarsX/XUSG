@@ -65,7 +65,8 @@ namespace XUSG
 				virtual void BuildBLAS(BottomLevelAS* pBLAS, bool update = false) = 0;
 				virtual void BuildTLAS(TopLevelAS* pTLAS, const Resource* pInstanceDescs, bool update = false) = 0;
 				virtual void SetTopLevelAccelerationStructure(uint32_t binding, const TopLevelAS* pTopLevelAS) const = 0;
-				virtual void RTSetShaderLibrary(Blob shaderLib) = 0;
+				virtual void RTSetShaderLibrary(uint32_t index, const Blob& shaderLib,
+					uint32_t numShaders = 0, const void** pShaders = nullptr) = 0;
 				virtual void RTSetHitGroup(uint32_t index, const void* pHitGroup, const void* pClosestHitShader,
 					const void* pAnyHitShader = nullptr, const void* pIntersectionShader = nullptr,
 					HitGroupType type = HitGroupType::TRIANGLES) = 0;

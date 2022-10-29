@@ -66,7 +66,8 @@ namespace XUSG
 				void BuildBLAS(BottomLevelAS* pBLAS, bool update = false);
 				void BuildTLAS(TopLevelAS* pTLAS, const Resource* pInstanceDescs, bool update = false);
 				void SetTopLevelAccelerationStructure(uint32_t index, const TopLevelAS* pTopLevelAS) const;
-				void RTSetShaderLibrary(Blob shaderLib);
+				void RTSetShaderLibrary(uint32_t index, const Blob& shaderLib,
+					uint32_t numShaders = 0, const void** pShaders = nullptr);
 				void RTSetShaderConfig(uint32_t maxPayloadSize, uint32_t maxAttributeSize = sizeof(float[2]));
 				void RTSetHitGroup(uint32_t index, const void* pHitGroup, const void* pClosestHitShader,
 					const void* pAnyHitShader = nullptr, const void* pIntersectionShader = nullptr,
