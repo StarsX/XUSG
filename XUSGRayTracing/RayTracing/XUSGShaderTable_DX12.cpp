@@ -42,7 +42,7 @@ const void* XUSG::RayTracing::ShaderRecord_DX12::GetShaderID(const Pipeline& pip
 {
 	const auto pPipeline = static_cast<ID3D12RaytracingFallbackStateObject*>(pipeline);
 
-	return pPipeline->GetShaderIdentifier(reinterpret_cast<const wchar_t*>(shader));
+	return pPipeline->GetShaderIdentifier(static_cast<const wchar_t*>(shader));
 }
 
 uint32_t ShaderRecord_DX12::GetShaderIDSize(const Device* pDevice)

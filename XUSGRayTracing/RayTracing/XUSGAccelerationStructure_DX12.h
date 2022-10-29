@@ -26,7 +26,7 @@ namespace XUSG
 			uint64_t GetResultPointer() const;
 
 			static bool AllocateUAVBuffer(const XUSG::Device* pDevice, Resource* pResource,
-				size_t byteWidth, ResourceState dstState = ResourceState::UNORDERED_ACCESS);
+				size_t byteWidth, ResourceState dstState = ResourceState::COMMON);
 			static bool AllocateUploadBuffer(const XUSG::Device* pDevice, Resource* pResource,
 				size_t byteWidth, void* pData);
 

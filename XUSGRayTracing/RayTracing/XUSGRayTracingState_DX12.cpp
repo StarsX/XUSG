@@ -10,6 +10,7 @@ using namespace XUSG;
 using namespace XUSG::RayTracing;
 
 State_DX12::State_DX12() :
+	m_keyShaderLibs(0),
 	m_keyHitGroups(0),
 	m_keyLocalPipelineLayouts(0),
 	m_isComplete(false)
@@ -24,10 +25,17 @@ State_DX12::~State_DX12()
 {
 }
 
-void State_DX12::SetShaderLibrary(const Blob& shaderLib)
+void State_DX12::SetShaderLibrary(uint32_t index, const Blob& shaderLib, uint32_t numShaders, const void** pShaders)
 {
 	m_isComplete = false;
-	m_pKeyHeader->ShaderLib = shaderLib;
+
+	if (index >= m_keyShaderLibs.size())
+		m_keyShaderLibs.resize(index + 1);
+
+	auto& keyShaderLib = m_keyShaderLibs[index];
+	keyShaderLib.Lib = shaderLib;
+	keyShaderLib.Shaders.resize(numShaders);
+	memcpy(keyShaderLib.Shaders.data(), pShaders, sizeof(void*) * numShaders);
 }
 
 void State_DX12::SetHitGroup(uint32_t index, const void* hitGroup, const void* closestHitShader,
@@ -67,9 +75,7 @@ void State_DX12::SetLocalPipelineLayout(uint32_t index, const XUSG::PipelineLayo
 		m_keyLocalPipelineLayouts.resize(index + 1);
 
 	auto& keyLocalPipelineLayout = m_keyLocalPipelineLayouts[index];
-	keyLocalPipelineLayout.Header.PipelineLayout = layout;
-	keyLocalPipelineLayout.Header.NumShaders = numShaders;
-
+	keyLocalPipelineLayout.Layout = layout;
 	keyLocalPipelineLayout.Shaders.resize(numShaders);
 	memcpy(keyLocalPipelineLayout.Shaders.data(), pShaders, sizeof(void*) * numShaders);
 }
@@ -105,36 +111,62 @@ const string& State_DX12::GetKey()
 
 void State_DX12::complete()
 {
+	m_pKeyHeader->NumShaderLibs = static_cast<uint32_t>(m_keyShaderLibs.size());
 	m_pKeyHeader->NumHitGroups = static_cast<uint32_t>(m_keyHitGroups.size());
 	m_pKeyHeader->NumLocalPipelineLayouts = static_cast<uint32_t>(m_keyLocalPipelineLayouts.size());
 
 	// Calculate total key size
+	const auto sizeKeyHeader = sizeof(KeyHeader);
+
+	auto sizeKeyShaderLibs = sizeof(KeyShaderLibHeader) * m_keyShaderLibs.size();
+	for (const auto& keyShaderLib : m_keyShaderLibs)
+		sizeKeyShaderLibs += sizeof(void*) * keyShaderLib.Shaders.size();
+
 	const auto sizeKeyHitGroups = sizeof(KeyHitGroup) * m_keyHitGroups.size();
-	auto size = sizeof(KeyHeader) + sizeKeyHitGroups;
-	size += sizeof(KeyLocalPipelineLayoutHeader) * m_keyLocalPipelineLayouts.size();
+
+	auto sizeKeyLocalPipelineLayouts = sizeof(KeyLocalPipelineLayoutHeader) * m_keyLocalPipelineLayouts.size();
 	for (const auto& keyLocalPipelineLayout : m_keyLocalPipelineLayouts)
-		size += sizeof(void*) * keyLocalPipelineLayout.Header.NumShaders;
+		sizeKeyLocalPipelineLayouts += sizeof(void*) * keyLocalPipelineLayout.Shaders.size();
 
-	m_key.resize(size);
+	m_key.resize(sizeKeyHeader + sizeKeyShaderLibs + sizeKeyHitGroups + sizeKeyLocalPipelineLayouts);
 
-	const auto pKeyHitGroups = reinterpret_cast<KeyHitGroup*>(&m_key[sizeof(KeyHeader)]);
-	memcpy(pKeyHitGroups, m_keyHitGroups.data(), sizeKeyHitGroups);
+	auto pKeyShaderLibHeader = reinterpret_cast<KeyShaderLibHeader*>(&m_key[sizeKeyHeader]);
+	for (const auto& keyShaderLib : m_keyShaderLibs)
+	{
+		// Set the layout and number of associated shaders
+		pKeyShaderLibHeader->Lib = keyShaderLib.Lib;
+		pKeyShaderLibHeader->NumShaders = static_cast<uint32_t>(keyShaderLib.Shaders.size());
+
+		// Update the pointer of the shaders, and copy the shaders
+		const auto pKeyShaders = reinterpret_cast<void**>(&pKeyShaderLibHeader[1]);
+		memcpy(pKeyShaders, keyShaderLib.Shaders.data(), sizeof(void*) * pKeyShaderLibHeader->NumShaders);
+
+		// Update the pointer
+		pKeyShaderLibHeader = reinterpret_cast<KeyShaderLibHeader*>(&pKeyShaders[pKeyShaderLibHeader->NumShaders]);
+	}
+
+	if (m_pKeyHeader->NumHitGroups > 0)
+	{
+		const auto pKeyHitGroups = reinterpret_cast<KeyHitGroup*>(&m_key[sizeKeyHeader + sizeKeyShaderLibs]);
+		memcpy(pKeyHitGroups, m_keyHitGroups.data(), sizeKeyHitGroups);
+	}
 
 	auto pKeyLocalPipelineLayoutHeader = reinterpret_cast<KeyLocalPipelineLayoutHeader*>
-		(&m_key[sizeof(KeyHeader) + sizeKeyHitGroups]);
+		(&m_key[sizeKeyHeader + sizeKeyShaderLibs + sizeKeyHitGroups]);
 	for (const auto& keyLocalPipelineLayout : m_keyLocalPipelineLayouts)
 	{
-		// Copy the header
-		memcpy(pKeyLocalPipelineLayoutHeader, &keyLocalPipelineLayout.Header, sizeof(KeyLocalPipelineLayoutHeader));
+		// Set the layout and number of associated shaders
+		pKeyLocalPipelineLayoutHeader->Layout = keyLocalPipelineLayout.Layout;
+		pKeyLocalPipelineLayoutHeader->NumShaders = static_cast<uint32_t>(keyLocalPipelineLayout.Shaders.size());
 
 		// Update the pointer of association, and copy the associated shaders
-		const auto pkeyLocalPipelineAssociation = reinterpret_cast<void**>(&pKeyLocalPipelineLayoutHeader[1]);
-		memcpy(pkeyLocalPipelineAssociation, keyLocalPipelineLayout.Shaders.data(),
-			sizeof(void*) * keyLocalPipelineLayout.Header.NumShaders);
+		const auto pKeyLocalPipelineAssociation = reinterpret_cast<void**>(&pKeyLocalPipelineLayoutHeader[1]);
+		memcpy(pKeyLocalPipelineAssociation, keyLocalPipelineLayout.Shaders.data(),
+			sizeof(void*) * pKeyLocalPipelineLayoutHeader->NumShaders);
 
-		// Update the pointer of header
+		// Update the pointer
 		pKeyLocalPipelineLayoutHeader = reinterpret_cast<KeyLocalPipelineLayoutHeader*>
-			(&pkeyLocalPipelineAssociation[pKeyLocalPipelineLayoutHeader->NumShaders]);
+			(&pKeyLocalPipelineAssociation[pKeyLocalPipelineLayoutHeader->NumShaders]);
 	}
 
 	m_isComplete = true;
@@ -183,29 +215,50 @@ Pipeline PipelineCache_DX12::createPipeline(const string& key, const wchar_t* na
 {
 	// Get header
 	const auto& keyHeader = reinterpret_cast<const State_DX12::KeyHeader&>(key[0]);
+	const auto sizeKeyHeader = sizeof(State_DX12::KeyHeader);
+	const auto sizeKeyHitGroups = sizeof(State_DX12::KeyHitGroup) * keyHeader.NumHitGroups;
+	auto sizeKeyShaderLibs = sizeof(State_DX12::KeyShaderLibHeader) * keyHeader.NumShaderLibs;
 
 	CD3DX12_STATE_OBJECT_DESC pPsoDesc(D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE);
 
 	// DXIL library
-	const auto pLib = pPsoDesc.CreateSubobject<CD3DX12_DXIL_LIBRARY_SUBOBJECT>();
-	CD3DX12_SHADER_BYTECODE libdxil(static_cast<ID3DBlob*>(keyHeader.ShaderLib));
-	pLib->SetDXILLibrary(&libdxil);
-	// Use default shader exports for a DXIL library/collection subobject ~ surface all shaders.
+	auto pKeyShaderLibHeader = reinterpret_cast<const State_DX12::KeyShaderLibHeader*>(&key[sizeKeyHeader]);
+	for (auto i = 0u; i < keyHeader.NumShaderLibs; ++i)
+	{
+		const auto pLib = pPsoDesc.CreateSubobject<CD3DX12_DXIL_LIBRARY_SUBOBJECT>();
+		const auto libDXIL = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pKeyShaderLibHeader->Lib));
+		pLib->SetDXILLibrary(&libDXIL);
+
+		if (pKeyShaderLibHeader->NumShaders > 0)
+		{
+			// Calculate the size of shader-lib keys
+			sizeKeyShaderLibs += sizeof(void*) * pKeyShaderLibHeader->NumShaders;
+
+			// Export shaders
+			const auto pShaderNames = reinterpret_cast<const wchar_t* const*>(&pKeyShaderLibHeader[1]);
+			pLib->DefineExports(pShaderNames, pKeyShaderLibHeader->NumShaders);
+
+			// Update the pointer
+			pKeyShaderLibHeader = reinterpret_cast<const State_DX12::KeyShaderLibHeader*>
+				(&pShaderNames[pKeyShaderLibHeader->NumShaders]);
+		}
+		// Else, use default shader exports for a DXIL library/collection subobject ~ surface all shaders.
+	}
 
 	// Hit groups
-	const auto pKeyHitGroups = reinterpret_cast<const State_DX12::KeyHitGroup*>(&key[sizeof(State_DX12::KeyHeader)]);
+	const auto pKeyHitGroups = reinterpret_cast<const State_DX12::KeyHitGroup*>(&key[sizeKeyHeader + sizeKeyShaderLibs]);
 	for (auto i = 0u; i < keyHeader.NumHitGroups; ++i)
 	{
 		const auto& keyHitGroup = pKeyHitGroups[i];
 		const auto pHitGroup = pPsoDesc.CreateSubobject<CD3DX12_HIT_GROUP_SUBOBJECT>();
 		if (keyHitGroup.ClosestHitShader)
-			pHitGroup->SetClosestHitShaderImport(reinterpret_cast<const wchar_t*>(keyHitGroup.ClosestHitShader));
+			pHitGroup->SetClosestHitShaderImport(static_cast<const wchar_t*>(keyHitGroup.ClosestHitShader));
 		if (keyHitGroup.AnyHitShader)
-			pHitGroup->SetAnyHitShaderImport(reinterpret_cast<const wchar_t*>(keyHitGroup.AnyHitShader));
+			pHitGroup->SetAnyHitShaderImport(static_cast<const wchar_t*>(keyHitGroup.AnyHitShader));
 		if (keyHitGroup.IntersectionShader)
-			pHitGroup->SetIntersectionShaderImport(reinterpret_cast<const wchar_t*>(keyHitGroup.IntersectionShader));
+			pHitGroup->SetIntersectionShaderImport(static_cast<const wchar_t*>(keyHitGroup.IntersectionShader));
 
-		pHitGroup->SetHitGroupExport(reinterpret_cast<const wchar_t*>(keyHitGroup.HitGroup));
+		pHitGroup->SetHitGroupExport(static_cast<const wchar_t*>(keyHitGroup.HitGroup));
 		pHitGroup->SetHitGroupType(D3D12_HIT_GROUP_TYPE(keyHitGroup.Type));
 	}
 
@@ -216,26 +269,25 @@ Pipeline PipelineCache_DX12::createPipeline(const string& key, const wchar_t* na
 
 	// Local pipeline layout and shader association
 	// This is a pipeline layout that enables a shader to have unique arguments that come from shader tables.
-	auto pkeyLocalPipelineLayoutHeader = reinterpret_cast<const State_DX12::KeyLocalPipelineLayoutHeader*>
-		(&key[sizeof(State_DX12::KeyHeader) + sizeof(State_DX12::KeyHitGroup) * keyHeader.NumHitGroups]);
+	auto pKeyLocalPipelineLayoutHeader = reinterpret_cast<const State_DX12::KeyLocalPipelineLayoutHeader*>
+		(&key[sizeKeyHeader + sizeKeyShaderLibs + sizeKeyHitGroups]);
 	for (auto i = 0u; i < keyHeader.NumLocalPipelineLayouts; ++i)
 	{
-		const auto pRootSignature = static_cast<ID3D12RootSignature*>(pkeyLocalPipelineLayoutHeader->PipelineLayout);
+		const auto pRootSignature = static_cast<ID3D12RootSignature*>(pKeyLocalPipelineLayoutHeader->Layout);
 
 		// Set pipeline layout
 		const auto pLocalRootSignature = pPsoDesc.CreateSubobject<CD3DX12_LOCAL_ROOT_SIGNATURE_SUBOBJECT>();
 		pLocalRootSignature->SetRootSignature(pRootSignature);
 
 		// Shader association
-		const auto pkeyLocalPipelineAssociation = reinterpret_cast<void* const*>(&pkeyLocalPipelineLayoutHeader[1]);
+		const auto pAssociatedShaderNames = reinterpret_cast<const wchar_t* const*>(&pKeyLocalPipelineLayoutHeader[1]);
 		const auto pRootSignatureAssociation = pPsoDesc.CreateSubobject<CD3DX12_SUBOBJECT_TO_EXPORTS_ASSOCIATION_SUBOBJECT>();
 		pRootSignatureAssociation->SetSubobjectToAssociate(*pLocalRootSignature);
-		for (auto j = 0u; j < pkeyLocalPipelineLayoutHeader->NumShaders; ++j)
-			pRootSignatureAssociation->AddExport(reinterpret_cast<const wchar_t*>(pkeyLocalPipelineAssociation[j]));
+		pRootSignatureAssociation->AddExports(pAssociatedShaderNames, pKeyLocalPipelineLayoutHeader->NumShaders);
 
 		// Update the pointer
-		pkeyLocalPipelineLayoutHeader = reinterpret_cast<const State_DX12::KeyLocalPipelineLayoutHeader*>
-			(&pkeyLocalPipelineAssociation[pkeyLocalPipelineLayoutHeader->NumShaders]);
+		pKeyLocalPipelineLayoutHeader = reinterpret_cast<const State_DX12::KeyLocalPipelineLayoutHeader*>
+			(&pAssociatedShaderNames[pKeyLocalPipelineLayoutHeader->NumShaders]);
 	}
 
 	// Global pipeline layout

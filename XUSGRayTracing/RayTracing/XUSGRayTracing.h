@@ -116,7 +116,7 @@ namespace XUSG
 			static void SetFrameCount(uint32_t frameCount);
 
 			static bool AllocateUAVBuffer(const Device* pDevice, Resource* pResource,
-				size_t byteWidth, ResourceState dstState = ResourceState::UNORDERED_ACCESS,
+				size_t byteWidth, ResourceState dstState = ResourceState::COMMON,
 				API api = API::DIRECTX_12);
 			static bool AllocateUploadBuffer(const Device* pDevice, Resource* pResource,
 				size_t byteWidth, void* pData, API api = API::DIRECTX_12);
@@ -322,7 +322,8 @@ namespace XUSG
 			//State();
 			virtual ~State() {}
 
-			virtual void SetShaderLibrary(const Blob& shaderLib) = 0;
+			virtual void SetShaderLibrary(uint32_t index, const Blob& shaderLib,
+				uint32_t numShaders = 0, const void** pShaders = nullptr) = 0;
 			virtual void SetHitGroup(uint32_t index, const void* hitGroup, const void* closestHitShader,
 				const void* anyHitShader = nullptr, const void* intersectionShader = nullptr,
 				HitGroupType type = HitGroupType::TRIANGLES) = 0;

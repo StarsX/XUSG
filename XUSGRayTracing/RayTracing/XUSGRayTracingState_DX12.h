@@ -16,13 +16,25 @@ namespace XUSG
 		public:
 			struct KeyHeader
 			{
-				void* ShaderLib;
-				void* GlobalPipelineLayout;
+				XUSG::PipelineLayout GlobalPipelineLayout;
+				uint32_t NumShaderLibs;
 				uint32_t NumHitGroups;
 				uint32_t NumLocalPipelineLayouts;
 				uint32_t MaxPayloadSize;
 				uint32_t MaxAttributeSize;
 				uint32_t MaxRecursionDepth;
+			};
+
+			struct KeyShaderLibHeader
+			{
+				Blob Lib;
+				uint32_t NumShaders;
+			};
+
+			struct KeyShaderLib
+			{
+				Blob Lib;
+				std::vector<const void*> Shaders;
 			};
 
 			struct KeyHitGroup
@@ -36,20 +48,21 @@ namespace XUSG
 
 			struct KeyLocalPipelineLayoutHeader
 			{
-				void* PipelineLayout;
+				XUSG::PipelineLayout Layout;
 				uint32_t NumShaders;
 			};
 
 			struct KeyLocalPipelineLayout
 			{
-				KeyLocalPipelineLayoutHeader Header;
-				std::vector<void*> Shaders;
+				XUSG::PipelineLayout Layout;
+				std::vector<const void*> Shaders;
 			};
 
 			State_DX12();
 			virtual ~State_DX12();
 
-			void SetShaderLibrary(const Blob& shaderLib);
+			void SetShaderLibrary(uint32_t index, const Blob& shaderLib,
+				uint32_t numShaders = 0, const void** pShaders = nullptr);
 			void SetHitGroup(uint32_t index, const void* hitGroup, const void* closestHitShader,
 				const void* anyHitShader = nullptr, const void* intersectionShader = nullptr,
 				HitGroupType type = HitGroupType::TRIANGLES);
@@ -70,6 +83,7 @@ namespace XUSG
 			KeyHeader* m_pKeyHeader;
 			std::string m_key;
 
+			std::vector<KeyShaderLib> m_keyShaderLibs;
 			std::vector<KeyHitGroup> m_keyHitGroups;
 			std::vector<KeyLocalPipelineLayout> m_keyLocalPipelineLayouts;
 
