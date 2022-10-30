@@ -142,6 +142,7 @@ void State_DX12::serialize()
 		sizeKeyLocalPipelineLayouts += sizeof(void*) * keyLocalPipelineLayout.Shaders.size();
 
 	m_key.resize(sizeKeyHeader + sizeKeyHitGroups + sizeKeyShaderLibs + sizeKeyLocalPipelineLayouts);
+	m_pKeyHeader = reinterpret_cast<KeyHeader*>(&m_key[0]);
 
 	if (m_pKeyHeader->NumHitGroups > 0)
 	{
