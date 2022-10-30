@@ -462,12 +462,12 @@ void EZ::CommandList_DXR::predispatchRays(CShaderTablePtr& pRayGen, CShaderTable
 				m_pipeline = pipeline;
 
 				// Get hit-group table; the hit-group has been bound on the pipeline
-				const auto numHitGroups = getNumHitGroupsFromState(m_rayTracingState.get());
+				const auto numHitGroups = m_rayTracingState->GetNumHitGroups();
 				string key(sizeof(void*) * numHitGroups, '\0');
 				const auto pShaderIDs = reinterpret_cast<const void**>(&key[0]);
 				for (auto i = 0u; i < numHitGroups; ++i) // Set hit-group shader IDs into the key
 				{
-					const void* hitGroup = getHitGroupFromState(i, m_rayTracingState.get());
+					const void* hitGroup = m_rayTracingState->GetHitGroup(i);
 					pShaderIDs[i] = ShaderRecord::GetShaderID(pipeline, hitGroup, API::DIRECTX_12);
 				}
 				pHitGroup = getShaderTable(key, m_hitGroupTables, numHitGroups);
@@ -504,24 +504,6 @@ XUSG::Resource* EZ::CommandList_DXR::needScratch(uint32_t size)
 	}
 
 	return m_scratches.back().get();
-}
-
-const void* EZ::CommandList_DXR::getHitGroupFromState(uint32_t index, const State* pState)
-{
-	assert(index < getNumHitGroupsFromState(pState));
-
-	const auto& key = m_rayTracingState->GetKey();
-	const auto pHitGroups = reinterpret_cast<const State_DX12::KeyHitGroup*>(&key[sizeof(State_DX12::KeyHeader)]);
-
-	return pHitGroups[index].HitGroup;
-}
-
-uint32_t EZ::CommandList_DXR::getNumHitGroupsFromState(const State* pState)
-{
-	const auto& key = m_rayTracingState->GetKey();
-	const auto pKeyHeader = reinterpret_cast<const State_DX12::KeyHeader*>(&key[0]);
-
-	return pKeyHeader->NumHitGroups;
 }
 
 const ShaderTable* EZ::CommandList_DXR::getShaderTable(const string& key,

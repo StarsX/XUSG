@@ -338,6 +338,9 @@ namespace XUSG
 
 			virtual const std::string& GetKey() = 0;
 
+			virtual const void* GetHitGroup(uint32_t index) = 0;
+			virtual uint32_t GetNumHitGroups() = 0;
+
 			using uptr = std::unique_ptr<State>;
 			using sptr = std::shared_ptr<State>;
 

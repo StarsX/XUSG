@@ -77,8 +77,11 @@ namespace XUSG
 
 			const std::string& GetKey();
 
+			const void* GetHitGroup(uint32_t index);
+			uint32_t GetNumHitGroups();
+
 		protected:
-			void complete();
+			void serialize();
 
 			KeyHeader* m_pKeyHeader;
 			std::string m_key;
@@ -87,7 +90,7 @@ namespace XUSG
 			std::vector<KeyHitGroup> m_keyHitGroups;
 			std::vector<KeyLocalPipelineLayout> m_keyLocalPipelineLayouts;
 
-			bool m_isComplete;
+			bool m_isSerialized;
 		};
 
 		class PipelineLib_DX12 :

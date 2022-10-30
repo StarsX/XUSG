@@ -117,10 +117,6 @@ namespace XUSG
 
 				Resource* needScratch(uint32_t size);
 
-				const void* getHitGroupFromState(uint32_t index, const RayTracing::State* pState);
-
-				uint32_t getNumHitGroupsFromState(const RayTracing::State* pState);
-
 				const ShaderTable* getShaderTable(const std::string& key,
 					std::unordered_map<std::string, ShaderTable::uptr>& shaderTables,
 					uint32_t numShaderIDs);

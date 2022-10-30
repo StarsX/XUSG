@@ -13,7 +13,7 @@ State_DX12::State_DX12() :
 	m_keyShaderLibs(0),
 	m_keyHitGroups(0),
 	m_keyLocalPipelineLayouts(0),
-	m_isComplete(false)
+	m_isSerialized(false)
 {
 	// Default state
 	m_key.resize(sizeof(KeyHeader));
@@ -27,7 +27,7 @@ State_DX12::~State_DX12()
 
 void State_DX12::SetShaderLibrary(uint32_t index, const Blob& shaderLib, uint32_t numShaders, const void** pShaders)
 {
-	m_isComplete = false;
+	m_isSerialized = false;
 
 	if (index >= m_keyShaderLibs.size())
 		m_keyShaderLibs.resize(index + 1);
@@ -47,7 +47,7 @@ void State_DX12::SetHitGroup(uint32_t index, const void* hitGroup, const void* c
 		D3D12_HIT_GROUP_TYPE_PROCEDURAL_PRIMITIVE
 	};
 
-	m_isComplete = false;
+	m_isSerialized = false;
 
 	if (index >= m_keyHitGroups.size())
 		m_keyHitGroups.resize(index + 1);
@@ -62,14 +62,14 @@ void State_DX12::SetHitGroup(uint32_t index, const void* hitGroup, const void* c
 
 void State_DX12::SetShaderConfig(uint32_t maxPayloadSize, uint32_t maxAttributeSize)
 {
-	m_isComplete = false;
+	m_isSerialized = false;
 	m_pKeyHeader->MaxPayloadSize = maxPayloadSize;
 	m_pKeyHeader->MaxAttributeSize = maxAttributeSize;
 }
 
 void State_DX12::SetLocalPipelineLayout(uint32_t index, const XUSG::PipelineLayout& layout, uint32_t numShaders, const void** pShaders)
 {
-	m_isComplete = false;
+	m_isSerialized = false;
 
 	if (index >= m_keyLocalPipelineLayouts.size())
 		m_keyLocalPipelineLayouts.resize(index + 1);
@@ -82,13 +82,13 @@ void State_DX12::SetLocalPipelineLayout(uint32_t index, const XUSG::PipelineLayo
 
 void State_DX12::SetGlobalPipelineLayout(const XUSG::PipelineLayout& layout)
 {
-	m_isComplete = false;
+	m_isSerialized = false;
 	m_pKeyHeader->GlobalLayout = layout;
 }
 
 void State_DX12::SetMaxRecursionDepth(uint32_t depth)
 {
-	m_isComplete = false;
+	m_isSerialized = false;
 	m_pKeyHeader->MaxRecursionDepth = depth;
 }
 
@@ -104,12 +104,26 @@ Pipeline State_DX12::GetPipeline(PipelineLib* pPipelineCache, const wchar_t* nam
 
 const string& State_DX12::GetKey()
 {
-	if (!m_isComplete) complete();
+	if (!m_isSerialized) serialize();
 
 	return m_key;
 }
 
-void State_DX12::complete()
+const void* State_DX12::GetHitGroup(uint32_t index)
+{
+	const auto pHitGroups = reinterpret_cast<const KeyHitGroup*>(&GetKey()[sizeof(KeyHeader)]);
+
+	return pHitGroups[index].HitGroup;
+}
+
+uint32_t State_DX12::GetNumHitGroups()
+{
+	GetKey();
+
+	return m_pKeyHeader->NumHitGroups;
+}
+
+void State_DX12::serialize()
 {
 	m_pKeyHeader->NumShaderLibs = static_cast<uint32_t>(m_keyShaderLibs.size());
 	m_pKeyHeader->NumHitGroups = static_cast<uint32_t>(m_keyHitGroups.size());
@@ -117,20 +131,25 @@ void State_DX12::complete()
 
 	// Calculate total key size
 	const auto sizeKeyHeader = sizeof(KeyHeader);
+	const auto sizeKeyHitGroups = sizeof(KeyHitGroup) * m_keyHitGroups.size();
 
 	auto sizeKeyShaderLibs = sizeof(KeyShaderLibHeader) * m_keyShaderLibs.size();
 	for (const auto& keyShaderLib : m_keyShaderLibs)
 		sizeKeyShaderLibs += sizeof(void*) * keyShaderLib.Shaders.size();
 
-	const auto sizeKeyHitGroups = sizeof(KeyHitGroup) * m_keyHitGroups.size();
-
 	auto sizeKeyLocalPipelineLayouts = sizeof(KeyLocalPipelineLayoutHeader) * m_keyLocalPipelineLayouts.size();
 	for (const auto& keyLocalPipelineLayout : m_keyLocalPipelineLayouts)
 		sizeKeyLocalPipelineLayouts += sizeof(void*) * keyLocalPipelineLayout.Shaders.size();
 
-	m_key.resize(sizeKeyHeader + sizeKeyShaderLibs + sizeKeyHitGroups + sizeKeyLocalPipelineLayouts);
+	m_key.resize(sizeKeyHeader + sizeKeyHitGroups + sizeKeyShaderLibs + sizeKeyLocalPipelineLayouts);
 
-	auto pKeyShaderLibHeader = reinterpret_cast<KeyShaderLibHeader*>(&m_key[sizeKeyHeader]);
+	if (m_pKeyHeader->NumHitGroups > 0)
+	{
+		const auto pKeyHitGroups = reinterpret_cast<KeyHitGroup*>(&m_key[sizeKeyHeader]);
+		memcpy(pKeyHitGroups, m_keyHitGroups.data(), sizeKeyHitGroups);
+	}
+
+	auto pKeyShaderLibHeader = reinterpret_cast<KeyShaderLibHeader*>(&m_key[sizeKeyHeader + sizeKeyHitGroups]);
 	for (const auto& keyShaderLib : m_keyShaderLibs)
 	{
 		// Set the layout and number of associated shaders
@@ -145,14 +164,8 @@ void State_DX12::complete()
 		pKeyShaderLibHeader = reinterpret_cast<KeyShaderLibHeader*>(&pKeyShaders[pKeyShaderLibHeader->NumShaders]);
 	}
 
-	if (m_pKeyHeader->NumHitGroups > 0)
-	{
-		const auto pKeyHitGroups = reinterpret_cast<KeyHitGroup*>(&m_key[sizeKeyHeader + sizeKeyShaderLibs]);
-		memcpy(pKeyHitGroups, m_keyHitGroups.data(), sizeKeyHitGroups);
-	}
-
 	auto pKeyLocalPipelineLayoutHeader = reinterpret_cast<KeyLocalPipelineLayoutHeader*>
-		(&m_key[sizeKeyHeader + sizeKeyShaderLibs + sizeKeyHitGroups]);
+		(&m_key[sizeKeyHeader + sizeKeyHitGroups + sizeKeyShaderLibs]);
 	for (const auto& keyLocalPipelineLayout : m_keyLocalPipelineLayouts)
 	{
 		// Set the layout and number of associated shaders
@@ -169,7 +182,7 @@ void State_DX12::complete()
 			(&pKeyLocalPipelineAssociation[pKeyLocalPipelineLayoutHeader->NumShaders]);
 	}
 
-	m_isComplete = true;
+	m_isSerialized = true;
 }
 
 //--------------------------------------------------------------------------------------
@@ -222,7 +235,8 @@ Pipeline PipelineLib_DX12::createPipeline(const string& key, const wchar_t* name
 	CD3DX12_STATE_OBJECT_DESC pPsoDesc(D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE);
 
 	// DXIL library
-	auto pKeyShaderLibHeader = reinterpret_cast<const State_DX12::KeyShaderLibHeader*>(&key[sizeKeyHeader]);
+	auto pKeyShaderLibHeader = reinterpret_cast<const State_DX12::KeyShaderLibHeader*>
+		(&key[sizeKeyHeader + sizeKeyHitGroups]);
 	for (auto i = 0u; i < keyHeader.NumShaderLibs; ++i)
 	{
 		const auto pLib = pPsoDesc.CreateSubobject<CD3DX12_DXIL_LIBRARY_SUBOBJECT>();
@@ -246,7 +260,7 @@ Pipeline PipelineLib_DX12::createPipeline(const string& key, const wchar_t* name
 	}
 
 	// Hit groups
-	const auto pKeyHitGroups = reinterpret_cast<const State_DX12::KeyHitGroup*>(&key[sizeKeyHeader + sizeKeyShaderLibs]);
+	const auto pKeyHitGroups = reinterpret_cast<const State_DX12::KeyHitGroup*>(&key[sizeKeyHeader]);
 	for (auto i = 0u; i < keyHeader.NumHitGroups; ++i)
 	{
 		const auto& keyHitGroup = pKeyHitGroups[i];
@@ -270,7 +284,7 @@ Pipeline PipelineLib_DX12::createPipeline(const string& key, const wchar_t* name
 	// Local pipeline layout and shader association
 	// This is a pipeline layout that enables a shader to have unique arguments that come from shader tables.
 	auto pKeyLocalPipelineLayoutHeader = reinterpret_cast<const State_DX12::KeyLocalPipelineLayoutHeader*>
-		(&key[sizeKeyHeader + sizeKeyShaderLibs + sizeKeyHitGroups]);
+		(&key[sizeKeyHeader + sizeKeyHitGroups + sizeKeyShaderLibs]);
 	for (auto i = 0u; i < keyHeader.NumLocalPipelineLayouts; ++i)
 	{
 		const auto pRootSignature = static_cast<ID3D12RootSignature*>(pKeyLocalPipelineLayoutHeader->Layout);
