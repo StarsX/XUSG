@@ -10,10 +10,10 @@ using namespace XUSG;
 
 EZ::CommandList_DX12::CommandList_DX12() :
 	XUSG::CommandList_DX12(),
-	m_graphicsPipelineCache(nullptr),
-	m_computePipelineCache(nullptr),
-	m_pipelineLayoutCache(nullptr),
-	m_descriptorTableCache(nullptr),
+	m_graphicsPipelineLib(nullptr),
+	m_computePipelineLib(nullptr),
+	m_pipelineLayoutLib(nullptr),
+	m_descriptorTableLib(nullptr),
 	m_pInputLayout(nullptr),
 	m_pipelineLayouts(),
 	m_pipeline(nullptr),
@@ -116,8 +116,8 @@ bool EZ::CommandList_DX12::Reset(const CommandAllocator* pAllocator, const Pipel
 	// Set Descriptor pools
 	const DescriptorPool descriptorPools[] =
 	{
-		m_descriptorTableCache->GetDescriptorPool(CBV_SRV_UAV_POOL),
-		m_descriptorTableCache->GetDescriptorPool(SAMPLER_POOL)
+		m_descriptorTableLib->GetDescriptorPool(CBV_SRV_UAV_POOL),
+		m_descriptorTableLib->GetDescriptorPool(SAMPLER_POOL)
 	};
 	XUSG::CommandList_DX12::SetDescriptorPools(static_cast<uint32_t>(size(descriptorPools)), descriptorPools);
 
@@ -260,7 +260,7 @@ void EZ::CommandList_DX12::RSSetState(const Graphics::Rasterizer* pRasterizer)
 void EZ::CommandList_DX12::RSSetState(Graphics::RasterizerPreset preset)
 {
 	assert(m_graphicsState);
-	m_graphicsState->RSSetState(preset, m_graphicsPipelineCache.get());
+	m_graphicsState->RSSetState(preset, m_graphicsPipelineLib.get());
 	m_isGraphicsDirty = true;
 }
 
@@ -274,7 +274,7 @@ void EZ::CommandList_DX12::OMSetBlendState(const Graphics::Blend* pBlend, uint32
 void EZ::CommandList_DX12::OMSetBlendState(Graphics::BlendPreset preset, uint8_t numColorRTs, uint32_t sampleMask)
 {
 	assert(m_graphicsState);
-	m_graphicsState->OMSetBlendState(preset, m_graphicsPipelineCache.get(), numColorRTs, sampleMask);
+	m_graphicsState->OMSetBlendState(preset, m_graphicsPipelineLib.get(), numColorRTs, sampleMask);
 	m_isGraphicsDirty = true;
 }
 
@@ -295,7 +295,7 @@ void EZ::CommandList_DX12::DSSetState(const Graphics::DepthStencil* pDepthStenci
 void EZ::CommandList_DX12::DSSetState(Graphics::DepthStencilPreset preset)
 {
 	assert(m_graphicsState);
-	m_graphicsState->DSSetState(preset, m_graphicsPipelineCache.get());
+	m_graphicsState->DSSetState(preset, m_graphicsPipelineLib.get());
 	m_isGraphicsDirty = true;
 }
 
@@ -346,7 +346,7 @@ void EZ::CommandList_DX12::SetSamplerStates(Shader::Stage stage, uint32_t startB
 {
 	auto& descriptorTable = m_samplerTables[stage];
 	if (!descriptorTable) descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
-	descriptorTable->SetSamplers(startBinding, numSamplers, pSamplerPresets, m_descriptorTableCache.get());
+	descriptorTable->SetSamplers(startBinding, numSamplers, pSamplerPresets, m_descriptorTableLib.get());
 }
 
 void EZ::CommandList_DX12::SetResources(Shader::Stage stage, DescriptorType descriptorType, uint32_t startBinding,
@@ -545,7 +545,7 @@ void EZ::CommandList_DX12::ClearUnorderedAccessViewUint(const ResourceView& unor
 
 	const auto uavTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
 	uavTable->SetDescriptors(0, 1, &unorderedAccessView.View);
-	const auto descriptorTable = uavTable->GetCbvSrvUavTable(m_descriptorTableCache.get());
+	const auto descriptorTable = uavTable->GetCbvSrvUavTable(m_descriptorTableLib.get());
 
 	m_clearUAVsUint.emplace_back(ClearUAVUint{ unorderedAccessView.pResource, unorderedAccessView.View,
 		descriptorTable, values[0], values[1], values[2], values[3] });
@@ -562,7 +562,7 @@ void EZ::CommandList_DX12::ClearUnorderedAccessViewFloat(const ResourceView& uno
 
 	const auto uavTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
 	uavTable->SetDescriptors(0, 1, &unorderedAccessView.View);
-	const auto descriptorTable = uavTable->GetCbvSrvUavTable(m_descriptorTableCache.get());
+	const auto descriptorTable = uavTable->GetCbvSrvUavTable(m_descriptorTableLib.get());
 
 	m_clearUAVsFloat.emplace_back(ClearUAVFloat{ unorderedAccessView.pResource, unorderedAccessView.View,
 		descriptorTable, values[0], values[1], values[2], values[3] });
@@ -574,7 +574,7 @@ void EZ::CommandList_DX12::ClearUnorderedAccessViewFloat(const ResourceView& uno
 
 void EZ::CommandList_DX12::ResetDescriptorPool(DescriptorPoolType type)
 {
-	m_descriptorTableCache->ResetDescriptorPool(type, 0);
+	m_descriptorTableLib->ResetDescriptorPool(type, 0);
 }
 
 void EZ::CommandList_DX12::Resize()
@@ -587,17 +587,17 @@ bool EZ::CommandList_DX12::init(XUSG::CommandList* pCommandList, uint32_t sample
 	m_pDevice = pCommandList->GetDevice();
 	m_commandList = dynamic_cast<XUSG::CommandList_DX12*>(pCommandList)->GetGraphicsCommandList();
 
-	m_graphicsPipelineCache = Graphics::PipelineCache::MakeUnique(m_pDevice, API::DIRECTX_12);
-	m_computePipelineCache = Compute::PipelineCache::MakeUnique(m_pDevice, API::DIRECTX_12);
-	m_pipelineLayoutCache = PipelineLayoutCache::MakeUnique(m_pDevice, API::DIRECTX_12);
-	m_descriptorTableCache = DescriptorTableCache::MakeUnique(m_pDevice, L"EZDescirptorTableCache", API::DIRECTX_12);
+	m_graphicsPipelineLib = Graphics::PipelineLib::MakeUnique(m_pDevice, API::DIRECTX_12);
+	m_computePipelineLib = Compute::PipelineLib::MakeUnique(m_pDevice, API::DIRECTX_12);
+	m_pipelineLayoutLib = PipelineLayoutLib::MakeUnique(m_pDevice, API::DIRECTX_12);
+	m_descriptorTableLib = DescriptorTableLib::MakeUnique(m_pDevice, L"EZDescirptorTableLib", API::DIRECTX_12);
 	m_graphicsState = Graphics::State::MakeUnique(API::DIRECTX_12);
 	m_computeState = Compute::State::MakeUnique(API::DIRECTX_12);
 
 	// Allocate descriptor pools
-	XUSG_N_RETURN(m_descriptorTableCache->AllocateDescriptorPool(
+	XUSG_N_RETURN(m_descriptorTableLib->AllocateDescriptorPool(
 		DescriptorPoolType::SAMPLER_POOL, samplerPoolSize), false);
-	XUSG_N_RETURN(m_descriptorTableCache->AllocateDescriptorPool(
+	XUSG_N_RETURN(m_descriptorTableLib->AllocateDescriptorPool(
 		DescriptorPoolType::CBV_SRV_UAV_POOL, cbvSrvUavPoolSize), false);
 
 	return true;
@@ -679,7 +679,7 @@ bool EZ::CommandList_DX12::createGraphicsPipelineLayouts(
 		}
 	}
 
-	XUSG_X_RETURN(m_pipelineLayouts[GRAPHICS], pipelineLayout->GetPipelineLayout(m_pipelineLayoutCache.get(),
+	XUSG_X_RETURN(m_pipelineLayouts[GRAPHICS], pipelineLayout->GetPipelineLayout(m_pipelineLayoutLib.get(),
 		PipelineLayoutFlag::ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT, L"EZGraphicsLayout"), false);
 
 	return true;
@@ -732,7 +732,7 @@ bool EZ::CommandList_DX12::createComputePipelineLayouts(uint32_t maxSamplers,
 		}
 	}
 
-	XUSG_X_RETURN(m_pipelineLayouts[COMPUTE], pipelineLayout->GetPipelineLayout(m_pipelineLayoutCache.get(),
+	XUSG_X_RETURN(m_pipelineLayouts[COMPUTE], pipelineLayout->GetPipelineLayout(m_pipelineLayoutLib.get(),
 		PipelineLayoutFlag::NONE, L"EZComputeLayout"), false);
 
 	return true;
@@ -757,7 +757,7 @@ void EZ::CommandList_DX12::predraw()
 		auto& samplerTable = m_samplerTables[i];
 		if (samplerTable)
 		{
-			const auto descriptorTable = samplerTable->GetSamplerTable(m_descriptorTableCache.get());
+			const auto descriptorTable = samplerTable->GetSamplerTable(m_descriptorTableLib.get());
 			if (descriptorTable) XUSG::CommandList_DX12::SetGraphicsDescriptorTable(i, descriptorTable);
 			samplerTable.reset();
 		}
@@ -772,7 +772,7 @@ void EZ::CommandList_DX12::predraw()
 				auto& cbvSrvUavTable = cbvSrvUavTables[s];
 				if (cbvSrvUavTable)
 				{
-					const auto descriptorTable = cbvSrvUavTable->GetCbvSrvUavTable(m_descriptorTableCache.get());
+					const auto descriptorTable = cbvSrvUavTable->GetCbvSrvUavTable(m_descriptorTableLib.get());
 					if (descriptorTable) XUSG::CommandList_DX12::SetGraphicsDescriptorTable(
 						m_graphicsSpaceToParamIndexMap[i][t][s], descriptorTable);
 					cbvSrvUavTable.reset();
@@ -786,7 +786,7 @@ void EZ::CommandList_DX12::predraw()
 	if (m_isGraphicsDirty)
 	{
 		m_graphicsState->SetPipelineLayout(m_pipelineLayouts[GRAPHICS]);
-		const auto pipeline = m_graphicsState->GetPipeline(m_graphicsPipelineCache.get());
+		const auto pipeline = m_graphicsState->GetPipeline(m_graphicsPipelineLib.get());
 		if (pipeline)
 		{
 			if (m_pipeline != pipeline)
@@ -813,7 +813,7 @@ void EZ::CommandList_DX12::predispatch()
 	auto& samplerTable = m_samplerTables[Shader::Stage::CS];
 	if (samplerTable)
 	{
-		const auto descriptorTable = samplerTable->GetSamplerTable(m_descriptorTableCache.get());
+		const auto descriptorTable = samplerTable->GetSamplerTable(m_descriptorTableLib.get());
 		if (descriptorTable) XUSG::CommandList_DX12::SetComputeDescriptorTable(0, descriptorTable);
 		samplerTable.reset();
 	}
@@ -828,7 +828,7 @@ void EZ::CommandList_DX12::predispatch()
 			auto& cbvSrvUavTable = cbvSrvUavTables[s];
 			if (cbvSrvUavTable)
 			{
-				const auto descriptorTable = cbvSrvUavTable->GetCbvSrvUavTable(m_descriptorTableCache.get());
+				const auto descriptorTable = cbvSrvUavTable->GetCbvSrvUavTable(m_descriptorTableLib.get());
 				if (descriptorTable) XUSG::CommandList_DX12::SetComputeDescriptorTable(
 					m_computeSpaceToParamIndexMap[t][s], descriptorTable);
 				cbvSrvUavTable.reset();
@@ -841,7 +841,7 @@ void EZ::CommandList_DX12::predispatch()
 	if (m_isComputeDirty)
 	{
 		m_computeState->SetPipelineLayout(m_pipelineLayouts[COMPUTE]);
-		const auto pipeline = m_computeState->GetPipeline(m_computePipelineCache.get());
+		const auto pipeline = m_computeState->GetPipeline(m_computePipelineLib.get());
 		if (pipeline)
 		{
 			if (m_pipeline != pipeline)

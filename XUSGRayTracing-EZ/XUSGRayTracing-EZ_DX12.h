@@ -125,7 +125,7 @@ namespace XUSG
 					std::unordered_map<std::string, ShaderTable::uptr>& shaderTables,
 					uint32_t numShaderIDs);
 
-				RayTracing::PipelineCache::uptr m_RayTracingPipelineCache;
+				RayTracing::PipelineLib::uptr m_RayTracingPipelineLib;
 
 				uint32_t m_scratchSize;
 				std::vector<Resource::uptr> m_scratches;

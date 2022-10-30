@@ -14,7 +14,7 @@ using namespace XUSG::Ultimate;
 EZ::CommandList_DX12::CommandList_DX12() :
 	XUSG::CommandList_DX12(),
 	XUSG::EZ::CommandList_DX12(),
-	m_meshShaderPipelineCache(nullptr),
+	m_meshShaderPipelineLib(nullptr),
 	m_isMSStateDirty(false),
 	m_meshShaderState(nullptr)
 {
@@ -134,7 +134,7 @@ void EZ::CommandList_DX12::SetPipelineState(const Pipeline& pipelineState)
 void EZ::CommandList_DX12::MSSetBlendState(MeshShader::BlendPreset preset, uint8_t numColorRTs, uint32_t sampleMask)
 {
 	assert(m_meshShaderState);
-	m_meshShaderState->OMSetBlendState(preset, m_meshShaderPipelineCache.get(), numColorRTs, sampleMask);
+	m_meshShaderState->OMSetBlendState(preset, m_meshShaderPipelineLib.get(), numColorRTs, sampleMask);
 	m_isMSStateDirty = true;
 }
 
@@ -148,14 +148,14 @@ void EZ::CommandList_DX12::MSSetSample(uint8_t count, uint8_t quality)
 void EZ::CommandList_DX12::MSSetRasterizerState(MeshShader::RasterizerPreset preset)
 {
 	assert(m_meshShaderState);
-	m_meshShaderState->RSSetState(preset, m_meshShaderPipelineCache.get());
+	m_meshShaderState->RSSetState(preset, m_meshShaderPipelineLib.get());
 	m_isMSStateDirty = true;
 }
 
 void EZ::CommandList_DX12::MSSetDepthStencilState(MeshShader::DepthStencilPreset preset)
 {
 	assert(m_meshShaderState);
-	m_meshShaderState->DSSetState(preset, m_meshShaderPipelineCache.get());
+	m_meshShaderState->DSSetState(preset, m_meshShaderPipelineLib.get());
 	m_isMSStateDirty = true;
 }
 
@@ -198,7 +198,7 @@ bool EZ::CommandList_DX12::init(Ultimate::CommandList* pCommandList, uint32_t sa
 
 	if (m_commandListU)
 	{
-		m_meshShaderPipelineCache = MeshShader::PipelineCache::MakeUnique(m_pDevice, API::DIRECTX_12);
+		m_meshShaderPipelineLib = MeshShader::PipelineLib::MakeUnique(m_pDevice, API::DIRECTX_12);
 		m_meshShaderState = MeshShader::State::MakeUnique(API::DIRECTX_12);
 	}
 
@@ -278,7 +278,7 @@ bool EZ::CommandList_DX12::createMeshShaderPipelineLayouts(
 		}
 	}
 
-	XUSG_X_RETURN(m_pipelineLayout, pipelineLayout->GetPipelineLayout(m_pipelineLayoutCache.get(),
+	XUSG_X_RETURN(m_pipelineLayout, pipelineLayout->GetPipelineLayout(m_pipelineLayoutLib.get(),
 		PipelineLayoutFlag::NONE, L"EZMeshShaderLayout"), false);
 
 	return true;
@@ -305,7 +305,7 @@ void EZ::CommandList_DX12::predispatchMesh()
 		auto& samplerTable = m_samplerTables[stage];
 		if (samplerTable)
 		{
-			const auto descriptorTable = samplerTable->GetSamplerTable(m_descriptorTableCache.get());
+			const auto descriptorTable = samplerTable->GetSamplerTable(m_descriptorTableLib.get());
 			if (descriptorTable) XUSG::CommandList_DX12::SetGraphicsDescriptorTable(i, descriptorTable);
 			samplerTable.reset();
 		}
@@ -320,7 +320,7 @@ void EZ::CommandList_DX12::predispatchMesh()
 				auto& cbvSrvUavTable = cbvSrvUavTables[s];
 				if (cbvSrvUavTable)
 				{
-					const auto descriptorTable = cbvSrvUavTable->GetCbvSrvUavTable(m_descriptorTableCache.get());
+					const auto descriptorTable = cbvSrvUavTable->GetCbvSrvUavTable(m_descriptorTableLib.get());
 					if (descriptorTable) XUSG::CommandList_DX12::SetGraphicsDescriptorTable(
 						m_meshShaderSpaceToParamIndexMap[stage][t][s], descriptorTable);
 					cbvSrvUavTable.reset();
@@ -334,7 +334,7 @@ void EZ::CommandList_DX12::predispatchMesh()
 	if (m_isMSStateDirty)
 	{
 		m_meshShaderState->SetPipelineLayout(m_pipelineLayouts[GRAPHICS]);
-		const auto pipeline = m_meshShaderState->GetPipeline(m_meshShaderPipelineCache.get());
+		const auto pipeline = m_meshShaderState->GetPipeline(m_meshShaderPipelineLib.get());
 		if (pipeline)
 		{
 			if (m_pipeline != pipeline)

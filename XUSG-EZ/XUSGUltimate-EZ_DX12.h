@@ -107,7 +107,7 @@ namespace XUSG
 
 				const Shader::Stage& getShaderStage(uint8_t index) const;
 
-				MeshShader::PipelineCache::uptr m_meshShaderPipelineCache;
+				MeshShader::PipelineLib::uptr m_meshShaderPipelineLib;
 
 				XUSG::PipelineLayout m_pipelineLayout;
 

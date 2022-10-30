@@ -258,10 +258,10 @@ namespace XUSG
 			static uint32_t generateBarriers(ResourceBarrier* pBarriers, const ResourceView& resrouceView,
 				uint32_t numBarriers = 0, BarrierFlag flags = BarrierFlag::NONE);
 
-			Graphics::PipelineCache::uptr	m_graphicsPipelineCache;
-			Compute::PipelineCache::uptr	m_computePipelineCache;
-			PipelineLayoutCache::uptr		m_pipelineLayoutCache;
-			DescriptorTableCache::uptr		m_descriptorTableCache;
+			Graphics::PipelineLib::uptr	m_graphicsPipelineLib;
+			Compute::PipelineLib::uptr	m_computePipelineLib;
+			PipelineLayoutLib::uptr		m_pipelineLayoutLib;
+			DescriptorTableLib::uptr	m_descriptorTableLib;
 
 			const XUSG::InputLayout* m_pInputLayout;
 			XUSG::PipelineLayout m_pipelineLayouts[NUM_PIPELINE_LAYOUT];

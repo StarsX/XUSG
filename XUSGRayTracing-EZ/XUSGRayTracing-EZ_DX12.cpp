@@ -17,7 +17,7 @@ using namespace XUSG::RayTracing;
 EZ::CommandList_DXR::CommandList_DXR() :
 	Ultimate::CommandList_DX12(),
 	Ultimate::EZ::CommandList_DX12(),
-	m_RayTracingPipelineCache(nullptr),
+	m_RayTracingPipelineLib(nullptr),
 	m_scratchSize(0),
 	m_scratches(0),
 	m_isRTStateDirty(false),
@@ -67,7 +67,7 @@ bool EZ::CommandList_DXR::Create(RayTracing::CommandList* pCommandList,
 	XUSG_N_RETURN(pDxDevice, false);
 	pDxDevice->QueryRaytracingCommandList(m_commandList.get(), IID_PPV_ARGS(&m_commandListRT));
 
-	m_RayTracingPipelineCache = PipelineCache::MakeUnique(m_pDeviceRT, API::DIRECTX_12);
+	m_RayTracingPipelineLib = PipelineLib::MakeUnique(m_pDeviceRT, API::DIRECTX_12);
 	m_rayTracingState = State::MakeUnique(API::DIRECTX_12);
 
 	// Create common pipeline layouts
@@ -139,7 +139,7 @@ bool EZ::CommandList_DXR::PreBuildBLAS(BottomLevelAS* pBLAS, uint32_t numGeometr
 
 	const auto descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
 	descriptorTable->SetDescriptors(0, 1, &pBLAS->GetResult()->GetUAV());
-	const auto uavTable = descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get());
+	const auto uavTable = descriptorTable->GetCbvSrvUavTable(m_descriptorTableLib.get());
 	XUSG_N_RETURN(uavTable, false);
 
 	m_scratchSize = (max)(m_scratchSize, pBLAS->GetScratchDataMaxSize());
@@ -158,7 +158,7 @@ bool EZ::CommandList_DXR::PreBuildTLAS(TopLevelAS* pTLAS, uint32_t numInstances,
 
 	const auto descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
 	descriptorTable->SetDescriptors(0, 1, &pTLAS->GetResult()->GetUAV());
-	const auto uavTable = descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get());
+	const auto uavTable = descriptorTable->GetCbvSrvUavTable(m_descriptorTableLib.get());
 	XUSG_N_RETURN(uavTable, false);
 
 	m_scratchSize = (max)(m_scratchSize, pTLAS->GetScratchDataMaxSize());
@@ -240,7 +240,7 @@ void EZ::CommandList_DXR::BuildBLAS(BottomLevelAS* pBLAS, bool update)
 	assert(pBLAS);
 
 	const auto pScratch = needScratch(m_scratchSize);
-	const auto descriptorPool = m_descriptorTableCache->GetDescriptorPool(CBV_SRV_UAV_POOL);
+	const auto descriptorPool = m_descriptorTableLib->GetDescriptorPool(CBV_SRV_UAV_POOL);
 
 	pBLAS->Build(this, pScratch, descriptorPool, update);
 }
@@ -250,7 +250,7 @@ void EZ::CommandList_DXR::BuildTLAS(TopLevelAS* pTLAS, const Resource* pInstance
 	assert(pTLAS);
 
 	const auto pScratch = needScratch(m_scratchSize);
-	const auto descriptorPool = m_descriptorTableCache->GetDescriptorPool(CBV_SRV_UAV_POOL);
+	const auto descriptorPool = m_descriptorTableLib->GetDescriptorPool(CBV_SRV_UAV_POOL);
 
 	pTLAS->Build(this, pScratch, pInstanceDescs, descriptorPool, update);
 }
@@ -404,7 +404,7 @@ bool EZ::CommandList_DXR::createComputePipelineLayouts(uint32_t maxSamplers, con
 		pipelineLayout->SetRootSRV(paramIndex++, slot, spaceTLAS, DescriptorFlag::DATA_STATIC);
 	}
 
-	XUSG_X_RETURN(m_pipelineLayouts[COMPUTE], pipelineLayout->GetPipelineLayout(m_pDeviceRT, m_pipelineLayoutCache.get(),
+	XUSG_X_RETURN(m_pipelineLayouts[COMPUTE], pipelineLayout->GetPipelineLayout(m_pDeviceRT, m_pipelineLayoutLib.get(),
 		PipelineLayoutFlag::NONE, L"RayTracingEZComputeLayout"), false);
 
 	return true;
@@ -425,7 +425,7 @@ void EZ::CommandList_DXR::predispatchRays(CShaderTablePtr& pRayGen, CShaderTable
 	auto& samplerTable = m_samplerTables[COMPUTE];
 	if (samplerTable)
 	{
-		const auto descriptorTable = samplerTable->GetSamplerTable(m_descriptorTableCache.get());
+		const auto descriptorTable = samplerTable->GetSamplerTable(m_descriptorTableLib.get());
 		if (descriptorTable) XUSG::CommandList_DX12::SetComputeDescriptorTable(0, descriptorTable);
 		samplerTable.reset();
 	}
@@ -440,7 +440,7 @@ void EZ::CommandList_DXR::predispatchRays(CShaderTablePtr& pRayGen, CShaderTable
 			auto& cbvSrvUavTable = cbvSrvUavTables[s];
 			if (cbvSrvUavTable)
 			{
-				const auto descriptorTable = cbvSrvUavTable->GetCbvSrvUavTable(m_descriptorTableCache.get());
+				const auto descriptorTable = cbvSrvUavTable->GetCbvSrvUavTable(m_descriptorTableLib.get());
 				if (descriptorTable) XUSG::CommandList_DX12::SetComputeDescriptorTable(
 					m_computeSpaceToParamIndexMap[t][s], descriptorTable);
 				cbvSrvUavTable.reset();
@@ -453,7 +453,7 @@ void EZ::CommandList_DXR::predispatchRays(CShaderTablePtr& pRayGen, CShaderTable
 	if (m_isRTStateDirty)
 	{
 		m_rayTracingState->SetGlobalPipelineLayout(m_pipelineLayouts[COMPUTE]);
-		const auto pipeline = m_rayTracingState->GetPipeline(m_RayTracingPipelineCache.get());
+		const auto pipeline = m_rayTracingState->GetPipeline(m_RayTracingPipelineLib.get());
 		if (pipeline)
 		{
 			if (m_pipeline != pipeline)
