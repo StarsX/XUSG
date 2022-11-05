@@ -13,12 +13,6 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	namespace Ultimate
 	{
-		struct SamplePosition
-		{
-			int8_t X;
-			int8_t Y;
-		};
-
 		enum class ResolveMode
 		{
 			DECOMPRESS,
@@ -47,6 +41,12 @@ namespace XUSG
 			COMBINER_MIN,
 			COMBINER_MAX,
 			COMBINER_SUM
+		};
+
+		struct SamplePosition
+		{
+			int8_t X;
+			int8_t Y;
 		};
 
 		//--------------------------------------------------------------------------------------

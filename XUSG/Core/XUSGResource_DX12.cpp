@@ -70,7 +70,7 @@ uint32_t Resource_DX12::SetBarrier(ResourceBarrier* pBarriers, ResourceState dst
 	uint32_t numBarriers, uint32_t subresource, BarrierFlag flags, uint32_t threadIdx)
 {
 	const auto& state = m_states[threadIdx][subresource == XUSG_BARRIER_ALL_SUBRESOURCES ? 0 : subresource];
-	if ((state & dstState) != dstState || dstState == ResourceState::UNORDERED_ACCESS)
+	if ((state & dstState) != dstState || dstState == ResourceState::UNORDERED_ACCESS || dstState == ResourceState::COMMON)
 	{
 		const auto srcState = Transition(dstState, subresource, flags, threadIdx);
 
@@ -255,7 +255,7 @@ bool ConstantBuffer_DX12::Upload(CommandList* pCommandList, Resource* pUploader,
 	// from the upload heap to the buffer.
 	if (srcState != ResourceState::COMMON)
 	{
-		const ResourceBarrier barrier = { this, srcState, dstState, XUSG_BARRIER_ALL_SUBRESOURCES };
+		const ResourceBarrier barrier = { this, srcState, ResourceState::COPY_DEST, XUSG_BARRIER_ALL_SUBRESOURCES };
 		pCommandList->Barrier(1, &barrier);
 	}
 
@@ -468,13 +468,14 @@ bool Texture_DX12::Upload(CommandList* pCommandList, Resource* pUploader,
 	// Copy data to the intermediate upload heap and then schedule a copy 
 	// from the upload heap to the Texture2D.
 	ResourceBarrier barrier;
-	auto numBarriers = SetBarrier(&barrier, ResourceState::COPY_DEST, 0,
-		XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::NONE, threadIdx);
+	const auto& srcState = m_states[threadIdx][0];
+	auto numBarriers = SetBarrier(&barrier, ResourceState::COPY_DEST, 0, XUSG_BARRIER_ALL_SUBRESOURCES,
+		srcState != ResourceState::COMMON ? BarrierFlag::NONE : BarrierFlag::RESET_SRC_STATE, threadIdx);
 	pCommandList->Barrier(numBarriers, &barrier);
 
 	const auto pGraphicsCommandList = static_cast<ID3D12GraphicsCommandList*>(pCommandList->GetHandle());
-	XUSG_M_RETURN(UpdateSubresources(pGraphicsCommandList, m_resource.get(), uploaderResource.get(), 0, firstSubresource,
-		numSubresources, subresourceData.data()) <= 0,
+	XUSG_M_RETURN(UpdateSubresources(pGraphicsCommandList, m_resource.get(), uploaderResource.get(),
+		0, firstSubresource, numSubresources, subresourceData.data()) <= 0,
 		clog, "Failed to upload the resource.", false);
 
 	numBarriers = SetBarrier(&barrier, dstState, 0, XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::NONE, threadIdx);
@@ -1721,13 +1722,14 @@ bool Buffer_DX12::Upload(CommandList* pCommandList, Resource* pUploader, const v
 	// Copy data to the intermediate upload heap and then schedule a copy 
 	// from the upload heap to the buffer.
 	ResourceBarrier barrier;
-	auto numBarriers = SetBarrier(&barrier, ResourceState::COPY_DEST, 0,
-		XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::NONE, threadIdx);
-	if (m_states[threadIdx][0] != ResourceState::COMMON) pCommandList->Barrier(numBarriers, &barrier);
+	const auto& srcState = m_states[threadIdx][0];
+	auto numBarriers = SetBarrier(&barrier, ResourceState::COPY_DEST, 0, XUSG_BARRIER_ALL_SUBRESOURCES,
+		srcState != ResourceState::COMMON ? BarrierFlag::NONE : BarrierFlag::RESET_SRC_STATE, threadIdx);
+	pCommandList->Barrier(numBarriers, &barrier);
 
 	const auto pGraphicsCommandList = static_cast<ID3D12GraphicsCommandList*>(pCommandList->GetHandle());
-	XUSG_M_RETURN(UpdateSubresources(pGraphicsCommandList, m_resource.get(), uploaderResource.get(), offset, 0, 1, &subresourceData) <= 0,
-		clog, "Failed to upload the resource.", false);
+	XUSG_M_RETURN(UpdateSubresources(pGraphicsCommandList, m_resource.get(), uploaderResource.get(),
+		offset, 0, 1, &subresourceData) <= 0, clog, "Failed to upload the resource.", false);
 
 	numBarriers = SetBarrier(&barrier, dstState, 0, XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::NONE, threadIdx);
 	if (dstState != ResourceState::COMMON) pCommandList->Barrier(numBarriers, &barrier);
