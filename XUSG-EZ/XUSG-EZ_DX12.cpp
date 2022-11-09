@@ -5,6 +5,8 @@
 #include "Core/XUSGCommand_DX12.h"
 #include "XUSG-EZ_DX12.h"
 
+#include "CSBlit2D.h"
+
 using namespace std;
 using namespace XUSG;
 
@@ -30,6 +32,7 @@ EZ::CommandList_DX12::CommandList_DX12() :
 	m_graphicsSpaceToParamIndexMap(),
 	m_computeSpaceToParamIndexMap()
 {
+	m_shaderLib = ShaderLib::MakeUnique();
 }
 
 EZ::CommandList_DX12::CommandList_DX12(XUSG::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
@@ -582,6 +585,117 @@ void EZ::CommandList_DX12::Resize()
 	ResetDescriptorPool(DescriptorPoolType::CBV_SRV_UAV_POOL);
 }
 
+void EZ::CommandList_DX12::Blit(Texture* pDstResource, Texture* pSrcResource, SamplerPreset sampler,
+	const Blob& customShader, uint32_t dstMip, uint32_t srcMip)
+{
+	// Set pipeline state
+	SetComputeShader(customShader ? customShader : m_shaders[CS_BLIT_2D]);
+
+	// Set sampler
+	SetSamplerStates(Shader::Stage::CS, 0, 1, &sampler);
+
+	// Set UAV
+	const auto uav = EZ::GetUAV(pDstResource, dstMip);
+	SetResources(Shader::Stage::CS, DescriptorType::UAV, 0, 1, &uav);
+
+	// Set SRV
+	const auto srv = EZ::GetSRVLevel(pSrcResource, srcMip);
+	SetResources(Shader::Stage::CS, DescriptorType::SRV, 0, 1, &srv);
+
+	// Dispatch grid
+	const uint32_t width = static_cast<uint32_t>(pDstResource->GetWidth());
+	const uint32_t height = pDstResource->GetHeight();
+	const auto threadsX = width >> dstMip;
+	const auto threadsY = height >> dstMip;
+	Dispatch(XUSG_DIV_UP(threadsX, 8), XUSG_DIV_UP(threadsY, 8), 1);
+}
+
+void EZ::CommandList_DX12::Blit(Texture3D* pDstResource, Texture* pSrcResource, SamplerPreset sampler,
+	const Blob& customShader, uint32_t dstMip, uint32_t srcMip)
+{
+	// Set pipeline state
+	SetComputeShader(customShader ? customShader : m_shaders[CS_BLIT_3D]);
+
+	// Set sampler
+	SetSamplerStates(Shader::Stage::CS, 0, 1, &sampler);
+
+	// Set UAV
+	const auto uav = EZ::GetUAV(pDstResource, dstMip);
+	SetResources(Shader::Stage::CS, DescriptorType::UAV, 0, 1, &uav);
+
+	// Set SRV
+	const auto srv = EZ::GetSRVLevel(pSrcResource, srcMip);
+	SetResources(Shader::Stage::CS, DescriptorType::SRV, 0, 1, &srv);
+
+	// Dispatch grid
+	const uint32_t width = static_cast<uint32_t>(pDstResource->GetWidth());
+	const uint32_t height = pDstResource->GetHeight();
+	const uint32_t depth = pDstResource->GetDepth();
+	const auto threadsX = width >> dstMip;
+	const auto threadsY = height >> dstMip;
+	const auto threadsZ = depth >> dstMip;
+	Dispatch(XUSG_DIV_UP(threadsX, 4), XUSG_DIV_UP(threadsY, 4), XUSG_DIV_UP(threadsZ, 4));
+}
+
+void EZ::CommandList_DX12::GenerateMips(Texture* pResource, SamplerPreset sampler, const Blob& customShader)
+{
+	// Set pipeline state
+	SetComputeShader(customShader ? customShader : m_shaders[CS_BLIT_2D]);
+
+	// Set sampler
+	SetSamplerStates(Shader::Stage::CS, 0, 1, &sampler);
+
+	const uint32_t width = static_cast<uint32_t>(pResource->GetWidth());
+	const uint32_t height = pResource->GetHeight();
+	const uint8_t numMips = pResource->GetNumMips();
+	for (uint8_t i = 1; i < numMips; ++i)
+	{
+		// Set UAV
+		const auto uav = EZ::GetUAV(pResource, i);
+		SetResources(Shader::Stage::CS, DescriptorType::UAV, 0, 1, &uav);
+
+		// Set SRV
+		const auto srv = EZ::GetSRVLevel(pResource, i - 1);
+		SetResources(Shader::Stage::CS, DescriptorType::SRV, 0, 1, &srv);
+
+		// Dispatch grid
+		const auto threadsX = width >> i;
+		const auto threadsY = height >> i;
+		Dispatch(XUSG_DIV_UP(threadsX, 8), XUSG_DIV_UP(threadsY, 8), 1);
+	}
+}
+
+void EZ::CommandList_DX12::GenerateMips(Texture3D* pResource, SamplerPreset sampler, const Blob& customShader)
+{
+	// Set pipeline state
+	SetComputeShader(customShader ? customShader : m_shaders[CS_BLIT_3D]);
+
+	// Set sampler
+	SetSamplerStates(Shader::Stage::CS, 0, 1, &sampler);
+
+	const uint32_t width = static_cast<uint32_t>(pResource->GetWidth());
+	const uint32_t height = pResource->GetHeight();
+	const uint32_t depth = pResource->GetDepth();
+	const uint8_t numMips = pResource->GetNumMips();
+	for (uint8_t i = 1; i < numMips; ++i)
+	{
+		// Set UAV
+		const auto uav = EZ::GetUAV(pResource, i);
+		SetResources(Shader::Stage::CS, DescriptorType::UAV, 0, 1, &uav);
+
+		// Set SRV
+		const auto srv = EZ::GetSRVLevel(pResource, i - 1);
+		SetResources(Shader::Stage::CS, DescriptorType::SRV, 0, 1, &srv);
+
+		// Dispatch grid
+		const auto threadsX = width >> i;
+		const auto threadsY = height >> i;
+		const auto threadsZ = depth >> i;
+		Dispatch(XUSG_DIV_UP(threadsX, 4), XUSG_DIV_UP(threadsY, 4), XUSG_DIV_UP(threadsZ, 4));
+	}
+}
+
+
 bool EZ::CommandList_DX12::init(XUSG::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize)
 {
 	m_pDevice = pCommandList->GetDevice();
@@ -593,6 +707,9 @@ bool EZ::CommandList_DX12::init(XUSG::CommandList* pCommandList, uint32_t sample
 	m_descriptorTableLib = DescriptorTableLib::MakeUnique(m_pDevice, L"EZDescirptorTableLib", API::DIRECTX_12);
 	m_graphicsState = Graphics::State::MakeUnique(API::DIRECTX_12);
 	m_computeState = Compute::State::MakeUnique(API::DIRECTX_12);
+
+	// Create internal shaders
+	XUSG_N_RETURN(createShaders(), false);
 
 	// Allocate descriptor pools
 	XUSG_N_RETURN(m_descriptorTableLib->AllocateDescriptorPool(
@@ -734,6 +851,21 @@ bool EZ::CommandList_DX12::createComputePipelineLayouts(uint32_t maxSamplers,
 
 	XUSG_X_RETURN(m_pipelineLayouts[COMPUTE], pipelineLayout->GetPipelineLayout(m_pipelineLayoutLib.get(),
 		PipelineLayoutFlag::NONE, L"EZComputeLayout"), false);
+
+	return true;
+}
+
+bool EZ::CommandList_DX12::createShaders()
+{
+	auto vsIndex = 0u;
+	auto psIndex = 0u;
+	auto csIndex = 0u;
+
+	XUSG_N_RETURN(m_shaderLib->CreateShader(Shader::Stage::CS, csIndex, L"CSBlit2D.cso"), false);
+	m_shaders[CS_BLIT_2D] = m_shaderLib->GetShader(Shader::Stage::CS, csIndex++);
+
+	XUSG_N_RETURN(m_shaderLib->CreateShader(Shader::Stage::CS, csIndex, L"CSBlit3D.cso"), false);
+	m_shaders[CS_BLIT_3D] = m_shaderLib->GetShader(Shader::Stage::CS, csIndex++);
 
 	return true;
 }

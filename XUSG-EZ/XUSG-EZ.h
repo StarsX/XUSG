@@ -208,6 +208,10 @@ namespace XUSG
 			virtual void ResetDescriptorPool(DescriptorPoolType type) = 0;
 			virtual void Resize() = 0;
 
+			virtual void Blit(Texture* pDstResource, Texture* pSrcResource, SamplerPreset sampler,
+				const Blob& customShader = nullptr, uint32_t dstMip = 0, uint32_t srcMip = 0) = 0;
+			virtual void GenerateMips(Texture* pResource, SamplerPreset sampler, const Blob& customShader = nullptr) = 0;
+
 			virtual void* GetHandle() const = 0;
 			virtual void* GetDeviceHandle() const = 0;
 

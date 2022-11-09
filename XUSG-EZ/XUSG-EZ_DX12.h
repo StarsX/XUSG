@@ -180,6 +180,14 @@ namespace XUSG
 			void ResetDescriptorPool(DescriptorPoolType type);
 			void Resize();
 
+			void Blit(Texture* pDstResource, Texture* pSrcResource, SamplerPreset sampler,
+				const Blob& customShader = nullptr, uint32_t dstMip = 0, uint32_t srcMip = 0);
+			void Blit(Texture3D* pDstResource, Texture* pSrcResource, SamplerPreset sampler,
+				const Blob& customShader = nullptr, uint32_t dstMip = 0, uint32_t srcMip = 0);
+
+			void GenerateMips(Texture* pResource, SamplerPreset sampler, const Blob& customShader = nullptr);
+			void GenerateMips(Texture3D* pResource, SamplerPreset sampler, const Blob& customShader = nullptr);
+
 			void* GetHandle() const { return XUSG::CommandList_DX12::GetHandle(); }
 			void* GetDeviceHandle() const { return XUSG::CommandList_DX12::GetDeviceHandle(); }
 
@@ -193,6 +201,16 @@ namespace XUSG
 				COMPUTE,
 
 				NUM_PIPELINE_LAYOUT
+			};
+
+			enum ShaderIndex
+			{
+				VS_BLIT_2D,
+				PS_BLIT_2D,
+				CS_BLIT_2D,
+				CS_BLIT_3D,
+
+				NUM_SHADER
 			};
 
 			struct ClearDSV
@@ -245,6 +263,7 @@ namespace XUSG
 			bool createComputePipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
 				const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
 				uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces);
+			bool createShaders();
 
 			void predraw();
 			void predispatch();
@@ -258,6 +277,7 @@ namespace XUSG
 			static uint32_t generateBarriers(ResourceBarrier* pBarriers, const ResourceView& resrouceView,
 				uint32_t numBarriers = 0, BarrierFlag flags = BarrierFlag::NONE);
 
+			ShaderLib::uptr m_shaderLib;
 			Graphics::PipelineLib::uptr	m_graphicsPipelineLib;
 			Compute::PipelineLib::uptr	m_computePipelineLib;
 			PipelineLayoutLib::uptr		m_pipelineLayoutLib;
@@ -285,6 +305,8 @@ namespace XUSG
 
 			std::vector<uint32_t> m_graphicsSpaceToParamIndexMap[Shader::Stage::NUM_GRAPHICS][CbvSrvUavTypes];
 			std::vector<uint32_t> m_computeSpaceToParamIndexMap[CbvSrvUavTypes];
+
+			Blob m_shaders[NUM_SHADER];
 		};
 	}
 }
