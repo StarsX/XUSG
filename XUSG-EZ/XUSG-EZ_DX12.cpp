@@ -6,6 +6,7 @@
 #include "XUSG-EZ_DX12.h"
 
 #include "CSBlit2D.h"
+#include "CSBlit3D.h"
 
 using namespace std;
 using namespace XUSG;
@@ -861,10 +862,10 @@ bool EZ::CommandList_DX12::createShaders()
 	auto psIndex = 0u;
 	auto csIndex = 0u;
 
-	XUSG_N_RETURN(m_shaderLib->CreateShader(Shader::Stage::CS, csIndex, L"CSBlit2D.cso"), false);
+	XUSG_N_RETURN(m_shaderLib->CreateShader(Shader::Stage::CS, csIndex, CSBlit2D, sizeof(CSBlit2D)), false);
 	m_shaders[CS_BLIT_2D] = m_shaderLib->GetShader(Shader::Stage::CS, csIndex++);
 
-	XUSG_N_RETURN(m_shaderLib->CreateShader(Shader::Stage::CS, csIndex, L"CSBlit3D.cso"), false);
+	XUSG_N_RETURN(m_shaderLib->CreateShader(Shader::Stage::CS, csIndex, CSBlit3D, sizeof(CSBlit3D)), false);
 	m_shaders[CS_BLIT_3D] = m_shaderLib->GetShader(Shader::Stage::CS, csIndex++);
 
 	return true;

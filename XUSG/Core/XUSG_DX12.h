@@ -80,7 +80,8 @@ namespace XUSG
 		virtual ~CommandLayout_DX12();
 
 		bool Create(const Device* pDevice, uint32_t byteStride, uint32_t numArguments,
-			const IndirectArgument* pArguments, uint32_t nodeMask = 0, const wchar_t* name = nullptr);
+			const IndirectArgument* pArguments, const PipelineLayout& pipelineLayout = nullptr,
+			uint32_t nodeMask = 0, const wchar_t* name = nullptr);
 
 		void Create(void* pHandle, const wchar_t* name = nullptr);
 

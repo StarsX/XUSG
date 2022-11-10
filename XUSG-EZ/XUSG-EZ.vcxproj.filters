@@ -91,6 +91,8 @@
     <FxCompile Include="Shaders\CSBlit2D.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="Shaders\CSBlit3D.hlsl" />
+    <FxCompile Include="Shaders\CSBlit3D.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

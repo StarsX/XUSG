@@ -128,14 +128,15 @@ CommandLayout_DX12::~CommandLayout_DX12()
 }
 
 bool CommandLayout_DX12::Create(const Device* pDevice, uint32_t byteStride, uint32_t numArguments,
-	const IndirectArgument* pArguments, uint32_t nodeMask, const wchar_t* name)
+	const IndirectArgument* pArguments, const PipelineLayout& pipelineLayout, uint32_t nodeMask,
+	const wchar_t* name)
 {
 	vector<D3D12_INDIRECT_ARGUMENT_DESC> argDescs(numArguments);
 	for (auto i = 0u; i < numArguments; ++i)
 	{
 		const auto& argument = pArguments[i];
 		auto& argDesc = argDescs[i];
-		argDesc.Type = static_cast<D3D12_INDIRECT_ARGUMENT_TYPE>(argument.Type);
+		argDesc.Type = GetDX12IndirectArgumentType(argument.Type);
 
 		switch (argument.Type)
 		{
@@ -168,7 +169,8 @@ bool CommandLayout_DX12::Create(const Device* pDevice, uint32_t byteStride, uint
 	const auto pDxDevice = static_cast<ID3D12Device*>(pDevice->GetHandle());
 
 	assert(pDxDevice);
-	V_RETURN(pDxDevice->CreateCommandSignature(&desc, nullptr, IID_PPV_ARGS(&m_commandSignature)), cerr, false);
+	V_RETURN(pDxDevice->CreateCommandSignature(&desc, static_cast<ID3D12RootSignature*>(pipelineLayout),
+		IID_PPV_ARGS(&m_commandSignature)), cerr, false);
 	if (name) m_commandSignature->SetName(name);
 
 	return true;

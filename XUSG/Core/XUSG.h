@@ -1098,7 +1098,8 @@ namespace XUSG
 		virtual ~CommandLayout() {};
 
 		virtual bool Create(const Device* pDevice, uint32_t byteStride, uint32_t numArguments,
-			const IndirectArgument* pArguments, uint32_t nodeMask = 0, const wchar_t* name = nullptr) = 0;
+			const IndirectArgument* pArguments, const PipelineLayout& pipelineLayout = nullptr,
+			uint32_t nodeMask = 0, const wchar_t* name = nullptr) = 0;
 
 		virtual void Create(void* pHandle, const wchar_t* name = nullptr) = 0;
 
@@ -2211,5 +2212,4 @@ namespace XUSG
 	XUSG_INTERFACE uint8_t CalculateMipLevels(uint32_t width, uint32_t height, uint32_t depth = 1);
 	XUSG_INTERFACE uint8_t CalculateMipLevels(uint64_t width, uint32_t height, uint32_t depth = 1);
 	XUSG_INTERFACE uint8_t Log2(uint32_t value);
-	XUSG_INTERFACE uint32_t DivideAndRoundUp(uint32_t x, uint32_t n);
 }
