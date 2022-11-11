@@ -103,7 +103,7 @@ namespace XUSG
 		ShaderLib::sptr				m_shaderLib;
 		Compute::PipelineLib::sptr	m_computePipelineLib;
 		PipelineLayoutLib::sptr		m_pipelineLayoutLib;
-		DescriptorTableLib::sptr		m_descriptorTableLib;
+		DescriptorTableLib::sptr	m_descriptorTableLib;
 
 		PipelineLayout	m_pipelineLayouts[NUM_PIPELINE];
 		Pipeline		m_pipelines[NUM_PIPELINE];

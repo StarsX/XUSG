@@ -1888,8 +1888,8 @@ namespace XUSG
 		virtual void SetShader(Shader::Stage stage, uint32_t index, const Blob& shader, const Reflector::sptr& reflector) = 0;
 		virtual void SetReflector(Shader::Stage stage, uint32_t index, const Reflector::sptr& reflector) = 0;
 
-		virtual Blob CreateShader(Shader::Stage stage, uint32_t index, const std::wstring& fileName) = 0;
-		virtual Blob CreateShader(Shader::Stage stage, uint32_t index, const uint8_t* pData, size_t size) = 0;
+		virtual Blob CreateShader(Shader::Stage stage, uint32_t index, const wchar_t* fileName) = 0;
+		virtual Blob CreateShader(Shader::Stage stage, uint32_t index, const void* pData, size_t size) = 0;
 		virtual Blob GetShader(Shader::Stage stage, uint32_t index) const = 0;
 		virtual Reflector::sptr GetReflector(Shader::Stage stage, uint32_t index) const = 0;
 
@@ -2212,4 +2212,5 @@ namespace XUSG
 	XUSG_INTERFACE uint8_t CalculateMipLevels(uint32_t width, uint32_t height, uint32_t depth = 1);
 	XUSG_INTERFACE uint8_t CalculateMipLevels(uint64_t width, uint32_t height, uint32_t depth = 1);
 	XUSG_INTERFACE uint8_t Log2(uint32_t value);
+	XUSG_INTERFACE uint32_t DivideRoundUp(uint32_t x, uint32_t n);
 }

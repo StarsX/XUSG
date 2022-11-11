@@ -36,10 +36,10 @@ void ShaderLib_DX12::SetReflector(Shader::Stage stage, uint32_t index, const Ref
 	checkReflectorStorage(stage, index) = reflector;
 }
 
-Blob ShaderLib_DX12::CreateShader(Shader::Stage stage, uint32_t index, const wstring& fileName)
+Blob ShaderLib_DX12::CreateShader(Shader::Stage stage, uint32_t index, const wchar_t* fileName)
 {
 	auto& shader = checkShaderStorage(stage, index);
-	V_RETURN(D3DReadFileToBlob(fileName.c_str(), shader.put()), cerr, nullptr);
+	V_RETURN(D3DReadFileToBlob(fileName, shader.put()), cerr, nullptr);
 
 	auto& reflector = checkReflectorStorage(stage, index);
 	reflector = make_shared<Reflector_DX12>();
@@ -48,7 +48,7 @@ Blob ShaderLib_DX12::CreateShader(Shader::Stage stage, uint32_t index, const wst
 	return shader.get();
 }
 
-Blob ShaderLib_DX12::CreateShader(Shader::Stage stage, uint32_t index, const uint8_t* pData, size_t size)
+Blob ShaderLib_DX12::CreateShader(Shader::Stage stage, uint32_t index, const void* pData, size_t size)
 {
 	auto& shader = checkShaderStorage(stage, index);
 	V_RETURN(D3DCreateBlob(size, shader.put()), cerr, nullptr);

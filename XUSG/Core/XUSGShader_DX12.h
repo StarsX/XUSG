@@ -19,8 +19,8 @@ namespace XUSG
 		void SetShader(Shader::Stage stage, uint32_t index, const Blob& shader, const Reflector::sptr& reflector);
 		void SetReflector(Shader::Stage stage, uint32_t index, const Reflector::sptr& reflector);
 
-		Blob CreateShader(Shader::Stage stage, uint32_t index, const std::wstring& fileName);
-		Blob CreateShader(Shader::Stage stage, uint32_t index, const uint8_t* pData, size_t size);
+		Blob CreateShader(Shader::Stage stage, uint32_t index, const wchar_t* fileName);
+		Blob CreateShader(Shader::Stage stage, uint32_t index, const void* pData, size_t size);
 		Blob GetShader(Shader::Stage stage, uint32_t index) const;
 		Reflector::sptr GetReflector(Shader::Stage stage, uint32_t index) const;
 
