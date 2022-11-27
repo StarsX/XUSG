@@ -21,7 +21,7 @@ EZ::CommandList_DX12::CommandList_DX12() :
 }
 
 EZ::CommandList_DX12::CommandList_DX12(Ultimate::CommandList* pCommandList,
-	uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 	const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE],
@@ -31,7 +31,7 @@ EZ::CommandList_DX12::CommandList_DX12(Ultimate::CommandList* pCommandList,
 	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE]) :
 	CommandList_DX12()
 {
-	Create(pCommandList, samplerPoolSize, cbvSrvUavPoolSize, maxSamplers,
+	Create(pCommandList, samplerHeapSize, cbvSrvUavHeapSize, maxSamplers,
 		pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
 		maxCbvSpaces, maxSrvSpaces, maxUavSpaces);
 }
@@ -41,7 +41,7 @@ EZ::CommandList_DX12::~CommandList_DX12()
 }
 
 bool EZ::CommandList_DX12::Create(Ultimate::CommandList* pCommandList,
-	uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 	const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE],
@@ -50,7 +50,7 @@ bool EZ::CommandList_DX12::Create(Ultimate::CommandList* pCommandList,
 	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE])
 {
-	XUSG_N_RETURN(init(pCommandList, samplerPoolSize, cbvSrvUavPoolSize), false);
+	XUSG_N_RETURN(init(pCommandList, samplerHeapSize, cbvSrvUavHeapSize), false);
 
 	// Create common pipeline layouts
 	XUSG_N_RETURN(createGraphicsPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
@@ -71,7 +71,7 @@ bool EZ::CommandList_DX12::Create(Ultimate::CommandList* pCommandList,
 }
 
 bool EZ::CommandList_DX12::Create(const Device* pDevice, void* pHandle,
-	uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 	const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE],
@@ -83,7 +83,7 @@ bool EZ::CommandList_DX12::Create(const Device* pDevice, void* pHandle,
 	m_pDevice = pDevice;
 	Ultimate::CommandList_DX12::Create(pHandle, name);
 
-	return Create(this, samplerPoolSize, cbvSrvUavPoolSize, maxSamplers,
+	return Create(this, samplerHeapSize, cbvSrvUavHeapSize, maxSamplers,
 		pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
 		maxCbvSpaces, maxSrvSpaces, maxUavSpaces);
 }
@@ -190,9 +190,9 @@ void EZ::CommandList_DX12::DispatchMeshIndirect(const CommandLayout* pCommandlay
 		pArgumentBuffer, argumentBufferOffset, pCountBuffer, countBufferOffset);
 }
 
-bool EZ::CommandList_DX12::init(Ultimate::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize)
+bool EZ::CommandList_DX12::init(Ultimate::CommandList* pCommandList, uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize)
 {
-	XUSG_N_RETURN(XUSG::EZ::CommandList_DX12::init(pCommandList, samplerPoolSize, cbvSrvUavPoolSize), false);
+	XUSG_N_RETURN(XUSG::EZ::CommandList_DX12::init(pCommandList, samplerHeapSize, cbvSrvUavHeapSize), false);
 
 	m_commandListU = dynamic_cast<Ultimate::CommandList_DX12*>(pCommandList)->GetGraphicsCommandList();
 

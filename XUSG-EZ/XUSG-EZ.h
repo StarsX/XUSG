@@ -92,7 +92,7 @@ namespace XUSG
 
 			// By default maxSamplers[stage] = 16, maxCbvsEachSpace[stage] = 14, maxSrvsEachSpace[stage] = 32, and maxUavsEachSpace[stage] = 16
 			virtual bool Create(XUSG::CommandList* pCommandList,
-				uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+				uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 				const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
@@ -101,7 +101,7 @@ namespace XUSG
 				const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr) = 0;
 			virtual bool Create(const Device* pDevice, void* pHandle,
-				uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+				uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 				const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
@@ -196,16 +196,16 @@ namespace XUSG
 				uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
 			virtual void DiscardResource(const Resource* pResource, uint32_t numRects, const RectRange* pRects,
 				uint32_t firstSubresource, uint32_t numSubresources) = 0;
-			virtual void BeginQuery(const QueryPool& queryPool, QueryType type, uint32_t index) const = 0;
-			virtual void EndQuery(const QueryPool& queryPool, QueryType type, uint32_t index) const = 0;
-			virtual void ResolveQueryData(const QueryPool& queryPool, QueryType type, uint32_t startIndex,
+			virtual void BeginQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const = 0;
+			virtual void EndQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const = 0;
+			virtual void ResolveQueryData(const QueryHeap& queryHeap, QueryType type, uint32_t startIndex,
 				uint32_t numQueries, const Resource* pDstBuffer, uint64_t alignedDstBufferOffset) const = 0;
 			virtual void SetPredication(const Resource* pBuffer, uint64_t alignedBufferOffset, bool opEqualZero)const = 0;
 			virtual void SetMarker(uint32_t metaData, const void* pData, uint32_t size) const = 0;
 			virtual void BeginEvent(uint32_t metaData, const void* pData, uint32_t size) const = 0;
 			virtual void EndEvent() = 0;
 
-			virtual void ResetDescriptorPool(DescriptorPoolType type) = 0;
+			virtual void ResetDescriptorHeap(DescriptorHeapType type) = 0;
 			virtual void Resize() = 0;
 
 			virtual void Blit(Texture* pDstResource, Texture* pSrcResource, SamplerPreset sampler,
@@ -224,7 +224,7 @@ namespace XUSG
 			static uptr MakeUnique(API api = API::DIRECTX_12);
 			static sptr MakeShared(API api = API::DIRECTX_12);
 			static uptr MakeUnique(XUSG::CommandList* pCommandList,
-				uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+				uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 				const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
@@ -234,7 +234,7 @@ namespace XUSG
 				const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				API api = API::DIRECTX_12);
 			static sptr MakeShared(XUSG::CommandList* pCommandList,
-				uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+				uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 				const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,

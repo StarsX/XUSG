@@ -53,7 +53,7 @@ namespace XUSG
 			bool PreBuild(const Device* pDevice, uint32_t numGeometries, const GeometryBuffer& geometries,
 				uint32_t descriptorIndex, BuildFlag flags = BuildFlag::PREFER_FAST_TRACE);
 			void Build(CommandList* pCommandList, const Resource* pScratch,
-				const DescriptorPool& descriptorPool, bool update = false);
+				const DescriptorHeap& descriptorHeap, bool update = false);
 
 			static void SetTriangleGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
 				Format vertexFormat, const VertexBufferView* pVBs, const IndexBufferView* pIBs = nullptr,
@@ -73,7 +73,7 @@ namespace XUSG
 			bool PreBuild(const Device* pDevice, uint32_t numInstances, uint32_t descriptorIndex,
 				BuildFlag flags = BuildFlag::PREFER_FAST_TRACE);
 			void Build(const CommandList* pCommandList, const Resource* pScratch,
-				const Resource* pInstanceDescs, const DescriptorPool& descriptorPool, bool update = false);
+				const Resource* pInstanceDescs, const DescriptorHeap& descriptorHeap, bool update = false);
 
 			static void SetInstances(const Device* pDevice, Resource* pInstances, uint32_t numInstances,
 				const BottomLevelAS* const* ppBottomLevelASs, float* const* transforms);

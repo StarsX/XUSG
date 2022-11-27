@@ -135,7 +135,7 @@ namespace XUSG
 			virtual bool PreBuild(const Device* pDevice, uint32_t numGeometries, const GeometryBuffer& geometries,
 				uint32_t descriptorIndex, BuildFlag flags = BuildFlag::PREFER_FAST_TRACE) = 0;
 			virtual void Build(CommandList* pCommandList, const Resource* pScratch,
-				const DescriptorPool& descriptorPool, bool update = false) = 0;
+				const DescriptorHeap& descriptorHeap, bool update = false) = 0;
 
 			static void SetTriangleGeometries(GeometryBuffer& geometries, uint32_t numGeometries, Format vertexFormat,
 				const VertexBufferView* pVBs, const IndexBufferView* pIBs = nullptr,
@@ -175,7 +175,7 @@ namespace XUSG
 			virtual bool PreBuild(const Device* pDevice, uint32_t numInstances, uint32_t descriptorIndex,
 				BuildFlag flags = BuildFlag::PREFER_FAST_TRACE) = 0;
 			virtual void Build(const CommandList* pCommandList, const Resource* pScratch,
-				const Resource* pInstanceDescs, const DescriptorPool& descriptorPool, bool update = false) = 0;
+				const Resource* pInstanceDescs, const DescriptorHeap& descriptorHeap, bool update = false) = 0;
 
 			static void SetInstances(const Device* pDevice, Resource* pInstances,
 				uint32_t numInstances, const BottomLevelAS* const* ppBottomLevelASs,
@@ -267,9 +267,9 @@ namespace XUSG
 			virtual void BuildRaytracingAccelerationStructure(const BuildDesc* pDesc,
 				uint32_t numPostbuildInfoDescs,
 				const PostbuildInfo* pPostbuildInfoDescs,
-				const DescriptorPool& descriptorPool) const = 0;
+				const DescriptorHeap& descriptorHeap) const = 0;
 
-			virtual void SetDescriptorPools(uint32_t numDescriptorPools, const DescriptorPool* pDescriptorPools) const = 0;
+			virtual void SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps) const = 0;
 			virtual void SetTopLevelAccelerationStructure(uint32_t index, const TopLevelAS* pTopLevelAS) const = 0;
 			virtual void SetTopLevelAccelerationStructure(uint32_t index, uint64_t topLevelASPtr) const = 0;
 			virtual void SetRayTracingPipeline(const Pipeline& pipeline) const = 0;

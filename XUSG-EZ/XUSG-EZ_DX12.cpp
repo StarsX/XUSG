@@ -36,7 +36,7 @@ EZ::CommandList_DX12::CommandList_DX12() :
 	m_shaderLib = ShaderLib::MakeUnique();
 }
 
-EZ::CommandList_DX12::CommandList_DX12(XUSG::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+EZ::CommandList_DX12::CommandList_DX12(XUSG::CommandList* pCommandList, uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 	const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE],
@@ -46,7 +46,7 @@ EZ::CommandList_DX12::CommandList_DX12(XUSG::CommandList* pCommandList, uint32_t
 	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE]) :
 	CommandList_DX12()
 {
-	Create(pCommandList, samplerPoolSize, cbvSrvUavPoolSize, maxSamplers,
+	Create(pCommandList, samplerHeapSize, cbvSrvUavHeapSize, maxSamplers,
 		pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
 		maxCbvSpaces, maxSrvSpaces, maxUavSpaces);
 }
@@ -56,7 +56,7 @@ EZ::CommandList_DX12::~CommandList_DX12()
 }
 
 bool EZ::CommandList_DX12::Create(XUSG::CommandList* pCommandList,
-	uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 	const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE],
@@ -65,7 +65,7 @@ bool EZ::CommandList_DX12::Create(XUSG::CommandList* pCommandList,
 	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE])
 {
-	XUSG_N_RETURN(init(pCommandList, samplerPoolSize, cbvSrvUavPoolSize), false);
+	XUSG_N_RETURN(init(pCommandList, samplerHeapSize, cbvSrvUavHeapSize), false);
 
 	// Create common pipeline layouts
 	XUSG_N_RETURN(createGraphicsPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
@@ -83,7 +83,7 @@ bool EZ::CommandList_DX12::Create(XUSG::CommandList* pCommandList,
 }
 
 bool EZ::CommandList_DX12::Create(const Device* pDevice, void* pHandle,
-	uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 	const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE],
@@ -96,7 +96,7 @@ bool EZ::CommandList_DX12::Create(const Device* pDevice, void* pHandle,
 	m_pDevice = pDevice;
 	XUSG::CommandList_DX12::Create(pHandle, name);
 
-	return Create(this, samplerPoolSize, cbvSrvUavPoolSize, maxSamplers,
+	return Create(this, samplerHeapSize, cbvSrvUavHeapSize, maxSamplers,
 		pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
 		maxCbvSpaces, maxSrvSpaces, maxUavSpaces);
 }
@@ -117,13 +117,13 @@ bool EZ::CommandList_DX12::Reset(const CommandAllocator* pAllocator, const Pipel
 {
 	const auto ret = XUSG::CommandList_DX12::Reset(pAllocator, initialState);
 
-	// Set Descriptor pools
-	const DescriptorPool descriptorPools[] =
+	// Set Descriptor heaps
+	const DescriptorHeap descriptorHeaps[] =
 	{
-		m_descriptorTableLib->GetDescriptorPool(CBV_SRV_UAV_POOL),
-		m_descriptorTableLib->GetDescriptorPool(SAMPLER_POOL)
+		m_descriptorTableLib->GetDescriptorHeap(CBV_SRV_UAV_HEAP),
+		m_descriptorTableLib->GetDescriptorHeap(SAMPLER_HEAP)
 	};
-	XUSG::CommandList_DX12::SetDescriptorPools(static_cast<uint32_t>(size(descriptorPools)), descriptorPools);
+	XUSG::CommandList_DX12::SetDescriptorHeaps(static_cast<uint32_t>(size(descriptorHeaps)), descriptorHeaps);
 
 	// Set pipeline layouts
 	XUSG::CommandList_DX12::SetGraphicsPipelineLayout(m_pipelineLayouts[GRAPHICS]);
@@ -576,14 +576,14 @@ void EZ::CommandList_DX12::ClearUnorderedAccessViewFloat(const ResourceView& uno
 	for (auto i = 0u; i < numRects; ++i) clearView.Rects[i] = pRects[i];
 }
 
-void EZ::CommandList_DX12::ResetDescriptorPool(DescriptorPoolType type)
+void EZ::CommandList_DX12::ResetDescriptorHeap(DescriptorHeapType type)
 {
-	m_descriptorTableLib->ResetDescriptorPool(type, 0);
+	m_descriptorTableLib->ResetDescriptorHeap(type);
 }
 
 void EZ::CommandList_DX12::Resize()
 {
-	ResetDescriptorPool(DescriptorPoolType::CBV_SRV_UAV_POOL);
+	ResetDescriptorHeap(DescriptorHeapType::CBV_SRV_UAV_HEAP);
 }
 
 void EZ::CommandList_DX12::Blit(Texture* pDstResource, Texture* pSrcResource, SamplerPreset sampler,
@@ -697,7 +697,7 @@ void EZ::CommandList_DX12::GenerateMips(Texture3D* pResource, SamplerPreset samp
 }
 
 
-bool EZ::CommandList_DX12::init(XUSG::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize)
+bool EZ::CommandList_DX12::init(XUSG::CommandList* pCommandList, uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize)
 {
 	m_pDevice = pCommandList->GetDevice();
 	m_commandList = dynamic_cast<XUSG::CommandList_DX12*>(pCommandList)->GetGraphicsCommandList();
@@ -712,11 +712,9 @@ bool EZ::CommandList_DX12::init(XUSG::CommandList* pCommandList, uint32_t sample
 	// Create internal shaders
 	XUSG_N_RETURN(createShaders(), false);
 
-	// Allocate descriptor pools
-	XUSG_N_RETURN(m_descriptorTableLib->AllocateDescriptorPool(
-		DescriptorPoolType::SAMPLER_POOL, samplerPoolSize), false);
-	XUSG_N_RETURN(m_descriptorTableLib->AllocateDescriptorPool(
-		DescriptorPoolType::CBV_SRV_UAV_POOL, cbvSrvUavPoolSize), false);
+	// Allocate descriptor heaps
+	XUSG_N_RETURN(m_descriptorTableLib->AllocateDescriptorHeap(SAMPLER_HEAP, samplerHeapSize), false);
+	XUSG_N_RETURN(m_descriptorTableLib->AllocateDescriptorHeap(CBV_SRV_UAV_HEAP, cbvSrvUavHeapSize), false);
 
 	return true;
 }

@@ -200,17 +200,17 @@ void PipelineLib_DX12::SetPipeline(const string& key, const Pipeline& pipeline)
 
 void PipelineLib_DX12::SetInputLayout(uint32_t index, const InputElement* pElements, uint32_t numElements)
 {
-	m_inputLayoutPool.SetLayout(index, pElements, numElements);
+	m_inputLayoutLib.SetLayout(index, pElements, numElements);
 }
 
 const InputLayout* PipelineLib_DX12::GetInputLayout(uint32_t index) const
 {
-	return m_inputLayoutPool.GetLayout(index);
+	return m_inputLayoutLib.GetLayout(index);
 }
 
 const InputLayout* PipelineLib_DX12::CreateInputLayout(const InputElement* pElements, uint32_t numElements)
 {
-	return m_inputLayoutPool.CreateLayout(pElements, numElements);
+	return m_inputLayoutLib.CreateLayout(pElements, numElements);
 }
 
 Pipeline PipelineLib_DX12::CreatePipeline(const State* pState, const wchar_t* name)

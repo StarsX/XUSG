@@ -80,7 +80,7 @@ namespace XUSG
 		void SetPipelineState(const Pipeline& pipelineState) const;
 		void Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers);
 		void ExecuteBundle(const CommandList* pCommandList) const;
-		void SetDescriptorPools(uint32_t numDescriptorPools, const DescriptorPool* pDescriptorPools) const;
+		void SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps) const;
 		void SetComputePipelineLayout(const PipelineLayout& pipelineLayout) const;
 		void SetGraphicsPipelineLayout(const PipelineLayout& pipelineLayout) const;
 		void SetComputeDescriptorTable(uint32_t index, const DescriptorTable& descriptorTable) const;
@@ -126,9 +126,9 @@ namespace XUSG
 			uint32_t numRects = 0, const RectRange* pRects = nullptr);
 		void DiscardResource(const Resource* pResource, uint32_t numRects, const RectRange* pRects,
 			uint32_t firstSubresource, uint32_t numSubresources);
-		void BeginQuery(const QueryPool& queryPool, QueryType type, uint32_t index) const;
-		void EndQuery(const QueryPool& queryPool, QueryType type, uint32_t index) const;
-		void ResolveQueryData(const QueryPool& queryPool, QueryType type, uint32_t startIndex,
+		void BeginQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const;
+		void EndQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const;
+		void ResolveQueryData(const QueryHeap& queryHeap, QueryType type, uint32_t startIndex,
 			uint32_t numQueries, const Resource* pDstBuffer, uint64_t alignedDstBufferOffset) const;
 		void SetPredication(const Resource* pBuffer, uint64_t alignedBufferOffset, bool opEqualZero)const;
 		void SetMarker(uint32_t metaData, const void* pData, uint32_t size) const;

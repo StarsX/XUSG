@@ -24,9 +24,9 @@ namespace XUSG
 			void BuildRaytracingAccelerationStructure(const BuildDesc* pDesc,
 				uint32_t numPostbuildInfoDescs,
 				const PostbuildInfo* pPostbuildInfoDescs,
-				const DescriptorPool& descriptorPool) const;
+				const DescriptorHeap& descriptorHeap) const;
 
-			void SetDescriptorPools(uint32_t numDescriptorPools, const DescriptorPool* pDescriptorPools) const;
+			void SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps) const;
 			void SetTopLevelAccelerationStructure(uint32_t index, const TopLevelAS* pTopLevelAS) const;
 			void SetTopLevelAccelerationStructure(uint32_t index, uint64_t topLevelASPtr) const;
 			void SetRayTracingPipeline(const Pipeline& pipeline) const;

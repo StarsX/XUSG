@@ -20,7 +20,7 @@ namespace XUSG
 			public:
 				CommandList_DX12();
 				CommandList_DX12(Ultimate::CommandList* pCommandList,
-					uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
@@ -31,7 +31,7 @@ namespace XUSG
 				virtual ~CommandList_DX12();
 
 				bool Create(Ultimate::CommandList* pCommandList,
-					uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
@@ -40,7 +40,7 @@ namespace XUSG
 					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr);
 				bool Create(const Device* pDevice, void* pHandle,
-					uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
@@ -93,7 +93,7 @@ namespace XUSG
 					NUM_STAGE
 				};
 
-				bool init(Ultimate::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize);
+				bool init(Ultimate::CommandList* pCommandList, uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize);
 				bool createMeshShaderPipelineLayouts(
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
 					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],

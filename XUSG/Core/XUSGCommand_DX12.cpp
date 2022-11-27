@@ -299,11 +299,11 @@ void CommandList_DX12::ExecuteBundle(const CommandList* pCommandList) const
 	m_commandList->ExecuteBundle(static_cast<ID3D12GraphicsCommandList*>(pCommandList->GetHandle()));
 }
 
-void CommandList_DX12::SetDescriptorPools(uint32_t numDescriptorPools, const DescriptorPool* pDescriptorPools) const
+void CommandList_DX12::SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps) const
 {
-	assert(numDescriptorPools == 0 || pDescriptorPools);
-	m_commandList->SetDescriptorHeaps(numDescriptorPools, pDescriptorPools ?
-		reinterpret_cast<ID3D12DescriptorHeap* const*>(pDescriptorPools) : nullptr);
+	assert(numDescriptorHeaps == 0 || pDescriptorHeaps);
+	m_commandList->SetDescriptorHeaps(numDescriptorHeaps, pDescriptorHeaps ?
+		reinterpret_cast<ID3D12DescriptorHeap* const*>(pDescriptorHeaps) : nullptr);
 }
 
 void CommandList_DX12::SetComputePipelineLayout(const PipelineLayout& pipelineLayout) const
@@ -580,21 +580,21 @@ void CommandList_DX12::DiscardResource(const Resource* pResource, uint32_t numRe
 	m_commandList->DiscardResource(static_cast<ID3D12Resource*>(pResource->GetHandle()), &region);
 }
 
-void CommandList_DX12::BeginQuery(const QueryPool& queryPool, QueryType type, uint32_t index) const
+void CommandList_DX12::BeginQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const
 {
-	m_commandList->BeginQuery(static_cast<ID3D12QueryHeap*>(queryPool), GetDX12QueryType(type), index);
+	m_commandList->BeginQuery(static_cast<ID3D12QueryHeap*>(queryHeap), GetDX12QueryType(type), index);
 }
 
-void CommandList_DX12::EndQuery(const QueryPool& queryPool, QueryType type, uint32_t index) const
+void CommandList_DX12::EndQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const
 {
-	m_commandList->EndQuery(static_cast<ID3D12QueryHeap*>(queryPool), GetDX12QueryType(type), index);
+	m_commandList->EndQuery(static_cast<ID3D12QueryHeap*>(queryHeap), GetDX12QueryType(type), index);
 }
 
-void CommandList_DX12::ResolveQueryData(const QueryPool& queryPool, QueryType type, uint32_t startIndex,
+void CommandList_DX12::ResolveQueryData(const QueryHeap& queryHeap, QueryType type, uint32_t startIndex,
 	uint32_t numQueries, const Resource* pDstBuffer, uint64_t alignedDstBufferOffset) const
 {
 	assert(pDstBuffer);
-	m_commandList->ResolveQueryData(static_cast<ID3D12QueryHeap*>(queryPool), GetDX12QueryType(type),
+	m_commandList->ResolveQueryData(static_cast<ID3D12QueryHeap*>(queryHeap), GetDX12QueryType(type),
 		startIndex, numQueries, static_cast<ID3D12Resource*>(pDstBuffer->GetHandle()), alignedDstBufferOffset);
 }
 

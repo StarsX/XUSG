@@ -17,7 +17,7 @@ namespace XUSG
 		public:
 			CommandList_DX12();
 			CommandList_DX12(XUSG::CommandList* pCommandList,
-				uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+				uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 				const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
 				const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
 				const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE],
@@ -28,7 +28,7 @@ namespace XUSG
 			virtual ~CommandList_DX12();
 
 			bool Create(XUSG::CommandList* pCommandList,
-				uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+				uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 				const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
@@ -37,7 +37,7 @@ namespace XUSG
 				const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr);
 			bool Create(const Device* pDevice, void* pHandle,
-				uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+				uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 				const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
@@ -142,20 +142,20 @@ namespace XUSG
 					pRects, firstSubresource, numSubresources);
 			}
 
-			void BeginQuery(const QueryPool& queryPool, QueryType type, uint32_t index) const
+			void BeginQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const
 			{
-				XUSG::CommandList_DX12::BeginQuery(queryPool, type, index);
+				XUSG::CommandList_DX12::BeginQuery(queryHeap, type, index);
 			}
 
-			void EndQuery(const QueryPool& queryPool, QueryType type, uint32_t index) const
+			void EndQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const
 			{
-				XUSG::CommandList_DX12::EndQuery(queryPool, type, index);
+				XUSG::CommandList_DX12::EndQuery(queryHeap, type, index);
 			}
 
-			void ResolveQueryData(const QueryPool& queryPool, QueryType type, uint32_t startIndex,
+			void ResolveQueryData(const QueryHeap& queryHeap, QueryType type, uint32_t startIndex,
 				uint32_t numQueries, const Resource* pDstBuffer, uint64_t alignedDstBufferOffset) const
 			{
-				XUSG::CommandList_DX12::ResolveQueryData(queryPool, type, startIndex,
+				XUSG::CommandList_DX12::ResolveQueryData(queryHeap, type, startIndex,
 					numQueries, pDstBuffer, alignedDstBufferOffset);
 			}
 
@@ -177,7 +177,7 @@ namespace XUSG
 			void EndEvent() { XUSG::CommandList_DX12::EndEvent(); }
 
 			// For resize window
-			void ResetDescriptorPool(DescriptorPoolType type);
+			void ResetDescriptorHeap(DescriptorHeapType type);
 			void Resize();
 
 			void Blit(Texture* pDstResource, Texture* pSrcResource, SamplerPreset sampler,
@@ -251,7 +251,7 @@ namespace XUSG
 
 			static const uint8_t CbvSrvUavTypes = 3;
 
-			bool init(XUSG::CommandList* pCommandList, uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize);
+			bool init(XUSG::CommandList* pCommandList, uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize);
 			bool createGraphicsPipelineLayouts(
 				const uint32_t maxSamplers[Shader::Stage::NUM_GRAPHICS],
 				const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_GRAPHICS],

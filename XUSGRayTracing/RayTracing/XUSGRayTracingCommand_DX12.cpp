@@ -42,7 +42,7 @@ bool RayTracing::CommandList_DX12::CreateInterface()
 }
 
 void RayTracing::CommandList_DX12::BuildRaytracingAccelerationStructure(const BuildDesc* pDesc, uint32_t numPostbuildInfoDescs,
-	const PostbuildInfo* pPostbuildInfoDescs, const DescriptorPool& descriptorPool) const
+	const PostbuildInfo* pPostbuildInfoDescs, const DescriptorHeap& descriptorHeap) const
 {
 	const D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_TYPE infoTypes[] =
 	{
@@ -64,7 +64,7 @@ void RayTracing::CommandList_DX12::BuildRaytracingAccelerationStructure(const Bu
 	if (!pDxDevice->UsingRaytracingDriver())
 	{
 		// Set the descriptor heaps to be used during acceleration structure build for the Fallback Layer.
-		const auto pDescriptorHeap = reinterpret_cast<ID3D12DescriptorHeap*>(descriptorPool);
+		const auto pDescriptorHeap = reinterpret_cast<ID3D12DescriptorHeap*>(descriptorHeap);
 		m_commandListRT->SetDescriptorHeaps(1, &pDescriptorHeap);
 	}
 	
@@ -73,11 +73,11 @@ void RayTracing::CommandList_DX12::BuildRaytracingAccelerationStructure(const Bu
 		pPostbuildInfoDescs ? postbuildInfoDescs.data() : nullptr, AccelerationStructure::GetUAVCount());
 }
 
-void RayTracing::CommandList_DX12::SetDescriptorPools(uint32_t numDescriptorPools, const DescriptorPool* pDescriptorPools) const
+void RayTracing::CommandList_DX12::SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps) const
 {
-	assert(numDescriptorPools == 0 || pDescriptorPools);
-	m_commandListRT->SetDescriptorHeaps(numDescriptorPools, pDescriptorPools ?
-		reinterpret_cast<ID3D12DescriptorHeap* const*>(pDescriptorPools) : nullptr);
+	assert(numDescriptorHeaps == 0 || pDescriptorHeaps);
+	m_commandListRT->SetDescriptorHeaps(numDescriptorHeaps, pDescriptorHeaps ?
+		reinterpret_cast<ID3D12DescriptorHeap* const*>(pDescriptorHeaps) : nullptr);
 }
 
 void RayTracing::CommandList_DX12::SetTopLevelAccelerationStructure(uint32_t index, const TopLevelAS* pTopLevelAS) const

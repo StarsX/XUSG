@@ -20,7 +20,7 @@ namespace XUSG
 			public:
 				CommandList_DXR();
 				CommandList_DXR(RayTracing::CommandList* pCommandList,
-					uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
@@ -32,7 +32,7 @@ namespace XUSG
 				virtual ~CommandList_DXR();
 
 				bool Create(RayTracing::CommandList* pCommandList,
-					uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
@@ -42,7 +42,7 @@ namespace XUSG
 					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					uint32_t maxTLASSrvs = 0, uint32_t spaceTLAS = 0);
 				bool Create(const RayTracing::Device* pDevice, void* pHandle,
-					uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,

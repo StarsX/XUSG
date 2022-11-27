@@ -345,7 +345,7 @@ EZ::CommandList::sptr EZ::CommandList::MakeShared(API api)
 }
 
 EZ::CommandList::uptr EZ::CommandList::MakeUnique(XUSG::CommandList* pCommandList,
-	uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 	const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE],
@@ -354,13 +354,13 @@ EZ::CommandList::uptr EZ::CommandList::MakeUnique(XUSG::CommandList* pCommandLis
 	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE], API api)
 {
-	return make_unique<EZ::CommandList_DX12>(pCommandList, samplerPoolSize, cbvSrvUavPoolSize,
+	return make_unique<EZ::CommandList_DX12>(pCommandList, samplerHeapSize, cbvSrvUavHeapSize,
 		maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
 		maxCbvSpaces, maxSrvSpaces, maxUavSpaces);
 }
 
 EZ::CommandList::sptr EZ::CommandList::MakeShared(XUSG::CommandList* pCommandList,
-	uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 	const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE],
@@ -369,7 +369,7 @@ EZ::CommandList::sptr EZ::CommandList::MakeShared(XUSG::CommandList* pCommandLis
 	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE], API api)
 {
-	return make_shared<EZ::CommandList_DX12>(pCommandList, samplerPoolSize, cbvSrvUavPoolSize,
+	return make_shared<EZ::CommandList_DX12>(pCommandList, samplerHeapSize, cbvSrvUavHeapSize,
 		maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
 		maxCbvSpaces, maxSrvSpaces, maxUavSpaces);
 }

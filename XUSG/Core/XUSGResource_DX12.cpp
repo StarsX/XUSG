@@ -1505,7 +1505,7 @@ Descriptor DepthStencil_DX12::allocateDsvHeap()
 	if (!m_name.empty())
 	{
 		const auto i = to_wstring(m_dsvHeaps.size() - 1);
-		dsvHeap->SetName((m_name + L".DsvPool" + i).c_str());
+		dsvHeap->SetName((m_name + L".DsvHeap" + i).c_str());
 	}
 
 	return dsvHeap->GetCPUDescriptorHandleForHeapStart().ptr;

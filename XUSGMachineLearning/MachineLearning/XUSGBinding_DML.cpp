@@ -20,7 +20,7 @@ Binding_DML::~Binding_DML()
 {
 }
 
-bool Binding_DML::Create(const ML::Device* pDevice, const Operator& dispatchable, const DescriptorPool& descriptorPool,
+bool Binding_DML::Create(const ML::Device* pDevice, const Operator& dispatchable, const DescriptorHeap& descriptorHeap,
 	uint32_t descriptorCount, int32_t descriptorOffset)
 {
 	com_ptr<ID3D12Device> parent;
@@ -28,7 +28,7 @@ bool Binding_DML::Create(const ML::Device* pDevice, const Operator& dispatchable
 	pDMLDevice->GetParentDevice(IID_PPV_ARGS(&parent));
 	m_descriptorStride = parent->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-	const auto pDescriptorHeap = static_cast<ID3D12DescriptorHeap*>(descriptorPool);
+	const auto pDescriptorHeap = static_cast<ID3D12DescriptorHeap*>(descriptorHeap);
 	CD3DX12_CPU_DESCRIPTOR_HANDLE hCpuDescriptor(pDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
 	CD3DX12_GPU_DESCRIPTOR_HANDLE hGpuDescriptor(pDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 	hCpuDescriptor.Offset(descriptorOffset, m_descriptorStride);
@@ -46,10 +46,10 @@ bool Binding_DML::Create(const ML::Device* pDevice, const Operator& dispatchable
 	return true;
 }
 
-bool Binding_DML::Reset(const Operator& dispatchable, const DescriptorPool& descriptorPool,
+bool Binding_DML::Reset(const Operator& dispatchable, const DescriptorHeap& descriptorHeap,
 	uint32_t descriptorCount, int32_t descriptorOffset)
 {
-	const auto pDescriptorHeap = static_cast<ID3D12DescriptorHeap*>(descriptorPool);
+	const auto pDescriptorHeap = static_cast<ID3D12DescriptorHeap*>(descriptorHeap);
 	CD3DX12_CPU_DESCRIPTOR_HANDLE hCpuDescriptor(pDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
 	CD3DX12_GPU_DESCRIPTOR_HANDLE hGpuDescriptor(pDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 	hCpuDescriptor.Offset(descriptorOffset, m_descriptorStride);

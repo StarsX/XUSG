@@ -8,16 +8,16 @@
 using namespace std;
 using namespace XUSG;
 
-InputLayoutPool_DX12::InputLayoutPool_DX12() :
+InputLayoutLib_DX12::InputLayoutLib_DX12() :
 	m_layouts(0)
 {
 }
 
-InputLayoutPool_DX12::~InputLayoutPool_DX12()
+InputLayoutLib_DX12::~InputLayoutLib_DX12()
 {
 }
 
-void InputLayoutPool_DX12::SetLayout(uint32_t index, const InputElement* pElements, uint32_t numElements)
+void InputLayoutLib_DX12::SetLayout(uint32_t index, const InputElement* pElements, uint32_t numElements)
 {
 	if (index >= m_layouts.size())
 		m_layouts.resize(index + 1);
@@ -29,7 +29,7 @@ void InputLayoutPool_DX12::SetLayout(uint32_t index, const InputElement* pElemen
 		layout[i] = pElements[i];
 }
 
-const InputLayout* InputLayoutPool_DX12::CreateLayout(const InputElement* pElements, uint32_t numElements)
+const InputLayout* InputLayoutLib_DX12::CreateLayout(const InputElement* pElements, uint32_t numElements)
 {
 	const auto index = static_cast<uint32_t>(m_layouts.size());
 
@@ -38,7 +38,7 @@ const InputLayout* InputLayoutPool_DX12::CreateLayout(const InputElement* pEleme
 	return GetLayout(index);
 }
 
-const InputLayout* InputLayoutPool_DX12::GetLayout(uint32_t index) const
+const InputLayout* InputLayoutLib_DX12::GetLayout(uint32_t index) const
 {
 	return index < m_layouts.size() ? &m_layouts[index] : nullptr;
 }

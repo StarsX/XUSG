@@ -438,8 +438,8 @@ namespace XUSG
 		LOCAL_PIPELINE_LAYOUT = (1 << 7),
 		DENY_AMPLIFICATION_SHADER_ROOT_ACCESS = (1 << 8),
 		DENY_MESH_SHADER_ROOT_ACCESS = (1 << 9),
-		CBV_SRV_UAV_POOL_DIRECTLY_INDEXED = (1 << 10),
-		SAMPLER_POOL_DIRECTLY_INDEXED = (1 << 11)
+		CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED = (1 << 10),
+		SAMPLER_HEAP_DIRECTLY_INDEXED = (1 << 11)
 	};
 
 	XUSG_DEF_ENUM_FLAG_OPERATORS(PipelineLayoutFlag);
@@ -605,13 +605,13 @@ namespace XUSG
 		};
 	}
 
-	enum DescriptorPoolType : uint8_t
+	enum DescriptorHeapType : uint8_t
 	{
-		CBV_SRV_UAV_POOL,
-		SAMPLER_POOL,
-		RTV_POOL,
+		CBV_SRV_UAV_HEAP,
+		SAMPLER_HEAP,
+		RTV_HEAP,
 
-		NUM_DESCRIPTOR_POOL
+		NUM_DESCRIPTOR_HEAP
 	};
 
 	enum class SamplerFilter : uint8_t
@@ -1012,9 +1012,9 @@ namespace XUSG
 	using Pipeline = void*;
 	using PipelineLayout = void*;
 	using DescriptorTableLayout = const void*;
-	using DescriptorPool = void*;
+	using DescriptorHeap = void*;
 	using Blob = void*;
-	using QueryPool = void*;
+	using QueryHeap = void*;
 
 	//--------------------------------------------------------------------------------------
 	// Device
@@ -1189,7 +1189,7 @@ namespace XUSG
 		virtual void SetPipelineState(const Pipeline& pipelineState) const = 0;
 		virtual void Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers) = 0;
 		virtual void ExecuteBundle(const CommandList* pCommandList) const = 0;
-		virtual void SetDescriptorPools(uint32_t numDescriptorPools, const DescriptorPool* pDescriptorPools) const = 0;
+		virtual void SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps) const = 0;
 		virtual void SetComputePipelineLayout(const PipelineLayout& pipelineLayout) const = 0;
 		virtual void SetGraphicsPipelineLayout(const PipelineLayout& pipelineLayout) const = 0;
 		virtual void SetComputeDescriptorTable(uint32_t index, const DescriptorTable& descriptorTable) const = 0;
@@ -1235,9 +1235,9 @@ namespace XUSG
 			uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
 		virtual void DiscardResource(const Resource*pResource, uint32_t numRects, const RectRange* pRects,
 			uint32_t firstSubresource, uint32_t numSubresources) = 0;
-		virtual void BeginQuery(const QueryPool& queryPool, QueryType type, uint32_t index) const = 0;
-		virtual void EndQuery(const QueryPool& queryPool, QueryType type, uint32_t index) const = 0;
-		virtual void ResolveQueryData(const QueryPool& queryPool, QueryType type, uint32_t startIndex,
+		virtual void BeginQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const = 0;
+		virtual void EndQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const = 0;
+		virtual void ResolveQueryData(const QueryHeap& queryHeap, QueryType type, uint32_t startIndex,
 			uint32_t numQueries, const Resource* pDstBuffer, uint64_t alignedDstBufferOffset) const = 0;
 		virtual void SetPredication(const Resource* pBuffer, uint64_t alignedBufferOffset, bool opEqualZero)const = 0;
 		virtual void SetMarker(uint32_t metaData, const void* pData, uint32_t size) const = 0;
@@ -1785,11 +1785,11 @@ namespace XUSG
 			virtual ~DescriptorTable() {};
 
 			virtual void SetDescriptors(uint32_t start, uint32_t num, const Descriptor* srcDescriptors,
-				uint8_t descriptorPoolIndex = 0) = 0;
+				uint8_t descriptorHeapIndex = 0) = 0;
 			virtual void SetSamplers(uint32_t start, uint32_t num, const Sampler* const* ppSamplers,
-				uint8_t descriptorPoolIndex = 0) = 0;
+				uint8_t descriptorHeapIndex = 0) = 0;
 			virtual void SetSamplers(uint32_t start, uint32_t num, const SamplerPreset* presets,
-				DescriptorTableLib* pDescriptorTableLib, uint8_t descriptorPoolIndex = 0) = 0;
+				DescriptorTableLib* pDescriptorTableLib, uint8_t descriptorHeapIndex = 0) = 0;
 
 			virtual XUSG::DescriptorTable CreateCbvSrvUavTable(DescriptorTableLib* pDescriptorTableLib,
 				const XUSG::DescriptorTable& table = nullptr) = 0;
@@ -1825,9 +1825,9 @@ namespace XUSG
 
 		virtual void SetDevice(const Device* pDevice) = 0;
 		virtual void SetName(const wchar_t* name) = 0;
-		virtual void ResetDescriptorPool(DescriptorPoolType type, uint8_t index = 0) = 0;
+		virtual void ResetDescriptorHeap(DescriptorHeapType type, uint8_t index = 0) = 0;
 
-		virtual bool AllocateDescriptorPool(DescriptorPoolType type, uint32_t numDescriptors, uint8_t index = 0) = 0;
+		virtual bool AllocateDescriptorHeap(DescriptorHeapType type, uint32_t numDescriptors, uint8_t index = 0) = 0;
 
 		virtual DescriptorTable CreateCbvSrvUavTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table = nullptr) = 0;
 		virtual DescriptorTable GetCbvSrvUavTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table = nullptr) = 0;
@@ -1840,11 +1840,11 @@ namespace XUSG
 		virtual Framebuffer GetFramebuffer(const Util::DescriptorTable* pUtil,
 			const Descriptor* pDsv = nullptr, const Framebuffer* pFramebuffer = nullptr) = 0;
 
-		virtual DescriptorPool GetDescriptorPool(DescriptorPoolType type, uint8_t index = 0) const = 0;
+		virtual DescriptorHeap GetDescriptorHeap(DescriptorHeapType type, uint8_t index = 0) const = 0;
 
 		virtual const Sampler* GetSampler(SamplerPreset preset) = 0;
 
-		virtual uint32_t GetDescriptorStride(DescriptorPoolType type) const = 0;
+		virtual uint32_t GetDescriptorStride(DescriptorHeapType type) const = 0;
 
 		using uptr = std::unique_ptr<DescriptorTableLib>;
 		using sptr = std::shared_ptr<DescriptorTableLib>;
@@ -2212,5 +2212,4 @@ namespace XUSG
 	XUSG_INTERFACE uint8_t CalculateMipLevels(uint32_t width, uint32_t height, uint32_t depth = 1);
 	XUSG_INTERFACE uint8_t CalculateMipLevels(uint64_t width, uint32_t height, uint32_t depth = 1);
 	XUSG_INTERFACE uint8_t Log2(uint32_t value);
-	XUSG_INTERFACE uint32_t DivideRoundUp(uint32_t x, uint32_t n);
 }

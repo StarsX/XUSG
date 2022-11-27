@@ -101,7 +101,7 @@ namespace XUSG
 
 			com_ptr<ID3D12Device> m_device;
 
-			InputLayoutPool_DX12 m_inputLayoutPool;
+			InputLayoutLib_DX12 m_inputLayoutLib;
 
 			std::unordered_map<std::string, com_ptr<ID3D12PipelineState>> m_pipelines;
 			std::unique_ptr<Blend>			m_blends[NUM_BLEND_PRESET];

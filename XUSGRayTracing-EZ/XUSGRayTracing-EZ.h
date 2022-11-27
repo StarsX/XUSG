@@ -31,7 +31,7 @@ namespace XUSG
 				// By default maxCbvsEachSpace[stage] = 14 for graphics or 12 for ray tracing and compute
 				// maxSamplers[stage] = 16, maxSrvsEachSpace[stage] = 32, and maxUavsEachSpace[stage] = 16
 				virtual bool Create(RayTracing::CommandList* pCommandList,
-					uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
@@ -41,7 +41,7 @@ namespace XUSG
 					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					uint32_t maxTLASSrvs = 0, uint32_t spaceTLAS = 0) = 0;
 				virtual bool Create(const RayTracing::Device* pDevice, void* pHandle,
-					uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
@@ -91,7 +91,7 @@ namespace XUSG
 				static uptr MakeUnique(API api = API::DIRECTX_12);
 				static sptr MakeShared(API api = API::DIRECTX_12);
 				static uptr MakeUnique(RayTracing::CommandList* pCommandList,
-					uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
@@ -102,7 +102,7 @@ namespace XUSG
 					uint32_t maxTLASSrvs = 0, uint32_t spaceTLAS = 0,
 					API api = API::DIRECTX_12);
 				static sptr MakeShared(RayTracing::CommandList* pCommandList,
-					uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,

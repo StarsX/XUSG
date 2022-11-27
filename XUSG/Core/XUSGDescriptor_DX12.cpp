@@ -19,38 +19,38 @@ Util::DescriptorTable_DX12::~DescriptorTable_DX12()
 }
 
 void Util::DescriptorTable_DX12::SetDescriptors(uint32_t start, uint32_t num,
-	const Descriptor* srcDescriptors, uint8_t descriptorPoolIndex)
+	const Descriptor* srcDescriptors, uint8_t descriptorHeapIndex)
 {
 	const auto size = sizeof(Descriptor) * (start + num) + 1;
 	if (size > m_key.size())
 		m_key.resize(size);
 
-	m_key[0] = descriptorPoolIndex;
+	m_key[0] = descriptorHeapIndex;
 	const auto descriptors = reinterpret_cast<Descriptor*>(&m_key[1]);
 	memcpy(&descriptors[start], srcDescriptors, sizeof(Descriptor) * num);
 }
 
 void Util::DescriptorTable_DX12::SetSamplers(uint32_t start, uint32_t num,
-	const Sampler* const* ppSamplers, uint8_t descriptorPoolIndex)
+	const Sampler* const* ppSamplers, uint8_t descriptorHeapIndex)
 {
 	const auto size = sizeof(Sampler*) * (start + num) + 1;
 	if (size > m_key.size())
 		m_key.resize(size);
 
-	m_key[0] = descriptorPoolIndex;
+	m_key[0] = descriptorHeapIndex;
 	const auto descriptors = reinterpret_cast<const Sampler**>(&m_key[1]);
 
 	for (auto i = 0u; i < num; ++i) descriptors[start + i] = ppSamplers[i];
 }
 
 void Util::DescriptorTable_DX12::SetSamplers(uint32_t start, uint32_t num, const SamplerPreset* presets,
-	DescriptorTableLib* pDescriptorTableLib, uint8_t descriptorPoolIndex)
+	DescriptorTableLib* pDescriptorTableLib, uint8_t descriptorHeapIndex)
 {
 	const auto size = sizeof(Sampler*) * (start + num) + 1;
 	if (size > m_key.size())
 		m_key.resize(size);
 
-	m_key[0] = descriptorPoolIndex;
+	m_key[0] = descriptorHeapIndex;
 	const auto descriptors = reinterpret_cast<const Sampler**>(&m_key[1]);
 
 	for (auto i = 0u; i < num; ++i)
@@ -102,7 +102,7 @@ DescriptorTableLib_DX12::DescriptorTableLib_DX12() :
 	m_samplerTables(0),
 	m_rtvTables(0),
 	m_descriptorKeyPtrs(),
-	m_descriptorPools(),
+	m_descriptorHeaps(),
 	m_descriptorStrides(),
 	m_descriptorCounts(),
 	m_samplers()
@@ -163,9 +163,9 @@ void DescriptorTableLib_DX12::SetDevice(const Device* pDevice)
 	m_device = pDevice->GetHandle();
 
 	assert(m_device);
-	m_descriptorStrides[CBV_SRV_UAV_POOL] = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	m_descriptorStrides[SAMPLER_POOL] = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
-	m_descriptorStrides[RTV_POOL] = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	m_descriptorStrides[CBV_SRV_UAV_HEAP] = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	m_descriptorStrides[SAMPLER_HEAP] = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+	m_descriptorStrides[RTV_HEAP] = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 }
 
 void DescriptorTableLib_DX12::SetName(const wchar_t* name)
@@ -173,23 +173,23 @@ void DescriptorTableLib_DX12::SetName(const wchar_t* name)
 	if (name) m_name = name;
 }
 
-void DescriptorTableLib_DX12::ResetDescriptorPool(DescriptorPoolType type, uint8_t index)
+void DescriptorTableLib_DX12::ResetDescriptorHeap(DescriptorHeapType type, uint8_t index)
 {
-	//if (index < m_descriptorPools[type].size()) m_descriptorPools[type][index].Reset();
+	//if (index < m_descriptorHeaps[type].size()) m_descriptorHeaps[type][index].Reset();
 	if (index < m_descriptorCounts[type].size()) m_descriptorCounts[type][index] = 0;
 	if (index < m_descriptorKeyPtrs[type].size())
 	{
 		switch (type)
 		{
-		case CBV_SRV_UAV_POOL:
+		case CBV_SRV_UAV_HEAP:
 			for (const auto& pKey : m_descriptorKeyPtrs[type][index])
 				m_cbvSrvUavTables.erase(*pKey);
 			break;
-		case SAMPLER_POOL:
+		case SAMPLER_HEAP:
 			for (const auto& pKey : m_descriptorKeyPtrs[type][index])
 				m_samplerTables.erase(*pKey);
 			break;
-		case RTV_POOL:
+		case RTV_HEAP:
 			for (const auto& pKey : m_descriptorKeyPtrs[type][index])
 				m_rtvTables.erase(*pKey);
 			break;
@@ -199,11 +199,11 @@ void DescriptorTableLib_DX12::ResetDescriptorPool(DescriptorPoolType type, uint8
 	}
 }
 
-bool DescriptorTableLib_DX12::AllocateDescriptorPool(DescriptorPoolType type, uint32_t numDescriptors, uint8_t index)
+bool DescriptorTableLib_DX12::AllocateDescriptorHeap(DescriptorHeapType type, uint32_t numDescriptors, uint8_t index)
 {
-	checkDescriptorPoolTypeStorage(type, index);
+	checkDescriptorHeapTypeStorage(type, index);
 
-	return allocateDescriptorPool(type, numDescriptors, index);
+	return allocateDescriptorHeap(type, numDescriptors, index);
 }
 
 DescriptorTable DescriptorTableLib_DX12::CreateCbvSrvUavTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table)
@@ -238,9 +238,9 @@ Framebuffer DescriptorTableLib_DX12::GetFramebuffer(const Util::DescriptorTable*
 	return getFramebuffer(pUtil->GetKey(), pDsv, pFramebuffer);
 }
 
-DescriptorPool DescriptorTableLib_DX12::GetDescriptorPool(DescriptorPoolType type, uint8_t index) const
+DescriptorHeap DescriptorTableLib_DX12::GetDescriptorHeap(DescriptorHeapType type, uint8_t index) const
 {
-	return m_descriptorPools[type][index].get();
+	return m_descriptorHeaps[type][index].get();
 }
 
 const Sampler* DescriptorTableLib_DX12::GetSampler(SamplerPreset preset)
@@ -251,15 +251,15 @@ const Sampler* DescriptorTableLib_DX12::GetSampler(SamplerPreset preset)
 	return m_samplers[preset].get();
 }
 
-uint32_t DescriptorTableLib_DX12::GetDescriptorStride(DescriptorPoolType type) const
+uint32_t DescriptorTableLib_DX12::GetDescriptorStride(DescriptorHeapType type) const
 {
 	return m_descriptorStrides[type];
 }
 
-void DescriptorTableLib_DX12::checkDescriptorPoolTypeStorage(DescriptorPoolType type, uint8_t index)
+void DescriptorTableLib_DX12::checkDescriptorHeapTypeStorage(DescriptorHeapType type, uint8_t index)
 {
-	if (index >= m_descriptorPools[type].size())
-		m_descriptorPools[type].resize(index + 1);
+	if (index >= m_descriptorHeaps[type].size())
+		m_descriptorHeaps[type].resize(index + 1);
 
 	if (index >= m_descriptorCounts[type].size())
 		m_descriptorCounts[type].resize(index + 1);
@@ -268,9 +268,9 @@ void DescriptorTableLib_DX12::checkDescriptorPoolTypeStorage(DescriptorPoolType 
 		m_descriptorKeyPtrs[type].resize(index + 1);
 }
 
-bool DescriptorTableLib_DX12::allocateDescriptorPool(DescriptorPoolType type, uint32_t numDescriptors, uint8_t index)
+bool DescriptorTableLib_DX12::allocateDescriptorHeap(DescriptorHeapType type, uint32_t numDescriptors, uint8_t index)
 {
-	static const D3D12_DESCRIPTOR_HEAP_TYPE heapTypes[NUM_DESCRIPTOR_POOL] =
+	static const D3D12_DESCRIPTOR_HEAP_TYPE heapTypes[NUM_DESCRIPTOR_HEAP] =
 	{
 		D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
 		D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER,
@@ -288,78 +288,78 @@ bool DescriptorTableLib_DX12::allocateDescriptorPool(DescriptorPoolType type, ui
 	desc.NumDescriptors = numDescriptors;
 	desc.Type = heapTypes[type];
 	if (type != D3D12_DESCRIPTOR_HEAP_TYPE_RTV) desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	m_descriptorPools[type][index] = nullptr;
-	V_RETURN(m_device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&m_descriptorPools[type][index])), cerr, false);
-	if (!m_name.empty()) m_descriptorPools[type][index]->SetName((m_name + heapNames[type] + to_wstring(index)).c_str());
+	m_descriptorHeaps[type][index] = nullptr;
+	V_RETURN(m_device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&m_descriptorHeaps[type][index])), cerr, false);
+	if (!m_name.empty()) m_descriptorHeaps[type][index]->SetName((m_name + heapNames[type] + to_wstring(index)).c_str());
 
 	m_descriptorCounts[type][index] = 0;
 
 	return true;
 }
 
-bool DescriptorTableLib_DX12::reallocateCbvSrvUavPool(const string& key)
+bool DescriptorTableLib_DX12::reallocateCbvSrvUavHeap(const string& key)
 {
 	assert(key.size() > 0);
 	const auto& index = key[0];
 	const auto numDescriptors = static_cast<uint32_t>(key.size() / sizeof(Descriptor));
 
-	checkDescriptorPoolTypeStorage(CBV_SRV_UAV_POOL, index);
+	checkDescriptorHeapTypeStorage(CBV_SRV_UAV_HEAP, index);
 
-	// Allocate a new pool if neccessary
-	const auto& descriptorPool = m_descriptorPools[CBV_SRV_UAV_POOL][index];
-	const auto descriptorCount = calculateGrowth(numDescriptors, CBV_SRV_UAV_POOL, index);
-	if (!descriptorPool || descriptorPool->GetDesc().NumDescriptors < descriptorCount)
+	// Allocate a new heap if neccessary
+	const auto& descriptorHeap = m_descriptorHeaps[CBV_SRV_UAV_HEAP][index];
+	const auto descriptorCount = calculateGrowth(numDescriptors, CBV_SRV_UAV_HEAP, index);
+	if (!descriptorHeap || descriptorHeap->GetDesc().NumDescriptors < descriptorCount)
 	{
-		XUSG_N_RETURN(allocateDescriptorPool(CBV_SRV_UAV_POOL, descriptorCount, index), false);
+		XUSG_N_RETURN(allocateDescriptorHeap(CBV_SRV_UAV_HEAP, descriptorCount, index), false);
 
 		// Recreate descriptor tables
-		for (const auto& pKey : m_descriptorKeyPtrs[CBV_SRV_UAV_POOL][index])
+		for (const auto& pKey : m_descriptorKeyPtrs[CBV_SRV_UAV_HEAP][index])
 			*m_cbvSrvUavTables[*pKey] = *createCbvSrvUavTable(*pKey, nullptr);
 	}
 
 	return true;
 }
 
-bool DescriptorTableLib_DX12::reallocateSamplerPool(const string& key)
+bool DescriptorTableLib_DX12::reallocateSamplerHeap(const string& key)
 {
 	assert(key.size() > 0);
 	const auto& index = key[0];
 	const auto numDescriptors = static_cast<uint32_t>(key.size() / sizeof(Sampler*));
 
-	checkDescriptorPoolTypeStorage(SAMPLER_POOL, index);
+	checkDescriptorHeapTypeStorage(SAMPLER_HEAP, index);
 
-	// Allocate a new pool if neccessary
-	const auto& descriptorPool = m_descriptorPools[SAMPLER_POOL][index];
-	const auto descriptorCount = calculateGrowth(numDescriptors, SAMPLER_POOL, index);
-	if (!descriptorPool || descriptorPool->GetDesc().NumDescriptors < descriptorCount)
+	// Allocate a new heap if neccessary
+	const auto& descriptorHeap = m_descriptorHeaps[SAMPLER_HEAP][index];
+	const auto descriptorCount = calculateGrowth(numDescriptors, SAMPLER_HEAP, index);
+	if (!descriptorHeap || descriptorHeap->GetDesc().NumDescriptors < descriptorCount)
 	{
-		XUSG_N_RETURN(allocateDescriptorPool(SAMPLER_POOL, descriptorCount, index), false);
+		XUSG_N_RETURN(allocateDescriptorHeap(SAMPLER_HEAP, descriptorCount, index), false);
 
 		// Recreate descriptor tables
-		for (const auto& pKey : m_descriptorKeyPtrs[SAMPLER_POOL][index])
+		for (const auto& pKey : m_descriptorKeyPtrs[SAMPLER_HEAP][index])
 			*m_samplerTables[*pKey] = *createSamplerTable(*pKey, nullptr);
 	}
 
 	return true;
 }
 
-bool DescriptorTableLib_DX12::reallocateRtvPool(const string& key)
+bool DescriptorTableLib_DX12::reallocateRtvHeap(const string& key)
 {
 	assert(key.size() > 0);
 	const auto& index = key[0];
 	const auto numDescriptors = static_cast<uint32_t>(key.size() / sizeof(Descriptor));
 
-	checkDescriptorPoolTypeStorage(RTV_POOL, index);
+	checkDescriptorHeapTypeStorage(RTV_HEAP, index);
 
-	// Allocate a new pool if neccessary
-	const auto& descriptorPool = m_descriptorPools[RTV_POOL][index];
-	const auto descriptorCount = calculateGrowth(numDescriptors, RTV_POOL, index);
-	if (!descriptorPool || descriptorPool->GetDesc().NumDescriptors < descriptorCount)
+	// Allocate a new heap if neccessary
+	const auto& descriptorHeap = m_descriptorHeaps[RTV_HEAP][index];
+	const auto descriptorCount = calculateGrowth(numDescriptors, RTV_HEAP, index);
+	if (!descriptorHeap || descriptorHeap->GetDesc().NumDescriptors < descriptorCount)
 	{
-		XUSG_N_RETURN(allocateDescriptorPool(RTV_POOL, descriptorCount, index), false);
+		XUSG_N_RETURN(allocateDescriptorHeap(RTV_HEAP, descriptorCount, index), false);
 
 		// Recreate descriptor tables
-		for (const auto& pKey : m_descriptorKeyPtrs[RTV_POOL][index])
+		for (const auto& pKey : m_descriptorKeyPtrs[RTV_HEAP][index])
 			*m_rtvTables[*pKey] = *createFramebuffer(*pKey, nullptr, nullptr).RenderTargetViews;
 	}
 
@@ -375,17 +375,17 @@ DescriptorTable DescriptorTableLib_DX12::createCbvSrvUavTable(const string& key,
 		const auto pSrc = reinterpret_cast<const D3D12_CPU_DESCRIPTOR_HANDLE*>(&key[1]);
 
 		// Compute start addresses for CPU and GPU handles
-		const auto& descriptorPool = m_descriptorPools[CBV_SRV_UAV_POOL][index];
-		const auto& descriptorStride = m_descriptorStrides[CBV_SRV_UAV_POOL];
-		CD3DX12_CPU_DESCRIPTOR_HANDLE dst(descriptorPool->GetCPUDescriptorHandleForHeapStart());
+		const auto& descriptorHeap = m_descriptorHeaps[CBV_SRV_UAV_HEAP][index];
+		const auto& descriptorStride = m_descriptorStrides[CBV_SRV_UAV_HEAP];
+		CD3DX12_CPU_DESCRIPTOR_HANDLE dst(descriptorHeap->GetCPUDescriptorHandleForHeapStart());
 
 		if (table && *table)
-			dst.Offset(static_cast<int>(*table - descriptorPool->GetGPUDescriptorHandleForHeapStart().ptr));
+			dst.Offset(static_cast<int>(*table - descriptorHeap->GetGPUDescriptorHandleForHeapStart().ptr));
 		else
 		{
-			auto& descriptorCount = m_descriptorCounts[CBV_SRV_UAV_POOL][index];
+			auto& descriptorCount = m_descriptorCounts[CBV_SRV_UAV_HEAP][index];
 			table = make_shared<uint64_t>(CD3DX12_GPU_DESCRIPTOR_HANDLE(
-				descriptorPool->GetGPUDescriptorHandleForHeapStart(),
+				descriptorHeap->GetGPUDescriptorHandleForHeapStart(),
 				descriptorCount, descriptorStride).ptr);
 			dst.Offset(descriptorCount, descriptorStride);
 			descriptorCount += numDescriptors;
@@ -413,10 +413,10 @@ DescriptorTable DescriptorTableLib_DX12::getCbvSrvUavTable(const string& key, De
 		const auto tableIter = m_cbvSrvUavTables.find(key);
 
 		// Create one, if it does not exist
-		if (tableIter == m_cbvSrvUavTables.end() && reallocateCbvSrvUavPool(key))
+		if (tableIter == m_cbvSrvUavTables.end() && reallocateCbvSrvUavHeap(key))
 		{
 			const auto& index = key[0];
-			auto& descriptorKeyPtrs = m_descriptorKeyPtrs[CBV_SRV_UAV_POOL][index];
+			auto& descriptorKeyPtrs = m_descriptorKeyPtrs[CBV_SRV_UAV_HEAP][index];
 			if (table && *table)
 			{
 				for (auto mIt = m_cbvSrvUavTables.cbegin(); mIt != m_cbvSrvUavTables.cend(); ++mIt)
@@ -460,17 +460,17 @@ DescriptorTable DescriptorTableLib_DX12::createSamplerTable(const string& key, D
 		const auto pSamplers = reinterpret_cast<Sampler* const*>(&key[1]);
 
 		// Compute start addresses for CPU and GPU handles
-		const auto& descriptorPool = m_descriptorPools[SAMPLER_POOL][index];
-		const auto& descriptorStride = m_descriptorStrides[SAMPLER_POOL];
-		CD3DX12_CPU_DESCRIPTOR_HANDLE dst(descriptorPool->GetCPUDescriptorHandleForHeapStart());
+		const auto& descriptorHeap = m_descriptorHeaps[SAMPLER_HEAP][index];
+		const auto& descriptorStride = m_descriptorStrides[SAMPLER_HEAP];
+		CD3DX12_CPU_DESCRIPTOR_HANDLE dst(descriptorHeap->GetCPUDescriptorHandleForHeapStart());
 
 		if (table && *table)
-			dst.Offset(static_cast<int>(*table - descriptorPool->GetGPUDescriptorHandleForHeapStart().ptr));
+			dst.Offset(static_cast<int>(*table - descriptorHeap->GetGPUDescriptorHandleForHeapStart().ptr));
 		else
 		{
-			auto& descriptorCount = m_descriptorCounts[SAMPLER_POOL][index];
+			auto& descriptorCount = m_descriptorCounts[SAMPLER_HEAP][index];
 			table = make_shared<uint64_t>(CD3DX12_GPU_DESCRIPTOR_HANDLE(
-				descriptorPool->GetGPUDescriptorHandleForHeapStart(),
+				descriptorHeap->GetGPUDescriptorHandleForHeapStart(),
 				descriptorCount, descriptorStride).ptr);
 			dst.Offset(descriptorCount, descriptorStride);
 			descriptorCount += numDescriptors;
@@ -512,10 +512,10 @@ DescriptorTable DescriptorTableLib_DX12::getSamplerTable(const string& key, Desc
 		const auto tableIter = m_samplerTables.find(key);
 
 		// Create one, if it does not exist
-		if (tableIter == m_samplerTables.end() && reallocateSamplerPool(key))
+		if (tableIter == m_samplerTables.end() && reallocateSamplerHeap(key))
 		{
 			const auto& index = key[0];
-			auto& descriptorKeyPtrs = m_descriptorKeyPtrs[SAMPLER_POOL][index];
+			auto& descriptorKeyPtrs = m_descriptorKeyPtrs[SAMPLER_HEAP][index];
 			if (table && *table)
 			{
 				for (auto mIt = m_samplerTables.cbegin(); mIt != m_samplerTables.cend(); ++mIt)
@@ -563,9 +563,9 @@ Framebuffer DescriptorTableLib_DX12::createFramebuffer(const string& key,
 		const auto pSrc = reinterpret_cast<const D3D12_CPU_DESCRIPTOR_HANDLE*>(&key[1]);
 
 		// Compute start addresses for CPU and GPU handles
-		const auto& descriptorPool = m_descriptorPools[RTV_POOL][index];
-		const auto& descriptorStride = m_descriptorStrides[RTV_POOL];
-		CD3DX12_CPU_DESCRIPTOR_HANDLE dst(descriptorPool->GetCPUDescriptorHandleForHeapStart());
+		const auto& descriptorHeap = m_descriptorHeaps[RTV_HEAP][index];
+		const auto& descriptorStride = m_descriptorStrides[RTV_HEAP];
+		CD3DX12_CPU_DESCRIPTOR_HANDLE dst(descriptorHeap->GetCPUDescriptorHandleForHeapStart());
 
 		if (pFramebuffer && pFramebuffer->RenderTargetViews)
 		{
@@ -574,7 +574,7 @@ Framebuffer DescriptorTableLib_DX12::createFramebuffer(const string& key,
 		}
 		else
 		{
-			auto& descriptorCount = m_descriptorCounts[RTV_POOL][index];
+			auto& descriptorCount = m_descriptorCounts[RTV_HEAP][index];
 			dst.Offset(descriptorCount, descriptorStride);
 			descriptorCount += framebuffer.NumRenderTargetDescriptors;
 			framebuffer.RenderTargetViews = make_shared<Descriptor>();
@@ -605,10 +605,10 @@ Framebuffer DescriptorTableLib_DX12::getFramebuffer(const string& key,
 		const auto tableIter = m_rtvTables.find(key);
 
 		// Create one, if it does not exist
-		if (tableIter == m_rtvTables.end() && reallocateRtvPool(key))
+		if (tableIter == m_rtvTables.end() && reallocateRtvHeap(key))
 		{
 			const auto& index = key[0];
-			auto& descriptorKeyPtrs = m_descriptorKeyPtrs[RTV_POOL][index];
+			auto& descriptorKeyPtrs = m_descriptorKeyPtrs[RTV_HEAP][index];
 			if (pFramebuffer && pFramebuffer->RenderTargetViews)
 			{
 				for (auto mIt = m_rtvTables.cbegin(); mIt != m_rtvTables.cend(); ++mIt)
@@ -645,13 +645,13 @@ Framebuffer DescriptorTableLib_DX12::getFramebuffer(const string& key,
 }
 
 uint32_t DescriptorTableLib_DX12::calculateGrowth(uint32_t numDescriptors,
-	DescriptorPoolType type, uint8_t index) const
+	DescriptorHeapType type, uint8_t index) const
 {
 	const auto& oldCapacity = m_descriptorCounts[type][index];
 	const auto halfOldCapacity = oldCapacity >> 1;
 	const auto newSize = oldCapacity + numDescriptors;
 
-	const auto maxSize = type == SAMPLER_POOL ?
+	const auto maxSize = type == SAMPLER_HEAP ?
 		D3D12_MAX_SHADER_VISIBLE_SAMPLER_HEAP_SIZE :
 		D3D12_MAX_SHADER_VISIBLE_DESCRIPTOR_HEAP_SIZE_TIER_1;
 

@@ -766,9 +766,9 @@ namespace XUSG
 			//Binding();
 			virtual ~Binding() {}
 
-			virtual bool Create(const Device* pDevice, const Operator& dispatchable, const DescriptorPool& descriptorPool,
+			virtual bool Create(const Device* pDevice, const Operator& dispatchable, const DescriptorHeap& descriptorHeap,
 				uint32_t descriptorCount, int32_t descriptorOffset = 0) = 0;
-			virtual bool Reset(const Operator& dispatchable, const DescriptorPool& descriptorPool,
+			virtual bool Reset(const Operator& dispatchable, const DescriptorHeap& descriptorHeap,
 				uint32_t descriptorCount, int32_t descriptorOffset = 0) = 0;
 
 			virtual void BindInput(uint32_t i, const Resource* pResource, uint64_t size = 0, uint64_t offset = 0) = 0;

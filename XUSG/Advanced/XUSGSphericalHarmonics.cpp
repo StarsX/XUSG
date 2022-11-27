@@ -40,7 +40,7 @@ SphericalHarmonics_Impl::SphericalHarmonics_Impl(API api) :
 	m_uavTables(),
 	m_srvTables(),
 	m_baseCSIndex(0),
-	m_descriptorPoolIndex(0)
+	m_descriptorHeapIndex(0)
 {
 }
 
@@ -52,15 +52,15 @@ bool SphericalHarmonics_Impl::Init(const Device* pDevice, const ShaderLib::sptr&
 	const Compute::PipelineLib::sptr& computePipelineLib,
 	const PipelineLayoutLib::sptr& pipelineLayoutLib,
 	const DescriptorTableLib::sptr& descriptorTableLib,
-	uint8_t baseCSIndex, uint8_t descriptorPoolIndex)
+	uint8_t baseCSIndex, uint8_t descriptorHeapIndex)
 {
-	// Set shader pool and states
+	// Set shader lib and states
 	m_shaderLib = shaderLib;
 	m_computePipelineLib = computePipelineLib;
 	m_pipelineLayoutLib = pipelineLayoutLib;
 	m_descriptorTableLib = descriptorTableLib;
 	m_baseCSIndex = baseCSIndex;
-	m_descriptorPoolIndex = descriptorPoolIndex;
+	m_descriptorHeapIndex = descriptorHeapIndex;
 
 	// Create resources and pipelines
 	m_numSHTexels = SH_TEX_SIZE * SH_TEX_SIZE * CubeMapFaceCount;
@@ -95,10 +95,6 @@ bool SphericalHarmonics_Impl::Init(const Device* pDevice, const ShaderLib::sptr&
 void SphericalHarmonics_Impl::Transform(CommandList* pCommandList, Resource* pRadiance,
 	const DescriptorTable& srvTable, uint8_t order)
 {
-	// Set Descriptor pools
-	const auto descriptorPool = m_descriptorTableLib->GetDescriptorPool(CBV_SRV_UAV_POOL, m_descriptorPoolIndex);
-	pCommandList->SetDescriptorPools(1, &descriptorPool);
-
 	shCubeMap(pCommandList, pRadiance, srvTable, order);
 	shSum(pCommandList, order);
 	shNormalize(pCommandList, order);
@@ -278,7 +274,7 @@ bool SphericalHarmonics_Impl::createDescriptorTables()
 			m_coeffSH[i]->GetUAV(),
 			m_weightSH[i]->GetUAV()
 		};
-		descriptorTable->SetDescriptors(0, static_cast<uint32_t>(size(descriptors)), descriptors, m_descriptorPoolIndex);
+		descriptorTable->SetDescriptors(0, static_cast<uint32_t>(size(descriptors)), descriptors, m_descriptorHeapIndex);
 		XUSG_X_RETURN(m_uavTables[UAV_SRV_SH + i], descriptorTable->GetCbvSrvUavTable(m_descriptorTableLib.get()), false);
 	}
 
@@ -291,7 +287,7 @@ bool SphericalHarmonics_Impl::createDescriptorTables()
 			m_coeffSH[i]->GetSRV(),
 			m_weightSH[i]->GetSRV()
 		};
-		descriptorTable->SetDescriptors(0, static_cast<uint32_t>(size(descriptors)), descriptors, m_descriptorPoolIndex);
+		descriptorTable->SetDescriptors(0, static_cast<uint32_t>(size(descriptors)), descriptors, m_descriptorHeapIndex);
 		XUSG_X_RETURN(m_srvTables[UAV_SRV_SH + i], descriptorTable->GetCbvSrvUavTable(m_descriptorTableLib.get()), false);
 	}
 

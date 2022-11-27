@@ -30,7 +30,7 @@ namespace XUSG
 
 				// By default maxSamplers[stage] = 16, maxCbvsEachSpace[stage] = 14, maxSrvsEachSpace[stage] = 32, and maxUavsEachSpace[stage] = 16
 				virtual bool Create(Ultimate::CommandList* pCommandList,
-					uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
@@ -39,7 +39,7 @@ namespace XUSG
 					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr) = 0;
 				virtual bool Create(const Device* pDevice, void* pHandle,
-					uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
@@ -75,7 +75,7 @@ namespace XUSG
 				static uptr MakeUnique(API api = API::DIRECTX_12);
 				static sptr MakeShared(API api = API::DIRECTX_12);
 				static uptr MakeUnique(Ultimate::CommandList* pCommandList,
-					uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
@@ -85,7 +85,7 @@ namespace XUSG
 					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					API api = API::DIRECTX_12);
 				static sptr MakeShared(Ultimate::CommandList* pCommandList,
-					uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
 					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,

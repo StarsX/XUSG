@@ -163,7 +163,7 @@ bool BottomLevelAS_DX12::PreBuild(const Device* pDevice, uint32_t numGeometries,
 }
 
 void BottomLevelAS_DX12::Build(CommandList* pCommandList, const Resource* pScratch,
-	const DescriptorPool& descriptorPool, bool update)
+	const DescriptorHeap& descriptorHeap, bool update)
 {
 	// Complete Acceleration Structure desc
 	{
@@ -180,7 +180,7 @@ void BottomLevelAS_DX12::Build(CommandList* pCommandList, const Resource* pScrat
 	}
 
 	// Build acceleration structure.
-	pCommandList->BuildRaytracingAccelerationStructure(&m_buildDesc, 0, nullptr, descriptorPool);
+	pCommandList->BuildRaytracingAccelerationStructure(&m_buildDesc, 0, nullptr, descriptorHeap);
 
 	// Resource barrier
 	const ResourceBarrier barrier =
@@ -275,7 +275,7 @@ bool TopLevelAS_DX12::PreBuild(const Device* pDevice, uint32_t numInstances,
 }
 
 void TopLevelAS_DX12::Build(const CommandList* pCommandList, const Resource* pScratch,
-	const Resource* pInstanceDescs, const DescriptorPool& descriptorPool, bool update)
+	const Resource* pInstanceDescs, const DescriptorHeap& descriptorHeap, bool update)
 {
 	// Complete Acceleration Structure desc
 	{
@@ -293,7 +293,7 @@ void TopLevelAS_DX12::Build(const CommandList* pCommandList, const Resource* pSc
 	}
 
 	// Build acceleration structure.
-	pCommandList->BuildRaytracingAccelerationStructure(&m_buildDesc, 0, nullptr, descriptorPool);
+	pCommandList->BuildRaytracingAccelerationStructure(&m_buildDesc, 0, nullptr, descriptorHeap);
 }
 
 void TopLevelAS_DX12::SetInstances(const RayTracing::Device* pDevice, Resource* pInstances,

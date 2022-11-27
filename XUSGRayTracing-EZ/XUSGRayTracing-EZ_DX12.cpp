@@ -28,7 +28,7 @@ EZ::CommandList_DXR::CommandList_DXR() :
 }
 
 EZ::CommandList_DXR::CommandList_DXR(RayTracing::CommandList* pCommandList,
-	uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 	const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE],
@@ -39,7 +39,7 @@ EZ::CommandList_DXR::CommandList_DXR(RayTracing::CommandList* pCommandList,
 	uint32_t maxTLASSrvs, uint32_t spaceTLAS) :
 	CommandList_DXR()
 {
-	Create(pCommandList, samplerPoolSize, cbvSrvUavPoolSize, maxSamplers,
+	Create(pCommandList, samplerHeapSize, cbvSrvUavHeapSize, maxSamplers,
 		pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
 		maxCbvSpaces, maxSrvSpaces, maxUavSpaces, maxTLASSrvs, spaceTLAS);
 }
@@ -49,7 +49,7 @@ EZ::CommandList_DXR::~CommandList_DXR()
 }
 
 bool EZ::CommandList_DXR::Create(RayTracing::CommandList* pCommandList,
-	uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 	const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE],
@@ -59,7 +59,7 @@ bool EZ::CommandList_DXR::Create(RayTracing::CommandList* pCommandList,
 	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
 	uint32_t maxTLASSrvs, uint32_t spaceTLAS)
 {
-	XUSG_N_RETURN(Ultimate::EZ::CommandList_DX12::init(pCommandList, samplerPoolSize, cbvSrvUavPoolSize), false);
+	XUSG_N_RETURN(Ultimate::EZ::CommandList_DX12::init(pCommandList, samplerHeapSize, cbvSrvUavHeapSize), false);
 
 	m_pDeviceRT = pCommandList->GetRTDevice();
 
@@ -95,7 +95,7 @@ bool EZ::CommandList_DXR::Create(RayTracing::CommandList* pCommandList,
 }
 
 bool EZ::CommandList_DXR::Create(const RayTracing::Device* pDevice, void* pHandle,
-	uint32_t samplerPoolSize, uint32_t cbvSrvUavPoolSize,
+	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 	const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE],
@@ -108,7 +108,7 @@ bool EZ::CommandList_DXR::Create(const RayTracing::Device* pDevice, void* pHandl
 	m_pDeviceRT = pDevice;
 	RayTracing::CommandList_DX12::Create(pHandle, name);
 
-	return Create(this, samplerPoolSize, cbvSrvUavPoolSize, maxSamplers,
+	return Create(this, samplerHeapSize, cbvSrvUavHeapSize, maxSamplers,
 		pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
 		maxCbvSpaces, maxSrvSpaces, maxUavSpaces, maxTLASSrvs, spaceTLAS);
 }
@@ -240,9 +240,9 @@ void EZ::CommandList_DXR::BuildBLAS(BottomLevelAS* pBLAS, bool update)
 	assert(pBLAS);
 
 	const auto pScratch = needScratch(m_scratchSize);
-	const auto descriptorPool = m_descriptorTableLib->GetDescriptorPool(CBV_SRV_UAV_POOL);
+	const auto descriptorHeap = m_descriptorTableLib->GetDescriptorHeap(CBV_SRV_UAV_HEAP);
 
-	pBLAS->Build(this, pScratch, descriptorPool, update);
+	pBLAS->Build(this, pScratch, descriptorHeap, update);
 }
 
 void EZ::CommandList_DXR::BuildTLAS(TopLevelAS* pTLAS, const Resource* pInstanceDescs, bool update)
@@ -250,9 +250,9 @@ void EZ::CommandList_DXR::BuildTLAS(TopLevelAS* pTLAS, const Resource* pInstance
 	assert(pTLAS);
 
 	const auto pScratch = needScratch(m_scratchSize);
-	const auto descriptorPool = m_descriptorTableLib->GetDescriptorPool(CBV_SRV_UAV_POOL);
+	const auto descriptorHeap = m_descriptorTableLib->GetDescriptorHeap(CBV_SRV_UAV_HEAP);
 
-	pTLAS->Build(this, pScratch, pInstanceDescs, descriptorPool, update);
+	pTLAS->Build(this, pScratch, pInstanceDescs, descriptorHeap, update);
 }
 
 void EZ::CommandList_DXR::SetTopLevelAccelerationStructure(uint32_t binding, const TopLevelAS* pTopLevelAS) const
