@@ -606,8 +606,8 @@ void EZ::CommandList_DX12::Blit(Texture* pDstResource, Texture* pSrcResource, Sa
 	// Dispatch grid
 	const uint32_t width = static_cast<uint32_t>(pDstResource->GetWidth());
 	const uint32_t height = pDstResource->GetHeight();
-	const auto threadsX = width >> dstMip;
-	const auto threadsY = height >> dstMip;
+	const auto threadsX = (max)(width >> dstMip, 1u);
+	const auto threadsY = (max)(height >> dstMip, 1u);
 	Dispatch(XUSG_DIV_UP(threadsX, 8), XUSG_DIV_UP(threadsY, 8), 1);
 }
 
@@ -632,9 +632,9 @@ void EZ::CommandList_DX12::Blit(Texture3D* pDstResource, Texture* pSrcResource, 
 	const uint32_t width = static_cast<uint32_t>(pDstResource->GetWidth());
 	const uint32_t height = pDstResource->GetHeight();
 	const uint32_t depth = pDstResource->GetDepth();
-	const auto threadsX = width >> dstMip;
-	const auto threadsY = height >> dstMip;
-	const auto threadsZ = depth >> dstMip;
+	const auto threadsX = (max)(width >> dstMip, 1u);
+	const auto threadsY = (max)(height >> dstMip, 1u);
+	const auto threadsZ = (max)(depth >> dstMip, 1u);
 	Dispatch(XUSG_DIV_UP(threadsX, 4), XUSG_DIV_UP(threadsY, 4), XUSG_DIV_UP(threadsZ, 4));
 }
 
@@ -660,8 +660,8 @@ void EZ::CommandList_DX12::GenerateMips(Texture* pResource, SamplerPreset sample
 		SetResources(Shader::Stage::CS, DescriptorType::SRV, 0, 1, &srv);
 
 		// Dispatch grid
-		const auto threadsX = width >> i;
-		const auto threadsY = height >> i;
+		const auto threadsX = (max)(width >> i, 1u);
+		const auto threadsY = (max)(height >> i, 1u);
 		Dispatch(XUSG_DIV_UP(threadsX, 8), XUSG_DIV_UP(threadsY, 8), 1);
 	}
 }
@@ -689,13 +689,12 @@ void EZ::CommandList_DX12::GenerateMips(Texture3D* pResource, SamplerPreset samp
 		SetResources(Shader::Stage::CS, DescriptorType::SRV, 0, 1, &srv);
 
 		// Dispatch grid
-		const auto threadsX = width >> i;
-		const auto threadsY = height >> i;
-		const auto threadsZ = depth >> i;
+		const auto threadsX = (max)(width >> i, 1u);
+		const auto threadsY = (max)(height >> i, 1u);
+		const auto threadsZ = (max)(depth >> i, 1u);
 		Dispatch(XUSG_DIV_UP(threadsX, 4), XUSG_DIV_UP(threadsY, 4), XUSG_DIV_UP(threadsZ, 4));
 	}
 }
-
 
 bool EZ::CommandList_DX12::init(XUSG::CommandList* pCommandList, uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize)
 {
