@@ -596,11 +596,15 @@ void EZ::CommandList_DX12::Blit(Texture* pDstResource, Texture* pSrcResource, Sa
 	SetSamplerStates(Shader::Stage::CS, 0, 1, &sampler);
 
 	// Set UAV
+	assert(pDstResource);
+	assert(dstMip < pDstResource->GetNumMips());
 	const auto uav = EZ::GetUAV(pDstResource, dstMip);
 	SetResources(Shader::Stage::CS, DescriptorType::UAV, 0, 1, &uav);
 
 	// Set SRV
-	const auto srv = EZ::GetSRVLevel(pSrcResource, srcMip);
+	assert(pSrcResource);
+	assert(srcMip < pDstResource->GetNumMips());
+	const auto srv = pSrcResource->GetNumMips() > 1 ? EZ::GetSRVLevel(pSrcResource, srcMip) : EZ::GetSRV(pSrcResource);
 	SetResources(Shader::Stage::CS, DescriptorType::SRV, 0, 1, &srv);
 
 	// Dispatch grid
@@ -621,11 +625,15 @@ void EZ::CommandList_DX12::Blit(Texture3D* pDstResource, Texture* pSrcResource, 
 	SetSamplerStates(Shader::Stage::CS, 0, 1, &sampler);
 
 	// Set UAV
+	assert(pDstResource);
+	assert(dstMip < pDstResource->GetNumMips());
 	const auto uav = EZ::GetUAV(pDstResource, dstMip);
 	SetResources(Shader::Stage::CS, DescriptorType::UAV, 0, 1, &uav);
 
 	// Set SRV
-	const auto srv = EZ::GetSRVLevel(pSrcResource, srcMip);
+	assert(pSrcResource);
+	assert(srcMip < pDstResource->GetNumMips());
+	const auto srv = pSrcResource->GetNumMips() > 1 ? EZ::GetSRVLevel(pSrcResource, srcMip) : EZ::GetSRV(pSrcResource);
 	SetResources(Shader::Stage::CS, DescriptorType::SRV, 0, 1, &srv);
 
 	// Dispatch grid
@@ -646,6 +654,7 @@ void EZ::CommandList_DX12::GenerateMips(Texture* pResource, SamplerPreset sample
 	// Set sampler
 	SetSamplerStates(Shader::Stage::CS, 0, 1, &sampler);
 
+	assert(pResource);
 	const uint32_t width = static_cast<uint32_t>(pResource->GetWidth());
 	const uint32_t height = pResource->GetHeight();
 	const uint8_t numMips = pResource->GetNumMips();
@@ -674,6 +683,7 @@ void EZ::CommandList_DX12::GenerateMips(Texture3D* pResource, SamplerPreset samp
 	// Set sampler
 	SetSamplerStates(Shader::Stage::CS, 0, 1, &sampler);
 
+	assert(pResource);
 	const uint32_t width = static_cast<uint32_t>(pResource->GetWidth());
 	const uint32_t height = pResource->GetHeight();
 	const uint32_t depth = pResource->GetDepth();
