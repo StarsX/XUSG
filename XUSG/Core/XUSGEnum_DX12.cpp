@@ -20,6 +20,7 @@ using namespace XUSG;
 #define APPEND_ROOT_DESCRIPTOR_FLAG(flags, flag) APPEND_FLAG(DescriptorFlag, D3D12_ROOT_DESCRIPTOR_FLAG, flags, flag, NONE)
 #define APPEND_ROOT_SIGNATURE_FLAG(flags, flag) APPEND_FLAG(PipelineLayoutFlag, D3D12_ROOT_SIGNATURE_FLAG, flags, flag, NONE)
 #define APPEND_FENCE_FLAG(flags, flag) APPEND_FLAG(FenceFlag, D3D12_FENCE_FLAG, flags, flag, NONE)
+#define APPEND_COLOR_WRITE(mask, bit) (static_cast<bool>(mask & ColorWrite::bit) ? D3D12_COLOR_WRITE_ENABLE##_##bit : 0)
 #define APPEND_TILE_COPY_FLAG(flags, flag) APPEND_FLAG(TileCopyFlag, D3D12_TILE_COPY_FLAG, flags, flag, NONE)
 #define APPEND_SWAP_CHAIN_FLAG(flags, flag) (static_cast<bool>(flags & SwapChainFlag::flag) ? DXGI_SWAP_CHAIN_FLAG_##flag : 0)
 #define APPEND_PRESENT_FLAG(flags, flag) (static_cast<bool>(flags & PresentFlag::flag) ? DXGI_PRESENT_##flag : 0)
@@ -734,18 +735,14 @@ D3D12_LOGIC_OP XUSG::GetDX12LogicOp(LogicOperator logicOp)
 	return logicOps[static_cast<uint32_t>(logicOp)];
 }
 
-D3D12_COLOR_WRITE_ENABLE XUSG::GetDX12ColorWrite(ColorWrite writeMask)
+uint8_t XUSG::GetDX12ColorWrite(ColorWrite writeMask)
 {
-	static const D3D12_COLOR_WRITE_ENABLE writeMasks[] =
-	{
-		D3D12_COLOR_WRITE_ENABLE_RED,
-		D3D12_COLOR_WRITE_ENABLE_GREEN,
-		D3D12_COLOR_WRITE_ENABLE_BLUE,
-		D3D12_COLOR_WRITE_ENABLE_ALPHA,
-		D3D12_COLOR_WRITE_ENABLE_ALL
-	};
+	uint8_t mask = APPEND_COLOR_WRITE(writeMask, RED);
+	mask |= APPEND_COLOR_WRITE(writeMask, GREEN);
+	mask |= APPEND_COLOR_WRITE(writeMask, BLUE);
+	mask |= APPEND_COLOR_WRITE(writeMask, ALPHA);
 
-	return writeMasks[static_cast<uint32_t>(writeMask)];
+	return mask;
 }
 
 D3D12_COMPARISON_FUNC XUSG::GetDX12ComparisonFunc(ComparisonFunc comparisonFunc)

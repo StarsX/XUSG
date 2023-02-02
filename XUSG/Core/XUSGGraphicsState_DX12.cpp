@@ -96,6 +96,9 @@ void State_DX12::IASetIndexBufferStripCutValue(IBStripCutValue ibStripCutValue)
 void State_DX12::OMSetNumRenderTargets(uint8_t n)
 {
 	m_pKey->NumRenderTargets = n;
+
+	for (auto i = n; i < 8; ++i)
+		OMSetRTVFormat(i, Format::UNKNOWN);
 }
 
 void State_DX12::OMSetRTVFormat(uint8_t i, Format format)

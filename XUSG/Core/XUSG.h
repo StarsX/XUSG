@@ -523,12 +523,14 @@ namespace XUSG
 
 	enum class ColorWrite : uint8_t
 	{
-		RED,
-		GREEN,
-		BLUE,
-		ALPHA,
-		ALL
+		RED = (1 << 0),
+		GREEN = (1 << 1),
+		BLUE = (1 << 2),
+		ALPHA = (1 << 3),
+		ALL = RED | GREEN | BLUE | ALPHA
 	};
+
+	XUSG_DEF_ENUM_FLAG_OPERATORS(ColorWrite);
 
 	enum class ComparisonFunc : uint8_t
 	{
@@ -2212,4 +2214,5 @@ namespace XUSG
 	XUSG_INTERFACE uint8_t CalculateMipLevels(uint32_t width, uint32_t height, uint32_t depth = 1);
 	XUSG_INTERFACE uint8_t CalculateMipLevels(uint64_t width, uint32_t height, uint32_t depth = 1);
 	XUSG_INTERFACE uint8_t Log2(uint32_t value);
+	XUSG_INTERFACE uint32_t DivideRoundUp(uint32_t x, uint32_t n);
 }

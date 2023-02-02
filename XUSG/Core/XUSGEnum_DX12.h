@@ -52,7 +52,8 @@ namespace XUSG
 	D3D12_BLEND GetDX12Blend(BlendFactor blend);
 	D3D12_BLEND_OP GetDX12BlendOp(BlendOperator blendOp);
 	D3D12_LOGIC_OP GetDX12LogicOp(LogicOperator logicOp);
-	D3D12_COLOR_WRITE_ENABLE GetDX12ColorWrite(ColorWrite writeMask);
+
+	uint8_t GetDX12ColorWrite(ColorWrite writeMask);
 
 	D3D12_COMPARISON_FUNC GetDX12ComparisonFunc(ComparisonFunc comparisonFunc);
 	D3D12_STENCIL_OP GetDX12StencilOp(StencilOp stencilOp);
