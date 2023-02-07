@@ -706,6 +706,26 @@ void EZ::CommandList_DX12::GenerateMips(Texture3D* pResource, SamplerPreset samp
 	}
 }
 
+const InputLayout* EZ::CommandList_DX12::GetInputLayout(uint32_t index) const
+{
+	return m_graphicsPipelineLib->GetInputLayout(index);
+}
+
+const Graphics::Blend* EZ::CommandList_DX12::GetBlend(Graphics::BlendPreset preset, uint8_t numColorRTs)
+{
+	return m_graphicsPipelineLib->GetBlend(preset, numColorRTs);
+}
+
+const Graphics::Rasterizer* EZ::CommandList_DX12::GetRasterizer(Graphics::RasterizerPreset preset)
+{
+	return m_graphicsPipelineLib->GetRasterizer(preset);
+}
+
+const Graphics::DepthStencil* EZ::CommandList_DX12::GetDepthStencil(Graphics::DepthStencilPreset preset)
+{
+	return m_graphicsPipelineLib->GetDepthStencil(preset);
+}
+
 bool EZ::CommandList_DX12::init(XUSG::CommandList* pCommandList, uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize)
 {
 	m_pDevice = pCommandList->GetDevice();

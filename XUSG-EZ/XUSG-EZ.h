@@ -216,6 +216,11 @@ namespace XUSG
 			virtual void GenerateMips(Texture* pResource, SamplerPreset sampler, const Blob& customShader = nullptr) = 0;
 			virtual void GenerateMips(Texture3D* pResource, SamplerPreset sampler, const Blob& customShader = nullptr) = 0;
 
+			virtual const InputLayout* GetInputLayout(uint32_t index) const = 0;
+			virtual const Graphics::Blend* GetBlend(Graphics::BlendPreset preset, uint8_t numColorRTs = 1) = 0;
+			virtual const Graphics::Rasterizer* GetRasterizer(Graphics::RasterizerPreset preset) = 0;
+			virtual const Graphics::DepthStencil* GetDepthStencil(Graphics::DepthStencilPreset preset) = 0;
+
 			virtual void* GetHandle() const = 0;
 			virtual void* GetDeviceHandle() const = 0;
 

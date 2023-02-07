@@ -188,6 +188,11 @@ namespace XUSG
 			void GenerateMips(Texture* pResource, SamplerPreset sampler, const Blob& customShader = nullptr);
 			void GenerateMips(Texture3D* pResource, SamplerPreset sampler, const Blob& customShader = nullptr);
 
+			const InputLayout* GetInputLayout(uint32_t index) const;
+			const Graphics::Blend* GetBlend(Graphics::BlendPreset preset, uint8_t numColorRTs = 1);
+			const Graphics::Rasterizer* GetRasterizer(Graphics::RasterizerPreset preset);
+			const Graphics::DepthStencil* GetDepthStencil(Graphics::DepthStencilPreset preset);
+
 			void* GetHandle() const { return XUSG::CommandList_DX12::GetHandle(); }
 			void* GetDeviceHandle() const { return XUSG::CommandList_DX12::GetDeviceHandle(); }
 
