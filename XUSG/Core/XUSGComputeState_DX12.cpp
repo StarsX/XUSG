@@ -31,10 +31,9 @@ void State_DX12::SetShader(const Blob& shader)
 	m_pKey->Shader = shader;
 }
 
-void State_DX12::SetCachedPipeline(const void* pCachedPipeline, size_t size)
+void State_DX12::SetCachedPipeline(const Blob& cachedPipeline)
 {
-	m_pKey->pCachedPipeline = pCachedPipeline;
-	m_pKey->CachedPipelineSize = size;
+	m_pKey->CachedPipeline = cachedPipeline;
 }
 
 void State_DX12::SetNodeMask(uint32_t nodeMask)
@@ -107,8 +106,9 @@ Pipeline PipelineLib_DX12::createPipeline(const string& key, const wchar_t* name
 	if (pDesc->Shader)
 		desc.CS = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pDesc->Shader));
 
-	desc.CachedPSO.pCachedBlob = pDesc->pCachedPipeline;
-	desc.CachedPSO.CachedBlobSizeInBytes = pDesc->CachedPipelineSize;
+	const auto pCachedPipeline = static_cast<ID3DBlob*>(pDesc->CachedPipeline);
+	desc.CachedPSO.pCachedBlob = pCachedPipeline ? pCachedPipeline->GetBufferPointer() : nullptr;
+	desc.CachedPSO.CachedBlobSizeInBytes = pCachedPipeline ? pCachedPipeline->GetBufferSize() : 0;
 	desc.NodeMask = pDesc->NodeMask;
 
 	// Create pipeline

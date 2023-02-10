@@ -141,7 +141,7 @@
     <ClCompile Include="Core\XUSG_DX12.cpp">
       <Filter>Core\Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Core\XUSGBlend_DX12.cpp">
+    <ClCompile Include="Core\XUSGBlend.cpp">
       <Filter>Core\Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Core\XUSGCommand_DX12.cpp">
@@ -150,7 +150,7 @@
     <ClCompile Include="Core\XUSGComputeState_DX12.cpp">
       <Filter>Core\Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Core\XUSGDepthStencil_DX12.cpp">
+    <ClCompile Include="Core\XUSGDepthStencil.cpp">
       <Filter>Core\Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Core\XUSGDescriptor_DX12.cpp">
@@ -165,7 +165,7 @@
     <ClCompile Include="Core\XUSGPipelineLayout_DX12.cpp">
       <Filter>Core\Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Core\XUSGRasterizer_DX12.cpp">
+    <ClCompile Include="Core\XUSGRasterizer.cpp">
       <Filter>Core\Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Core\XUSGReflector_DX12.cpp">
@@ -174,7 +174,7 @@
     <ClCompile Include="Core\XUSGResource_DX12.cpp">
       <Filter>Core\Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Core\XUSGSampler_DX12.cpp">
+    <ClCompile Include="Core\XUSGSampler.cpp">
       <Filter>Core\Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Core\XUSGShader_DX12.cpp">

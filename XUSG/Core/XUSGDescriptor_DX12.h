@@ -41,6 +41,13 @@ namespace XUSG
 
 			const std::string& GetKey() const;
 
+			uint32_t CreateCbvSrvUavTableIndex(DescriptorTableLib* pDescriptorTableLib, XUSG::DescriptorTable table = nullptr);
+			uint32_t GetCbvSrvUavTableIndex(DescriptorTableLib* pDescriptorTableLib, XUSG::DescriptorTable table = nullptr);
+			uint32_t CreateSamplerTableIndex(DescriptorTableLib* pDescriptorTableLib, XUSG::DescriptorTable table = nullptr);
+			uint32_t GetSamplerTableIndex(DescriptorTableLib* pDescriptorTableLib, XUSG::DescriptorTable table = nullptr);
+			uint32_t GetDescriptorTableIndex(DescriptorTableLib* pDescriptorTableLib, DescriptorHeapType type,
+				const XUSG::DescriptorTable& table) const;
+
 		protected:
 			std::string m_key;
 		};
@@ -78,8 +85,6 @@ namespace XUSG
 		uint32_t GetDescriptorStride(DescriptorHeapType type) const;
 
 	protected:
-		friend class Util::DescriptorTable_DX12;
-
 		void checkDescriptorHeapTypeStorage(DescriptorHeapType type, uint8_t index);
 
 		bool allocateDescriptorHeap(DescriptorHeapType type, uint32_t numDescriptors, uint8_t index);
@@ -96,15 +101,14 @@ namespace XUSG
 		Framebuffer createFramebuffer(const std::string& key, const Descriptor *pDsv, const Framebuffer* pFramebuffer);
 		Framebuffer getFramebuffer(const std::string& key, const Descriptor* pDsv, const Framebuffer* pFramebuffer);
 
-		uint32_t calculateGrowth(uint32_t numDescriptors, DescriptorHeapType type, uint8_t index) const;
+		uint32_t getNewHeapSize(uint32_t numDescriptors, DescriptorHeapType type, uint8_t index) const;
+		uint32_t calculateGrowth(uint32_t newSize, DescriptorHeapType type, uint8_t index) const;
 
 		com_ptr<ID3D12Device> m_device;
 
-		std::unordered_map<std::string, DescriptorTable> m_cbvSrvUavTables;
-		std::unordered_map<std::string, DescriptorTable> m_samplerTables;
-		std::unordered_map<std::string, std::shared_ptr<Descriptor>> m_rtvTables;
-
-		std::vector<std::vector<const std::string*>> m_descriptorKeyPtrs[NUM_DESCRIPTOR_HEAP];
+		std::vector<std::unordered_map<std::string, DescriptorTable>> m_cbvSrvUavTables;
+		std::vector<std::unordered_map<std::string, DescriptorTable>> m_samplerTables;
+		std::vector<std::unordered_map<std::string, std::shared_ptr<Descriptor>>> m_rtvTables;
 
 		std::vector<com_ptr<ID3D12DescriptorHeap>> m_descriptorHeaps[NUM_DESCRIPTOR_HEAP];
 		std::vector<uint32_t> m_descriptorCounts[NUM_DESCRIPTOR_HEAP];
@@ -114,43 +118,5 @@ namespace XUSG
 		std::function<Sampler()> m_pfnSamplers[NUM_SAMPLER_PRESET];
 
 		std::wstring m_name;
-
-		static Sampler SamplerPointWrap();
-		static Sampler SamplerPointMirror();
-		static Sampler SamplerPointClamp();
-		static Sampler SamplerPointBorder();
-		static Sampler SamplerPointLessEqual();
-
-		static Sampler SamplerLinearWrap();
-		static Sampler SamplerLinearMirror();
-		static Sampler SamplerLinearClamp();
-		static Sampler SamplerLinearBorder();
-		static Sampler SamplerLinearLessEqual();
-
-		static Sampler SamplerAnisotropicWrap();
-		static Sampler SamplerAnisotropicMirror();
-		static Sampler SamplerAnisotropicClamp();
-		static Sampler SamplerAnisotropicBorder();
-		static Sampler SamplerAnisotropicLessEqual();
-
-		static Sampler SamplerMinLinearWrap();
-		static Sampler SamplerMinLinearMirror();
-		static Sampler SamplerMinLinearClamp();
-		static Sampler SamplerMinLinearBorder();
-
-		static Sampler SamplerMinAnisotropicWrap();
-		static Sampler SamplerMinAnisotropicMirror();
-		static Sampler SamplerMinAnisotropicClamp();
-		static Sampler SamplerMinAnisotropicBorder();
-
-		static Sampler SamplerMaxLinearWrap();
-		static Sampler SamplerMaxLinearMirror();
-		static Sampler SamplerMaxLinearClamp();
-		static Sampler SamplerMaxLinearBorder();
-
-		static Sampler SamplerMaxAnisotropicWrap();
-		static Sampler SamplerMaxAnisotropicMirror();
-		static Sampler SamplerMaxAnisotropicClamp();
-		static Sampler SamplerMaxAnisotropicBorder();
 	};
 }

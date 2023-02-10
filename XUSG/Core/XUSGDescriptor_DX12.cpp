@@ -59,34 +59,34 @@ void Util::DescriptorTable_DX12::SetSamplers(uint32_t start, uint32_t num, const
 
 DescriptorTable Util::DescriptorTable_DX12::CreateCbvSrvUavTable(DescriptorTableLib* pDescriptorTableLib, const XUSG::DescriptorTable& table)
 {
-	return dynamic_cast<DescriptorTableLib_DX12*>(pDescriptorTableLib)->createCbvSrvUavTable(m_key, table);
+	return dynamic_cast<DescriptorTableLib_DX12*>(pDescriptorTableLib)->CreateCbvSrvUavTable(this, table);
 }
 
 DescriptorTable Util::DescriptorTable_DX12::GetCbvSrvUavTable(DescriptorTableLib* pDescriptorTableLib, const XUSG::DescriptorTable& table)
 {
-	return dynamic_cast<DescriptorTableLib_DX12*>(pDescriptorTableLib)->getCbvSrvUavTable(m_key, table);
+	return dynamic_cast<DescriptorTableLib_DX12*>(pDescriptorTableLib)->GetCbvSrvUavTable(this, table);
 }
 
 DescriptorTable Util::DescriptorTable_DX12::CreateSamplerTable(DescriptorTableLib* pDescriptorTableLib, const XUSG::DescriptorTable& table)
 {
-	return dynamic_cast<DescriptorTableLib_DX12*>(pDescriptorTableLib)->createSamplerTable(m_key, table);
+	return dynamic_cast<DescriptorTableLib_DX12*>(pDescriptorTableLib)->CreateSamplerTable(this, table);
 }
 
 DescriptorTable Util::DescriptorTable_DX12::GetSamplerTable(DescriptorTableLib* pDescriptorTableLib, const XUSG::DescriptorTable& table)
 {
-	return dynamic_cast<DescriptorTableLib_DX12*>(pDescriptorTableLib)->getSamplerTable(m_key, table);
+	return dynamic_cast<DescriptorTableLib_DX12*>(pDescriptorTableLib)->GetSamplerTable(this, table);
 }
 
 Framebuffer Util::DescriptorTable_DX12::CreateFramebuffer(DescriptorTableLib* pDescriptorTableLib,
 	const Descriptor* pDsv, const Framebuffer* pFramebuffer)
 {
-	return dynamic_cast<DescriptorTableLib_DX12*>(pDescriptorTableLib)->createFramebuffer(m_key, pDsv, pFramebuffer);
+	return dynamic_cast<DescriptorTableLib_DX12*>(pDescriptorTableLib)->CreateFramebuffer(this, pDsv, pFramebuffer);
 }
 
 Framebuffer Util::DescriptorTable_DX12::GetFramebuffer(DescriptorTableLib* pDescriptorTableLib,
 	const Descriptor* pDsv, const Framebuffer* pFramebuffer)
 {
-	return dynamic_cast<DescriptorTableLib_DX12*>(pDescriptorTableLib)->getFramebuffer(m_key, pDsv, pFramebuffer);
+	return dynamic_cast<DescriptorTableLib_DX12*>(pDescriptorTableLib)->GetFramebuffer(this, pDsv, pFramebuffer);
 }
 
 const string& Util::DescriptorTable_DX12::GetKey() const
@@ -94,14 +94,51 @@ const string& Util::DescriptorTable_DX12::GetKey() const
 	return m_key;
 }
 
+uint32_t Util::DescriptorTable_DX12::CreateCbvSrvUavTableIndex(DescriptorTableLib* pDescriptorTableLib, XUSG::DescriptorTable table)
+{
+	table = CreateCbvSrvUavTable(pDescriptorTableLib, table);
+
+	return GetDescriptorTableIndex(pDescriptorTableLib, CBV_SRV_UAV_HEAP, table);
+}
+
+uint32_t Util::DescriptorTable_DX12::GetCbvSrvUavTableIndex(DescriptorTableLib* pDescriptorTableLib, XUSG::DescriptorTable table)
+{
+	table = GetCbvSrvUavTable(pDescriptorTableLib, table);
+
+	return GetDescriptorTableIndex(pDescriptorTableLib, CBV_SRV_UAV_HEAP, table);
+}
+
+uint32_t Util::DescriptorTable_DX12::CreateSamplerTableIndex(DescriptorTableLib* pDescriptorTableLib, XUSG::DescriptorTable table)
+{
+	table = CreateSamplerTable(pDescriptorTableLib, table);
+
+	return GetDescriptorTableIndex(pDescriptorTableLib, SAMPLER_HEAP, table);
+}
+
+uint32_t Util::DescriptorTable_DX12::GetSamplerTableIndex(DescriptorTableLib* pDescriptorTableLib, XUSG::DescriptorTable table)
+{
+	table = GetSamplerTable(pDescriptorTableLib, table);
+
+	return GetDescriptorTableIndex(pDescriptorTableLib, SAMPLER_HEAP, table);
+}
+
+uint32_t Util::DescriptorTable_DX12::GetDescriptorTableIndex(DescriptorTableLib* pDescriptorTableLib, DescriptorHeapType type,
+	const XUSG::DescriptorTable& table) const
+{
+	const auto& index = m_key[0];
+	const auto& descriptorHeap = static_cast<ID3D12DescriptorHeap*>(pDescriptorTableLib->GetDescriptorHeap(type, index));
+	const auto& descriptorStride = pDescriptorTableLib->GetDescriptorStride(type);
+
+	return static_cast<uint32_t>((*table - descriptorHeap->GetGPUDescriptorHandleForHeapStart().ptr) / descriptorStride);
+}
+
 //--------------------------------------------------------------------------------------
 
 DescriptorTableLib_DX12::DescriptorTableLib_DX12() :
 	m_device(nullptr),
-	m_cbvSrvUavTables(0),
-	m_samplerTables(0),
-	m_rtvTables(0),
-	m_descriptorKeyPtrs(),
+	m_cbvSrvUavTables(),
+	m_samplerTables(),
+	m_rtvTables(),
 	m_descriptorHeaps(),
 	m_descriptorStrides(),
 	m_descriptorCounts(),
@@ -177,25 +214,18 @@ void DescriptorTableLib_DX12::ResetDescriptorHeap(DescriptorHeapType type, uint8
 {
 	//if (index < m_descriptorHeaps[type].size()) m_descriptorHeaps[type][index].Reset();
 	if (index < m_descriptorCounts[type].size()) m_descriptorCounts[type][index] = 0;
-	if (index < m_descriptorKeyPtrs[type].size())
+	
+	switch (type)
 	{
-		switch (type)
-		{
-		case CBV_SRV_UAV_HEAP:
-			for (const auto& pKey : m_descriptorKeyPtrs[type][index])
-				m_cbvSrvUavTables.erase(*pKey);
-			break;
-		case SAMPLER_HEAP:
-			for (const auto& pKey : m_descriptorKeyPtrs[type][index])
-				m_samplerTables.erase(*pKey);
-			break;
-		case RTV_HEAP:
-			for (const auto& pKey : m_descriptorKeyPtrs[type][index])
-				m_rtvTables.erase(*pKey);
-			break;
-		}
-
-		m_descriptorKeyPtrs[type][index].clear();
+	case CBV_SRV_UAV_HEAP:
+		if (index < m_cbvSrvUavTables.size()) m_cbvSrvUavTables[index].clear();
+		break;
+	case SAMPLER_HEAP:
+		if (index < m_samplerTables.size()) m_samplerTables[index].clear();
+		break;
+	case RTV_HEAP:
+		if (index < m_rtvTables.size()) m_rtvTables[index].clear();
+		break;
 	}
 }
 
@@ -264,8 +294,18 @@ void DescriptorTableLib_DX12::checkDescriptorHeapTypeStorage(DescriptorHeapType 
 	if (index >= m_descriptorCounts[type].size())
 		m_descriptorCounts[type].resize(index + 1);
 
-	if (index >= m_descriptorKeyPtrs[type].size())
-		m_descriptorKeyPtrs[type].resize(index + 1);
+	switch (type)
+	{
+	case CBV_SRV_UAV_HEAP:
+		if (index >= m_cbvSrvUavTables.size()) m_cbvSrvUavTables.resize(index + 1);
+		break;
+	case SAMPLER_HEAP:
+		if (index >= m_samplerTables.size()) m_samplerTables.resize(index + 1);
+		break;
+	case RTV_HEAP:
+		if (index >= m_rtvTables.size()) m_rtvTables.resize(index + 1);
+		break;
+	}
 }
 
 bool DescriptorTableLib_DX12::allocateDescriptorHeap(DescriptorHeapType type, uint32_t numDescriptors, uint8_t index)
@@ -303,18 +343,17 @@ bool DescriptorTableLib_DX12::reallocateCbvSrvUavHeap(const string& key)
 	const auto& index = key[0];
 	const auto numDescriptors = static_cast<uint32_t>(key.size() / sizeof(Descriptor));
 
-	checkDescriptorHeapTypeStorage(CBV_SRV_UAV_HEAP, index);
-
 	// Allocate a new heap if neccessary
 	const auto& descriptorHeap = m_descriptorHeaps[CBV_SRV_UAV_HEAP][index];
-	const auto descriptorCount = calculateGrowth(numDescriptors, CBV_SRV_UAV_HEAP, index);
+	auto descriptorCount = getNewHeapSize(numDescriptors, CBV_SRV_UAV_HEAP, index);
 	if (!descriptorHeap || descriptorHeap->GetDesc().NumDescriptors < descriptorCount)
 	{
+		descriptorCount = calculateGrowth(descriptorCount, CBV_SRV_UAV_HEAP, index);
 		XUSG_N_RETURN(allocateDescriptorHeap(CBV_SRV_UAV_HEAP, descriptorCount, index), false);
 
 		// Recreate descriptor tables
-		for (const auto& pKey : m_descriptorKeyPtrs[CBV_SRV_UAV_HEAP][index])
-			*m_cbvSrvUavTables[*pKey] = *createCbvSrvUavTable(*pKey, nullptr);
+		for (const auto& tableEntry : m_cbvSrvUavTables[index])
+			*tableEntry.second = *createCbvSrvUavTable(tableEntry.first, nullptr);
 	}
 
 	return true;
@@ -326,18 +365,17 @@ bool DescriptorTableLib_DX12::reallocateSamplerHeap(const string& key)
 	const auto& index = key[0];
 	const auto numDescriptors = static_cast<uint32_t>(key.size() / sizeof(Sampler*));
 
-	checkDescriptorHeapTypeStorage(SAMPLER_HEAP, index);
-
 	// Allocate a new heap if neccessary
 	const auto& descriptorHeap = m_descriptorHeaps[SAMPLER_HEAP][index];
-	const auto descriptorCount = calculateGrowth(numDescriptors, SAMPLER_HEAP, index);
+	auto descriptorCount = getNewHeapSize(numDescriptors, SAMPLER_HEAP, index);
 	if (!descriptorHeap || descriptorHeap->GetDesc().NumDescriptors < descriptorCount)
 	{
+		descriptorCount = calculateGrowth(descriptorCount, SAMPLER_HEAP, index);
 		XUSG_N_RETURN(allocateDescriptorHeap(SAMPLER_HEAP, descriptorCount, index), false);
 
 		// Recreate descriptor tables
-		for (const auto& pKey : m_descriptorKeyPtrs[SAMPLER_HEAP][index])
-			*m_samplerTables[*pKey] = *createSamplerTable(*pKey, nullptr);
+		for (const auto& tableEntry : m_samplerTables[index])
+			*tableEntry.second = *createSamplerTable(tableEntry.first, nullptr);
 	}
 
 	return true;
@@ -349,18 +387,17 @@ bool DescriptorTableLib_DX12::reallocateRtvHeap(const string& key)
 	const auto& index = key[0];
 	const auto numDescriptors = static_cast<uint32_t>(key.size() / sizeof(Descriptor));
 
-	checkDescriptorHeapTypeStorage(RTV_HEAP, index);
-
 	// Allocate a new heap if neccessary
 	const auto& descriptorHeap = m_descriptorHeaps[RTV_HEAP][index];
-	const auto descriptorCount = calculateGrowth(numDescriptors, RTV_HEAP, index);
+	auto descriptorCount = getNewHeapSize(numDescriptors, RTV_HEAP, index);
 	if (!descriptorHeap || descriptorHeap->GetDesc().NumDescriptors < descriptorCount)
 	{
+		descriptorCount = calculateGrowth(descriptorCount, RTV_HEAP, index);
 		XUSG_N_RETURN(allocateDescriptorHeap(RTV_HEAP, descriptorCount, index), false);
 
 		// Recreate descriptor tables
-		for (const auto& pKey : m_descriptorKeyPtrs[RTV_HEAP][index])
-			*m_rtvTables[*pKey] = *createFramebuffer(*pKey, nullptr, nullptr).RenderTargetViews;
+		for (const auto& tableEntry : m_rtvTables[index])
+			*tableEntry.second = *createFramebuffer(tableEntry.first, nullptr, nullptr).RenderTargetViews;
 	}
 
 	return true;
@@ -410,37 +447,28 @@ DescriptorTable DescriptorTableLib_DX12::getCbvSrvUavTable(const string& key, De
 {
 	if (key.size() > 0)
 	{
-		const auto tableIter = m_cbvSrvUavTables.find(key);
+		const auto& index = key[0];
+		checkDescriptorHeapTypeStorage(CBV_SRV_UAV_HEAP, index);
+		auto& cbvSrvUavTables = m_cbvSrvUavTables[index];
+		const auto tableIter = cbvSrvUavTables.find(key);
 
 		// Create one, if it does not exist
-		if (tableIter == m_cbvSrvUavTables.end() && reallocateCbvSrvUavHeap(key))
+		if (tableIter == cbvSrvUavTables.end() && reallocateCbvSrvUavHeap(key))
 		{
-			const auto& index = key[0];
-			auto& descriptorKeyPtrs = m_descriptorKeyPtrs[CBV_SRV_UAV_HEAP][index];
 			if (table && *table)
 			{
-				for (auto mIt = m_cbvSrvUavTables.cbegin(); mIt != m_cbvSrvUavTables.cend(); ++mIt)
+				for (auto mIt = cbvSrvUavTables.cbegin(); mIt != cbvSrvUavTables.cend(); ++mIt)
 				{
-					if (mIt->second == table)
+					if (mIt->second && *mIt->second == *table)
 					{
-						for (auto vIt = descriptorKeyPtrs.cbegin(); vIt != descriptorKeyPtrs.cend(); ++vIt)
-						{
-							if (*vIt == &mIt->first)
-							{
-								descriptorKeyPtrs.erase(vIt);
-								break;
-							}
-						}
-
-						m_cbvSrvUavTables.erase(mIt);
+						cbvSrvUavTables.erase(mIt);
 						break;
 					}
 				}
 			}
 
 			table = createCbvSrvUavTable(key, table);
-			m_cbvSrvUavTables[key] = table;
-			descriptorKeyPtrs.emplace_back(&m_cbvSrvUavTables.find(key)->first);
+			cbvSrvUavTables[key] = table;
 
 			return table;
 		}
@@ -509,37 +537,28 @@ DescriptorTable DescriptorTableLib_DX12::getSamplerTable(const string& key, Desc
 {
 	if (key.size() > 0)
 	{
-		const auto tableIter = m_samplerTables.find(key);
+		const auto& index = key[0];
+		checkDescriptorHeapTypeStorage(SAMPLER_HEAP, index);
+		auto& samplerTables = m_samplerTables[index];
+		const auto tableIter = samplerTables.find(key);
 
 		// Create one, if it does not exist
-		if (tableIter == m_samplerTables.end() && reallocateSamplerHeap(key))
+		if (tableIter == samplerTables.end() && reallocateSamplerHeap(key))
 		{
-			const auto& index = key[0];
-			auto& descriptorKeyPtrs = m_descriptorKeyPtrs[SAMPLER_HEAP][index];
 			if (table && *table)
 			{
-				for (auto mIt = m_samplerTables.cbegin(); mIt != m_samplerTables.cend(); ++mIt)
+				for (auto mIt = samplerTables.cbegin(); mIt != samplerTables.cend(); ++mIt)
 				{
-					if (mIt->second == table)
+					if (mIt->second && *mIt->second == *table)
 					{
-						for (auto vIt = descriptorKeyPtrs.cbegin(); vIt != descriptorKeyPtrs.cend(); ++vIt)
-						{
-							if (*vIt == &mIt->first)
-							{
-								descriptorKeyPtrs.erase(vIt);
-								break;
-							}
-						}
-
-						m_samplerTables.erase(mIt);
+						samplerTables.erase(mIt);
 						break;
 					}
 				}
 			}
 
 			table = createSamplerTable(key, table);
-			m_samplerTables[key] = table;
-			descriptorKeyPtrs.emplace_back(&m_samplerTables.find(key)->first);
+			samplerTables[key] = table;
 
 			return table;
 		}
@@ -602,37 +621,28 @@ Framebuffer DescriptorTableLib_DX12::getFramebuffer(const string& key,
 
 	if (key.size() > 0)
 	{
-		const auto tableIter = m_rtvTables.find(key);
+		const auto& index = key[0];
+		checkDescriptorHeapTypeStorage(RTV_HEAP, index);
+		auto& rtvTables = m_rtvTables[index];
+		const auto tableIter = rtvTables.find(key);
 
 		// Create one, if it does not exist
-		if (tableIter == m_rtvTables.end() && reallocateRtvHeap(key))
+		if (tableIter == rtvTables.end() && reallocateRtvHeap(key))
 		{
-			const auto& index = key[0];
-			auto& descriptorKeyPtrs = m_descriptorKeyPtrs[RTV_HEAP][index];
 			if (pFramebuffer && pFramebuffer->RenderTargetViews)
 			{
-				for (auto mIt = m_rtvTables.cbegin(); mIt != m_rtvTables.cend(); ++mIt)
+				for (auto mIt = rtvTables.cbegin(); mIt != rtvTables.cend(); ++mIt)
 				{
-					if (mIt->second == pFramebuffer->RenderTargetViews)
+					if (mIt->second && *mIt->second == *pFramebuffer->RenderTargetViews)
 					{
-						for (auto vIt = descriptorKeyPtrs.cbegin(); vIt != descriptorKeyPtrs.cend(); ++vIt)
-						{
-							if (*vIt == &mIt->first)
-							{
-								descriptorKeyPtrs.erase(vIt);
-								break;
-							}
-						}
-
-						m_rtvTables.erase(mIt);
+						rtvTables.erase(mIt);
 						break;
 					}
 				}
 			}
 
 			framebuffer = createFramebuffer(key, pDsv, pFramebuffer);
-			m_rtvTables[key] = framebuffer.RenderTargetViews;
-			descriptorKeyPtrs.emplace_back(&m_rtvTables.find(key)->first);
+			rtvTables[key] = framebuffer.RenderTargetViews;
 		}
 		else
 		{
@@ -644,12 +654,15 @@ Framebuffer DescriptorTableLib_DX12::getFramebuffer(const string& key,
 	return framebuffer;
 }
 
-uint32_t DescriptorTableLib_DX12::calculateGrowth(uint32_t numDescriptors,
-	DescriptorHeapType type, uint8_t index) const
+uint32_t DescriptorTableLib_DX12::getNewHeapSize(uint32_t numDescriptors, DescriptorHeapType type, uint8_t index) const
+{
+	return m_descriptorCounts[type][index] + numDescriptors;
+}
+
+uint32_t DescriptorTableLib_DX12::calculateGrowth(uint32_t newSize, DescriptorHeapType type, uint8_t index) const
 {
 	const auto& oldCapacity = m_descriptorCounts[type][index];
 	const auto halfOldCapacity = oldCapacity >> 1;
-	const auto newSize = oldCapacity + numDescriptors;
 
 	const auto maxSize = type == SAMPLER_HEAP ?
 		D3D12_MAX_SHADER_VISIBLE_SAMPLER_HEAP_SIZE :

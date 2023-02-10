@@ -19,8 +19,7 @@ namespace XUSG
 			const Rasterizer* pRasterizer;
 			const DepthStencil* pDepthStencil;
 			const InputLayout* pInputLayout;
-			const void* pCachedPipeline;
-			size_t CachedPipelineSize;
+			Blob CachedPipeline;
 			PrimitiveTopologyType PrimTopologyType;
 			uint8_t	NumRenderTargets;
 			Format RTVFormats[8];
@@ -41,7 +40,7 @@ namespace XUSG
 
 			void SetPipelineLayout(const PipelineLayout& layout);
 			void SetShader(Shader::Stage stage, const Blob& shader);
-			void SetCachedPipeline(const void* pCachedPipeline, size_t size);
+			void SetCachedPipeline(const Blob& cachedPipeline);
 			void SetNodeMask(uint32_t nodeMask);
 
 			void OMSetBlendState(const Blend* pBlend, uint32_t sampleMask = UINT_MAX);
@@ -111,34 +110,6 @@ namespace XUSG
 			std::function<Blend(uint8_t)>	m_pfnBlends[NUM_BLEND_PRESET];
 			std::function<Rasterizer()>		m_pfnRasterizers[NUM_RS_PRESET];
 			std::function<DepthStencil()>	m_pfnDepthStencils[NUM_DS_PRESET];
-
-			static DepthStencil DepthStencilDefault();
-			static DepthStencil DepthStencilNone();
-			static DepthStencil DepthRead();
-			static DepthStencil DepthReadLessEqual();
-			static DepthStencil DepthReadEqual();
-
-			static Blend DefaultOpaque(uint8_t n);
-			static Blend Premultiplied(uint8_t n);
-			static Blend Additive(uint8_t n);
-			static Blend NonPremultiplied(uint8_t n);
-			static Blend NonPremultipliedRT0(uint8_t n);
-			static Blend AlphaToCoverage(uint8_t n);
-			static Blend Accumulative(uint8_t n);
-			static Blend AutoNonPremultiplied(uint8_t n);
-			static Blend ZeroAlphaNonPremultiplied(uint8_t n);
-			static Blend Multiplied(uint8_t n);
-			static Blend WeightedPremul(uint8_t n);
-			static Blend WeightedPremulPerRT(uint8_t n);
-			static Blend WeightedPerRT(uint8_t n);
-			static Blend SelectMin(uint8_t n);
-			static Blend SelectMax(uint8_t n);
-
-			static Rasterizer RasterizerDefault();
-			static Rasterizer CullBack();
-			static Rasterizer CullNone();
-			static Rasterizer CullFront();
-			static Rasterizer FillWireframe();
 		};
 	}
 }

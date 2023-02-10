@@ -2,13 +2,13 @@
 // Copyright (c) XU, Tianchen. All rights reserved.
 //--------------------------------------------------------------------------------------
 
-#include "XUSGGraphicsState_DX12.h"
+#include "XUSG.h"
 
 using namespace std;
 using namespace XUSG;
 using namespace Graphics;
 
-Graphics::DepthStencil PipelineLib_DX12::DepthStencilDefault()
+Graphics::DepthStencil PipelineLib::DepthStencilDefault()
 {
 	DepthStencil depthStencil;
 	depthStencil.DepthEnable = true;
@@ -26,7 +26,7 @@ Graphics::DepthStencil PipelineLib_DX12::DepthStencilDefault()
 	return depthStencil;
 }
 
-Graphics::DepthStencil PipelineLib_DX12::DepthStencilNone()
+Graphics::DepthStencil PipelineLib::DepthStencilNone()
 {
 	auto depthStencil = DepthStencilDefault();
 	depthStencil.DepthEnable = false;
@@ -35,7 +35,7 @@ Graphics::DepthStencil PipelineLib_DX12::DepthStencilNone()
 	return depthStencil;
 }
 
-Graphics::DepthStencil PipelineLib_DX12::DepthRead()
+Graphics::DepthStencil PipelineLib::DepthRead()
 {
 	auto depthStencil = DepthStencilDefault();
 	depthStencil.DepthWriteMask = false;
@@ -43,7 +43,7 @@ Graphics::DepthStencil PipelineLib_DX12::DepthRead()
 	return depthStencil;
 }
 
-Graphics::DepthStencil PipelineLib_DX12::DepthReadLessEqual()
+Graphics::DepthStencil PipelineLib::DepthReadLessEqual()
 {
 	auto depthStencil = DepthStencilDefault();
 	depthStencil.DepthWriteMask = false;
@@ -52,7 +52,7 @@ Graphics::DepthStencil PipelineLib_DX12::DepthReadLessEqual()
 	return depthStencil;
 }
 
-Graphics::DepthStencil PipelineLib_DX12::DepthReadEqual()
+Graphics::DepthStencil PipelineLib::DepthReadEqual()
 {
 	auto depthStencil = DepthStencilDefault();
 	depthStencil.DepthWriteMask = false;

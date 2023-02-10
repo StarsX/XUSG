@@ -2,13 +2,13 @@
 // Copyright (c) XU, Tianchen. All rights reserved.
 //--------------------------------------------------------------------------------------
 
-#include "XUSGGraphicsState_DX12.h"
+#include "XUSG.h"
 
 using namespace std;
 using namespace XUSG;
 using namespace Graphics;
 
-Blend PipelineLib_DX12::DefaultOpaque(uint8_t n)
+Blend PipelineLib::DefaultOpaque(uint8_t n)
 {
 	Blend blend;
 	blend.AlphaToCoverageEnable = false;
@@ -31,7 +31,7 @@ Blend PipelineLib_DX12::DefaultOpaque(uint8_t n)
 	return blend;
 }
 
-Blend PipelineLib_DX12::Premultiplied(uint8_t n)
+Blend PipelineLib::Premultiplied(uint8_t n)
 {
 	Blend blend;
 	blend.AlphaToCoverageEnable = false;
@@ -52,7 +52,7 @@ Blend PipelineLib_DX12::Premultiplied(uint8_t n)
 	return blend;
 }
 
-Blend PipelineLib_DX12::Additive(uint8_t n)
+Blend PipelineLib::Additive(uint8_t n)
 {
 	Blend blend;
 	blend.AlphaToCoverageEnable = false;
@@ -73,7 +73,7 @@ Blend PipelineLib_DX12::Additive(uint8_t n)
 	return blend;
 }
 
-Blend PipelineLib_DX12::NonPremultiplied(uint8_t n)
+Blend PipelineLib::NonPremultiplied(uint8_t n)
 {
 	Blend blend;
 	blend.AlphaToCoverageEnable = false;
@@ -94,7 +94,7 @@ Blend PipelineLib_DX12::NonPremultiplied(uint8_t n)
 	return blend;
 }
 
-Blend PipelineLib_DX12::NonPremultipliedRT0(uint8_t n)
+Blend PipelineLib::NonPremultipliedRT0(uint8_t n)
 {
 	Blend blend;
 	blend.AlphaToCoverageEnable = false;
@@ -131,7 +131,7 @@ Blend PipelineLib_DX12::NonPremultipliedRT0(uint8_t n)
 	return blend;
 }
 
-Blend PipelineLib_DX12::AlphaToCoverage(uint8_t n)
+Blend PipelineLib::AlphaToCoverage(uint8_t n)
 {
 	Blend blend;
 	blend.AlphaToCoverageEnable = true;
@@ -152,7 +152,7 @@ Blend PipelineLib_DX12::AlphaToCoverage(uint8_t n)
 	return blend;
 }
 
-Blend PipelineLib_DX12::Accumulative(uint8_t n)
+Blend PipelineLib::Accumulative(uint8_t n)
 {
 	Blend blend;
 	blend.AlphaToCoverageEnable = false;
@@ -173,7 +173,7 @@ Blend PipelineLib_DX12::Accumulative(uint8_t n)
 	return blend;
 }
 
-Blend PipelineLib_DX12::AutoNonPremultiplied(uint8_t n)
+Blend PipelineLib::AutoNonPremultiplied(uint8_t n)
 {
 	Blend blend;
 	blend.AlphaToCoverageEnable = false;
@@ -194,7 +194,7 @@ Blend PipelineLib_DX12::AutoNonPremultiplied(uint8_t n)
 	return blend;
 }
 
-Blend PipelineLib_DX12::ZeroAlphaNonPremultiplied(uint8_t n)
+Blend PipelineLib::ZeroAlphaNonPremultiplied(uint8_t n)
 {
 	Blend blend;
 	blend.AlphaToCoverageEnable = false;
@@ -215,7 +215,7 @@ Blend PipelineLib_DX12::ZeroAlphaNonPremultiplied(uint8_t n)
 	return blend;
 }
 
-Blend PipelineLib_DX12::Multiplied(uint8_t n)
+Blend PipelineLib::Multiplied(uint8_t n)
 {
 	Blend blend;
 	blend.AlphaToCoverageEnable = false;
@@ -236,7 +236,7 @@ Blend PipelineLib_DX12::Multiplied(uint8_t n)
 	return blend;
 }
 
-Blend PipelineLib_DX12::WeightedPremul(uint8_t n)
+Blend PipelineLib::WeightedPremul(uint8_t n)
 {
 	Blend blend;
 	blend.AlphaToCoverageEnable = false;
@@ -257,7 +257,7 @@ Blend PipelineLib_DX12::WeightedPremul(uint8_t n)
 	return blend;
 }
 
-Blend PipelineLib_DX12::WeightedPremulPerRT(uint8_t n)
+Blend PipelineLib::WeightedPremulPerRT(uint8_t n)
 {
 	Blend blend;
 	blend.AlphaToCoverageEnable = false;
@@ -313,7 +313,7 @@ Blend PipelineLib_DX12::WeightedPremulPerRT(uint8_t n)
 	return blend;
 }
 
-Blend PipelineLib_DX12::WeightedPerRT(uint8_t n)
+Blend PipelineLib::WeightedPerRT(uint8_t n)
 {
 	Blend blend;
 	blend.AlphaToCoverageEnable = false;
@@ -369,7 +369,7 @@ Blend PipelineLib_DX12::WeightedPerRT(uint8_t n)
 	return blend;
 }
 
-Blend PipelineLib_DX12::SelectMin(uint8_t n)
+Blend PipelineLib::SelectMin(uint8_t n)
 {
 	Blend blend;
 	blend.AlphaToCoverageEnable = false;
@@ -390,7 +390,7 @@ Blend PipelineLib_DX12::SelectMin(uint8_t n)
 	return blend;
 }
 
-Blend PipelineLib_DX12::SelectMax(uint8_t n)
+Blend PipelineLib::SelectMax(uint8_t n)
 {
 	Blend blend;
 	blend.AlphaToCoverageEnable = false;

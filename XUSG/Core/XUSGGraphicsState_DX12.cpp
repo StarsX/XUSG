@@ -35,10 +35,9 @@ void State_DX12::SetShader(Shader::Stage stage, const Blob& shader)
 	m_pKey->Shaders[stage] = shader;
 }
 
-void State_DX12::SetCachedPipeline(const void* pCachedPipeline, size_t size)
+void State_DX12::SetCachedPipeline(const Blob& cachedPipeline)
 {
-	m_pKey->pCachedPipeline = pCachedPipeline;
-	m_pKey->CachedPipelineSize = size;
+	m_pKey->CachedPipeline = cachedPipeline;
 }
 
 void State_DX12::SetNodeMask(uint32_t nodeMask)
@@ -95,14 +94,17 @@ void State_DX12::IASetIndexBufferStripCutValue(IBStripCutValue ibStripCutValue)
 
 void State_DX12::OMSetNumRenderTargets(uint8_t n)
 {
+	const auto numRTVFormats = static_cast<uint8_t>(size(m_pKey->RTVFormats));
+	assert(n <= numRTVFormats);
 	m_pKey->NumRenderTargets = n;
 
-	for (auto i = n; i < 8; ++i)
+	for (auto i = n; i < numRTVFormats; ++i)
 		OMSetRTVFormat(i, Format::UNKNOWN);
 }
 
 void State_DX12::OMSetRTVFormat(uint8_t i, Format format)
 {
+	assert(i < size(m_pKey->RTVFormats));
 	m_pKey->RTVFormats[i] = format;
 }
 
@@ -110,7 +112,7 @@ void State_DX12::OMSetRTVFormats(const Format* formats, uint8_t n)
 {
 	OMSetNumRenderTargets(n);
 
-	for (auto i = 0u; i < n; ++i)
+	for (uint8_t i = 0; i < n; ++i)
 		OMSetRTVFormat(i, formats[i]);
 }
 
@@ -353,8 +355,9 @@ Pipeline PipelineLib_DX12::createPipeline(const std::string& key, const wchar_t*
 	desc.SampleDesc.Count = pDesc->SampleCount;
 	desc.SampleDesc.Quality = pDesc->SampleQuality;
 
-	desc.CachedPSO.pCachedBlob = pDesc->pCachedPipeline;
-	desc.CachedPSO.CachedBlobSizeInBytes = pDesc->CachedPipelineSize;
+	const auto pCachedPipeline = static_cast<ID3DBlob*>(pDesc->CachedPipeline);
+	desc.CachedPSO.pCachedBlob = pCachedPipeline ? pCachedPipeline->GetBufferPointer() : nullptr;
+	desc.CachedPSO.CachedBlobSizeInBytes = pCachedPipeline ? pCachedPipeline->GetBufferSize() : 0;
 	desc.NodeMask = pDesc->NodeMask;
 
 	switch (static_cast<IBStripCutValue>(pDesc->IBStripCutValue))

@@ -1810,6 +1810,13 @@ namespace XUSG
 
 			virtual const std::string& GetKey() const = 0;
 
+			virtual uint32_t CreateCbvSrvUavTableIndex(DescriptorTableLib* pDescriptorTableLib, XUSG::DescriptorTable table = nullptr) = 0;
+			virtual uint32_t GetCbvSrvUavTableIndex(DescriptorTableLib* pDescriptorTableLib, XUSG::DescriptorTable table = nullptr) = 0;
+			virtual uint32_t CreateSamplerTableIndex(DescriptorTableLib* pDescriptorTableLib, XUSG::DescriptorTable table = nullptr) = 0;
+			virtual uint32_t GetSamplerTableIndex(DescriptorTableLib* pDescriptorTableLib, XUSG::DescriptorTable table = nullptr) = 0;
+			virtual uint32_t GetDescriptorTableIndex(DescriptorTableLib* pDescriptorTableLib, DescriptorHeapType type,
+				const XUSG::DescriptorTable& table) const = 0;
+
 			using uptr = std::unique_ptr<DescriptorTable>;
 			using sptr = std::shared_ptr<DescriptorTable>;
 
@@ -1847,6 +1854,44 @@ namespace XUSG
 		virtual const Sampler* GetSampler(SamplerPreset preset) = 0;
 
 		virtual uint32_t GetDescriptorStride(DescriptorHeapType type) const = 0;
+
+		static Sampler SamplerPointWrap();
+		static Sampler SamplerPointMirror();
+		static Sampler SamplerPointClamp();
+		static Sampler SamplerPointBorder();
+		static Sampler SamplerPointLessEqual();
+
+		static Sampler SamplerLinearWrap();
+		static Sampler SamplerLinearMirror();
+		static Sampler SamplerLinearClamp();
+		static Sampler SamplerLinearBorder();
+		static Sampler SamplerLinearLessEqual();
+
+		static Sampler SamplerAnisotropicWrap();
+		static Sampler SamplerAnisotropicMirror();
+		static Sampler SamplerAnisotropicClamp();
+		static Sampler SamplerAnisotropicBorder();
+		static Sampler SamplerAnisotropicLessEqual();
+
+		static Sampler SamplerMinLinearWrap();
+		static Sampler SamplerMinLinearMirror();
+		static Sampler SamplerMinLinearClamp();
+		static Sampler SamplerMinLinearBorder();
+
+		static Sampler SamplerMinAnisotropicWrap();
+		static Sampler SamplerMinAnisotropicMirror();
+		static Sampler SamplerMinAnisotropicClamp();
+		static Sampler SamplerMinAnisotropicBorder();
+
+		static Sampler SamplerMaxLinearWrap();
+		static Sampler SamplerMaxLinearMirror();
+		static Sampler SamplerMaxLinearClamp();
+		static Sampler SamplerMaxLinearBorder();
+
+		static Sampler SamplerMaxAnisotropicWrap();
+		static Sampler SamplerMaxAnisotropicMirror();
+		static Sampler SamplerMaxAnisotropicClamp();
+		static Sampler SamplerMaxAnisotropicBorder();
 
 		using uptr = std::unique_ptr<DescriptorTableLib>;
 		using sptr = std::shared_ptr<DescriptorTableLib>;
@@ -2093,7 +2138,7 @@ namespace XUSG
 
 			virtual void SetPipelineLayout(const PipelineLayout& layout) = 0;
 			virtual void SetShader(Shader::Stage stage, const Blob& shader) = 0;
-			virtual void SetCachedPipeline(const void* pCachedPipeline, size_t size) = 0;
+			virtual void SetCachedPipeline(const Blob& cachedPipeline) = 0;
 			virtual void SetNodeMask(uint32_t nodeMask) = 0;
 
 			virtual void OMSetBlendState(const Blend* pBlend, uint32_t sampleMask = UINT_MAX) = 0;
@@ -2148,6 +2193,34 @@ namespace XUSG
 			virtual const Rasterizer* GetRasterizer(RasterizerPreset preset) = 0;
 			virtual const DepthStencil* GetDepthStencil(DepthStencilPreset preset) = 0;
 
+			static DepthStencil DepthStencilDefault();
+			static DepthStencil DepthStencilNone();
+			static DepthStencil DepthRead();
+			static DepthStencil DepthReadLessEqual();
+			static DepthStencil DepthReadEqual();
+
+			static Blend DefaultOpaque(uint8_t n);
+			static Blend Premultiplied(uint8_t n);
+			static Blend Additive(uint8_t n);
+			static Blend NonPremultiplied(uint8_t n);
+			static Blend NonPremultipliedRT0(uint8_t n);
+			static Blend AlphaToCoverage(uint8_t n);
+			static Blend Accumulative(uint8_t n);
+			static Blend AutoNonPremultiplied(uint8_t n);
+			static Blend ZeroAlphaNonPremultiplied(uint8_t n);
+			static Blend Multiplied(uint8_t n);
+			static Blend WeightedPremul(uint8_t n);
+			static Blend WeightedPremulPerRT(uint8_t n);
+			static Blend WeightedPerRT(uint8_t n);
+			static Blend SelectMin(uint8_t n);
+			static Blend SelectMax(uint8_t n);
+
+			static Rasterizer RasterizerDefault();
+			static Rasterizer CullBack();
+			static Rasterizer CullNone();
+			static Rasterizer CullFront();
+			static Rasterizer FillWireframe();
+
 			using uptr = std::unique_ptr<PipelineLib>;
 			using sptr = std::shared_ptr<PipelineLib>;
 
@@ -2173,7 +2246,7 @@ namespace XUSG
 
 			virtual void SetPipelineLayout(const PipelineLayout& layout) = 0;
 			virtual void SetShader(const Blob& shader) = 0;
-			virtual void SetCachedPipeline(const void* pCachedPipeline, size_t size) = 0;
+			virtual void SetCachedPipeline(const Blob& cachedPipeline) = 0;
 			virtual void SetNodeMask(uint32_t nodeMask) = 0;
 
 			virtual Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
@@ -2211,8 +2284,9 @@ namespace XUSG
 		};
 	}
 
+	XUSG_INTERFACE Blob GetPipelineCache(Pipeline pipeline, API api = API::DIRECTX_12);
+
 	XUSG_INTERFACE uint8_t CalculateMipLevels(uint32_t width, uint32_t height, uint32_t depth = 1);
 	XUSG_INTERFACE uint8_t CalculateMipLevels(uint64_t width, uint32_t height, uint32_t depth = 1);
 	XUSG_INTERFACE uint8_t Log2(uint32_t value);
-	XUSG_INTERFACE uint32_t DivideRoundUp(uint32_t x, uint32_t n);
 }

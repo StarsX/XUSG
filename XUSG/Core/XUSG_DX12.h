@@ -123,4 +123,6 @@ namespace XUSG
 
 		std::vector<RECT> m_dirtyRects;
 	};
+
+	Blob GetDX12PipelineCache(Pipeline pipeline);
 }

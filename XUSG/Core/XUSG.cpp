@@ -366,6 +366,11 @@ Compute::PipelineLib::sptr Compute::PipelineLib::MakeShared(const Device* pDevic
 	return make_shared<PipelineLib_DX12>(pDevice);
 }
 
+XUSG_INTERFACE Blob XUSG::GetPipelineCache(Pipeline pipeline, API api)
+{
+	return GetDX12PipelineCache(pipeline);
+}
+
 uint8_t XUSG::CalculateMipLevels(uint32_t width, uint32_t height, uint32_t depth)
 {
 	const auto texSize = (std::max)((std::max)(width, height), depth);
@@ -389,9 +394,4 @@ uint8_t XUSG::Log2(uint32_t value)
 #else
 	return static_cast<uint8_t>(log2(value));
 #endif
-}
-
-uint32_t XUSG::DivideRoundUp(uint32_t x, uint32_t n)
-{
-	return XUSG_DIV_UP(x, n);
 }

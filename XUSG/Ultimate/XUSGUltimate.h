@@ -130,7 +130,7 @@ namespace XUSG
 
 			virtual void SetPipelineLayout(const PipelineLayout& layout) = 0;
 			virtual void SetShader(Shader::Stage stage, const Blob& shader) = 0;
-			virtual void SetCachedPipeline(const void* pCachedPipeline, size_t size) = 0;
+			virtual void SetCachedPipeline(const Blob& cachedPipeline) = 0;
 			virtual void SetNodeMask(uint32_t nodeMask) = 0;
 
 			virtual void OMSetBlendState(const Blend* pBlend, uint32_t sampleMask = UINT_MAX) = 0;

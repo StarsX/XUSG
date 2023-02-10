@@ -2,13 +2,13 @@
 // Copyright (c) XU, Tianchen. All rights reserved.
 //--------------------------------------------------------------------------------------
 
-#include "XUSGGraphicsState_DX12.h"
+#include "XUSG.h"
 
 using namespace std;
 using namespace XUSG;
 using namespace Graphics;
 
-Rasterizer PipelineLib_DX12::RasterizerDefault()
+Rasterizer PipelineLib::RasterizerDefault()
 {
 	Rasterizer rasterizer;
 	rasterizer.Fill = FillMode::SOLID;
@@ -26,12 +26,12 @@ Rasterizer PipelineLib_DX12::RasterizerDefault()
 	return rasterizer;
 }
 
-Rasterizer PipelineLib_DX12::CullBack()
+Rasterizer PipelineLib::CullBack()
 {
 	return RasterizerDefault();
 }
 
-Rasterizer PipelineLib_DX12::CullNone()
+Rasterizer PipelineLib::CullNone()
 {
 	auto rasterizer = RasterizerDefault();
 	rasterizer.Cull = CullMode::NONE;
@@ -39,7 +39,7 @@ Rasterizer PipelineLib_DX12::CullNone()
 	return rasterizer;
 }
 
-Rasterizer PipelineLib_DX12::CullFront()
+Rasterizer PipelineLib::CullFront()
 {
 	auto rasterizer = RasterizerDefault();
 	rasterizer.Cull = CullMode::FRONT;
@@ -47,7 +47,7 @@ Rasterizer PipelineLib_DX12::CullFront()
 	return rasterizer;
 }
 
-Rasterizer PipelineLib_DX12::FillWireframe()
+Rasterizer PipelineLib::FillWireframe()
 {
 	auto rasterizer = RasterizerDefault();
 	rasterizer.Fill = FillMode::WIREFRAME;

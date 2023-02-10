@@ -14,8 +14,7 @@ namespace XUSG
 		{
 			PipelineLayout Layout;
 			Blob Shader;
-			const void* pCachedPipeline;
-			size_t CachedPipelineSize;
+			Blob CachedPipeline;
 			uint32_t NodeMask;
 		};
 
@@ -28,7 +27,7 @@ namespace XUSG
 
 			void SetPipelineLayout(const PipelineLayout& layout);
 			void SetShader(const Blob& shader);
-			void SetCachedPipeline(const void* pCachedPipeline, size_t size);
+			void SetCachedPipeline(const Blob& cachedPipeline);
 			void SetNodeMask(uint32_t nodeMask);
 
 			Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const;

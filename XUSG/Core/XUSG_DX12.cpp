@@ -315,3 +315,11 @@ void* SwapChain_DX12::GetHandle() const
 {
 	return m_swapChain.get();
 }
+
+Blob XUSG::GetDX12PipelineCache(Pipeline pipeline)
+{
+	com_ptr<ID3DBlob> blob;
+	V_RETURN(static_cast<ID3D12PipelineState*>(pipeline)->GetCachedBlob(&blob), cerr, nullptr);
+
+	return blob.get();
+}
