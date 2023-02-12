@@ -341,19 +341,27 @@ bool DescriptorTableLib_DX12::reallocateCbvSrvUavHeap(const string& key)
 {
 	assert(key.size() > 0);
 	const auto& index = key[0];
-	const auto numDescriptors = static_cast<uint32_t>(key.size() / sizeof(Descriptor));
+	auto numDescriptors = static_cast<uint32_t>(key.size() / sizeof(Descriptor));
 
 	// Allocate a new heap if neccessary
 	const auto& descriptorHeap = m_descriptorHeaps[CBV_SRV_UAV_HEAP][index];
-	auto descriptorCount = getNewHeapSize(numDescriptors, CBV_SRV_UAV_HEAP, index);
-	if (!descriptorHeap || descriptorHeap->GetDesc().NumDescriptors < descriptorCount)
+	const auto descriptorCount = m_descriptorCounts[CBV_SRV_UAV_HEAP][index];
+	numDescriptors += descriptorCount;
+	if (!descriptorHeap || descriptorHeap->GetDesc().NumDescriptors < numDescriptors)
 	{
-		descriptorCount = calculateGrowth(descriptorCount, CBV_SRV_UAV_HEAP, index);
-		XUSG_N_RETURN(allocateDescriptorHeap(CBV_SRV_UAV_HEAP, descriptorCount, index), false);
+		const auto oldHeapStart = descriptorHeap ? descriptorHeap->GetGPUDescriptorHandleForHeapStart().ptr : 0;
+		numDescriptors = calculateGrowth(numDescriptors, CBV_SRV_UAV_HEAP, index);
+		XUSG_N_RETURN(allocateDescriptorHeap(CBV_SRV_UAV_HEAP, numDescriptors, index), false);
 
 		// Recreate descriptor tables
+		assert(descriptorHeap);
+		const auto newHeapStart = descriptorHeap->GetGPUDescriptorHandleForHeapStart().ptr;
+		m_descriptorCounts[CBV_SRV_UAV_HEAP][index] = descriptorCount;
 		for (const auto& tableEntry : m_cbvSrvUavTables[index])
-			*tableEntry.second = *createCbvSrvUavTable(tableEntry.first, nullptr);
+		{
+			*tableEntry.second = *tableEntry.second - oldHeapStart + newHeapStart;
+			*tableEntry.second = *createCbvSrvUavTable(tableEntry.first, tableEntry.second);
+		}
 	}
 
 	return true;
@@ -363,19 +371,27 @@ bool DescriptorTableLib_DX12::reallocateSamplerHeap(const string& key)
 {
 	assert(key.size() > 0);
 	const auto& index = key[0];
-	const auto numDescriptors = static_cast<uint32_t>(key.size() / sizeof(Sampler*));
+	auto numDescriptors = static_cast<uint32_t>(key.size() / sizeof(Sampler*));
 
 	// Allocate a new heap if neccessary
 	const auto& descriptorHeap = m_descriptorHeaps[SAMPLER_HEAP][index];
-	auto descriptorCount = getNewHeapSize(numDescriptors, SAMPLER_HEAP, index);
-	if (!descriptorHeap || descriptorHeap->GetDesc().NumDescriptors < descriptorCount)
+	const auto descriptorCount = m_descriptorCounts[SAMPLER_HEAP][index];
+	numDescriptors += descriptorCount;
+	if (!descriptorHeap || descriptorHeap->GetDesc().NumDescriptors < numDescriptors)
 	{
-		descriptorCount = calculateGrowth(descriptorCount, SAMPLER_HEAP, index);
-		XUSG_N_RETURN(allocateDescriptorHeap(SAMPLER_HEAP, descriptorCount, index), false);
+		const auto oldHeapStart = descriptorHeap ? descriptorHeap->GetGPUDescriptorHandleForHeapStart().ptr : 0;
+		numDescriptors = calculateGrowth(numDescriptors, SAMPLER_HEAP, index);
+		XUSG_N_RETURN(allocateDescriptorHeap(SAMPLER_HEAP, numDescriptors, index), false);
 
 		// Recreate descriptor tables
+		assert(descriptorHeap);
+		const auto newHeapStart = descriptorHeap->GetGPUDescriptorHandleForHeapStart().ptr;
+		m_descriptorCounts[SAMPLER_HEAP][index] = descriptorCount;
 		for (const auto& tableEntry : m_samplerTables[index])
-			*tableEntry.second = *createSamplerTable(tableEntry.first, nullptr);
+		{
+			*tableEntry.second = *tableEntry.second - oldHeapStart + newHeapStart;
+			*tableEntry.second = *createSamplerTable(tableEntry.first, tableEntry.second);
+		}
 	}
 
 	return true;
@@ -385,15 +401,15 @@ bool DescriptorTableLib_DX12::reallocateRtvHeap(const string& key)
 {
 	assert(key.size() > 0);
 	const auto& index = key[0];
-	const auto numDescriptors = static_cast<uint32_t>(key.size() / sizeof(Descriptor));
+	auto numDescriptors = static_cast<uint32_t>(key.size() / sizeof(Descriptor));
 
 	// Allocate a new heap if neccessary
 	const auto& descriptorHeap = m_descriptorHeaps[RTV_HEAP][index];
-	auto descriptorCount = getNewHeapSize(numDescriptors, RTV_HEAP, index);
-	if (!descriptorHeap || descriptorHeap->GetDesc().NumDescriptors < descriptorCount)
+	numDescriptors += m_descriptorCounts[RTV_HEAP][index];
+	if (!descriptorHeap || descriptorHeap->GetDesc().NumDescriptors < numDescriptors)
 	{
-		descriptorCount = calculateGrowth(descriptorCount, RTV_HEAP, index);
-		XUSG_N_RETURN(allocateDescriptorHeap(RTV_HEAP, descriptorCount, index), false);
+		numDescriptors = calculateGrowth(numDescriptors, RTV_HEAP, index);
+		XUSG_N_RETURN(allocateDescriptorHeap(RTV_HEAP, numDescriptors, index), false);
 
 		// Recreate descriptor tables
 		for (const auto& tableEntry : m_rtvTables[index])
@@ -522,7 +538,7 @@ DescriptorTable DescriptorTableLib_DX12::createSamplerTable(const string& key, D
 			desc.MinLOD = pSamplers[i]->MinLOD;
 			desc.MaxLOD = pSamplers[i]->MaxLOD;
 
-			// Copy a descriptor
+			// Create a sampler descriptor
 			m_device->CreateSampler(&desc, dst);
 			dst.Offset(descriptorStride);
 		}
@@ -652,11 +668,6 @@ Framebuffer DescriptorTableLib_DX12::getFramebuffer(const string& key,
 	}
 
 	return framebuffer;
-}
-
-uint32_t DescriptorTableLib_DX12::getNewHeapSize(uint32_t numDescriptors, DescriptorHeapType type, uint8_t index) const
-{
-	return m_descriptorCounts[type][index] + numDescriptors;
 }
 
 uint32_t DescriptorTableLib_DX12::calculateGrowth(uint32_t newSize, DescriptorHeapType type, uint8_t index) const

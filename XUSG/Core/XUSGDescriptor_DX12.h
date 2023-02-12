@@ -101,7 +101,6 @@ namespace XUSG
 		Framebuffer createFramebuffer(const std::string& key, const Descriptor *pDsv, const Framebuffer* pFramebuffer);
 		Framebuffer getFramebuffer(const std::string& key, const Descriptor* pDsv, const Framebuffer* pFramebuffer);
 
-		uint32_t getNewHeapSize(uint32_t numDescriptors, DescriptorHeapType type, uint8_t index) const;
 		uint32_t calculateGrowth(uint32_t newSize, DescriptorHeapType type, uint8_t index) const;
 
 		com_ptr<ID3D12Device> m_device;

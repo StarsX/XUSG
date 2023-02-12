@@ -706,11 +706,6 @@ void EZ::CommandList_DX12::GenerateMips(Texture3D* pResource, SamplerPreset samp
 	}
 }
 
-const InputLayout* EZ::CommandList_DX12::GetInputLayout(uint32_t index) const
-{
-	return m_graphicsPipelineLib->GetInputLayout(index);
-}
-
 const Graphics::Blend* EZ::CommandList_DX12::GetBlend(Graphics::BlendPreset preset, uint8_t numColorRTs)
 {
 	return m_graphicsPipelineLib->GetBlend(preset, numColorRTs);
