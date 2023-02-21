@@ -205,7 +205,7 @@ void PipelineLayoutLib_DX12::GetRootParameter(CD3DX12_ROOT_PARAMETER1& rootParam
 
 	// Set ranges
 	const auto& key = *static_cast<const string*>(descriptorTableLayout);
-	const auto numRanges = key.size() > 0 ? static_cast<uint32_t>((key.size() - 1) / sizeof(DescriptorRange)) : 0;
+	const auto numRanges = key.empty() ? 0 : static_cast<uint32_t>((key.size() - 1) / sizeof(DescriptorRange));
 
 	if (numRanges > 0)
 	{

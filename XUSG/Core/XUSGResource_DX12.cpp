@@ -69,18 +69,22 @@ Resource_DX12::~Resource_DX12()
 uint32_t Resource_DX12::SetBarrier(ResourceBarrier* pBarriers, ResourceState dstState,
 	uint32_t numBarriers, uint32_t subresource, BarrierFlag flags, uint32_t threadIdx)
 {
-	const auto& state = m_states[threadIdx][subresource == XUSG_BARRIER_ALL_SUBRESOURCES ? 0 : subresource];
-	if ((state & dstState) != dstState || dstState == ResourceState::UNORDERED_ACCESS || dstState == ResourceState::COMMON)
+	assert(!m_resource || !m_states.empty());
+	if (!m_states.empty())
 	{
-		const auto srcState = Transition(dstState, subresource, flags, threadIdx);
+		const auto& state = m_states[threadIdx][subresource == XUSG_BARRIER_ALL_SUBRESOURCES ? 0 : subresource];
+		if ((state & dstState) != dstState || dstState == ResourceState::UNORDERED_ACCESS || dstState == ResourceState::COMMON)
+		{
+			const auto srcState = Transition(dstState, subresource, flags, threadIdx);
 
-		static const auto depthOpState = ResourceState::DEPTH_READ | ResourceState::DEPTH_WRITE;
-		static const auto promotionState = ResourceState::SHADER_RESOURCE | ResourceState::COPY_SOURCE | ResourceState::COPY_DEST;
-		const auto isSrcStateReset = srcState == ResourceState::COMMON || (flags & BarrierFlag::RESET_SRC_STATE) == BarrierFlag::RESET_SRC_STATE;
-		const auto isPromoted = isSrcStateReset && (dstState & depthOpState) == ResourceState::COMMON &&
-			(m_hasPromotion || (dstState & promotionState) != ResourceState::COMMON);
+			static const auto depthOpState = ResourceState::DEPTH_READ | ResourceState::DEPTH_WRITE;
+			static const auto promotionState = ResourceState::SHADER_RESOURCE | ResourceState::COPY_SOURCE | ResourceState::COPY_DEST;
+			const auto isSrcStateReset = srcState == ResourceState::COMMON || (flags & BarrierFlag::RESET_SRC_STATE) == BarrierFlag::RESET_SRC_STATE;
+			const auto isPromoted = isSrcStateReset && (dstState & depthOpState) == ResourceState::COMMON &&
+				(m_hasPromotion || (dstState & promotionState) != ResourceState::COMMON);
 
-		if (!isPromoted) pBarriers[numBarriers++] = { this, srcState, dstState, subresource, flags };
+			if (!isPromoted) pBarriers[numBarriers++] = { this, srcState, dstState, subresource, flags };
+		}
 	}
 
 	return numBarriers;
@@ -108,19 +112,20 @@ ResourceState Resource_DX12::Transition(ResourceState dstState,
 
 ResourceState Resource_DX12::GetResourceState(uint32_t subresource, uint32_t threadIdx) const
 {
-	assert(threadIdx < m_states.size());
+	assert(!m_resource || !m_states.empty());
+	assert(m_states.empty() || threadIdx < m_states.size());
 
-	return subresource < m_states[threadIdx].size() ? m_states[threadIdx][subresource] : ResourceState::COMMON;
+	return !m_states.empty() && subresource < m_states[threadIdx].size() ? m_states[threadIdx][subresource] : ResourceState::COMMON;
 }
 
 uint64_t Resource_DX12::GetWidth() const
 {
-	return m_resource->GetDesc().Width;
+	return m_resource ? m_resource->GetDesc().Width : 0;
 }
 
 uint64_t Resource_DX12::GetVirtualAddress(int offset) const
 {
-	return m_resource->GetGPUVirtualAddress() + offset;
+	return m_resource ? m_resource->GetGPUVirtualAddress() + offset : 0;
 }
 
 void Resource_DX12::Create(void* pDeviceHandle, void* pResourceHandle,
@@ -129,12 +134,15 @@ void Resource_DX12::Create(void* pDeviceHandle, void* pResourceHandle,
 	m_device = pDeviceHandle;
 	m_resource = pResourceHandle;
 
-	const auto desc = m_resource->GetDesc();
-	m_states.resize(maxThreads);
-	for (auto& states : m_states)
-		states.resize(desc.MipLevels * desc.DepthOrArraySize, ResourceState::COMMON);
+	if (m_resource)
+	{
+		const auto desc = m_resource->GetDesc();
+		m_states.resize(maxThreads);
+		for (auto& states : m_states)
+			states.resize(desc.MipLevels * desc.DepthOrArraySize, ResourceState::COMMON);
 
-	if (name) m_resource->SetName((wstring(name) + L".Resource").c_str());
+		if (name) m_resource->SetName((wstring(name) + L".Resource").c_str());
+	}
 }
 
 void* Resource_DX12::GetHandle() const
@@ -173,6 +181,7 @@ bool ConstantBuffer_DX12::Create(const Device* pDevice, size_t byteWidth, uint32
 	m_cbvHeaps.clear();
 
 	// Instanced CBVs
+	assert(byteWidth > 0);
 	vector<size_t> offsetList;
 	if (!offsets)
 	{
@@ -406,20 +415,23 @@ bool Texture_DX12::Create(const Device* pDevice, uint32_t width, uint32_t height
 	m_format = format;
 	const auto formatUAV = needPackedUAV ? MapToPackedFormat(format) : format;
 
-	// Setup the texture description.
-	const CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_DEFAULT);
-	const auto desc = CD3DX12_RESOURCE_DESC::Tex2D(GetDXGIFormat(format),
-		width, height, arraySize, numMips, sampleCount, 0, GetDX12ResourceFlags(resourceFlags));
+	if (width > 0 && height > 0 && arraySize)
+	{
+		// Setup the texture description.
+		const CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_DEFAULT);
+		const auto desc = CD3DX12_RESOURCE_DESC::Tex2D(GetDXGIFormat(format),
+			width, height, arraySize, numMips, sampleCount, 0, GetDX12ResourceFlags(resourceFlags));
 
-	// Determine initial state
-	assert(maxThreads > 0);
-	m_states.resize(maxThreads);
-	for (auto& states : m_states)
-		states.resize(static_cast<uint32_t>(arraySize) * numMips, ResourceState::COMMON);
+		// Determine initial state
+		assert(maxThreads > 0);
+		m_states.resize(maxThreads);
+		for (auto& states : m_states)
+			states.resize(static_cast<uint32_t>(arraySize) * numMips, ResourceState::COMMON);
 
-	V_RETURN(m_device->CreateCommittedResource(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
-		GetDX12ResourceStates(m_states[0][0]), nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
-	if (!m_name.empty()) m_resource->SetName((m_name + L".Resource").c_str());
+		V_RETURN(m_device->CreateCommittedResource(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
+			GetDX12ResourceStates(m_states[0][0]), nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
+		if (!m_name.empty()) m_resource->SetName((m_name + L".Resource").c_str());
+	}
 
 	// Create SRV
 	if (hasSRV) XUSG_N_RETURN(CreateSRVs(arraySize, m_format, numMips, sampleCount, isCubeMap), false);
@@ -502,6 +514,7 @@ bool Texture_DX12::CreateSRVs(uint16_t arraySize, Format format, uint8_t numMips
 {
 	// Setup the description of the shader resource view.
 	D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
+	assert(m_resource || format != Format::UNKNOWN);
 	desc.Format = format != Format::UNKNOWN ? GetDXGIFormat(format) : m_resource->GetDesc().Format;
 	desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 
@@ -569,6 +582,7 @@ bool Texture_DX12::CreateSRVLevels(uint16_t arraySize, uint8_t numMips, Format f
 	{
 		// Setup the description of the shader resource view.
 		D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
+		assert(m_resource || format != Format::UNKNOWN);
 		desc.Format = format != Format::UNKNOWN ? GetDXGIFormat(format) : m_resource->GetDesc().Format;
 		desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 
@@ -622,6 +636,7 @@ bool Texture_DX12::CreateUAVs(uint16_t arraySize, Format format, uint8_t numMips
 {
 	// Setup the description of the unordered access view.
 	D3D12_UNORDERED_ACCESS_VIEW_DESC desc = {};
+	assert(m_resource || format != Format::UNKNOWN);
 	desc.Format = format != Format::UNKNOWN ? GetDXGIFormat(format) : m_resource->GetDesc().Format;
 
 	uint8_t mipLevel = 0;
@@ -661,6 +676,7 @@ uint32_t Texture_DX12::SetBarrier(ResourceBarrier* pBarriers, ResourceState dstS
 uint32_t Texture_DX12::SetBarrier(ResourceBarrier* pBarriers, uint8_t mipLevel, ResourceState dstState,
 	uint32_t numBarriers, uint32_t slice, BarrierFlag flags, uint32_t threadIdx)
 {
+	assert(m_resource);
 	const auto desc = m_resource->GetDesc();
 	const auto subresource = D3D12CalcSubresource(mipLevel, slice, 0, desc.MipLevels, desc.DepthOrArraySize);
 
@@ -799,17 +815,17 @@ const Descriptor& Texture_DX12::GetSRVLevel(uint8_t level) const
 
 uint32_t Texture_DX12::GetHeight() const
 {
-	return m_resource->GetDesc().Height;
+	return m_resource ? m_resource->GetDesc().Height : 0;
 }
 
 uint16_t Texture_DX12::GetArraySize() const
 {
-	return m_resource->GetDesc().DepthOrArraySize;
+	return m_resource ? m_resource->GetDesc().DepthOrArraySize : 1;
 }
 
 uint8_t Texture_DX12::GetNumMips() const
 {
-	return static_cast<uint8_t>(m_resource->GetDesc().MipLevels);
+	return m_resource ? static_cast<uint8_t>(m_resource->GetDesc().MipLevels) : 1;
 }
 
 //--------------------------------------------------------------------------------------
@@ -1117,26 +1133,29 @@ bool RenderTarget_DX12::create(const Device* pDevice, uint32_t width, uint32_t h
 	m_format = format;
 	const auto formatUAV = needPackedUAV ? MapToPackedFormat(format) : format;
 
-	// Setup the texture description.
-	const CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_DEFAULT);
-	const auto desc = CD3DX12_RESOURCE_DESC::Tex2D(GetDXGIFormat(format),
-		width, height, arraySize, numMips, sampleCount, 0,
-		GetDX12ResourceFlags(ResourceFlag::ALLOW_RENDER_TARGET | resourceFlags));
+	if (width > 0 && height > 0 && arraySize)
+	{
+		// Setup the texture description.
+		const CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_DEFAULT);
+		const auto desc = CD3DX12_RESOURCE_DESC::Tex2D(GetDXGIFormat(format),
+			width, height, arraySize, numMips, sampleCount, 0,
+			GetDX12ResourceFlags(ResourceFlag::ALLOW_RENDER_TARGET | resourceFlags));
 
-	// Determine initial state
-	assert(maxThreads > 0);
-	m_states.resize(maxThreads);
-	for (auto& states : m_states)
-		states.resize(static_cast<uint32_t>(arraySize) * numMips, ResourceState::COMMON);
+		// Determine initial state
+		assert(maxThreads > 0);
+		m_states.resize(maxThreads);
+		for (auto& states : m_states)
+			states.resize(static_cast<uint32_t>(arraySize) * numMips, ResourceState::COMMON);
 
-	// Optimized clear value
-	D3D12_CLEAR_VALUE clearValue = { GetDXGIFormat(m_format) };
-	if (pClearColor) memcpy(clearValue.Color, pClearColor, sizeof(clearValue.Color));
+		// Optimized clear value
+		D3D12_CLEAR_VALUE clearValue = { GetDXGIFormat(m_format) };
+		if (pClearColor) memcpy(clearValue.Color, pClearColor, sizeof(clearValue.Color));
 
-	// Create the render target texture.
-	V_RETURN(m_device->CreateCommittedResource(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
-		GetDX12ResourceStates(m_states[0][0]), &clearValue, IID_PPV_ARGS(&m_resource)), clog, false);
-	if (!m_name.empty()) m_resource->SetName((m_name + L".Resource").c_str());
+		// Create the render target texture.
+		V_RETURN(m_device->CreateCommittedResource(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
+			GetDX12ResourceStates(m_states[0][0]), &clearValue, IID_PPV_ARGS(&m_resource)), clog, false);
+		if (!m_name.empty()) m_resource->SetName((m_name + L".Resource").c_str());
+	}
 
 	// Create SRV
 	if (hasSRV)
@@ -1406,8 +1425,9 @@ bool DepthStencil_DX12::create(const Device* pDevice, uint32_t width, uint32_t h
 		}
 	}
 
-	// Setup the render depth stencil description.
+	if (width > 0 && height > 0 && arraySize)
 	{
+		// Setup the render depth stencil description.
 		const CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_DEFAULT);
 		const auto desc = CD3DX12_RESOURCE_DESC::Tex2D(GetDXGIFormat(format),
 			width, height, arraySize, numMips, sampleCount, 0,
@@ -1541,19 +1561,22 @@ bool Texture3D_DX12::Create(const Device* pDevice, uint32_t width, uint32_t heig
 	m_format = format;
 	const auto formatUAV = needPackedUAV ? MapToPackedFormat(format) : format;
 
-	// Setup the texture description.
-	const CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_DEFAULT);
-	const auto desc = CD3DX12_RESOURCE_DESC::Tex3D(GetDXGIFormat(format),
-		width, height, depth, numMips, GetDX12ResourceFlags(resourceFlags));
+	if (width > 0 && height > 0 && depth)
+	{
+		// Setup the texture description.
+		const CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_DEFAULT);
+		const auto desc = CD3DX12_RESOURCE_DESC::Tex3D(GetDXGIFormat(format),
+			width, height, depth, numMips, GetDX12ResourceFlags(resourceFlags));
 
-	// Determine initial state
-	assert(maxThreads > 0);
-	m_states.resize(maxThreads);
-	for (auto& states : m_states) states.resize(numMips, ResourceState::COMMON);
+		// Determine initial state
+		assert(maxThreads > 0);
+		m_states.resize(maxThreads);
+		for (auto& states : m_states) states.resize(numMips, ResourceState::COMMON);
 
-	V_RETURN(m_device->CreateCommittedResource(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
-		GetDX12ResourceStates(m_states[0][0]), nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
-	if (!m_name.empty()) m_resource->SetName((m_name + L".Resource").c_str());
+		V_RETURN(m_device->CreateCommittedResource(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
+			GetDX12ResourceStates(m_states[0][0]), nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
+		if (!m_name.empty()) m_resource->SetName((m_name + L".Resource").c_str());
+	}
 
 	// Create SRV
 	if (hasSRV) XUSG_N_RETURN(CreateSRVs(m_format, numMips), false);
@@ -1575,6 +1598,7 @@ bool Texture3D_DX12::CreateSRVs(Format format, uint8_t numMips)
 {
 	// Setup the description of the shader resource view.
 	D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
+	assert(m_resource || format != Format::UNKNOWN);
 	desc.Format = format != Format::UNKNOWN ? GetDXGIFormat(format) : m_resource->GetDesc().Format;
 	desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE3D;
@@ -1601,6 +1625,7 @@ bool Texture3D_DX12::CreateSRVLevels(uint8_t numMips, Format format)
 	if (numMips > 1)
 	{
 		D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
+		assert(m_resource || format != Format::UNKNOWN);
 		desc.Format = format != Format::UNKNOWN ? GetDXGIFormat(format) : m_resource->GetDesc().Format;
 		desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 		desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE3D;
@@ -1629,6 +1654,7 @@ bool Texture3D_DX12::CreateUAVs(Format format, uint8_t numMips, vector<Descripto
 
 	// Setup the description of the unordered access view.
 	D3D12_UNORDERED_ACCESS_VIEW_DESC desc = {};
+	assert(m_resource || format != Format::UNKNOWN);
 	desc.Format = format != Format::UNKNOWN ? GetDXGIFormat(format) : txDesc.Format;
 	desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE3D;
 
@@ -1652,7 +1678,7 @@ bool Texture3D_DX12::CreateUAVs(Format format, uint8_t numMips, vector<Descripto
 
 uint16_t Texture3D_DX12::GetDepth() const
 {
-	return m_resource->GetDesc().DepthOrArraySize;
+	return m_resource ? m_resource->GetDesc().DepthOrArraySize : 0;
 }
 
 //--------------------------------------------------------------------------------------
@@ -1743,7 +1769,7 @@ bool Buffer_DX12::CreateSRVs(size_t byteWidth, const uint32_t* firstElements,
 	D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
 	desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 
-	if (m_states[0][0] == ResourceState::RAYTRACING_ACCELERATION_STRUCTURE)
+	if (m_resource && m_states[0][0] == ResourceState::RAYTRACING_ACCELERATION_STRUCTURE)
 	{
 		m_srvOffsets.resize(1);
 		m_srvs.resize(1);
@@ -1872,33 +1898,36 @@ bool Buffer_DX12::create(const Device* pDevice, size_t byteWidth, ResourceFlag r
 
 	const auto isRaytracingAS = (resourceFlags & ResourceFlag::ACCELERATION_STRUCTURE) == ResourceFlag::ACCELERATION_STRUCTURE;
 
-	// Setup the buffer description.
-	const CD3DX12_HEAP_PROPERTIES heapProperties(GetDX12HeapType(memoryType));
-	const auto desc = CD3DX12_RESOURCE_DESC::Buffer(byteWidth, GetDX12ResourceFlags(resourceFlags));
-
-	// Determine initial state
-	assert(maxThreads > 0);
-	m_states.resize(maxThreads);
-	for (auto& states : m_states)
+	if (byteWidth)
 	{
-		states.resize(1);
-		switch (memoryType)
-		{
-		case MemoryType::UPLOAD:
-			states[0] = ResourceState::GENERAL_READ;
-			break;
-		case MemoryType::READBACK:
-			states[0] = ResourceState::COPY_DEST;
-			break;
-		default:
-			if (isRaytracingAS) states[0] = ResourceState::RAYTRACING_ACCELERATION_STRUCTURE;
-			else states[0] = ResourceState::COMMON;
-		}
-	}
+		// Setup the buffer description.
+		const CD3DX12_HEAP_PROPERTIES heapProperties(GetDX12HeapType(memoryType));
+		const auto desc = CD3DX12_RESOURCE_DESC::Buffer(byteWidth, GetDX12ResourceFlags(resourceFlags));
 
-	V_RETURN(m_device->CreateCommittedResource(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
-		GetDX12ResourceStates(m_states[0][0]), nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
-	if (!m_name.empty()) m_resource->SetName((m_name + L".Resource").c_str());
+		// Determine initial state
+		assert(maxThreads > 0);
+		m_states.resize(maxThreads);
+		for (auto& states : m_states)
+		{
+			states.resize(1);
+			switch (memoryType)
+			{
+			case MemoryType::UPLOAD:
+				states[0] = ResourceState::GENERAL_READ;
+				break;
+			case MemoryType::READBACK:
+				states[0] = ResourceState::COPY_DEST;
+				break;
+			default:
+				if (isRaytracingAS) states[0] = ResourceState::RAYTRACING_ACCELERATION_STRUCTURE;
+				else states[0] = ResourceState::COMMON;
+			}
+		}
+
+		V_RETURN(m_device->CreateCommittedResource(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
+			GetDX12ResourceStates(m_states[0][0]), nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
+		if (!m_name.empty()) m_resource->SetName((m_name + L".Resource").c_str());
+	}
 
 	return true;
 }
@@ -2058,6 +2087,7 @@ bool TypedBuffer_DX12::CreateSRVs(uint32_t numElements, Format format, uint32_t 
 	const uint32_t* firstElements, uint32_t numDescriptors)
 {
 	D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
+	assert(m_resource || format != Format::UNKNOWN);
 	desc.Format = format != Format::UNKNOWN ? GetDXGIFormat(format) : m_resource->GetDesc().Format;
 	desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
@@ -2086,6 +2116,7 @@ bool TypedBuffer_DX12::CreateUAVs(uint32_t numElements, Format format, uint32_t 
 	const uint32_t* firstElements, uint32_t numDescriptors, vector<Descriptor>* pUavs)
 {
 	D3D12_UNORDERED_ACCESS_VIEW_DESC desc = {};
+	assert(m_resource || format != Format::UNKNOWN);
 	desc.Format = format != Format::UNKNOWN ? GetDXGIFormat(format) : m_resource->GetDesc().Format;
 	desc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
 

@@ -125,11 +125,16 @@ uint32_t Util::DescriptorTable_DX12::GetSamplerTableIndex(DescriptorTableLib* pD
 uint32_t Util::DescriptorTable_DX12::GetDescriptorTableIndex(DescriptorTableLib* pDescriptorTableLib, DescriptorHeapType type,
 	const XUSG::DescriptorTable& table) const
 {
-	const auto& index = m_key[0];
-	const auto& descriptorHeap = static_cast<ID3D12DescriptorHeap*>(pDescriptorTableLib->GetDescriptorHeap(type, index));
-	const auto& descriptorStride = pDescriptorTableLib->GetDescriptorStride(type);
+	if (!m_key.empty() && table)
+	{
+		const auto& index = m_key[0];
+		const auto& descriptorHeap = static_cast<ID3D12DescriptorHeap*>(pDescriptorTableLib->GetDescriptorHeap(type, index));
+		const auto& descriptorStride = pDescriptorTableLib->GetDescriptorStride(type);
 
-	return static_cast<uint32_t>((*table - descriptorHeap->GetGPUDescriptorHandleForHeapStart().ptr) / descriptorStride);
+		return static_cast<uint32_t>((*table - descriptorHeap->GetGPUDescriptorHandleForHeapStart().ptr) / descriptorStride);
+	}
+
+	return UINT32_MAX;
 }
 
 //--------------------------------------------------------------------------------------
@@ -339,7 +344,7 @@ bool DescriptorTableLib_DX12::allocateDescriptorHeap(DescriptorHeapType type, ui
 
 bool DescriptorTableLib_DX12::reallocateCbvSrvUavHeap(const string& key)
 {
-	assert(key.size() > 0);
+	assert(!key.empty());
 	const auto& index = key[0];
 	auto numDescriptors = static_cast<uint32_t>(key.size() / sizeof(Descriptor));
 
@@ -369,7 +374,7 @@ bool DescriptorTableLib_DX12::reallocateCbvSrvUavHeap(const string& key)
 
 bool DescriptorTableLib_DX12::reallocateSamplerHeap(const string& key)
 {
-	assert(key.size() > 0);
+	assert(!key.empty());
 	const auto& index = key[0];
 	auto numDescriptors = static_cast<uint32_t>(key.size() / sizeof(Sampler*));
 
@@ -399,7 +404,7 @@ bool DescriptorTableLib_DX12::reallocateSamplerHeap(const string& key)
 
 bool DescriptorTableLib_DX12::reallocateRtvHeap(const string& key)
 {
-	assert(key.size() > 0);
+	assert(!key.empty());
 	const auto& index = key[0];
 	auto numDescriptors = static_cast<uint32_t>(key.size() / sizeof(Descriptor));
 
@@ -421,7 +426,7 @@ bool DescriptorTableLib_DX12::reallocateRtvHeap(const string& key)
 
 DescriptorTable DescriptorTableLib_DX12::createCbvSrvUavTable(const string& key, DescriptorTable table)
 {
-	if (key.size() > 0)
+	if (!key.empty())
 	{
 		const auto& index = key[0];
 		const auto numDescriptors = static_cast<uint32_t>(key.size() / sizeof(Descriptor));
@@ -461,7 +466,7 @@ DescriptorTable DescriptorTableLib_DX12::createCbvSrvUavTable(const string& key,
 
 DescriptorTable DescriptorTableLib_DX12::getCbvSrvUavTable(const string& key, DescriptorTable table)
 {
-	if (key.size() > 0)
+	if (!key.empty())
 	{
 		const auto& index = key[0];
 		checkDescriptorHeapTypeStorage(CBV_SRV_UAV_HEAP, index);
@@ -497,7 +502,7 @@ DescriptorTable DescriptorTableLib_DX12::getCbvSrvUavTable(const string& key, De
 
 DescriptorTable DescriptorTableLib_DX12::createSamplerTable(const string& key, DescriptorTable table)
 {
-	if (key.size() > 0)
+	if (!key.empty())
 	{
 		const auto& index = key[0];
 		const auto numDescriptors = static_cast<uint32_t>(key.size() / sizeof(uintptr_t));
@@ -551,7 +556,7 @@ DescriptorTable DescriptorTableLib_DX12::createSamplerTable(const string& key, D
 
 DescriptorTable DescriptorTableLib_DX12::getSamplerTable(const string& key, DescriptorTable table)
 {
-	if (key.size() > 0)
+	if (!key.empty())
 	{
 		const auto& index = key[0];
 		checkDescriptorHeapTypeStorage(SAMPLER_HEAP, index);
@@ -591,7 +596,7 @@ Framebuffer DescriptorTableLib_DX12::createFramebuffer(const string& key,
 	Framebuffer framebuffer = {};
 	if (pDsv) framebuffer.DepthStencilView = *pDsv;
 
-	if (key.size() > 0)
+	if (!key.empty())
 	{
 		const auto& index = key[0];
 		framebuffer.NumRenderTargetDescriptors = static_cast<uint32_t>(key.size() / sizeof(Descriptor));
@@ -635,7 +640,7 @@ Framebuffer DescriptorTableLib_DX12::getFramebuffer(const string& key,
 	Framebuffer framebuffer = {};
 	if (pDsv) framebuffer.DepthStencilView = *pDsv;
 
-	if (key.size() > 0)
+	if (!key.empty())
 	{
 		const auto& index = key[0];
 		checkDescriptorHeapTypeStorage(RTV_HEAP, index);
