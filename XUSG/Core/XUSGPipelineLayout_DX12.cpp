@@ -274,6 +274,7 @@ void PipelineLayoutLib_DX12::GetStaticSampler(CD3DX12_STATIC_SAMPLER_DESC& sampl
 		staticSampler.pSampler->MaxLOD,
 		getShaderVisibility(static_cast<Shader::Stage>(staticSampler.Stage)),
 		staticSampler.Space);
+		//GetDX12SamplerFlags(staticSampler.pSampler->Flags));
 }
 
 PipelineLayout PipelineLayoutLib_DX12::CreatePipelineLayout(Util::PipelineLayout* pUtil,
@@ -334,7 +335,7 @@ D3D_ROOT_SIGNATURE_VERSION PipelineLayoutLib_DX12::GetRootSignatureHighestVersio
 		return D3D_ROOT_SIGNATURE_VERSION_1_0;
 
 	// This is the highest version the sample supports. If CheckFeatureSupport succeeds, the HighestVersion returned will not be greater than this.
-	return D3D_ROOT_SIGNATURE_VERSION_1_1;
+	return featureData.HighestVersion;
 }
 
 PipelineLayout PipelineLayoutLib_DX12::createPipelineLayout(const string& key, const wchar_t* name, uint32_t nodeMask)
@@ -359,7 +360,7 @@ PipelineLayout PipelineLayoutLib_DX12::createPipelineLayout(const string& key, c
 		GetStaticSampler(samplerDescs[i], pStaticSamplers[i]);
 
 	CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
-	rootSignatureDesc.Init_1_1(numRootParams, numRootParams ? rootParams.data() : nullptr,
+	rootSignatureDesc.Init_1_1(rootSignatureDesc, numRootParams, numRootParams ? rootParams.data() : nullptr,
 		numSamplers, numSamplers ? samplerDescs.data() : nullptr, GetDX12RootSignatureFlags(flags));
 
 	com_ptr<ID3DBlob> signature, error;

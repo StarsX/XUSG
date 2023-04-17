@@ -220,7 +220,8 @@ namespace XUSG
 		DEFAULT,
 		UPLOAD,
 		READBACK,
-		CUSTOM
+		CUSTOM,
+		GPU_UPLOAD
 	};
 
 	enum class PrimitiveTopologyType : uint8_t
@@ -796,6 +797,15 @@ namespace XUSG
 		uint64_t BufferFilledSizeLocation;
 	};
 
+	enum class SamplerFlag : uint8_t
+	{
+		NONE = 0,
+		UINT_BORDER_COLOR = (1 << 0),
+		NON_NORMALIZED_COORDINATES = (1 << 1)
+	};
+
+	XUSG_DEF_ENUM_FLAG_OPERATORS(SamplerFlag);
+
 	struct Sampler
 	{
 		SamplerFilter Filter;
@@ -805,9 +815,14 @@ namespace XUSG
 		float MipLODBias;
 		uint8_t MaxAnisotropy;
 		ComparisonFunc Comparison;
-		float BorderColor[4];
+		union
+		{
+			float BorderColor[4];
+			uint32_t BorderColorU[4];
+		};
 		float MinLOD;
 		float MaxLOD;
+		SamplerFlag Flags;
 	};
 
 	// Pipeline state related
@@ -1384,7 +1399,10 @@ namespace XUSG
 			const size_t* offsets = nullptr, MemoryType memoryType = MemoryType::UPLOAD,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr) = 0;
 		virtual bool Upload(CommandList* pCommandList, Resource* pUploader, const void* pData,
-			size_t size, uint32_t cbvIndex = 0, ResourceState srcState = ResourceState::COMMON,
+			size_t size, size_t offset = 0, ResourceState srcState = ResourceState::COMMON,
+			ResourceState dstState = ResourceState::COMMON) = 0;
+		virtual bool Upload(CommandList* pCommandList, uint32_t cbvIndex, Resource* pUploader,
+			const void* pData, size_t size, ResourceState srcState = ResourceState::COMMON,
 			ResourceState dstState = ResourceState::COMMON) = 0;
 
 		virtual void* Map(uint32_t cbvIndex = 0) = 0;
@@ -1424,6 +1442,8 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Texture
 	//--------------------------------------------------------------------------------------
+	class Buffer;
+
 	class XUSG_INTERFACE Texture :
 		public virtual ShaderResource
 	{
@@ -1443,6 +1463,9 @@ namespace XUSG
 		virtual bool Upload(CommandList* pCommandList, Resource* pUploader, const void* pData,
 			uint8_t stride = sizeof(float), ResourceState dstState = ResourceState::COMMON,
 			uint32_t threadIdx = 0) = 0;
+		virtual bool ReadBack(CommandList* pCommandList, Buffer* pReadBuffer, uint32_t* pRowPitches = nullptr,
+			uint32_t numSubresources = 1, uint32_t firstSubresource = 0, size_t offset = 0,
+			ResourceState dstState = ResourceState::COMMON, uint32_t threadIdx = 0) = 0;
 		virtual bool CreateSRVs(uint16_t arraySize, Format format = Format::UNKNOWN, uint8_t numMips = 1,
 			uint8_t sampleCount = 1, bool isCubeMap = false) = 0;
 		virtual bool CreateSRVLevels(uint16_t arraySize, uint8_t numMips, Format format = Format::UNKNOWN,
@@ -1482,6 +1505,8 @@ namespace XUSG
 		virtual uint32_t	GetHeight() const = 0;
 		virtual uint16_t	GetArraySize() const = 0;
 		virtual uint8_t		GetNumMips() const = 0;
+
+		virtual size_t GetRequiredIntermediateSize(uint32_t firstSubresource, uint32_t numSubresources) const = 0;
 
 		Texture* AsTexture();
 
@@ -1624,8 +1649,11 @@ namespace XUSG
 			const uint32_t* firstUAVElements = nullptr, MemoryFlag memoryFlags = MemoryFlag::NONE,
 			const wchar_t* name = nullptr, uint32_t maxThreads = 1) = 0;
 		virtual bool Upload(CommandList* pCommandList, Resource* pUploader, const void* pData, size_t size,
-			uint32_t descriptorIndex = 0, ResourceState dstState = ResourceState::COMMON,
-			uint32_t threadIdx = 0) = 0;
+			size_t offset = 0, ResourceState dstState = ResourceState::COMMON, uint32_t threadIdx = 0) = 0;
+		virtual bool Upload(CommandList* pCommandList, uint32_t descriptorIndex, Resource* pUploader, const void* pData,
+			size_t size, ResourceState dstState = ResourceState::COMMON, uint32_t threadIdx = 0) = 0;
+		virtual bool ReadBack(CommandList* pCommandList, Buffer* pReadBuffer, size_t size = 0, size_t dstOffset = 0,
+			size_t srcOffset = 0, ResourceState dstState = ResourceState::COMMON, uint32_t threadIdx = 0) = 0;
 		virtual bool CreateSRVs(size_t byteWidth, const uint32_t* firstElements = nullptr,
 			uint32_t numDescriptors = 1) = 0;
 		virtual bool CreateUAVs(size_t byteWidth, const uint32_t* firstElements = nullptr,
@@ -2290,5 +2318,5 @@ namespace XUSG
 	XUSG_INTERFACE uint8_t CalculateMipLevels(uint64_t width, uint32_t height, uint32_t depth = 1);
 	XUSG_INTERFACE uint8_t Log2(uint32_t value);
 
-	XUSG_INTERFACE uint32_t DivideRoundUp(uint32_t x, uint32_t n);
+	XUSG_INTERFACE uint32_t DivideAndRoundUp(uint32_t x, uint32_t n);
 }

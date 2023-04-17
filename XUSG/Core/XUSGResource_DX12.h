@@ -62,7 +62,10 @@ namespace XUSG
 			const size_t* offsets = nullptr, MemoryType memoryType = MemoryType::UPLOAD,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr);
 		bool Upload(CommandList* pCommandList, Resource* pUploader, const void* pData,
-			size_t size, uint32_t cbvIndex = 0, ResourceState srcState = ResourceState::COMMON,
+			size_t size, size_t offset = 0, ResourceState srcState = ResourceState::COMMON,
+			ResourceState dstState = ResourceState::COMMON);
+		bool Upload(CommandList* pCommandList, uint32_t cbvIndex, Resource* pUploader,
+			const void* pData, size_t size, ResourceState srcState = ResourceState::COMMON,
 			ResourceState dstState = ResourceState::COMMON);
 
 		void* Map(uint32_t cbvIndex = 0);
@@ -128,6 +131,9 @@ namespace XUSG
 		bool Upload(CommandList* pCommandList, Resource* pUploader, const void* pData,
 			uint8_t stride = sizeof(float), ResourceState dstState = ResourceState::COMMON,
 			uint32_t threadIdx = 0);
+		bool ReadBack(CommandList* pCommandList, Buffer* pReadBuffer, uint32_t* pRowPitches = nullptr,
+			uint32_t numSubresources = 1, uint32_t firstSubresource = 0, size_t offset = 0,
+			ResourceState dstState = ResourceState::COMMON, uint32_t threadIdx = 0);
 		bool CreateSRVs(uint16_t arraySize, Format format = Format::UNKNOWN, uint8_t numMips = 1,
 			uint8_t sampleCount = 1, bool isCubeMap = false);
 		bool CreateSRVLevels(uint16_t arraySize, uint8_t numMips, Format format = Format::UNKNOWN,
@@ -167,6 +173,8 @@ namespace XUSG
 		uint32_t	GetHeight() const;
 		uint16_t	GetArraySize() const;
 		uint8_t		GetNumMips() const;
+
+		size_t GetRequiredIntermediateSize(uint32_t firstSubresource, uint32_t numSubresources) const;
 
 	protected:
 		std::vector<Descriptor>	m_uavs;
@@ -307,8 +315,11 @@ namespace XUSG
 			const uint32_t* firstUAVElements = nullptr, MemoryFlag memoryFlags = MemoryFlag::NONE,
 			const wchar_t* name = nullptr, uint32_t maxThreads = 1);
 		bool Upload(CommandList* pCommandList, Resource* pUploader, const void* pData, size_t size,
-			uint32_t descriptorIndex = 0, ResourceState dstState = ResourceState::COMMON,
-			uint32_t threadIdx = 0);
+			size_t offset = 0, ResourceState dstState = ResourceState::COMMON, uint32_t threadIdx = 0);
+		bool Upload(CommandList* pCommandList, uint32_t descriptorIndex, Resource* pUploader, const void* pData,
+			size_t size, ResourceState dstState = ResourceState::COMMON, uint32_t threadIdx = 0);
+		bool ReadBack(CommandList* pCommandList, Buffer* pReadBuffer, size_t size = 0, size_t dstOffset = 0,
+			size_t srcOffset = 0, ResourceState dstState = ResourceState::COMMON, uint32_t threadIdx = 0);
 		bool CreateSRVs(size_t byteWidth, const uint32_t* firstElements = nullptr,
 			uint32_t numDescriptors = 1);
 		bool CreateUAVs(size_t byteWidth, const uint32_t* firstElements = nullptr,

@@ -20,6 +20,7 @@ using namespace XUSG;
 #define APPEND_ROOT_DESCRIPTOR_FLAG(flags, flag) APPEND_FLAG(DescriptorFlag, D3D12_ROOT_DESCRIPTOR_FLAG, flags, flag, NONE)
 #define APPEND_ROOT_SIGNATURE_FLAG(flags, flag) APPEND_FLAG(PipelineLayoutFlag, D3D12_ROOT_SIGNATURE_FLAG, flags, flag, NONE)
 #define APPEND_FENCE_FLAG(flags, flag) APPEND_FLAG(FenceFlag, D3D12_FENCE_FLAG, flags, flag, NONE)
+#define APPEND_SAMPLER_FLAG(flags, flag) APPEND_FLAG(SamplerFlag, D3D12_SAMPLER_FLAG, flags, flag, NONE)
 #define APPEND_COLOR_WRITE(mask, bit) (static_cast<bool>(mask & ColorWrite::bit) ? D3D12_COLOR_WRITE_ENABLE##_##bit : 0)
 #define APPEND_TILE_COPY_FLAG(flags, flag) APPEND_FLAG(TileCopyFlag, D3D12_TILE_COPY_FLAG, flags, flag, NONE)
 #define APPEND_SWAP_CHAIN_FLAG(flags, flag) (static_cast<bool>(flags & SwapChainFlag::flag) ? DXGI_SWAP_CHAIN_FLAG_##flag : 0)
@@ -193,7 +194,8 @@ D3D12_HEAP_TYPE XUSG::GetDX12HeapType(MemoryType memoryType)
 		D3D12_HEAP_TYPE_DEFAULT,
 		D3D12_HEAP_TYPE_UPLOAD,
 		D3D12_HEAP_TYPE_READBACK,
-		D3D12_HEAP_TYPE_CUSTOM
+		D3D12_HEAP_TYPE_CUSTOM,
+		D3D12_HEAP_TYPE_GPU_UPLOAD
 	};
 
 	return heapTypes[static_cast<uint32_t>(memoryType)];
@@ -666,6 +668,30 @@ D3D12_FENCE_FLAGS XUSG::GetDX12FenceFlags(FenceFlag fenceFlags)
 	flags |= APPEND_FENCE_FLAG(fenceFlags, SHARED);
 	flags |= APPEND_FENCE_FLAG(fenceFlags, SHARED_CROSS_ADAPTER);
 	flags |= APPEND_FENCE_FLAG(fenceFlags, NON_MONITORED);
+
+	return flags;
+}
+
+D3D12_SAMPLER_FLAGS XUSG::GetDX12SamplerFlag(SamplerFlag samplerFlag)
+{
+	static const D3D12_SAMPLER_FLAGS samplerFlags[] =
+	{
+		D3D12_SAMPLER_FLAG_UINT_BORDER_COLOR,
+		D3D12_SAMPLER_FLAG_NON_NORMALIZED_COORDINATES
+	};
+
+	if (samplerFlag == SamplerFlag::NONE) return D3D12_SAMPLER_FLAG_NONE;
+
+	const auto index = Log2(static_cast<uint32_t>(samplerFlag));
+
+	return samplerFlags[index];
+}
+
+D3D12_SAMPLER_FLAGS XUSG::GetDX12SamplerFlags(SamplerFlag samplerFlags)
+{
+	auto flags = D3D12_SAMPLER_FLAG_NONE;
+	flags |= APPEND_SAMPLER_FLAG(samplerFlags, UINT_BORDER_COLOR);
+	flags |= APPEND_SAMPLER_FLAG(samplerFlags, NON_NORMALIZED_COORDINATES);
 
 	return flags;
 }

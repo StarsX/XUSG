@@ -49,6 +49,9 @@ namespace XUSG
 	D3D12_FENCE_FLAGS GetDX12FenceFlag(FenceFlag fenceFlag);
 	D3D12_FENCE_FLAGS GetDX12FenceFlags(FenceFlag fenceFlags);
 
+	D3D12_SAMPLER_FLAGS GetDX12SamplerFlag(SamplerFlag samplerFlag);
+	D3D12_SAMPLER_FLAGS GetDX12SamplerFlags(SamplerFlag samplerFlags);
+
 	D3D12_BLEND GetDX12Blend(BlendFactor blend);
 	D3D12_BLEND_OP GetDX12BlendOp(BlendOperator blendOp);
 	D3D12_LOGIC_OP GetDX12LogicOp(LogicOperator logicOp);

@@ -238,22 +238,15 @@ bool ConstantBuffer_DX12::Create(const Device* pDevice, size_t byteWidth, uint32
 }
 
 bool ConstantBuffer_DX12::Upload(CommandList* pCommandList, Resource* pUploader, const void* pData,
-	size_t size, uint32_t cbvIndex, ResourceState srcState, ResourceState dstState)
+	size_t size, size_t offset, ResourceState srcState, ResourceState dstState)
 {
-	const auto offset = m_cbvOffsets.empty() ? 0 : m_cbvOffsets[cbvIndex];
-	D3D12_SUBRESOURCE_DATA subresourceData;
-	subresourceData.pData = pData;
-	subresourceData.RowPitch = static_cast<uint32_t>(size);
-	subresourceData.SlicePitch = static_cast<uint32_t>(m_resource->GetDesc().Width);
-
 	// Create the GPU upload buffer.
 	assert(pUploader);
 	auto& uploaderResource = dynamic_cast<Resource_DX12*>(pUploader)->GetResource();
 	if (!uploaderResource)
 	{
 		const CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_UPLOAD);
-		const auto cbSize = static_cast<uint32_t>(size + offset);
-		const auto desc = CD3DX12_RESOURCE_DESC::Buffer(CalculateConstantBufferByteSize(cbSize));
+		const auto desc = CD3DX12_RESOURCE_DESC::Buffer(size);
 
 		V_RETURN(m_device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &desc,
 			D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&uploaderResource)), clog, false);
@@ -262,6 +255,11 @@ bool ConstantBuffer_DX12::Upload(CommandList* pCommandList, Resource* pUploader,
 
 	// Copy data to the intermediate upload heap and then schedule a copy 
 	// from the upload heap to the buffer.
+	void* pUploadData;
+	V_RETURN(uploaderResource->Map(0, nullptr, &pUploadData), clog, false);
+	memcpy(pUploadData, pData, size);
+	uploaderResource->Unmap(0, nullptr);
+
 	if (srcState != ResourceState::COMMON)
 	{
 		const ResourceBarrier barrier = { this, srcState, ResourceState::COPY_DEST, XUSG_BARRIER_ALL_SUBRESOURCES };
@@ -269,8 +267,7 @@ bool ConstantBuffer_DX12::Upload(CommandList* pCommandList, Resource* pUploader,
 	}
 
 	const auto pGraphicsCommandList = static_cast<ID3D12GraphicsCommandList*>(pCommandList->GetHandle());
-	XUSG_M_RETURN(UpdateSubresources(pGraphicsCommandList, m_resource.get(), uploaderResource.get(), offset, 0, 1, &subresourceData) <= 0,
-		clog, "Failed to upload the resource.", false);
+	pGraphicsCommandList->CopyBufferRegion(m_resource.get(), offset, uploaderResource.get(), 0, size);
 
 	if (dstState != ResourceState::COMMON)
 	{
@@ -279,6 +276,14 @@ bool ConstantBuffer_DX12::Upload(CommandList* pCommandList, Resource* pUploader,
 	}
 
 	return true;
+}
+
+bool ConstantBuffer_DX12::Upload(CommandList* pCommandList, uint32_t cbvIndex, Resource* pUploader,
+	const void* pData, size_t size, ResourceState srcState, ResourceState dstState)
+{
+	const auto offset = m_cbvOffsets.empty() ? 0 : m_cbvOffsets[cbvIndex];
+
+	return Upload(pCommandList, pUploader, pData, size, offset, srcState, dstState);
 }
 
 void* ConstantBuffer_DX12::Map(uint32_t cbvIndex)
@@ -468,8 +473,7 @@ bool Texture_DX12::Upload(CommandList* pCommandList, Resource* pUploader,
 	if (!uploaderResource)
 	{
 		const CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_UPLOAD);
-		const auto uploadBufferSize = GetRequiredIntermediateSize(m_resource.get(),
-			firstSubresource, numSubresources);
+		const auto uploadBufferSize = GetRequiredIntermediateSize(firstSubresource, numSubresources);
 		const auto desc = CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize);
 
 		V_RETURN(m_device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &desc,
@@ -479,19 +483,27 @@ bool Texture_DX12::Upload(CommandList* pCommandList, Resource* pUploader,
 
 	// Copy data to the intermediate upload heap and then schedule a copy 
 	// from the upload heap to the Texture2D.
-	ResourceBarrier barrier;
-	const auto& srcState = m_states[threadIdx][0];
-	auto numBarriers = SetBarrier(&barrier, ResourceState::COPY_DEST, 0, XUSG_BARRIER_ALL_SUBRESOURCES,
-		srcState != ResourceState::COMMON ? BarrierFlag::NONE : BarrierFlag::RESET_SRC_STATE, threadIdx);
-	pCommandList->Barrier(numBarriers, &barrier);
+	vector<ResourceBarrier> barriers(numSubresources);
+	auto numBarriers = 0u;
+	for (auto i = 0u; i < numSubresources; ++i)
+	{
+		const auto subresource = firstSubresource + i;
+		const auto& srcState = m_states[threadIdx][subresource];
+		numBarriers = SetBarrier(barriers.data(), ResourceState::COPY_DEST, numBarriers, subresource,
+			srcState != ResourceState::COMMON ? BarrierFlag::NONE : BarrierFlag::RESET_SRC_STATE, threadIdx);
+	}
+	pCommandList->Barrier(numBarriers, barriers.data());
 
 	const auto pGraphicsCommandList = static_cast<ID3D12GraphicsCommandList*>(pCommandList->GetHandle());
 	XUSG_M_RETURN(UpdateSubresources(pGraphicsCommandList, m_resource.get(), uploaderResource.get(),
 		0, firstSubresource, numSubresources, subresourceData.data()) <= 0,
 		clog, "Failed to upload the resource.", false);
 
-	numBarriers = SetBarrier(&barrier, dstState, 0, XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::NONE, threadIdx);
-	if (dstState != ResourceState::COMMON) pCommandList->Barrier(numBarriers, &barrier);
+	numBarriers = 0;
+	for (auto i = 0u; i < numSubresources; ++i)
+		numBarriers = SetBarrier(barriers.data(), dstState, numBarriers,
+			firstSubresource + i, BarrierFlag::NONE, threadIdx);
+	if (dstState != ResourceState::COMMON) pCommandList->Barrier(numBarriers, barriers.data());
 
 	return true;
 }
@@ -507,6 +519,62 @@ bool Texture_DX12::Upload(CommandList* pCommandList, Resource* pUploader, const 
 	subresourceData.SlicePitch = subresourceData.RowPitch * desc.Height;
 
 	return Upload(pCommandList, pUploader, &subresourceData, 1, dstState, threadIdx);
+}
+
+bool Texture_DX12::ReadBack(CommandList* pCommandList, Buffer* pReadBuffer, uint32_t* pRowPitches,
+	uint32_t numSubresources, uint32_t firstSubresource, size_t offset, ResourceState dstState, uint32_t threadIdx)
+{
+	// Get copyable footprints
+	vector<D3D12_PLACED_SUBRESOURCE_FOOTPRINT> layouts(numSubresources);
+	vector<uint32_t> numRows(numSubresources);
+	vector<uint64_t> rowSizesInBytes(numSubresources);
+	uint64_t readBufferSize;
+
+	const auto desc = m_resource->GetDesc();
+
+	com_ptr<ID3D12Device> device = nullptr;
+	m_resource->GetDevice(IID_PPV_ARGS(&device));
+	device->GetCopyableFootprints(&desc, firstSubresource, numSubresources, offset,
+		layouts.data(), numRows.data(), rowSizesInBytes.data(), &readBufferSize);
+
+	// Create the GPU read-back buffer.
+	assert(pReadBuffer);
+	if (!pReadBuffer->GetHandle())
+		XUSG_N_RETURN(pReadBuffer->Create(pCommandList->GetDevice(), static_cast<size_t>(readBufferSize),
+			ResourceFlag::DENY_SHADER_RESOURCE, MemoryType::READBACK, 0, nullptr, 0, nullptr, MemoryFlag::NONE,
+			(m_name + L".ReadResource").c_str()), false);
+
+	auto& readResource = dynamic_cast<Resource_DX12*>(pReadBuffer)->GetResource();
+	assert(readResource);
+
+	vector<ResourceState> dstStates(numSubresources);
+	vector<ResourceBarrier> barriers(numSubresources);
+	auto numBarriers = 0u;
+	for (auto i = 0u; i < numSubresources; ++i)
+	{
+		const auto subresource = firstSubresource + i;
+		dstStates[i] = dstState == ResourceState::COMMON ? m_states[threadIdx][subresource] : dstState;
+		numBarriers = SetBarrier(barriers.data(), ResourceState::COPY_SOURCE, numBarriers, subresource,
+			BarrierFlag::NONE, threadIdx);
+	}
+	pCommandList->Barrier(numBarriers, barriers.data());
+
+	const auto pGraphicsCommandList = static_cast<ID3D12GraphicsCommandList*>(pCommandList->GetHandle());
+	for (auto i = 0u; i < numSubresources; ++i)
+	{
+		const CD3DX12_TEXTURE_COPY_LOCATION dst(readResource.get(), layouts[i]);
+		const CD3DX12_TEXTURE_COPY_LOCATION src(m_resource.get(), firstSubresource + i);
+		pGraphicsCommandList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
+		if (pRowPitches) pRowPitches[i] = layouts[i].Footprint.RowPitch;
+	}
+
+	numBarriers = 0;
+	for (auto i = 0u; i < numSubresources; ++i)
+		numBarriers = SetBarrier(barriers.data(), dstStates[i], numBarriers,
+			firstSubresource + i, BarrierFlag::NONE, threadIdx);
+	pCommandList->Barrier(numBarriers, barriers.data());
+
+	return true;
 }
 
 bool Texture_DX12::CreateSRVs(uint16_t arraySize, Format format, uint8_t numMips,
@@ -826,6 +894,11 @@ uint16_t Texture_DX12::GetArraySize() const
 uint8_t Texture_DX12::GetNumMips() const
 {
 	return m_resource ? static_cast<uint8_t>(m_resource->GetDesc().MipLevels) : 1;
+}
+
+size_t Texture_DX12::GetRequiredIntermediateSize(uint32_t firstSubresource, uint32_t numSubresources) const
+{
+	return static_cast<size_t>(::GetRequiredIntermediateSize(m_resource.get(), firstSubresource, numSubresources));
 }
 
 //--------------------------------------------------------------------------------------
@@ -1724,21 +1797,15 @@ bool Buffer_DX12::Create(const Device* pDevice, size_t byteWidth, ResourceFlag r
 }
 
 bool Buffer_DX12::Upload(CommandList* pCommandList, Resource* pUploader, const void* pData,
-	size_t size, uint32_t descriptorIndex, ResourceState dstState, uint32_t threadIdx)
+	size_t size, size_t offset, ResourceState dstState, uint32_t threadIdx)
 {
-	const auto offset = m_srvOffsets.empty() ? 0 : m_srvOffsets[descriptorIndex];
-	D3D12_SUBRESOURCE_DATA subresourceData;
-	subresourceData.pData = pData;
-	subresourceData.RowPitch = static_cast<uint32_t>(size);
-	subresourceData.SlicePitch = static_cast<uint32_t>(m_resource->GetDesc().Width);
-
 	// Create the GPU upload buffer.
 	assert(pUploader);
 	auto& uploaderResource = dynamic_cast<Resource_DX12*>(pUploader)->GetResource();
 	if (!uploaderResource)
 	{
 		const CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_UPLOAD);
-		const auto desc = CD3DX12_RESOURCE_DESC::Buffer(offset + size);
+		const auto desc = CD3DX12_RESOURCE_DESC::Buffer(size);
 
 		V_RETURN(m_device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &desc,
 			D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&uploaderResource)), clog, false);
@@ -1747,6 +1814,11 @@ bool Buffer_DX12::Upload(CommandList* pCommandList, Resource* pUploader, const v
 
 	// Copy data to the intermediate upload heap and then schedule a copy 
 	// from the upload heap to the buffer.
+	void* pUploadData;
+	V_RETURN(uploaderResource->Map(0, nullptr, &pUploadData), clog, false);
+	memcpy(pUploadData, pData, size);
+	uploaderResource->Unmap(0, nullptr);
+
 	ResourceBarrier barrier;
 	const auto& srcState = m_states[threadIdx][0];
 	auto numBarriers = SetBarrier(&barrier, ResourceState::COPY_DEST, 0, XUSG_BARRIER_ALL_SUBRESOURCES,
@@ -1754,11 +1826,47 @@ bool Buffer_DX12::Upload(CommandList* pCommandList, Resource* pUploader, const v
 	pCommandList->Barrier(numBarriers, &barrier);
 
 	const auto pGraphicsCommandList = static_cast<ID3D12GraphicsCommandList*>(pCommandList->GetHandle());
-	XUSG_M_RETURN(UpdateSubresources(pGraphicsCommandList, m_resource.get(), uploaderResource.get(),
-		offset, 0, 1, &subresourceData) <= 0, clog, "Failed to upload the resource.", false);
+	pGraphicsCommandList->CopyBufferRegion(m_resource.get(), offset, uploaderResource.get(), 0, size);
 
 	numBarriers = SetBarrier(&barrier, dstState, 0, XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::NONE, threadIdx);
 	if (dstState != ResourceState::COMMON) pCommandList->Barrier(numBarriers, &barrier);
+
+	return true;
+}
+
+bool Buffer_DX12::Upload(CommandList* pCommandList, uint32_t descriptorIndex, Resource* pUploader,
+	const void* pData, size_t size, ResourceState dstState, uint32_t threadIdx)
+{
+	const auto offset = m_srvOffsets.empty() ? 0 : m_srvOffsets[descriptorIndex];
+
+	return Upload(pCommandList, pUploader, pData, size, offset, dstState, threadIdx);
+}
+
+bool Buffer_DX12::ReadBack(CommandList* pCommandList, Buffer* pReadBuffer, size_t size,
+	size_t dstOffset, size_t srcOffset, ResourceState dstState, uint32_t threadIdx)
+{
+	const auto readSize = size ? size : static_cast<size_t>(GetWidth());
+
+	// Create the GPU read-back buffer.
+	assert(pReadBuffer);
+	if (!pReadBuffer->GetHandle())
+		XUSG_N_RETURN(pReadBuffer->Create(pCommandList->GetDevice(), readSize + dstOffset, ResourceFlag::DENY_SHADER_RESOURCE,
+			MemoryType::READBACK, 0, nullptr, 0, nullptr, MemoryFlag::NONE, (m_name + L".ReadResource").c_str()), false);
+
+	auto& readResource = dynamic_cast<Resource_DX12*>(pReadBuffer)->GetResource();
+	assert(readResource);
+
+	ResourceBarrier barrier;
+	dstState = dstState == ResourceState::COMMON ? m_states[threadIdx][0] : dstState;
+	auto numBarriers = SetBarrier(&barrier, ResourceState::COPY_SOURCE, 0,
+		XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::NONE, threadIdx);
+	pCommandList->Barrier(numBarriers, &barrier);
+
+	const auto pGraphicsCommandList = static_cast<ID3D12GraphicsCommandList*>(pCommandList->GetHandle());
+	pGraphicsCommandList->CopyBufferRegion(readResource.get(), dstOffset, m_resource.get(), srcOffset, readSize);
+
+	numBarriers = SetBarrier(&barrier, dstState, numBarriers, XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::NONE, threadIdx);
+	pCommandList->Barrier(numBarriers, &barrier);
 
 	return true;
 }
