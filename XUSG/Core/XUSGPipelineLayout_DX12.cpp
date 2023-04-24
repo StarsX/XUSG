@@ -255,7 +255,7 @@ void PipelineLayoutLib_DX12::GetRootParameter(CD3DX12_ROOT_PARAMETER1& rootParam
 	else rootParam = {};
 }
 
-void PipelineLayoutLib_DX12::GetStaticSampler(CD3DX12_STATIC_SAMPLER_DESC& samplerDescs, const StaticSampler& staticSampler) const
+void PipelineLayoutLib_DX12::GetStaticSampler(CD3DX12_STATIC_SAMPLER_DESC1& samplerDescs, const StaticSampler& staticSampler) const
 {
 	const auto borderColor = staticSampler.pSampler->BorderColor[3] ?
 		(staticSampler.pSampler->BorderColor[0] ? D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE : D3D12_STATIC_BORDER_COLOR_OPAQUE_BLACK) :
@@ -273,8 +273,8 @@ void PipelineLayoutLib_DX12::GetStaticSampler(CD3DX12_STATIC_SAMPLER_DESC& sampl
 		staticSampler.pSampler->MinLOD,
 		staticSampler.pSampler->MaxLOD,
 		getShaderVisibility(static_cast<Shader::Stage>(staticSampler.Stage)),
-		staticSampler.Space);
-		//GetDX12SamplerFlags(staticSampler.pSampler->Flags));
+		staticSampler.Space,
+		GetDX12SamplerFlags(staticSampler.pSampler->Flags));
 }
 
 PipelineLayout PipelineLayoutLib_DX12::CreatePipelineLayout(Util::PipelineLayout* pUtil,
@@ -340,7 +340,7 @@ D3D_ROOT_SIGNATURE_VERSION PipelineLayoutLib_DX12::GetRootSignatureHighestVersio
 
 PipelineLayout PipelineLayoutLib_DX12::createPipelineLayout(const string& key, const wchar_t* name, uint32_t nodeMask)
 {
-	const auto highestVersion = GetRootSignatureHighestVersion();
+	static const auto highestVersion = GetRootSignatureHighestVersion();
 
 	const auto flags = static_cast<PipelineLayoutFlag>(reinterpret_cast<const uint16_t&>(key[0]));
 	const auto numRootParams = reinterpret_cast<const uint16_t&>(key[Util::PipelineLayout_DX12::DescriptorTableLayoutCountOffset]);
@@ -355,12 +355,12 @@ PipelineLayout PipelineLayoutLib_DX12::createPipelineLayout(const string& key, c
 	const auto numSamplers = static_cast<uint32_t>((key.size() - staticSamplerKeyOffset) / sizeof(StaticSampler));
 	const auto pStaticSamplers = reinterpret_cast<const StaticSampler*>(&key[staticSamplerKeyOffset]);
 
-	vector<CD3DX12_STATIC_SAMPLER_DESC> samplerDescs(numSamplers);
+	vector<CD3DX12_STATIC_SAMPLER_DESC1> samplerDescs(numSamplers);
 	for (auto i = 0u; i < numSamplers; ++i)
 		GetStaticSampler(samplerDescs[i], pStaticSamplers[i]);
 
 	CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
-	rootSignatureDesc.Init_1_1(rootSignatureDesc, numRootParams, numRootParams ? rootParams.data() : nullptr,
+	rootSignatureDesc.Init_1_2(rootSignatureDesc, numRootParams, numRootParams ? rootParams.data() : nullptr,
 		numSamplers, numSamplers ? samplerDescs.data() : nullptr, GetDX12RootSignatureFlags(flags));
 
 	com_ptr<ID3DBlob> signature, error;

@@ -26,6 +26,16 @@
     <ClInclude Include="Common\d3d12.h" />
     <ClInclude Include="Common\d3dcommon.h" />
     <ClInclude Include="Common\d3dx12.h" />
+    <ClInclude Include="Common\d3dx12_barriers.h" />
+    <ClInclude Include="Common\d3dx12_check_feature_support.h" />
+    <ClInclude Include="Common\d3dx12_core.h" />
+    <ClInclude Include="Common\d3dx12_default.h" />
+    <ClInclude Include="Common\d3dx12_pipeline_state_stream.h" />
+    <ClInclude Include="Common\d3dx12_property_format_table.h" />
+    <ClInclude Include="Common\d3dx12_render_pass.h" />
+    <ClInclude Include="Common\d3dx12_resource_helpers.h" />
+    <ClInclude Include="Common\d3dx12_root_signature.h" />
+    <ClInclude Include="Common\d3dx12_state_object.h" />
     <ClInclude Include="Common\dds.h" />
     <ClInclude Include="Common\DXFrameworkHelper.h" />
     <ClInclude Include="Common\dxgicommon.h" />

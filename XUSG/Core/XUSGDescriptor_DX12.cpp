@@ -528,23 +528,32 @@ DescriptorTable DescriptorTableLib_DX12::createSamplerTable(const string& key, D
 		// Create a descriptor table
 		for (auto i = 0u; i < numDescriptors; ++i)
 		{
-			D3D12_SAMPLER_DESC desc;
-			desc.Filter = GetDX12Filter(pSamplers[i]->Filter);
-			desc.AddressU = GetDX12TextureAddressMode(pSamplers[i]->AddressU);
-			desc.AddressV = GetDX12TextureAddressMode(pSamplers[i]->AddressV);
-			desc.AddressW = GetDX12TextureAddressMode(pSamplers[i]->AddressW);
-			desc.MipLODBias = pSamplers[i]->MipLODBias;
-			desc.MaxAnisotropy = pSamplers[i]->MaxAnisotropy;
-			desc.ComparisonFunc = GetDX12ComparisonFunc(pSamplers[i]->Comparison);
-			desc.BorderColor[0] = pSamplers[i]->BorderColor[0];
-			desc.BorderColor[1] = pSamplers[i]->BorderColor[1];
-			desc.BorderColor[2] = pSamplers[i]->BorderColor[2];
-			desc.BorderColor[3] = pSamplers[i]->BorderColor[3];
-			desc.MinLOD = pSamplers[i]->MinLOD;
-			desc.MaxLOD = pSamplers[i]->MaxLOD;
+			const auto& pSampler = pSamplers[i];
+			D3D12_SAMPLER_DESC2 desc;
+			desc.Filter = GetDX12Filter(pSampler->Filter);
+			desc.AddressU = GetDX12TextureAddressMode(pSampler->AddressU);
+			desc.AddressV = GetDX12TextureAddressMode(pSampler->AddressV);
+			desc.AddressW = GetDX12TextureAddressMode(pSampler->AddressW);
+			desc.MipLODBias = pSampler->MipLODBias;
+			desc.MaxAnisotropy = pSampler->MaxAnisotropy;
+			desc.ComparisonFunc = GetDX12ComparisonFunc(pSampler->Comparison);
+			desc.UintBorderColor[0] = pSampler->BorderColorU[0];
+			desc.UintBorderColor[1] = pSampler->BorderColorU[1];
+			desc.UintBorderColor[2] = pSampler->BorderColorU[2];
+			desc.UintBorderColor[3] = pSampler->BorderColorU[3];
+			desc.MinLOD = pSampler->MinLOD;
+			desc.MaxLOD = pSampler->MaxLOD;
+			desc.Flags = GetDX12SamplerFlags(pSampler->Flags);
 
 			// Create a sampler descriptor
-			m_device->CreateSampler(&desc, dst);
+			if ((pSampler->Flags & (SamplerFlag::UINT_BORDER_COLOR | SamplerFlag::NON_NORMALIZED_COORDINATES)) != SamplerFlag::NONE)
+			{
+				com_ptr<ID3D12Device11> dxDevice;
+				V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&dxDevice)), cerr, nullptr);
+				dxDevice->CreateSampler2(&desc, dst);
+			}
+			else m_device->CreateSampler(reinterpret_cast<D3D12_SAMPLER_DESC*>(&desc), dst);
+
 			dst.Offset(descriptorStride);
 		}
 

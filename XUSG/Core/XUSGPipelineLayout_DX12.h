@@ -76,7 +76,7 @@ namespace XUSG
 		void GetRootParameter(CD3DX12_ROOT_PARAMETER1& rootParam,
 			std::vector<CD3DX12_DESCRIPTOR_RANGE1>& descriptorRanges,
 			const DescriptorTableLayout& descriptorTableLayout) const;
-		void GetStaticSampler(CD3DX12_STATIC_SAMPLER_DESC& samplerDescs, const StaticSampler& staticSampler) const;
+		void GetStaticSampler(CD3DX12_STATIC_SAMPLER_DESC1& samplerDescs, const StaticSampler& staticSampler) const;
 
 		PipelineLayout CreatePipelineLayout(Util::PipelineLayout* pUtil, PipelineLayoutFlag flags,
 			const wchar_t* name = nullptr, uint32_t nodeMask = 0);
