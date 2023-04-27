@@ -24,7 +24,7 @@ XUSG::PipelineLayout RayTracing::PipelineLayout_DX12::CreatePipelineLayout(const
 	PipelineLayoutLib* pPipelineLayoutLib, PipelineLayoutFlag flags, const wchar_t* name)
 {
 	const auto pLayoutLib = dynamic_cast<PipelineLayoutLib_DX12*>(pPipelineLayoutLib);
-	const auto highestVersion = pLayoutLib->GetRootSignatureHighestVersion();
+	static auto highestVersion = pLayoutLib->GetRootSignatureHighestVersion();
 	reinterpret_cast<uint16_t&>(m_pipelineLayoutKey[0]) = static_cast<uint16_t>(flags);
 	const auto& key = m_pipelineLayoutKey;
 
@@ -40,28 +40,39 @@ XUSG::PipelineLayout RayTracing::PipelineLayout_DX12::CreatePipelineLayout(const
 	const auto numSamplers = static_cast<uint32_t>((key.size() - staticSamplerKeyOffset) / sizeof(StaticSampler));
 	const auto pStaticSamplers = reinterpret_cast<const StaticSampler*>(&key[staticSamplerKeyOffset]);
 
-	vector<CD3DX12_STATIC_SAMPLER_DESC> samplerDescs(numSamplers);
+	vector<CD3DX12_STATIC_SAMPLER_DESC1> samplerDescs(numSamplers);
 	for (auto i = 0u; i < numSamplers; ++i)
 		pLayoutLib->GetStaticSampler(samplerDescs[i], pStaticSamplers[i]);
 
 	vector<D3D12_ROOT_PARAMETER> rootParams0;
 	vector<vector<D3D12_DESCRIPTOR_RANGE>> descriptorRanges0;
+	vector<D3D12_STATIC_SAMPLER_DESC> samplerDescs0;
 	CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
-	if (highestVersion == D3D_ROOT_SIGNATURE_VERSION_1_1)
-		rootSignatureDesc.Init_1_1(numRootParams, numRootParams ? rootParams.data() : nullptr,
+	if (highestVersion == D3D_ROOT_SIGNATURE_VERSION_1_2)
+		rootSignatureDesc.Init_1_2(rootSignatureDesc, numRootParams, numRootParams ? rootParams.data() : nullptr,
 			numSamplers, numSamplers ? samplerDescs.data() : nullptr, GetDX12RootSignatureFlags(flags));
 	else
 	{
-		rootParams0.resize(numRootParams);
-		descriptorRanges0.resize(numRootParams);
-		for (auto i = 0u; i < numRootParams; ++i)
-			convertToRootParam1_0(rootParams0[i], descriptorRanges0[i], rootParams[i]);
+		samplerDescs0.resize(numSamplers);
+		for (auto i = 0u; i < numSamplers; ++i)
+			samplerDescs0[i] = reinterpret_cast<const D3D12_STATIC_SAMPLER_DESC&>(samplerDescs[i]);
 
-		descriptorRanges.clear();
-		rootParams.clear();
+		if (highestVersion == D3D_ROOT_SIGNATURE_VERSION_1_1)
+			rootSignatureDesc.Init_1_1(numRootParams, numRootParams ? rootParams.data() : nullptr,
+				numSamplers, numSamplers ? samplerDescs0.data() : nullptr, GetDX12RootSignatureFlags(flags));
+		else
+		{
+			rootParams0.resize(numRootParams);
+			descriptorRanges0.resize(numRootParams);
+			for (auto i = 0u; i < numRootParams; ++i)
+				convertToRootParam1_0(rootParams0[i], descriptorRanges0[i], rootParams[i]);
 
-		rootSignatureDesc.Init_1_0(numRootParams, numRootParams ? rootParams0.data() : nullptr,
-			numSamplers, numSamplers ? samplerDescs.data() : nullptr, GetDX12RootSignatureFlags(flags));
+			descriptorRanges.clear();
+			rootParams.clear();
+
+			rootSignatureDesc.Init_1_0(numRootParams, numRootParams ? rootParams0.data() : nullptr,
+				numSamplers, numSamplers ? samplerDescs0.data() : nullptr, GetDX12RootSignatureFlags(flags));
+		}
 	}
 
 	com_ptr<ID3D12RootSignature> rootSignature;
