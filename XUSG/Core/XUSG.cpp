@@ -371,6 +371,19 @@ Blob XUSG::GetPipelineCache(Pipeline pipeline, API api)
 	return GetDX12PipelineCache(pipeline);
 }
 
+uint8_t XUSG::Log2(uint32_t value)
+{
+#if defined(WIN32) || (_WIN32)
+	unsigned long mssb; // most significant set bit
+
+	if (BitScanReverse(&mssb, value) > 0)
+		return static_cast<uint8_t>(mssb);
+	else return 0;
+#else
+	return static_cast<uint8_t>(log2(value));
+#endif
+}
+
 uint8_t XUSG::CalculateMipLevels(uint32_t width, uint32_t height, uint32_t depth)
 {
 	const auto texSize = (std::max)((std::max)(width, height), depth);
@@ -383,15 +396,7 @@ uint8_t XUSG::CalculateMipLevels(uint64_t width, uint32_t height, uint32_t depth
 	return CalculateMipLevels(static_cast<uint32_t>(width), height, depth);
 }
 
-uint8_t XUSG::Log2(uint32_t value)
+uint32_t XUSG::CalcSubresource(uint8_t mipSlice, uint8_t numMips, uint32_t arraySlice, uint32_t arraySize, uint8_t planeSlice)
 {
-#if defined(WIN32) || (_WIN32)
-	unsigned long mssb; // most significant set bit
-
-	if (BitScanReverse(&mssb, value) > 0)
-		return static_cast<uint8_t>(mssb);
-	else return 0;
-#else
-	return static_cast<uint8_t>(log2(value));
-#endif
+	return mipSlice + arraySlice * numMips + planeSlice * numMips * arraySize;
 }
