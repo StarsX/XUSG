@@ -2317,5 +2317,5 @@ namespace XUSG
 	XUSG_INTERFACE uint8_t Log2(uint32_t value);
 	XUSG_INTERFACE uint8_t CalculateMipLevels(uint32_t width, uint32_t height, uint32_t depth = 1);
 	XUSG_INTERFACE uint8_t CalculateMipLevels(uint64_t width, uint32_t height, uint32_t depth = 1);
-	XUSG_INTERFACE uint32_t CalculateSubresource(uint8_t mipSlice, uint8_t numMips, uint32_t arraySlice, uint32_t arraySize, uint8_t planeSlice);
+	XUSG_INTERFACE uint32_t CalcSubresource(uint8_t mipSlice, uint8_t numMips, uint32_t arraySlice, uint32_t arraySize, uint8_t planeSlice);
 }

@@ -331,7 +331,8 @@ D3D_ROOT_SIGNATURE_VERSION PipelineLayoutLib_DX12::GetRootSignatureHighestVersio
 {
 	D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = {};
 
-	if (FAILED(m_device->CheckFeatureSupport(D3D12_FEATURE_ROOT_SIGNATURE, &featureData, sizeof(featureData))))
+	if (FAILED(m_device->CheckFeatureSupport(D3D12_FEATURE_ROOT_SIGNATURE,
+		&featureData, sizeof(featureData))) || !featureData.HighestVersion)
 		return D3D_ROOT_SIGNATURE_VERSION_1_0;
 
 	// This is the highest version the sample supports. If CheckFeatureSupport succeeds, the HighestVersion returned will not be greater than this.
