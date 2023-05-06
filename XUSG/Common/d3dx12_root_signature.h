@@ -1144,7 +1144,40 @@ inline HRESULT D3DX12SerializeVersionedRootSignature(
 #if defined(D3D12_SDK_VERSION) && (D3D12_SDK_VERSION >= 609)
         case D3D_ROOT_SIGNATURE_VERSION_1_2:
 #endif
-            return D3D12SerializeVersionedRootSignature(pRootSignatureDesc, ppBlob, ppErrorBlob);
+        {
+            HRESULT hr = S_OK;
+            const D3D12_ROOT_SIGNATURE_DESC1& desc_1_1 = pRootSignatureDesc->Desc_1_1;
+
+            D3D12_STATIC_SAMPLER_DESC* pStaticSamplers = nullptr;
+#if defined(D3D12_SDK_VERSION) && (D3D12_SDK_VERSION >= 609)
+            if (desc_1_1.NumStaticSamplers > 0 && pRootSignatureDesc->Version == D3D_ROOT_SIGNATURE_VERSION_1_2)
+            {
+                const SIZE_T SamplersSize = sizeof(D3D12_STATIC_SAMPLER_DESC) * desc_1_1.NumStaticSamplers;
+                pStaticSamplers = static_cast<D3D12_STATIC_SAMPLER_DESC*>(HeapAlloc(GetProcessHeap(), 0, SamplersSize));
+
+                if (pStaticSamplers == nullptr)
+                {
+                    hr = E_OUTOFMEMORY;
+                }
+                else
+                {
+                    const D3D12_ROOT_SIGNATURE_DESC2& desc_1_2 = pRootSignatureDesc->Desc_1_2;
+                    for (UINT n = 0; n < desc_1_1.NumStaticSamplers; ++n)
+                    {
+                        if ((desc_1_2.pStaticSamplers[n].Flags & ~D3D12_SAMPLER_FLAG_UINT_BORDER_COLOR) != 0)
+                        {
+                            hr = E_INVALIDARG;
+                            break;
+                        }
+                        memcpy(pStaticSamplers + n, desc_1_2.pStaticSamplers + n, sizeof(D3D12_STATIC_SAMPLER_DESC));
+                    }
+                }
+            }
+#endif
+            const CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC pRootSignatureDesc1(desc_1_1.NumParameters, desc_1_1.pParameters, desc_1_1.NumStaticSamplers, pStaticSamplers == nullptr ? desc_1_1.pStaticSamplers : pStaticSamplers, desc_1_1.Flags);
+
+            return D3D12SerializeVersionedRootSignature(&pRootSignatureDesc1, ppBlob, ppErrorBlob);
+        }
     }
 
     return E_INVALIDARG;

@@ -269,11 +269,8 @@ bool ConstantBuffer_DX12::Upload(CommandList* pCommandList, Resource* pUploader,
 	const auto pGraphicsCommandList = static_cast<ID3D12GraphicsCommandList*>(pCommandList->GetHandle());
 	pGraphicsCommandList->CopyBufferRegion(m_resource.get(), offset, uploaderResource.get(), 0, size);
 
-	if (dstState != ResourceState::COMMON)
-	{
-		const ResourceBarrier barrier = { this, ResourceState::COPY_DEST, dstState, XUSG_BARRIER_ALL_SUBRESOURCES };
-		pCommandList->Barrier(1, &barrier);
-	}
+	const ResourceBarrier barrier = { this, ResourceState::COPY_DEST, dstState, XUSG_BARRIER_ALL_SUBRESOURCES };
+	pCommandList->Barrier(1, &barrier);
 
 	return true;
 }
@@ -503,7 +500,7 @@ bool Texture_DX12::Upload(CommandList* pCommandList, Resource* pUploader,
 	for (auto i = 0u; i < numSubresources; ++i)
 		numBarriers = SetBarrier(barriers.data(), dstState, numBarriers,
 			firstSubresource + i, BarrierFlag::NONE, threadIdx);
-	if (dstState != ResourceState::COMMON) pCommandList->Barrier(numBarriers, barriers.data());
+	pCommandList->Barrier(numBarriers, barriers.data());
 
 	return true;
 }
@@ -1829,7 +1826,7 @@ bool Buffer_DX12::Upload(CommandList* pCommandList, Resource* pUploader, const v
 	pGraphicsCommandList->CopyBufferRegion(m_resource.get(), offset, uploaderResource.get(), 0, size);
 
 	numBarriers = SetBarrier(&barrier, dstState, 0, XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::NONE, threadIdx);
-	if (dstState != ResourceState::COMMON) pCommandList->Barrier(numBarriers, &barrier);
+	pCommandList->Barrier(numBarriers, &barrier);
 
 	return true;
 }
