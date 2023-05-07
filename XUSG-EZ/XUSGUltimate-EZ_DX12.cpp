@@ -225,7 +225,7 @@ bool EZ::CommandList_DX12::createMeshShaderPipelineLayouts(
 
 		if (stageMaxSamplers > 0)
 		{
-			pipelineLayout->SetRange(paramIndex, DescriptorType::SAMPLER, stageMaxSamplers, 0, 0, DescriptorFlag::DATA_STATIC);
+			pipelineLayout->SetRange(paramIndex, DescriptorType::SAMPLER, stageMaxSamplers, 0);
 			pipelineLayout->SetShaderStage(paramIndex++, stage);
 		}
 	}

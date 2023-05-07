@@ -372,7 +372,7 @@ bool EZ::CommandList_DXR::createComputePipelineLayouts(uint32_t maxSamplers, con
 	m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::UAV)].resize(maxUavSpaces);
 	m_tlasBindingToParamIndexMap.resize(maxTLASSrvs);
 
-	pipelineLayout->SetRange(paramIndex++, DescriptorType::SAMPLER, maxSamplers, 0, 0, DescriptorFlag::DATA_STATIC);
+	pipelineLayout->SetRange(paramIndex++, DescriptorType::SAMPLER, maxSamplers, 0);
 
 	for (auto s = 0u; s < maxSpaces; ++s)
 	{

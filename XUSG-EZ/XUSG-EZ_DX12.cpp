@@ -764,7 +764,7 @@ bool EZ::CommandList_DX12::createGraphicsPipelineLayouts(
 
 		if (stageMaxSamplers > 0)
 		{
-			pipelineLayout->SetRange(paramIndex, DescriptorType::SAMPLER, stageMaxSamplers, 0, 0, DescriptorFlag::DATA_STATIC);
+			pipelineLayout->SetRange(paramIndex, DescriptorType::SAMPLER, stageMaxSamplers, 0);
 			pipelineLayout->SetShaderStage(paramIndex++, stage);
 		}
 	}
@@ -846,7 +846,7 @@ bool EZ::CommandList_DX12::createComputePipelineLayouts(uint32_t maxSamplers,
 	m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::SRV)].resize(maxSrvSpaces);
 	m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::UAV)].resize(maxUavSpaces);
 
-	pipelineLayout->SetRange(paramIndex++, DescriptorType::SAMPLER, maxSamplers, 0, 0, DescriptorFlag::DATA_STATIC);
+	pipelineLayout->SetRange(paramIndex++, DescriptorType::SAMPLER, maxSamplers, 0);
 
 	for (auto s = 0u; s < maxSpaces; ++s)
 	{

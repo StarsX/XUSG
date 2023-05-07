@@ -79,7 +79,7 @@ XUSG::PipelineLayout RayTracing::PipelineLayout_DX12::CreatePipelineLayout(const
 	com_ptr<ID3DBlob> signature, error;
 	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(pDevice->GetRTHandle());
 	H_RETURN(pDxDevice->D3D12SerializeVersionedRootSignature(&rootSignatureDesc, &signature, &error,
-		AccelerationStructure::GetUAVCount()), cerr, reinterpret_cast<wchar_t*>(error->GetBufferPointer()), nullptr);
+		AccelerationStructure::GetUAVCount()), cerr, reinterpret_cast<char*>(error->GetBufferPointer()), nullptr);
 
 	V_RETURN(pDxDevice->CreateRootSignature(1, signature->GetBufferPointer(), signature->GetBufferSize(),
 		IID_PPV_ARGS(&rootSignature)), cerr, nullptr);

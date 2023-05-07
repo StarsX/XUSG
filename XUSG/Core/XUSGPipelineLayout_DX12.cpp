@@ -370,7 +370,7 @@ PipelineLayout PipelineLayoutLib_DX12::createPipelineLayout(const string& key, c
 
 	com_ptr<ID3DBlob> signature, error;
 	H_RETURN(D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, highestVersion, signature.put(), error.put()),
-		cerr, reinterpret_cast<wchar_t*>(error->GetBufferPointer()), nullptr);
+		cerr, reinterpret_cast<char*>(error->GetBufferPointer()), nullptr);
 
 	return createRootSignature(key, signature->GetBufferPointer(), signature->GetBufferSize(), name, nodeMask);
 }
