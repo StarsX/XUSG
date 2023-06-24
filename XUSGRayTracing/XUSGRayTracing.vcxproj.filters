@@ -93,9 +93,6 @@
     <ClInclude Include="..\XUSG\Common\DXFrameworkHelper.h">
       <Filter>Common</Filter>
     </ClInclude>
-    <ClInclude Include="..\XUSG\Common\dxgicommon.h">
-      <Filter>Common</Filter>
-    </ClInclude>
     <ClInclude Include="..\XUSG\Common\dxgiformat.h">
       <Filter>Common</Filter>
     </ClInclude>

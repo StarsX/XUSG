@@ -11,6 +11,9 @@
 using namespace std;
 using namespace XUSG::Ultimate;
 
+#define APPEND_FLAG(type, dx12Type, flags, flag, none) (static_cast<bool>(flags & type::flag) ? dx12Type##_##flag : dx12Type##_##none)
+#define APPEND_WORK_GRAPH_FLAG(flags, flag) APPEND_FLAG(WorkGraphFlag, D3D12_SET_WORK_GRAPH_FLAG, flags, flag, NONE)
+
 //--------------------------------------------------------------------------------------
 // Command list
 //--------------------------------------------------------------------------------------
@@ -111,9 +114,121 @@ void CommandList_DX12::DispatchMesh(uint32_t threadGroupCountX, uint32_t threadG
 	m_commandListU->DispatchMesh(threadGroupCountX, threadGroupCountY, threadGroupCountZ);
 }
 
+void CommandList_DX12::SetProgram(ProgramType type, ProgramIdentifier identifier, WorkGraphFlag flags,
+	uint64_t backingMemoryAddress, uint64_t backingMemoryByteSize, uint64_t localRootArgTableAddress,
+	uint64_t localRootArgTableByteSize, uint64_t localRootArgTableByteStride) const
+{
+	D3D12_SET_PROGRAM_DESC desc = {};
+
+	switch (type)
+	{
+	case ProgramType::RAYTRACING_PIPELINE:
+		desc.Type = D3D12_PROGRAM_TYPE_RAYTRACING_PIPELINE;
+		desc.RaytracingPipeline.ProgramIdentifier.OpaqueData[0] = identifier.OpaqueData[0];
+		desc.RaytracingPipeline.ProgramIdentifier.OpaqueData[1] = identifier.OpaqueData[1];
+		desc.RaytracingPipeline.ProgramIdentifier.OpaqueData[2] = identifier.OpaqueData[2];
+		desc.RaytracingPipeline.ProgramIdentifier.OpaqueData[3] = identifier.OpaqueData[3];
+		break;
+	case ProgramType::WORK_GRAPH:
+		desc.Type = D3D12_PROGRAM_TYPE_WORK_GRAPH;
+		desc.WorkGraph.ProgramIdentifier.OpaqueData[0] = identifier.OpaqueData[0];
+		desc.WorkGraph.ProgramIdentifier.OpaqueData[1] = identifier.OpaqueData[1];
+		desc.WorkGraph.ProgramIdentifier.OpaqueData[2] = identifier.OpaqueData[2];
+		desc.WorkGraph.ProgramIdentifier.OpaqueData[3] = identifier.OpaqueData[3];
+		desc.WorkGraph.Flags = GetDX12WorkGraphFlags(flags);
+		desc.WorkGraph.BackingMemory.StartAddress = backingMemoryAddress;
+		desc.WorkGraph.BackingMemory.SizeInBytes = backingMemoryByteSize;
+		desc.WorkGraph.NodeLocalRootArgumentsTable.StartAddress = localRootArgTableAddress;
+		desc.WorkGraph.NodeLocalRootArgumentsTable.SizeInBytes = localRootArgTableByteSize;
+		desc.WorkGraph.NodeLocalRootArgumentsTable.StrideInBytes = localRootArgTableByteStride;
+		break;
+	default:
+		assert(type == ProgramType::GENERIC_PIPELINE);
+		desc.Type = D3D12_PROGRAM_TYPE_GENERIC_PIPELINE;
+		desc.GenericPipeline.ProgramIdentifier.OpaqueData[0] = identifier.OpaqueData[0];
+		desc.GenericPipeline.ProgramIdentifier.OpaqueData[1] = identifier.OpaqueData[1];
+		desc.GenericPipeline.ProgramIdentifier.OpaqueData[2] = identifier.OpaqueData[2];
+		desc.GenericPipeline.ProgramIdentifier.OpaqueData[3] = identifier.OpaqueData[3];
+	}
+
+	com_ptr<ID3D12GraphicsCommandListExperimental> commandListE;
+	if (FAILED(m_commandListU->QueryInterface(IID_PPV_ARGS(&commandListE))))
+		OutputDebugString(L"Couldn't get DirectX experimental interface for the command list.\n");
+	commandListE->SetProgram(&desc);
+}
+
+void CommandList_DX12::DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride) const
+{
+	const auto populateNodeInput = [](D3D12_NODE_CPU_INPUT& nodeInput, const NodeCPUInput& nodeCPUInput)
+	{
+		nodeInput.EntrypointIndex = nodeCPUInput.EntrypointIndex;
+		nodeInput.NumRecords = nodeCPUInput.NumRecords;
+		nodeInput.pRecords = nodeCPUInput.pRecords;
+		nodeInput.RecordStrideInBytes = nodeCPUInput.RecordByteStride;
+	};
+
+	D3D12_DISPATCH_GRAPH_DESC desc = {};
+	if (numNodeInputs == 1)
+	{
+		assert(pNodeInputs);
+		desc.Mode = D3D12_DISPATCH_MODE_NODE_CPU_INPUT;
+		populateNodeInput(desc.NodeCPUInput, pNodeInputs[0]);
+	}
+	else
+	{
+		desc.Mode = D3D12_DISPATCH_MODE_MULTI_NODE_CPU_INPUT;
+		desc.MultiNodeCPUInput.NumNodeInputs = numNodeInputs;
+		desc.MultiNodeCPUInput.NodeInputStrideInBytes = nodeInputByteStride ? nodeInputByteStride : sizeof(D3D12_NODE_CPU_INPUT);
+		for (auto i = 0u; i < numNodeInputs; ++i)
+			populateNodeInput(desc.MultiNodeCPUInput.pNodeInputs[i], pNodeInputs[i]);
+	}
+
+	com_ptr<ID3D12GraphicsCommandListExperimental> commandListE;
+	if (FAILED(m_commandListU->QueryInterface(IID_PPV_ARGS(&commandListE))))
+		OutputDebugString(L"Couldn't get DirectX experimental interface for the command list.\n");
+	commandListE->DispatchGraph(&desc);
+}
+
+void CommandList_DX12::DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes) const
+{
+	D3D12_DISPATCH_GRAPH_DESC desc = {};
+	if (isMultiNodes)
+	{
+		desc.Mode = D3D12_DISPATCH_MODE_MULTI_NODE_GPU_INPUT;
+		desc.MultiNodeGPUInput = nodeGPUInputAddress;
+	}
+	else
+	{
+		desc.Mode = D3D12_DISPATCH_MODE_NODE_GPU_INPUT;
+		desc.NodeGPUInput = nodeGPUInputAddress;
+	}
+
+	com_ptr<ID3D12GraphicsCommandListExperimental> commandListE;
+	if (FAILED(m_commandListU->QueryInterface(IID_PPV_ARGS(&commandListE))))
+		OutputDebugString(L"Couldn't get DirectX experimental interface for the command list.\n");
+	commandListE->DispatchGraph(&desc);
+}
+
 XUSG::com_ptr<ID3D12GraphicsCommandList6>& CommandList_DX12::GetGraphicsCommandList()
 {
 	return m_commandListU;
+}
+
+XUSG::ProgramIdentifier XUSG::Ultimate::GetProgramIdentifierFromDX12(const XUSG::Pipeline& stateObject, const void* program)
+{
+	using namespace XUSG;
+	com_ptr<ID3D12StateObjectProperties1> properties;
+	V_RETURN(static_cast<ID3D12StateObject*>(stateObject)->QueryInterface(IID_PPV_ARGS(&properties)), cerr, ProgramIdentifier{});
+
+	const auto programId = properties->GetProgramIdentifier(static_cast<const wchar_t*>(program));
+
+	XUSG::ProgramIdentifier identifier;
+	identifier.OpaqueData[0] = programId.OpaqueData[0];
+	identifier.OpaqueData[1] = programId.OpaqueData[1];
+	identifier.OpaqueData[2] = programId.OpaqueData[2];
+	identifier.OpaqueData[3] = programId.OpaqueData[3];
+
+	return identifier;
 }
 
 //--------------------------------------------------------------------------------------
@@ -224,4 +339,27 @@ D3D12_RESOLVE_MODE XUSG::Ultimate::GetDX12ResolveMode(ResolveMode mode)
 	};
 
 	return modes[static_cast<uint32_t>(mode)];
+}
+
+D3D12_SET_WORK_GRAPH_FLAGS XUSG::Ultimate::GetDX12WorkGraphFlag(WorkGraphFlag workGraphFlag)
+{
+	static const D3D12_SET_WORK_GRAPH_FLAGS workGraphFlags[] =
+	{
+		D3D12_SET_WORK_GRAPH_FLAG_NONE,
+		D3D12_SET_WORK_GRAPH_FLAG_INITIALIZE
+	};
+
+	if (workGraphFlag == WorkGraphFlag::NONE) return D3D12_SET_WORK_GRAPH_FLAG_NONE;
+
+	const auto index = Log2(static_cast<uint32_t>(workGraphFlag));
+
+	return workGraphFlags[index];
+}
+
+D3D12_SET_WORK_GRAPH_FLAGS XUSG::Ultimate::GetDX12WorkGraphFlags(WorkGraphFlag workGraphFlags)
+{
+	auto flags = D3D12_SET_WORK_GRAPH_FLAG_NONE;
+	flags |= APPEND_WORK_GRAPH_FLAG(workGraphFlags, INITIALIZE);
+
+	return flags;
 }

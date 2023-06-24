@@ -36,11 +36,20 @@ namespace XUSG
 				uint32_t ThreadGroupCountY,
 				uint32_t ThreadGroupCountZ) const;
 
+			void SetProgram(ProgramType type, ProgramIdentifier identifier, WorkGraphFlag flags,
+				uint64_t backingMemoryAddress = 0, uint64_t backingMemoryByteSize = 0,
+				uint64_t localRootArgTableAddress = 0, uint64_t localRootArgTableByteSize = 0,
+				uint64_t localRootArgTableByteStride = 0) const;
+			void DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride = 0) const;
+			void DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes = false) const;
+
 			com_ptr<ID3D12GraphicsCommandList6>& GetGraphicsCommandList();
 
 		protected:
 			com_ptr<ID3D12GraphicsCommandList6> m_commandListU;
 		};
+
+		ProgramIdentifier GetProgramIdentifierFromDX12(const Pipeline& stateObject, const void* program);
 
 		//--------------------------------------------------------------------------------------
 		// Sampler feedback
@@ -66,5 +75,8 @@ namespace XUSG
 
 		D3D12_SHADING_RATE_COMBINER GetDX12ShadingRateCombiner(ShadingRateCombiner combiner);
 		D3D12_RESOLVE_MODE GetDX12ResolveMode(ResolveMode mode);
+
+		D3D12_SET_WORK_GRAPH_FLAGS GetDX12WorkGraphFlag(WorkGraphFlag workGraphFlag);
+		D3D12_SET_WORK_GRAPH_FLAGS GetDX12WorkGraphFlags(WorkGraphFlag workGraphFlags);
 	}
 }

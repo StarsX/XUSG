@@ -127,9 +127,6 @@
     <ClInclude Include="Common\dxgiformat.h">
       <Filter>Common</Filter>
     </ClInclude>
-    <ClInclude Include="Common\dxgicommon.h">
-      <Filter>Common</Filter>
-    </ClInclude>
     <ClInclude Include="Common\d3dx12_barriers.h">
       <Filter>Common</Filter>
     </ClInclude>
@@ -159,6 +156,9 @@
     </ClInclude>
     <ClInclude Include="Common\d3dx12_state_object.h">
       <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Ultimate\XUSGWorkGraph_DX12.h">
+      <Filter>Ultimate\Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -230,6 +230,9 @@
     </ClCompile>
     <ClCompile Include="Advanced\XUSGSphericalHarmonics.cpp">
       <Filter>Advanced\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Ultimate\XUSGWorkGraph_DX12.cpp">
+      <Filter>Ultimate\Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

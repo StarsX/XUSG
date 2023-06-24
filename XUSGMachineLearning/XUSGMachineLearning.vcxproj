@@ -174,7 +174,6 @@
     <ClInclude Include="..\XUSG\Common\d3d12.h" />
     <ClInclude Include="..\XUSG\Common\d3dcommon.h" />
     <ClInclude Include="..\XUSG\Common\d3dx12.h" />
-    <ClInclude Include="..\XUSG\Common\dxgicommon.h" />
     <ClInclude Include="..\XUSG\Common\dxgiformat.h" />
     <ClInclude Include="..\XUSG\Core\XUSG.h" />
     <ClInclude Include="..\XUSG\Core\XUSGCommand_DX12.h" />

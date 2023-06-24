@@ -380,7 +380,7 @@ bool EZ::CommandList_DXR::createComputePipelineLayouts(uint32_t maxSamplers, con
 		{
 			const auto maxDescriptors = pMaxCbvsEachSpace ? pMaxCbvsEachSpace[s] : 12;
 			m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::CBV)][s] = paramIndex;
-			pipelineLayout->SetRange(paramIndex++, DescriptorType::CBV, maxDescriptors, 0, s, DescriptorFlag::DATA_STATIC);
+			pipelineLayout->SetRange(paramIndex++, DescriptorType::CBV, maxDescriptors, 0, s);
 		}
 
 		if (s < maxSrvSpaces && !(s == spaceTLAS && maxTLASSrvs > 0))

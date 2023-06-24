@@ -72,9 +72,6 @@
     <ClInclude Include="..\XUSG\Common\d3dx12.h">
       <Filter>Common</Filter>
     </ClInclude>
-    <ClInclude Include="..\XUSG\Common\dxgicommon.h">
-      <Filter>Common</Filter>
-    </ClInclude>
     <ClInclude Include="..\XUSG\Common\dxgiformat.h">
       <Filter>Common</Filter>
     </ClInclude>

@@ -8,6 +8,11 @@
 
 namespace XUSG
 {
+	struct ProgramIdentifier
+	{
+		uint64_t OpaqueData[4];
+	};
+
 	//--------------------------------------------------------------------------------------
 	// Command list
 	//--------------------------------------------------------------------------------------
@@ -43,10 +48,48 @@ namespace XUSG
 			COMBINER_SUM
 		};
 
+		enum class ProgramType
+		{
+			GENERIC_PIPELINE,
+			RAYTRACING_PIPELINE,
+			WORK_GRAPH
+		};
+
+		enum class WorkGraphFlag
+		{
+			NONE = 0,
+			INITIALIZE = 0x1
+		};
+
+		XUSG_DEF_ENUM_FLAG_OPERATORS(WorkGraphFlag);
+
 		struct SamplePosition
 		{
 			int8_t X;
 			int8_t Y;
+		};
+
+		struct NodeCPUInput
+		{
+			uint32_t EntrypointIndex;
+			uint32_t NumRecords;
+			void* pRecords;
+			uint64_t RecordByteStride;
+		};
+
+		struct NodeGPUInput
+		{
+			uint32_t EntrypointIndex;
+			uint32_t NumRecords;
+			uint64_t RecordAddress;
+			uint64_t RecordByteStride;
+		};
+
+		struct MultiNodeGPUInput
+		{
+			uint32_t NumNodeInputs;
+			uint64_t NodeInputAddress;
+			uint64_t NodeInputByteStride;
 		};
 
 		//--------------------------------------------------------------------------------------
@@ -73,6 +116,13 @@ namespace XUSG
 				uint32_t ThreadGroupCountY,
 				uint32_t ThreadGroupCountZ) const = 0;
 
+			virtual void SetProgram(ProgramType type, ProgramIdentifier identifier, WorkGraphFlag flags,
+				uint64_t backingMemoryAddress = 0, uint64_t backingMemoryByteSize = 0,
+				uint64_t localRootArgTableAddress = 0, uint64_t localRootArgTableByteSize = 0,
+				uint64_t localRootArgTableByteStride = 0) const = 0;
+			virtual void DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride = 0) const = 0;
+			virtual void DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes = false) const = 0;
+
 			using uptr = std::unique_ptr<CommandList>;
 			using sptr = std::shared_ptr<CommandList>;
 
@@ -81,6 +131,8 @@ namespace XUSG
 			static uptr MakeUnique(XUSG::CommandList& commandList, API api = API::DIRECTX_12);
 			static sptr MakeShared(XUSG::CommandList& commandList, API api = API::DIRECTX_12);
 		};
+
+		XUSG_INTERFACE ProgramIdentifier GetProgramIdentifier(const Pipeline& stateObject, const void* program);
 
 		//--------------------------------------------------------------------------------------
 		// Sampler feedback
@@ -170,6 +222,95 @@ namespace XUSG
 
 			virtual Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr) = 0;
 			virtual Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr) = 0;
+
+			using uptr = std::unique_ptr<PipelineLib>;
+			using sptr = std::shared_ptr<PipelineLib>;
+
+			static uptr MakeUnique(API api = API::DIRECTX_12);
+			static sptr MakeShared(API api = API::DIRECTX_12);
+			static uptr MakeUnique(const Device* pDevice, API api = API::DIRECTX_12);
+			static sptr MakeShared(const Device* pDevice, API api = API::DIRECTX_12);
+		};
+	}
+
+	//--------------------------------------------------------------------------------------
+	// Work-graph pipeline state
+	//--------------------------------------------------------------------------------------
+	namespace WorkGraph
+	{
+		struct NodeID
+		{
+			const wchar_t* Name;
+			uint32_t ArrayIndex;
+		};
+
+		struct MemoryRequirements
+		{
+			uint64_t MinByteSize;
+			uint64_t MaxByteSize;
+			uint32_t SizeGranularityInBytes;
+		};
+
+		//--------------------------------------------------------------------------------------
+		// Pipeline state
+		//--------------------------------------------------------------------------------------
+		class PipelineLib;
+
+		class XUSG_INTERFACE State
+		{
+		public:
+			//State();
+			virtual ~State() {}
+
+			virtual void SetShaderLibrary(uint32_t index, const Blob& shaderLib,
+				uint32_t numShaders = 0, const void** pShaders = nullptr) = 0;
+			virtual void SetProgram(const void* program) = 0;
+			virtual void SetLocalPipelineLayout(uint32_t index, const PipelineLayout& layout,
+				uint32_t numShaders, const void** pShaders) = 0;
+			virtual void SetGlobalPipelineLayout(const PipelineLayout& layout) = 0;
+
+			virtual Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) = 0;
+			virtual Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) = 0;
+
+			virtual const std::string& GetKey() = 0;
+
+			virtual const wchar_t* GetProgramName(uint32_t workGraphIndex) const = 0;
+
+			virtual uint32_t GetNumWorkGraphs() const = 0;
+			virtual uint32_t GetWorkGraphIndex(const wchar_t* pProgramName) const = 0;
+			virtual uint32_t GetNumNodes(uint32_t workGraphIndex) const = 0;
+			virtual uint32_t GetNodeIndex(uint32_t workGraphIndex, const NodeID& nodeID) const = 0;
+			virtual uint32_t GetNodeLocalRootArgumentsTableIndex(uint32_t workGraphIndex, uint32_t nodeIndex) const = 0;
+			virtual uint32_t GetNumEntrypoints(uint32_t workGraphIndex) const = 0;
+			virtual uint32_t GetEntrypointIndex(uint32_t workGraphIndex, const NodeID& nodeID) const = 0;
+			virtual uint32_t GetEntrypointRecordSizeInBytes(uint32_t workGraphIndex, uint32_t entrypointIndex) const = 0;
+
+			virtual NodeID GetNodeID(uint32_t workGraphIndex, uint32_t nodeIndex) const = 0;
+			virtual NodeID* GetNodeID(NodeID* pRetVal, uint32_t workGraphIndex, uint32_t nodeIndex) const = 0;
+			virtual NodeID GetEntrypointID(uint32_t workGraphIndex, uint32_t entrypointIndex) const = 0;
+			virtual NodeID* GetEntrypointID(NodeID* pRetVal, uint32_t workGraphIndex, uint32_t entrypointIndex) const = 0;
+
+			virtual void GetMemoryRequirements(uint32_t workGraphIndex, MemoryRequirements* pMemoryReq) const = 0;
+
+			using uptr = std::unique_ptr<State>;
+			using sptr = std::shared_ptr<State>;
+
+			static uptr MakeUnique(API api = API::DIRECTX_12);
+			static sptr MakeShared(API api = API::DIRECTX_12);
+		};
+
+		class XUSG_INTERFACE PipelineLib
+		{
+		public:
+			//PipelineLib();
+			//PipelineLib(const Device* pDevice);
+			virtual ~PipelineLib() {}
+
+			virtual void SetDevice(const Device* pDevice) = 0;
+			virtual void SetPipeline(const std::string& key, const Pipeline& pipeline) = 0;
+
+			virtual Pipeline CreatePipeline(State* pState, const wchar_t* name = nullptr) = 0;
+			virtual Pipeline GetPipeline(State* pState, const wchar_t* name = nullptr) = 0;
 
 			using uptr = std::unique_ptr<PipelineLib>;
 			using sptr = std::shared_ptr<PipelineLib>;
