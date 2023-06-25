@@ -205,7 +205,7 @@ namespace XUSG
 
 			virtual void CopyTo(void* dest) const = 0;
 
-			static const void* GetShaderID(const Pipeline& pipeline, const void* shader, API api = API::DIRECTX_12);
+			static const void* GetShaderID(const Pipeline& pipeline, const /*wchar_t*/void* shader, API api = API::DIRECTX_12); // shader - shader name for DX12
 
 			static uint32_t GetShaderIDSize(const Device* pDevice, API api = API::DIRECTX_12);
 
@@ -216,12 +216,12 @@ namespace XUSG
 				uint32_t localDescriptorArgSize = 0, API api = API::DIRECTX_12);
 			static sptr MakeShared(void* pShaderID, uint32_t shaderIDSize, const void* pLocalDescriptorArgs = nullptr,
 				uint32_t localDescriptorArgSize = 0, API api = API::DIRECTX_12);
-			static uptr MakeUnique(const Device* pDevice, const Pipeline& pipeline, const void* shader,
+			static uptr MakeUnique(const Device* pDevice, const Pipeline& pipeline, const /*wchar_t*/void* shader,
 				const void* pLocalDescriptorArgs = nullptr, uint32_t localDescriptorArgSize = 0,
-				API api = API::DIRECTX_12);
-			static sptr MakeShared(const Device* pDevice, const Pipeline& pipeline, const void* shader,
+				API api = API::DIRECTX_12); // shader - shader name for DX12
+			static sptr MakeShared(const Device* pDevice, const Pipeline& pipeline, const /*wchar_t*/void* shader,
 				const void* pLocalDescriptorArgs = nullptr, uint32_t localDescriptorArgSize = 0,
-				API api = API::DIRECTX_12);
+				API api = API::DIRECTX_12); // shader - shader name for DX12
 		};
 
 		//--------------------------------------------------------------------------------------
@@ -323,13 +323,13 @@ namespace XUSG
 			virtual ~State() {}
 
 			virtual void SetShaderLibrary(uint32_t index, const Blob& shaderLib,
-				uint32_t numShaders = 0, const void** pShaders = nullptr) = 0;
-			virtual void SetHitGroup(uint32_t index, const void* hitGroup, const void* closestHitShader,
-				const void* anyHitShader = nullptr, const void* intersectionShader = nullptr,
+				uint32_t numShaders = 0, const /*wchar_t**/void** pShaders = nullptr) = 0; // pShaders - shader names for DX12
+			virtual void SetHitGroup(uint32_t index, const /*wchar_t*/void* hitGroup, const /*wchar_t*/void* closestHitShader,
+				const /*wchar_t*/void* anyHitShader = nullptr, const /*wchar_t*/void* intersectionShader = nullptr,
 				HitGroupType type = HitGroupType::TRIANGLES) = 0;
 			virtual void SetShaderConfig(uint32_t maxPayloadSize, uint32_t maxAttributeSize) = 0;
 			virtual void SetLocalPipelineLayout(uint32_t index, const XUSG::PipelineLayout& layout,
-				uint32_t numShaders, const void** pShaders) = 0;
+				uint32_t numShaders, const /*wchar_t**/void** pShaders) = 0; // pShaders - shader names for DX12
 			virtual void SetGlobalPipelineLayout(const XUSG::PipelineLayout& layout) = 0;
 			virtual void SetMaxRecursionDepth(uint32_t depth) = 0;
 
