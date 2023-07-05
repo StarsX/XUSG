@@ -17,13 +17,13 @@ namespace XUSG
 			AccelerationStructure_DX12();
 			virtual ~AccelerationStructure_DX12();
 
-			RawBuffer::sptr GetResult() const;
+			Buffer::sptr GetResource() const;
 
 			uint32_t GetResultDataMaxSize() const;
 			uint32_t GetScratchDataMaxSize() const;
 			uint32_t GetUpdateScratchDataSize() const;
 
-			uint64_t GetResultPointer() const;
+			uint64_t GetResourcePointer() const;
 
 			static bool AllocateUAVBuffer(const XUSG::Device* pDevice, Resource* pResource,
 				size_t byteWidth, ResourceState dstState = ResourceState::COMMON);
@@ -36,10 +36,8 @@ namespace XUSG
 			D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC m_buildDesc;
 			PrebuildInfo m_prebuildInfo;
 
-			std::vector<RawBuffer::sptr> m_results;
-			std::vector<WRAPPED_GPU_POINTER> m_pointers;
-
-			uint32_t m_currentFrame;
+			Buffer::sptr m_resource;
+			WRAPPED_GPU_POINTER m_pointer;
 		};
 
 		class BottomLevelAS_DX12 :
@@ -53,7 +51,7 @@ namespace XUSG
 			bool PreBuild(const Device* pDevice, uint32_t numGeometries, const GeometryBuffer& geometries,
 				uint32_t descriptorIndex, BuildFlag flags = BuildFlag::PREFER_FAST_TRACE);
 			void Build(CommandList* pCommandList, const Resource* pScratch,
-				const DescriptorHeap& descriptorHeap, bool update = false);
+				const DescriptorHeap& descriptorHeap, const BottomLevelAS* pSource = nullptr);
 
 			static void SetTriangleGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
 				Format vertexFormat, const VertexBufferView* pVBs, const IndexBufferView* pIBs = nullptr,
@@ -73,7 +71,8 @@ namespace XUSG
 			bool PreBuild(const Device* pDevice, uint32_t numInstances, uint32_t descriptorIndex,
 				BuildFlag flags = BuildFlag::PREFER_FAST_TRACE);
 			void Build(const CommandList* pCommandList, const Resource* pScratch,
-				const Resource* pInstanceDescs, const DescriptorHeap& descriptorHeap, bool update = false);
+				const Resource* pInstanceDescs, const DescriptorHeap& descriptorHeap,
+				const TopLevelAS* pSource = nullptr);
 
 			static void SetInstances(const Device* pDevice, Resource* pInstances, uint32_t numInstances,
 				const BottomLevelAS* const* ppBottomLevelASs, float* const* transforms);

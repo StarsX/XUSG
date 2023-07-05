@@ -20,7 +20,6 @@ using namespace XUSG;
 using namespace XUSG::RayTracing;
 
 uint32_t g_numUAVs = 0;
-uint32_t g_frameCount = 1;
 
 uint32_t AccelerationStructure::GetUAVCount()
 {
@@ -30,11 +29,6 @@ uint32_t AccelerationStructure::GetUAVCount()
 void AccelerationStructure::SetUAVCount(uint32_t numUAVs)
 {
 	g_numUAVs = numUAVs;
-}
-
-void AccelerationStructure::SetFrameCount(uint32_t frameCount)
-{
-	g_frameCount = frameCount;
 }
 
 bool AccelerationStructure::AllocateUAVBuffer(const Device* pDevice, Resource* pResource,

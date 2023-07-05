@@ -16,7 +16,7 @@ using namespace XUSG::RayTracing::EZ;
 
 XUSG::EZ::ResourceView EZ::GetSRV(AccelerationStructure* pAS)
 {
-	const auto pResource = pAS->GetResult().get();
+	const auto pResource = pAS->GetResource().get();
 
 	XUSG::EZ::ResourceView resourceView;
 	resourceView.pResource = pResource;

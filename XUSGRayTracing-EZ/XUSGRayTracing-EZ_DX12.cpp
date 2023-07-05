@@ -138,7 +138,7 @@ bool EZ::CommandList_DXR::PreBuildBLAS(BottomLevelAS* pBLAS, uint32_t numGeometr
 	XUSG_N_RETURN(pBLAS->PreBuild(m_pDeviceRT, numGeometries, geometries, m_asUavCount++, flags), false);
 
 	const auto descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
-	descriptorTable->SetDescriptors(0, 1, &pBLAS->GetResult()->GetUAV());
+	descriptorTable->SetDescriptors(0, 1, &pBLAS->GetResource()->GetUAV());
 	const auto uavTable = descriptorTable->GetCbvSrvUavTable(m_descriptorTableLib.get());
 	XUSG_N_RETURN(uavTable, false);
 
@@ -157,7 +157,7 @@ bool EZ::CommandList_DXR::PreBuildTLAS(TopLevelAS* pTLAS, uint32_t numInstances,
 	XUSG_N_RETURN(pTLAS->PreBuild(m_pDeviceRT, numInstances, m_asUavCount++, flags), false);
 
 	const auto descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
-	descriptorTable->SetDescriptors(0, 1, &pTLAS->GetResult()->GetUAV());
+	descriptorTable->SetDescriptors(0, 1, &pTLAS->GetResource()->GetUAV());
 	const auto uavTable = descriptorTable->GetCbvSrvUavTable(m_descriptorTableLib.get());
 	XUSG_N_RETURN(uavTable, false);
 
@@ -235,24 +235,30 @@ void EZ::CommandList_DXR::SetAABBGeometries(GeometryBuffer& geometries, uint32_t
 	BottomLevelAS::SetAABBGeometries(geometries, numGeometries, vbvs.data(), pGeometryFlags);
 }
 
-void EZ::CommandList_DXR::BuildBLAS(BottomLevelAS* pBLAS, bool update)
+void EZ::CommandList_DXR::BuildBLAS(BottomLevelAS* pBLAS, const BottomLevelAS* pSource)
 {
 	assert(pBLAS);
 
 	const auto pScratch = needScratch(m_scratchSize);
 	const auto descriptorHeap = m_descriptorTableLib->GetDescriptorHeap(CBV_SRV_UAV_HEAP);
 
-	pBLAS->Build(this, pScratch, descriptorHeap, update);
+	pBLAS->Build(this, pScratch, descriptorHeap, pSource);
+
+	const ResourceBarrier barrier = { nullptr, ResourceState::UNORDERED_ACCESS };
+	XUSG::CommandList_DX12::Barrier(1, &barrier);
 }
 
-void EZ::CommandList_DXR::BuildTLAS(TopLevelAS* pTLAS, const Resource* pInstanceDescs, bool update)
+void EZ::CommandList_DXR::BuildTLAS(TopLevelAS* pTLAS, const Resource* pInstanceDescs, const TopLevelAS* pSource)
 {
 	assert(pTLAS);
 
 	const auto pScratch = needScratch(m_scratchSize);
 	const auto descriptorHeap = m_descriptorTableLib->GetDescriptorHeap(CBV_SRV_UAV_HEAP);
 
-	pTLAS->Build(this, pScratch, pInstanceDescs, descriptorHeap, update);
+	pTLAS->Build(this, pScratch, pInstanceDescs, descriptorHeap, pSource);
+
+	const ResourceBarrier barrier = { nullptr, ResourceState::UNORDERED_ACCESS };
+	XUSG::CommandList_DX12::Barrier(1, &barrier);
 }
 
 void EZ::CommandList_DXR::SetTopLevelAccelerationStructure(uint32_t binding, const TopLevelAS* pTopLevelAS) const

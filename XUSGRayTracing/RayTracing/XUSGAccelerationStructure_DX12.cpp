@@ -13,14 +13,12 @@ using namespace XUSG;
 using namespace XUSG::RayTracing;
 
 extern uint32_t g_numUAVs;
-extern uint32_t g_frameCount;
 
 //--------------------------------------------------------------------------------------
 // Acceleration structure
 //--------------------------------------------------------------------------------------
 
-AccelerationStructure_DX12::AccelerationStructure_DX12() :
-	m_currentFrame(0)
+AccelerationStructure_DX12::AccelerationStructure_DX12()
 {
 }
 
@@ -28,9 +26,9 @@ AccelerationStructure_DX12::~AccelerationStructure_DX12()
 {
 }
 
-RawBuffer::sptr AccelerationStructure_DX12::GetResult() const
+RawBuffer::sptr AccelerationStructure_DX12::GetResource() const
 {
-	return m_results[m_currentFrame];
+	return m_resource;
 }
 
 uint32_t AccelerationStructure_DX12::GetResultDataMaxSize() const
@@ -48,9 +46,9 @@ uint32_t AccelerationStructure_DX12::GetUpdateScratchDataSize() const
 	return static_cast<uint32_t>(m_prebuildInfo.UpdateScratchDataSizeInBytes);
 }
 
-uint64_t AccelerationStructure_DX12::GetResultPointer() const
+uint64_t AccelerationStructure_DX12::GetResourcePointer() const
 {
-	return reinterpret_cast<const uint64_t&>(m_pointers[m_currentFrame]);
+	return m_pointer.GpuVA;
 }
 
 bool AccelerationStructure_DX12::AllocateUAVBuffer(const XUSG::Device* pDevice, Resource* pResource,
@@ -64,7 +62,7 @@ bool AccelerationStructure_DX12::AllocateUAVBuffer(const XUSG::Device* pDevice, 
 
 	assert(pDxDevice);
 	V_RETURN(pDxDevice->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &bufferDesc,
-		static_cast<D3D12_RESOURCE_STATES>(dstState), nullptr, IID_PPV_ARGS(&dxResource)), cerr, false);
+		GetDX12ResourceStates(dstState), nullptr, IID_PPV_ARGS(&dxResource)), cerr, false);
 
 	return true;
 }
@@ -113,23 +111,13 @@ bool AccelerationStructure_DX12::preBuild(const Device* pDevice, uint32_t descri
 	// and must have resource flag D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS. The ALLOW_UNORDERED_ACCESS requirement simply acknowledges both: 
 	//  - the system will be doing this type of access in its implementation of acceleration structure builds behind the scenes.
 	//  - from the app point of view, synchronization of writes/reads to acceleration structures is accomplished using UAV barriers.
-	const auto bufferCount = (inputs.Flags & D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE)
-		== D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE ? g_frameCount : 1;
-
-	m_results.resize(bufferCount);
+	m_resource = Buffer::MakeShared();
 	const auto resourceFlags = pDxDevice->UsingRaytracingDriver() ? ResourceFlag::ACCELERATION_STRUCTURE : ResourceFlag::ALLOW_UNORDERED_ACCESS;
-	for (auto& result : m_results)
-	{
-		result = RawBuffer::MakeShared();
-		XUSG_N_RETURN(result->Create(pDevice, GetResultDataMaxSize(), resourceFlags, MemoryType::DEFAULT, numSRVs), false);
-	}
+	XUSG_N_RETURN(m_resource->Create(pDevice, GetResultDataMaxSize(), resourceFlags, MemoryType::DEFAULT, numSRVs), false);
 
 	// The Fallback Layer interface uses WRAPPED_GPU_POINTER to encapsulate the underlying pointer
 	// which will either be an emulated GPU pointer for the compute - based path or a GPU_VIRTUAL_ADDRESS for the DXR path.
-	m_pointers.resize(bufferCount);
-	for (auto i = 0u; i < bufferCount; ++i)
-		m_pointers[i] = pDxDevice->GetWrappedPointerSimple(descriptorIndex,
-			static_cast<ID3D12Resource*>(m_results[i]->GetHandle())->GetGPUVirtualAddress());
+	m_pointer = pDxDevice->GetWrappedPointerSimple(descriptorIndex, m_resource->GetVirtualAddress());
 
 	return true;
 }
@@ -163,33 +151,23 @@ bool BottomLevelAS_DX12::PreBuild(const Device* pDevice, uint32_t numGeometries,
 }
 
 void BottomLevelAS_DX12::Build(CommandList* pCommandList, const Resource* pScratch,
-	const DescriptorHeap& descriptorHeap, bool update)
+	const DescriptorHeap& descriptorHeap, const BottomLevelAS* pSource)
 {
 	// Complete Acceleration Structure desc
 	{
-		if (update && (m_buildDesc.Inputs.Flags & D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE)
+		if (pSource && (m_buildDesc.Inputs.Flags & D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE)
 			== D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE)
 		{
-			m_buildDesc.SourceAccelerationStructureData = m_results[m_currentFrame]->GetVirtualAddress();
+			m_buildDesc.SourceAccelerationStructureData = pSource->GetResource()->GetVirtualAddress();
 			m_buildDesc.Inputs.Flags |= D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PERFORM_UPDATE;
-			m_currentFrame = (m_currentFrame + 1) % g_frameCount;
 		}
 
-		m_buildDesc.DestAccelerationStructureData = m_results[m_currentFrame]->GetVirtualAddress();
+		m_buildDesc.DestAccelerationStructureData = m_resource->GetVirtualAddress();
 		m_buildDesc.ScratchAccelerationStructureData = pScratch->GetVirtualAddress();
 	}
 
 	// Build acceleration structure.
 	pCommandList->BuildRaytracingAccelerationStructure(&m_buildDesc, 0, nullptr, descriptorHeap);
-
-	// Resource barrier
-	const ResourceBarrier barrier =
-	{
-		m_results[m_currentFrame].get(),
-		ResourceState::UNORDERED_ACCESS,
-		ResourceState::UNORDERED_ACCESS
-	};
-	pCommandList->Barrier(1, &barrier);
 }
 
 void BottomLevelAS_DX12::SetTriangleGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
@@ -275,19 +253,18 @@ bool TopLevelAS_DX12::PreBuild(const Device* pDevice, uint32_t numInstances,
 }
 
 void TopLevelAS_DX12::Build(const CommandList* pCommandList, const Resource* pScratch,
-	const Resource* pInstanceDescs, const DescriptorHeap& descriptorHeap, bool update)
+	const Resource* pInstanceDescs, const DescriptorHeap& descriptorHeap, const TopLevelAS* pSource)
 {
 	// Complete Acceleration Structure desc
 	{
-		if (update && (m_buildDesc.Inputs.Flags & D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE)
+		if (pSource && (m_buildDesc.Inputs.Flags & D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE)
 			== D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE)
 		{
-			m_buildDesc.SourceAccelerationStructureData = m_results[m_currentFrame]->GetVirtualAddress();
+			m_buildDesc.SourceAccelerationStructureData = pSource->GetResource()->GetVirtualAddress();
 			m_buildDesc.Inputs.Flags |= D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PERFORM_UPDATE;
-			m_currentFrame = (m_currentFrame + 1) % g_frameCount;
 		}
 
-		m_buildDesc.DestAccelerationStructureData = m_results[m_currentFrame]->GetVirtualAddress();
+		m_buildDesc.DestAccelerationStructureData = m_resource->GetVirtualAddress();
 		m_buildDesc.Inputs.InstanceDescs = pInstanceDescs->GetVirtualAddress();
 		m_buildDesc.ScratchAccelerationStructureData = pScratch->GetVirtualAddress();
 	}
@@ -333,7 +310,7 @@ void TopLevelAS_DX12::SetInstances(const RayTracing::Device* pDevice, Resource* 
 	{
 		const auto& instanceDesc = pInstanceDescs[i];
 		const auto& pBottomLevelAS = pInstanceDescs[i].pBottomLevelAS;
-		const auto bottomLevelASPtr = pBottomLevelAS ? pBottomLevelAS->GetResultPointer() : 0;
+		const auto bottomLevelASPtr = pBottomLevelAS ? pBottomLevelAS->GetResourcePointer() : 0;
 		memcpy(instanceDescs[i].Transform, instanceDesc.pTransform, sizeof(instanceDescs[i].Transform));
 		instanceDescs[i].InstanceID = instanceDesc.InstanceID;
 		instanceDescs[i].InstanceMask = instanceDesc.InstanceMask;

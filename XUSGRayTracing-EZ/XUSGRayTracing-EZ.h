@@ -62,8 +62,8 @@ namespace XUSG
 					const GeometryFlag* pGeometryFlags = nullptr, const ResourceView* pTransforms = nullptr) = 0;
 				virtual void SetAABBGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
 					XUSG::EZ::VertexBufferView* pVBs, const GeometryFlag* pGeometryFlags = nullptr) = 0;
-				virtual void BuildBLAS(BottomLevelAS* pBLAS, bool update = false) = 0;
-				virtual void BuildTLAS(TopLevelAS* pTLAS, const Resource* pInstanceDescs, bool update = false) = 0;
+				virtual void BuildBLAS(BottomLevelAS* pBLAS, const BottomLevelAS* pSource = nullptr) = 0;
+				virtual void BuildTLAS(TopLevelAS* pTLAS, const Resource* pInstanceDescs, const TopLevelAS* pSource = nullptr) = 0;
 				virtual void SetTopLevelAccelerationStructure(uint32_t binding, const TopLevelAS* pTopLevelAS) const = 0;
 				virtual void RTSetShaderLibrary(uint32_t index, const Blob& shaderLib,
 					uint32_t numShaders = 0, const void** pShaders = nullptr) = 0;

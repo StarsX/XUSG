@@ -102,18 +102,17 @@ namespace XUSG
 			//AccelerationStructure();
 			virtual ~AccelerationStructure() {}
 
-			virtual RawBuffer::sptr GetResult() const = 0;
+			virtual RawBuffer::sptr GetResource() const = 0;
 
 			virtual uint32_t GetResultDataMaxSize() const = 0;
 			virtual uint32_t GetScratchDataMaxSize() const = 0;
 			virtual uint32_t GetUpdateScratchDataSize() const = 0;
 
-			virtual uint64_t GetResultPointer() const = 0;
+			virtual uint64_t GetResourcePointer() const = 0;
 
 			static uint32_t GetUAVCount();
 
 			static void SetUAVCount(uint32_t numUAVs);
-			static void SetFrameCount(uint32_t frameCount);
 
 			static bool AllocateUAVBuffer(const Device* pDevice, Resource* pResource,
 				size_t byteWidth, ResourceState dstState = ResourceState::COMMON,
@@ -135,7 +134,7 @@ namespace XUSG
 			virtual bool PreBuild(const Device* pDevice, uint32_t numGeometries, const GeometryBuffer& geometries,
 				uint32_t descriptorIndex, BuildFlag flags = BuildFlag::PREFER_FAST_TRACE) = 0;
 			virtual void Build(CommandList* pCommandList, const Resource* pScratch,
-				const DescriptorHeap& descriptorHeap, bool update = false) = 0;
+				const DescriptorHeap& descriptorHeap, const BottomLevelAS* pSource = nullptr) = 0;
 
 			static void SetTriangleGeometries(GeometryBuffer& geometries, uint32_t numGeometries, Format vertexFormat,
 				const VertexBufferView* pVBs, const IndexBufferView* pIBs = nullptr,
@@ -175,7 +174,8 @@ namespace XUSG
 			virtual bool PreBuild(const Device* pDevice, uint32_t numInstances, uint32_t descriptorIndex,
 				BuildFlag flags = BuildFlag::PREFER_FAST_TRACE) = 0;
 			virtual void Build(const CommandList* pCommandList, const Resource* pScratch,
-				const Resource* pInstanceDescs, const DescriptorHeap& descriptorHeap, bool update = false) = 0;
+				const Resource* pInstanceDescs, const DescriptorHeap& descriptorHeap,
+				const TopLevelAS* pSource = nullptr) = 0;
 
 			static void SetInstances(const Device* pDevice, Resource* pInstances,
 				uint32_t numInstances, const BottomLevelAS* const* ppBottomLevelASs,

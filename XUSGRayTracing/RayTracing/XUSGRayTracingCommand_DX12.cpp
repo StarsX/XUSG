@@ -82,7 +82,7 @@ void RayTracing::CommandList_DX12::SetDescriptorHeaps(uint32_t numDescriptorHeap
 
 void RayTracing::CommandList_DX12::SetTopLevelAccelerationStructure(uint32_t index, const TopLevelAS* pTopLevelAS) const
 {
-	SetTopLevelAccelerationStructure(index, pTopLevelAS ? pTopLevelAS->GetResultPointer() : 0);
+	SetTopLevelAccelerationStructure(index, pTopLevelAS ? pTopLevelAS->GetResourcePointer() : 0);
 }
 
 void XUSG::RayTracing::CommandList_DX12::SetTopLevelAccelerationStructure(uint32_t index, uint64_t topLevelASPtr) const
