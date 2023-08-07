@@ -62,13 +62,13 @@ namespace XUSG
 			virtual ~State_DX12();
 
 			void SetShaderLibrary(uint32_t index, const Blob& shaderLib,
-				uint32_t numShaders = 0, const void** pShaders = nullptr);
-			void SetHitGroup(uint32_t index, const void* hitGroup, const void* closestHitShader,
-				const void* anyHitShader = nullptr, const void* intersectionShader = nullptr,
+				uint32_t numShaders = 0, const wchar_t** pShaderNames = nullptr);
+			void SetHitGroup(uint32_t index, const wchar_t* hitGroupName, const wchar_t* closestHitShaderName,
+				const wchar_t* anyHitShaderName = nullptr, const wchar_t* intersectionShaderName = nullptr,
 				HitGroupType type = HitGroupType::TRIANGLES);
 			void SetShaderConfig(uint32_t maxPayloadSize, uint32_t maxAttributeSize);
 			void SetLocalPipelineLayout(uint32_t index, const XUSG::PipelineLayout& layout,
-				uint32_t numShaders, const void** pShaders);
+				uint32_t numShaders, const wchar_t** pShaderNames);
 			void SetGlobalPipelineLayout(const XUSG::PipelineLayout& layout);
 			void SetMaxRecursionDepth(uint32_t depth);
 
@@ -77,7 +77,7 @@ namespace XUSG
 
 			const std::string& GetKey();
 
-			const void* GetHitGroup(uint32_t index);
+			const wchar_t* GetHitGroupName(uint32_t index);
 			uint32_t GetNumHitGroups();
 
 		protected:

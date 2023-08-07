@@ -85,18 +85,20 @@ namespace XUSG
 		void SetGraphicsPipelineLayout(const PipelineLayout& pipelineLayout) const;
 		void SetComputeDescriptorTable(uint32_t index, const DescriptorTable& descriptorTable) const;
 		void SetGraphicsDescriptorTable(uint32_t index, const DescriptorTable& descriptorTable) const;
+		void SetComputeDescriptorTable(uint32_t index, const DescriptorHeap& descriptorHeap, int32_t offset) const;
+		void SetGraphicsDescriptorTable(uint32_t index, const DescriptorHeap& descriptorHeap, int32_t offset) const;
 		void SetCompute32BitConstant(uint32_t index, uint32_t srcData, uint32_t destOffsetIn32BitValues = 0) const;
 		void SetGraphics32BitConstant(uint32_t index, uint32_t srcData, uint32_t destOffsetIn32BitValues = 0) const;
 		void SetCompute32BitConstants(uint32_t index, uint32_t num32BitValuesToSet,
 			const void* pSrcData, uint32_t destOffsetIn32BitValues = 0) const;
 		void SetGraphics32BitConstants(uint32_t index, uint32_t num32BitValuesToSet,
 			const void* pSrcData, uint32_t destOffsetIn32BitValues = 0) const;
-		void SetComputeRootConstantBufferView(uint32_t index, const Resource* pResource, int offset = 0) const;
-		void SetGraphicsRootConstantBufferView(uint32_t index, const Resource* pResource, int offset = 0) const;
-		void SetComputeRootShaderResourceView(uint32_t index, const Resource* pResource, int offset = 0) const;
-		void SetGraphicsRootShaderResourceView(uint32_t index, const Resource* pResource, int offset = 0) const;
-		void SetComputeRootUnorderedAccessView(uint32_t index, const Resource* pResource, int offset = 0) const;
-		void SetGraphicsRootUnorderedAccessView(uint32_t index, const Resource* pResource, int offset = 0) const;
+		void SetComputeRootConstantBufferView(uint32_t index, const Resource* pResource, int32_t offset = 0) const;
+		void SetGraphicsRootConstantBufferView(uint32_t index, const Resource* pResource, int32_t offset = 0) const;
+		void SetComputeRootShaderResourceView(uint32_t index, const Resource* pResource, int32_t offset = 0) const;
+		void SetGraphicsRootShaderResourceView(uint32_t index, const Resource* pResource, int32_t offset = 0) const;
+		void SetComputeRootUnorderedAccessView(uint32_t index, const Resource* pResource, int32_t offset = 0) const;
+		void SetGraphicsRootUnorderedAccessView(uint32_t index, const Resource* pResource, int32_t offset = 0) const;
 		void SetComputeRootConstantBufferView(uint32_t index, uint64_t address) const;
 		void SetGraphicsRootConstantBufferView(uint32_t index, uint64_t address) const;
 		void SetComputeRootShaderResourceView(uint32_t index, uint64_t address) const;

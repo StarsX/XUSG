@@ -49,7 +49,7 @@ namespace XUSG
 			com_ptr<ID3D12GraphicsCommandList6> m_commandListU;
 		};
 
-		ProgramIdentifier GetProgramIdentifierFromDX12(const Pipeline& stateObject, const void* program);
+		ProgramIdentifier GetProgramIdentifierFromDX12(const Pipeline& stateObject, const wchar_t* programName);
 
 		//--------------------------------------------------------------------------------------
 		// Sampler feedback

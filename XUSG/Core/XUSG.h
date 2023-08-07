@@ -363,8 +363,9 @@ namespace XUSG
 		ALLOW_CROSS_ADAPTER = (1 << 4),
 		ALLOW_SIMULTANEOUS_ACCESS = (1 << 5),
 		VIDEO_DECODE_REFERENCE_ONLY = (1 << 6),
-		NEED_PACKED_UAV = ALLOW_UNORDERED_ACCESS | 0x8000,
-		ACCELERATION_STRUCTURE = ALLOW_UNORDERED_ACCESS | 0x400000
+		VIDEO_ENCODE_REFERENCE_ONLY = (1 << 7),
+		ACCELERATION_STRUCTURE = ALLOW_UNORDERED_ACCESS | (1 << 8),
+		NEED_PACKED_UAV = ALLOW_UNORDERED_ACCESS | (1 << 9)
 	};
 
 	XUSG_DEF_ENUM_FLAG_OPERATORS(ResourceFlag);
@@ -386,20 +387,20 @@ namespace XUSG
 		COPY_SOURCE = (1 << 11),
 		RESOLVE_DEST = (1 << 12),
 		RESOLVE_SOURCE = (1 << 13),
-		PREDICATION = (1 << 14),
-		RAYTRACING_ACCELERATION_STRUCTURE = (1 << 15),
-		SHADING_RATE_SOURCE = (1 << 16),
+		RAYTRACING_ACCELERATION_STRUCTURE = (1 << 14),
+		SHADING_RATE_SOURCE = (1 << 15),
 
-		SHADER_RESOURCE = NON_PIXEL_SHADER_RESOURCE | PIXEL_SHADER_RESOURCE,
-		GENERAL_READ = VERTEX_AND_CONSTANT_BUFFER | INDEX_BUFFER | SHADER_RESOURCE | INDIRECT_ARGUMENT | COPY_SOURCE | PREDICATION,
-		PRESENT = 0,
+		ALL_SHADER_RESOURCE = NON_PIXEL_SHADER_RESOURCE | PIXEL_SHADER_RESOURCE,
+		GENERAL_READ = VERTEX_AND_CONSTANT_BUFFER | INDEX_BUFFER | ALL_SHADER_RESOURCE | INDIRECT_ARGUMENT | COPY_SOURCE,
+		PRESENT = COMMON,
+		PREDICATION = INDIRECT_ARGUMENT,
 
-		VIDEO_DECODE_READ = (1 << 17),
-		VIDEO_DECODE_WRITE = (1 << 18),
-		VIDEO_PROCESS_READ = (1 << 19),
-		VIDEO_PROCESS_WRITE = (1 << 20),
-		VIDEO_ENCODE_READ = (1 << 21),
-		VIDEO_ENCODE_WRITE = (1 << 22)
+		VIDEO_DECODE_READ = (1 << 16),
+		VIDEO_DECODE_WRITE = (1 << 17),
+		VIDEO_PROCESS_READ = (1 << 18),
+		VIDEO_PROCESS_WRITE = (1 << 19),
+		VIDEO_ENCODE_READ = (1 << 20),
+		VIDEO_ENCODE_WRITE = (1 << 21)
 	};
 
 	XUSG_DEF_ENUM_FLAG_OPERATORS(ResourceState);
@@ -1211,18 +1212,20 @@ namespace XUSG
 		virtual void SetGraphicsPipelineLayout(const PipelineLayout& pipelineLayout) const = 0;
 		virtual void SetComputeDescriptorTable(uint32_t index, const DescriptorTable& descriptorTable) const = 0;
 		virtual void SetGraphicsDescriptorTable(uint32_t index, const DescriptorTable& descriptorTable) const = 0;
+		virtual void SetComputeDescriptorTable(uint32_t index, const DescriptorHeap& descriptorHeap, int32_t offset) const = 0;
+		virtual void SetGraphicsDescriptorTable(uint32_t index, const DescriptorHeap& descriptorHeap, int32_t offset) const = 0;
 		virtual void SetCompute32BitConstant(uint32_t index, uint32_t srcData, uint32_t destOffsetIn32BitValues = 0) const = 0;
 		virtual void SetGraphics32BitConstant(uint32_t index, uint32_t srcData, uint32_t destOffsetIn32BitValues = 0) const = 0;
 		virtual void SetCompute32BitConstants(uint32_t index, uint32_t num32BitValuesToSet,
 			const void* pSrcData, uint32_t destOffsetIn32BitValues = 0) const = 0;
 		virtual void SetGraphics32BitConstants(uint32_t index, uint32_t num32BitValuesToSet,
 			const void* pSrcData, uint32_t destOffsetIn32BitValues = 0) const = 0;
-		virtual void SetComputeRootConstantBufferView(uint32_t index, const Resource* pResource, int offset = 0) const = 0;
-		virtual void SetGraphicsRootConstantBufferView(uint32_t index, const Resource* pResource, int offset = 0) const = 0;
-		virtual void SetComputeRootShaderResourceView(uint32_t index, const Resource* pResource, int offset = 0) const = 0;
-		virtual void SetGraphicsRootShaderResourceView(uint32_t index, const Resource* pResource, int offset = 0) const = 0;
-		virtual void SetComputeRootUnorderedAccessView(uint32_t index, const Resource* pResource, int offset = 0) const = 0;
-		virtual void SetGraphicsRootUnorderedAccessView(uint32_t index, const Resource* pResource, int offset = 0) const = 0;
+		virtual void SetComputeRootConstantBufferView(uint32_t index, const Resource* pResource, int32_t offset = 0) const = 0;
+		virtual void SetGraphicsRootConstantBufferView(uint32_t index, const Resource* pResource, int32_t offset = 0) const = 0;
+		virtual void SetComputeRootShaderResourceView(uint32_t index, const Resource* pResource, int32_t offset = 0) const = 0;
+		virtual void SetGraphicsRootShaderResourceView(uint32_t index, const Resource* pResource, int32_t offset = 0) const = 0;
+		virtual void SetComputeRootUnorderedAccessView(uint32_t index, const Resource* pResource, int32_t offset = 0) const = 0;
+		virtual void SetGraphicsRootUnorderedAccessView(uint32_t index, const Resource* pResource, int32_t offset = 0) const = 0;
 		virtual void SetComputeRootConstantBufferView(uint32_t index, uint64_t address) const = 0;
 		virtual void SetGraphicsRootConstantBufferView(uint32_t index, uint64_t address) const = 0;
 		virtual void SetComputeRootShaderResourceView(uint32_t index, uint64_t address) const = 0;

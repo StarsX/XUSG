@@ -326,6 +326,20 @@ void CommandList_DX12::SetGraphicsDescriptorTable(uint32_t index, const Descript
 	m_commandList->SetGraphicsRootDescriptorTable(index, { *descriptorTable });
 }
 
+void CommandList_DX12::SetComputeDescriptorTable(uint32_t index, const DescriptorHeap& descriptorHeap, int32_t offset) const
+{
+	const auto pDescriptorHeap = static_cast<ID3D12DescriptorHeap*>(descriptorHeap);
+	const auto heapStart = pDescriptorHeap->GetGPUDescriptorHandleForHeapStart();
+	m_commandList->SetComputeRootDescriptorTable(index, CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, offset));
+}
+
+void CommandList_DX12::SetGraphicsDescriptorTable(uint32_t index, const DescriptorHeap& descriptorHeap, int32_t offset) const
+{
+	const auto pDescriptorHeap = static_cast<ID3D12DescriptorHeap*>(descriptorHeap);
+	const auto heapStart = pDescriptorHeap->GetGPUDescriptorHandleForHeapStart();
+	m_commandList->SetGraphicsRootDescriptorTable(index, CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, offset));
+}
+
 void CommandList_DX12::SetCompute32BitConstant(uint32_t index, uint32_t srcData, uint32_t destOffsetIn32BitValues) const
 {
 	m_commandList->SetComputeRoot32BitConstant(index, srcData, destOffsetIn32BitValues);
@@ -348,32 +362,32 @@ void CommandList_DX12::SetGraphics32BitConstants(uint32_t index, uint32_t num32B
 	m_commandList->SetGraphicsRoot32BitConstants(index, num32BitValuesToSet, pSrcData, destOffsetIn32BitValues);
 }
 
-void CommandList_DX12::SetComputeRootConstantBufferView(uint32_t index, const Resource* pResource, int offset) const
+void CommandList_DX12::SetComputeRootConstantBufferView(uint32_t index, const Resource* pResource, int32_t offset) const
 {
 	m_commandList->SetComputeRootConstantBufferView(index, pResource ? pResource->GetVirtualAddress(offset) : 0);
 }
 
-void CommandList_DX12::SetGraphicsRootConstantBufferView(uint32_t index, const Resource* pResource, int offset) const
+void CommandList_DX12::SetGraphicsRootConstantBufferView(uint32_t index, const Resource* pResource, int32_t offset) const
 {
 	m_commandList->SetGraphicsRootConstantBufferView(index, pResource ? pResource->GetVirtualAddress(offset) : 0);
 }
 
-void CommandList_DX12::SetComputeRootShaderResourceView(uint32_t index, const Resource* pResource, int offset) const
+void CommandList_DX12::SetComputeRootShaderResourceView(uint32_t index, const Resource* pResource, int32_t offset) const
 {
 	m_commandList->SetComputeRootShaderResourceView(index, pResource ? pResource->GetVirtualAddress(offset) : 0);
 }
 
-void CommandList_DX12::SetGraphicsRootShaderResourceView(uint32_t index, const Resource* pResource, int offset) const
+void CommandList_DX12::SetGraphicsRootShaderResourceView(uint32_t index, const Resource* pResource, int32_t offset) const
 {
 	m_commandList->SetGraphicsRootShaderResourceView(index, pResource ? pResource->GetVirtualAddress(offset) : 0);
 }
 
-void CommandList_DX12::SetComputeRootUnorderedAccessView(uint32_t index, const Resource* pResource, int offset) const
+void CommandList_DX12::SetComputeRootUnorderedAccessView(uint32_t index, const Resource* pResource, int32_t offset) const
 {
 	m_commandList->SetComputeRootUnorderedAccessView(index, pResource ? pResource->GetVirtualAddress(offset) : 0);
 }
 
-void CommandList_DX12::SetGraphicsRootUnorderedAccessView(uint32_t index, const Resource* pResource, int offset) const
+void CommandList_DX12::SetGraphicsRootUnorderedAccessView(uint32_t index, const Resource* pResource, int32_t offset) const
 {
 	m_commandList->SetGraphicsRootUnorderedAccessView(index, pResource ? pResource->GetVirtualAddress(offset) : 0);
 }

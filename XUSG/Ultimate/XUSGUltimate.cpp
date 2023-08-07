@@ -32,9 +32,9 @@ Ultimate::CommandList::sptr Ultimate::CommandList::MakeShared(XUSG::CommandList&
 	return make_shared<CommandList_DX12>(commandList);
 }
 
-ProgramIdentifier Ultimate::GetProgramIdentifier(const Pipeline& stateObject, const void* program)
+ProgramIdentifier Ultimate::GetProgramIdentifier(const Pipeline& stateObject, const wchar_t* programName)
 {
-	return GetProgramIdentifierFromDX12(stateObject, program);
+	return GetProgramIdentifierFromDX12(stateObject, programName);
 }
 
 Ultimate::SamplerFeedBack::uptr Ultimate::SamplerFeedBack::MakeUnique(API api)

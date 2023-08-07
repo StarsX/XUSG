@@ -199,13 +199,13 @@ namespace XUSG
 		public:
 			//ShaderRecord(const void* pShaderID, uint32_t shaderIDSize,
 				//const void* pLocalDescriptorArgs = nullptr, uint32_t localDescriptorArgSize = 0);
-			//ShaderRecord(const Device* pDevice, const Pipeline& pipeline, const void* shader,
+			//ShaderRecord(const Device* pDevice, const Pipeline& pipeline, const wchar_t* shaderName,
 				//const void* pLocalDescriptorArgs = nullptr, uint32_t localDescriptorArgSize = 0);
 			virtual ~ShaderRecord() {}
 
 			virtual void CopyTo(void* dest) const = 0;
 
-			static const void* GetShaderID(const Pipeline& pipeline, const /*wchar_t*/void* shader, API api = API::DIRECTX_12); // shader - shader name for DX12
+			static const void* GetShaderID(const Pipeline& pipeline, const wchar_t* shaderName, API api = API::DIRECTX_12);
 
 			static uint32_t GetShaderIDSize(const Device* pDevice, API api = API::DIRECTX_12);
 
@@ -216,10 +216,10 @@ namespace XUSG
 				uint32_t localDescriptorArgSize = 0, API api = API::DIRECTX_12);
 			static sptr MakeShared(void* pShaderID, uint32_t shaderIDSize, const void* pLocalDescriptorArgs = nullptr,
 				uint32_t localDescriptorArgSize = 0, API api = API::DIRECTX_12);
-			static uptr MakeUnique(const Device* pDevice, const Pipeline& pipeline, const /*wchar_t*/void* shader,
+			static uptr MakeUnique(const Device* pDevice, const Pipeline& pipeline, const wchar_t* shaderName,
 				const void* pLocalDescriptorArgs = nullptr, uint32_t localDescriptorArgSize = 0,
 				API api = API::DIRECTX_12); // shader - shader name for DX12
-			static sptr MakeShared(const Device* pDevice, const Pipeline& pipeline, const /*wchar_t*/void* shader,
+			static sptr MakeShared(const Device* pDevice, const Pipeline& pipeline, const wchar_t* shaderName,
 				const void* pLocalDescriptorArgs = nullptr, uint32_t localDescriptorArgSize = 0,
 				API api = API::DIRECTX_12); // shader - shader name for DX12
 		};
@@ -274,9 +274,11 @@ namespace XUSG
 			virtual void SetTopLevelAccelerationStructure(uint32_t index, uint64_t topLevelASPtr) const = 0;
 			virtual void SetRayTracingPipeline(const Pipeline& pipeline) const = 0;
 			virtual void DispatchRays(uint32_t width, uint32_t height, uint32_t depth,
-					const ShaderTable* pHitGroup, const ShaderTable* pMiss, const ShaderTable* pRayGen) const = 0;
+				const ShaderTable* pRayGen, const ShaderTable* pHitGroup, const ShaderTable* pMiss,
+				const ShaderTable* pCallable = nullptr) const = 0;
 			virtual void DispatchRays(const Pipeline& pipeline, uint32_t width, uint32_t height, uint32_t depth,
-				const ShaderTable* pHitGroup, const ShaderTable* pMiss, const ShaderTable* pRayGen) const = 0;
+				const ShaderTable* pRayGen, const ShaderTable* pHitGroup, const ShaderTable* pMiss,
+				const ShaderTable* pCallable = nullptr) const = 0;
 
 			virtual const Device* GetRTDevice() const = 0;
 
@@ -323,13 +325,13 @@ namespace XUSG
 			virtual ~State() {}
 
 			virtual void SetShaderLibrary(uint32_t index, const Blob& shaderLib,
-				uint32_t numShaders = 0, const /*wchar_t**/void** pShaders = nullptr) = 0; // pShaders - shader names for DX12
-			virtual void SetHitGroup(uint32_t index, const /*wchar_t*/void* hitGroup, const /*wchar_t*/void* closestHitShader,
-				const /*wchar_t*/void* anyHitShader = nullptr, const /*wchar_t*/void* intersectionShader = nullptr,
+				uint32_t numShaders = 0, const wchar_t** pShaderNames = nullptr) = 0;
+			virtual void SetHitGroup(uint32_t index, const wchar_t* hitGroupName, const wchar_t* closestHitShaderName,
+				const wchar_t* anyHitShaderName = nullptr, const wchar_t* intersectionShaderName = nullptr,
 				HitGroupType type = HitGroupType::TRIANGLES) = 0;
 			virtual void SetShaderConfig(uint32_t maxPayloadSize, uint32_t maxAttributeSize) = 0;
 			virtual void SetLocalPipelineLayout(uint32_t index, const XUSG::PipelineLayout& layout,
-				uint32_t numShaders, const /*wchar_t**/void** pShaders) = 0; // pShaders - shader names for DX12
+				uint32_t numShaders, const wchar_t** pShaderNames) = 0;
 			virtual void SetGlobalPipelineLayout(const XUSG::PipelineLayout& layout) = 0;
 			virtual void SetMaxRecursionDepth(uint32_t depth) = 0;
 
@@ -338,7 +340,7 @@ namespace XUSG
 
 			virtual const std::string& GetKey() = 0;
 
-			virtual const void* GetHitGroup(uint32_t index) = 0;
+			virtual const wchar_t* GetHitGroupName(uint32_t index) = 0;
 			virtual uint32_t GetNumHitGroups() = 0;
 
 			using uptr = std::unique_ptr<State>;

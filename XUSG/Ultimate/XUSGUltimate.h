@@ -132,7 +132,7 @@ namespace XUSG
 			static sptr MakeShared(XUSG::CommandList& commandList, API api = API::DIRECTX_12);
 		};
 
-		XUSG_INTERFACE ProgramIdentifier GetProgramIdentifier(const Pipeline& stateObject, const void* program);
+		XUSG_INTERFACE ProgramIdentifier GetProgramIdentifier(const Pipeline& stateObject, const wchar_t* programName);
 
 		//--------------------------------------------------------------------------------------
 		// Sampler feedback

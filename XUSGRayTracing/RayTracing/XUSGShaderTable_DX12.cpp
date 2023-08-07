@@ -19,8 +19,8 @@ ShaderRecord_DX12::ShaderRecord_DX12(const void* pShaderID, uint32_t shaderIDSiz
 }
 
 ShaderRecord_DX12::ShaderRecord_DX12(const Device* pDevice, const Pipeline& pipeline,
-	const void* shader, const void* pLocalDescriptorArgs, uint32_t localDescriptorArgSize) :
-	ShaderRecord_DX12(GetShaderID(pipeline, shader), GetShaderIDSize(pDevice),
+	const wchar_t* shaderName, const void* pLocalDescriptorArgs, uint32_t localDescriptorArgSize) :
+	ShaderRecord_DX12(GetShaderID(pipeline, shaderName), GetShaderIDSize(pDevice),
 		pLocalDescriptorArgs, localDescriptorArgSize)
 {
 }
@@ -38,11 +38,11 @@ void ShaderRecord_DX12::CopyTo(void* dest) const
 		memcpy(byteDest + m_shaderID.Size, m_localDescriptorArgs.Ptr, m_localDescriptorArgs.Size);
 }
 
-const void* XUSG::RayTracing::ShaderRecord_DX12::GetShaderID(const Pipeline& pipeline, const void* shader)
+const void* XUSG::RayTracing::ShaderRecord_DX12::GetShaderID(const Pipeline& pipeline, const wchar_t* shaderName)
 {
 	const auto pPipeline = static_cast<ID3D12RaytracingFallbackStateObject*>(pipeline);
 
-	return pPipeline->GetShaderIdentifier(static_cast<const wchar_t*>(shader));
+	return pPipeline->GetShaderIdentifier(shaderName);
 }
 
 uint32_t ShaderRecord_DX12::GetShaderIDSize(const Device* pDevice)

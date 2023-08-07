@@ -25,7 +25,7 @@ State_DX12::~State_DX12()
 {
 }
 
-void State_DX12::SetShaderLibrary(uint32_t index, const Blob& shaderLib, uint32_t numShaders, const void** pShaders)
+void State_DX12::SetShaderLibrary(uint32_t index, const Blob& shaderLib, uint32_t numShaders, const wchar_t** pShaderNames)
 {
 	m_isSerialized = false;
 
@@ -35,11 +35,11 @@ void State_DX12::SetShaderLibrary(uint32_t index, const Blob& shaderLib, uint32_
 	auto& keyShaderLib = m_keyShaderLibs[index];
 	keyShaderLib.Lib = shaderLib;
 	keyShaderLib.Shaders.resize(numShaders);
-	memcpy(keyShaderLib.Shaders.data(), pShaders, sizeof(void*) * numShaders);
+	memcpy(keyShaderLib.Shaders.data(), pShaderNames, sizeof(void*) * numShaders);
 }
 
-void State_DX12::SetHitGroup(uint32_t index, const void* hitGroup, const void* closestHitShader,
-	const void* anyHitShader, const void* intersectionShader, HitGroupType type)
+void State_DX12::SetHitGroup(uint32_t index, const wchar_t* hitGroupName, const wchar_t* closestHitShaderName,
+	const wchar_t* anyHitShaderName, const wchar_t* intersectionShaderName, HitGroupType type)
 {
 	const D3D12_HIT_GROUP_TYPE hitGroupTypes[] =
 	{
@@ -53,10 +53,10 @@ void State_DX12::SetHitGroup(uint32_t index, const void* hitGroup, const void* c
 		m_keyHitGroups.resize(index + 1);
 
 	auto& keyHitGroup = m_keyHitGroups[index];
-	keyHitGroup.HitGroup = hitGroup;
-	keyHitGroup.ClosestHitShader = closestHitShader;
-	keyHitGroup.AnyHitShader = anyHitShader;
-	keyHitGroup.IntersectionShader = intersectionShader;
+	keyHitGroup.HitGroup = hitGroupName;
+	keyHitGroup.ClosestHitShader = closestHitShaderName;
+	keyHitGroup.AnyHitShader = anyHitShaderName;
+	keyHitGroup.IntersectionShader = intersectionShaderName;
 	keyHitGroup.Type = hitGroupTypes[static_cast<uint8_t>(type)];
 }
 
@@ -67,7 +67,7 @@ void State_DX12::SetShaderConfig(uint32_t maxPayloadSize, uint32_t maxAttributeS
 	m_pKeyHeader->MaxAttributeSize = maxAttributeSize;
 }
 
-void State_DX12::SetLocalPipelineLayout(uint32_t index, const XUSG::PipelineLayout& layout, uint32_t numShaders, const void** pShaders)
+void State_DX12::SetLocalPipelineLayout(uint32_t index, const XUSG::PipelineLayout& layout, uint32_t numShaders, const wchar_t** pShaderNames)
 {
 	m_isSerialized = false;
 
@@ -77,7 +77,7 @@ void State_DX12::SetLocalPipelineLayout(uint32_t index, const XUSG::PipelineLayo
 	auto& keyLocalPipelineLayout = m_keyLocalPipelineLayouts[index];
 	keyLocalPipelineLayout.Layout = layout;
 	keyLocalPipelineLayout.Shaders.resize(numShaders);
-	memcpy(keyLocalPipelineLayout.Shaders.data(), pShaders, sizeof(void*) * numShaders);
+	memcpy(keyLocalPipelineLayout.Shaders.data(), pShaderNames, sizeof(void*) * numShaders);
 }
 
 void State_DX12::SetGlobalPipelineLayout(const XUSG::PipelineLayout& layout)
@@ -109,11 +109,11 @@ const string& State_DX12::GetKey()
 	return m_key;
 }
 
-const void* State_DX12::GetHitGroup(uint32_t index)
+const wchar_t* State_DX12::GetHitGroupName(uint32_t index)
 {
 	const auto pHitGroups = reinterpret_cast<const KeyHitGroup*>(&GetKey()[sizeof(KeyHeader)]);
 
-	return pHitGroups[index].HitGroup;
+	return static_cast<const wchar_t*>(pHitGroups[index].HitGroup);
 }
 
 uint32_t State_DX12::GetNumHitGroups()

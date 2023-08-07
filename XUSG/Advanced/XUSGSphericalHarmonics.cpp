@@ -305,7 +305,7 @@ void SphericalHarmonics_Impl::shCubeMap(CommandList* pCommandList,
 		0, XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::RESET_SRC_STATE);
 	numBarriers = m_weightSH[0]->SetBarrier(barriers, ResourceState::UNORDERED_ACCESS,
 		numBarriers, XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::RESET_SRC_STATE);
-	numBarriers = pRadiance->SetBarrier(barriers, ResourceState::SHADER_RESOURCE, numBarriers);
+	numBarriers = pRadiance->SetBarrier(barriers, ResourceState::ALL_SHADER_RESOURCE, numBarriers);
 	pCommandList->Barrier(numBarriers, barriers);
 
 	// Set pipeline layout and descriptor tables

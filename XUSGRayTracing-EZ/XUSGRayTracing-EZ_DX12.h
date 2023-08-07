@@ -67,18 +67,18 @@ namespace XUSG
 				void BuildTLAS(TopLevelAS* pTLAS, const Resource* pInstanceDescs, const TopLevelAS* pSource = nullptr);
 				void SetTopLevelAccelerationStructure(uint32_t index, const TopLevelAS* pTopLevelAS) const;
 				void RTSetShaderLibrary(uint32_t index, const Blob& shaderLib,
-					uint32_t numShaders = 0, const void** pShaders = nullptr);
+					uint32_t numShaders = 0, const wchar_t** pShaderNames = nullptr);
 				void RTSetShaderConfig(uint32_t maxPayloadSize, uint32_t maxAttributeSize = sizeof(float[2]));
-				void RTSetHitGroup(uint32_t index, const void* pHitGroup, const void* pClosestHitShader,
-					const void* pAnyHitShader = nullptr, const void* pIntersectionShader = nullptr,
+				void RTSetHitGroup(uint32_t index, const wchar_t* hitGroupName, const wchar_t* closestHitShaderName,
+					const wchar_t* anyHitShaderName = nullptr, const wchar_t* intersectionShaderName = nullptr,
 					HitGroupType type = HitGroupType::TRIANGLES);
 				void RTSetMaxRecursionDepth(uint32_t depth);
 				void DispatchRays(uint32_t width, uint32_t height, uint32_t depth,
-					const void* pRayGenShader, const void* pMissShader);
+					const wchar_t* rayGenShaderName, const wchar_t* missShaderName);
 				void DispatchRaysIndirect(const CommandLayout* pCommandlayout,
 					uint32_t maxCommandCount,
-					const void* pRayGenShader,
-					const void* pMissShader,
+					const wchar_t* rayGenShaderName,
+					const wchar_t* missShaderName,
 					Resource* pArgumentBuffer,
 					uint64_t argumentBufferOffset = 0,
 					Resource* pCountBuffer = nullptr,
@@ -113,7 +113,7 @@ namespace XUSG
 					uint32_t maxTLASSrvs, uint32_t spaceTLAS);
 
 				void predispatchRays(CShaderTablePtr& pRayGen, CShaderTablePtr& pHitGroup, CShaderTablePtr& pMiss,
-					const void* pRayGenShader, const void* pMissShader);
+					const wchar_t* rayGenShaderName, const wchar_t* missShaderName);
 
 				Resource* needScratch(uint32_t size);
 

@@ -97,22 +97,29 @@ void RayTracing::CommandList_DX12::SetRayTracingPipeline(const Pipeline& pipelin
 }
 
 void RayTracing::CommandList_DX12::DispatchRays(uint32_t width, uint32_t height, uint32_t depth,
-	const ShaderTable* pHitGroup, const ShaderTable* pMiss, const ShaderTable* pRayGen) const
+	const ShaderTable* pRayGen,
+	const ShaderTable* pHitGroup,
+	const ShaderTable* pMiss,
+	const ShaderTable* pCallable) const
 {
 	D3D12_DISPATCH_RAYS_DESC dispatchDesc = {};
 
 	// Since each shader table has only one shader record, the stride is same as the size.
+	const auto dxRayGen = pRayGen ? static_cast<ID3D12Resource*>(pRayGen->GetResource()->GetHandle()) : nullptr;
 	const auto dxHitGroup = pHitGroup ? static_cast<ID3D12Resource*>(pHitGroup->GetResource()->GetHandle()) : nullptr;
 	const auto dxMiss = pMiss ? static_cast<ID3D12Resource*>(pMiss->GetResource()->GetHandle()) : nullptr;
-	const auto dxRayGen = pRayGen ? static_cast<ID3D12Resource*>(pRayGen->GetResource()->GetHandle()) : nullptr;
+	const auto dxCallable = pCallable ? static_cast<ID3D12Resource*>(pCallable->GetResource()->GetHandle()) : nullptr;
+	dispatchDesc.RayGenerationShaderRecord.StartAddress = dxRayGen ? dxRayGen->GetGPUVirtualAddress() : 0;
+	dispatchDesc.RayGenerationShaderRecord.SizeInBytes = pRayGen ? pRayGen->GetResource()->GetWidth() : 0;
 	dispatchDesc.HitGroupTable.StartAddress = dxHitGroup ? dxHitGroup->GetGPUVirtualAddress() : 0;
 	dispatchDesc.HitGroupTable.SizeInBytes = pHitGroup ? pHitGroup->GetResource()->GetWidth() : 0;
 	dispatchDesc.HitGroupTable.StrideInBytes = pHitGroup ? pHitGroup->GetShaderRecordSize() : 0;
 	dispatchDesc.MissShaderTable.StartAddress = dxMiss ? dxMiss->GetGPUVirtualAddress() : 0;
 	dispatchDesc.MissShaderTable.SizeInBytes = pMiss ? pMiss->GetResource()->GetWidth() : 0;
 	dispatchDesc.MissShaderTable.StrideInBytes = pMiss ? pMiss->GetShaderRecordSize() : 0;
-	dispatchDesc.RayGenerationShaderRecord.StartAddress = dxRayGen ? dxRayGen->GetGPUVirtualAddress() : 0;
-	dispatchDesc.RayGenerationShaderRecord.SizeInBytes = pRayGen ? pRayGen->GetResource()->GetWidth() : 0;
+	dispatchDesc.CallableShaderTable.StartAddress = pCallable ? dxCallable->GetGPUVirtualAddress() : 0;
+	dispatchDesc.CallableShaderTable.SizeInBytes = pCallable ? pCallable->GetResource()->GetWidth() : 0;
+	dispatchDesc.CallableShaderTable.StrideInBytes = pCallable ? pCallable->GetShaderRecordSize() : 0;
 	dispatchDesc.Width = width;
 	dispatchDesc.Height = height;
 	dispatchDesc.Depth = depth;
@@ -122,12 +129,13 @@ void RayTracing::CommandList_DX12::DispatchRays(uint32_t width, uint32_t height,
 
 void RayTracing::CommandList_DX12::DispatchRays(const Pipeline& pipeline,
 	uint32_t width, uint32_t height, uint32_t depth,
+	const ShaderTable* pRayGen,
 	const ShaderTable* pHitGroup,
 	const ShaderTable* pMiss,
-	const ShaderTable* pRayGen) const
+	const ShaderTable* pCallable) const
 {
 	SetRayTracingPipeline(pipeline);
-	DispatchRays(width, height, depth, pHitGroup, pMiss, pRayGen);
+	DispatchRays(width, height, depth, pRayGen, pHitGroup, pMiss, pCallable);
 }
 
 const RayTracing::Device* RayTracing::CommandList_DX12::GetRTDevice() const

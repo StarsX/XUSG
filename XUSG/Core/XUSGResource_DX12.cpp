@@ -78,7 +78,7 @@ uint32_t Resource_DX12::SetBarrier(ResourceBarrier* pBarriers, ResourceState dst
 			const auto srcState = Transition(dstState, subresource, flags, threadIdx);
 
 			static const auto depthOpState = ResourceState::DEPTH_READ | ResourceState::DEPTH_WRITE;
-			static const auto promotionState = ResourceState::SHADER_RESOURCE | ResourceState::COPY_SOURCE | ResourceState::COPY_DEST;
+			static const auto promotionState = ResourceState::ALL_SHADER_RESOURCE | ResourceState::COPY_SOURCE | ResourceState::COPY_DEST;
 			const auto isSrcStateReset = srcState == ResourceState::COMMON || (flags & BarrierFlag::RESET_SRC_STATE) == BarrierFlag::RESET_SRC_STATE;
 			const auto isPromoted = isSrcStateReset && (dstState & depthOpState) == ResourceState::COMMON &&
 				(m_hasPromotion || (dstState & promotionState) != ResourceState::COMMON);
@@ -1881,13 +1881,9 @@ bool Buffer_DX12::CreateSRVs(size_t byteWidth, const uint32_t* firstElements,
 
 		m_srvOffsets[0] = firstElements ? firstElements[0] : 0;
 		desc.Format = DXGI_FORMAT_UNKNOWN;
-		//desc.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
-		//desc.RaytracingAccelerationStructure.Location = m_resource->GetGPUVirtualAddress();
-		//desc.RaytracingAccelerationStructure.Location += m_srvOffsets[0];
-		// To compatible with the old d3d12.h in the compile time
-		desc.ViewDimension = D3D12_SRV_DIMENSION(11);
-		desc.Buffer.FirstElement = m_resource->GetGPUVirtualAddress();
-		desc.Buffer.FirstElement += m_srvOffsets[0];
+		desc.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
+		desc.RaytracingAccelerationStructure.Location = m_resource->GetGPUVirtualAddress();
+		desc.RaytracingAccelerationStructure.Location += m_srvOffsets[0];
 
 		// Create a shader resource view
 		m_srvs[0] = allocateSrvUavHeap();

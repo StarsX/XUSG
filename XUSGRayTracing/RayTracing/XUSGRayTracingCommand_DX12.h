@@ -31,9 +31,11 @@ namespace XUSG
 			void SetTopLevelAccelerationStructure(uint32_t index, uint64_t topLevelASPtr) const;
 			void SetRayTracingPipeline(const Pipeline& pipeline) const;
 			void DispatchRays(uint32_t width, uint32_t height, uint32_t depth,
-				const ShaderTable* pHitGroup, const ShaderTable* pMiss, const ShaderTable* pRayGen) const;
+				const ShaderTable* pRayGen, const ShaderTable* pHitGroup, const ShaderTable* pMiss,
+				const ShaderTable* pCallable = nullptr) const;
 			void DispatchRays(const Pipeline& pipeline, uint32_t width, uint32_t height, uint32_t depth,
-				const ShaderTable* pHitGroup, const ShaderTable* pMiss, const ShaderTable* pRayGen) const;
+				const ShaderTable* pRayGen, const ShaderTable* pHitGroup, const ShaderTable* pMiss,
+				const ShaderTable* pCallable = nullptr) const;
 
 			const Device* GetRTDevice() const;
 

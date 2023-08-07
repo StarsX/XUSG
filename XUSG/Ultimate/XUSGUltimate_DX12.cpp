@@ -214,15 +214,15 @@ XUSG::com_ptr<ID3D12GraphicsCommandList6>& CommandList_DX12::GetGraphicsCommandL
 	return m_commandListU;
 }
 
-XUSG::ProgramIdentifier XUSG::Ultimate::GetProgramIdentifierFromDX12(const XUSG::Pipeline& stateObject, const void* program)
+XUSG::ProgramIdentifier XUSG::Ultimate::GetProgramIdentifierFromDX12(const XUSG::Pipeline& stateObject, const wchar_t* programName)
 {
 	using namespace XUSG;
 	com_ptr<ID3D12StateObjectProperties1> properties;
 	V_RETURN(static_cast<ID3D12StateObject*>(stateObject)->QueryInterface(IID_PPV_ARGS(&properties)), cerr, ProgramIdentifier{});
 
-	const auto programId = properties->GetProgramIdentifier(static_cast<const wchar_t*>(program));
+	const auto programId = properties->GetProgramIdentifier(programName);
 
-	XUSG::ProgramIdentifier identifier;
+	ProgramIdentifier identifier;
 	identifier.OpaqueData[0] = programId.OpaqueData[0];
 	identifier.OpaqueData[1] = programId.OpaqueData[1];
 	identifier.OpaqueData[2] = programId.OpaqueData[2];
