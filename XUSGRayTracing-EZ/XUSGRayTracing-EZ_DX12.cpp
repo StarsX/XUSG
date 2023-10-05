@@ -296,26 +296,26 @@ void EZ::CommandList_DXR::RTSetMaxRecursionDepth(uint32_t depth)
 }
 
 void EZ::CommandList_DXR::DispatchRays(uint32_t width, uint32_t height, uint32_t depth,
-	const wchar_t* rayGenShaderName, const wchar_t* missShaderName)
+	const wchar_t* rayGenShaderName, const wchar_t* const* pMissShaderNames, uint32_t numMissShaders)
 {
 	CShaderTablePtr pRayGen = nullptr;
 	CShaderTablePtr pHitGroup = nullptr;
 	CShaderTablePtr pMiss = nullptr;
 
-	predispatchRays(pRayGen, pHitGroup, pMiss, rayGenShaderName, missShaderName);
+	predispatchRays(pRayGen, pHitGroup, pMiss, rayGenShaderName, pMissShaderNames, numMissShaders);
 	RayTracing::CommandList_DX12::DispatchRays(width, height, depth, pRayGen, pHitGroup, pMiss);
 }
 
 void EZ::CommandList_DXR::DispatchRaysIndirect(const CommandLayout* pCommandlayout, uint32_t maxCommandCount,
-	const wchar_t* rayGenShaderName, const wchar_t* missShaderName, Resource* pArgumentBuffer, uint64_t argumentBufferOffset,
-	Resource* pCountBuffer, uint64_t countBufferOffset)
+	const wchar_t* rayGenShaderName, const wchar_t* const* pMissShaderNames, uint32_t numMissShaders,
+	Resource* pArgumentBuffer, uint64_t argumentBufferOffset, Resource* pCountBuffer, uint64_t countBufferOffset)
 {
 	CShaderTablePtr pRayGen = nullptr;
 	CShaderTablePtr pHitGroup = nullptr;
 	CShaderTablePtr pMiss = nullptr;
 
 	preexecuteIndirect(pArgumentBuffer, pCountBuffer);
-	predispatchRays(pRayGen, pHitGroup, pMiss, rayGenShaderName, missShaderName);
+	predispatchRays(pRayGen, pHitGroup, pMiss, rayGenShaderName, pMissShaderNames, numMissShaders);
 
 	// Populate arg-buffer header with shader tables
 	string key(sizeof(ArgumentBufferVA), '\0');
@@ -417,7 +417,7 @@ bool EZ::CommandList_DXR::createComputePipelineLayouts(uint32_t maxSamplers, con
 }
 
 void EZ::CommandList_DXR::predispatchRays(CShaderTablePtr& pRayGen, CShaderTablePtr& pHitGroup, CShaderTablePtr& pMiss,
-	const wchar_t* rayGenShaderName, const wchar_t* missShaderName)
+	const wchar_t* rayGenShaderName, const wchar_t* const* pMissShaderNames, uint32_t numMissShaders)
 {
 	// Set barrier command
 	XUSG::CommandList_DX12::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
@@ -494,12 +494,17 @@ void EZ::CommandList_DXR::predispatchRays(CShaderTablePtr& pRayGen, CShaderTable
 		pRayGen = getShaderTable(key, m_rayGenTables, 1);
 	}
 
-	if (missShaderName)
+	// Get miss shader tables; the miss shaders are independent of the pipeline
+	if (pMissShaderNames)
 	{
-		string key(sizeof(void*), '\0');
-		auto& shaderID = reinterpret_cast<const void*&>(key[0]);
-		shaderID = ShaderRecord::GetShaderID(m_pipeline, missShaderName, API::DIRECTX_12);
-		pMiss = getShaderTable(key, m_missTables, 1);
+		string key(sizeof(void*) * numMissShaders, '\0');
+		const auto pShaderIDs = reinterpret_cast<const void**>(&key[0]);
+		for (auto i = 0u; i < numMissShaders; ++i) // Set hit-group shader IDs into the key
+		{
+			assert(pMissShaderNames[i]);
+			pShaderIDs[i] = ShaderRecord::GetShaderID(m_pipeline, pMissShaderNames[i], API::DIRECTX_12);
+		}
+		pMiss = getShaderTable(key, m_missTables, numMissShaders);
 	}
 }
 

@@ -35,7 +35,7 @@ bool ComputeUtil::SetPrefixSum(CommandList* pCommandList, bool safeMode,
 
 	// Create resources
 	m_counter = TypedBuffer::MakeUnique();
-	XUSG_N_RETURN(m_counter->Create(pDevice, 1, sizeof(uint32_t), Format::R32_FLOAT,
+	XUSG_N_RETURN(m_counter->Create(pDevice, 1, sizeof(uint32_t), Format::R32_UINT,
 		ResourceFlag::ALLOW_UNORDERED_ACCESS | ResourceFlag::DENY_SHADER_RESOURCE,
 		MemoryType::DEFAULT, 0, nullptr, 1, nullptr, MemoryFlag::NONE,
 		L"GlobalBarrierCounter"), false);

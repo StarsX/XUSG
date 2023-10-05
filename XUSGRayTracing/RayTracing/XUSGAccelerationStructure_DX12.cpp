@@ -274,7 +274,7 @@ void TopLevelAS_DX12::Build(const CommandList* pCommandList, const Resource* pSc
 }
 
 void TopLevelAS_DX12::SetInstances(const RayTracing::Device* pDevice, Resource* pInstances,
-	uint32_t numInstances, const BottomLevelAS* const* ppBottomLevelASs, float* const* transforms)
+	uint32_t numInstances, const BottomLevelAS* const* ppBottomLevelASs, const float* const* transforms)
 {
 	assert(numInstances == 0 || (ppBottomLevelASs && transforms));
 

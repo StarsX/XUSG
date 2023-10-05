@@ -73,12 +73,13 @@ namespace XUSG
 					const wchar_t* anyHitShaderName = nullptr, const wchar_t* intersectionShaderName = nullptr,
 					HitGroupType type = HitGroupType::TRIANGLES);
 				void RTSetMaxRecursionDepth(uint32_t depth);
-				void DispatchRays(uint32_t width, uint32_t height, uint32_t depth,
-					const wchar_t* rayGenShaderName, const wchar_t* missShaderName);
+				void DispatchRays(uint32_t width, uint32_t height, uint32_t depth, const wchar_t* rayGenShaderName,
+					const wchar_t* const* pMissShaderNames, uint32_t numMissShaders);
 				void DispatchRaysIndirect(const CommandLayout* pCommandlayout,
 					uint32_t maxCommandCount,
 					const wchar_t* rayGenShaderName,
-					const wchar_t* missShaderName,
+					const wchar_t* const* pMissShaderNames,
+					uint32_t numMissShaders,
 					Resource* pArgumentBuffer,
 					uint64_t argumentBufferOffset = 0,
 					Resource* pCountBuffer = nullptr,
@@ -113,7 +114,7 @@ namespace XUSG
 					uint32_t maxTLASSrvs, uint32_t spaceTLAS);
 
 				void predispatchRays(CShaderTablePtr& pRayGen, CShaderTablePtr& pHitGroup, CShaderTablePtr& pMiss,
-					const wchar_t* rayGenShaderName, const wchar_t* missShaderName);
+					const wchar_t* rayGenShaderName, const wchar_t* const* pMissShaderNames, uint32_t numMissShaders);
 
 				Resource* needScratch(uint32_t size);
 

@@ -2,7 +2,9 @@
 // Copyright (c) XU, Tianchen. All rights reserved.
 //--------------------------------------------------------------------------------------
 
+#ifndef GROUP_SIZE
 #define GROUP_SIZE		1024
+#endif
 
 // Min and max wave sizes supported
 #define MIN_WAVE_SIZE	32
@@ -104,7 +106,7 @@ void WaitForSlowestGroup()
 }
 
 //--------------------------------------------------------------------------------------
-// 1-pass global prefix-sum for at most 1024 * 1024 uints
+// Single-pass global prefix-sum for at most GROUP_SIZE * GROUP_SIZE uints
 //-------------------------------------------------------------------------------------
 [numthreads(GROUP_SIZE, 1, 1)]
 void main(uint DTid : SV_DispatchThreadID, uint GIdx : SV_GroupIndex, uint Gid : SV_GroupID)

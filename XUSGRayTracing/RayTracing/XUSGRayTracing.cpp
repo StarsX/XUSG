@@ -79,7 +79,7 @@ BottomLevelAS::sptr BottomLevelAS::MakeShared(API api)
 
 void TopLevelAS::SetInstances(const Device* pDevice, Resource* pInstances,
 	uint32_t numInstances, const BottomLevelAS* const* pBottomLevelASs,
-	float* const* transforms, API api)
+	const float* const* transforms, API api)
 {
 	TopLevelAS_DX12::SetInstances(pDevice, pInstances, numInstances, pBottomLevelASs, transforms);
 }

@@ -179,7 +179,7 @@ namespace XUSG
 
 			static void SetInstances(const Device* pDevice, Resource* pInstances,
 				uint32_t numInstances, const BottomLevelAS* const* ppBottomLevelASs,
-				float* const* transforms, API api = API::DIRECTX_12);
+				const float* const* transforms, API api = API::DIRECTX_12);
 			static void SetInstances(const Device* pDevice, Resource* pInstances,
 				uint32_t numInstances, const InstanceDesc* pInstanceDescs,
 				API api = API::DIRECTX_12);
