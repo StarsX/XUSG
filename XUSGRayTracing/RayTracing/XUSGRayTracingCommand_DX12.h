@@ -22,9 +22,12 @@ namespace XUSG
 			bool CreateInterface();
 
 			void BuildRaytracingAccelerationStructure(const BuildDesc* pDesc,
-				uint32_t numPostbuildInfoDescs,
-				const PostbuildInfo* pPostbuildInfoDescs,
-				const DescriptorHeap& descriptorHeap) const;
+				uint32_t numPostbuildInfoDescs, const PostbuildInfo* pPostbuildInfoDescs,
+				const DescriptorHeap* pDescriptorHeap = nullptr) const;
+			void EmitRaytracingAccelerationStructurePostbuildInfo(const PostbuildInfo* pDesc,
+				uint32_t numAccelerationStructures, const uint64_t* pAccelerationStructureData) const;
+			void CopyRaytracingAccelerationStructure(const AccelerationStructure* pDst,
+				const AccelerationStructure* pSrc, AccelerationStructureCopyMode mode) const;
 
 			void SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps) const;
 			void SetTopLevelAccelerationStructure(uint32_t index, const TopLevelAS* pTopLevelAS) const;
@@ -44,5 +47,10 @@ namespace XUSG
 
 			const Device* m_pDeviceRT;
 		};
+
+		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_TYPE GetDXRAccelerationStructurePostbuildInfoType(
+			AccelerationStructurePostbuildInfoType type);
+		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_COPY_MODE GetDXRAccelerationStructureCopyMode(
+			AccelerationStructureCopyMode mode);
 	}
 }

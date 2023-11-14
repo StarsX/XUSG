@@ -135,12 +135,7 @@ bool EZ::CommandList_DXR::PreBuildBLAS(BottomLevelAS* pBLAS, uint32_t numGeometr
 	m_barriers.clear();
 
 	assert(pBLAS);
-	XUSG_N_RETURN(pBLAS->PreBuild(m_pDeviceRT, numGeometries, geometries, m_asUavCount++, flags), false);
-
-	const auto descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
-	descriptorTable->SetDescriptors(0, 1, &pBLAS->GetResource()->GetUAV());
-	const auto uavTable = descriptorTable->GetCbvSrvUavTable(m_descriptorTableLib.get());
-	XUSG_N_RETURN(uavTable, false);
+	XUSG_N_RETURN(pBLAS->PreBuild(m_pDeviceRT, numGeometries, geometries, flags), false);
 
 	m_scratchSize = (max)(m_scratchSize, pBLAS->GetScratchDataMaxSize());
 
@@ -149,19 +144,23 @@ bool EZ::CommandList_DXR::PreBuildBLAS(BottomLevelAS* pBLAS, uint32_t numGeometr
 
 bool EZ::CommandList_DXR::PreBuildTLAS(TopLevelAS* pTLAS, uint32_t numInstances, BuildFlag flags)
 {
-	// Set barrier command
-	XUSG::CommandList_DX12::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
-	m_barriers.clear();
-
 	assert(pTLAS);
-	XUSG_N_RETURN(pTLAS->PreBuild(m_pDeviceRT, numInstances, m_asUavCount++, flags), false);
-
-	const auto descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
-	descriptorTable->SetDescriptors(0, 1, &pTLAS->GetResource()->GetUAV());
-	const auto uavTable = descriptorTable->GetCbvSrvUavTable(m_descriptorTableLib.get());
-	XUSG_N_RETURN(uavTable, false);
+	XUSG_N_RETURN(pTLAS->PreBuild(m_pDeviceRT, numInstances, flags), false);
 
 	m_scratchSize = (max)(m_scratchSize, pTLAS->GetScratchDataMaxSize());
+
+	return true;
+}
+
+bool EZ::CommandList_DXR::AllocateAccelerationStructure(AccelerationStructure* pAccelerationStructure, size_t byteWidth)
+{
+	assert(pAccelerationStructure);
+	XUSG_N_RETURN(pAccelerationStructure->Allocate(m_pDeviceRT, m_asUavCount++, byteWidth), false);
+
+	const auto descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
+	descriptorTable->SetDescriptors(0, 1, &pAccelerationStructure->GetResource()->GetUAV());
+	const auto uavTable = descriptorTable->GetCbvSrvUavTable(m_descriptorTableLib.get());
+	XUSG_N_RETURN(uavTable, false);
 
 	return true;
 }
@@ -235,27 +234,34 @@ void EZ::CommandList_DXR::SetAABBGeometries(GeometryBuffer& geometries, uint32_t
 	BottomLevelAS::SetAABBGeometries(geometries, numGeometries, vbvs.data(), pGeometryFlags);
 }
 
-void EZ::CommandList_DXR::BuildBLAS(BottomLevelAS* pBLAS, const BottomLevelAS* pSource)
+void EZ::CommandList_DXR::BuildBLAS(BottomLevelAS* pBLAS, const BottomLevelAS* pSource,
+	uint8_t numPostbuildInfoDescs, const AccelerationStructurePostbuildInfoType* pPostbuildInfoTypes)
 {
 	assert(pBLAS);
-
 	const auto pScratch = needScratch(m_scratchSize);
-	const auto descriptorHeap = m_descriptorTableLib->GetDescriptorHeap(CBV_SRV_UAV_HEAP);
-
-	pBLAS->Build(this, pScratch, descriptorHeap, pSource);
+	pBLAS->Build(this, pScratch, pSource, numPostbuildInfoDescs, pPostbuildInfoTypes);
 
 	const ResourceBarrier barrier = { nullptr, ResourceState::UNORDERED_ACCESS };
 	XUSG::CommandList_DX12::Barrier(1, &barrier);
 }
 
-void EZ::CommandList_DXR::BuildTLAS(TopLevelAS* pTLAS, const Resource* pInstanceDescs, const TopLevelAS* pSource)
+void EZ::CommandList_DXR::BuildTLAS(TopLevelAS* pTLAS, const Resource* pInstanceDescs, const TopLevelAS* pSource,
+	uint8_t numPostbuildInfoDescs, const AccelerationStructurePostbuildInfoType* pPostbuildInfoTypes)
 {
 	assert(pTLAS);
-
 	const auto pScratch = needScratch(m_scratchSize);
 	const auto descriptorHeap = m_descriptorTableLib->GetDescriptorHeap(CBV_SRV_UAV_HEAP);
 
-	pTLAS->Build(this, pScratch, pInstanceDescs, descriptorHeap, pSource);
+	pTLAS->Build(this, pScratch, pInstanceDescs, descriptorHeap, pSource, numPostbuildInfoDescs, pPostbuildInfoTypes);
+
+	const ResourceBarrier barrier = { nullptr, ResourceState::UNORDERED_ACCESS };
+	XUSG::CommandList_DX12::Barrier(1, &barrier);
+}
+
+void EZ::CommandList_DXR::CopyRaytracingAccelerationStructure(const AccelerationStructure* pDst, const AccelerationStructure* pSrc,
+	AccelerationStructureCopyMode mode)
+{
+	RayTracing::CommandList_DX12::CopyRaytracingAccelerationStructure(pDst, pSrc, mode);
 
 	const ResourceBarrier barrier = { nullptr, ResourceState::UNORDERED_ACCESS };
 	XUSG::CommandList_DX12::Barrier(1, &barrier);

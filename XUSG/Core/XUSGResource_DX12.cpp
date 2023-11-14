@@ -66,8 +66,8 @@ Resource_DX12::~Resource_DX12()
 {
 }
 
-uint32_t Resource_DX12::SetBarrier(ResourceBarrier* pBarriers, ResourceState dstState,
-	uint32_t numBarriers, uint32_t subresource, BarrierFlag flags, uint32_t threadIdx)
+uint32_t Resource_DX12::SetBarrier(ResourceBarrier* pBarriers, ResourceState dstState, uint32_t numBarriers,
+	uint32_t subresource, BarrierFlag flags, ResourceState srcState, uint32_t threadIdx)
 {
 	assert(!m_resource || !m_states.empty());
 	if (!m_states.empty())
@@ -75,12 +75,11 @@ uint32_t Resource_DX12::SetBarrier(ResourceBarrier* pBarriers, ResourceState dst
 		const auto& state = m_states[threadIdx][subresource == XUSG_BARRIER_ALL_SUBRESOURCES ? 0 : subresource];
 		if ((state & dstState) != dstState || dstState == ResourceState::UNORDERED_ACCESS || dstState == ResourceState::COMMON)
 		{
-			const auto srcState = Transition(dstState, subresource, flags, threadIdx);
+			srcState = Transition(dstState, subresource, flags, srcState, threadIdx);
 
 			static const auto depthOpState = ResourceState::DEPTH_READ | ResourceState::DEPTH_WRITE;
 			static const auto promotionState = ResourceState::ALL_SHADER_RESOURCE | ResourceState::COPY_SOURCE | ResourceState::COPY_DEST;
-			const auto isSrcStateReset = srcState == ResourceState::COMMON || (flags & BarrierFlag::RESET_SRC_STATE) == BarrierFlag::RESET_SRC_STATE;
-			const auto isPromoted = isSrcStateReset && (dstState & depthOpState) == ResourceState::COMMON &&
+			const auto isPromoted = srcState == ResourceState::COMMON && (dstState & depthOpState) == ResourceState::COMMON &&
 				(m_hasPromotion || (dstState & promotionState) != ResourceState::COMMON);
 
 			if (!isPromoted) pBarriers[numBarriers++] = { this, srcState, dstState, subresource, flags };
@@ -90,20 +89,19 @@ uint32_t Resource_DX12::SetBarrier(ResourceBarrier* pBarriers, ResourceState dst
 	return numBarriers;
 }
 
-ResourceState Resource_DX12::Transition(ResourceState dstState,
-	uint32_t subresource, BarrierFlag flags, uint32_t threadIdx)
+ResourceState Resource_DX12::Transition(ResourceState dstState, uint32_t subresource,
+	BarrierFlag flags, ResourceState srcState, uint32_t threadIdx)
 {
-	ResourceState srcState;
 	const bool isBeginOnly = (flags & BarrierFlag::BEGIN_ONLY) == BarrierFlag::BEGIN_ONLY;
 	if (subresource == XUSG_BARRIER_ALL_SUBRESOURCES)
 	{
-		srcState = m_states[threadIdx][0];
+		srcState = srcState == ResourceState::AUTO ? m_states[threadIdx][0] : srcState;
 		if (!isBeginOnly)
 			for (auto& state : m_states[threadIdx]) state = dstState;
 	}
 	else
 	{
-		srcState = m_states[threadIdx][subresource];
+		srcState = srcState == ResourceState::AUTO ? m_states[threadIdx][subresource] : srcState;
 		m_states[threadIdx][subresource] = isBeginOnly ? srcState : dstState;
 	}
 
@@ -483,12 +481,8 @@ bool Texture_DX12::Upload(CommandList* pCommandList, Resource* pUploader,
 	vector<ResourceBarrier> barriers(numSubresources);
 	auto numBarriers = 0u;
 	for (auto i = 0u; i < numSubresources; ++i)
-	{
-		const auto subresource = firstSubresource + i;
-		const auto& srcState = m_states[threadIdx][subresource];
-		numBarriers = SetBarrier(barriers.data(), ResourceState::COPY_DEST, numBarriers, subresource,
-			srcState != ResourceState::COMMON ? BarrierFlag::NONE : BarrierFlag::RESET_SRC_STATE, threadIdx);
-	}
+		numBarriers = SetBarrier(barriers.data(), ResourceState::COPY_DEST, numBarriers,
+			firstSubresource + i, BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
 	pCommandList->Barrier(numBarriers, barriers.data());
 
 	const auto pGraphicsCommandList = static_cast<ID3D12GraphicsCommandList*>(pCommandList->GetHandle());
@@ -498,8 +492,8 @@ bool Texture_DX12::Upload(CommandList* pCommandList, Resource* pUploader,
 
 	numBarriers = 0;
 	for (auto i = 0u; i < numSubresources; ++i)
-		numBarriers = SetBarrier(barriers.data(), dstState, numBarriers,
-			firstSubresource + i, BarrierFlag::NONE, threadIdx);
+		numBarriers = SetBarrier(barriers.data(), dstState, numBarriers, firstSubresource + i,
+			BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
 	pCommandList->Barrier(numBarriers, barriers.data());
 
 	return true;
@@ -552,7 +546,7 @@ bool Texture_DX12::ReadBack(CommandList* pCommandList, Buffer* pReadBuffer, uint
 		const auto subresource = firstSubresource + i;
 		dstStates[i] = dstState == ResourceState::COMMON ? m_states[threadIdx][subresource] : dstState;
 		numBarriers = SetBarrier(barriers.data(), ResourceState::COPY_SOURCE, numBarriers, subresource,
-			BarrierFlag::NONE, threadIdx);
+			BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
 	}
 	pCommandList->Barrier(numBarriers, barriers.data());
 
@@ -567,8 +561,8 @@ bool Texture_DX12::ReadBack(CommandList* pCommandList, Buffer* pReadBuffer, uint
 
 	numBarriers = 0;
 	for (auto i = 0u; i < numSubresources; ++i)
-		numBarriers = SetBarrier(barriers.data(), dstStates[i], numBarriers,
-			firstSubresource + i, BarrierFlag::NONE, threadIdx);
+		numBarriers = SetBarrier(barriers.data(), dstStates[i], numBarriers, firstSubresource + i,
+			BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
 	pCommandList->Barrier(numBarriers, barriers.data());
 
 	return true;
@@ -731,21 +725,20 @@ bool Texture_DX12::CreateUAVs(uint16_t arraySize, Format format, uint8_t numMips
 	return true;
 }
 
-uint32_t Texture_DX12::SetBarrier(ResourceBarrier* pBarriers, ResourceState dstState,
-	uint32_t numBarriers, uint32_t subresource, BarrierFlag flags, uint32_t threadIdx)
+uint32_t Texture_DX12::SetBarrier(ResourceBarrier* pBarriers, ResourceState dstState, uint32_t numBarriers,
+	uint32_t subresource, BarrierFlag flags, ResourceState srcState, uint32_t threadIdx)
 {
-	return ShaderResource_DX12::SetBarrier(pBarriers, dstState,
-		numBarriers, subresource, flags, threadIdx);
+	return ShaderResource_DX12::SetBarrier(pBarriers, dstState, numBarriers, subresource, flags, srcState, threadIdx);
 }
 
 uint32_t Texture_DX12::SetBarrier(ResourceBarrier* pBarriers, uint8_t mipLevel, ResourceState dstState,
-	uint32_t numBarriers, uint32_t slice, BarrierFlag flags, uint32_t threadIdx)
+	uint32_t numBarriers, uint32_t slice, BarrierFlag flags, ResourceState srcState, uint32_t threadIdx)
 {
 	assert(m_resource);
 	const auto desc = m_resource->GetDesc();
 	const auto subresource = D3D12CalcSubresource(mipLevel, slice, 0, desc.MipLevels, desc.DepthOrArraySize);
 
-	return SetBarrier(pBarriers, dstState, numBarriers, subresource, flags, threadIdx);
+	return SetBarrier(pBarriers, dstState, numBarriers, subresource, flags, srcState, threadIdx);
 }
 
 void Texture_DX12::Blit(const CommandList* pCommandList, uint32_t groupSizeX, uint32_t groupSizeY,
@@ -781,7 +774,7 @@ uint32_t Texture_DX12::Blit(CommandList* pCommandList, ResourceBarrier* pBarrier
 
 	if (!mipLevel && srcMipLevel <= mipLevel)
 		numBarriers = SetBarrier(pBarriers, ResourceState::UNORDERED_ACCESS, numBarriers,
-			XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::NONE, threadIdx);
+			XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
 	else for (uint16_t i = 0; i < numSlices; ++i)
 	{
 		const uint16_t j = baseSlice + i;
@@ -792,7 +785,7 @@ uint32_t Texture_DX12::Blit(CommandList* pCommandList, ResourceBarrier* pBarrier
 			m_states[threadIdx][subresource] = ResourceState::UNORDERED_ACCESS;
 		}
 		numBarriers = SetBarrier(pBarriers, srcMipLevel, srcState,
-			numBarriers, j, BarrierFlag::NONE, threadIdx);
+			numBarriers, j, BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
 	}
 
 	if (numBarriers > prevBarriers)
@@ -818,7 +811,7 @@ uint32_t Texture_DX12::GenerateMips(CommandList* pCommandList, ResourceBarrier* 
 
 	if (!(numMips || baseMip || numSlices || baseSlice))
 		numBarriers = SetBarrier(pBarriers, ResourceState::UNORDERED_ACCESS, numBarriers,
-			XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::NONE, threadIdx);
+			XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
 
 	const auto desc = m_resource->GetDesc();
 	if (!numSlices) numSlices = desc.DepthOrArraySize - baseSlice;
@@ -841,8 +834,8 @@ uint32_t Texture_DX12::GenerateMips(CommandList* pCommandList, ResourceBarrier* 
 
 			subresource = D3D12CalcSubresource(j - 1, n, 0, desc.MipLevels, desc.DepthOrArraySize);
 			if ((m_states[threadIdx][subresource] & dstState) != dstState)
-				numBarriers = SetBarrier(pBarriers, dstState, numBarriers,
-					subresource, BarrierFlag::NONE, threadIdx);
+				numBarriers = SetBarrier(pBarriers, dstState, numBarriers, subresource,
+					BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
 		}
 
 		pCommandList->Barrier(numBarriers, pBarriers);
@@ -854,8 +847,8 @@ uint32_t Texture_DX12::GenerateMips(CommandList* pCommandList, ResourceBarrier* 
 
 	const auto m = baseMip + numMips - 1;
 	for (uint16_t i = 0; i < numSlices; ++i)
-		numBarriers = SetBarrier(pBarriers, m, dstState, numBarriers,
-			baseSlice + i, BarrierFlag::NONE, threadIdx);
+		numBarriers = SetBarrier(pBarriers, m, dstState, numBarriers, baseSlice + i,
+			BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
 
 	return numBarriers;
 }
@@ -1104,14 +1097,14 @@ uint32_t RenderTarget_DX12::Blit(CommandList* pCommandList, ResourceBarrier* pBa
 
 	if (!mipLevel && srcMipLevel <= mipLevel)
 		numBarriers = SetBarrier(pBarriers, ResourceState::RENDER_TARGET, numBarriers,
-			XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::NONE, threadIdx);
+			XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
 	else for (uint16_t i = 0; i < numSlices; ++i)
 	{
 		const auto j = baseSlice + i;
 		numBarriers = SetBarrier(pBarriers, mipLevel, ResourceState::RENDER_TARGET,
-			numBarriers, j, BarrierFlag::NONE, threadIdx);
-		numBarriers = SetBarrier(pBarriers, srcMipLevel, srcState,
-			numBarriers, j, BarrierFlag::NONE, threadIdx);
+			numBarriers, j, BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
+		numBarriers = SetBarrier(pBarriers, srcMipLevel, srcState, numBarriers,
+			j, BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
 	}
 
 	if (numBarriers > prevBarriers)
@@ -1139,7 +1132,7 @@ uint32_t RenderTarget_DX12::GenerateMips(CommandList* pCommandList, ResourceBarr
 
 	if (!(numMips || baseMip || numSlices || baseSlice))
 		numBarriers = SetBarrier(pBarriers, ResourceState::RENDER_TARGET, numBarriers,
-			XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::NONE, threadIdx);
+			XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
 
 	const auto& desc = m_resource->GetDesc();
 	if (!numSlices) numSlices = desc.DepthOrArraySize - baseSlice;
@@ -1154,12 +1147,12 @@ uint32_t RenderTarget_DX12::GenerateMips(CommandList* pCommandList, ResourceBarr
 		{
 			const uint16_t n = baseSlice + k;
 			numBarriers = SetBarrier(pBarriers, j, ResourceState::RENDER_TARGET,
-				numBarriers, n, BarrierFlag::NONE, threadIdx);
+				numBarriers, n, BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
 
 			const auto subresource = D3D12CalcSubresource(j - 1, n, 0, desc.MipLevels, desc.DepthOrArraySize);
 			if ((m_states[threadIdx][subresource] & dstState) != dstState)
-				numBarriers = SetBarrier(pBarriers, dstState, numBarriers,
-					subresource, BarrierFlag::NONE, threadIdx);
+				numBarriers = SetBarrier(pBarriers, dstState, numBarriers, subresource,
+					BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
 		}
 
 		pCommandList->Barrier(numBarriers, pBarriers);
@@ -1172,8 +1165,8 @@ uint32_t RenderTarget_DX12::GenerateMips(CommandList* pCommandList, ResourceBarr
 
 	const auto m = baseMip + numMips - 1;
 	for (uint16_t i = 0; i < numSlices; ++i)
-		numBarriers = SetBarrier(pBarriers, m, dstState, numBarriers,
-			baseSlice + i, BarrierFlag::NONE, threadIdx);
+		numBarriers = SetBarrier(pBarriers, m, dstState, numBarriers, baseSlice + i,
+			BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
 
 	return numBarriers;
 }
@@ -1817,15 +1810,15 @@ bool Buffer_DX12::Upload(CommandList* pCommandList, Resource* pUploader, const v
 	uploaderResource->Unmap(0, nullptr);
 
 	ResourceBarrier barrier;
-	const auto& srcState = m_states[threadIdx][0];
 	auto numBarriers = SetBarrier(&barrier, ResourceState::COPY_DEST, 0, XUSG_BARRIER_ALL_SUBRESOURCES,
-		srcState != ResourceState::COMMON ? BarrierFlag::NONE : BarrierFlag::RESET_SRC_STATE, threadIdx);
+		BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
 	pCommandList->Barrier(numBarriers, &barrier);
 
 	const auto pGraphicsCommandList = static_cast<ID3D12GraphicsCommandList*>(pCommandList->GetHandle());
 	pGraphicsCommandList->CopyBufferRegion(m_resource.get(), offset, uploaderResource.get(), 0, size);
 
-	numBarriers = SetBarrier(&barrier, dstState, 0, XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::NONE, threadIdx);
+	numBarriers = SetBarrier(&barrier, dstState, 0, XUSG_BARRIER_ALL_SUBRESOURCES,
+		BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
 	pCommandList->Barrier(numBarriers, &barrier);
 
 	return true;
@@ -1856,13 +1849,14 @@ bool Buffer_DX12::ReadBack(CommandList* pCommandList, Buffer* pReadBuffer, size_
 	ResourceBarrier barrier;
 	dstState = dstState == ResourceState::COMMON ? m_states[threadIdx][0] : dstState;
 	auto numBarriers = SetBarrier(&barrier, ResourceState::COPY_SOURCE, 0,
-		XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::NONE, threadIdx);
+		XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
 	pCommandList->Barrier(numBarriers, &barrier);
 
 	const auto pGraphicsCommandList = static_cast<ID3D12GraphicsCommandList*>(pCommandList->GetHandle());
 	pGraphicsCommandList->CopyBufferRegion(readResource.get(), dstOffset, m_resource.get(), srcOffset, readSize);
 
-	numBarriers = SetBarrier(&barrier, dstState, 0, XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::NONE, threadIdx);
+	numBarriers = SetBarrier(&barrier, dstState, 0, XUSG_BARRIER_ALL_SUBRESOURCES,
+		BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
 	pCommandList->Barrier(numBarriers, &barrier);
 
 	return true;

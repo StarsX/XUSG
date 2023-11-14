@@ -42,35 +42,44 @@ bool RayTracing::CommandList_DX12::CreateInterface()
 }
 
 void RayTracing::CommandList_DX12::BuildRaytracingAccelerationStructure(const BuildDesc* pDesc, uint32_t numPostbuildInfoDescs,
-	const PostbuildInfo* pPostbuildInfoDescs, const DescriptorHeap& descriptorHeap) const
+	const PostbuildInfo* pPostbuildInfoDescs, const DescriptorHeap* pDescriptorHeap) const
 {
-	const D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_TYPE infoTypes[] =
-	{
-		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_COMPACTED_SIZE,
-		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_TOOLS_VISUALIZATION,
-		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_SERIALIZATION,
-		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_CURRENT_SIZE
-	};
-
 	assert(numPostbuildInfoDescs == 0 || pPostbuildInfoDescs);
 	vector<D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_DESC> postbuildInfoDescs(numPostbuildInfoDescs);
 	for (auto i = 0u; i < numPostbuildInfoDescs; ++i)
 	{
 		postbuildInfoDescs[i].DestBuffer = pPostbuildInfoDescs[i].DestBuffer;
-		postbuildInfoDescs[i].InfoType = infoTypes[pPostbuildInfoDescs[i].InfoType];
+		postbuildInfoDescs[i].InfoType = GetDXRAccelerationStructurePostbuildInfoType(pPostbuildInfoDescs[i].InfoType);
 	}
 
+	// Set the descriptor heaps to be used during acceleration structure build for the Fallback Layer.
 	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(m_pDeviceRT->GetRTHandle());
-	if (!pDxDevice->UsingRaytracingDriver())
-	{
-		// Set the descriptor heaps to be used during acceleration structure build for the Fallback Layer.
-		const auto pDescriptorHeap = reinterpret_cast<ID3D12DescriptorHeap*>(descriptorHeap);
-		m_commandListRT->SetDescriptorHeaps(1, &pDescriptorHeap);
-	}
-	
+	if (!pDxDevice->UsingRaytracingDriver() && pDescriptorHeap) SetDescriptorHeaps(1, pDescriptorHeap);
+
+	assert(pDesc);
 	const auto pBuildDesc = static_cast<const D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC*>(pDesc);
 	m_commandListRT->BuildRaytracingAccelerationStructure(pBuildDesc, numPostbuildInfoDescs,
 		pPostbuildInfoDescs ? postbuildInfoDescs.data() : nullptr, AccelerationStructure::GetUAVCount());
+}
+
+void RayTracing::CommandList_DX12::EmitRaytracingAccelerationStructurePostbuildInfo(const PostbuildInfo* pDesc,
+	uint32_t numAccelerationStructures, const uint64_t* pAccelerationStructureData) const
+{
+	assert(pDesc);
+	D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_DESC desc;
+	desc.DestBuffer = pDesc->DestBuffer;
+	desc.InfoType = GetDXRAccelerationStructurePostbuildInfoType(pDesc->InfoType);
+
+	m_commandListRT->EmitRaytracingAccelerationStructurePostbuildInfo(&desc, numAccelerationStructures,
+		pAccelerationStructureData, AccelerationStructure::GetUAVCount());
+}
+
+void RayTracing::CommandList_DX12::CopyRaytracingAccelerationStructure(const AccelerationStructure* pDst,
+	const AccelerationStructure* pSrc, AccelerationStructureCopyMode mode) const
+{
+	m_commandListRT->CopyRaytracingAccelerationStructure(pDst->GetResource()->GetVirtualAddress(),
+		pSrc->GetResource()->GetVirtualAddress(), GetDXRAccelerationStructureCopyMode(mode),
+		AccelerationStructure::GetUAVCount());
 }
 
 void RayTracing::CommandList_DX12::SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps) const
@@ -85,7 +94,7 @@ void RayTracing::CommandList_DX12::SetTopLevelAccelerationStructure(uint32_t ind
 	SetTopLevelAccelerationStructure(index, pTopLevelAS ? pTopLevelAS->GetResourcePointer() : 0);
 }
 
-void XUSG::RayTracing::CommandList_DX12::SetTopLevelAccelerationStructure(uint32_t index, uint64_t topLevelASPtr) const
+void RayTracing::CommandList_DX12::SetTopLevelAccelerationStructure(uint32_t index, uint64_t topLevelASPtr) const
 {
 	m_commandListRT->SetTopLevelAccelerationStructure(index,
 		reinterpret_cast<const WRAPPED_GPU_POINTER&>(topLevelASPtr));
@@ -141,4 +150,33 @@ void RayTracing::CommandList_DX12::DispatchRays(const Pipeline& pipeline,
 const RayTracing::Device* RayTracing::CommandList_DX12::GetRTDevice() const
 {
 	return m_pDeviceRT;
+}
+
+D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_TYPE XUSG::RayTracing::GetDXRAccelerationStructurePostbuildInfoType(
+	AccelerationStructurePostbuildInfoType type)
+{
+	static const D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_TYPE postbuildInfoTypes[] =
+	{
+		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_COMPACTED_SIZE,
+		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_TOOLS_VISUALIZATION,
+		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_SERIALIZATION,
+		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_CURRENT_SIZE
+	};
+
+	return postbuildInfoTypes[static_cast<uint32_t>(type)];
+}
+
+D3D12_RAYTRACING_ACCELERATION_STRUCTURE_COPY_MODE XUSG::RayTracing::GetDXRAccelerationStructureCopyMode(
+	AccelerationStructureCopyMode mode)
+{
+	static const D3D12_RAYTRACING_ACCELERATION_STRUCTURE_COPY_MODE copyModes[] =
+	{
+		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_COPY_MODE_CLONE,
+		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_COPY_MODE_COMPACT,
+		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_COPY_MODE_VISUALIZATION_DECODE_FOR_TOOLS,
+		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_COPY_MODE_SERIALIZE,
+		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_COPY_MODE_DESERIALIZE
+	};
+
+	return copyModes[static_cast<uint32_t>(mode)];
 }

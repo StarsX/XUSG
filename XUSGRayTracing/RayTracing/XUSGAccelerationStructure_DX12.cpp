@@ -26,9 +26,14 @@ AccelerationStructure_DX12::~AccelerationStructure_DX12()
 {
 }
 
-RawBuffer::sptr AccelerationStructure_DX12::GetResource() const
+Buffer::sptr AccelerationStructure_DX12::GetResource() const
 {
 	return m_resource;
+}
+
+Buffer::sptr AccelerationStructure_DX12::GetPostbuildInfo() const
+{
+	return m_postbuildInfo;
 }
 
 uint32_t AccelerationStructure_DX12::GetResultDataMaxSize() const
@@ -89,7 +94,7 @@ bool AccelerationStructure_DX12::AllocateUploadBuffer(const XUSG::Device* pDevic
 	return true;
 }
 
-bool AccelerationStructure_DX12::preBuild(const Device* pDevice, uint32_t descriptorIndex, uint32_t numSRVs)
+bool AccelerationStructure_DX12::preBuild(const Device* pDevice)
 {
 	const auto& inputs = m_buildDesc.Inputs;
 	assert(pDevice->GetHandle());
@@ -102,8 +107,11 @@ bool AccelerationStructure_DX12::preBuild(const Device* pDevice, uint32_t descri
 	m_prebuildInfo.ScratchDataSizeInBytes = prebuildInfo.ScratchDataSizeInBytes;
 	m_prebuildInfo.UpdateScratchDataSizeInBytes = prebuildInfo.UpdateScratchDataSizeInBytes;
 
-	XUSG_N_RETURN(m_prebuildInfo.ResultDataMaxSizeInBytes > 0, false);
+	return m_prebuildInfo.ResultDataMaxSizeInBytes > 0;
+}
 
+bool AccelerationStructure_DX12::allocate(const Device* pDevice, size_t byteWidth, uint32_t descriptorIndex, uint32_t numSRVs)
+{
 	// Allocate resources for acceleration structures.
 	// Acceleration structures can only be placed in resources that are created in the default heap (or custom heap equivalent). 
 	// Default heap is OK since the application doesn't need CPU read/write access to them. 
@@ -112,8 +120,10 @@ bool AccelerationStructure_DX12::preBuild(const Device* pDevice, uint32_t descri
 	//  - the system will be doing this type of access in its implementation of acceleration structure builds behind the scenes.
 	//  - from the app point of view, synchronization of writes/reads to acceleration structures is accomplished using UAV barriers.
 	m_resource = Buffer::MakeShared();
+	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(pDevice->GetRTHandle());
 	const auto resourceFlags = pDxDevice->UsingRaytracingDriver() ? ResourceFlag::ACCELERATION_STRUCTURE : ResourceFlag::ALLOW_UNORDERED_ACCESS;
-	XUSG_N_RETURN(m_resource->Create(pDevice, GetResultDataMaxSize(), resourceFlags, MemoryType::DEFAULT, numSRVs), false);
+	byteWidth = byteWidth > 0 ? byteWidth : GetResultDataMaxSize();
+	XUSG_N_RETURN(m_resource->Create(pDevice, byteWidth, resourceFlags, MemoryType::DEFAULT, numSRVs), false);
 
 	// The Fallback Layer interface uses WRAPPED_GPU_POINTER to encapsulate the underlying pointer
 	// which will either be an emulated GPU pointer for the compute - based path or a GPU_VIRTUAL_ADDRESS for the DXR path.
@@ -136,7 +146,7 @@ BottomLevelAS_DX12::~BottomLevelAS_DX12()
 }
 
 bool BottomLevelAS_DX12::PreBuild(const Device* pDevice, uint32_t numGeometries,
-	const GeometryBuffer& geometries, uint32_t descriptorIndex, BuildFlag flags)
+	const GeometryBuffer& geometries, BuildFlag flags)
 {
 	m_buildDesc = {};
 	auto& inputs = m_buildDesc.Inputs;
@@ -147,11 +157,16 @@ bool BottomLevelAS_DX12::PreBuild(const Device* pDevice, uint32_t numGeometries,
 	inputs.pGeometryDescs = reinterpret_cast<const D3D12_RAYTRACING_GEOMETRY_DESC*>(geometries.data());
 
 	// Get required sizes for an acceleration structure.
-	return preBuild(pDevice, descriptorIndex);
+	return preBuild(pDevice);
 }
 
-void BottomLevelAS_DX12::Build(CommandList* pCommandList, const Resource* pScratch,
-	const DescriptorHeap& descriptorHeap, const BottomLevelAS* pSource)
+bool BottomLevelAS_DX12::Allocate(const Device* pDevice, uint32_t descriptorIndex, size_t byteWidth)
+{
+	return allocate(pDevice, byteWidth, descriptorIndex, 0);
+}
+
+void BottomLevelAS_DX12::Build(CommandList* pCommandList, const Resource* pScratch, const BottomLevelAS* pSource,
+	uint8_t numPostbuildInfoDescs, const AccelerationStructurePostbuildInfoType* pPostbuildInfoTypes)
 {
 	// Complete Acceleration Structure desc
 	{
@@ -166,8 +181,23 @@ void BottomLevelAS_DX12::Build(CommandList* pCommandList, const Resource* pScrat
 		m_buildDesc.ScratchAccelerationStructureData = pScratch->GetVirtualAddress();
 	}
 
+	if (numPostbuildInfoDescs > 0)
+	{
+		m_postbuildInfo = Buffer::MakeShared();
+		m_postbuildInfo->Create(pCommandList->GetDevice(), sizeof(uint64_t) * numPostbuildInfoDescs,
+			ResourceFlag::DENY_SHADER_RESOURCE, MemoryType::READBACK);
+	}
+
+	vector<PostbuildInfo> postbuildInfoDescs(numPostbuildInfoDescs);
+	for (uint8_t i = 0; i < numPostbuildInfoDescs; ++i)
+	{
+		postbuildInfoDescs[i].DestBuffer = m_postbuildInfo->GetVirtualAddress() + sizeof(uint64_t) * i;
+		postbuildInfoDescs[i].InfoType = pPostbuildInfoTypes[i];
+	}
+
 	// Build acceleration structure.
-	pCommandList->BuildRaytracingAccelerationStructure(&m_buildDesc, 0, nullptr, descriptorHeap);
+	pCommandList->BuildRaytracingAccelerationStructure(&m_buildDesc, numPostbuildInfoDescs,
+		numPostbuildInfoDescs > 0 ? postbuildInfoDescs.data() : nullptr);
 }
 
 void BottomLevelAS_DX12::SetTriangleGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
@@ -238,8 +268,7 @@ TopLevelAS_DX12::~TopLevelAS_DX12()
 {
 }
 
-bool TopLevelAS_DX12::PreBuild(const Device* pDevice, uint32_t numInstances,
-	uint32_t descriptorIndex, BuildFlag flags)
+bool TopLevelAS_DX12::PreBuild(const Device* pDevice, uint32_t numInstances, BuildFlag flags)
 {
 	m_buildDesc = {};
 	auto& inputs = m_buildDesc.Inputs;
@@ -249,11 +278,18 @@ bool TopLevelAS_DX12::PreBuild(const Device* pDevice, uint32_t numInstances,
 	inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
 
 	// Get required sizes for an acceleration structure.
-	return preBuild(pDevice, descriptorIndex, 1);
+	return preBuild(pDevice);
+}
+
+bool TopLevelAS_DX12::Allocate(const Device* pDevice, uint32_t descriptorIndex, size_t byteWidth)
+{
+	return allocate(pDevice, byteWidth, descriptorIndex, 1);
 }
 
 void TopLevelAS_DX12::Build(const CommandList* pCommandList, const Resource* pScratch,
-	const Resource* pInstanceDescs, const DescriptorHeap& descriptorHeap, const TopLevelAS* pSource)
+	const Resource* pInstanceDescs, const DescriptorHeap& descriptorHeap,
+	const TopLevelAS* pSource, uint8_t numPostbuildInfoDescs,
+	const AccelerationStructurePostbuildInfoType* pPostbuildInfoTypes)
 {
 	// Complete Acceleration Structure desc
 	{
@@ -269,8 +305,23 @@ void TopLevelAS_DX12::Build(const CommandList* pCommandList, const Resource* pSc
 		m_buildDesc.ScratchAccelerationStructureData = pScratch->GetVirtualAddress();
 	}
 
+	if (numPostbuildInfoDescs > 0)
+	{
+		m_postbuildInfo = Buffer::MakeShared();
+		m_postbuildInfo->Create(pCommandList->GetDevice(), sizeof(uint64_t) * numPostbuildInfoDescs,
+			ResourceFlag::DENY_SHADER_RESOURCE, MemoryType::READBACK);
+	}
+
+	vector<PostbuildInfo> postbuildInfoDescs(numPostbuildInfoDescs);
+	for (uint8_t i = 0; i < numPostbuildInfoDescs; ++i)
+	{
+		postbuildInfoDescs[i].DestBuffer = m_postbuildInfo->GetVirtualAddress() + sizeof(uint64_t) * i;
+		postbuildInfoDescs[i].InfoType = pPostbuildInfoTypes[i];
+	}
+
 	// Build acceleration structure.
-	pCommandList->BuildRaytracingAccelerationStructure(&m_buildDesc, 0, nullptr, descriptorHeap);
+	pCommandList->BuildRaytracingAccelerationStructure(&m_buildDesc, numPostbuildInfoDescs,
+		numPostbuildInfoDescs > 0 ? postbuildInfoDescs.data() : nullptr, &descriptorHeap);
 }
 
 void TopLevelAS_DX12::SetInstances(const RayTracing::Device* pDevice, Resource* pInstances,

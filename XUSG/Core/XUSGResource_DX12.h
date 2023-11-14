@@ -20,10 +20,11 @@ namespace XUSG
 
 		uint32_t SetBarrier(ResourceBarrier* pBarriers, ResourceState dstState,
 			uint32_t numBarriers = 0, uint32_t subresource = XUSG_BARRIER_ALL_SUBRESOURCES,
-			BarrierFlag flags = BarrierFlag::NONE, uint32_t threadIdx = 0);
+			BarrierFlag flags = BarrierFlag::NONE, ResourceState srcState = ResourceState::AUTO,
+			uint32_t threadIdx = 0);
 
 		ResourceState Transition(ResourceState dstState, uint32_t subresource = XUSG_BARRIER_ALL_SUBRESOURCES,
-			BarrierFlag flag = BarrierFlag::NONE, uint32_t threadIdx = 0);
+			BarrierFlag flag = BarrierFlag::NONE, ResourceState srcState = ResourceState::AUTO, uint32_t threadIdx = 0);
 		ResourceState GetResourceState(uint32_t subresource = 0, uint32_t threadIdx = 0) const;
 
 		uint64_t GetWidth() const;
@@ -143,10 +144,11 @@ namespace XUSG
 
 		uint32_t SetBarrier(ResourceBarrier* pBarriers, ResourceState dstState,
 			uint32_t numBarriers = 0, uint32_t subresource = XUSG_BARRIER_ALL_SUBRESOURCES,
-			BarrierFlag flags = BarrierFlag::NONE, uint32_t threadIdx = 0);
+			BarrierFlag flags = BarrierFlag::NONE, ResourceState srcState = ResourceState::AUTO,
+			uint32_t threadIdx = 0);
 		uint32_t SetBarrier(ResourceBarrier* pBarriers, uint8_t mipLevel, ResourceState dstState,
 			uint32_t numBarriers = 0, uint32_t slice = 0, BarrierFlag flags = BarrierFlag::NONE,
-			uint32_t threadIdx = 0);
+			ResourceState srcState = ResourceState::AUTO, uint32_t threadIdx = 0);
 
 		void Blit(const CommandList* pCommandList, uint32_t groupSizeX, uint32_t groupSizeY,
 			uint32_t groupSizeZ, const DescriptorTable& uavSrvTable, uint32_t uavSrvSlot = 0,

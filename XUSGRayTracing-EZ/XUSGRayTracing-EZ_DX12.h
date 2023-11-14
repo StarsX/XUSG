@@ -57,14 +57,19 @@ namespace XUSG
 					BuildFlag flags = BuildFlag::PREFER_FAST_TRACE);
 				bool PreBuildTLAS(TopLevelAS* pTLAS, uint32_t numInstances,
 					BuildFlag flags = BuildFlag::PREFER_FAST_TRACE);
+				bool AllocateAccelerationStructure(AccelerationStructure* pAccelerationStructure, size_t byteWidth = 0);
 
 				void SetTriangleGeometries(GeometryBuffer& geometries, uint32_t numGeometries, Format vertexFormat,
 					XUSG::EZ::VertexBufferView* pVBs, XUSG::EZ::IndexBufferView* pIBs = nullptr,
 					const GeometryFlag* pGeometryFlags = nullptr, const ResourceView* pTransforms = nullptr);
 				void SetAABBGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
 					XUSG::EZ::VertexBufferView* pVBs, const GeometryFlag* pGeometryFlags = nullptr);
-				void BuildBLAS(BottomLevelAS* pBLAS, const BottomLevelAS* pSource = nullptr);
-				void BuildTLAS(TopLevelAS* pTLAS, const Resource* pInstanceDescs, const TopLevelAS* pSource = nullptr);
+				void BuildBLAS(BottomLevelAS* pBLAS, const BottomLevelAS* pSource = nullptr,
+					uint8_t numPostbuildInfoDescs = 0, const AccelerationStructurePostbuildInfoType* pPostbuildInfoTypes = nullptr);
+				void BuildTLAS(TopLevelAS* pTLAS, const Resource* pInstanceDescs, const TopLevelAS* pSource = nullptr,
+					uint8_t numPostbuildInfoDescs = 0, const AccelerationStructurePostbuildInfoType* pPostbuildInfoTypes = nullptr);
+				void CopyRaytracingAccelerationStructure(const AccelerationStructure* pDst,
+					const AccelerationStructure* pSrc, AccelerationStructureCopyMode mode);
 				void SetTopLevelAccelerationStructure(uint32_t index, const TopLevelAS* pTopLevelAS) const;
 				void RTSetShaderLibrary(uint32_t index, const Blob& shaderLib,
 					uint32_t numShaders = 0, const wchar_t** pShaderNames = nullptr);
