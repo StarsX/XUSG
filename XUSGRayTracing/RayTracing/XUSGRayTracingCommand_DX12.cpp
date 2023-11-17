@@ -75,7 +75,7 @@ void RayTracing::CommandList_DX12::EmitRaytracingAccelerationStructurePostbuildI
 }
 
 void RayTracing::CommandList_DX12::CopyRaytracingAccelerationStructure(const AccelerationStructure* pDst,
-	const AccelerationStructure* pSrc, AccelerationStructureCopyMode mode) const
+	const AccelerationStructure* pSrc, CopyMode mode) const
 {
 	m_commandListRT->CopyRaytracingAccelerationStructure(pDst->GetResource()->GetVirtualAddress(),
 		pSrc->GetResource()->GetVirtualAddress(), GetDXRAccelerationStructureCopyMode(mode),
@@ -153,7 +153,7 @@ const RayTracing::Device* RayTracing::CommandList_DX12::GetRTDevice() const
 }
 
 D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_TYPE XUSG::RayTracing::GetDXRAccelerationStructurePostbuildInfoType(
-	AccelerationStructurePostbuildInfoType type)
+	PostbuildInfoType type)
 {
 	static const D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_TYPE postbuildInfoTypes[] =
 	{
@@ -167,7 +167,7 @@ D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_TYPE XUSG::RayTracing::Ge
 }
 
 D3D12_RAYTRACING_ACCELERATION_STRUCTURE_COPY_MODE XUSG::RayTracing::GetDXRAccelerationStructureCopyMode(
-	AccelerationStructureCopyMode mode)
+	CopyMode mode)
 {
 	static const D3D12_RAYTRACING_ACCELERATION_STRUCTURE_COPY_MODE copyModes[] =
 	{

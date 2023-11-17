@@ -48,7 +48,7 @@ namespace XUSG
 			PROCEDURAL
 		};
 
-		enum class AccelerationStructurePostbuildInfoType : uint8_t
+		enum class PostbuildInfoType : uint8_t
 		{
 			COMPACTED_SIZE,
 			TOOLS_VISUALIZATION,
@@ -56,7 +56,7 @@ namespace XUSG
 			CURRENT_SIZE
 		};
 
-		enum class AccelerationStructureCopyMode : uint8_t
+		enum class CopyMode : uint8_t
 		{
 			CLONE,
 			COMPACT,
@@ -78,7 +78,7 @@ namespace XUSG
 		struct PostbuildInfo
 		{
 			uint64_t DestBuffer;
-			AccelerationStructurePostbuildInfoType InfoType;
+			PostbuildInfoType InfoType;
 		};
 
 		struct ResourceView
@@ -152,11 +152,11 @@ namespace XUSG
 			//BottomLevelAS();
 			virtual ~BottomLevelAS() {}
 
-			virtual bool PreBuild(const Device* pDevice, uint32_t numGeometries, const GeometryBuffer& geometries,
+			virtual bool Prebuild(const Device* pDevice, uint32_t numGeometries, const GeometryBuffer& geometries,
 				BuildFlag flags = BuildFlag::PREFER_FAST_TRACE) = 0;
 			virtual void Build(CommandList* pCommandList, const Resource* pScratch,
 				const BottomLevelAS* pSource = nullptr, uint8_t numPostbuildInfoDescs = 0,
-				const AccelerationStructurePostbuildInfoType* pPostbuildInfoTypes = nullptr) = 0;
+				const PostbuildInfoType* pPostbuildInfoTypes = nullptr) = 0;
 
 			static void SetTriangleGeometries(GeometryBuffer& geometries, uint32_t numGeometries, Format vertexFormat,
 				const VertexBufferView* pVBs, const IndexBufferView* pIBs = nullptr,
@@ -193,12 +193,12 @@ namespace XUSG
 			//TopLevelAS();
 			virtual ~TopLevelAS() {}
 
-			virtual bool PreBuild(const Device* pDevice, uint32_t numInstances,
+			virtual bool Prebuild(const Device* pDevice, uint32_t numInstances,
 				BuildFlag flags = BuildFlag::PREFER_FAST_TRACE) = 0;
-			virtual void Build(const CommandList* pCommandList, const Resource* pScratch,
+			virtual void Build(CommandList* pCommandList, const Resource* pScratch,
 				const Resource* pInstanceDescs, const DescriptorHeap& descriptorHeap,
 				const TopLevelAS* pSource = nullptr, uint8_t numPostbuildInfoDescs = 0,
-				const AccelerationStructurePostbuildInfoType* pPostbuildInfoTypes = nullptr) = 0;
+				const PostbuildInfoType* pPostbuildInfoTypes = nullptr) = 0;
 
 			static void SetInstances(const Device* pDevice, Resource* pInstances,
 				uint32_t numInstances, const BottomLevelAS* const* ppBottomLevelASs,
@@ -293,7 +293,7 @@ namespace XUSG
 			virtual void EmitRaytracingAccelerationStructurePostbuildInfo(const PostbuildInfo* pDesc,
 				uint32_t numAccelerationStructures, const uint64_t* pAccelerationStructureData) const = 0;
 			virtual void CopyRaytracingAccelerationStructure(const AccelerationStructure* pDst,
-				const AccelerationStructure* pSrc, AccelerationStructureCopyMode mode) const = 0;
+				const AccelerationStructure* pSrc, CopyMode mode) const = 0;
 
 			virtual void SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps) const = 0;
 			virtual void SetTopLevelAccelerationStructure(uint32_t index, const TopLevelAS* pTopLevelAS) const = 0;

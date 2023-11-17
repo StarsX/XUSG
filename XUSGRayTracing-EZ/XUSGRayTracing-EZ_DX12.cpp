@@ -127,7 +127,7 @@ bool EZ::CommandList_DXR::Reset(const CommandAllocator* pAllocator, const Pipeli
 	return XUSG::EZ::CommandList_DX12::Reset(pAllocator, initialState);
 }
 
-bool EZ::CommandList_DXR::PreBuildBLAS(BottomLevelAS* pBLAS, uint32_t numGeometries,
+bool EZ::CommandList_DXR::PrebuildBLAS(BottomLevelAS* pBLAS, uint32_t numGeometries,
 	const GeometryBuffer& geometries, BuildFlag flags)
 {
 	// Set barrier command
@@ -135,17 +135,17 @@ bool EZ::CommandList_DXR::PreBuildBLAS(BottomLevelAS* pBLAS, uint32_t numGeometr
 	m_barriers.clear();
 
 	assert(pBLAS);
-	XUSG_N_RETURN(pBLAS->PreBuild(m_pDeviceRT, numGeometries, geometries, flags), false);
+	XUSG_N_RETURN(pBLAS->Prebuild(m_pDeviceRT, numGeometries, geometries, flags), false);
 
 	m_scratchSize = (max)(m_scratchSize, pBLAS->GetScratchDataMaxSize());
 
 	return true;
 }
 
-bool EZ::CommandList_DXR::PreBuildTLAS(TopLevelAS* pTLAS, uint32_t numInstances, BuildFlag flags)
+bool EZ::CommandList_DXR::PrebuildTLAS(TopLevelAS* pTLAS, uint32_t numInstances, BuildFlag flags)
 {
 	assert(pTLAS);
-	XUSG_N_RETURN(pTLAS->PreBuild(m_pDeviceRT, numInstances, flags), false);
+	XUSG_N_RETURN(pTLAS->Prebuild(m_pDeviceRT, numInstances, flags), false);
 
 	m_scratchSize = (max)(m_scratchSize, pTLAS->GetScratchDataMaxSize());
 
@@ -235,7 +235,7 @@ void EZ::CommandList_DXR::SetAABBGeometries(GeometryBuffer& geometries, uint32_t
 }
 
 void EZ::CommandList_DXR::BuildBLAS(BottomLevelAS* pBLAS, const BottomLevelAS* pSource,
-	uint8_t numPostbuildInfoDescs, const AccelerationStructurePostbuildInfoType* pPostbuildInfoTypes)
+	uint8_t numPostbuildInfoDescs, const PostbuildInfoType* pPostbuildInfoTypes)
 {
 	assert(pBLAS);
 	const auto pScratch = needScratch(m_scratchSize);
@@ -246,7 +246,7 @@ void EZ::CommandList_DXR::BuildBLAS(BottomLevelAS* pBLAS, const BottomLevelAS* p
 }
 
 void EZ::CommandList_DXR::BuildTLAS(TopLevelAS* pTLAS, const Resource* pInstanceDescs, const TopLevelAS* pSource,
-	uint8_t numPostbuildInfoDescs, const AccelerationStructurePostbuildInfoType* pPostbuildInfoTypes)
+	uint8_t numPostbuildInfoDescs, const PostbuildInfoType* pPostbuildInfoTypes)
 {
 	assert(pTLAS);
 	const auto pScratch = needScratch(m_scratchSize);
@@ -258,8 +258,8 @@ void EZ::CommandList_DXR::BuildTLAS(TopLevelAS* pTLAS, const Resource* pInstance
 	XUSG::CommandList_DX12::Barrier(1, &barrier);
 }
 
-void EZ::CommandList_DXR::CopyRaytracingAccelerationStructure(const AccelerationStructure* pDst, const AccelerationStructure* pSrc,
-	AccelerationStructureCopyMode mode)
+void EZ::CommandList_DXR::CopyRaytracingAccelerationStructure(const AccelerationStructure* pDst,
+	const AccelerationStructure* pSrc, CopyMode mode)
 {
 	RayTracing::CommandList_DX12::CopyRaytracingAccelerationStructure(pDst, pSrc, mode);
 

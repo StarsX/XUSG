@@ -32,14 +32,15 @@ namespace XUSG
 				size_t byteWidth, void* pData);
 
 		protected:
-			bool preBuild(const Device* pDevice);
+			bool prebuild(const Device* pDevice);
 			bool allocate(const Device* pDevice, size_t byteWidth, uint32_t descriptorIndex, uint32_t numSRVs);
 
 			D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC m_buildDesc;
 			PrebuildInfo m_prebuildInfo;
 
 			Buffer::sptr m_resource;
-			Buffer::sptr m_postbuildInfo;
+			Buffer::sptr m_postbuildInfoRB;
+			Buffer::uptr m_postbuildInfo;
 			WRAPPED_GPU_POINTER m_pointer;
 		};
 
@@ -51,12 +52,12 @@ namespace XUSG
 			BottomLevelAS_DX12();
 			virtual ~BottomLevelAS_DX12();
 
-			bool PreBuild(const Device* pDevice, uint32_t numGeometries, const GeometryBuffer& geometries,
+			bool Prebuild(const Device* pDevice, uint32_t numGeometries, const GeometryBuffer& geometries,
 				BuildFlag flags = BuildFlag::PREFER_FAST_TRACE);
 			bool Allocate(const Device* pDevice, uint32_t descriptorIndex, size_t byteWidth = 0);
 			void Build(CommandList* pCommandList, const Resource* pScratch,
 				const BottomLevelAS* pSource = nullptr, uint8_t numPostbuildInfoDescs = 0,
-				const AccelerationStructurePostbuildInfoType* pPostbuildInfoTypes = nullptr);
+				const PostbuildInfoType* pPostbuildInfoTypes = nullptr);
 
 			static void SetTriangleGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
 				Format vertexFormat, const VertexBufferView* pVBs, const IndexBufferView* pIBs = nullptr,
@@ -73,12 +74,12 @@ namespace XUSG
 			TopLevelAS_DX12();
 			virtual ~TopLevelAS_DX12();
 
-			bool PreBuild(const Device* pDevice, uint32_t numInstances, BuildFlag flags = BuildFlag::PREFER_FAST_TRACE);
+			bool Prebuild(const Device* pDevice, uint32_t numInstances, BuildFlag flags = BuildFlag::PREFER_FAST_TRACE);
 			bool Allocate(const Device* pDevice, uint32_t descriptorIndex, size_t byteWidth = 0);
-			void Build(const CommandList* pCommandList, const Resource* pScratch,
+			void Build(CommandList* pCommandList, const Resource* pScratch,
 				const Resource* pInstanceDescs, const DescriptorHeap& descriptorHeap,
 				const TopLevelAS* pSource = nullptr, uint8_t numPostbuildInfoDescs = 0,
-				const AccelerationStructurePostbuildInfoType* pPostbuildInfoTypes = nullptr);
+				const PostbuildInfoType* pPostbuildInfoTypes = nullptr);
 
 			static void SetInstances(const Device* pDevice, Resource* pInstances, uint32_t numInstances,
 				const BottomLevelAS* const* ppBottomLevelASs, const float* const* transforms);
