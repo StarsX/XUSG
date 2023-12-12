@@ -27,7 +27,8 @@ namespace XUSG
 					const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
-					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr);
+					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
 				virtual ~CommandList_DX12();
 
 				bool Create(Ultimate::CommandList* pCommandList,
@@ -38,7 +39,8 @@ namespace XUSG
 					const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
-					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr);
+					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
 				bool Create(const Device* pDevice, void* pHandle,
 					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
@@ -48,6 +50,7 @@ namespace XUSG
 					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE,
 					const wchar_t* name = nullptr);
 
 				void SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions) const
@@ -66,7 +69,7 @@ namespace XUSG
 
 				void RSSetShadingRateImage(Resource* pShadingRateImage);
 
-				void SetPipelineState(const Pipeline& pipelineState);
+				void MSSetPipelineState(const Pipeline& pipelineState, const MeshShader::State* pState = nullptr);
 				void MSSetBlendState(MeshShader::BlendPreset preset, uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX);
 				void MSSetSample(uint8_t count, uint8_t quality = 0);
 				void MSSetRasterizerState(MeshShader::RasterizerPreset preset);
@@ -80,6 +83,8 @@ namespace XUSG
 					uint64_t argumentBufferOffset = 0,
 					Resource* pCountBuffer = nullptr,
 					uint64_t countBufferOffset = 0);
+
+				const XUSG::PipelineLayout& GetMSPipelineLayout() const;
 
 				Ultimate::CommandList* AsUltimateCommandList() { return dynamic_cast<Ultimate::CommandList*>(this); }
 
@@ -101,7 +106,8 @@ namespace XUSG
 					const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE],
 					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
 					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
-					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE]);
+					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
+					uint32_t slotExt, uint32_t spaceExt);
 
 				void predispatchMesh();
 

@@ -49,7 +49,13 @@
     <FxCompile Include="LoadTrianglesNoIndexBuffer.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="*Lib.hlsl">
+    <FxCompile Include="NullTraverseLib.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="StateMachineLib.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="TraverseShaderLib.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
     <FxCompile Include="TopLevelBuildBVHSplits.hlsl">
@@ -427,9 +433,6 @@
     <ClInclude Include="LoadPrimitivesBindings.h">
       <Filter>Headers</Filter>
     </ClInclude>
-    <ClInclude Include="ExperimentalRaytracing.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
     <ClInclude Include="StateObjectProcessing.hpp">
       <Filter>Headers</Filter>
     </ClInclude>
@@ -483,6 +486,9 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <CustomBuild Include="*Lib.hlsl" />
+    <CustomBuild Include="*Lib.hlsl" />
+    <CustomBuild Include="*Lib.hlsl" />
     <CustomBuild Include="*Lib.hlsl" />
   </ItemGroup>
 </Project>

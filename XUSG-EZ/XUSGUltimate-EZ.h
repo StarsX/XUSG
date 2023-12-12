@@ -37,7 +37,8 @@ namespace XUSG
 					const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
-					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr) = 0;
+					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE) = 0;
 				virtual bool Create(const Device* pDevice, void* pHandle,
 					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
@@ -47,6 +48,7 @@ namespace XUSG
 					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE,
 					const wchar_t* name = nullptr) = 0;
 
 				virtual void SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions) const = 0;
@@ -57,7 +59,7 @@ namespace XUSG
 				virtual void RSSetShadingRate(ShadingRate baseShadingRate, const ShadingRateCombiner* pCombiners) const = 0;
 				virtual void RSSetShadingRateImage(Resource* pShadingRateImage) = 0;
 
-				virtual void SetPipelineState(const Pipeline& pipelineState) = 0;
+				virtual void MSSetPipelineState(const Pipeline& pipelineState, const MeshShader::State* pState = nullptr) = 0;
 				virtual void MSSetBlendState(MeshShader::BlendPreset preset, uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX) = 0;
 				virtual void MSSetSample(uint8_t count, uint8_t quality = 0) = 0;
 				virtual void MSSetRasterizerState(MeshShader::RasterizerPreset preset) = 0;
@@ -71,6 +73,8 @@ namespace XUSG
 					uint64_t argumentBufferOffset = 0,
 					Resource* pCountBuffer = nullptr,
 					uint64_t countBufferOffset = 0) = 0;
+
+				virtual const XUSG::PipelineLayout& GetMSPipelineLayout() const = 0;
 
 				static uptr MakeUnique(API api = API::DIRECTX_12);
 				static sptr MakeShared(API api = API::DIRECTX_12);

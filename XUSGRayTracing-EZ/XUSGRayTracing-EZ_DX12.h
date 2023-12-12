@@ -28,7 +28,8 @@ namespace XUSG
 					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
-					uint32_t maxTLASSrvs = 0, uint32_t spaceTLAS = 0);
+					uint32_t maxTLASSrvs = 0, uint32_t spaceTLAS = 0,
+					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
 				virtual ~CommandList_DXR();
 
 				bool Create(RayTracing::CommandList* pCommandList,
@@ -40,7 +41,8 @@ namespace XUSG
 					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
-					uint32_t maxTLASSrvs = 0, uint32_t spaceTLAS = 0);
+					uint32_t maxTLASSrvs = 0, uint32_t spaceTLAS = 0,
+					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
 				bool Create(const RayTracing::Device* pDevice, void* pHandle,
 					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
@@ -51,6 +53,7 @@ namespace XUSG
 					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					uint32_t maxTLASSrvs = 0, uint32_t spaceTLAS = 0,
+					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE,
 					const wchar_t* name = nullptr);
 				bool Reset(const CommandAllocator* pAllocator, const Pipeline& initialState);
 				bool PrebuildBLAS(BottomLevelAS* pBLAS, uint32_t numGeometries, const GeometryBuffer& geometries,
@@ -78,6 +81,7 @@ namespace XUSG
 					const wchar_t* anyHitShaderName = nullptr, const wchar_t* intersectionShaderName = nullptr,
 					HitGroupType type = HitGroupType::TRIANGLES);
 				void RTSetMaxRecursionDepth(uint32_t depth);
+				void RTSetPipelineState(const Pipeline& pipelineState, RayTracing::State* pState = nullptr);
 				void DispatchRays(uint32_t width, uint32_t height, uint32_t depth, const wchar_t* rayGenShaderName,
 					const wchar_t* const* pMissShaderNames, uint32_t numMissShaders);
 				void DispatchRaysIndirect(const CommandLayout* pCommandlayout,
@@ -116,7 +120,7 @@ namespace XUSG
 				bool createComputePipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
 					const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
 					uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces,
-					uint32_t maxTLASSrvs, uint32_t spaceTLAS);
+					uint32_t maxTLASSrvs, uint32_t spaceTLAS, uint32_t slotExt, uint32_t spaceExt);
 
 				void predispatchRays(CShaderTablePtr& pRayGen, CShaderTablePtr& pHitGroup, CShaderTablePtr& pMiss,
 					const wchar_t* rayGenShaderName, const wchar_t* const* pMissShaderNames, uint32_t numMissShaders);
@@ -127,7 +131,7 @@ namespace XUSG
 					std::unordered_map<std::string, ShaderTable::uptr>& shaderTables,
 					uint32_t numShaderIDs);
 
-				RayTracing::PipelineLib::uptr m_RayTracingPipelineLib;
+				RayTracing::PipelineLib::uptr m_rayTracingPipelineLib;
 
 				uint32_t m_scratchSize;
 				std::vector<Resource::uptr> m_scratches;

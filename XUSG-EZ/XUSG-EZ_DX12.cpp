@@ -43,12 +43,13 @@ EZ::CommandList_DX12::CommandList_DX12(XUSG::CommandList* pCommandList, uint32_t
 	const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE],
 	const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
-	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE]) :
+	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
+	uint32_t slotExt, uint32_t spaceExt) :
 	CommandList_DX12()
 {
 	Create(pCommandList, samplerHeapSize, cbvSrvUavHeapSize, maxSamplers,
 		pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
-		maxCbvSpaces, maxSrvSpaces, maxUavSpaces);
+		maxCbvSpaces, maxSrvSpaces, maxUavSpaces, slotExt, spaceExt);
 }
 
 EZ::CommandList_DX12::~CommandList_DX12()
@@ -63,13 +64,14 @@ bool EZ::CommandList_DX12::Create(XUSG::CommandList* pCommandList,
 	const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE],
 	const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
-	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE])
+	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
+	uint32_t slotExt, uint32_t spaceExt)
 {
 	XUSG_N_RETURN(init(pCommandList, samplerHeapSize, cbvSrvUavHeapSize), false);
 
 	// Create common pipeline layouts
 	XUSG_N_RETURN(createGraphicsPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
-		pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces), false);
+		pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces, slotExt, spaceExt), false);
 
 	XUSG_N_RETURN(createComputePipelineLayouts(maxSamplers ? maxSamplers[Shader::Stage::CS] : 16,
 		pMaxCbvsEachSpace ? pMaxCbvsEachSpace[Shader::Stage::CS] : nullptr,
@@ -77,7 +79,8 @@ bool EZ::CommandList_DX12::Create(XUSG::CommandList* pCommandList,
 		pMaxUavsEachSpace ? pMaxUavsEachSpace[Shader::Stage::CS] : nullptr,
 		maxCbvSpaces ? maxCbvSpaces[Shader::Stage::CS] : 1,
 		maxSrvSpaces ? maxSrvSpaces[Shader::Stage::CS] : 1,
-		maxUavSpaces ? maxUavSpaces[Shader::Stage::CS] : 1), false);
+		maxUavSpaces ? maxUavSpaces[Shader::Stage::CS] : 1,
+		slotExt, spaceExt), false);
 
 	return true;
 }
@@ -91,7 +94,7 @@ bool EZ::CommandList_DX12::Create(const Device* pDevice, void* pHandle,
 	const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
-	const wchar_t* name)
+	uint32_t slotExt, uint32_t spaceExt, const wchar_t* name)
 {
 	m_pDevice = pDevice;
 	XUSG::CommandList_DX12::Create(pHandle, name);
@@ -332,11 +335,58 @@ void EZ::CommandList_DX12::SetComputeNodeMask(uint32_t nodeMask)
 	m_isComputeDirty = true;
 }
 
-void EZ::CommandList_DX12::SetPipelineState(const Pipeline& pipelineState)
+void EZ::CommandList_DX12::SetGraphicsPipelineState(const Pipeline& pipelineState, const Graphics::State* pState)
 {
-	XUSG::CommandList_DX12::SetPipelineState(pipelineState);
-	m_isGraphicsDirty = false;
-	m_isComputeDirty = false;
+	assert(pipelineState || pState);
+	Pipeline pipeline;
+
+	if (pState)
+	{
+		pipeline = pState->GetPipeline(m_graphicsPipelineLib.get());
+		if (pipelineState && pipeline != pipelineState)
+		{
+			pipeline = pipelineState;
+			m_graphicsPipelineLib->SetPipeline(pState->GetKey(), pipeline);
+		}
+	}
+	else pipeline = pipelineState;
+
+	if (pipeline)
+	{
+		if (m_pipeline != pipeline)
+		{
+			XUSG::CommandList_DX12::SetPipelineState(pipeline);
+			m_pipeline = pipeline;
+		}
+		m_isGraphicsDirty = false;
+	}
+}
+
+void EZ::CommandList_DX12::SetComputePipelineState(const Pipeline& pipelineState, const Compute::State* pState)
+{
+	assert(pipelineState || pState);
+	Pipeline pipeline;
+
+	if (pState)
+	{
+		pipeline = pState->GetPipeline(m_computePipelineLib.get());
+		if (pipelineState && pipeline != pipelineState)
+		{
+			pipeline = pipelineState;
+			m_computePipelineLib->SetPipeline(pState->GetKey(), pipeline);
+		}
+	}
+	else pipeline = pipelineState;
+
+	if (pipeline)
+	{
+		if (m_pipeline != pipeline)
+		{
+			XUSG::CommandList_DX12::SetPipelineState(pipeline);
+			m_pipeline = pipeline;
+		}
+		m_isComputeDirty = false;
+	}
 }
 
 void EZ::CommandList_DX12::SetSamplers(Shader::Stage stage, uint32_t startBinding, uint32_t numSamplers, const Sampler* const* ppSamplers)
@@ -721,6 +771,16 @@ const Graphics::DepthStencil* EZ::CommandList_DX12::GetDepthStencil(Graphics::De
 	return m_graphicsPipelineLib->GetDepthStencil(preset);
 }
 
+const PipelineLayout& EZ::CommandList_DX12::GetGraphicsPipelineLayout() const
+{
+	return m_pipelineLayouts[GRAPHICS];
+}
+
+const XUSG::PipelineLayout& XUSG::EZ::CommandList_DX12::GetComputePipelineLayout() const
+{
+	return m_pipelineLayouts[COMPUTE];
+}
+
 bool EZ::CommandList_DX12::init(XUSG::CommandList* pCommandList, uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize)
 {
 	m_pDevice = pCommandList->GetDevice();
@@ -750,7 +810,8 @@ bool EZ::CommandList_DX12::createGraphicsPipelineLayouts(
 	const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_GRAPHICS],
 	const uint32_t maxCbvSpaces[Shader::Stage::NUM_GRAPHICS],
 	const uint32_t maxSrvSpaces[Shader::Stage::NUM_GRAPHICS],
-	const uint32_t maxUavSpaces[Shader::Stage::NUM_GRAPHICS])
+	const uint32_t maxUavSpaces[Shader::Stage::NUM_GRAPHICS],
+	uint32_t slotExt, uint32_t spaceExt)
 {
 	// Create common graphics pipeline layout
 	auto paramIndex = 0u;
@@ -819,6 +880,8 @@ bool EZ::CommandList_DX12::createGraphicsPipelineLayouts(
 		}
 	}
 
+	pipelineLayout->SetRange(paramIndex++, DescriptorType::UAV, 1, slotExt, spaceExt);
+
 	XUSG_X_RETURN(m_pipelineLayouts[GRAPHICS], pipelineLayout->GetPipelineLayout(m_pipelineLayoutLib.get(),
 		PipelineLayoutFlag::ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT, L"EZGraphicsLayout"), false);
 
@@ -827,7 +890,7 @@ bool EZ::CommandList_DX12::createGraphicsPipelineLayouts(
 
 bool EZ::CommandList_DX12::createComputePipelineLayouts(uint32_t maxSamplers,
 	const uint32_t* pMaxCbvsEachSpace, const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
-	uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces)
+	uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces, uint32_t slotExt, uint32_t spaceExt)
 {
 	// Create common compute pipeline layout
 	auto paramIndex = 0u;
@@ -871,6 +934,8 @@ bool EZ::CommandList_DX12::createComputePipelineLayouts(uint32_t maxSamplers,
 			pipelineLayout->SetRange(paramIndex++, DescriptorType::UAV, maxDescriptors, 0, s);
 		}
 	}
+
+	pipelineLayout->SetRange(paramIndex++, DescriptorType::UAV, 1, slotExt, spaceExt);
 
 	XUSG_X_RETURN(m_pipelineLayouts[COMPUTE], pipelineLayout->GetPipelineLayout(m_pipelineLayoutLib.get(),
 		PipelineLayoutFlag::NONE, L"EZComputeLayout"), false);

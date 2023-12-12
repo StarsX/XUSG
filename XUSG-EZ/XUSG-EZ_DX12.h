@@ -24,7 +24,8 @@ namespace XUSG
 				const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE],
 				const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
 				const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
-				const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE]);
+				const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
+				uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
 			virtual ~CommandList_DX12();
 
 			bool Create(XUSG::CommandList* pCommandList,
@@ -35,7 +36,8 @@ namespace XUSG
 				const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
-				const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr);
+				const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+				uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
 			bool Create(const Device* pDevice, void* pHandle,
 				uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 				const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
@@ -45,6 +47,7 @@ namespace XUSG
 				const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+				uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE,
 				const wchar_t* name = nullptr);
 			bool Close(RenderTarget* pBackBuffer = nullptr);
 			bool Reset(const CommandAllocator* pAllocator, const Pipeline& initialState);
@@ -113,7 +116,8 @@ namespace XUSG
 			void SetGraphicsNodeMask(uint32_t nodeMask);
 			void SetComputeShader(const Blob& shader);
 			void SetComputeNodeMask(uint32_t nodeMask);
-			void SetPipelineState(const Pipeline& pipelineState);
+			void SetGraphicsPipelineState(const Pipeline& pipelineState, const Graphics::State* pState = nullptr);
+			void SetComputePipelineState(const Pipeline& pipelineState, const Compute::State* pState = nullptr);
 			void ExecuteBundle(const XUSG::CommandList* pCommandList) const { XUSG::CommandList_DX12::ExecuteBundle(pCommandList); }
 			void SetSamplers(Shader::Stage stage, uint32_t startBinding, uint32_t numSamplers, const Sampler* const* ppSamplers);
 			void SetSamplerStates(Shader::Stage stage, uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerPresets);
@@ -192,6 +196,9 @@ namespace XUSG
 			const Graphics::Rasterizer* GetRasterizer(Graphics::RasterizerPreset preset);
 			const Graphics::DepthStencil* GetDepthStencil(Graphics::DepthStencilPreset preset);
 
+			const XUSG::PipelineLayout& GetGraphicsPipelineLayout() const;
+			const XUSG::PipelineLayout& GetComputePipelineLayout() const;
+
 			void* GetHandle() const { return XUSG::CommandList_DX12::GetHandle(); }
 			void* GetDeviceHandle() const { return XUSG::CommandList_DX12::GetDeviceHandle(); }
 
@@ -263,10 +270,12 @@ namespace XUSG
 				const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_GRAPHICS],
 				const uint32_t maxCbvSpaces[Shader::Stage::NUM_GRAPHICS],
 				const uint32_t maxSrvSpaces[Shader::Stage::NUM_GRAPHICS],
-				const uint32_t maxUavSpaces[Shader::Stage::NUM_GRAPHICS]);
+				const uint32_t maxUavSpaces[Shader::Stage::NUM_GRAPHICS],
+				uint32_t slotExt, uint32_t spaceExt);
 			bool createComputePipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
 				const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
-				uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces);
+				uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces,
+				uint32_t slotExt, uint32_t spaceExt);
 			bool createShaders();
 
 			void predraw();

@@ -17,7 +17,7 @@ using namespace XUSG::RayTracing;
 EZ::CommandList_DXR::CommandList_DXR() :
 	Ultimate::CommandList_DX12(),
 	Ultimate::EZ::CommandList_DX12(),
-	m_RayTracingPipelineLib(nullptr),
+	m_rayTracingPipelineLib(nullptr),
 	m_scratchSize(0),
 	m_scratches(0),
 	m_isRTStateDirty(false),
@@ -36,12 +36,14 @@ EZ::CommandList_DXR::CommandList_DXR(RayTracing::CommandList* pCommandList,
 	const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
-	uint32_t maxTLASSrvs, uint32_t spaceTLAS) :
+	uint32_t maxTLASSrvs, uint32_t spaceTLAS,
+	uint32_t slotExt, uint32_t spaceExt) :
 	CommandList_DXR()
 {
 	Create(pCommandList, samplerHeapSize, cbvSrvUavHeapSize, maxSamplers,
 		pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
-		maxCbvSpaces, maxSrvSpaces, maxUavSpaces, maxTLASSrvs, spaceTLAS);
+		maxCbvSpaces, maxSrvSpaces, maxUavSpaces,
+		maxTLASSrvs, spaceTLAS, slotExt, spaceExt);
 }
 
 EZ::CommandList_DXR::~CommandList_DXR()
@@ -57,7 +59,8 @@ bool EZ::CommandList_DXR::Create(RayTracing::CommandList* pCommandList,
 	const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
-	uint32_t maxTLASSrvs, uint32_t spaceTLAS)
+	uint32_t maxTLASSrvs, uint32_t spaceTLAS,
+	uint32_t slotExt, uint32_t spaceExt)
 {
 	XUSG_N_RETURN(Ultimate::EZ::CommandList_DX12::init(pCommandList, samplerHeapSize, cbvSrvUavHeapSize), false);
 
@@ -67,12 +70,12 @@ bool EZ::CommandList_DXR::Create(RayTracing::CommandList* pCommandList,
 	XUSG_N_RETURN(pDxDevice, false);
 	pDxDevice->QueryRaytracingCommandList(m_commandList.get(), IID_PPV_ARGS(&m_commandListRT));
 
-	m_RayTracingPipelineLib = PipelineLib::MakeUnique(m_pDeviceRT, API::DIRECTX_12);
+	m_rayTracingPipelineLib = PipelineLib::MakeUnique(m_pDeviceRT, API::DIRECTX_12);
 	m_rayTracingState = State::MakeUnique(API::DIRECTX_12);
 
 	// Create common pipeline layouts
 	XUSG_N_RETURN(createGraphicsPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
-		pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces), false);
+		pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces, slotExt, spaceExt), false);
 
 	XUSG_N_RETURN(createComputePipelineLayouts(maxSamplers ? maxSamplers[Shader::Stage::CS] : 16,
 		pMaxCbvsEachSpace ? pMaxCbvsEachSpace[Shader::Stage::CS] : nullptr,
@@ -81,7 +84,7 @@ bool EZ::CommandList_DXR::Create(RayTracing::CommandList* pCommandList,
 		maxCbvSpaces ? maxCbvSpaces[Shader::Stage::CS] : 1,
 		maxSrvSpaces ? maxSrvSpaces[Shader::Stage::CS] : 1,
 		maxUavSpaces ? maxUavSpaces[Shader::Stage::CS] : 1,
-		maxTLASSrvs, spaceTLAS), false);
+		maxTLASSrvs, spaceTLAS, slotExt, spaceExt), false);
 
 	D3D12_FEATURE_DATA_D3D12_OPTIONS7 featureSupportData = {};
 	const auto hr = static_cast<ID3D12Device*>(m_pDevice->GetHandle())->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS7,
@@ -89,7 +92,7 @@ bool EZ::CommandList_DXR::Create(RayTracing::CommandList* pCommandList,
 
 	if (m_commandListU && SUCCEEDED(hr) && featureSupportData.MeshShaderTier != D3D12_MESH_SHADER_TIER_NOT_SUPPORTED)
 		XUSG_N_RETURN(createMeshShaderPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
-			pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces), false);
+			pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces, slotExt, spaceExt), false);
 
 	return true;
 }
@@ -103,14 +106,16 @@ bool EZ::CommandList_DXR::Create(const RayTracing::Device* pDevice, void* pHandl
 	const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
-	uint32_t maxTLASSrvs, uint32_t spaceTLAS, const wchar_t* name)
+	uint32_t maxTLASSrvs, uint32_t spaceTLAS,
+	uint32_t slotExt, uint32_t spaceExt, const wchar_t* name)
 {
 	m_pDeviceRT = pDevice;
 	RayTracing::CommandList_DX12::Create(pHandle, name);
 
 	return Create(this, samplerHeapSize, cbvSrvUavHeapSize, maxSamplers,
 		pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
-		maxCbvSpaces, maxSrvSpaces, maxUavSpaces, maxTLASSrvs, spaceTLAS);
+		maxCbvSpaces, maxSrvSpaces, maxUavSpaces,
+		maxTLASSrvs, spaceTLAS, slotExt, spaceExt);
 }
 
 bool EZ::CommandList_DXR::Reset(const CommandAllocator* pAllocator, const Pipeline& initialState)
@@ -301,6 +306,33 @@ void EZ::CommandList_DXR::RTSetMaxRecursionDepth(uint32_t depth)
 	m_isRTStateDirty = true;
 }
 
+void EZ::CommandList_DXR::RTSetPipelineState(const Pipeline& pipelineState, RayTracing::State* pState)
+{
+	assert(pipelineState || pState);
+	Pipeline pipeline;
+
+	if (pState)
+	{
+		pipeline = pState->GetPipeline(m_rayTracingPipelineLib.get());
+		if (pipelineState && pipeline != pipelineState)
+		{
+			pipeline = pipelineState;
+			m_rayTracingPipelineLib->SetPipeline(pState->GetKey(), pipeline);
+		}
+	}
+	else pipeline = pipelineState;
+
+	if (pipeline)
+	{
+		if (m_pipeline != pipeline)
+		{
+			XUSG::CommandList_DX12::SetPipelineState(pipeline);
+			m_pipeline = pipeline;
+		}
+		m_isComputeDirty = false;
+	}
+}
+
 void EZ::CommandList_DXR::DispatchRays(uint32_t width, uint32_t height, uint32_t depth,
 	const wchar_t* rayGenShaderName, const wchar_t* const* pMissShaderNames, uint32_t numMissShaders)
 {
@@ -364,7 +396,7 @@ void EZ::CommandList_DXR::DispatchRaysIndirect(const CommandLayout* pCommandlayo
 bool EZ::CommandList_DXR::createComputePipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
 	const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
 	uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces,
-	uint32_t maxTLASSrvs, uint32_t spaceTLAS)
+	uint32_t maxTLASSrvs, uint32_t spaceTLAS, uint32_t slotExt, uint32_t spaceExt)
 {
 	// Create common compute pipeline layout with ray tracing
 	auto paramIndex = 0u;
@@ -416,6 +448,8 @@ bool EZ::CommandList_DXR::createComputePipelineLayouts(uint32_t maxSamplers, con
 		pipelineLayout->SetRootSRV(paramIndex++, slot, spaceTLAS, DescriptorFlag::DATA_STATIC);
 	}
 
+	pipelineLayout->SetRange(paramIndex++, DescriptorType::UAV, 1, slotExt, spaceExt);
+
 	XUSG_X_RETURN(m_pipelineLayouts[COMPUTE], pipelineLayout->GetPipelineLayout(m_pDeviceRT, m_pipelineLayoutLib.get(),
 		PipelineLayoutFlag::NONE, L"RayTracingEZComputeLayout"), false);
 
@@ -465,7 +499,7 @@ void EZ::CommandList_DXR::predispatchRays(CShaderTablePtr& pRayGen, CShaderTable
 	if (m_isRTStateDirty)
 	{
 		m_rayTracingState->SetGlobalPipelineLayout(m_pipelineLayouts[COMPUTE]);
-		const auto pipeline = m_rayTracingState->GetPipeline(m_RayTracingPipelineLib.get());
+		const auto pipeline = m_rayTracingState->GetPipeline(m_rayTracingPipelineLib.get());
 		if (pipeline)
 		{
 			if (m_pipeline != pipeline)
