@@ -210,6 +210,12 @@ cl_int OclContext::CheckExternalMemoryHandleType(cl_external_memory_handle_type_
 		size_t handleTypesSize = 0;
 		const auto& device = m_devices[deviceIndex];
 		status = clGetDeviceInfo(device, CL_DEVICE_EXTERNAL_MEMORY_IMPORT_HANDLE_TYPES_KHR, 0, nullptr, &handleTypesSize);
+
+		if (CL_SUCCESS != status) {
+			cout << "Unable to query CL_DEVICE_EXTERNAL_MEMORY_IMPORT_HANDLE_TYPES_KHR" << endl;
+			return status;
+		}
+
 		handleTypes.resize(handleTypesSize);
 
 		status = clGetDeviceInfo(device, CL_DEVICE_EXTERNAL_MEMORY_IMPORT_HANDLE_TYPES_KHR, handleTypesSize, &handleTypes[0], nullptr);
