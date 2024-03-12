@@ -12,13 +12,9 @@ XUSG, XU's supreme graphics lib, is a handy wrapper currently for DirectX 12. XU
 
 Using XUSGCore only:
 
-https://github.com/StarsX/FluidX12
-
 https://github.com/StarsX/VolumeRender
 
 https://github.com/StarsX/MIPGen
-
-https://github.com/StarsX/NonuniformBlur
 
 https://github.com/StarsX/IrradianceMap
 
@@ -42,11 +38,17 @@ Using XUSGRayTracing (supporting Tier 2 hardware with DXR fallback layer):
 
 https://github.com/StarsX/RayTracedGGX
 
+https://github.com/StarsX/MultiVolumes
+
 Using XUSGRayTracing (native DXR path only):
 
 https://github.com/StarsX/SparseVolumeDXR (DXR fallback layer has a bug on IgnoreHit() to implement the algorithm, but the partial demo can run without DXR.)
 
 Using XUSG-EZ:
+
+https://github.com/StarsX/FluidX12
+
+https://github.com/StarsX/NonuniformBlur
 
 https://github.com/StarsX/SHIrradianceEZ
 
@@ -54,7 +56,15 @@ Using XUSGRayTracing-EZ:
 
 https://github.com/StarsX/DXRVoxelizer (supporting Tier 2 hardware with DXR fallback layer)
 
+https://github.com/StarsX/RayTracedSPH
+
 Using XUSGMachineLearning:
 
 https://github.com/StarsX/SuperResolution (reproducing DML SuperResolution sample)
+
+Interops:
+
+https://github.com/StarsX/OclDX12Interop
+
+https://github.com/StarsX/Amp12Interop
 
