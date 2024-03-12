@@ -1460,7 +1460,7 @@ namespace XUSG
 			uint16_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, bool isCubeMap = false,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
-			uint32_t maxThreads = 1) = 0;
+			uint8_t nullSrvValue = 0xff, uint32_t maxThreads = 1) = 0;
 		virtual bool Upload(CommandList* pCommandList, Resource* pUploader,
 			const SubresourceData* pSubresourceData, uint32_t numSubresources = 1,
 			ResourceState dstState = ResourceState::COMMON, uint32_t firstSubresource = 0,
@@ -1472,9 +1472,9 @@ namespace XUSG
 			uint32_t numSubresources = 1, uint32_t firstSubresource = 0, size_t offset = 0,
 			ResourceState dstState = ResourceState::COMMON, uint32_t threadIdx = 0) = 0;
 		virtual bool CreateSRVs(uint16_t arraySize, Format format = Format::UNKNOWN, uint8_t numMips = 1,
-			uint8_t sampleCount = 1, bool isCubeMap = false) = 0;
+			uint8_t sampleCount = 1, bool isCubeMap = false, uint8_t nullSrvValue = 0xff) = 0;
 		virtual bool CreateSRVLevels(uint16_t arraySize, uint8_t numMips, Format format = Format::UNKNOWN,
-			uint8_t sampleCount = 1, bool isCubeMap = false) = 0;
+			uint8_t sampleCount = 1, bool isCubeMap = false, uint8_t nullSrvValue = 0xff) = 0;
 		virtual bool CreateUAVs(uint16_t arraySize, Format format = Format::UNKNOWN, uint8_t numMips = 1,
 			std::vector<Descriptor>* pUavs = nullptr) = 0;
 
@@ -1543,13 +1543,13 @@ namespace XUSG
 			uint16_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, const float* pClearColor = nullptr,
 			bool isCubeMap = false, MemoryFlag memoryFlags = MemoryFlag::NONE,
-			const wchar_t* name = nullptr, uint32_t maxThreads = 1) = 0;
+			const wchar_t* name = nullptr, uint8_t nullSrvValue = 0xff, uint32_t maxThreads = 1) = 0;
 		// CreateArray() will create a single array RTV of n slices
 		virtual bool CreateArray(const Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize,
 			Format format, ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			uint8_t sampleCount = 1, const float* pClearColor = nullptr, bool isCubeMap = false,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
-			uint32_t maxThreads = 1) = 0;
+			uint8_t nullSrvValue = 0xff, uint32_t maxThreads = 1) = 0;
 		virtual bool CreateFromSwapChain(const Device* pDevice, const SwapChain* pSwapChain,
 			uint32_t bufferIndex, uint32_t maxThreads = 1) = 0;
 
@@ -1593,12 +1593,12 @@ namespace XUSG
 			uint16_t arraySize = 1, uint8_t numMips = 1, uint8_t sampleCount = 1,
 			float clearDepth = 1.0f, uint8_t clearStencil = 0, bool isCubeMap = false,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
-			uint32_t maxThreads = 1) = 0;
+			uint8_t nullSrvValue = 0xff, uint32_t maxThreads = 1) = 0;
 		virtual bool CreateArray(const Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize,
 			Format format = Format::UNKNOWN, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, float clearDepth = 1.0f,
 			uint8_t clearStencil = 0, bool isCubeMap = false, MemoryFlag memoryFlags = MemoryFlag::NONE,
-			const wchar_t* name = nullptr, uint32_t maxThreads = 1) = 0;
+			const wchar_t* name = nullptr, uint8_t nullSrvValue = 0xff, uint32_t maxThreads = 1) = 0;
 
 		virtual const Descriptor& GetDSV(uint16_t slice = 0, uint8_t mipLevel = 0) const = 0;
 		virtual const Descriptor& GetReadOnlyDSV(uint16_t slice = 0, uint8_t mipLevel = 0) const = 0;
@@ -1624,9 +1624,9 @@ namespace XUSG
 		virtual bool Create(const Device* pDevice, uint32_t width, uint32_t height, uint16_t depth,
 			Format format, ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
-			uint32_t maxThreads = 1) = 0;
-		virtual bool CreateSRVs(Format format = Format::UNKNOWN, uint8_t numMips = 1) = 0;
-		virtual bool CreateSRVLevels(uint8_t numMips, Format format = Format::UNKNOWN) = 0;
+			uint8_t nullSrvValue = 0xff, uint32_t maxThreads = 1) = 0;
+		virtual bool CreateSRVs(Format format = Format::UNKNOWN, uint8_t numMips = 1, uint8_t nullSrvValue = 0xff) = 0;
+		virtual bool CreateSRVLevels(uint8_t numMips, Format format = Format::UNKNOWN, uint8_t nullSrvValue = 0xff) = 0;
 		virtual bool CreateUAVs(Format format = Format::UNKNOWN, uint8_t numMips = 1,
 			std::vector<Descriptor>* pUavs = nullptr) = 0;
 
@@ -1651,8 +1651,8 @@ namespace XUSG
 
 		virtual bool Create(const Device* pDevice, size_t byteWidth, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			MemoryType memoryType = MemoryType::DEFAULT, uint32_t numSRVs = 1,
-			const uint32_t* firstSRVElements = nullptr, uint32_t numUAVs = 1,
-			const uint32_t* firstUAVElements = nullptr, MemoryFlag memoryFlags = MemoryFlag::NONE,
+			const uint32_t* firstSrvElements = nullptr, uint32_t numUAVs = 1,
+			const uint32_t* firstUavElements = nullptr, MemoryFlag memoryFlags = MemoryFlag::NONE,
 			const wchar_t* name = nullptr, uint32_t maxThreads = 1) = 0;
 		virtual bool Upload(CommandList* pCommandList, Resource* pUploader, const void* pData, size_t size,
 			size_t offset = 0, ResourceState dstState = ResourceState::COMMON, uint32_t threadIdx = 0) = 0;
@@ -1695,8 +1695,8 @@ namespace XUSG
 
 		virtual bool Create(const Device* pDevice, uint32_t numElements, uint32_t stride,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
-			uint32_t numSRVs = 1, const uint32_t* firstSRVElements = nullptr,
-			uint32_t numUAVs = 1, const uint32_t* firstUAVElements = nullptr,
+			uint32_t numSRVs = 1, const uint32_t* firstSrvElements = nullptr,
+			uint32_t numUAVs = 1, const uint32_t* firstUavElements = nullptr,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 			const size_t* counterOffsetsInBytes = nullptr, uint32_t maxThreads = 1) = 0;
 
@@ -1728,16 +1728,15 @@ namespace XUSG
 
 		virtual bool Create(const Device* pDevice, uint32_t numElements, uint32_t stride, Format format,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
-			uint32_t numSRVs = 1, const uint32_t* firstSRVElements = nullptr,
-			uint32_t numUAVs = 1, const uint32_t* firstUAVElements = nullptr,
+			uint32_t numSRVs = 1, const uint32_t* firstSrvElements = nullptr,
+			uint32_t numUAVs = 1, const uint32_t* firstUavElements = nullptr,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
-			uint32_t maxThreads = 1) = 0;
+			uint8_t nullSrvValue = 0xff, uint32_t maxThreads = 1) = 0;
 
-		virtual bool CreateSRVs(uint32_t numElements, Format format, uint32_t stride,
-			const uint32_t* firstElements = nullptr, uint32_t numDescriptors = 1) = 0;
-		virtual bool CreateUAVs(uint32_t numElements, Format format, uint32_t stride,
-			const uint32_t* firstElements = nullptr, uint32_t numDescriptors = 1,
-			std::vector<Descriptor>* pUavs = nullptr) = 0;
+		virtual bool CreateSRVs(uint32_t numElements, Format format, uint32_t stride, const uint32_t* firstElements = nullptr,
+			uint32_t numDescriptors = 1, uint8_t nullSrvValue = 0xff) = 0;
+		virtual bool CreateUAVs(uint32_t numElements, Format format, uint32_t stride, const uint32_t* firstElements = nullptr,
+			uint32_t numDescriptors = 1, std::vector<Descriptor>* pUavs = nullptr) = 0;
 
 		virtual const Descriptor& GetPackedUAV(uint32_t index = 0) const = 0;
 
@@ -1761,14 +1760,14 @@ namespace XUSG
 		virtual bool Create(const Device* pDevice, uint32_t numVertices, uint32_t stride,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
 			uint32_t numVBVs = 1, const uint32_t* firstVertices = nullptr,
-			uint32_t numSRVs = 1, const uint32_t* firstSRVElements = nullptr,
-			uint32_t numUAVs = 1, const uint32_t* firstUAVElements = nullptr,
+			uint32_t numSRVs = 1, const uint32_t* firstSrvElements = nullptr,
+			uint32_t numUAVs = 1, const uint32_t* firstUavElements = nullptr,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr) = 0;
 		virtual bool CreateAsRaw(const Device* pDevice, uint32_t numVertices, uint32_t stride,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
 			uint32_t numVBVs = 1, const uint32_t* firstVertices = nullptr,
-			uint32_t numSRVs = 1, const uint32_t* firstSRVElements = nullptr,
-			uint32_t numUAVs = 1, const uint32_t* firstUAVElements = nullptr,
+			uint32_t numSRVs = 1, const uint32_t* firstSrvElements = nullptr,
+			uint32_t numUAVs = 1, const uint32_t* firstUavElements = nullptr,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr) = 0;
 
 		virtual const VertexBufferView& GetVBV(uint32_t index = 0) const = 0;
@@ -1794,8 +1793,8 @@ namespace XUSG
 			ResourceFlag resourceFlags = ResourceFlag::DENY_SHADER_RESOURCE,
 			MemoryType memoryType = MemoryType::DEFAULT,
 			uint32_t numIBVs = 1, const size_t* offsets = nullptr,
-			uint32_t numSRVs = 1, const uint32_t* firstSRVElements = nullptr,
-			uint32_t numUAVs = 1, const uint32_t* firstUAVElements = nullptr,
+			uint32_t numSRVs = 1, const uint32_t* firstSrvElements = nullptr,
+			uint32_t numUAVs = 1, const uint32_t* firstUavElements = nullptr,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr) = 0;
 
 		virtual const IndexBufferView& GetIBV(uint32_t index = 0) const = 0;
@@ -2323,6 +2322,4 @@ namespace XUSG
 	XUSG_INTERFACE uint8_t Log2(uint32_t value);
 	XUSG_INTERFACE uint8_t CalculateMipLevels(uint32_t width, uint32_t height, uint32_t depth = 1);
 	XUSG_INTERFACE uint8_t CalculateMipLevels(uint64_t width, uint32_t height, uint32_t depth = 1);
-
-	XUSG_INTERFACE uint32_t CalcSubresource(uint8_t mipSlice, uint8_t numMips, uint32_t arraySlice, uint32_t arraySize, uint8_t planeSlice);
 }

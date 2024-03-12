@@ -123,6 +123,8 @@ namespace XUSG
 			void SetSamplerStates(Shader::Stage stage, uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerPresets);
 			void SetResources(Shader::Stage stage, DescriptorType descriptorType, uint32_t startBinding,
 				uint32_t numResources, const ResourceView* pResourceViews, uint32_t space = 0);
+			void SetGraphicsDescriptorTable(Shader::Stage stage, DescriptorType descriptorType, const DescriptorTable& descriptorTable, uint32_t space);
+			void SetComputeDescriptorTable(DescriptorType descriptorType, const DescriptorTable& descriptorTable, uint32_t space);
 			void IASetPrimitiveTopology(PrimitiveTopology primitiveTopology);
 			void IASetIndexBuffer(const IndexBufferView& view);
 			void IASetVertexBuffers(uint32_t startSlot, uint32_t numViews, const VertexBufferView* pViews);
@@ -181,7 +183,6 @@ namespace XUSG
 			void EndEvent() { XUSG::CommandList_DX12::EndEvent(); }
 
 			// For resize window
-			void ResetDescriptorHeap(DescriptorHeapType type);
 			void Resize();
 
 			void Blit(Texture* pDstResource, Texture* pSrcResource, SamplerPreset sampler,
@@ -195,6 +196,8 @@ namespace XUSG
 			const Graphics::Blend* GetBlend(Graphics::BlendPreset preset, uint8_t numColorRTs = 1);
 			const Graphics::Rasterizer* GetRasterizer(Graphics::RasterizerPreset preset);
 			const Graphics::DepthStencil* GetDepthStencil(Graphics::DepthStencilPreset preset);
+
+			DescriptorTableLib* GetDescriptorTableLib();
 
 			const XUSG::PipelineLayout& GetGraphicsPipelineLayout() const;
 			const XUSG::PipelineLayout& GetComputePipelineLayout() const;

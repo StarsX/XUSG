@@ -462,6 +462,19 @@ void EZ::CommandList_DX12::SetResources(Shader::Stage stage, DescriptorType desc
 		setBarriers(numResources, pResourceViews);
 }
 
+void EZ::CommandList_DX12::SetGraphicsDescriptorTable(Shader::Stage stage, DescriptorType descriptorType,
+	const DescriptorTable& descriptorTable, uint32_t space)
+{
+	XUSG::CommandList_DX12::SetGraphicsDescriptorTable(
+		m_graphicsSpaceToParamIndexMap[stage][static_cast<uint32_t>(descriptorType)][space], descriptorTable);
+}
+
+void EZ::CommandList_DX12::SetComputeDescriptorTable(DescriptorType descriptorType, const DescriptorTable& descriptorTable, uint32_t space)
+{
+	XUSG::CommandList_DX12::SetGraphicsDescriptorTable(
+		m_computeSpaceToParamIndexMap[static_cast<uint32_t>(descriptorType)][space], descriptorTable);
+}
+
 void EZ::CommandList_DX12::IASetPrimitiveTopology(PrimitiveTopology primitiveTopology)
 {
 	assert(m_graphicsState);
@@ -626,14 +639,9 @@ void EZ::CommandList_DX12::ClearUnorderedAccessViewFloat(const ResourceView& uno
 	for (auto i = 0u; i < numRects; ++i) clearView.Rects[i] = pRects[i];
 }
 
-void EZ::CommandList_DX12::ResetDescriptorHeap(DescriptorHeapType type)
-{
-	m_descriptorTableLib->ResetDescriptorHeap(type);
-}
-
 void EZ::CommandList_DX12::Resize()
 {
-	ResetDescriptorHeap(DescriptorHeapType::CBV_SRV_UAV_HEAP);
+	m_descriptorTableLib->ResetDescriptorHeap(CBV_SRV_UAV_HEAP);
 }
 
 void EZ::CommandList_DX12::Blit(Texture* pDstResource, Texture* pSrcResource, SamplerPreset sampler,
@@ -769,6 +777,11 @@ const Graphics::Rasterizer* EZ::CommandList_DX12::GetRasterizer(Graphics::Raster
 const Graphics::DepthStencil* EZ::CommandList_DX12::GetDepthStencil(Graphics::DepthStencilPreset preset)
 {
 	return m_graphicsPipelineLib->GetDepthStencil(preset);
+}
+
+DescriptorTableLib* EZ::CommandList_DX12::GetDescriptorTableLib()
+{
+	return m_descriptorTableLib.get();
 }
 
 const PipelineLayout& EZ::CommandList_DX12::GetGraphicsPipelineLayout() const

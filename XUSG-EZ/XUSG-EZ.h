@@ -179,6 +179,8 @@ namespace XUSG
 				uint32_t numSamplers, const SamplerPreset* pSamplerPresets) = 0;
 			virtual void SetResources(Shader::Stage stage, DescriptorType descriptorType, uint32_t startBinding,
 				uint32_t numResources, const ResourceView* pResourceViews, uint32_t space = 0) = 0;
+			virtual void SetGraphicsDescriptorTable(Shader::Stage stage, DescriptorType descriptorType, const DescriptorTable& descriptorTable, uint32_t space) = 0;
+			virtual void SetComputeDescriptorTable(DescriptorType descriptorType, const DescriptorTable& descriptorTable, uint32_t space) = 0;
 			virtual void IASetPrimitiveTopology(PrimitiveTopology primitiveTopology) = 0;
 			virtual void IASetIndexBuffer(const IndexBufferView& view) = 0;
 			virtual void IASetVertexBuffers(uint32_t startSlot, uint32_t numViews, const VertexBufferView* pViews) = 0;
@@ -206,7 +208,6 @@ namespace XUSG
 			virtual void BeginEvent(uint32_t metaData, const void* pData, uint32_t size) const = 0;
 			virtual void EndEvent() = 0;
 
-			virtual void ResetDescriptorHeap(DescriptorHeapType type) = 0;
 			virtual void Resize() = 0;
 
 			virtual void Blit(Texture* pDstResource, Texture* pSrcResource, SamplerPreset sampler,
@@ -220,6 +221,8 @@ namespace XUSG
 			virtual const Graphics::Blend* GetBlend(Graphics::BlendPreset preset, uint8_t numColorRTs = 1) = 0;
 			virtual const Graphics::Rasterizer* GetRasterizer(Graphics::RasterizerPreset preset) = 0;
 			virtual const Graphics::DepthStencil* GetDepthStencil(Graphics::DepthStencilPreset preset) = 0;
+
+			virtual DescriptorTableLib* GetDescriptorTableLib() = 0;
 
 			virtual const XUSG::PipelineLayout& GetGraphicsPipelineLayout() const = 0;
 			virtual const XUSG::PipelineLayout& GetComputePipelineLayout() const = 0;

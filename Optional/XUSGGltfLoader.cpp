@@ -7,6 +7,10 @@
 #define CGLTF_IMPLEMENTATION
 #include "cgltf.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+#include "xatlas.h"
+
 using namespace std;
 using namespace XUSG;
 
@@ -18,198 +22,298 @@ GltfLoader::~GltfLoader()
 {
 }
 
-bool GltfLoader::Import(const char* pszFilename, bool needNorm, bool needColor, bool needAABB, bool forDX)
+bool GltfLoader::Import(const char* pszFilename, bool needNorm, bool needColor, bool needAABB, bool invertZ)
 {
+	m_indices.clear();
 	m_lightSources.clear();
 
 	cgltf_options options;
 	memset(&options, 0, sizeof(cgltf_options));
-	cgltf_data* data = nullptr;
-	cgltf_result result = cgltf_parse_file(&options, pszFilename, &data);
+	cgltf_data* pData = nullptr;
+	cgltf_result result = cgltf_parse_file(&options, pszFilename, &pData);
 
 	if (result == cgltf_result_success)
 	{
-		result = cgltf_load_buffers(&options, data, pszFilename);
+		result = cgltf_load_buffers(&options, pData, pszFilename);
 	}
 
 	if (result == cgltf_result_success)
 	{
-		result = cgltf_validate(data);
+		result = cgltf_validate(pData);
 	}
 
 	if (result == cgltf_result_success)
 	{
-		for (auto i = 0u; i < data->meshes_count; ++i)
+		string pathDir = pszFilename;
+		for (size_t found = pathDir.find('\\'); found != string::npos; found = pathDir.find('\\', found + 1))
+			pathDir.replace(found, 1, "/");
+		const auto pathDirEnd = pathDir.rfind('/');
+		pathDir = pathDir.substr(0, pathDirEnd + 1);
+
+		// Load textures
+		m_textures.resize(pData->images_count);
+		for (size_t i = 0; i < pData->images_count; ++i)
 		{
-			// load mesh.
-			const auto& mesh = data->meshes[i];
-			const auto& primitive = mesh.primitives[0];
-			assert(primitive.type == cgltf_primitive_type_triangles);
+			const auto texFilePath = pathDir + pData->images[i].uri;
+			int width, height, channels;
+			const auto infoStat = stbi_info(texFilePath.c_str(), &width, &height, &channels);
+			assert(infoStat);
+			const auto reqChannels = channels != 3 ? channels : 4;
+			const auto pTexData = stbi_load(texFilePath.c_str(), &width, &height, &channels, reqChannels);
+			const auto size = sizeof(uint8_t) * reqChannels * width * height;
+			m_textures[i].Data.resize(size);
+			memcpy(m_textures[i].Data.data(), pTexData, size);
+			m_textures[i].Width = width;
+			m_textures[i].Height = height;
+			m_textures[i].Channels = reqChannels;
 
-			// load vertices.
-			auto hasNormalData = false;
-			auto hasVertexColorData = false;
-			const cgltf_accessor* position = nullptr;
-			const cgltf_accessor* normal = nullptr;
-			const cgltf_accessor* texcoord = nullptr;
-			const cgltf_accessor* color = nullptr;
-			for (size_t i = 0; i < primitive.attributes_count; ++i)
+			m_texIndexMap[&pData->images[i]] = static_cast<uint32_t>(i);
+		}
+
+		m_stride = 0;
+		m_posOffset = m_stride;
+		m_stride += sizeof(float3);		// position
+		m_nrmOffset = m_stride;
+		m_stride += sizeof(float3);		// normal
+		m_txcOffset = m_stride;
+		m_stride += sizeof(float4);		// texcoord
+		m_tanOffset = m_stride;
+		m_stride += sizeof(float4);		// tangentUV1
+		m_colorOffset = m_stride;
+		m_stride += sizeof(uint32_t);	// color
+		m_scalarOffset = m_stride;
+		m_stride += sizeof(float);		// emissiveStrength scalar
+
+		for (auto i = 0u; i < pData->meshes_count; ++i)
+		{
+			// Load mesh
+			const auto& mesh = pData->meshes[i];
+			for (auto i = 0u; i < mesh.primitives_count; ++i)
 			{
-				const cgltf_attribute_type type = primitive.attributes[i].type;
-				const cgltf_accessor* attr = primitive.attributes[i].data;
-				assert(attr->component_type == cgltf_component_type_r_32f);
-				if (cgltf_attribute_type_position == type)
+				const auto& primitive = mesh.primitives[i];
+				assert(primitive.type == cgltf_primitive_type_triangles);
+
+				// Load vertices
+				const cgltf_accessor* pPosition = nullptr;
+				const cgltf_accessor* pNormal = nullptr;
+				const cgltf_accessor* pTexcoord = nullptr;
+				const cgltf_accessor* pColor = nullptr;
+				const cgltf_accessor* pTangent = nullptr;
+				for (size_t i = 0; i < primitive.attributes_count; ++i)
 				{
-					assert(attr->type == cgltf_type_vec3);
-					position = attr;
-				}
-				else if (cgltf_attribute_type_normal == type)
-				{
-					assert(attr->type == cgltf_type_vec3);
-					hasNormalData = true;
-					normal = attr;
-				}
-				else if (cgltf_attribute_type_texcoord == type)
-				{
-					assert(attr->type == cgltf_type_vec2);
-					texcoord = attr;
-				}
-				else if (cgltf_attribute_type_color == type)
-				{
-					assert(attr->type == cgltf_type_vec3);
-					hasVertexColorData = true;
-					color = attr;
-				}
-			}
-
-			m_stride = 0;
-			m_posOffset = m_stride;
-			m_stride += sizeof(float3); // position
-			m_nrmOffset = m_stride;
-			m_stride += sizeof(float3); // normal
-			m_txcOffset = m_stride;
-			m_stride += sizeof(float2); // texcoord
-			m_colorOffset = m_stride;
-			m_stride += sizeof(uint32_t); // color
-			m_scalarOffset = m_stride;
-			m_stride += sizeof(float); // emissiveStrength scalar
-
-			const uint32_t vertexOffset = static_cast<uint32_t>(m_vertices.size() / m_stride);
-			const uint32_t vertexBufferOffset = static_cast<uint32_t>(m_vertices.size());
-			const uint32_t vertexCount = static_cast<uint32_t>(position->count);
-			m_vertices.resize(vertexBufferOffset + vertexCount * m_stride);
-
-			for (uint32_t i = 0; position && i < position->count; ++i)
-			{
-				char* data = (char*)position->buffer_view->buffer->data + position->buffer_view->offset;
-				const size_t stride = position->stride;
-				float3* const p = reinterpret_cast<float3*>(data + i * stride);
-				p->z = forDX ? -p->z : p->z;
-				getPosition(vertexOffset + i) = *p;
-			}
-
-			for (uint32_t i = 0; normal && i < normal->count; ++i)
-			{
-				char* data = (char*)normal->buffer_view->buffer->data + normal->buffer_view->offset;
-				const size_t stride = normal->stride;
-				float3* const n = reinterpret_cast<float3*>(data + i * stride);
-				n->z = forDX ? -n->z : n->z;
-				getNormal(vertexOffset + i) = *n;
-			}
-
-			for (uint32_t i = 0; texcoord && i < texcoord->count; ++i)
-			{
-				char* data = (char*)texcoord->buffer_view->buffer->data + texcoord->buffer_view->offset;
-				const size_t stride = texcoord->stride;
-				float2* const t = reinterpret_cast<float2*>(data + i * stride);
-				getTexcoord(vertexOffset + i) = *t;
-			}
-
-			for (uint32_t i = 0; color && i < color->count; ++i)
-			{
-				char* data = (char*)color->buffer_view->buffer->data + color->buffer_view->offset;
-				const size_t stride = color->stride;
-				float3* const c = reinterpret_cast<float3*>(data + i * stride);
-				getVertexColor(vertexOffset + i) = float4_to_rgba8(float4(c->x, c->y, c->z, 1.0f));
-			}
-
-			// load indices.
-			const cgltf_accessor* indices = primitive.indices;
-			for (size_t i = 0; i < indices->count; ++i)
-			{
-				const cgltf_component_type component_type = indices->component_type;
-				assert(component_type == cgltf_component_type_r_16u
-					|| component_type == cgltf_component_type_r_32u);
-
-				if (component_type == cgltf_component_type_r_16u)
-				{
-					m_indices.reserve(indices->count);
-					char* data = (char*)indices->buffer_view->buffer->data + indices->buffer_view->offset;
-					uint16_t index = *reinterpret_cast<uint16_t*>(data + i * indices->stride);
-					m_indices.push_back(vertexOffset + index);
-				}
-				else if (component_type == cgltf_component_type_r_32u)
-				{
-					m_indices.reserve(indices->count);
-					char* data = (char*)indices->buffer_view->buffer->data + indices->buffer_view->offset;
-					uint32_t index = *reinterpret_cast<uint32_t*>(data + i * indices->stride);
-					m_indices.push_back(vertexOffset + index);
-				}
-			}
-
-			// Perform post import tasks.
-			if (needColor && !hasVertexColorData)
-			{
-				float4 vertexColor(1.0f, 1.0f, 1.0f, 1.0f);
-				float vertexScalar = 0.0f;
-				if (primitive.material)
-				{
-					if (primitive.material->has_emissive_strength)
+					const cgltf_attribute_type& type = primitive.attributes[i].type;
+					const cgltf_accessor* pAttr = primitive.attributes[i].data;
+					assert(pAttr->component_type == cgltf_component_type_r_32f);
+					switch (type)
 					{
-						float emissiveStrength = primitive.material->emissive_strength.emissive_strength;
-						float* emissiveFactor = primitive.material->emissive_factor;
-						vertexColor.x = emissiveFactor[0];
-						vertexColor.y = emissiveFactor[1];
-						vertexColor.z = emissiveFactor[2];
-						vertexScalar = emissiveStrength;
+					case cgltf_attribute_type_position:
+						assert(pAttr->type == cgltf_type_vec3);
+						pPosition = pAttr;
+						break;
+					case cgltf_attribute_type_normal:
+						assert(pAttr->type == cgltf_type_vec3);
+						pNormal = pAttr;
+						break;
+					case cgltf_attribute_type_texcoord:
+						assert(pAttr->type == cgltf_type_vec2);
+						pTexcoord = pAttr;
+						break;
+					case cgltf_attribute_type_color:
+						assert(pAttr->type == cgltf_type_vec3);
+						pColor = pAttr;
+						break;
+					case cgltf_attribute_type_tangent:
+						assert(pAttr->type == cgltf_type_vec4);
+						pTangent = pAttr;
+						break;
+					}
+				}
 
-						m_lightSources.push_back({ float4(FLT_MAX, 1.0f), float4(-FLT_MAX, 1.0f) });
-						auto& lightSource = m_lightSources.back();
-						for (uint32_t i = 0; position && i < position->count; ++i)
+				const uint32_t vertexOffset = static_cast<uint32_t>(m_vertices.size() / m_stride);
+				const uint32_t vertexBufferOffset = static_cast<uint32_t>(m_vertices.size());
+				const uint32_t vertexCount = pPosition ? static_cast<uint32_t>(pPosition->count) : 0;
+				m_vertices.resize(vertexBufferOffset + vertexCount * m_stride);
+				{
+					assert(pPosition);
+					for (uint32_t i = 0; i < pPosition->count; ++i)
+					{
+						float3 p;
+						cgltf_accessor_read_float(pPosition, i, &p.x, cgltf_num_components(cgltf_type_vec3));
+						p.z = invertZ ? -p.z : p.z;
+						getPosition(vertexOffset + i) = p;
+					}
+				}
+
+				if (pNormal)
+				{
+					assert(vertexCount == pNormal->count);
+					for (uint32_t i = 0; i < pNormal->count; ++i)
+					{
+						float3 n;
+						cgltf_accessor_read_float(pNormal, i, &n.x, cgltf_num_components(cgltf_type_vec3));
+						n.z = invertZ ? -n.z : n.z;
+						getNormal(vertexOffset + i) = n;
+					}
+				}
+
+				if (pNormal)
+				{
+					assert(vertexCount == pTexcoord->count);
+					for (uint32_t i = 0; i < pTexcoord->count; ++i)
+					{
+						float2 t;
+						cgltf_accessor_read_float(pTexcoord, i, &t.x, cgltf_num_components(cgltf_type_vec2));
+						getTexcoord(vertexOffset + i) = float4(t.x, t.y, t.x, t.y);
+					}
+				}
+
+				if (pTangent)
+				{
+					assert(vertexCount == pTangent->count);
+					for (uint32_t i = 0; i < pTangent->count; ++i)
+					{
+						float4 t;
+						cgltf_accessor_read_float(pTangent, i, &t.x, cgltf_num_components(cgltf_type_vec4));
+						t.z = invertZ ? -t.z : t.z;
+						t.w = invertZ ? -t.w : t.w;
+						getTangent(vertexOffset + i) = t;
+					}
+				}
+				else for (uint32_t i = 0; i < vertexCount; ++i) getTangent(vertexOffset + i) = float4(0.0f);
+
+				if (pColor)
+				{
+					assert(vertexCount == pColor->count);
+					for (uint32_t i = 0; i < pColor->count; ++i)
+					{
+						float3 c;
+						cgltf_accessor_read_float(pColor, i, &c.x, cgltf_num_components(cgltf_type_vec3));
+						getVertexColor(vertexOffset + i) = float4_to_rgba8(float4(c.x, c.y, c.z, 1.0f));
+					}
+				}
+
+				// Load indices
+				const cgltf_accessor* pIndices = primitive.indices;
+				if (pData->textures_count)
+				{
+					m_subsets.emplace_back();
+					auto& subset = m_subsets.back();
+					subset.IndexOffset = static_cast<uint32_t>(m_indices.size());
+					subset.NumIndices = static_cast<uint32_t>(pIndices->count);
+					subset.BaseColorTexIdx = UINT32_MAX;
+					subset.NormalTexIdx = UINT32_MAX;
+					subset.MtlRghTexIdx = UINT32_MAX;
+				}
+				m_indices.reserve(m_indices.size() + pIndices->count);
+				for (size_t i = 0; i < pIndices->count; ++i)
+				{
+					assert(pIndices->component_type == cgltf_component_type_r_16u || pIndices->component_type == cgltf_component_type_r_32u);
+					const auto index = cgltf_accessor_read_index(pIndices, i);
+					m_indices.emplace_back(vertexOffset + static_cast<uint32_t>(index));
+				}
+
+				// Material and textures
+				if (pData->textures_count && primitive.material)
+				{
+					auto& subset = m_subsets.back();
+					assert(primitive.material->has_pbr_metallic_roughness);
+					if (primitive.material->pbr_metallic_roughness.base_color_texture.texture)
+					{
+						assert(primitive.material->pbr_metallic_roughness.base_color_texture.texture);
+						assert(primitive.material->pbr_metallic_roughness.base_color_texture.texture->image);
+						const auto iter = m_texIndexMap.find(primitive.material->pbr_metallic_roughness.base_color_texture.texture->image);
+						assert(iter != m_texIndexMap.cend());
+						subset.BaseColorTexIdx = iter->second;
+					}
+					if (primitive.material->pbr_metallic_roughness.metallic_roughness_texture.texture)
+					{
+						assert(primitive.material->pbr_metallic_roughness.metallic_roughness_texture.texture);
+						assert(primitive.material->pbr_metallic_roughness.metallic_roughness_texture.texture->image);
+						const auto iter = m_texIndexMap.find(primitive.material->pbr_metallic_roughness.metallic_roughness_texture.texture->image);
+						assert(iter != m_texIndexMap.cend());
+						subset.MtlRghTexIdx = iter->second;
+					}
+					if (primitive.material->normal_texture.texture)
+					{
+						assert(primitive.material->normal_texture.texture);
+						assert(primitive.material->normal_texture.texture->image);
+						const auto iter = m_texIndexMap.find(primitive.material->normal_texture.texture->image);
+						assert(iter != m_texIndexMap.cend());
+						subset.NormalTexIdx = iter->second;
+					}
+					subset.AlphaMode = static_cast<AlphaMode>(primitive.material->alpha_mode);
+				}
+
+				// Perform post import tasks.
+				if (needColor && !pColor)
+				{
+					float4 vertexColor(1.0f, 1.0f, 1.0f, 1.0f);
+					float vertexScalar = 0.0f;
+					if (primitive.material)
+					{
+						if (primitive.material->has_emissive_strength)
 						{
-							char* data = (char*)position->buffer_view->buffer->data + position->buffer_view->offset;
-							const size_t stride = position->stride;
-							float3* const p = reinterpret_cast<float3*>(data + i * stride);
+							float emissiveStrength = primitive.material->emissive_strength.emissive_strength;
+							float* emissiveFactor = primitive.material->emissive_factor;
+							vertexColor.x = emissiveFactor[0];
+							vertexColor.y = emissiveFactor[1];
+							vertexColor.z = emissiveFactor[2];
+							vertexScalar = emissiveStrength;
 
-							lightSource.Min.x = (min)(p->x, lightSource.Min.x);
-							lightSource.Min.y = (min)(p->y, lightSource.Min.y);
-							lightSource.Min.z = (min)(p->z, lightSource.Min.z);
-							lightSource.Max.x = (max)(p->x, lightSource.Max.x);
-							lightSource.Max.y = (max)(p->y, lightSource.Max.y);
-							lightSource.Max.z = (max)(p->z, lightSource.Max.z);
+							m_lightSources.push_back({ float4(FLT_MAX, 1.0f), float4(-FLT_MAX, 1.0f) });
+							auto& lightSource = m_lightSources.back();
+							for (uint32_t i = 0; i < pPosition->count; ++i)
+							{
+								float3 p;
+								cgltf_accessor_read_float(pPosition, i, &p.x, cgltf_num_components(cgltf_type_vec3));
+								p.z = invertZ ? -p.z : p.z;
+
+								lightSource.Min.x = (min)(p.x, lightSource.Min.x);
+								lightSource.Min.y = (min)(p.y, lightSource.Min.y);
+								lightSource.Min.z = (min)(p.z, lightSource.Min.z);
+								lightSource.Max.x = (max)(p.x, lightSource.Max.x);
+								lightSource.Max.y = (max)(p.y, lightSource.Max.y);
+								lightSource.Max.z = (max)(p.z, lightSource.Max.z);
+							}
+
+							lightSource.Emissive = vertexColor;
+							lightSource.Emissive.w = vertexScalar;
 						}
+						else if (primitive.material->has_pbr_metallic_roughness)
+						{
+							float* baseColor = primitive.material->pbr_metallic_roughness.base_color_factor;
+							vertexColor.x = baseColor[0];
+							vertexColor.y = baseColor[1];
+							vertexColor.z = baseColor[2];
+						}
+					}
 
-						lightSource.Emissive = vertexColor;
-						lightSource.Emissive.w = vertexScalar;
-					}
-					else if (primitive.material->has_pbr_metallic_roughness)
-					{
-						float* baseColor = primitive.material->pbr_metallic_roughness.base_color_factor;
-						vertexColor.x = baseColor[0];
-						vertexColor.y = baseColor[1];
-						vertexColor.z = baseColor[2];
-					}
+					fillVertexColors(vertexOffset, vertexCount, vertexColor);
+					fillVertexScalars(vertexOffset, vertexCount, vertexScalar);
 				}
+				if (needNorm && !pNormal) recomputeNormals();
+				if (needAABB) computeAABB();
 
-				fillVertexColors(vertexOffset, vertexCount, vertexColor);
-				fillVertexScalars(vertexOffset, vertexCount, vertexScalar);
+				// Light-map texcoord/procedural texcoord
+				if (pData->textures_count || !pTexcoord) regenerateUV1(vertexOffset, vertexCount, pTexcoord);
 			}
-			if (needNorm && !hasNormalData) recomputeNormals();
-			if (needAABB) computeAABB();
+		}
+
+		if (!pData->textures_count)
+		{
+			// If no image/texture, merge all meshes into one subset
+			m_subsets.emplace_back();
+			auto& subset = m_subsets.back();
+			subset.IndexOffset = 0;
+			subset.NumIndices = GetNumIndices();
+			subset.BaseColorTexIdx = UINT32_MAX;
+			subset.NormalTexIdx = UINT32_MAX;
+			subset.MtlRghTexIdx = UINT32_MAX;
+			subset.LightMapScl = float2(1.0f);
 		}
 
 		// Adjust index windings
-		if (forDX)
+		if (invertZ)
 		{
 			for (size_t i = 0; i < m_indices.size() / 3; ++i)
 			{
@@ -220,7 +324,8 @@ bool GltfLoader::Import(const char* pszFilename, bool needNorm, bool needColor, 
 		}
 	}
 
-	cgltf_free(data);
+	cgltf_free(pData);
+
 	return result == cgltf_result_success;
 }
 
@@ -232,6 +337,16 @@ const uint32_t GltfLoader::GetNumVertices() const
 const uint32_t GltfLoader::GetNumIndices() const
 {
 	return static_cast<uint32_t>(m_indices.size());
+}
+
+const uint32_t GltfLoader::GetNumSubSets() const
+{
+	return static_cast<uint32_t>(m_subsets.size());
+}
+
+const uint32_t GltfLoader::GetNumTextures() const
+{
+	return static_cast<uint32_t>(m_textures.size());
 }
 
 const uint32_t GltfLoader::GetVertexStride() const
@@ -249,6 +364,16 @@ const uint32_t* GltfLoader::GetIndices() const
 	return m_indices.data();
 }
 
+const GltfLoader::Subset* GltfLoader::GetSubsets() const
+{
+	return m_subsets.data();
+}
+
+const GltfLoader::Texture* GltfLoader::GetTextures() const
+{
+	return m_textures.data();
+}
+
 const GltfLoader::AABB& GltfLoader::GetAABB() const
 {
 	return m_aabb;
@@ -261,7 +386,7 @@ const vector<GltfLoader::LightSource>& GltfLoader::GetLightSources() const
 
 void GltfLoader::fillVertexColors(uint32_t offset, uint32_t size, float4 color)
 {
-	for (auto i = 0u; i < size; i++)
+	for (auto i = 0u; i < size; ++i)
 	{
 		getVertexColor(offset + i) = float4_to_rgba8(color);
 	}
@@ -269,7 +394,7 @@ void GltfLoader::fillVertexColors(uint32_t offset, uint32_t size, float4 color)
 
 void GltfLoader::fillVertexScalars(uint32_t offset, uint32_t size, float scalar)
 {
-	for (auto i = 0u; i < size; i++)
+	for (auto i = 0u; i < size; ++i)
 	{
 		getVertexScalar(offset + i) = scalar;
 	}
@@ -356,6 +481,89 @@ void GltfLoader::computeAABB()
 	m_aabb.Max = float3(xMax, yMax, zMax);
 }
 
+void GltfLoader::regenerateUV1(uint32_t vertexOffset, uint32_t vertexCount, bool useInputMeshUvs)
+{
+	auto& subset = m_subsets.back();
+
+	xatlas::MeshDecl meshDecl;
+	meshDecl.vertexPositionData = &getPosition(vertexOffset);
+	meshDecl.vertexNormalData = &getNormal(vertexOffset);
+	meshDecl.vertexUvData = &getTexcoord(vertexOffset); // optional. The input UVs are provided as a hint to the chart generator.
+	meshDecl.indexData = &m_indices[subset.IndexOffset];
+
+	// Optional. Must be faceCount in length.
+	// Don't atlas faces set to true. Ignored faces still exist in the output meshes, Vertex uv is set to (0, 0) and Vertex atlasIndex to -1.
+	//meshDecl.faceIgnoreData = nullptr;
+
+	// Optional. Must be faceCount in length.
+	// Only faces with the same material will be assigned to the same chart.
+	//meshDecl.faceMaterialData = nullptr;
+
+	// Optional. Must be faceCount in length.
+	// Polygon / n-gon support. Faces are assumed to be triangles if this is null.
+	//meshDecl.faceVertexCount = nullptr;
+
+	meshDecl.vertexCount = vertexCount;
+	meshDecl.vertexPositionStride = m_stride;
+	meshDecl.vertexNormalStride = m_stride;
+	meshDecl.vertexUvStride = m_stride; // optional
+	meshDecl.indexCount = subset.NumIndices;
+	meshDecl.indexOffset = -static_cast<int32_t>(vertexOffset); // optional. Add this offset to all indices.
+	//meshDecl.faceCount = 0; // Optional if faceVertexCount is null. Otherwise assumed to be indexCount / 3.
+	meshDecl.indexFormat = xatlas::IndexFormat::UInt32;
+
+	xatlas::Atlas* pAtlas = xatlas::Create();
+	xatlas::AddMeshError error = xatlas::AddMesh(pAtlas, meshDecl);
+	if (error != xatlas::AddMeshError::Success)
+	{
+		subset.LightMapScl = float2(1.0f);
+		return;
+	}
+
+	const auto& texture = m_textures[subset.BaseColorTexIdx];
+	xatlas::ChartOptions chartOptions;
+	//chartOptions.maxIterations = 4;
+	chartOptions.useInputMeshUvs = useInputMeshUvs;
+	//chartOptions.fixWinding = true;
+	xatlas::PackOptions packOptions;
+	//packOptions.padding = 1;
+	//packOptions.bruteForce = true;
+	packOptions.blockAlign = true;
+	packOptions.resolution = (max)(texture.Width, texture.Height);
+	xatlas::Generate(pAtlas, chartOptions);
+
+	assert(pAtlas->atlasCount == 1);
+	assert(pAtlas->meshCount == 1);
+	assert(pAtlas->meshes[0].indexCount == subset.NumIndices);
+	vector<uint8_t> vertices(m_stride * vertexCount);
+	memcpy(vertices.data(), &m_vertices[m_stride * vertexOffset], vertices.size());
+	vertexCount = pAtlas->meshes[0].vertexCount;
+	m_vertices.resize(m_stride * (vertexOffset + vertexCount));
+	for (uint32_t i = 0; i < vertexCount; ++i)
+	{
+		const auto& vertex = pAtlas->meshes[0].vertexArray[i];
+		memcpy(getVertex(vertexOffset + i), &vertices[m_stride * vertex.xref], m_stride);
+		auto& uv = getTexcoord(vertexOffset + i);
+		uv.z = vertex.uv[0] / static_cast<float>(pAtlas->width);
+		uv.w = vertex.uv[1] / static_cast<float>(pAtlas->height);
+		if (!useInputMeshUvs)
+		{
+			uv.x = uv.z;
+			uv.y = uv.w;
+		}
+	}
+
+	for (uint32_t i = 0; i < subset.NumIndices; ++i)
+		m_indices[subset.IndexOffset + i] = vertexOffset + pAtlas->meshes[0].indexArray[i];
+
+	subset.LightMapScl.x = pAtlas->width / static_cast<float>(texture.Width);
+	subset.LightMapScl.y = pAtlas->height / static_cast<float>(texture.Height);
+	subset.LightMapScl.x = exp2f(roundf(log2f(subset.LightMapScl.x)));
+	subset.LightMapScl.y = exp2f(roundf(log2f(subset.LightMapScl.y)));
+
+	xatlas::Destroy(pAtlas);
+}
+
 uint8_t* GltfLoader::getVertex(uint32_t i)
 {
 	return &m_vertices[GetVertexStride() * i];
@@ -371,9 +579,14 @@ GltfLoader::float3& GltfLoader::getNormal(uint32_t i)
 	return reinterpret_cast<float3&>(getVertex(i)[m_nrmOffset]);
 }
 
-GltfLoader::float2& GltfLoader::getTexcoord(uint32_t i)
+GltfLoader::float4& GltfLoader::getTexcoord(uint32_t i)
 {
-	return reinterpret_cast<float2&>(getVertex(i)[m_txcOffset]);
+	return reinterpret_cast<float4&>(getVertex(i)[m_txcOffset]);
+}
+
+GltfLoader::float4& GltfLoader::getTangent(uint32_t i)
+{
+	return reinterpret_cast<float4&>(getVertex(i)[m_tanOffset]);
 }
 
 uint32_t& GltfLoader::getVertexColor(uint32_t i)
