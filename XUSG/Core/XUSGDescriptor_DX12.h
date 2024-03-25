@@ -25,14 +25,14 @@ namespace XUSG
 				DescriptorTableLib* pDescriptorTableLib, uint8_t descriptorHeapIndex = 0);
 
 			XUSG::DescriptorTable CreateCbvSrvUavTable(DescriptorTableLib* pDescriptorTableLib,
-				const XUSG::DescriptorTable& table = nullptr);
+				const XUSG::DescriptorTable& table = XUSG_NULL);
 			XUSG::DescriptorTable GetCbvSrvUavTable(DescriptorTableLib* pDescriptorTableLib,
-				const XUSG::DescriptorTable& table = nullptr);
+				const XUSG::DescriptorTable& table = XUSG_NULL);
 
 			XUSG::DescriptorTable CreateSamplerTable(DescriptorTableLib* pDescriptorTableLib,
-				const XUSG::DescriptorTable& table = nullptr);
+				const XUSG::DescriptorTable& table = XUSG_NULL);
 			XUSG::DescriptorTable GetSamplerTable(DescriptorTableLib* pDescriptorTableLib,
-				const XUSG::DescriptorTable& table = nullptr);
+				const XUSG::DescriptorTable& table = XUSG_NULL);
 
 			Framebuffer CreateFramebuffer(DescriptorTableLib* pDescriptorTableLib,
 				const Descriptor* pDsv = nullptr, const Framebuffer* pFramebuffer = nullptr);
@@ -41,10 +41,10 @@ namespace XUSG
 
 			const std::string& GetKey() const;
 
-			uint32_t CreateCbvSrvUavTableIndex(DescriptorTableLib* pDescriptorTableLib, XUSG::DescriptorTable table = nullptr);
-			uint32_t GetCbvSrvUavTableIndex(DescriptorTableLib* pDescriptorTableLib, XUSG::DescriptorTable table = nullptr);
-			uint32_t CreateSamplerTableIndex(DescriptorTableLib* pDescriptorTableLib, XUSG::DescriptorTable table = nullptr);
-			uint32_t GetSamplerTableIndex(DescriptorTableLib* pDescriptorTableLib, XUSG::DescriptorTable table = nullptr);
+			uint32_t CreateCbvSrvUavTableIndex(DescriptorTableLib* pDescriptorTableLib, XUSG::DescriptorTable table = XUSG_NULL);
+			uint32_t GetCbvSrvUavTableIndex(DescriptorTableLib* pDescriptorTableLib, XUSG::DescriptorTable table = XUSG_NULL);
+			uint32_t CreateSamplerTableIndex(DescriptorTableLib* pDescriptorTableLib, XUSG::DescriptorTable table = XUSG_NULL);
+			uint32_t GetSamplerTableIndex(DescriptorTableLib* pDescriptorTableLib, XUSG::DescriptorTable table = XUSG_NULL);
 			uint32_t GetDescriptorTableIndex(DescriptorTableLib* pDescriptorTableLib, DescriptorHeapType type,
 				const XUSG::DescriptorTable& table) const;
 
@@ -67,11 +67,11 @@ namespace XUSG
 
 		bool AllocateDescriptorHeap(DescriptorHeapType type, uint32_t numDescriptors, uint8_t index = 0);
 
-		DescriptorTable CreateCbvSrvUavTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table = nullptr);
-		DescriptorTable GetCbvSrvUavTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table = nullptr);
+		DescriptorTable CreateCbvSrvUavTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table = XUSG_NULL);
+		DescriptorTable GetCbvSrvUavTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table = XUSG_NULL);
 
-		DescriptorTable CreateSamplerTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table = nullptr);
-		DescriptorTable GetSamplerTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table = nullptr);
+		DescriptorTable CreateSamplerTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table = XUSG_NULL);
+		DescriptorTable GetSamplerTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table = XUSG_NULL);
 
 		Framebuffer CreateFramebuffer(const Util::DescriptorTable* pUtil,
 			const Descriptor* pDsv = nullptr, const Framebuffer* pFramebuffer = nullptr);

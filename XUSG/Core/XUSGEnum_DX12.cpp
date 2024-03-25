@@ -304,7 +304,8 @@ D3D12_INDIRECT_ARGUMENT_TYPE XUSG::GetDX12IndirectArgumentType(IndirectArgumentT
 		D3D12_INDIRECT_ARGUMENT_TYPE_SHADER_RESOURCE_VIEW,
 		D3D12_INDIRECT_ARGUMENT_TYPE_UNORDERED_ACCESS_VIEW,
 		D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH_RAYS,
-		D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH_MESH
+		D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH_MESH,
+		D3D12_INDIRECT_ARGUMENT_TYPE_INCREMENTING_CONSTANT
 	};
 
 	return indirectArgumentTypes[static_cast<uint32_t>(indirectArgumentType)];
@@ -322,6 +323,19 @@ D3D12_RESOURCE_DIMENSION XUSG::GetDX12ResourceDimension(ResourceDimension resour
 	};
 
 	return resourceDimensions[static_cast<uint32_t>(resourceDimension)];
+}
+
+D3D12_TEXTURE_LAYOUT XUSG::GetDX12TextureLayout(TextureLayout layout)
+{
+	static const D3D12_TEXTURE_LAYOUT textureLayouts[] =
+	{
+		D3D12_TEXTURE_LAYOUT_UNKNOWN,
+		D3D12_TEXTURE_LAYOUT_ROW_MAJOR,
+		D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE,
+		D3D12_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE
+	};
+
+	return textureLayouts[static_cast<uint32_t>(layout)];
 }
 
 D3D12_COMMAND_QUEUE_FLAGS XUSG::GetDX12CommandQueueFlag(CommandQueueFlag commandQueueFlag)
@@ -907,6 +921,21 @@ D3D12_TEXTURE_ADDRESS_MODE XUSG::GetDX12TextureAddressMode(TextureAddressMode te
 	};
 
 	return textureAddressModes[static_cast<uint32_t>(textureAddressMode)];
+}
+
+D3D12_SHADER_COMPONENT_MAPPING XUSG::GetDX12ShaderComponentMapping(SrvComponentMapping srvComponentMapping)
+{
+	static const D3D12_SHADER_COMPONENT_MAPPING shaderComponentMappings[] =
+	{
+		D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_0,
+		D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_1,
+		D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_2,
+		D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_3,
+		D3D12_SHADER_COMPONENT_MAPPING_FORCE_VALUE_0,
+		D3D12_SHADER_COMPONENT_MAPPING_FORCE_VALUE_1
+	};
+
+	return shaderComponentMappings[static_cast<uint32_t>(srvComponentMapping)];
 }
 
 uint32_t XUSG::GetDX12Requirement(Requirement requirement)

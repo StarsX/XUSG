@@ -151,10 +151,7 @@ void CommandList_DX12::SetProgram(ProgramType type, ProgramIdentifier identifier
 		desc.GenericPipeline.ProgramIdentifier.OpaqueData[3] = identifier.OpaqueData[3];
 	}
 
-	com_ptr<ID3D12GraphicsCommandListExperimental> commandListE;
-	if (FAILED(m_commandListU->QueryInterface(IID_PPV_ARGS(&commandListE))))
-		OutputDebugString(L"Couldn't get DirectX experimental interface for the command list.\n");
-	commandListE->SetProgram(&desc);
+	m_commandListU->SetProgram(&desc);
 }
 
 void CommandList_DX12::DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride) const
@@ -183,10 +180,7 @@ void CommandList_DX12::DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput*
 			populateNodeInput(desc.MultiNodeCPUInput.pNodeInputs[i], pNodeInputs[i]);
 	}
 
-	com_ptr<ID3D12GraphicsCommandListExperimental> commandListE;
-	if (FAILED(m_commandListU->QueryInterface(IID_PPV_ARGS(&commandListE))))
-		OutputDebugString(L"Couldn't get DirectX experimental interface for the command list.\n");
-	commandListE->DispatchGraph(&desc);
+	m_commandListU->DispatchGraph(&desc);
 }
 
 void CommandList_DX12::DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes) const
@@ -203,13 +197,10 @@ void CommandList_DX12::DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiN
 		desc.NodeGPUInput = nodeGPUInputAddress;
 	}
 
-	com_ptr<ID3D12GraphicsCommandListExperimental> commandListE;
-	if (FAILED(m_commandListU->QueryInterface(IID_PPV_ARGS(&commandListE))))
-		OutputDebugString(L"Couldn't get DirectX experimental interface for the command list.\n");
-	commandListE->DispatchGraph(&desc);
+	m_commandListU->DispatchGraph(&desc);
 }
 
-XUSG::com_ptr<ID3D12GraphicsCommandList6>& CommandList_DX12::GetGraphicsCommandList()
+XUSG::com_ptr<ID3D12GraphicsCommandList10>& CommandList_DX12::GetGraphicsCommandList()
 {
 	return m_commandListU;
 }
@@ -246,14 +237,9 @@ SamplerFeedBack_DX12::~SamplerFeedBack_DX12()
 
 bool SamplerFeedBack_DX12::Create(const Device* pDevice, const Texture* pTarget, Format format,
 	uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
-	ResourceFlag resourceFlags, bool isCubeMap, MemoryFlag memoryFlags,
-	const wchar_t* name, uint32_t maxThreads)
+	ResourceFlag resourceFlags, bool isCubeMap, MemoryFlag memoryFlags, const wchar_t* name,
+	uint16_t srvComponentMapping, TextureLayout textureLayout, uint32_t maxThreads)
 {
-	XUSG_N_RETURN(setDevice(pDevice), false);
-	V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&m_deviceU)), cerr, false);
-
-	if (name) m_name = name;
-
 	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
 
 	uint16_t arraySize;
@@ -265,47 +251,75 @@ bool SamplerFeedBack_DX12::Create(const Device* pDevice, const Texture* pTarget,
 		arraySize = pTarget->GetArraySize();
 		numMips = pTarget->GetNumMips();
 
-		// Setup the texture description.
-		assert(format == Format::MIN_MIP_OPAQUE || format == Format::MIP_REGION_USED_OPAQUE);
-		const CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_DEFAULT);
-		const auto desc = CD3DX12_RESOURCE_DESC1::Tex2D(GetDXGIFormat(format),
-			pTarget->GetWidth(), pTarget->GetHeight(), arraySize, numMips, 1, 0,
-			GetDX12ResourceFlags(ResourceFlag::ALLOW_UNORDERED_ACCESS | resourceFlags),
-			D3D12_TEXTURE_LAYOUT_UNKNOWN, 0, mipRegionWidth, mipRegionHeight, mipRegionDepth);
-
-		// Determine initial state
-		assert(maxThreads > 0);
-		m_states.resize(maxThreads);
-		for (auto& states : m_states)
-			states.resize(arraySize * numMips, ResourceState::COMMON);
-
-		V_RETURN(m_deviceU->CreateCommittedResource2(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
-			GetDX12ResourceStates(m_states[0][0]), nullptr, nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
-		if (!m_name.empty()) m_resource->SetName((m_name + L".Resource").c_str());
+		XUSG_N_RETURN(CreateResource(pDevice, pTarget, format, mipRegionWidth, mipRegionHeight, mipRegionDepth,
+			resourceFlags, isCubeMap, memoryFlags, ResourceState::COMMON, textureLayout, maxThreads), false);
 	}
-	else arraySize = numMips = 1;
+	else
+	{
+		XUSG_N_RETURN(setDevice(pDevice), false);
+		arraySize = numMips = 1;
+	}
 
-	// Create SRV
-	if (hasSRV) XUSG_N_RETURN(CreateSRVs(arraySize, format, numMips, 1, isCubeMap), false);
+	SetName(name);
 
-	// Create UAVs
-	XUSG_N_RETURN(CreateUAV(pTarget), false);
+	// Create SRVs
+	if (hasSRV)
+		XUSG_N_RETURN(createSRVs(arraySize, format, numMips, false, isCubeMap, srvComponentMapping), false);
+
+	// Create UAV
+	if (pTarget)
+	{
+		m_uavs.resize(1);
+		XUSG_X_RETURN(m_uavs[0], CreateUAV(pTarget), false);
+	}
 
 	return true;
 }
 
-bool SamplerFeedBack_DX12::CreateUAV(const Resource* pTarget)
+bool SamplerFeedBack_DX12::CreateResource(const Device* pDevice, const Texture* pTarget, Format format,
+	uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth, ResourceFlag resourceFlags,
+	bool isCubeMap, MemoryFlag memoryFlags, ResourceState initialResourceState, TextureLayout textureLayout,
+	uint32_t maxThreads)
 {
-	if (pTarget)
-	{
-		// Create an unordered access view
-		m_uavs.resize(1);
-		XUSG_X_RETURN(m_uavs[0], allocateSrvUavHeap(), false);
-		m_deviceU->CreateSamplerFeedbackUnorderedAccessView(static_cast<ID3D12Resource*>(pTarget->GetHandle()),
-			m_resource.get(), { m_uavs[0] });
-	}
+	XUSG_N_RETURN(setDevice(pDevice), false);
+	V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&m_deviceU)), cerr, false);
+
+	m_format = format;
+
+	// Get paired properties
+	const uint16_t arraySize = pTarget->GetArraySize();
+	const uint8_t numMips = pTarget->GetNumMips();
+
+	// Setup the texture description.
+	assert(pTarget);
+	assert(format == Format::MIN_MIP_OPAQUE || format == Format::MIP_REGION_USED_OPAQUE);
+	const CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_DEFAULT);
+	const auto desc = CD3DX12_RESOURCE_DESC1::Tex2D(GetDXGIFormat(format),
+		pTarget->GetWidth(), pTarget->GetHeight(), arraySize, numMips, 1, 0,
+		GetDX12ResourceFlags(ResourceFlag::ALLOW_UNORDERED_ACCESS | resourceFlags),
+		GetDX12TextureLayout(textureLayout), 0, mipRegionWidth, mipRegionHeight, mipRegionDepth);
+
+	// Determine initial state
+	assert(maxThreads > 0);
+	m_states.resize(maxThreads);
+	for (auto& states : m_states)
+		states.resize(arraySize * numMips, initialResourceState);
+
+	V_RETURN(m_deviceU->CreateCommittedResource2(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
+		GetDX12ResourceStates(m_states[0][0]), nullptr, nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
 
 	return true;
+}
+
+XUSG::Descriptor SamplerFeedBack_DX12::CreateUAV(const Resource* pTarget)
+{
+	// Create an unordered access view
+	assert(pTarget);
+	const auto descriptor = allocateSrvUavHeap();
+	m_deviceU->CreateSamplerFeedbackUnorderedAccessView(static_cast<ID3D12Resource*>(pTarget->GetHandle()),
+		m_resource.get(), { descriptor });
+
+	return descriptor;
 }
 
 //--------------------------------------------------------------------------------------
@@ -345,7 +359,6 @@ D3D12_SET_WORK_GRAPH_FLAGS XUSG::Ultimate::GetDX12WorkGraphFlag(WorkGraphFlag wo
 {
 	static const D3D12_SET_WORK_GRAPH_FLAGS workGraphFlags[] =
 	{
-		D3D12_SET_WORK_GRAPH_FLAG_NONE,
 		D3D12_SET_WORK_GRAPH_FLAG_INITIALIZE
 	};
 

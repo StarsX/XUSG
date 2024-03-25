@@ -197,7 +197,7 @@ namespace XUSG
 			const Graphics::Rasterizer* GetRasterizer(Graphics::RasterizerPreset preset);
 			const Graphics::DepthStencil* GetDepthStencil(Graphics::DepthStencilPreset preset);
 
-			DescriptorTableLib* GetDescriptorTableLib();
+			DescriptorTableLib* GetDescriptorTableLib() const;
 
 			const XUSG::PipelineLayout& GetGraphicsPipelineLayout() const;
 			const XUSG::PipelineLayout& GetComputePipelineLayout() const;

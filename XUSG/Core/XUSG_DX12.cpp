@@ -157,6 +157,10 @@ bool CommandLayout_DX12::Create(const Device* pDevice, uint32_t byteStride, uint
 		case IndirectArgumentType::UNORDERED_ACCESS_VIEW:
 			argDesc.UnorderedAccessView.RootParameterIndex = argument.CbvSrvUav.Index;
 			break;
+		case IndirectArgumentType::INCREMENTING_CONSTANT:
+			argDesc.IncrementingConstant.RootParameterIndex = argument.Constant.Index;
+			argDesc.IncrementingConstant.DestOffsetIn32BitValues = argument.Constant.DestOffsetIn32BitValues;
+			break;
 		}
 	}
 

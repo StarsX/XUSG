@@ -12,6 +12,13 @@
 
 namespace XUSG
 {
+	struct DescriptorTableProperty
+	{
+		int32_t Offset;
+		uint16_t HeapType;
+		uint16_t IsInitialized;
+	};
+
 	inline std::string HrToString(uint32_t hr)
 	{
 		char s_str[64] = {};

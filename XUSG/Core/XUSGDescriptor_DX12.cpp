@@ -130,8 +130,9 @@ uint32_t Util::DescriptorTable_DX12::GetDescriptorTableIndex(DescriptorTableLib*
 		const auto& index = m_key[0];
 		const auto& descriptorHeap = static_cast<ID3D12DescriptorHeap*>(pDescriptorTableLib->GetDescriptorHeap(type, index));
 		const auto& descriptorStride = pDescriptorTableLib->GetDescriptorStride(type);
+		const auto& tableProperty = reinterpret_cast<const DescriptorTableProperty&>(table);
 
-		return static_cast<uint32_t>((*table - descriptorHeap->GetGPUDescriptorHandleForHeapStart().ptr) / descriptorStride);
+		return static_cast<uint32_t>(tableProperty.Offset / descriptorStride);
 	}
 
 	return UINT32_MAX;
@@ -354,19 +355,14 @@ bool DescriptorTableLib_DX12::reallocateCbvSrvUavHeap(const string& key)
 	numDescriptors += descriptorCount;
 	if (!descriptorHeap || descriptorHeap->GetDesc().NumDescriptors < numDescriptors)
 	{
-		const auto oldHeapStart = descriptorHeap ? descriptorHeap->GetGPUDescriptorHandleForHeapStart().ptr : 0;
 		numDescriptors = calculateGrowth(numDescriptors, CBV_SRV_UAV_HEAP, index);
 		XUSG_N_RETURN(allocateDescriptorHeap(CBV_SRV_UAV_HEAP, numDescriptors, index), false);
 
 		// Recreate descriptor tables
 		assert(descriptorHeap);
-		const auto newHeapStart = descriptorHeap->GetGPUDescriptorHandleForHeapStart().ptr;
 		m_descriptorCounts[CBV_SRV_UAV_HEAP][index] = descriptorCount;
 		for (const auto& tableEntry : m_cbvSrvUavTables[index])
-		{
-			*tableEntry.second = *tableEntry.second - oldHeapStart + newHeapStart;
-			*tableEntry.second = *createCbvSrvUavTable(tableEntry.first, tableEntry.second);
-		}
+			createCbvSrvUavTable(tableEntry.first, tableEntry.second);
 	}
 
 	return true;
@@ -384,19 +380,14 @@ bool DescriptorTableLib_DX12::reallocateSamplerHeap(const string& key)
 	numDescriptors += descriptorCount;
 	if (!descriptorHeap || descriptorHeap->GetDesc().NumDescriptors < numDescriptors)
 	{
-		const auto oldHeapStart = descriptorHeap ? descriptorHeap->GetGPUDescriptorHandleForHeapStart().ptr : 0;
 		numDescriptors = calculateGrowth(numDescriptors, SAMPLER_HEAP, index);
 		XUSG_N_RETURN(allocateDescriptorHeap(SAMPLER_HEAP, numDescriptors, index), false);
 
 		// Recreate descriptor tables
 		assert(descriptorHeap);
-		const auto newHeapStart = descriptorHeap->GetGPUDescriptorHandleForHeapStart().ptr;
 		m_descriptorCounts[SAMPLER_HEAP][index] = descriptorCount;
 		for (const auto& tableEntry : m_samplerTables[index])
-		{
-			*tableEntry.second = *tableEntry.second - oldHeapStart + newHeapStart;
-			*tableEntry.second = *createSamplerTable(tableEntry.first, tableEntry.second);
-		}
+			createSamplerTable(tableEntry.first, tableEntry.second);
 	}
 
 	return true;
@@ -437,15 +428,19 @@ DescriptorTable DescriptorTableLib_DX12::createCbvSrvUavTable(const string& key,
 		const auto& descriptorStride = m_descriptorStrides[CBV_SRV_UAV_HEAP];
 		CD3DX12_CPU_DESCRIPTOR_HANDLE dst(descriptorHeap->GetCPUDescriptorHandleForHeapStart());
 
-		if (table && *table)
-			dst.Offset(static_cast<int>(*table - descriptorHeap->GetGPUDescriptorHandleForHeapStart().ptr));
+		auto& tableProperty = reinterpret_cast<DescriptorTableProperty&>(table);
+		if (tableProperty.IsInitialized)
+		{
+			assert(tableProperty.HeapType == CBV_SRV_UAV_HEAP);
+			dst.Offset(tableProperty.Offset);
+		}
 		else
 		{
 			auto& descriptorCount = m_descriptorCounts[CBV_SRV_UAV_HEAP][index];
-			table = make_shared<uint64_t>(CD3DX12_GPU_DESCRIPTOR_HANDLE(
-				descriptorHeap->GetGPUDescriptorHandleForHeapStart(),
-				descriptorCount, descriptorStride).ptr);
-			dst.Offset(descriptorCount, descriptorStride);
+			tableProperty.Offset = descriptorStride * descriptorCount;
+			tableProperty.HeapType = CBV_SRV_UAV_HEAP;
+			tableProperty.IsInitialized = 1;
+			dst.Offset(tableProperty.Offset);
 			descriptorCount += numDescriptors;
 		}
 
@@ -461,7 +456,7 @@ DescriptorTable DescriptorTableLib_DX12::createCbvSrvUavTable(const string& key,
 		return table;
 	}
 
-	return nullptr;
+	return XUSG_NULL;
 }
 
 DescriptorTable DescriptorTableLib_DX12::getCbvSrvUavTable(const string& key, DescriptorTable table)
@@ -476,11 +471,11 @@ DescriptorTable DescriptorTableLib_DX12::getCbvSrvUavTable(const string& key, De
 		// Create one, if it does not exist
 		if (tableIter == cbvSrvUavTables.end() && reallocateCbvSrvUavHeap(key))
 		{
-			if (table && *table)
+			if (table)
 			{
 				for (auto mIt = cbvSrvUavTables.cbegin(); mIt != cbvSrvUavTables.cend(); ++mIt)
 				{
-					if (mIt->second && *mIt->second == *table)
+					if (mIt->second == table)
 					{
 						cbvSrvUavTables.erase(mIt);
 						break;
@@ -497,7 +492,7 @@ DescriptorTable DescriptorTableLib_DX12::getCbvSrvUavTable(const string& key, De
 		return tableIter->second;
 	}
 
-	return nullptr;
+	return XUSG_NULL;
 }
 
 DescriptorTable DescriptorTableLib_DX12::createSamplerTable(const string& key, DescriptorTable table)
@@ -513,15 +508,19 @@ DescriptorTable DescriptorTableLib_DX12::createSamplerTable(const string& key, D
 		const auto& descriptorStride = m_descriptorStrides[SAMPLER_HEAP];
 		CD3DX12_CPU_DESCRIPTOR_HANDLE dst(descriptorHeap->GetCPUDescriptorHandleForHeapStart());
 
-		if (table && *table)
-			dst.Offset(static_cast<int>(*table - descriptorHeap->GetGPUDescriptorHandleForHeapStart().ptr));
+		auto& tableProperty = reinterpret_cast<DescriptorTableProperty&>(table);
+		if (tableProperty.IsInitialized)
+		{
+			assert(tableProperty.HeapType == SAMPLER_HEAP);
+			dst.Offset(tableProperty.Offset);
+		}
 		else
 		{
 			auto& descriptorCount = m_descriptorCounts[SAMPLER_HEAP][index];
-			table = make_shared<uint64_t>(CD3DX12_GPU_DESCRIPTOR_HANDLE(
-				descriptorHeap->GetGPUDescriptorHandleForHeapStart(),
-				descriptorCount, descriptorStride).ptr);
-			dst.Offset(descriptorCount, descriptorStride);
+			tableProperty.Offset = descriptorStride * descriptorCount;
+			tableProperty.HeapType = SAMPLER_HEAP;
+			tableProperty.IsInitialized = 1;
+			dst.Offset(tableProperty.Offset);
 			descriptorCount += numDescriptors;
 		}
 
@@ -549,7 +548,7 @@ DescriptorTable DescriptorTableLib_DX12::createSamplerTable(const string& key, D
 			if ((pSampler->Flags & (SamplerFlag::UINT_BORDER_COLOR | SamplerFlag::NON_NORMALIZED_COORDINATES)) != SamplerFlag::NONE)
 			{
 				com_ptr<ID3D12Device11> dxDevice;
-				V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&dxDevice)), cerr, nullptr);
+				V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&dxDevice)), cerr, XUSG_NULL);
 				dxDevice->CreateSampler2(&desc, dst);
 			}
 			else m_device->CreateSampler(reinterpret_cast<D3D12_SAMPLER_DESC*>(&desc), dst);
@@ -560,7 +559,7 @@ DescriptorTable DescriptorTableLib_DX12::createSamplerTable(const string& key, D
 		return table;
 	}
 
-	return nullptr;
+	return XUSG_NULL;
 }
 
 DescriptorTable DescriptorTableLib_DX12::getSamplerTable(const string& key, DescriptorTable table)
@@ -575,11 +574,11 @@ DescriptorTable DescriptorTableLib_DX12::getSamplerTable(const string& key, Desc
 		// Create one, if it does not exist
 		if (tableIter == samplerTables.end() && reallocateSamplerHeap(key))
 		{
-			if (table && *table)
+			if (table)
 			{
 				for (auto mIt = samplerTables.cbegin(); mIt != samplerTables.cend(); ++mIt)
 				{
-					if (mIt->second && *mIt->second == *table)
+					if (mIt->second == table)
 					{
 						samplerTables.erase(mIt);
 						break;
@@ -596,7 +595,7 @@ DescriptorTable DescriptorTableLib_DX12::getSamplerTable(const string& key, Desc
 		return tableIter->second;
 	}
 
-	return nullptr;
+	return XUSG_NULL;
 }
 
 Framebuffer DescriptorTableLib_DX12::createFramebuffer(const string& key,

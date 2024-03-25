@@ -19,7 +19,9 @@ namespace XUSG
 				XUSG::PipelineLayout GlobalLayout;
 				uint32_t NumShaderLibs;
 				uint32_t NumLocalPipelineLayouts;
-				const void* Program;
+				uint32_t NumBroadCastingOverrides;
+				uint32_t NodeMask;
+				const wchar_t* Program;
 			};
 
 			struct KeyShaderLibHeader
@@ -31,7 +33,7 @@ namespace XUSG
 			struct KeyShaderLib
 			{
 				Blob Lib;
-				std::vector<const void*> Shaders;
+				std::vector<const wchar_t*> Shaders;
 			};
 
 			struct KeyLocalPipelineLayoutHeader
@@ -43,18 +45,36 @@ namespace XUSG
 			struct KeyLocalPipelineLayout
 			{
 				XUSG::PipelineLayout Layout;
-				std::vector<const void*> Shaders;
+				std::vector<const wchar_t*> Shaders;
+			};
+
+			struct KeyBroadCastingOverridesHeader
+			{
+				uint32_t NumShaders;
+			};
+
+			struct KeyBroadCastingOverrides
+			{
+				uint32_t DispatchGrid[3];
+				uint32_t MaxDispatchGrid[3];
+				const wchar_t* Shader;
+				BoolOverride IsEntry;
 			};
 
 			State_DX12();
 			virtual ~State_DX12();
 
 			void SetShaderLibrary(uint32_t index, const Blob& shaderLib,
-				uint32_t numShaders = 0, const void** pShaders = nullptr);
-			void SetProgram(const void* program);
+				uint32_t numShaders = 0, const wchar_t** pShaderNames = nullptr);
+			void SetProgram(const wchar_t* programName);
 			void SetLocalPipelineLayout(uint32_t index, const PipelineLayout& layout,
-				uint32_t numShaders, const void** pShaders);
+				uint32_t numShaders, const wchar_t** pShaderNames);
 			void SetGlobalPipelineLayout(const PipelineLayout& layout);
+			void SetNodeMask(uint32_t nodeMask);
+			void OverrideDispatchGrid(const wchar_t* shaderName, uint32_t x, uint32_t y, uint32_t z,
+				BoolOverride isEntry = BoolOverride::IS_NULL);
+			void OverrideMaxDispatchGrid(const wchar_t* shaderName, uint32_t x, uint32_t y, uint32_t z,
+				BoolOverride isEntry = BoolOverride::IS_NULL);
 
 			Pipeline CreatePipeline(PipelineLib* pPipelineCache, const wchar_t* name = nullptr);
 			Pipeline GetPipeline(PipelineLib* pPipelineCache, const wchar_t* name = nullptr);
@@ -89,6 +109,7 @@ namespace XUSG
 
 			std::vector<KeyShaderLib> m_keyShaderLibs;
 			std::vector<KeyLocalPipelineLayout> m_keyLocalPipelineLayouts;
+			std::unordered_map<const wchar_t*, KeyBroadCastingOverrides> m_keyBroadCastingOverrides;
 
 			bool m_isSerialized;
 

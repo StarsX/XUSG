@@ -43,10 +43,10 @@ namespace XUSG
 			void DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride = 0) const;
 			void DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes = false) const;
 
-			com_ptr<ID3D12GraphicsCommandList6>& GetGraphicsCommandList();
+			com_ptr<ID3D12GraphicsCommandList10>& GetGraphicsCommandList();
 
 		protected:
-			com_ptr<ID3D12GraphicsCommandList6> m_commandListU;
+			com_ptr<ID3D12GraphicsCommandList10> m_commandListU;
 		};
 
 		ProgramIdentifier GetProgramIdentifierFromDX12(const Pipeline& stateObject, const wchar_t* programName);
@@ -66,8 +66,19 @@ namespace XUSG
 				uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
 				ResourceFlag resourceFlags = ResourceFlag::NONE, bool isCubeMap = false,
 				MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
+				uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
+				TextureLayout textureLayout = TextureLayout::UNKNOWN,
 				uint32_t maxThreads = 1);
-			bool CreateUAV(const Resource* pTarget);
+			bool CreateResource(const Device* pDevice, const Texture* pTarget, Format format,
+				uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
+				ResourceFlag resourceFlags = ResourceFlag::NONE, bool isCubeMap = false,
+				MemoryFlag memoryFlags = MemoryFlag::NONE,
+				ResourceState initialResourceState = ResourceState::COMMON,
+				TextureLayout textureLayout = TextureLayout::UNKNOWN,
+				uint32_t maxThreads = 1);
+			//bool CreateUAV(const Resource* pTarget);
+
+			Descriptor CreateUAV(const Resource* pTarget);
 
 		protected:
 			com_ptr<ID3D12Device8> m_deviceU;

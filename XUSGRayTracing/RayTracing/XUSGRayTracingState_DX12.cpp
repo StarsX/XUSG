@@ -35,7 +35,7 @@ void State_DX12::SetShaderLibrary(uint32_t index, const Blob& shaderLib, uint32_
 	auto& keyShaderLib = m_keyShaderLibs[index];
 	keyShaderLib.Lib = shaderLib;
 	keyShaderLib.Shaders.resize(numShaders);
-	memcpy(keyShaderLib.Shaders.data(), pShaderNames, sizeof(void*) * numShaders);
+	memcpy(keyShaderLib.Shaders.data(), pShaderNames, sizeof(wchar_t*) * numShaders);
 }
 
 void State_DX12::SetHitGroup(uint32_t index, const wchar_t* hitGroupName, const wchar_t* closestHitShaderName,
@@ -77,7 +77,7 @@ void State_DX12::SetLocalPipelineLayout(uint32_t index, const XUSG::PipelineLayo
 	auto& keyLocalPipelineLayout = m_keyLocalPipelineLayouts[index];
 	keyLocalPipelineLayout.Layout = layout;
 	keyLocalPipelineLayout.Shaders.resize(numShaders);
-	memcpy(keyLocalPipelineLayout.Shaders.data(), pShaderNames, sizeof(void*) * numShaders);
+	memcpy(keyLocalPipelineLayout.Shaders.data(), pShaderNames, sizeof(wchar_t*) * numShaders);
 }
 
 void State_DX12::SetGlobalPipelineLayout(const XUSG::PipelineLayout& layout)
@@ -90,6 +90,12 @@ void State_DX12::SetMaxRecursionDepth(uint32_t depth)
 {
 	m_isSerialized = false;
 	m_pKeyHeader->MaxRecursionDepth = depth;
+}
+
+void State_DX12::SetNodeMask(uint32_t nodeMask)
+{
+	m_isSerialized = false;
+	m_pKeyHeader->NodeMask = nodeMask;
 }
 
 Pipeline State_DX12::CreatePipeline(PipelineLib* pPipelineCache, const wchar_t* name)
@@ -135,11 +141,11 @@ void State_DX12::serialize()
 
 	auto sizeKeyShaderLibs = sizeof(KeyShaderLibHeader) * m_keyShaderLibs.size();
 	for (const auto& keyShaderLib : m_keyShaderLibs)
-		sizeKeyShaderLibs += sizeof(void*) * keyShaderLib.Shaders.size();
+		sizeKeyShaderLibs += sizeof(wchar_t*) * keyShaderLib.Shaders.size();
 
 	auto sizeKeyLocalPipelineLayouts = sizeof(KeyLocalPipelineLayoutHeader) * m_keyLocalPipelineLayouts.size();
 	for (const auto& keyLocalPipelineLayout : m_keyLocalPipelineLayouts)
-		sizeKeyLocalPipelineLayouts += sizeof(void*) * keyLocalPipelineLayout.Shaders.size();
+		sizeKeyLocalPipelineLayouts += sizeof(wchar_t*) * keyLocalPipelineLayout.Shaders.size();
 
 	m_key.resize(sizeKeyHeader + sizeKeyHitGroups + sizeKeyShaderLibs + sizeKeyLocalPipelineLayouts);
 	m_pKeyHeader = reinterpret_cast<KeyHeader*>(&m_key[0]);
@@ -158,8 +164,8 @@ void State_DX12::serialize()
 		pKeyShaderLibHeader->NumShaders = static_cast<uint32_t>(keyShaderLib.Shaders.size());
 
 		// Update the pointer of the shaders, and copy the shaders
-		const auto pKeyShaders = reinterpret_cast<void**>(&pKeyShaderLibHeader[1]);
-		memcpy(pKeyShaders, keyShaderLib.Shaders.data(), sizeof(void*) * pKeyShaderLibHeader->NumShaders);
+		const auto pKeyShaders = reinterpret_cast<wchar_t**>(&pKeyShaderLibHeader[1]);
+		memcpy(pKeyShaders, keyShaderLib.Shaders.data(), sizeof(wchar_t*) * pKeyShaderLibHeader->NumShaders);
 
 		// Update the pointer
 		pKeyShaderLibHeader = reinterpret_cast<KeyShaderLibHeader*>(&pKeyShaders[pKeyShaderLibHeader->NumShaders]);
@@ -174,9 +180,9 @@ void State_DX12::serialize()
 		pKeyLocalPipelineLayoutHeader->NumShaders = static_cast<uint32_t>(keyLocalPipelineLayout.Shaders.size());
 
 		// Update the pointer of association, and copy the associated shaders
-		const auto pKeyLocalPipelineAssociation = reinterpret_cast<void**>(&pKeyLocalPipelineLayoutHeader[1]);
+		const auto pKeyLocalPipelineAssociation = reinterpret_cast<wchar_t**>(&pKeyLocalPipelineLayoutHeader[1]);
 		memcpy(pKeyLocalPipelineAssociation, keyLocalPipelineLayout.Shaders.data(),
-			sizeof(void*) * pKeyLocalPipelineLayoutHeader->NumShaders);
+			sizeof(wchar_t*) * pKeyLocalPipelineLayoutHeader->NumShaders);
 
 		// Update the pointer
 		pKeyLocalPipelineLayoutHeader = reinterpret_cast<KeyLocalPipelineLayoutHeader*>
@@ -247,7 +253,7 @@ Pipeline PipelineLib_DX12::createPipeline(const string& key, const wchar_t* name
 		if (pKeyShaderLibHeader->NumShaders > 0)
 		{
 			// Calculate the size of shader-lib keys
-			sizeKeyShaderLibs += sizeof(void*) * pKeyShaderLibHeader->NumShaders;
+			sizeKeyShaderLibs += sizeof(wchar_t*) * pKeyShaderLibHeader->NumShaders;
 
 			// Export shaders
 			const auto pShaderNames = reinterpret_cast<const wchar_t* const*>(&pKeyShaderLibHeader[1]);
@@ -316,6 +322,13 @@ Pipeline PipelineLib_DX12::createPipeline(const string& key, const wchar_t* name
 	// PERFOMANCE TIP: Set max recursion depth as low as needed
 	// as drivers may apply optimization strategies for low recursion depths.
 	pPipelineConfig->Config(keyHeader.MaxRecursionDepth);
+
+	// Node mask
+	if (keyHeader.NodeMask)
+	{
+		const auto pNodeMask = pPsoDesc.CreateSubobject<CD3DX12_NODE_MASK_SUBOBJECT>();
+		pNodeMask->SetNodeMask(keyHeader.NodeMask);
+	}
 
 	//PrintStateObjectDesc(desc);
 

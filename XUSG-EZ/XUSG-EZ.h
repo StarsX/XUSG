@@ -222,7 +222,7 @@ namespace XUSG
 			virtual const Graphics::Rasterizer* GetRasterizer(Graphics::RasterizerPreset preset) = 0;
 			virtual const Graphics::DepthStencil* GetDepthStencil(Graphics::DepthStencilPreset preset) = 0;
 
-			virtual DescriptorTableLib* GetDescriptorTableLib() = 0;
+			virtual DescriptorTableLib* GetDescriptorTableLib() const = 0;
 
 			virtual const XUSG::PipelineLayout& GetGraphicsPipelineLayout() const = 0;
 			virtual const XUSG::PipelineLayout& GetComputePipelineLayout() const = 0;

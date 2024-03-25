@@ -121,7 +121,9 @@ bool AccelerationStructure_DX12::allocate(const Device* pDevice, size_t byteWidt
 	//  - from the app point of view, synchronization of writes/reads to acceleration structures is accomplished using UAV barriers.
 	m_resource = Buffer::MakeShared();
 	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(pDevice->GetRTHandle());
-	const auto resourceFlags = pDxDevice->UsingRaytracingDriver() ? ResourceFlag::ACCELERATION_STRUCTURE : ResourceFlag::ALLOW_UNORDERED_ACCESS;
+	const auto resourceFlags = pDxDevice->UsingRaytracingDriver() ?
+		ResourceFlag::ACCELERATION_STRUCTURE | ResourceFlag::ALLOW_UNORDERED_ACCESS :
+		ResourceFlag::ALLOW_UNORDERED_ACCESS;
 	byteWidth = byteWidth > 0 ? byteWidth : GetResultDataMaxSize();
 	XUSG_N_RETURN(m_resource->Create(pDevice, byteWidth, resourceFlags, MemoryType::DEFAULT, numSRVs), false);
 

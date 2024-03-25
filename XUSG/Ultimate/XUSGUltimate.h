@@ -18,7 +18,7 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	namespace Ultimate
 	{
-		enum class ResolveMode
+		enum class ResolveMode : uint8_t
 		{
 			DECOMPRESS,
 			MIN,
@@ -28,18 +28,18 @@ namespace XUSG
 			DECODE_SAMPLER_FEEDBACK
 		};
 
-		enum class ShadingRate
+		enum class ShadingRate : uint8_t
 		{
-			_1X1 = 0,
-			_1X2 = 0x1,
-			_2X1 = 0x4,
-			_2X2 = 0x5,
-			_2X4 = 0x6,
-			_4X2 = 0x9,
-			_4X4 = 0xa
+			TILE_1X1 = 0,
+			TILE_1X2 = 0x1,
+			TILE_2X1 = 0x4,
+			TILE_2X2 = 0x5,
+			TILE_2X4 = 0x6,
+			TILE_4X2 = 0x9,
+			TILE_4X4 = 0xa
 		};
 
-		enum class ShadingRateCombiner
+		enum class ShadingRateCombiner : uint8_t
 		{
 			COMBINER_PASSTHROUGH,
 			COMBINER_OVERRIDE,
@@ -48,14 +48,14 @@ namespace XUSG
 			COMBINER_SUM
 		};
 
-		enum class ProgramType
+		enum class ProgramType : uint8_t
 		{
 			GENERIC_PIPELINE,
 			RAYTRACING_PIPELINE,
 			WORK_GRAPH
 		};
 
-		enum class WorkGraphFlag
+		enum class WorkGraphFlag : uint8_t
 		{
 			NONE = 0,
 			INITIALIZE = 0x1
@@ -148,8 +148,18 @@ namespace XUSG
 				uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
 				ResourceFlag resourceFlags = ResourceFlag::NONE, bool isCubeMap = false,
 				MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
+				uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
+				TextureLayout textureLayout = TextureLayout::UNKNOWN,
 				uint32_t maxThreads = 1) = 0;
-			virtual bool CreateUAV(const Resource* pTarget) = 0;
+			virtual bool CreateResource(const Device* pDevice, const Texture* pTarget, Format format,
+				uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
+				ResourceFlag resourceFlags = ResourceFlag::NONE, bool isCubeMap = false,
+				MemoryFlag memoryFlags = MemoryFlag::NONE,
+				ResourceState initialResourceState = ResourceState::COMMON,
+				TextureLayout textureLayout = TextureLayout::UNKNOWN,
+				uint32_t maxThreads = 1) = 0;
+
+			virtual Descriptor CreateUAV(const Resource* pTarget) = 0;
 
 			using uptr = std::unique_ptr<SamplerFeedBack>;
 			using sptr = std::shared_ptr<SamplerFeedBack>;
@@ -238,6 +248,13 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	namespace WorkGraph
 	{
+		enum class BoolOverride : uint8_t
+		{
+			IS_NULL,
+			IS_FALSE,
+			IS_TRUE
+		};
+
 		struct NodeID
 		{
 			const wchar_t* Name;
@@ -263,11 +280,16 @@ namespace XUSG
 			virtual ~State() {}
 
 			virtual void SetShaderLibrary(uint32_t index, const Blob& shaderLib,
-				uint32_t numShaders = 0, const /*wchar_t**/void** pShaders = nullptr) = 0;	// pShaders - shader names for DX12
-			virtual void SetProgram(const /*wchar_t*/void* program) = 0;					// program - program name for DX12
+				uint32_t numShaders = 0, const wchar_t** pShaderNames = nullptr) = 0;
+			virtual void SetProgram(const wchar_t* programName) = 0;
 			virtual void SetLocalPipelineLayout(uint32_t index, const PipelineLayout& layout,
-				uint32_t numShaders, const /*wchar_t**/void** pShaders) = 0;				// pShaders - shader names for DX12
+				uint32_t numShaders, const wchar_t** pShaderNames) = 0;
 			virtual void SetGlobalPipelineLayout(const PipelineLayout& layout) = 0;
+			virtual void SetNodeMask(uint32_t nodeMask) = 0;
+			virtual void OverrideDispatchGrid(const wchar_t* shaderName, uint32_t x, uint32_t y, uint32_t z,
+				BoolOverride isEntry = BoolOverride::IS_NULL) = 0;
+			virtual void OverrideMaxDispatchGrid(const wchar_t* shaderName, uint32_t x, uint32_t y, uint32_t z,
+				BoolOverride isEntry = BoolOverride::IS_NULL) = 0;
 
 			virtual Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) = 0;
 			virtual Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) = 0;

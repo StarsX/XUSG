@@ -416,7 +416,7 @@ bool EZ::CommandList_DXR::createComputePipelineLayouts(uint32_t maxSamplers, con
 	m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::UAV)].resize(maxUavSpaces);
 	m_tlasBindingToParamIndexMap.resize(maxTLASSrvs);
 
-	pipelineLayout->SetRange(paramIndex++, DescriptorType::SAMPLER, maxSamplers, 0);
+	pipelineLayout->SetRange(paramIndex++, DescriptorType::SAMPLER, maxSamplers, 0, 0, DescriptorFlag::DESCRIPTORS_VOLATILE);
 
 	for (auto s = 0u; s < maxSpaces; ++s)
 	{
@@ -424,21 +424,21 @@ bool EZ::CommandList_DXR::createComputePipelineLayouts(uint32_t maxSamplers, con
 		{
 			const auto maxDescriptors = pMaxCbvsEachSpace ? pMaxCbvsEachSpace[s] : 12;
 			m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::CBV)][s] = paramIndex;
-			pipelineLayout->SetRange(paramIndex++, DescriptorType::CBV, maxDescriptors, 0, s);
+			pipelineLayout->SetRange(paramIndex++, DescriptorType::CBV, maxDescriptors, 0, s, DescriptorFlag::DESCRIPTORS_VOLATILE);
 		}
 
 		if (s < maxSrvSpaces && !(s == spaceTLAS && maxTLASSrvs > 0))
 		{
 			const auto maxDescriptors = pMaxSrvsEachSpace ? pMaxSrvsEachSpace[s] : 32;
 			m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::SRV)][s] = paramIndex;
-			pipelineLayout->SetRange(paramIndex++, DescriptorType::SRV, maxDescriptors, 0, s);
+			pipelineLayout->SetRange(paramIndex++, DescriptorType::SRV, maxDescriptors, 0, s, DescriptorFlag::DESCRIPTORS_VOLATILE);
 		}
 
 		if (s < maxUavSpaces)
 		{
 			const auto maxDescriptors = pMaxUavsEachSpace ? pMaxUavsEachSpace[s] : 16;
 			m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::UAV)][s] = paramIndex;
-			pipelineLayout->SetRange(paramIndex++, DescriptorType::UAV, maxDescriptors, 0, s);
+			pipelineLayout->SetRange(paramIndex++, DescriptorType::UAV, maxDescriptors, 0, s, DescriptorFlag::DESCRIPTORS_VOLATILE);
 		}
 	}
 

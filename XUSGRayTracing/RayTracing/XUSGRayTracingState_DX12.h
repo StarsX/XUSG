@@ -23,6 +23,7 @@ namespace XUSG
 				uint32_t MaxPayloadSize;
 				uint32_t MaxAttributeSize;
 				uint32_t MaxRecursionDepth;
+				uint32_t NodeMask;
 			};
 
 			struct KeyShaderLibHeader
@@ -34,15 +35,15 @@ namespace XUSG
 			struct KeyShaderLib
 			{
 				Blob Lib;
-				std::vector<const void*> Shaders;
+				std::vector<const wchar_t*> Shaders;
 			};
 
 			struct KeyHitGroup
 			{
-				const void* HitGroup;
-				const void* ClosestHitShader;
-				const void* AnyHitShader;
-				const void* IntersectionShader;
+				const wchar_t* HitGroup;
+				const wchar_t* ClosestHitShader;
+				const wchar_t* AnyHitShader;
+				const wchar_t* IntersectionShader;
 				uint8_t Type;
 			};
 
@@ -55,7 +56,7 @@ namespace XUSG
 			struct KeyLocalPipelineLayout
 			{
 				XUSG::PipelineLayout Layout;
-				std::vector<const void*> Shaders;
+				std::vector<const wchar_t*> Shaders;
 			};
 
 			State_DX12();
@@ -71,6 +72,7 @@ namespace XUSG
 				uint32_t numShaders, const wchar_t** pShaderNames);
 			void SetGlobalPipelineLayout(const XUSG::PipelineLayout& layout);
 			void SetMaxRecursionDepth(uint32_t depth);
+			void SetNodeMask(uint32_t nodeMask);
 
 			Pipeline CreatePipeline(PipelineLib* pPipelineCache, const wchar_t* name = nullptr);
 			Pipeline GetPipeline(PipelineLib* pPipelineCache, const wchar_t* name = nullptr);

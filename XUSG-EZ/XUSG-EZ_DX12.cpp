@@ -118,7 +118,7 @@ bool EZ::CommandList_DX12::Close(RenderTarget* pBackBuffer)
 
 bool EZ::CommandList_DX12::Reset(const CommandAllocator* pAllocator, const Pipeline& initialState)
 {
-	const auto ret = XUSG::CommandList_DX12::Reset(pAllocator, initialState);
+	XUSG_N_RETURN(XUSG::CommandList_DX12::Reset(pAllocator, initialState), false);
 
 	// Set Descriptor heaps
 	const DescriptorHeap descriptorHeaps[] =
@@ -137,7 +137,7 @@ bool EZ::CommandList_DX12::Reset(const CommandAllocator* pAllocator, const Pipel
 	m_barriers.clear();
 	m_clearDSVs.clear();
 
-	return ret;
+	return true;
 }
 
 void EZ::CommandList_DX12::Draw(uint32_t vertexCountPerInstance, uint32_t instanceCount,
@@ -465,14 +465,12 @@ void EZ::CommandList_DX12::SetResources(Shader::Stage stage, DescriptorType desc
 void EZ::CommandList_DX12::SetGraphicsDescriptorTable(Shader::Stage stage, DescriptorType descriptorType,
 	const DescriptorTable& descriptorTable, uint32_t space)
 {
-	XUSG::CommandList_DX12::SetGraphicsDescriptorTable(
-		m_graphicsSpaceToParamIndexMap[stage][static_cast<uint32_t>(descriptorType)][space], descriptorTable);
+	XUSG::CommandList_DX12::SetGraphicsDescriptorTable(m_graphicsSpaceToParamIndexMap[stage][static_cast<uint32_t>(descriptorType)][space], descriptorTable);
 }
 
 void EZ::CommandList_DX12::SetComputeDescriptorTable(DescriptorType descriptorType, const DescriptorTable& descriptorTable, uint32_t space)
 {
-	XUSG::CommandList_DX12::SetGraphicsDescriptorTable(
-		m_computeSpaceToParamIndexMap[static_cast<uint32_t>(descriptorType)][space], descriptorTable);
+	XUSG::CommandList_DX12::SetComputeDescriptorTable(m_computeSpaceToParamIndexMap[static_cast<uint32_t>(descriptorType)][space], descriptorTable);
 }
 
 void EZ::CommandList_DX12::IASetPrimitiveTopology(PrimitiveTopology primitiveTopology)
@@ -779,7 +777,7 @@ const Graphics::DepthStencil* EZ::CommandList_DX12::GetDepthStencil(Graphics::De
 	return m_graphicsPipelineLib->GetDepthStencil(preset);
 }
 
-DescriptorTableLib* EZ::CommandList_DX12::GetDescriptorTableLib()
+DescriptorTableLib* EZ::CommandList_DX12::GetDescriptorTableLib() const
 {
 	return m_descriptorTableLib.get();
 }
@@ -789,7 +787,7 @@ const PipelineLayout& EZ::CommandList_DX12::GetGraphicsPipelineLayout() const
 	return m_pipelineLayouts[GRAPHICS];
 }
 
-const XUSG::PipelineLayout& XUSG::EZ::CommandList_DX12::GetComputePipelineLayout() const
+const XUSG::PipelineLayout& EZ::CommandList_DX12::GetComputePipelineLayout() const
 {
 	return m_pipelineLayouts[COMPUTE];
 }
@@ -802,7 +800,7 @@ bool EZ::CommandList_DX12::init(XUSG::CommandList* pCommandList, uint32_t sample
 	m_graphicsPipelineLib = Graphics::PipelineLib::MakeUnique(m_pDevice, API::DIRECTX_12);
 	m_computePipelineLib = Compute::PipelineLib::MakeUnique(m_pDevice, API::DIRECTX_12);
 	m_pipelineLayoutLib = PipelineLayoutLib::MakeUnique(m_pDevice, API::DIRECTX_12);
-	m_descriptorTableLib = DescriptorTableLib::MakeUnique(m_pDevice, L"EZDescirptorTableLib", API::DIRECTX_12);
+	m_descriptorTableLib = DescriptorTableLib::MakeUnique(m_pDevice, L"EZDescriptorTableLib", API::DIRECTX_12);
 	m_graphicsState = Graphics::State::MakeUnique(API::DIRECTX_12);
 	m_computeState = Compute::State::MakeUnique(API::DIRECTX_12);
 
@@ -838,7 +836,7 @@ bool EZ::CommandList_DX12::createGraphicsPipelineLayouts(
 
 		if (stageMaxSamplers > 0)
 		{
-			pipelineLayout->SetRange(paramIndex, DescriptorType::SAMPLER, stageMaxSamplers, 0);
+			pipelineLayout->SetRange(paramIndex, DescriptorType::SAMPLER, stageMaxSamplers, 0, 0, DescriptorFlag::DESCRIPTORS_VOLATILE);
 			pipelineLayout->SetShaderStage(paramIndex++, stage);
 		}
 	}
@@ -871,7 +869,7 @@ bool EZ::CommandList_DX12::createGraphicsPipelineLayouts(
 			{
 				const auto maxDescriptors = pMaxCbvsEachSpace && pMaxCbvsEachSpace[stage] ? pMaxCbvsEachSpace[stage][s] : 14;
 				spaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::CBV)][s] = paramIndex;
-				pipelineLayout->SetRange(paramIndex, DescriptorType::CBV, maxDescriptors, 0, s);
+				pipelineLayout->SetRange(paramIndex, DescriptorType::CBV, maxDescriptors, 0, s, DescriptorFlag::DESCRIPTORS_VOLATILE);
 				pipelineLayout->SetShaderStage(paramIndex++, stage);
 			}
 
@@ -879,7 +877,7 @@ bool EZ::CommandList_DX12::createGraphicsPipelineLayouts(
 			{
 				const auto maxDescriptors = pMaxSrvsEachSpace && pMaxSrvsEachSpace[stage] ? pMaxSrvsEachSpace[stage][s] : 32;
 				spaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::SRV)][s] = paramIndex;
-				pipelineLayout->SetRange(paramIndex, DescriptorType::SRV, maxDescriptors, 0, s);
+				pipelineLayout->SetRange(paramIndex, DescriptorType::SRV, maxDescriptors, 0, s, DescriptorFlag::DESCRIPTORS_VOLATILE);
 				pipelineLayout->SetShaderStage(paramIndex++, stage);
 			}
 
@@ -887,7 +885,7 @@ bool EZ::CommandList_DX12::createGraphicsPipelineLayouts(
 			{
 				const auto maxDescriptors = pMaxUavsEachSpace && pMaxUavsEachSpace[stage] ? pMaxUavsEachSpace[stage][s] : 16;
 				spaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::UAV)][s] = paramIndex;
-				pipelineLayout->SetRange(paramIndex, DescriptorType::UAV, maxDescriptors, 0, s);
+				pipelineLayout->SetRange(paramIndex, DescriptorType::UAV, maxDescriptors, 0, s, DescriptorFlag::DESCRIPTORS_VOLATILE);
 				pipelineLayout->SetShaderStage(paramIndex++, stage);
 			}
 		}
@@ -922,7 +920,7 @@ bool EZ::CommandList_DX12::createComputePipelineLayouts(uint32_t maxSamplers,
 	m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::SRV)].resize(maxSrvSpaces);
 	m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::UAV)].resize(maxUavSpaces);
 
-	pipelineLayout->SetRange(paramIndex++, DescriptorType::SAMPLER, maxSamplers, 0);
+	pipelineLayout->SetRange(paramIndex++, DescriptorType::SAMPLER, maxSamplers, 0, 0, DescriptorFlag::DESCRIPTORS_VOLATILE);
 
 	for (auto s = 0u; s < maxSpaces; ++s)
 	{
@@ -930,21 +928,21 @@ bool EZ::CommandList_DX12::createComputePipelineLayouts(uint32_t maxSamplers,
 		{
 			const auto maxDescriptors = pMaxCbvsEachSpace ? pMaxCbvsEachSpace[s] : 14;
 			m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::CBV)][s] = paramIndex;
-			pipelineLayout->SetRange(paramIndex++, DescriptorType::CBV, maxDescriptors, 0, s);
+			pipelineLayout->SetRange(paramIndex++, DescriptorType::CBV, maxDescriptors, 0, s, DescriptorFlag::DESCRIPTORS_VOLATILE);
 		}
 
 		if (s < maxSrvSpaces)
 		{
 			const auto maxDescriptors = pMaxSrvsEachSpace ? pMaxSrvsEachSpace[s] : 32;
 			m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::SRV)][s] = paramIndex;
-			pipelineLayout->SetRange(paramIndex++, DescriptorType::SRV, maxDescriptors, 0, s);
+			pipelineLayout->SetRange(paramIndex++, DescriptorType::SRV, maxDescriptors, 0, s, DescriptorFlag::DESCRIPTORS_VOLATILE);
 		}
 
 		if (s < maxUavSpaces)
 		{
 			const auto maxDescriptors = pMaxUavsEachSpace ? pMaxUavsEachSpace[s] : 16;
 			m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::UAV)][s] = paramIndex;
-			pipelineLayout->SetRange(paramIndex++, DescriptorType::UAV, maxDescriptors, 0, s);
+			pipelineLayout->SetRange(paramIndex++, DescriptorType::UAV, maxDescriptors, 0, s, DescriptorFlag::DESCRIPTORS_VOLATILE);
 		}
 	}
 

@@ -24,7 +24,8 @@ State_DX12::~State_DX12()
 {
 }
 
-void State_DX12::SetShaderLibrary(uint32_t index, const Blob& shaderLib, uint32_t numShaders, const void** pShaders)
+void State_DX12::SetShaderLibrary(uint32_t index, const Blob& shaderLib,
+	uint32_t numShaders, const wchar_t** pShaderNames)
 {
 	m_isSerialized = false;
 
@@ -34,16 +35,17 @@ void State_DX12::SetShaderLibrary(uint32_t index, const Blob& shaderLib, uint32_
 	auto& keyShaderLib = m_keyShaderLibs[index];
 	keyShaderLib.Lib = shaderLib;
 	keyShaderLib.Shaders.resize(numShaders);
-	memcpy(keyShaderLib.Shaders.data(), pShaders, sizeof(void*) * numShaders);
+	memcpy(keyShaderLib.Shaders.data(), pShaderNames, sizeof(wchar_t*) * numShaders);
 }
 
-void State_DX12::SetProgram(const void* program)
+void State_DX12::SetProgram(const wchar_t* programName)
 {
 	m_isSerialized = false;
-	m_pKeyHeader->Program = program;
+	m_pKeyHeader->Program = programName;
 }
 
-void State_DX12::SetLocalPipelineLayout(uint32_t index, const XUSG::PipelineLayout& layout, uint32_t numShaders, const void** pShaders)
+void State_DX12::SetLocalPipelineLayout(uint32_t index, const XUSG::PipelineLayout& layout,
+	uint32_t numShaders, const wchar_t** pShaderNames)
 {
 	m_isSerialized = false;
 
@@ -53,13 +55,55 @@ void State_DX12::SetLocalPipelineLayout(uint32_t index, const XUSG::PipelineLayo
 	auto& keyLocalPipelineLayout = m_keyLocalPipelineLayouts[index];
 	keyLocalPipelineLayout.Layout = layout;
 	keyLocalPipelineLayout.Shaders.resize(numShaders);
-	memcpy(keyLocalPipelineLayout.Shaders.data(), pShaders, sizeof(void*) * numShaders);
+	memcpy(keyLocalPipelineLayout.Shaders.data(), pShaderNames, sizeof(wchar_t*) * numShaders);
 }
 
 void State_DX12::SetGlobalPipelineLayout(const XUSG::PipelineLayout& layout)
 {
 	m_isSerialized = false;
 	m_pKeyHeader->GlobalLayout = layout;
+}
+
+void State_DX12::SetNodeMask(uint32_t nodeMask)
+{
+	m_isSerialized = false;
+	m_pKeyHeader->NodeMask = nodeMask;
+}
+
+void State_DX12::OverrideDispatchGrid(const wchar_t* shaderName, uint32_t x, uint32_t y, uint32_t z, BoolOverride isEntry)
+{
+	m_isSerialized = false;
+
+	const auto needInit = m_keyBroadCastingOverrides.find(shaderName) == m_keyBroadCastingOverrides.cend();
+	auto& keyBroadCastingOverrides = m_keyBroadCastingOverrides[shaderName];
+	if (needInit)
+	{
+		keyBroadCastingOverrides.Shader = shaderName;
+		memset(keyBroadCastingOverrides.MaxDispatchGrid, 0, sizeof(uint32_t[3]));
+	}
+
+	keyBroadCastingOverrides.DispatchGrid[0] = x;
+	keyBroadCastingOverrides.DispatchGrid[1] = y;
+	keyBroadCastingOverrides.DispatchGrid[2] = z;
+	keyBroadCastingOverrides.IsEntry = isEntry;
+}
+
+void State_DX12::OverrideMaxDispatchGrid(const wchar_t* shaderName, uint32_t x, uint32_t y, uint32_t z, BoolOverride isEntry)
+{
+	m_isSerialized = false;
+
+	const auto needInit = m_keyBroadCastingOverrides.find(shaderName) == m_keyBroadCastingOverrides.cend();
+	auto& keyBroadCastingOverrides = m_keyBroadCastingOverrides[shaderName];
+	if (needInit)
+	{
+		keyBroadCastingOverrides.Shader = shaderName;
+		memset(keyBroadCastingOverrides.DispatchGrid, 0, sizeof(uint32_t[3]));
+	}
+
+	keyBroadCastingOverrides.MaxDispatchGrid[0] = x;
+	keyBroadCastingOverrides.MaxDispatchGrid[1] = y;
+	keyBroadCastingOverrides.MaxDispatchGrid[2] = z;
+	keyBroadCastingOverrides.IsEntry = isEntry;
 }
 
 Pipeline State_DX12::CreatePipeline(PipelineLib* pPipelineCache, const wchar_t* name)
@@ -204,19 +248,22 @@ void State_DX12::serialize()
 {
 	m_pKeyHeader->NumShaderLibs = static_cast<uint32_t>(m_keyShaderLibs.size());
 	m_pKeyHeader->NumLocalPipelineLayouts = static_cast<uint32_t>(m_keyLocalPipelineLayouts.size());
+	m_pKeyHeader->NumBroadCastingOverrides = static_cast<uint32_t>(m_keyBroadCastingOverrides.size());
 
 	// Calculate total key size
 	const auto sizeKeyHeader = sizeof(KeyHeader);
 
 	auto sizeKeyShaderLibs = sizeof(KeyShaderLibHeader) * m_keyShaderLibs.size();
 	for (const auto& keyShaderLib : m_keyShaderLibs)
-		sizeKeyShaderLibs += sizeof(void*) * keyShaderLib.Shaders.size();
+		sizeKeyShaderLibs += sizeof(wchar_t*) * keyShaderLib.Shaders.size();
 
 	auto sizeKeyLocalPipelineLayouts = sizeof(KeyLocalPipelineLayoutHeader) * m_keyLocalPipelineLayouts.size();
 	for (const auto& keyLocalPipelineLayout : m_keyLocalPipelineLayouts)
-		sizeKeyLocalPipelineLayouts += sizeof(void*) * keyLocalPipelineLayout.Shaders.size();
+		sizeKeyLocalPipelineLayouts += sizeof(wchar_t*) * keyLocalPipelineLayout.Shaders.size();
 
-	m_key.resize(sizeKeyHeader + sizeKeyShaderLibs + sizeKeyLocalPipelineLayouts);
+	const auto sizeKeyBroadCastingOverrides = sizeof(KeyBroadCastingOverrides) * m_keyBroadCastingOverrides.size();
+
+	m_key.resize(sizeKeyHeader + sizeKeyShaderLibs + sizeKeyLocalPipelineLayouts + sizeKeyBroadCastingOverrides);
 	m_pKeyHeader = reinterpret_cast<KeyHeader*>(&m_key[0]);
 
 	auto pKeyShaderLibHeader = reinterpret_cast<KeyShaderLibHeader*>(&m_key[sizeKeyHeader]);
@@ -227,8 +274,8 @@ void State_DX12::serialize()
 		pKeyShaderLibHeader->NumShaders = static_cast<uint32_t>(keyShaderLib.Shaders.size());
 
 		// Update the pointer of the shaders, and copy the shaders
-		const auto pKeyShaders = reinterpret_cast<void**>(&pKeyShaderLibHeader[1]);
-		memcpy(pKeyShaders, keyShaderLib.Shaders.data(), sizeof(void*) * pKeyShaderLibHeader->NumShaders);
+		const auto pKeyShaders = reinterpret_cast<wchar_t**>(&pKeyShaderLibHeader[1]);
+		memcpy(pKeyShaders, keyShaderLib.Shaders.data(), sizeof(wchar_t*) * pKeyShaderLibHeader->NumShaders);
 
 		// Update the pointer
 		pKeyShaderLibHeader = reinterpret_cast<KeyShaderLibHeader*>(&pKeyShaders[pKeyShaderLibHeader->NumShaders]);
@@ -243,13 +290,23 @@ void State_DX12::serialize()
 		pKeyLocalPipelineLayoutHeader->NumShaders = static_cast<uint32_t>(keyLocalPipelineLayout.Shaders.size());
 
 		// Update the pointer of association, and copy the associated shaders
-		const auto pKeyLocalPipelineAssociation = reinterpret_cast<void**>(&pKeyLocalPipelineLayoutHeader[1]);
+		const auto pKeyLocalPipelineAssociation = reinterpret_cast<wchar_t**>(&pKeyLocalPipelineLayoutHeader[1]);
 		memcpy(pKeyLocalPipelineAssociation, keyLocalPipelineLayout.Shaders.data(),
-			sizeof(void*) * pKeyLocalPipelineLayoutHeader->NumShaders);
+			sizeof(wchar_t*) * pKeyLocalPipelineLayoutHeader->NumShaders);
 
 		// Update the pointer
 		pKeyLocalPipelineLayoutHeader = reinterpret_cast<KeyLocalPipelineLayoutHeader*>
 			(&pKeyLocalPipelineAssociation[pKeyLocalPipelineLayoutHeader->NumShaders]);
+	}
+
+	auto pKeyBroadCastingOverrides = reinterpret_cast<KeyBroadCastingOverrides*>
+		(&m_key[sizeKeyHeader + sizeKeyShaderLibs + sizeKeyLocalPipelineLayouts]);
+	for (const auto& keyBroadCastingOverrides : m_keyBroadCastingOverrides)
+	{
+		*pKeyBroadCastingOverrides = keyBroadCastingOverrides.second;
+
+		// Update the pointer
+		++pKeyBroadCastingOverrides;
 	}
 
 	m_isSerialized = true;
@@ -313,6 +370,7 @@ com_ptr<ID3D12StateObject> PipelineLib_DX12::CreatePipeline(const string& key, c
 	const auto& keyHeader = reinterpret_cast<const State_DX12::KeyHeader&>(key[0]);
 	const auto sizeKeyHeader = sizeof(State_DX12::KeyHeader);
 	auto sizeKeyShaderLibs = sizeof(State_DX12::KeyShaderLibHeader) * keyHeader.NumShaderLibs;
+	auto sizeKeyLocalPipelineLayouts = sizeof(State_DX12::KeyLocalPipelineLayoutHeader) * keyHeader.NumLocalPipelineLayouts;
 
 	CD3DX12_STATE_OBJECT_DESC pPsoDesc(D3D12_STATE_OBJECT_TYPE_EXECUTABLE);
 
@@ -327,7 +385,7 @@ com_ptr<ID3D12StateObject> PipelineLib_DX12::CreatePipeline(const string& key, c
 		if (pKeyShaderLibHeader->NumShaders > 0)
 		{
 			// Calculate the size of shader-lib keys
-			sizeKeyShaderLibs += sizeof(void*) * pKeyShaderLibHeader->NumShaders;
+			sizeKeyShaderLibs += sizeof(wchar_t*) * pKeyShaderLibHeader->NumShaders;
 
 			// Export shaders
 			const auto pShaderNames = reinterpret_cast<const wchar_t* const*>(&pKeyShaderLibHeader[1]);
@@ -344,7 +402,7 @@ com_ptr<ID3D12StateObject> PipelineLib_DX12::CreatePipeline(const string& key, c
 	// Defines the shader program name.
 	auto pWorkGraph = pPsoDesc.CreateSubobject<CD3DX12_WORK_GRAPH_SUBOBJECT>();
 	pWorkGraph->IncludeAllAvailableNodes();
-	pWorkGraph->SetProgramName(static_cast<const wchar_t*>(keyHeader.Program));
+	pWorkGraph->SetProgramName(keyHeader.Program);
 
 	// Local pipeline layout and shader association
 	// This is a pipeline layout that enables a shader to have unique arguments that come from shader tables.
@@ -352,6 +410,9 @@ com_ptr<ID3D12StateObject> PipelineLib_DX12::CreatePipeline(const string& key, c
 		(&key[sizeKeyHeader + sizeKeyShaderLibs]);
 	for (auto i = 0u; i < keyHeader.NumLocalPipelineLayouts; ++i)
 	{
+		// Calculate the size of local pipeline-layout keys
+		sizeKeyLocalPipelineLayouts += sizeof(wchar_t*) * pKeyLocalPipelineLayoutHeader->NumShaders;
+
 		const auto pRootSignature = static_cast<ID3D12RootSignature*>(pKeyLocalPipelineLayoutHeader->Layout);
 
 		// Set pipeline layout
@@ -370,9 +431,38 @@ com_ptr<ID3D12StateObject> PipelineLib_DX12::CreatePipeline(const string& key, c
 	}
 
 	// Global pipeline layout
-	// This is a pipeline layout that is shared across all raytracing shaders invoked during a DispatchRays() call.
+	// This is a pipeline layout that is shared across all node shaders invoked during a DispatchGraph() call.
 	const auto pGlobalRootSignature = pPsoDesc.CreateSubobject<CD3DX12_GLOBAL_ROOT_SIGNATURE_SUBOBJECT>();
 	pGlobalRootSignature->SetRootSignature(static_cast<ID3D12RootSignature*>(keyHeader.GlobalLayout));
+
+	// Broad-casting overrides
+	const auto pKeyBroadCastingOverrides = reinterpret_cast<const State_DX12::KeyBroadCastingOverrides*>
+		(&key[sizeKeyHeader + sizeKeyShaderLibs + sizeKeyLocalPipelineLayouts]);
+	for (auto i = 0u; i < keyHeader.NumBroadCastingOverrides; ++i)
+	{
+		const auto& keyBroadCastingOverrides = pKeyBroadCastingOverrides[i];
+		const auto pOverrides = pWorkGraph->CreateBroadcastingLaunchNodeOverrides(keyBroadCastingOverrides.Shader);
+
+		// Override DispatchGrid
+		const auto& dispatchGrid = keyBroadCastingOverrides.DispatchGrid;
+		if (dispatchGrid[0] && dispatchGrid[1] && dispatchGrid[1])
+			pOverrides->DispatchGrid(dispatchGrid[0], dispatchGrid[1], dispatchGrid[2]);
+
+		// Override MaxDispatchGrid
+		const auto& maxDispatchGrid = keyBroadCastingOverrides.MaxDispatchGrid;
+		if (maxDispatchGrid[0] && maxDispatchGrid[1] && maxDispatchGrid[1])
+			pOverrides->MaxDispatchGrid(maxDispatchGrid[0], maxDispatchGrid[1], maxDispatchGrid[2]);
+
+		if (keyBroadCastingOverrides.IsEntry != BoolOverride::IS_NULL)
+			pOverrides->ProgramEntry(keyBroadCastingOverrides.IsEntry == BoolOverride::IS_TRUE ? TRUE : FALSE);
+	}
+
+	// Node mask
+	if (keyHeader.NodeMask)
+	{
+		const auto pNodeMask = pPsoDesc.CreateSubobject<CD3DX12_NODE_MASK_SUBOBJECT>();
+		pNodeMask->SetNodeMask(keyHeader.NodeMask);
+	}
 
 	//PrintStateObjectDesc(desc);
 

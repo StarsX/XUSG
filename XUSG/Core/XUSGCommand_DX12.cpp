@@ -5,6 +5,7 @@
 #include "XUSG_DX12.h"
 #include "XUSGCommand_DX12.h"
 #include "XUSGResource_DX12.h"
+#include "XUSGDescriptor_DX12.h"
 #include "XUSGEnum_DX12.h"
 
 using namespace std;
@@ -299,9 +300,22 @@ void CommandList_DX12::ExecuteBundle(const CommandList* pCommandList) const
 	m_commandList->ExecuteBundle(static_cast<ID3D12GraphicsCommandList*>(pCommandList->GetHandle()));
 }
 
-void CommandList_DX12::SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps) const
+void CommandList_DX12::SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps)
 {
 	assert(numDescriptorHeaps == 0 || pDescriptorHeaps);
+	assert(numDescriptorHeaps <= size(m_descriptorHeapStarts));
+	for (auto i = 0u; i < numDescriptorHeaps; ++i)
+	{
+		const auto pDescriptorHeap = static_cast<ID3D12DescriptorHeap*>(pDescriptorHeaps[i]);
+		const auto desc = pDescriptorHeap->GetDesc();
+		const auto isCbvSrvUavHeap = desc.Type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+		assert(isCbvSrvUavHeap || desc.Type == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+		assert(desc.Flags & D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
+
+		const auto heapType = isCbvSrvUavHeap ? CBV_SRV_UAV_HEAP : SAMPLER_HEAP;
+		m_descriptorHeapStarts[heapType] = pDescriptorHeap->GetGPUDescriptorHandleForHeapStart().ptr;
+	}
+
 	m_commandList->SetDescriptorHeaps(numDescriptorHeaps, pDescriptorHeaps ?
 		reinterpret_cast<ID3D12DescriptorHeap* const*>(pDescriptorHeaps) : nullptr);
 }
@@ -318,12 +332,18 @@ void CommandList_DX12::SetGraphicsPipelineLayout(const PipelineLayout& pipelineL
 
 void CommandList_DX12::SetComputeDescriptorTable(uint32_t index, const DescriptorTable& descriptorTable) const
 {
-	m_commandList->SetComputeRootDescriptorTable(index, { *descriptorTable });
+	const auto& tableProperty = reinterpret_cast<const DescriptorTableProperty&>(descriptorTable);
+	assert(tableProperty.HeapType == 0 || tableProperty.HeapType == 1);
+	const auto baseDescriptor = m_descriptorHeapStarts[tableProperty.HeapType] + tableProperty.Offset;
+	m_commandList->SetComputeRootDescriptorTable(index, { baseDescriptor });
 }
 
 void CommandList_DX12::SetGraphicsDescriptorTable(uint32_t index, const DescriptorTable& descriptorTable) const
 {
-	m_commandList->SetGraphicsRootDescriptorTable(index, { *descriptorTable });
+	const auto& tableProperty = reinterpret_cast<const DescriptorTableProperty&>(descriptorTable);
+	assert(tableProperty.HeapType == 0 || tableProperty.HeapType == 1);
+	const auto baseDescriptor = m_descriptorHeapStarts[tableProperty.HeapType] + tableProperty.Offset;
+	m_commandList->SetGraphicsRootDescriptorTable(index, { baseDescriptor });
 }
 
 void CommandList_DX12::SetComputeDescriptorTable(uint32_t index, const DescriptorHeap& descriptorHeap, int32_t offset) const
@@ -463,15 +483,14 @@ void CommandList_DX12::SOSetTargets(uint32_t startSlot, uint32_t numViews, const
 void CommandList_DX12::OMSetFramebuffer(const Framebuffer& framebuffer) const
 {
 	assert(framebuffer.NumRenderTargetDescriptors < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT);
-
 	D3D12_CPU_DESCRIPTOR_HANDLE renderTargetViews[D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT];
 	for (uint8_t i = 0; i < framebuffer.NumRenderTargetDescriptors; ++i)
-		renderTargetViews[i].ptr = framebuffer.RenderTargetViews.get()[i];
+		renderTargetViews[i].ptr = *framebuffer.RenderTargetViews;
 
 	const D3D12_CPU_DESCRIPTOR_HANDLE depthStencilView = { framebuffer.DepthStencilView };
 
-	m_commandList->OMSetRenderTargets(framebuffer.NumRenderTargetDescriptors, renderTargetViews, true,
-		framebuffer.DepthStencilView ? &depthStencilView : nullptr);
+	m_commandList->OMSetRenderTargets(framebuffer.NumRenderTargetDescriptors, renderTargetViews,
+		TRUE, framebuffer.DepthStencilView ? &depthStencilView : nullptr);
 }
 
 void CommandList_DX12::OMSetRenderTargets(uint32_t numRenderTargetDescriptors, const Descriptor* pRenderTargetViews,
@@ -549,7 +568,10 @@ void CommandList_DX12::ClearUnorderedAccessViewUint(const DescriptorTable& descr
 		m_rects[i].bottom = pRects[i].Bottom;
 	}
 
-	m_commandList->ClearUnorderedAccessViewUint({ *descriptorTable }, { descriptor },
+	const auto& tableProperty = reinterpret_cast<const DescriptorTableProperty&>(descriptorTable);
+	assert(tableProperty.HeapType == 0 || tableProperty.HeapType == 1);
+	const auto baseDescriptor = m_descriptorHeapStarts[tableProperty.HeapType] + tableProperty.Offset;
+	m_commandList->ClearUnorderedAccessViewUint({ baseDescriptor }, { descriptor },
 		static_cast<ID3D12Resource*>(pResource->GetHandle()), values,
 		numRects, numRects ? m_rects.data() : nullptr);
 }
@@ -569,7 +591,10 @@ void CommandList_DX12::ClearUnorderedAccessViewFloat(const DescriptorTable& desc
 		m_rects[i].bottom = pRects[i].Bottom;
 	}
 
-	m_commandList->ClearUnorderedAccessViewFloat({ *descriptorTable }, { descriptor },
+	const auto& tableProperty = reinterpret_cast<const DescriptorTableProperty&>(descriptorTable);
+	assert(tableProperty.HeapType == 0 || tableProperty.HeapType == 1);
+	const auto baseDescriptor = m_descriptorHeapStarts[tableProperty.HeapType] + tableProperty.Offset;
+	m_commandList->ClearUnorderedAccessViewFloat({ baseDescriptor }, { descriptor },
 		static_cast<ID3D12Resource*>(pResource->GetHandle()), values,
 		numRects, numRects ? m_rects.data() : nullptr);
 }

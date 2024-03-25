@@ -27,7 +27,7 @@ void Util::PipelineLayout_DX12::SetShaderStage(uint32_t index, Shader::Stage sta
 }
 
 void Util::PipelineLayout_DX12::SetRange(uint32_t index, DescriptorType type, uint32_t num, uint32_t baseBinding,
-	uint32_t space, DescriptorFlag flags)
+	uint32_t space, DescriptorFlag flags, uint32_t offsetInDescriptors)
 {
 	auto& key = checkKeyStorage(index);
 
@@ -44,7 +44,7 @@ void Util::PipelineLayout_DX12::SetRange(uint32_t index, DescriptorType type, ui
 	range.BaseBinding = baseBinding;
 	range.Space = space;
 	range.Flags = flags;
-	range.OffsetInDescriptors = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	range.OffsetInDescriptors = offsetInDescriptors;
 }
 
 void Util::PipelineLayout_DX12::SetConstants(uint32_t index, uint32_t num32BitValues,
@@ -243,9 +243,10 @@ void PipelineLayoutLib_DX12::GetRootParameter(CD3DX12_ROOT_PARAMETER1& rootParam
 			for (auto i = 0u; i < numRanges; ++i)
 			{
 				const auto& range = pRanges[i];
+				const auto flags = GetDX12DescriptorRangeFlags(range.Flags);
 				auto& descriptorRange = descriptorRanges[i];
 				descriptorRange.Init(rangeTypes[static_cast<uint8_t>(range.Type)], range.NumDescriptors,
-					range.BaseBinding, range.Space, GetDX12DescriptorRangeFlags(range.Flags));
+					range.BaseBinding, range.Space, flags, range.OffsetInDescriptors);
 			}
 
 			// Set param

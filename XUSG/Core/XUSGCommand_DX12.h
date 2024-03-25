@@ -80,7 +80,7 @@ namespace XUSG
 		void SetPipelineState(const Pipeline& pipelineState) const;
 		void Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers);
 		void ExecuteBundle(const CommandList* pCommandList) const;
-		void SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps) const;
+		void SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps);
 		void SetComputePipelineLayout(const PipelineLayout& pipelineLayout) const;
 		void SetGraphicsPipelineLayout(const PipelineLayout& pipelineLayout) const;
 		void SetComputeDescriptorTable(uint32_t index, const DescriptorTable& descriptorTable) const;
@@ -156,6 +156,8 @@ namespace XUSG
 
 		std::vector<D3D12_RESOURCE_BARRIER>	m_barriers;
 		std::vector<D3D12_RECT>				m_rects;
+
+		uint64_t							m_descriptorHeapStarts[NUM_SHADER_VISIBLE_DESCRIPTOR_HEAP];
 	};
 
 	class CommandQueue_DX12 :

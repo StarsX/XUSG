@@ -42,7 +42,7 @@ bool RayTracing::CommandList_DX12::CreateInterface()
 }
 
 void RayTracing::CommandList_DX12::BuildRaytracingAccelerationStructure(const BuildDesc* pDesc, uint32_t numPostbuildInfoDescs,
-	const PostbuildInfo* pPostbuildInfoDescs, const DescriptorHeap* pDescriptorHeap) const
+	const PostbuildInfo* pPostbuildInfoDescs, const DescriptorHeap* pDescriptorHeap)
 {
 	assert(numPostbuildInfoDescs == 0 || pPostbuildInfoDescs);
 	vector<D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_DESC> postbuildInfoDescs(numPostbuildInfoDescs);
@@ -75,16 +75,33 @@ void RayTracing::CommandList_DX12::EmitRaytracingAccelerationStructurePostbuildI
 }
 
 void RayTracing::CommandList_DX12::CopyRaytracingAccelerationStructure(const AccelerationStructure* pDst,
-	const AccelerationStructure* pSrc, CopyMode mode) const
+	const AccelerationStructure* pSrc, CopyMode mode, const DescriptorHeap* pDescriptorHeap)
 {
+	// Set the descriptor heaps to be used during acceleration structure build for the Fallback Layer.
+	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(m_pDeviceRT->GetRTHandle());
+	if (!pDxDevice->UsingRaytracingDriver() && pDescriptorHeap) SetDescriptorHeaps(1, pDescriptorHeap);
+
 	m_commandListRT->CopyRaytracingAccelerationStructure(pDst->GetResource()->GetVirtualAddress(),
 		pSrc->GetResource()->GetVirtualAddress(), GetDXRAccelerationStructureCopyMode(mode),
 		AccelerationStructure::GetUAVCount());
 }
 
-void RayTracing::CommandList_DX12::SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps) const
+void RayTracing::CommandList_DX12::SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps)
 {
 	assert(numDescriptorHeaps == 0 || pDescriptorHeaps);
+	assert(numDescriptorHeaps <= size(m_descriptorHeapStarts));
+	for (auto i = 0u; i < numDescriptorHeaps; ++i)
+	{
+		const auto pDescriptorHeap = static_cast<ID3D12DescriptorHeap*>(pDescriptorHeaps[i]);
+		const auto desc = pDescriptorHeap->GetDesc();
+		const auto isCbvSrvUavHeap = desc.Type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+		assert(isCbvSrvUavHeap || desc.Type == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+		assert(desc.Flags & D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
+
+		const auto heapType = isCbvSrvUavHeap ? CBV_SRV_UAV_HEAP : SAMPLER_HEAP;
+		m_descriptorHeapStarts[heapType] = pDescriptorHeap->GetGPUDescriptorHandleForHeapStart().ptr;
+	}
+
 	m_commandListRT->SetDescriptorHeaps(numDescriptorHeaps, pDescriptorHeaps ?
 		reinterpret_cast<ID3D12DescriptorHeap* const*>(pDescriptorHeaps) : nullptr);
 }

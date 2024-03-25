@@ -18,6 +18,7 @@ namespace XUSG
 	D3D12_CULL_MODE GetDX12CullMode(CullMode cullMode);
 	D3D12_INDIRECT_ARGUMENT_TYPE GetDX12IndirectArgumentType(IndirectArgumentType indirectArgumentType);
 	D3D12_RESOURCE_DIMENSION GetDX12ResourceDimension(ResourceDimension resourceDimension);
+	D3D12_TEXTURE_LAYOUT GetDX12TextureLayout(TextureLayout layout);
 
 	D3D12_COMMAND_QUEUE_FLAGS GetDX12CommandQueueFlag(CommandQueueFlag commandQueueFlag);
 	D3D12_COMMAND_QUEUE_FLAGS GetDX12CommandQueueFlags(CommandQueueFlag commandQueueFlags);
@@ -68,6 +69,8 @@ namespace XUSG
 
 	D3D12_FILTER GetDX12Filter(SamplerFilter filter);
 	D3D12_TEXTURE_ADDRESS_MODE GetDX12TextureAddressMode(TextureAddressMode textureAddressMode);
+
+	D3D12_SHADER_COMPONENT_MAPPING GetDX12ShaderComponentMapping(SrvComponentMapping srvComponentMapping);
 
 	uint32_t GetDX12Requirement(Requirement requirement);
 

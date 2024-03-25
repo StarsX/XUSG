@@ -254,7 +254,7 @@ bool EZ::CommandList_DX12::createMeshShaderPipelineLayouts(
 
 		if (stageMaxSamplers > 0)
 		{
-			pipelineLayout->SetRange(paramIndex, DescriptorType::SAMPLER, stageMaxSamplers, 0);
+			pipelineLayout->SetRange(paramIndex, DescriptorType::SAMPLER, stageMaxSamplers, 0, 0, DescriptorFlag::DESCRIPTORS_VOLATILE);
 			pipelineLayout->SetShaderStage(paramIndex++, stage);
 		}
 	}
@@ -285,7 +285,7 @@ bool EZ::CommandList_DX12::createMeshShaderPipelineLayouts(
 			{
 				const auto maxDescriptors = pMaxCbvsEachSpace && pMaxCbvsEachSpace[stage] ? pMaxCbvsEachSpace[stage][s] : 14;
 				spaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::CBV)][s] = paramIndex;
-				pipelineLayout->SetRange(paramIndex, DescriptorType::CBV, maxDescriptors, 0, s);
+				pipelineLayout->SetRange(paramIndex, DescriptorType::CBV, maxDescriptors, 0, s, DescriptorFlag::DESCRIPTORS_VOLATILE);
 				pipelineLayout->SetShaderStage(paramIndex++, stage);
 			}
 
@@ -293,7 +293,7 @@ bool EZ::CommandList_DX12::createMeshShaderPipelineLayouts(
 			{
 				const auto maxDescriptors = pMaxSrvsEachSpace && pMaxSrvsEachSpace[stage] ? pMaxSrvsEachSpace[stage][s] : 32;
 				spaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::SRV)][s] = paramIndex;
-				pipelineLayout->SetRange(paramIndex, DescriptorType::SRV, maxDescriptors, 0, s);
+				pipelineLayout->SetRange(paramIndex, DescriptorType::SRV, maxDescriptors, 0, s, DescriptorFlag::DESCRIPTORS_VOLATILE);
 				pipelineLayout->SetShaderStage(paramIndex++, stage);
 			}
 
@@ -301,7 +301,7 @@ bool EZ::CommandList_DX12::createMeshShaderPipelineLayouts(
 			{
 				const auto maxDescriptors = pMaxUavsEachSpace && pMaxUavsEachSpace[stage] ? pMaxUavsEachSpace[stage][s] : 16;
 				spaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::UAV)][s] = paramIndex;
-				pipelineLayout->SetRange(paramIndex, DescriptorType::UAV, maxDescriptors, 0, s);
+				pipelineLayout->SetRange(paramIndex, DescriptorType::UAV, maxDescriptors, 0, s, DescriptorFlag::DESCRIPTORS_VOLATILE);
 				pipelineLayout->SetShaderStage(paramIndex++, stage);
 			}
 		}
