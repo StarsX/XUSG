@@ -240,6 +240,8 @@ bool SamplerFeedBack_DX12::Create(const Device* pDevice, const Texture* pTarget,
 	ResourceFlag resourceFlags, bool isCubeMap, MemoryFlag memoryFlags, const wchar_t* name,
 	uint16_t srvComponentMapping, TextureLayout textureLayout, uint32_t maxThreads)
 {
+	XUSG_N_RETURN(Initialize(pDevice), false);
+
 	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
 
 	uint16_t arraySize;
@@ -251,37 +253,40 @@ bool SamplerFeedBack_DX12::Create(const Device* pDevice, const Texture* pTarget,
 		arraySize = pTarget->GetArraySize();
 		numMips = pTarget->GetNumMips();
 
-		XUSG_N_RETURN(CreateResource(pDevice, pTarget, format, mipRegionWidth, mipRegionHeight, mipRegionDepth,
+		XUSG_N_RETURN(CreateResource(pTarget, format, mipRegionWidth, mipRegionHeight, mipRegionDepth,
 			resourceFlags, isCubeMap, memoryFlags, ResourceState::COMMON, textureLayout, maxThreads), false);
 	}
-	else
-	{
-		XUSG_N_RETURN(setDevice(pDevice), false);
-		arraySize = numMips = 1;
-	}
+	else arraySize = numMips = 1;
 
 	SetName(name);
 
+	// Allocate CBV SRV UAV heap
+	uint32_t numDescriptors = 0;
+	if (hasSRV) numDescriptors += max<uint8_t>(numMips, 1);
+	if (pTarget) ++numDescriptors;
+	const auto uavHeapStart = AllocateCbvSrvUavHeap(numDescriptors);
+	auto descriptorIdx = 0u;
+
 	// Create SRVs
 	if (hasSRV)
-		XUSG_N_RETURN(createSRVs(arraySize, format, numMips, false, isCubeMap, srvComponentMapping), false);
+		XUSG_N_RETURN(createSRVs(descriptorIdx, arraySize, format, numMips, false, isCubeMap, srvComponentMapping), false);
 
 	// Create UAV
 	if (pTarget)
 	{
 		m_uavs.resize(1);
-		XUSG_X_RETURN(m_uavs[0], CreateUAV(pTarget), false);
+		XUSG_X_RETURN(m_uavs[0], CreateUAV(uavHeapStart, descriptorIdx, pTarget), false);
 	}
 
 	return true;
 }
 
-bool SamplerFeedBack_DX12::CreateResource(const Device* pDevice, const Texture* pTarget, Format format,
-	uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth, ResourceFlag resourceFlags,
-	bool isCubeMap, MemoryFlag memoryFlags, ResourceState initialResourceState, TextureLayout textureLayout,
+bool SamplerFeedBack_DX12::CreateResource(const Texture* pTarget, Format format,
+	uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
+	ResourceFlag resourceFlags, bool isCubeMap, MemoryFlag memoryFlags,
+	ResourceState initialResourceState, TextureLayout textureLayout,
 	uint32_t maxThreads)
 {
-	XUSG_N_RETURN(setDevice(pDevice), false);
 	V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&m_deviceU)), cerr, false);
 
 	m_format = format;
@@ -311,11 +316,12 @@ bool SamplerFeedBack_DX12::CreateResource(const Device* pDevice, const Texture* 
 	return true;
 }
 
-XUSG::Descriptor SamplerFeedBack_DX12::CreateUAV(const Resource* pTarget)
+XUSG::Descriptor SamplerFeedBack_DX12::CreateUAV(const Descriptor& uavHeapStart, uint32_t descriptorIdx, const Resource* pTarget)
 {
 	// Create an unordered access view
 	assert(pTarget);
-	const auto descriptor = allocateSrvUavHeap();
+	const auto stride = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	const auto descriptor = uavHeapStart + stride * descriptorIdx;
 	m_deviceU->CreateSamplerFeedbackUnorderedAccessView(static_cast<ID3D12Resource*>(pTarget->GetHandle()),
 		m_resource.get(), { descriptor });
 

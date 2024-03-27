@@ -69,7 +69,7 @@ namespace XUSG
 				uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 				TextureLayout textureLayout = TextureLayout::UNKNOWN,
 				uint32_t maxThreads = 1);
-			bool CreateResource(const Device* pDevice, const Texture* pTarget, Format format,
+			bool CreateResource(const Texture* pTarget, Format format,
 				uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
 				ResourceFlag resourceFlags = ResourceFlag::NONE, bool isCubeMap = false,
 				MemoryFlag memoryFlags = MemoryFlag::NONE,
@@ -78,7 +78,7 @@ namespace XUSG
 				uint32_t maxThreads = 1);
 			//bool CreateUAV(const Resource* pTarget);
 
-			Descriptor CreateUAV(const Resource* pTarget);
+			Descriptor CreateUAV(const Descriptor& uavHeapStart, uint32_t descriptorIdx, const Resource* pTarget);
 
 		protected:
 			com_ptr<ID3D12Device8> m_deviceU;

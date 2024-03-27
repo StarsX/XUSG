@@ -131,5 +131,7 @@ namespace XUSG
 		std::vector<RECT> m_dirtyRects;
 	};
 
+	uint32_t CalculateDX12ConstantBufferByteSize(uint32_t byteSize);
+
 	Blob GetDX12PipelineCache(Pipeline pipeline);
 }

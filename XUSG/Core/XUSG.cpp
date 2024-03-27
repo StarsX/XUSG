@@ -396,6 +396,11 @@ uint8_t XUSG::CalculateMipLevels(uint64_t width, uint32_t height, uint32_t depth
 	return CalculateMipLevels(static_cast<uint32_t>(width), height, depth);
 }
 
+uint32_t XUSG::CalculateConstantBufferByteSize(uint32_t byteSize, API api)
+{
+	return CalculateDX12ConstantBufferByteSize(byteSize);
+}
+
 uint32_t XUSG::CalculateSubresource(uint8_t mipSlice, uint8_t numMips,
 	uint32_t arraySlice, uint32_t arraySize, uint8_t planeSlice)
 {

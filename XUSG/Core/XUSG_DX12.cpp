@@ -320,6 +320,14 @@ void* SwapChain_DX12::GetHandle() const
 	return m_swapChain.get();
 }
 
+uint32_t XUSG::CalculateDX12ConstantBufferByteSize(uint32_t byteSize)
+{
+	// Constant buffer size is required to be aligned.
+	const auto alignment = D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT;
+
+	return (byteSize + (alignment - 1)) & ~(alignment - 1);
+}
+
 Blob XUSG::GetDX12PipelineCache(Pipeline pipeline)
 {
 	com_ptr<ID3DBlob> blob;
