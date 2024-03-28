@@ -1480,6 +1480,8 @@ namespace XUSG
 		//ShaderResource();
 		virtual ~ShaderResource() {};
 
+		virtual bool Initialize(const Device* pDevice, Format format) = 0;
+
 		virtual const Descriptor& GetSRV(uint32_t index = 0) const = 0;
 
 		virtual Format GetFormat() const = 0;
@@ -1611,7 +1613,7 @@ namespace XUSG
 			uint32_t maxThreads = 1) = 0;
 		virtual bool CreateFromSwapChain(const Device* pDevice, const SwapChain* pSwapChain,
 			uint32_t bufferIndex, uint32_t maxThreads = 1) = 0;
-		virtual bool Initialize(const Device* pDevice) = 0;
+		virtual bool Initialize(const Device* pDevice, Format format) = 0;
 		virtual bool CreateResource(uint32_t width, uint32_t height, Format format, uint16_t arraySize = 1,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1, uint8_t sampleCount = 1,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, ResourceState initialResourceState = ResourceState::COMMON,
@@ -1673,7 +1675,7 @@ namespace XUSG
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 			uint16_t stencilSrvComponentMapping = XUSG_DEFAULT_STENCIL_SRV_COMPONENT_MAPPING,
 			TextureLayout textureLayout = TextureLayout::UNKNOWN, uint32_t maxThreads = 1) = 0;
-		virtual bool Initialize(const Device* pDevice) = 0;
+		virtual bool Initialize(const Device* pDevice, Format& format) = 0;
 		virtual bool CreateResource(uint32_t width, uint32_t height, Format format, uint16_t arraySize = 1,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1, uint8_t sampleCount = 1,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, ResourceState initialResourceState = ResourceState::DEPTH_WRITE,
@@ -1803,6 +1805,7 @@ namespace XUSG
 			uint32_t numUAVs = 1, const uint32_t* firstUavElements = nullptr,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 			const size_t* counterByteOffsets = nullptr, uint32_t maxThreads = 1) = 0;
+		virtual bool Initialize(const Device* pDevice) = 0;
 
 		using uptr = std::unique_ptr<StructuredBuffer>;
 		using sptr = std::shared_ptr<StructuredBuffer>;
@@ -2423,7 +2426,8 @@ namespace XUSG
 	XUSG_INTERFACE uint8_t CalculateMipLevels(uint32_t width, uint32_t height, uint32_t depth = 1);
 	XUSG_INTERFACE uint8_t CalculateMipLevels(uint64_t width, uint32_t height, uint32_t depth = 1);
 
-	XUSG_INTERFACE uint32_t CalculateConstantBufferByteSize(uint32_t byteSize, API api = API::DIRECTX_12);
 	XUSG_INTERFACE uint32_t CalculateSubresource(uint8_t mipSlice, uint8_t numMips,
 		uint32_t arraySlice, uint32_t arraySize, uint8_t planeSlice);
+
+	XUSG_INTERFACE size_t AlignConstantBufferView(size_t byteSize, API api = API::DIRECTX_12);
 }

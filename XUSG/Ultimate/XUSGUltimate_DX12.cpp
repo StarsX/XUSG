@@ -240,7 +240,7 @@ bool SamplerFeedBack_DX12::Create(const Device* pDevice, const Texture* pTarget,
 	ResourceFlag resourceFlags, bool isCubeMap, MemoryFlag memoryFlags, const wchar_t* name,
 	uint16_t srvComponentMapping, TextureLayout textureLayout, uint32_t maxThreads)
 {
-	XUSG_N_RETURN(Initialize(pDevice), false);
+	XUSG_N_RETURN(Initialize(pDevice, format), false);
 
 	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
 
@@ -269,7 +269,7 @@ bool SamplerFeedBack_DX12::Create(const Device* pDevice, const Texture* pTarget,
 
 	// Create SRVs
 	if (hasSRV)
-		XUSG_N_RETURN(createSRVs(descriptorIdx, arraySize, format, numMips, false, isCubeMap, srvComponentMapping), false);
+		XUSG_N_RETURN(createSRVs(descriptorIdx, arraySize, m_format, numMips, false, isCubeMap, srvComponentMapping), false);
 
 	// Create UAV
 	if (pTarget)
@@ -289,8 +289,6 @@ bool SamplerFeedBack_DX12::CreateResource(const Texture* pTarget, Format format,
 {
 	V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&m_deviceU)), cerr, false);
 
-	m_format = format;
-
 	// Get paired properties
 	const uint16_t arraySize = pTarget->GetArraySize();
 	const uint8_t numMips = pTarget->GetNumMips();
@@ -305,7 +303,7 @@ bool SamplerFeedBack_DX12::CreateResource(const Texture* pTarget, Format format,
 		GetDX12TextureLayout(textureLayout), 0, mipRegionWidth, mipRegionHeight, mipRegionDepth);
 
 	// Determine initial state
-	assert(maxThreads > 0);
+	assert(maxThreads);
 	m_states.resize(maxThreads);
 	for (auto& states : m_states)
 		states.resize(arraySize * numMips, initialResourceState);

@@ -131,7 +131,13 @@ namespace XUSG
 		std::vector<RECT> m_dirtyRects;
 	};
 
-	uint32_t CalculateDX12ConstantBufferByteSize(uint32_t byteSize);
-
 	Blob GetDX12PipelineCache(Pipeline pipeline);
+
+	inline size_t AlignDX12ConstantBufferView(size_t byteSize)
+	{
+		// Constant buffer size is required to be aligned.
+		const uint32_t alignment = D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT;
+
+		return (byteSize + (alignment - 1)) & ~(alignment - 1);
+	}
 }

@@ -107,7 +107,7 @@ bool AccelerationStructure_DX12::prebuild(const Device* pDevice)
 	m_prebuildInfo.ScratchDataSizeInBytes = prebuildInfo.ScratchDataSizeInBytes;
 	m_prebuildInfo.UpdateScratchDataSizeInBytes = prebuildInfo.UpdateScratchDataSizeInBytes;
 
-	return m_prebuildInfo.ResultDataMaxSizeInBytes > 0;
+	return m_prebuildInfo.ResultDataMaxSizeInBytes;
 }
 
 bool AccelerationStructure_DX12::allocate(const Device* pDevice, size_t byteWidth, uint32_t descriptorIndex, uint32_t numSRVs)
@@ -124,7 +124,7 @@ bool AccelerationStructure_DX12::allocate(const Device* pDevice, size_t byteWidt
 	const auto resourceFlags = pDxDevice->UsingRaytracingDriver() ?
 		ResourceFlag::ACCELERATION_STRUCTURE | ResourceFlag::ALLOW_UNORDERED_ACCESS :
 		ResourceFlag::ALLOW_UNORDERED_ACCESS;
-	byteWidth = byteWidth > 0 ? byteWidth : GetResultDataMaxSize();
+	byteWidth = byteWidth ? byteWidth : GetResultDataMaxSize();
 	XUSG_N_RETURN(m_resource->Create(pDevice, byteWidth, resourceFlags, MemoryType::DEFAULT, numSRVs), false);
 
 	// The Fallback Layer interface uses WRAPPED_GPU_POINTER to encapsulate the underlying pointer
@@ -183,7 +183,7 @@ void BottomLevelAS_DX12::Build(CommandList* pCommandList, const Resource* pScrat
 		m_buildDesc.ScratchAccelerationStructureData = pScratch->GetVirtualAddress();
 	}
 
-	if (numPostbuildInfoDescs > 0)
+	if (numPostbuildInfoDescs)
 	{
 		m_postbuildInfoRB = Buffer::MakeShared();
 		m_postbuildInfo = Buffer::MakeUnique();
@@ -204,7 +204,7 @@ void BottomLevelAS_DX12::Build(CommandList* pCommandList, const Resource* pScrat
 
 	// Build acceleration structure.
 	pCommandList->BuildRaytracingAccelerationStructure(&m_buildDesc, numPostbuildInfoDescs,
-		numPostbuildInfoDescs > 0 ? postbuildInfoDescs.data() : nullptr);
+		numPostbuildInfoDescs ? postbuildInfoDescs.data() : nullptr);
 
 	if (m_postbuildInfo) m_postbuildInfo->ReadBack(pCommandList, m_postbuildInfoRB.get());
 }
@@ -314,7 +314,7 @@ void TopLevelAS_DX12::Build(CommandList* pCommandList, const Resource* pScratch,
 		m_buildDesc.ScratchAccelerationStructureData = pScratch->GetVirtualAddress();
 	}
 
-	if (numPostbuildInfoDescs > 0)
+	if (numPostbuildInfoDescs)
 	{
 		m_postbuildInfoRB = Buffer::MakeShared();
 		m_postbuildInfo = Buffer::MakeUnique();
@@ -335,7 +335,7 @@ void TopLevelAS_DX12::Build(CommandList* pCommandList, const Resource* pScratch,
 
 	// Build acceleration structure.
 	pCommandList->BuildRaytracingAccelerationStructure(&m_buildDesc, numPostbuildInfoDescs,
-		numPostbuildInfoDescs > 0 ? postbuildInfoDescs.data() : nullptr, &descriptorHeap);
+		numPostbuildInfoDescs ? postbuildInfoDescs.data() : nullptr, &descriptorHeap);
 
 	if (m_postbuildInfo) m_postbuildInfo->ReadBack(pCommandList, m_postbuildInfoRB.get());
 }

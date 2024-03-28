@@ -267,7 +267,7 @@ void CommandList_DX12::SetPipelineState(const Pipeline& pipelineState) const
 
 void CommandList_DX12::Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers)
 {
-	if (numBarriers > 0)
+	if (numBarriers)
 	{
 		assert(pBarriers);
 		if (m_barriers.size() < numBarriers) m_barriers.resize(numBarriers);

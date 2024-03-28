@@ -150,7 +150,7 @@ void State_DX12::serialize()
 	m_key.resize(sizeKeyHeader + sizeKeyHitGroups + sizeKeyShaderLibs + sizeKeyLocalPipelineLayouts);
 	m_pKeyHeader = reinterpret_cast<KeyHeader*>(&m_key[0]);
 
-	if (m_pKeyHeader->NumHitGroups > 0)
+	if (m_pKeyHeader->NumHitGroups)
 	{
 		const auto pKeyHitGroups = reinterpret_cast<KeyHitGroup*>(&m_key[sizeKeyHeader]);
 		memcpy(pKeyHitGroups, m_keyHitGroups.data(), sizeKeyHitGroups);
@@ -250,7 +250,7 @@ Pipeline PipelineLib_DX12::createPipeline(const string& key, const wchar_t* name
 		const auto libDXIL = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pKeyShaderLibHeader->Lib));
 		pLib->SetDXILLibrary(&libDXIL);
 
-		if (pKeyShaderLibHeader->NumShaders > 0)
+		if (pKeyShaderLibHeader->NumShaders)
 		{
 			// Calculate the size of shader-lib keys
 			sizeKeyShaderLibs += sizeof(wchar_t*) * pKeyShaderLibHeader->NumShaders;

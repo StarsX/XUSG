@@ -12,7 +12,7 @@ float XUSG::Halton(uint32_t i, uint32_t b)
 	auto f = 1.0f;
 	auto r = 0.0f;
 
-	for (auto j = i + 1; j > 0; j /= b)
+	for (auto j = i + 1; j; j /= b)
 	{
 		f /= b;
 		r += f * (j % b);

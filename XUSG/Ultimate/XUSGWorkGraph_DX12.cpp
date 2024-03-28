@@ -382,7 +382,7 @@ com_ptr<ID3D12StateObject> PipelineLib_DX12::CreatePipeline(const string& key, c
 		const auto libDXIL = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pKeyShaderLibHeader->Lib));
 		pLib->SetDXILLibrary(&libDXIL);
 
-		if (pKeyShaderLibHeader->NumShaders > 0)
+		if (pKeyShaderLibHeader->NumShaders)
 		{
 			// Calculate the size of shader-lib keys
 			sizeKeyShaderLibs += sizeof(wchar_t*) * pKeyShaderLibHeader->NumShaders;

@@ -105,11 +105,15 @@ namespace XUSG
 		ShaderResource_DX12();
 		virtual ~ShaderResource_DX12();
 
+		bool Initialize(const Device* pDevice, Format format);
+
 		const Descriptor& GetSRV(uint32_t index = 0) const;
 
 		Format GetFormat() const;
 
 	protected:
+		static Format mapToPackedFormat(Format& format);
+
 		Format m_format;
 
 		std::vector<Descriptor> m_srvs;
@@ -230,7 +234,7 @@ namespace XUSG
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 			TextureLayout textureLayout = TextureLayout::UNKNOWN,
 			uint32_t maxThreads = 1);
-		bool Initialize(const Device* pDevice);
+		bool Initialize(const Device* pDevice, Format format);
 		bool CreateResource(uint32_t width, uint32_t height, Format format, uint16_t arraySize = 1,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1, uint8_t sampleCount = 1,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, ResourceState initialResourceState = ResourceState::COMMON,
@@ -299,7 +303,7 @@ namespace XUSG
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 			uint16_t stencilSrvComponentMapping = XUSG_DEFAULT_STENCIL_SRV_COMPONENT_MAPPING,
 			TextureLayout textureLayout = TextureLayout::UNKNOWN, uint32_t maxThreads = 1);
-		bool Initialize(const Device* pDevice);
+		bool Initialize(const Device* pDevice, Format& format);
 		bool CreateResource(uint32_t width, uint32_t height, Format format, uint16_t arraySize = 1,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1, uint8_t sampleCount = 1,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, ResourceState initialResourceState = ResourceState::DEPTH_WRITE,
@@ -321,8 +325,6 @@ namespace XUSG
 			bool& hasSRV, Format& formatStencil, bool isCubeMap, MemoryFlag memoryFlags, const wchar_t* name,
 			uint16_t srvComponentMapping, uint16_t stencilSrvComponentMapping, TextureLayout textureLayout,
 			uint32_t maxThreads);
-
-		static Format mapResourceFormat(Format format);
 
 		com_ptr<ID3D12DescriptorHeap> m_dsvHeap;
 
@@ -408,9 +410,10 @@ namespace XUSG
 		Resource::sptr GetCounter() const;
 
 	protected:
-		bool create(const Device* pDevice, size_t byteWidth, ResourceFlag resourceFlags,
-			MemoryType memoryType, uint32_t numSRVs, uint32_t numUAVs, MemoryFlag memoryFlags,
-			const wchar_t* name, uint32_t maxThreads);
+		bool create(const Device* pDevice, uint32_t numElements, uint32_t byteStride, Format format,
+			ResourceFlag resourceFlags, MemoryType memoryType, uint32_t numSRVs, const uint32_t* firstSrvElements,
+			uint32_t numUAVs, const uint32_t* firstUavElements, MemoryFlag memoryFlags, const wchar_t* name,
+			const size_t* counterByteOffsets, uint32_t maxThreads);
 
 		void getViewRange(uint32_t& viewElements, uint32_t& firstElement, uint32_t i,
 			uint32_t bufferElements, uint32_t byteStride, const uint32_t* firstElements,
@@ -441,6 +444,7 @@ namespace XUSG
 			uint32_t numUAVs = 1, const uint32_t* firstUavElements = nullptr,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 			const size_t* counterByteOffsets = nullptr, uint32_t maxThreads = 1);
+		bool Initialize(const Device* pDevice);
 	};
 
 	//--------------------------------------------------------------------------------------

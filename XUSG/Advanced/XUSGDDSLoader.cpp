@@ -148,9 +148,9 @@ static void GetSurfaceInfo(uint32_t width, uint32_t height, Format fmt,
 	if (bc)
 	{
 		size_t numBlocksWide = 0;
-		if (width > 0) numBlocksWide = max<size_t>(1, (width + 3) / 4);
+		if (width) numBlocksWide = max<size_t>(1, (width + 3) / 4);
 		size_t numBlocksHigh = 0;
-		if (height > 0) numBlocksHigh = max<size_t>(1, (height + 3) / 4);
+		if (height) numBlocksHigh = max<size_t>(1, (height + 3) / 4);
 		rowBytes = numBlocksWide * bpe;
 		numRows = numBlocksHigh;
 		numBytes = rowBytes * numBlocksHigh;
@@ -544,7 +544,7 @@ static bool FillInitData(uint32_t width, uint32_t height, uint32_t depth,
 		}
 	}
 
-	return index > 0;
+	return index;
 }
 
 static bool CreateTexture(CommandList* pCommandList, const DDS_HEADER* header,
