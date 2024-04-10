@@ -223,15 +223,15 @@ void PipelineLib_DX12::SetPipeline(const string& key, const Pipeline& pipeline)
 
 Pipeline PipelineLib_DX12::CreatePipeline(State* pState, const wchar_t* name)
 {
-	return createPipeline(pState->GetKey(), name);
+	return createStateObject(pState->GetKey(), name).get();
 }
 
 Pipeline PipelineLib_DX12::GetPipeline(State* pState, const wchar_t* name)
 {
-	return getPipeline(pState->GetKey(), name);
+	return getStateObject(pState->GetKey(), name).get();
 }
 
-Pipeline PipelineLib_DX12::createPipeline(const string& key, const wchar_t* name)
+com_ptr<ID3D12RaytracingFallbackStateObject> PipelineLib_DX12::createStateObject(const string& key, const wchar_t* name)
 {
 	// Get header
 	const auto& keyHeader = reinterpret_cast<const State_DX12::KeyHeader&>(key[0]);
@@ -340,15 +340,15 @@ Pipeline PipelineLib_DX12::createPipeline(const string& key, const wchar_t* name
 	if (name) stateObject->GetStateObject()->SetName(name);
 	m_stateObjects[key] = stateObject;
 
-	return stateObject.get();
+	return stateObject;
 }
 
-Pipeline PipelineLib_DX12::getPipeline(const string& key, const wchar_t* name)
+com_ptr<ID3D12RaytracingFallbackStateObject> PipelineLib_DX12::getStateObject(const string& key, const wchar_t* name)
 {
 	const auto pStateObject = m_stateObjects.find(key);
 
 	// Create one, if it does not exist
-	if (pStateObject == m_stateObjects.end()) return createPipeline(key, name);
+	if (pStateObject == m_stateObjects.end()) return createStateObject(key, name);
 
-	return pStateObject->second.get();
+	return pStateObject->second;
 }

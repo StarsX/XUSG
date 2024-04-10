@@ -110,8 +110,8 @@ namespace XUSG
 			Pipeline GetPipeline(State* pState, const wchar_t* name = nullptr);
 
 		protected:
-			Pipeline createPipeline(const std::string& key, const wchar_t* name);
-			Pipeline getPipeline(const std::string& key, const wchar_t* name);
+			com_ptr<ID3D12RaytracingFallbackStateObject> createStateObject(const std::string& key, const wchar_t* name);
+			com_ptr<ID3D12RaytracingFallbackStateObject> getStateObject(const std::string& key, const wchar_t* name);
 
 			com_ptr<ID3D12RaytracingFallbackDevice> m_device;
 

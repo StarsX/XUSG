@@ -4,6 +4,7 @@
 
 #include "XUSG_DX12.h"
 #include "XUSGComputeState_DX12.h"
+#include "XUSGEnum_DX12.h"
 
 using namespace std;
 using namespace XUSG;
@@ -39,6 +40,11 @@ void State_DX12::SetCachedPipeline(const Blob& cachedPipeline)
 void State_DX12::SetNodeMask(uint32_t nodeMask)
 {
 	m_pKey->NodeMask = nodeMask;
+}
+
+void State_DX12::SetFlags(PipelineFlag flag)
+{
+	m_pKey->Flags = flag;
 }
 
 Pipeline State_DX12::CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name) const
@@ -110,6 +116,7 @@ Pipeline PipelineLib_DX12::createPipeline(const string& key, const wchar_t* name
 	desc.CachedPSO.pCachedBlob = pCachedPipeline ? pCachedPipeline->GetBufferPointer() : nullptr;
 	desc.CachedPSO.CachedBlobSizeInBytes = pCachedPipeline ? pCachedPipeline->GetBufferSize() : 0;
 	desc.NodeMask = pDesc->NodeMask;
+	desc.Flags = GetDX12PipelineFlags(pDesc->Flags);
 
 	// Create pipeline
 	com_ptr<ID3D12PipelineState> pipeline;

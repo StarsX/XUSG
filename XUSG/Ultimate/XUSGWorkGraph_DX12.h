@@ -130,11 +130,11 @@ namespace XUSG
 			Pipeline CreatePipeline(State* pState, const wchar_t* name = nullptr);
 			Pipeline GetPipeline(State* pState, const wchar_t* name = nullptr);
 
-			com_ptr<ID3D12StateObject> CreatePipeline(const std::string& key, const wchar_t* name);
-			com_ptr<ID3D12StateObject> GetPipeline(const std::string& key, const wchar_t* name);
+			com_ptr<ID3D12StateObject> CreateStateObject(const std::string& key, const wchar_t* name);
+			com_ptr<ID3D12StateObject> GetStateObject(const std::string& key, const wchar_t* name);
 
 		protected:
-			com_ptr<ID3D12Device9> m_device;
+			com_ptr<ID3D12Device> m_device;
 
 			std::unordered_map<std::string, com_ptr<ID3D12StateObject>> m_stateObjects;
 		};

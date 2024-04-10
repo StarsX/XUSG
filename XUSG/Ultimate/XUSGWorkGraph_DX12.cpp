@@ -106,19 +106,19 @@ void State_DX12::OverrideMaxDispatchGrid(const wchar_t* shaderName, uint32_t x, 
 	keyBroadCastingOverrides.IsEntry = isEntry;
 }
 
-Pipeline State_DX12::CreatePipeline(PipelineLib* pPipelineCache, const wchar_t* name)
+Pipeline State_DX12::CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name)
 {
-	const auto pDX12PipelineCache = static_cast<PipelineLib_DX12*>(pPipelineCache);
-	const auto pipeline = pDX12PipelineCache->CreatePipeline(GetKey(), name);
+	const auto pDX12PipelineLib = static_cast<PipelineLib_DX12*>(pPipelineLib);
+	const auto pipeline = pDX12PipelineLib->CreateStateObject(GetKey(), name);
 	setStateObject(pipeline);
 
 	return pipeline.get();
 }
 
-Pipeline State_DX12::GetPipeline(PipelineLib* pPipelineCache, const wchar_t* name)
+Pipeline State_DX12::GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name)
 {
-	const auto pDX12PipelineCache = static_cast<PipelineLib_DX12*>(pPipelineCache);
-	const auto pipeline = pDX12PipelineCache->GetPipeline(GetKey(), name);
+	const auto pDX12PipelineLib = static_cast<PipelineLib_DX12*>(pPipelineLib);
+	const auto pipeline = pDX12PipelineLib->GetStateObject(GetKey(), name);
 	setStateObject(pipeline);
 
 	return pipeline.get();
@@ -340,12 +340,7 @@ PipelineLib_DX12::~PipelineLib_DX12()
 
 void PipelineLib_DX12::SetDevice(const Device* pDevice)
 {
-	const auto hr = static_cast<ID3D12Device*>(pDevice->GetHandle())->QueryInterface(IID_PPV_ARGS(&m_device));
-	if (FAILED(hr))
-	{
-		cerr << HrToString(hr).c_str() << std::endl;
-		assert(!HrToString(hr).c_str());
-	}
+	m_device = pDevice->GetHandle();
 	assert(m_device);
 }
 
@@ -356,15 +351,15 @@ void PipelineLib_DX12::SetPipeline(const string& key, const Pipeline& pipeline)
 
 Pipeline PipelineLib_DX12::CreatePipeline(State* pState, const wchar_t* name)
 {
-	return CreatePipeline(pState->GetKey(), name).get();
+	return CreateStateObject(pState->GetKey(), name).get();
 }
 
 Pipeline PipelineLib_DX12::GetPipeline(State* pState, const wchar_t* name)
 {
-	return GetPipeline(pState->GetKey(), name).get();
+	return GetStateObject(pState->GetKey(), name).get();
 }
 
-com_ptr<ID3D12StateObject> PipelineLib_DX12::CreatePipeline(const string& key, const wchar_t* name)
+com_ptr<ID3D12StateObject> PipelineLib_DX12::CreateStateObject(const string& key, const wchar_t* name)
 {
 	// Get header
 	const auto& keyHeader = reinterpret_cast<const State_DX12::KeyHeader&>(key[0]);
@@ -373,6 +368,12 @@ com_ptr<ID3D12StateObject> PipelineLib_DX12::CreatePipeline(const string& key, c
 	auto sizeKeyLocalPipelineLayouts = sizeof(State_DX12::KeyLocalPipelineLayoutHeader) * keyHeader.NumLocalPipelineLayouts;
 
 	CD3DX12_STATE_OBJECT_DESC pPsoDesc(D3D12_STATE_OBJECT_TYPE_EXECUTABLE);
+
+	// Work graph
+	// Defines the shader program name.
+	auto pWorkGraph = pPsoDesc.CreateSubobject<CD3DX12_WORK_GRAPH_SUBOBJECT>();
+	pWorkGraph->IncludeAllAvailableNodes();
+	pWorkGraph->SetProgramName(keyHeader.Program);
 
 	// DXIL library
 	auto pKeyShaderLibHeader = reinterpret_cast<const State_DX12::KeyShaderLibHeader*>(&key[sizeKeyHeader]);
@@ -397,12 +398,6 @@ com_ptr<ID3D12StateObject> PipelineLib_DX12::CreatePipeline(const string& key, c
 		}
 		// Else, use default shader exports for a DXIL library/collection subobject ~ surface all shaders.
 	}
-
-	// Work graph
-	// Defines the shader program name.
-	auto pWorkGraph = pPsoDesc.CreateSubobject<CD3DX12_WORK_GRAPH_SUBOBJECT>();
-	pWorkGraph->IncludeAllAvailableNodes();
-	pWorkGraph->SetProgramName(keyHeader.Program);
 
 	// Local pipeline layout and shader association
 	// This is a pipeline layout that enables a shader to have unique arguments that come from shader tables.
@@ -468,7 +463,9 @@ com_ptr<ID3D12StateObject> PipelineLib_DX12::CreatePipeline(const string& key, c
 
 	// Create pipeline
 	com_ptr<ID3D12StateObject> stateObject = nullptr;
-	H_RETURN(m_device->CreateStateObject(pPsoDesc, IID_PPV_ARGS(&stateObject)), cerr,
+	com_ptr<ID3D12Device9> dxDevice;
+	V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&dxDevice)), cerr, nullptr);
+	H_RETURN(dxDevice->CreateStateObject(pPsoDesc, IID_PPV_ARGS(&stateObject)), cerr,
 		L"Couldn't create DirectX work-graph state object.\n", stateObject.get());
 
 	if (name) stateObject->SetName(name);
@@ -477,12 +474,12 @@ com_ptr<ID3D12StateObject> PipelineLib_DX12::CreatePipeline(const string& key, c
 	return stateObject;
 }
 
-com_ptr<ID3D12StateObject> PipelineLib_DX12::GetPipeline(const string& key, const wchar_t* name)
+com_ptr<ID3D12StateObject> PipelineLib_DX12::GetStateObject(const string& key, const wchar_t* name)
 {
 	const auto pStateObject = m_stateObjects.find(key);
 
 	// Create one, if it does not exist
-	if (pStateObject == m_stateObjects.end()) return CreatePipeline(key, name);
+	if (pStateObject == m_stateObjects.end()) return CreateStateObject(key, name);
 
 	return pStateObject->second;
 }

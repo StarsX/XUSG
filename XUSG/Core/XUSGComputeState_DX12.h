@@ -16,6 +16,7 @@ namespace XUSG
 			Blob Shader;
 			Blob CachedPipeline;
 			uint32_t NodeMask;
+			PipelineFlag Flags;
 		};
 
 		class State_DX12 :
@@ -29,6 +30,7 @@ namespace XUSG
 			void SetShader(const Blob& shader);
 			void SetCachedPipeline(const Blob& cachedPipeline);
 			void SetNodeMask(uint32_t nodeMask);
+			void SetFlags(PipelineFlag flag);
 
 			Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const;
 			Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const;

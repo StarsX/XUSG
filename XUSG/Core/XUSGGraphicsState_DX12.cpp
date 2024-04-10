@@ -16,7 +16,7 @@ State_DX12::State_DX12()
 	m_key.resize(sizeof(PipelineDesc));
 	m_pKey = reinterpret_cast<PipelineDesc*>(&m_key[0]);
 	memset(m_pKey, 0, sizeof(PipelineDesc));
-	m_pKey->SampleMask = UINT32_MAX;
+	m_pKey->SampleMask = UINT_MAX;
 	m_pKey->PrimTopologyType = PrimitiveTopologyType::TRIANGLE;
 	m_pKey->SampleCount = 1;
 }
@@ -43,6 +43,11 @@ void State_DX12::SetCachedPipeline(const Blob& cachedPipeline)
 void State_DX12::SetNodeMask(uint32_t nodeMask)
 {
 	m_pKey->NodeMask = nodeMask;
+}
+
+void State_DX12::SetFlags(PipelineFlag flag)
+{
+	m_pKey->Flags = flag;
 }
 
 void State_DX12::OMSetBlendState(const Blend* pBlend, uint32_t sampleMask)
@@ -98,8 +103,7 @@ void State_DX12::OMSetNumRenderTargets(uint8_t n)
 	assert(n <= numRTVFormats);
 	m_pKey->NumRenderTargets = n;
 
-	for (auto i = n; i < numRTVFormats; ++i)
-		OMSetRTVFormat(i, Format::UNKNOWN);
+	for (auto i = n; i < numRTVFormats; ++i) OMSetRTVFormat(i, Format::UNKNOWN);
 }
 
 void State_DX12::OMSetRTVFormat(uint8_t i, Format format)
@@ -112,8 +116,7 @@ void State_DX12::OMSetRTVFormats(const Format* formats, uint8_t n)
 {
 	OMSetNumRenderTargets(n);
 
-	for (uint8_t i = 0; i < n; ++i)
-		OMSetRTVFormat(i, formats[i]);
+	for (uint8_t i = 0; i < n; ++i) OMSetRTVFormat(i, formats[i]);
 }
 
 void State_DX12::OMSetDSVFormat(Format format)
@@ -296,13 +299,13 @@ Pipeline PipelineLib_DX12::createPipeline(const std::string& key, const wchar_t*
 	const auto pRasterizer = pDesc->pRasterizer ? pDesc->pRasterizer : GetRasterizer(RasterizerPreset::CULL_BACK);
 	desc.RasterizerState.FillMode = GetDX12FillMode(pRasterizer->Fill);
 	desc.RasterizerState.CullMode = GetDX12CullMode(pRasterizer->Cull);
-	desc.RasterizerState.FrontCounterClockwise = pRasterizer->FrontCounterClockwise;
+	desc.RasterizerState.FrontCounterClockwise = pRasterizer->FrontCounterClockwise ? TRUE : FALSE;
 	desc.RasterizerState.DepthBias = pRasterizer->DepthBias;
 	desc.RasterizerState.DepthBiasClamp = pRasterizer->DepthBiasClamp;
 	desc.RasterizerState.SlopeScaledDepthBias = pRasterizer->SlopeScaledDepthBias;
-	desc.RasterizerState.DepthClipEnable = pRasterizer->DepthClipEnable;
-	desc.RasterizerState.MultisampleEnable = pRasterizer->MultisampleEnable;
-	desc.RasterizerState.AntialiasedLineEnable = pRasterizer->AntialiasedLineEnable;
+	desc.RasterizerState.DepthClipEnable = pRasterizer->DepthClipEnable ? TRUE : FALSE;
+	desc.RasterizerState.MultisampleEnable = pRasterizer->MultisampleEnable ? TRUE : FALSE;
+	desc.RasterizerState.AntialiasedLineEnable = pRasterizer->AntialiasedLineEnable ? TRUE : FALSE;
 	desc.RasterizerState.ForcedSampleCount = pRasterizer->ForcedSampleCount;
 	desc.RasterizerState.ConservativeRaster = pRasterizer->ConservativeRaster ? D3D12_CONSERVATIVE_RASTERIZATION_MODE_ON : D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
 
@@ -359,6 +362,7 @@ Pipeline PipelineLib_DX12::createPipeline(const std::string& key, const wchar_t*
 	desc.CachedPSO.pCachedBlob = pCachedPipeline ? pCachedPipeline->GetBufferPointer() : nullptr;
 	desc.CachedPSO.CachedBlobSizeInBytes = pCachedPipeline ? pCachedPipeline->GetBufferSize() : 0;
 	desc.NodeMask = pDesc->NodeMask;
+	desc.Flags = GetDX12PipelineFlags(pDesc->Flags);
 
 	switch (static_cast<IBStripCutValue>(pDesc->IBStripCutValue))
 	{

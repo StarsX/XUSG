@@ -62,6 +62,9 @@ namespace XUSG
 	D3D12_COMPARISON_FUNC GetDX12ComparisonFunc(ComparisonFunc comparisonFunc);
 	D3D12_STENCIL_OP GetDX12StencilOp(StencilOp stencilOp);
 
+	D3D12_PIPELINE_STATE_FLAGS GetDX12PipelineFlag(PipelineFlag pipelineFlag);
+	D3D12_PIPELINE_STATE_FLAGS GetDX12PipelineFlags(PipelineFlag pipelineFlags);
+
 	D3D12_QUERY_TYPE GetDX12QueryType(QueryType type);
 
 	D3D12_TILE_COPY_FLAGS GetDX12TileCopyFlag(TileCopyFlag tileCopyFlag);

@@ -69,11 +69,11 @@ namespace XUSG
 
 				void RSSetShadingRateImage(Resource* pShadingRateImage);
 
-				void MSSetPipelineState(const Pipeline& pipelineState, const MeshShader::State* pState = nullptr);
-				void MSSetBlendState(MeshShader::BlendPreset preset, uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX);
+				void MSSetPipelineState(const Pipeline& pipelineState, const State* pState = nullptr);
+				void MSSetBlendState(BlendPreset preset, uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX);
 				void MSSetSample(uint8_t count, uint8_t quality = 0);
-				void MSSetRasterizerState(MeshShader::RasterizerPreset preset);
-				void MSSetDepthStencilState(MeshShader::DepthStencilPreset preset);
+				void MSSetRasterizerState(RasterizerPreset preset);
+				void MSSetDepthStencilState(DepthStencilPreset preset);
 				void MSSetShader(Shader::Stage stage, const Blob& shader);
 				void MSSetNodeMask(uint32_t nodeMask);
 				void DispatchMesh(uint32_t ThreadGroupCountX, uint32_t ThreadGroupCountY, uint32_t ThreadGroupCountZ);
@@ -113,11 +113,11 @@ namespace XUSG
 
 				const Shader::Stage& getShaderStage(uint8_t index) const;
 
-				MeshShader::PipelineLib::uptr m_meshShaderPipelineLib;
+				PipelineLib::uptr m_meshShaderPipelineLib;
 
 				XUSG::PipelineLayout m_pipelineLayout;
 
-				MeshShader::State::uptr m_meshShaderState;
+				State::uptr m_meshShaderState;
 				bool m_isMSStateDirty;
 
 				std::vector<uint32_t> m_meshShaderSpaceToParamIndexMap[NUM_STAGE][CbvSrvUavTypes];

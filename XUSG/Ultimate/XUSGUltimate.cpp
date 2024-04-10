@@ -6,8 +6,9 @@
 #include "Core/XUSGResource_DX12.h"
 #include "Core/XUSGGraphicsState_DX12.h"
 #include "XUSGUltimate_DX12.h"
-#include "XUSGMeshShaderState_DX12.h"
+#include "XUSGPipelineState_DX12.h"
 #include "XUSGWorkGraph_DX12.h"
+#include "XUSGProgramState_DX12.h"
 
 using namespace std;
 using namespace XUSG;
@@ -32,9 +33,34 @@ Ultimate::CommandList::sptr Ultimate::CommandList::MakeShared(XUSG::CommandList&
 	return make_shared<CommandList_DX12>(commandList);
 }
 
-ProgramIdentifier Ultimate::GetProgramIdentifier(const Pipeline& stateObject, const wchar_t* programName)
+Ultimate::State::uptr Ultimate::State::MakeUnique(API api)
 {
-	return GetProgramIdentifierFromDX12(stateObject, programName);
+	return make_unique<State_DX12>();
+}
+
+Ultimate::State::sptr Ultimate::State::MakeShared(API api)
+{
+	return make_shared<State_DX12>();
+}
+
+Ultimate::PipelineLib::uptr Ultimate::PipelineLib::MakeUnique(API api)
+{
+	return make_unique<PipelineLib_DX12>();
+}
+
+Ultimate::PipelineLib::sptr Ultimate::PipelineLib::MakeShared(API api)
+{
+	return make_shared<PipelineLib_DX12>();
+}
+
+Ultimate::PipelineLib::uptr Ultimate::PipelineLib::MakeUnique(const Device* pDevice, API api)
+{
+	return make_unique<PipelineLib_DX12>(pDevice);
+}
+
+Ultimate::PipelineLib::sptr Ultimate::PipelineLib::MakeShared(const Device* pDevice, API api)
+{
+	return make_shared<PipelineLib_DX12>(pDevice);
 }
 
 Ultimate::SamplerFeedBack::uptr Ultimate::SamplerFeedBack::MakeUnique(API api)
@@ -47,34 +73,9 @@ Ultimate::SamplerFeedBack::sptr Ultimate::SamplerFeedBack::MakeShared(API api)
 	return make_shared<SamplerFeedBack_DX12>();
 }
 
-MeshShader::State::uptr MeshShader::State::MakeUnique(API api)
+ProgramIdentifier Ultimate::GetProgramIdentifier(const Pipeline& stateObject, const wchar_t* programName)
 {
-	return make_unique<State_DX12>();
-}
-
-MeshShader::State::sptr MeshShader::State::MakeShared(API api)
-{
-	return make_shared<State_DX12>();
-}
-
-MeshShader::PipelineLib::uptr MeshShader::PipelineLib::MakeUnique(API api)
-{
-	return make_unique<PipelineLib_DX12>();
-}
-
-MeshShader::PipelineLib::sptr MeshShader::PipelineLib::MakeShared(API api)
-{
-	return make_shared<PipelineLib_DX12>();
-}
-
-MeshShader::PipelineLib::uptr MeshShader::PipelineLib::MakeUnique(const Device* pDevice, API api)
-{
-	return make_unique<PipelineLib_DX12>(pDevice);
-}
-
-MeshShader::PipelineLib::sptr MeshShader::PipelineLib::MakeShared(const Device* pDevice, API api)
-{
-	return make_shared<PipelineLib_DX12>(pDevice);
+	return GetProgramIdentifierFromDX12(stateObject, programName);
 }
 
 WorkGraph::State::uptr WorkGraph::State::MakeUnique(API api)
@@ -103,6 +104,36 @@ WorkGraph::PipelineLib::uptr WorkGraph::PipelineLib::MakeUnique(const Device* pD
 }
 
 WorkGraph::PipelineLib::sptr WorkGraph::PipelineLib::MakeShared(const Device* pDevice, API api)
+{
+	return make_shared<PipelineLib_DX12>(pDevice);
+}
+
+GenericProgram::State::uptr GenericProgram::State::MakeUnique(API api)
+{
+	return make_unique<State_DX12>();
+}
+
+GenericProgram::State::sptr GenericProgram::State::MakeShared(API api)
+{
+	return make_shared<State_DX12>();
+}
+
+GenericProgram::PipelineLib::uptr GenericProgram::PipelineLib::MakeUnique(API api)
+{
+	return make_unique<PipelineLib_DX12>();
+}
+
+GenericProgram::PipelineLib::sptr GenericProgram::PipelineLib::MakeShared(API api)
+{
+	return make_shared<PipelineLib_DX12>();
+}
+
+GenericProgram::PipelineLib::uptr GenericProgram::PipelineLib::MakeUnique(const Device* pDevice, API api)
+{
+	return make_unique<PipelineLib_DX12>(pDevice);
+}
+
+GenericProgram::PipelineLib::sptr GenericProgram::PipelineLib::MakeShared(const Device* pDevice, API api)
 {
 	return make_shared<PipelineLib_DX12>(pDevice);
 }

@@ -12,6 +12,7 @@ using namespace std;
 using namespace XUSG::Ultimate;
 
 #define APPEND_FLAG(type, dx12Type, flags, flag, none) (static_cast<bool>(flags & type::flag) ? dx12Type##_##flag : dx12Type##_##none)
+#define APPEND_VIEW_INSTANCE_FLAG(flags, flag) APPEND_FLAG(ViewInstanceFlag, D3D12_VIEW_INSTANCING_FLAG, flags, flag, NONE)
 #define APPEND_WORK_GRAPH_FLAG(flags, flag) APPEND_FLAG(WorkGraphFlag, D3D12_SET_WORK_GRAPH_FLAG, flags, flag, NONE)
 
 //--------------------------------------------------------------------------------------
@@ -154,7 +155,7 @@ void CommandList_DX12::SetProgram(ProgramType type, ProgramIdentifier identifier
 	m_commandListU->SetProgram(&desc);
 }
 
-void CommandList_DX12::DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride) const
+void CommandList_DX12::DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride)
 {
 	const auto populateNodeInput = [](D3D12_NODE_CPU_INPUT& nodeInput, const NodeCPUInput& nodeCPUInput)
 	{
@@ -173,11 +174,12 @@ void CommandList_DX12::DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput*
 	}
 	else
 	{
+		if (m_nodeInputs.size() < numNodeInputs) m_nodeInputs.resize(numNodeInputs);
+		for (auto i = 0u; i < numNodeInputs; ++i) populateNodeInput(m_nodeInputs[i], pNodeInputs[i]);
 		desc.Mode = D3D12_DISPATCH_MODE_MULTI_NODE_CPU_INPUT;
 		desc.MultiNodeCPUInput.NumNodeInputs = numNodeInputs;
 		desc.MultiNodeCPUInput.NodeInputStrideInBytes = nodeInputByteStride ? nodeInputByteStride : sizeof(D3D12_NODE_CPU_INPUT);
-		for (auto i = 0u; i < numNodeInputs; ++i)
-			populateNodeInput(desc.MultiNodeCPUInput.pNodeInputs[i], pNodeInputs[i]);
+		desc.MultiNodeCPUInput.pNodeInputs = m_nodeInputs.data();
 	}
 
 	m_commandListU->DispatchGraph(&desc);
@@ -203,23 +205,6 @@ void CommandList_DX12::DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiN
 XUSG::com_ptr<ID3D12GraphicsCommandList10>& CommandList_DX12::GetGraphicsCommandList()
 {
 	return m_commandListU;
-}
-
-XUSG::ProgramIdentifier XUSG::Ultimate::GetProgramIdentifierFromDX12(const XUSG::Pipeline& stateObject, const wchar_t* programName)
-{
-	using namespace XUSG;
-	com_ptr<ID3D12StateObjectProperties1> properties;
-	V_RETURN(static_cast<ID3D12StateObject*>(stateObject)->QueryInterface(IID_PPV_ARGS(&properties)), cerr, ProgramIdentifier{});
-
-	const auto programId = properties->GetProgramIdentifier(programName);
-
-	ProgramIdentifier identifier;
-	identifier.OpaqueData[0] = programId.OpaqueData[0];
-	identifier.OpaqueData[1] = programId.OpaqueData[1];
-	identifier.OpaqueData[2] = programId.OpaqueData[2];
-	identifier.OpaqueData[3] = programId.OpaqueData[3];
-
-	return identifier;
 }
 
 //--------------------------------------------------------------------------------------
@@ -326,6 +311,23 @@ XUSG::Descriptor SamplerFeedBack_DX12::CreateUAV(const Descriptor& uavHeapStart,
 	return descriptor;
 }
 
+XUSG::ProgramIdentifier XUSG::Ultimate::GetProgramIdentifierFromDX12(const XUSG::Pipeline& stateObject, const wchar_t* programName)
+{
+	using namespace XUSG;
+	com_ptr<ID3D12StateObjectProperties1> properties;
+	V_RETURN(static_cast<ID3D12StateObject*>(stateObject)->QueryInterface(IID_PPV_ARGS(&properties)), cerr, ProgramIdentifier{});
+
+	const auto programId = properties->GetProgramIdentifier(programName);
+
+	ProgramIdentifier identifier;
+	identifier.OpaqueData[0] = programId.OpaqueData[0];
+	identifier.OpaqueData[1] = programId.OpaqueData[1];
+	identifier.OpaqueData[2] = programId.OpaqueData[2];
+	identifier.OpaqueData[3] = programId.OpaqueData[3];
+
+	return identifier;
+}
+
 //--------------------------------------------------------------------------------------
 // DX12 enum transfer functions
 //--------------------------------------------------------------------------------------
@@ -357,6 +359,41 @@ D3D12_RESOLVE_MODE XUSG::Ultimate::GetDX12ResolveMode(ResolveMode mode)
 	};
 
 	return modes[static_cast<uint32_t>(mode)];
+}
+
+D3D12_LINE_RASTERIZATION_MODE XUSG::Ultimate::GetDX12LineRasterizationMode(LineRasterization mode)
+{
+	static const D3D12_LINE_RASTERIZATION_MODE modes[] =
+	{
+		D3D12_LINE_RASTERIZATION_MODE_ALIASED,
+		D3D12_LINE_RASTERIZATION_MODE_ALPHA_ANTIALIASED,
+		D3D12_LINE_RASTERIZATION_MODE_QUADRILATERAL_WIDE,
+		D3D12_LINE_RASTERIZATION_MODE_QUADRILATERAL_NARROW
+	};
+
+	return modes[static_cast<uint32_t>(mode)];
+}
+
+D3D12_VIEW_INSTANCING_FLAGS XUSG::Ultimate::GetDX12ViewInstanceFlag(ViewInstanceFlag viewInstanceFlag)
+{
+	static const D3D12_VIEW_INSTANCING_FLAGS viewInstanceFlags[] =
+	{
+		D3D12_VIEW_INSTANCING_FLAG_ENABLE_VIEW_INSTANCE_MASKING
+	};
+
+	if (viewInstanceFlag == ViewInstanceFlag::NONE) return D3D12_VIEW_INSTANCING_FLAG_NONE;
+
+	const auto index = Log2(static_cast<uint32_t>(viewInstanceFlag));
+
+	return viewInstanceFlags[index];
+}
+
+D3D12_VIEW_INSTANCING_FLAGS XUSG::Ultimate::GetDX12ViewInstanceFlags(ViewInstanceFlag viewInstanceFlags)
+{
+	auto flags = D3D12_VIEW_INSTANCING_FLAG_NONE;
+	flags |= APPEND_VIEW_INSTANCE_FLAG(viewInstanceFlags, ENABLE_VIEW_INSTANCE_MASKING);
+
+	return flags;
 }
 
 D3D12_SET_WORK_GRAPH_FLAGS XUSG::Ultimate::GetDX12WorkGraphFlag(WorkGraphFlag workGraphFlag)

@@ -585,6 +585,16 @@ namespace XUSG
 		FFFFFFFF
 	};
 
+	enum class PipelineFlag : uint8_t
+	{
+		NONE = 0,
+		TOOL_DEBUG = (1 << 0),
+		DYNAMIC_DEPTH_BIAS = (1 << 1),
+		DYNAMIC_INDEX_BUFFER_STRIP_CUT = (1 << 2)
+	};
+
+	XUSG_DEF_ENUM_FLAG_OPERATORS(PipelineFlag);
+
 	enum class QueryType : uint8_t
 	{
 		OCCLUSION,
@@ -2276,6 +2286,7 @@ namespace XUSG
 			virtual void SetShader(Shader::Stage stage, const Blob& shader) = 0;
 			virtual void SetCachedPipeline(const Blob& cachedPipeline) = 0;
 			virtual void SetNodeMask(uint32_t nodeMask) = 0;
+			virtual void SetFlags(PipelineFlag flag) = 0;
 
 			virtual void OMSetBlendState(const Blend* pBlend, uint32_t sampleMask = UINT_MAX) = 0;
 			virtual void RSSetState(const Rasterizer* pRasterizer) = 0;
@@ -2384,6 +2395,7 @@ namespace XUSG
 			virtual void SetShader(const Blob& shader) = 0;
 			virtual void SetCachedPipeline(const Blob& cachedPipeline) = 0;
 			virtual void SetNodeMask(uint32_t nodeMask) = 0;
+			virtual void SetFlags(PipelineFlag flag) = 0;
 
 			virtual Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
 			virtual Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;

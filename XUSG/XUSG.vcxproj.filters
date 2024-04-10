@@ -97,9 +97,6 @@
     <ClInclude Include="Ultimate\XUSGUltimate_DX12.h">
       <Filter>Ultimate\Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Ultimate\XUSGMeshShaderState_DX12.h">
-      <Filter>Ultimate\Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Core\XUSGEnum_DX12.h">
       <Filter>Core\Header Files</Filter>
     </ClInclude>
@@ -160,6 +157,12 @@
     <ClInclude Include="Ultimate\XUSGWorkGraph_DX12.h">
       <Filter>Ultimate\Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Ultimate\XUSGPipelineState_DX12.h">
+      <Filter>Ultimate\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Ultimate\XUSGProgramState_DX12.h">
+      <Filter>Ultimate\Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -216,9 +219,6 @@
     <ClCompile Include="Ultimate\XUSGUltimate_DX12.cpp">
       <Filter>Ultimate\Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Ultimate\XUSGMeshShaderState_DX12.cpp">
-      <Filter>Ultimate\Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Advanced\XUSGDDSLoader.cpp">
       <Filter>Advanced\Source Files</Filter>
     </ClCompile>
@@ -232,6 +232,18 @@
       <Filter>Advanced\Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Ultimate\XUSGWorkGraph_DX12.cpp">
+      <Filter>Ultimate\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Ultimate\XUSGPipelineState_DX12.cpp">
+      <Filter>Ultimate\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Ultimate\XUSGProgramState_DX12.cpp">
+      <Filter>Ultimate\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Ultimate\XUSGUltimateDepthStencil.cpp">
+      <Filter>Ultimate\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Ultimate\XUSGUltimateRasterizer.cpp">
       <Filter>Ultimate\Source Files</Filter>
     </ClCompile>
   </ItemGroup>

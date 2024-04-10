@@ -4,22 +4,28 @@
 
 #pragma once
 
-#include "XUSG.h"
-#include "XUSGInputLayout_DX12.h"
+#include "XUSGUltimate.h"
+#include "Core/XUSGInputLayout_DX12.h"
 
 namespace XUSG
 {
-	namespace Graphics
+	namespace GenericProgram
 	{
+		struct ShaderStages
+		{
+			uint8_t LibIndex;
+			const wchar_t* ShaderName;
+		};
+
 		struct PipelineDesc
 		{
 			PipelineLayout Layout;
-			Blob Shaders[Shader::Stage::NUM_GRAPHICS];
+			Blob ShaderLibs[Shader::Stage::NUM_STAGE];
+			ShaderStages ShaderStages[Shader::Stage::NUM_STAGE];
 			const Blend* pBlend;
 			const Rasterizer* pRasterizer;
 			const DepthStencil* pDepthStencil;
 			const InputLayout* pInputLayout;
-			Blob CachedPipeline;
 			PrimitiveTopologyType PrimTopologyType;
 			uint8_t	NumRenderTargets;
 			Format RTVFormats[8];
@@ -30,6 +36,10 @@ namespace XUSG
 			uint8_t IBStripCutValue;
 			uint32_t NodeMask;
 			PipelineFlag Flags;
+			uint8_t NumViewInstances;
+			ViewInstance ViewInstances[4];
+			ViewInstanceFlag ViewInstanceFlags;
+			const wchar_t* Program;
 		};
 
 		class State_DX12 :
@@ -40,8 +50,9 @@ namespace XUSG
 			virtual ~State_DX12();
 
 			void SetPipelineLayout(const PipelineLayout& layout);
-			void SetShader(Shader::Stage stage, const Blob& shader);
-			void SetCachedPipeline(const Blob& cachedPipeline);
+			void SetShaderLibrary(uint8_t index, const Blob& shaderLib);
+			void SetShader(Shader::Stage stage, uint8_t libIndex, const wchar_t* shaderName);
+			void SetProgram(const wchar_t* programName);
 			void SetNodeMask(uint32_t nodeMask);
 			void SetFlags(PipelineFlag flag);
 
@@ -63,6 +74,10 @@ namespace XUSG
 			void OMSetRTVFormats(const Format* formats, uint8_t n);
 			void OMSetDSVFormat(Format format);
 			void OMSetSample(uint8_t count, uint8_t quality = 0);
+
+			void SetNumViewInstances(uint8_t n, ViewInstanceFlag flags);
+			void SetViewInstance(uint8_t i, const ViewInstance& viewInstance);
+			void SetViewInstances(const ViewInstance* viewInstances, uint8_t n, ViewInstanceFlag flags);
 
 			Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const;
 			Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const;
@@ -97,21 +112,21 @@ namespace XUSG
 			const DepthStencil* GetDepthStencil(DepthStencilPreset preset);
 
 		protected:
-			Pipeline createPipeline(const std::string& key, const wchar_t* name);
-			Pipeline getPipeline(const std::string& key, const wchar_t* name);
+			com_ptr<ID3D12StateObject> createStateObject(const std::string& key, const wchar_t* name);
+			com_ptr<ID3D12StateObject> getStateObject(const std::string& key, const wchar_t* name);
 
 			com_ptr<ID3D12Device> m_device;
 
 			InputLayoutLib_DX12 m_inputLayoutLib;
 
-			std::unordered_map<std::string, com_ptr<ID3D12PipelineState>> m_pipelines;
-			std::unique_ptr<Blend>			m_blends[NUM_BLEND_PRESET];
-			std::unique_ptr<Rasterizer>		m_rasterizers[NUM_RS_PRESET];
-			std::unique_ptr<DepthStencil>	m_depthStencils[NUM_DS_PRESET];
+			std::unordered_map<std::string, com_ptr<ID3D12StateObject>> m_stateObjects;
+			std::unique_ptr<Blend>			m_blends[Graphics::NUM_BLEND_PRESET];
+			std::unique_ptr<Rasterizer>		m_rasterizers[Graphics::NUM_RS_PRESET];
+			std::unique_ptr<DepthStencil>	m_depthStencils[Graphics::NUM_DS_PRESET];
 
-			std::function<Blend(uint8_t)>	m_pfnBlends[NUM_BLEND_PRESET];
-			std::function<Rasterizer()>		m_pfnRasterizers[NUM_RS_PRESET];
-			std::function<DepthStencil()>	m_pfnDepthStencils[NUM_DS_PRESET];
+			std::function<Blend(uint8_t)>	m_pfnBlends[Graphics::NUM_BLEND_PRESET];
+			std::function<Rasterizer()>		m_pfnRasterizers[Graphics::NUM_RS_PRESET];
+			std::function<DepthStencil()>	m_pfnDepthStencils[Graphics::NUM_DS_PRESET];
 		};
 	}
 }

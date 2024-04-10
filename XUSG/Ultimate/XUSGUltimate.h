@@ -48,6 +48,14 @@ namespace XUSG
 			COMBINER_SUM
 		};
 
+		enum class LineRasterization : uint8_t
+		{
+			ALIASED,
+			ALPHA_ANTIALIASED,
+			QUADRILATERAL_WIDE,
+			QUADRILATERAL_NARROW
+		};
+
 		enum class ProgramType : uint8_t
 		{
 			GENERIC_PIPELINE,
@@ -55,13 +63,62 @@ namespace XUSG
 			WORK_GRAPH
 		};
 
+		enum class ViewInstanceFlag : uint8_t
+		{
+			NONE = 0,
+			ENABLE_VIEW_INSTANCE_MASKING = (1 << 0)
+		};
+
+		XUSG_DEF_ENUM_FLAG_OPERATORS(ViewInstanceFlag);
+
 		enum class WorkGraphFlag : uint8_t
 		{
 			NONE = 0,
-			INITIALIZE = 0x1
+			INITIALIZE = (1 << 0)
 		};
 
 		XUSG_DEF_ENUM_FLAG_OPERATORS(WorkGraphFlag);
+
+		struct Rasterizer
+		{
+			FillMode Fill;
+			CullMode Cull;
+			bool FrontCounterClockwise;
+			float DepthBias;
+			float DepthBiasClamp;
+			float SlopeScaledDepthBias;
+			bool DepthClipEnable;
+			LineRasterization LineRasterizationMode;
+			uint8_t ForcedSampleCount;
+			bool ConservativeRaster;
+		};
+
+		struct DepthStencilOp
+		{
+			StencilOp StencilFailOp;
+			StencilOp StencilDepthFailOp;
+			StencilOp StencilPassOp;
+			ComparisonFunc StencilFunc;
+			uint8_t StencilReadMask;
+			uint8_t StencilWriteMask;
+		};
+
+		struct DepthStencil
+		{
+			bool DepthEnable;
+			bool DepthWriteMask;
+			ComparisonFunc Comparison;
+			bool StencilEnable;
+			DepthStencilOp FrontFace;
+			DepthStencilOp BackFace;
+			bool DepthBoundsTestEnable;
+		};
+
+		struct ViewInstance
+		{
+			uint32_t ViewportArrayIndex;
+			uint32_t RenderTargetArrayIndex;
+		};
 
 		struct SamplePosition
 		{
@@ -120,7 +177,7 @@ namespace XUSG
 				uint64_t backingMemoryAddress = 0, uint64_t backingMemoryByteSize = 0,
 				uint64_t localRootArgTableAddress = 0, uint64_t localRootArgTableByteSize = 0,
 				uint64_t localRootArgTableByteStride = 0) const = 0;
-			virtual void DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride = 0) const = 0;
+			virtual void DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride = 0) = 0;
 			virtual void DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes = false) const = 0;
 
 			using uptr = std::unique_ptr<CommandList>;
@@ -132,7 +189,105 @@ namespace XUSG
 			static sptr MakeShared(XUSG::CommandList& commandList, API api = API::DIRECTX_12);
 		};
 
-		XUSG_INTERFACE ProgramIdentifier GetProgramIdentifier(const Pipeline& stateObject, const wchar_t* programName);
+		//--------------------------------------------------------------------------------------
+		// Pipeline state
+		//--------------------------------------------------------------------------------------
+		using BlendPreset = Graphics::BlendPreset;
+		using RasterizerPreset = Graphics::RasterizerPreset;
+		using DepthStencilPreset = Graphics::DepthStencilPreset;
+
+		using Blend = Graphics::Blend;
+
+		class PipelineLib;
+
+		class XUSG_INTERFACE State
+		{
+		public:
+			//State();
+			virtual ~State() {};
+
+			virtual void SetPipelineLayout(const PipelineLayout& layout) = 0;
+			virtual void SetShader(Shader::Stage stage, const Blob& shader) = 0;
+			virtual void SetCachedPipeline(const Blob& cachedPipeline) = 0;
+			virtual void SetNodeMask(uint32_t nodeMask) = 0;
+			virtual void SetFlags(PipelineFlag flag) = 0;
+
+			virtual void OMSetBlendState(const Blend* pBlend, uint32_t sampleMask = UINT_MAX) = 0;
+			virtual void RSSetState(const Rasterizer* pRasterizer) = 0;
+			virtual void DSSetState(const DepthStencil* pDepthStencil) = 0;
+
+			virtual void OMSetBlendState(BlendPreset preset, PipelineLib* pPipelineLib,
+				uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX) = 0;
+			virtual void RSSetState(RasterizerPreset preset, PipelineLib* pPipelineLib) = 0;
+			virtual void DSSetState(DepthStencilPreset preset, PipelineLib* pPipelineLib) = 0;
+
+			virtual void IASetInputLayout(const InputLayout* pLayout) = 0;
+			virtual void IASetPrimitiveTopologyType(PrimitiveTopologyType type) = 0;
+			virtual void IASetIndexBufferStripCutValue(IBStripCutValue ibStripCutValue) = 0;
+
+			virtual void OMSetNumRenderTargets(uint8_t n) = 0;
+			virtual void OMSetRTVFormat(uint8_t i, Format format) = 0;
+			virtual void OMSetRTVFormats(const Format* formats, uint8_t n) = 0;
+			virtual void OMSetDSVFormat(Format format) = 0;
+			virtual void OMSetSample(uint8_t count, uint8_t quality = 0) = 0;
+
+			virtual void SetNumViewInstances(uint8_t n, ViewInstanceFlag flags) = 0;
+			virtual void SetViewInstance(uint8_t i, const ViewInstance& viewInstance) = 0;
+			virtual void SetViewInstances(const ViewInstance* viewInstances, uint8_t n, ViewInstanceFlag flags) = 0;
+
+			virtual Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
+			virtual Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
+
+			virtual const std::string& GetKey() const = 0;
+
+			using uptr = std::unique_ptr<State>;
+			using sptr = std::shared_ptr<State>;
+
+			static uptr MakeUnique(API api = API::DIRECTX_12);
+			static sptr MakeShared(API api = API::DIRECTX_12);
+		};
+
+		class XUSG_INTERFACE PipelineLib
+		{
+		public:
+			//PipelineLib();
+			//PipelineLib(const Device* pDevice);
+			virtual ~PipelineLib() {};
+
+			virtual void SetDevice(const Device* pDevice) = 0;
+			virtual void SetPipeline(const std::string& key, const Pipeline& pipeline) = 0;
+
+			virtual void SetInputLayout(uint32_t index, const InputElement* pElements, uint32_t numElements) = 0;
+			virtual const InputLayout* GetInputLayout(uint32_t index) const = 0;
+			virtual const InputLayout* CreateInputLayout(const InputElement* pElements, uint32_t numElements) = 0;
+
+			virtual Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr) = 0;
+			virtual Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr) = 0;
+
+			virtual const Blend* GetBlend(BlendPreset preset, uint8_t numColorRTs = 1) = 0;
+			virtual const Rasterizer* GetRasterizer(RasterizerPreset preset) = 0;
+			virtual const DepthStencil* GetDepthStencil(DepthStencilPreset preset) = 0;
+
+			static DepthStencil DepthStencilDefault();
+			static DepthStencil DepthStencilNone();
+			static DepthStencil DepthRead();
+			static DepthStencil DepthReadLessEqual();
+			static DepthStencil DepthReadEqual();
+
+			static Rasterizer RasterizerDefault();
+			static Rasterizer CullBack();
+			static Rasterizer CullNone();
+			static Rasterizer CullFront();
+			static Rasterizer FillWireframe();
+
+			using uptr = std::unique_ptr<PipelineLib>;
+			using sptr = std::shared_ptr<PipelineLib>;
+
+			static uptr MakeUnique(API api = API::DIRECTX_12);
+			static sptr MakeShared(API api = API::DIRECTX_12);
+			static uptr MakeUnique(const Device* pDevice, API api = API::DIRECTX_12);
+			static sptr MakeShared(const Device* pDevice, API api = API::DIRECTX_12);
+		};
 
 		//--------------------------------------------------------------------------------------
 		// Sampler feedback
@@ -167,80 +322,8 @@ namespace XUSG
 			static uptr MakeUnique(API api = API::DIRECTX_12);
 			static sptr MakeShared(API api = API::DIRECTX_12);
 		};
-	}
 
-	//--------------------------------------------------------------------------------------
-	// Mesh-shader pipeline state
-	//--------------------------------------------------------------------------------------
-	namespace MeshShader
-	{
-		using BlendPreset = Graphics::BlendPreset;
-		using RasterizerPreset = Graphics::RasterizerPreset;
-		using DepthStencilPreset = Graphics::DepthStencilPreset;
-
-		using Blend = Graphics::Blend;
-		using Rasterizer = Graphics::Rasterizer;
-		using DepthStencil = Graphics::DepthStencil;
-
-		class PipelineLib;
-
-		class XUSG_INTERFACE State
-		{
-		public:
-			//State();
-			virtual ~State() {};
-
-			virtual void SetPipelineLayout(const PipelineLayout& layout) = 0;
-			virtual void SetShader(Shader::Stage stage, const Blob& shader) = 0;
-			virtual void SetCachedPipeline(const Blob& cachedPipeline) = 0;
-			virtual void SetNodeMask(uint32_t nodeMask) = 0;
-
-			virtual void OMSetBlendState(const Blend* pBlend, uint32_t sampleMask = UINT_MAX) = 0;
-			virtual void RSSetState(const Rasterizer* pRasterizer) = 0;
-			virtual void DSSetState(const DepthStencil* pDepthStencil) = 0;
-
-			virtual void OMSetBlendState(BlendPreset preset, PipelineLib* pPipelineLib,
-				uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX) = 0;
-			virtual void RSSetState(RasterizerPreset preset, PipelineLib* pPipelineLib) = 0;
-			virtual void DSSetState(DepthStencilPreset preset, PipelineLib* pPipelineLib) = 0;
-
-			virtual void OMSetNumRenderTargets(uint8_t n) = 0;
-			virtual void OMSetRTVFormat(uint8_t i, Format format) = 0;
-			virtual void OMSetRTVFormats(const Format* formats, uint8_t n) = 0;
-			virtual void OMSetDSVFormat(Format format) = 0;
-			virtual void OMSetSample(uint8_t count, uint8_t quality = 0) = 0;
-
-			virtual Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
-			virtual Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
-
-			virtual const std::string& GetKey() const = 0;
-
-			using uptr = std::unique_ptr<State>;
-			using sptr = std::shared_ptr<State>;
-
-			static uptr MakeUnique(API api = API::DIRECTX_12);
-			static sptr MakeShared(API api = API::DIRECTX_12);
-		};
-
-		class XUSG_INTERFACE PipelineLib :
-			public virtual Graphics::PipelineLib
-		{
-		public:
-			//PipelineLib();
-			//PipelineLib(const Device* pDevice);
-			virtual ~PipelineLib() {};
-
-			virtual Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr) = 0;
-			virtual Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr) = 0;
-
-			using uptr = std::unique_ptr<PipelineLib>;
-			using sptr = std::shared_ptr<PipelineLib>;
-
-			static uptr MakeUnique(API api = API::DIRECTX_12);
-			static sptr MakeShared(API api = API::DIRECTX_12);
-			static uptr MakeUnique(const Device* pDevice, API api = API::DIRECTX_12);
-			static sptr MakeShared(const Device* pDevice, API api = API::DIRECTX_12);
-		};
+		XUSG_INTERFACE ProgramIdentifier GetProgramIdentifier(const Pipeline& stateObject, const wchar_t* programName);
 	}
 
 	//--------------------------------------------------------------------------------------
@@ -333,6 +416,114 @@ namespace XUSG
 
 			virtual Pipeline CreatePipeline(State* pState, const wchar_t* name = nullptr) = 0;
 			virtual Pipeline GetPipeline(State* pState, const wchar_t* name = nullptr) = 0;
+
+			using uptr = std::unique_ptr<PipelineLib>;
+			using sptr = std::shared_ptr<PipelineLib>;
+
+			static uptr MakeUnique(API api = API::DIRECTX_12);
+			static sptr MakeShared(API api = API::DIRECTX_12);
+			static uptr MakeUnique(const Device* pDevice, API api = API::DIRECTX_12);
+			static sptr MakeShared(const Device* pDevice, API api = API::DIRECTX_12);
+		};
+	}
+
+	//--------------------------------------------------------------------------------------
+	// Generic program pipeline state
+	//--------------------------------------------------------------------------------------
+	namespace GenericProgram
+	{
+		using BlendPreset = Ultimate::BlendPreset;
+		using RasterizerPreset = Ultimate::RasterizerPreset;
+		using DepthStencilPreset = Ultimate::DepthStencilPreset;
+
+		using Blend = Ultimate::Blend;
+		using Rasterizer = Ultimate::Rasterizer;
+		using DepthStencil = Ultimate::DepthStencil;
+		using ViewInstance = Ultimate::ViewInstance;
+		using ViewInstanceFlag = Ultimate::ViewInstanceFlag;
+
+		class PipelineLib;
+
+		class XUSG_INTERFACE State
+		{
+		public:
+			//State();
+			virtual ~State() {};
+
+			virtual void SetPipelineLayout(const PipelineLayout& layout) = 0;
+			virtual void SetShaderLibrary(uint8_t index, const Blob& shaderLib) = 0;
+			virtual void SetShader(Shader::Stage stage, uint8_t libIndex, const wchar_t* shaderName) = 0;
+			virtual void SetProgram(const wchar_t* programName) = 0;
+			virtual void SetNodeMask(uint32_t nodeMask) = 0;
+			virtual void SetFlags(PipelineFlag flag) = 0;
+
+			virtual void OMSetBlendState(const Blend* pBlend, uint32_t sampleMask = UINT_MAX) = 0;
+			virtual void RSSetState(const Rasterizer* pRasterizer) = 0;
+			virtual void DSSetState(const DepthStencil* pDepthStencil) = 0;
+
+			virtual void OMSetBlendState(BlendPreset preset, PipelineLib* pPipelineLib,
+				uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX) = 0;
+			virtual void RSSetState(RasterizerPreset preset, PipelineLib* pPipelineLib) = 0;
+			virtual void DSSetState(DepthStencilPreset preset, PipelineLib* pPipelineLib) = 0;
+
+			virtual void IASetInputLayout(const InputLayout* pLayout) = 0;
+			virtual void IASetPrimitiveTopologyType(PrimitiveTopologyType type) = 0;
+			virtual void IASetIndexBufferStripCutValue(IBStripCutValue ibStripCutValue) = 0;
+
+			virtual void OMSetNumRenderTargets(uint8_t n) = 0;
+			virtual void OMSetRTVFormat(uint8_t i, Format format) = 0;
+			virtual void OMSetRTVFormats(const Format* formats, uint8_t n) = 0;
+			virtual void OMSetDSVFormat(Format format) = 0;
+			virtual void OMSetSample(uint8_t count, uint8_t quality = 0) = 0;
+
+			virtual void SetNumViewInstances(uint8_t n, ViewInstanceFlag flags) = 0;
+			virtual void SetViewInstance(uint8_t i, const ViewInstance& viewInstance) = 0;
+			virtual void SetViewInstances(const ViewInstance* viewInstances, uint8_t n, ViewInstanceFlag flags) = 0;
+
+			virtual Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
+			virtual Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
+
+			virtual const std::string& GetKey() const = 0;
+
+			using uptr = std::unique_ptr<State>;
+			using sptr = std::shared_ptr<State>;
+
+			static uptr MakeUnique(API api = API::DIRECTX_12);
+			static sptr MakeShared(API api = API::DIRECTX_12);
+		};
+
+		class XUSG_INTERFACE PipelineLib
+		{
+		public:
+			//PipelineLib();
+			//PipelineLib(const Device* pDevice);
+			virtual ~PipelineLib() {};
+
+			virtual void SetDevice(const Device* pDevice) = 0;
+			virtual void SetPipeline(const std::string& key, const Pipeline& pipeline) = 0;
+
+			virtual void SetInputLayout(uint32_t index, const InputElement* pElements, uint32_t numElements) = 0;
+			virtual const InputLayout* GetInputLayout(uint32_t index) const = 0;
+			virtual const InputLayout* CreateInputLayout(const InputElement* pElements, uint32_t numElements) = 0;
+
+			virtual Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr) = 0;
+			virtual Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr) = 0;
+
+			virtual const Blend* GetBlend(BlendPreset preset, uint8_t numColorRTs = 1) = 0;
+			virtual const Rasterizer* GetRasterizer(RasterizerPreset preset) = 0;
+			virtual const DepthStencil* GetDepthStencil(DepthStencilPreset preset) = 0;
+
+			static DepthStencil DepthStencilDefault();
+			static DepthStencil DepthStencilNone();
+			static DepthStencil DepthRead();
+			static DepthStencil DepthReadLessEqual();
+			static DepthStencil DepthReadEqual();
+
+			static Rasterizer RasterizerDefault();
+			static Rasterizer CullBack();
+			static Rasterizer CullNone();
+			static Rasterizer CullFront();
+			static Rasterizer FillWireframe();
 
 			using uptr = std::unique_ptr<PipelineLib>;
 			using sptr = std::shared_ptr<PipelineLib>;

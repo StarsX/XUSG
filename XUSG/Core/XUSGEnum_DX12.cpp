@@ -22,6 +22,7 @@ using namespace XUSG;
 #define APPEND_FENCE_FLAG(flags, flag) APPEND_FLAG(FenceFlag, D3D12_FENCE_FLAG, flags, flag, NONE)
 #define APPEND_SAMPLER_FLAG(flags, flag) APPEND_FLAG(SamplerFlag, D3D12_SAMPLER_FLAG, flags, flag, NONE)
 #define APPEND_COLOR_WRITE(mask, bit) (static_cast<bool>(mask & ColorWrite::bit) ? D3D12_COLOR_WRITE_ENABLE##_##bit : 0)
+#define APPEND_PIPELINE_FLAG(flags, flag) APPEND_FLAG(PipelineFlag, D3D12_PIPELINE_STATE_FLAG, flags, flag, NONE)
 #define APPEND_TILE_COPY_FLAG(flags, flag) APPEND_FLAG(TileCopyFlag, D3D12_TILE_COPY_FLAG, flags, flag, NONE)
 #define APPEND_SWAP_CHAIN_FLAG(flags, flag) (static_cast<bool>(flags & SwapChainFlag::flag) ? DXGI_SWAP_CHAIN_FLAG_##flag : 0)
 #define APPEND_PRESENT_FLAG(flags, flag) (static_cast<bool>(flags & PresentFlag::flag) ? DXGI_PRESENT_##flag : 0)
@@ -820,6 +821,32 @@ D3D12_STENCIL_OP XUSG::GetDX12StencilOp(StencilOp stencilOp)
 	return stencilOps[static_cast<uint32_t>(stencilOp)];
 }
 
+D3D12_PIPELINE_STATE_FLAGS XUSG::GetDX12PipelineFlag(PipelineFlag pipelineFlag)
+{
+	static const D3D12_PIPELINE_STATE_FLAGS pipelineFlags[] =
+	{
+		D3D12_PIPELINE_STATE_FLAG_TOOL_DEBUG,
+		D3D12_PIPELINE_STATE_FLAG_DYNAMIC_DEPTH_BIAS,
+		D3D12_PIPELINE_STATE_FLAG_DYNAMIC_INDEX_BUFFER_STRIP_CUT
+	};
+
+	if (pipelineFlag == PipelineFlag::NONE) return D3D12_PIPELINE_STATE_FLAG_NONE;
+
+	const auto index = Log2(static_cast<uint32_t>(pipelineFlag));
+
+	return pipelineFlags[index];
+}
+
+D3D12_PIPELINE_STATE_FLAGS XUSG::GetDX12PipelineFlags(PipelineFlag pipelineFlags)
+{
+	auto flags = D3D12_PIPELINE_STATE_FLAG_NONE;
+	flags |= APPEND_PIPELINE_FLAG(pipelineFlags, TOOL_DEBUG);
+	flags |= APPEND_PIPELINE_FLAG(pipelineFlags, DYNAMIC_DEPTH_BIAS);
+	flags |= APPEND_PIPELINE_FLAG(pipelineFlags, DYNAMIC_INDEX_BUFFER_STRIP_CUT);
+
+	return flags;
+}
+
 D3D12_QUERY_TYPE XUSG::GetDX12QueryType(QueryType type)
 {
 	static const D3D12_QUERY_TYPE types[] =
@@ -840,7 +867,7 @@ D3D12_QUERY_TYPE XUSG::GetDX12QueryType(QueryType type)
 
 D3D12_TILE_COPY_FLAGS XUSG::GetDX12TileCopyFlag(TileCopyFlag tileCopyFlag)
 {
-	static const D3D12_TILE_COPY_FLAGS fenceFlags[] =
+	static const D3D12_TILE_COPY_FLAGS tileCopyFlags[] =
 	{
 		D3D12_TILE_COPY_FLAG_NO_HAZARD,
 		D3D12_TILE_COPY_FLAG_LINEAR_BUFFER_TO_SWIZZLED_TILED_RESOURCE,
@@ -851,7 +878,7 @@ D3D12_TILE_COPY_FLAGS XUSG::GetDX12TileCopyFlag(TileCopyFlag tileCopyFlag)
 
 	const auto index = Log2(static_cast<uint32_t>(tileCopyFlag));
 
-	return fenceFlags[index];
+	return tileCopyFlags[index];
 }
 
 D3D12_TILE_COPY_FLAGS XUSG::GetDX12TileCopyFlags(TileCopyFlag tileCopyFlags)

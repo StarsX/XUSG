@@ -127,7 +127,7 @@ void EZ::CommandList_DX12::RSSetShadingRateImage(Resource* pShadingRateImage)
 	Ultimate::CommandList_DX12::RSSetShadingRateImage(pShadingRateImage);
 }
 
-void EZ::CommandList_DX12::MSSetPipelineState(const Pipeline& pipelineState, const MeshShader::State* pState)
+void EZ::CommandList_DX12::MSSetPipelineState(const Pipeline& pipelineState, const State* pState)
 {
 	assert(pipelineState || pState);
 	Pipeline pipeline;
@@ -154,7 +154,7 @@ void EZ::CommandList_DX12::MSSetPipelineState(const Pipeline& pipelineState, con
 	}
 }
 
-void EZ::CommandList_DX12::MSSetBlendState(MeshShader::BlendPreset preset, uint8_t numColorRTs, uint32_t sampleMask)
+void EZ::CommandList_DX12::MSSetBlendState(BlendPreset preset, uint8_t numColorRTs, uint32_t sampleMask)
 {
 	assert(m_meshShaderState);
 	m_meshShaderState->OMSetBlendState(preset, m_meshShaderPipelineLib.get(), numColorRTs, sampleMask);
@@ -168,14 +168,14 @@ void EZ::CommandList_DX12::MSSetSample(uint8_t count, uint8_t quality)
 	m_isMSStateDirty = true;
 }
 
-void EZ::CommandList_DX12::MSSetRasterizerState(MeshShader::RasterizerPreset preset)
+void EZ::CommandList_DX12::MSSetRasterizerState(RasterizerPreset preset)
 {
 	assert(m_meshShaderState);
 	m_meshShaderState->RSSetState(preset, m_meshShaderPipelineLib.get());
 	m_isMSStateDirty = true;
 }
 
-void EZ::CommandList_DX12::MSSetDepthStencilState(MeshShader::DepthStencilPreset preset)
+void EZ::CommandList_DX12::MSSetDepthStencilState(DepthStencilPreset preset)
 {
 	assert(m_meshShaderState);
 	m_meshShaderState->DSSetState(preset, m_meshShaderPipelineLib.get());
@@ -226,8 +226,8 @@ bool EZ::CommandList_DX12::init(Ultimate::CommandList* pCommandList, uint32_t sa
 
 	if (m_commandListU)
 	{
-		m_meshShaderPipelineLib = MeshShader::PipelineLib::MakeUnique(m_pDevice, API::DIRECTX_12);
-		m_meshShaderState = MeshShader::State::MakeUnique(API::DIRECTX_12);
+		m_meshShaderPipelineLib = PipelineLib::MakeUnique(m_pDevice, API::DIRECTX_12);
+		m_meshShaderState = State::MakeUnique(API::DIRECTX_12);
 	}
 
 	return true;
