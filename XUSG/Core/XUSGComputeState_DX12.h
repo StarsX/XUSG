@@ -37,6 +37,8 @@ namespace XUSG
 
 			const std::string& GetKey() const;
 
+			void GetHandleDesc(void* pHandleDesc, PipelineLib* pPipelineLib) const;
+
 		protected:
 			PipelineDesc* m_pKey;
 			std::string m_key;
@@ -55,6 +57,8 @@ namespace XUSG
 
 			Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr);
 			Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr);
+
+			void GetHandleDesc(void* pHandleDesc, const std::string& key);
 
 		protected:
 			virtual Pipeline createPipeline(const std::string& key, const wchar_t* name);

@@ -59,6 +59,8 @@ namespace XUSG
 
 	uint8_t GetDX12ColorWrite(ColorWrite writeMask);
 
+	D3D12_LINE_RASTERIZATION_MODE GetDX12LineRasterizationMode(LineRasterization mode);
+
 	D3D12_COMPARISON_FUNC GetDX12ComparisonFunc(ComparisonFunc comparisonFunc);
 	D3D12_STENCIL_OP GetDX12StencilOp(StencilOp stencilOp);
 

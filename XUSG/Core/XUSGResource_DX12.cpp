@@ -648,7 +648,7 @@ Descriptor Texture_DX12::CreateSRV(const Descriptor& srvHeapStart, uint32_t desc
 			desc.TextureCube.MostDetailedMip = mostDetailedMip;
 		}
 	}
-	else if (arraySize > 1)
+	else if (arraySize > 1 || firstArraySlice > 0)
 	{
 		if (multisamples)
 		{
@@ -695,7 +695,7 @@ Descriptor Texture_DX12::CreateUAV(const Descriptor& uavHeapStart, uint32_t desc
 	assert(m_resource || format != Format::UNKNOWN);
 	desc.Format = format != Format::UNKNOWN ? GetDXGIFormat(format) : m_resource->GetDesc().Format;
 
-	if (arraySize > 1)
+	if (arraySize > 1 || firstArraySlice > 0)
 	{
 		desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2DARRAY;
 		desc.Texture2DArray.ArraySize = arraySize;
@@ -1105,7 +1105,7 @@ Descriptor RenderTarget_DX12::CreateRTV(const Descriptor& rtvHeapStart, uint32_t
 	desc.Format = GetDXGIFormat(m_format);
 
 	// Setup the description of the render target view.
-	if (arraySize > 1)
+	if (arraySize > 1 || firstArraySlice > 0)
 	{
 		if (multisamples)
 		{
@@ -1503,7 +1503,7 @@ Descriptor DepthStencil_DX12::CreateDSV(const Descriptor& dsvHeapStart, uint32_t
 	D3D12_DEPTH_STENCIL_VIEW_DESC desc = {};
 	desc.Format = GetDXGIFormat(m_format);
 
-	if (arraySize > 1)
+	if (arraySize > 1 || firstArraySlice > 0)
 	{
 		if (multisamples)
 		{

@@ -15,9 +15,9 @@ namespace XUSG
 		{
 			PipelineLayout Layout;
 			Blob Shaders[Shader::Stage::NUM_STAGE];
-			const Blend* pBlend;
-			const Rasterizer* pRasterizer;
-			const DepthStencil* pDepthStencil;
+			const Graphics::Blend* pBlend;
+			const Graphics::Rasterizer* pRasterizer;
+			const Graphics::DepthStencil* pDepthStencil;
 			const InputLayout* pInputLayout;
 			Blob CachedPipeline;
 			PrimitiveTopologyType PrimTopologyType;
@@ -48,9 +48,9 @@ namespace XUSG
 			void SetNodeMask(uint32_t nodeMask);
 			void SetFlags(PipelineFlag flag);
 
-			void OMSetBlendState(const Blend* pBlend, uint32_t sampleMask = UINT_MAX);
-			void RSSetState(const Rasterizer* pRasterizer);
-			void DSSetState(const DepthStencil* pDepthStencil);
+			void OMSetBlendState(const Graphics::Blend* pBlend, uint32_t sampleMask = UINT_MAX);
+			void RSSetState(const Graphics::Rasterizer* pRasterizer);
+			void DSSetState(const Graphics::DepthStencil* pDepthStencil);
 
 			void OMSetBlendState(BlendPreset preset, PipelineLib* pPipelineLib,
 				uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX);
@@ -99,9 +99,9 @@ namespace XUSG
 			Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr);
 			Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr);
 
-			const Blend* GetBlend(BlendPreset preset, uint8_t numColorRTs = 1);
-			const Rasterizer* GetRasterizer(RasterizerPreset preset);
-			const DepthStencil* GetDepthStencil(DepthStencilPreset preset);
+			const Graphics::Blend* GetBlend(BlendPreset preset, uint8_t numColorRTs = 1);
+			const Graphics::Rasterizer* GetRasterizer(RasterizerPreset preset);
+			const Graphics::DepthStencil* GetDepthStencil(DepthStencilPreset preset);
 
 		protected:
 			Pipeline createPipeline(const std::string& key, const wchar_t* name);
@@ -112,13 +112,13 @@ namespace XUSG
 			InputLayoutLib_DX12 m_inputLayoutLib;
 
 			std::unordered_map<std::string, com_ptr<ID3D12PipelineState>> m_pipelines;
-			std::unique_ptr<Blend>			m_blends[Graphics::NUM_BLEND_PRESET];
-			std::unique_ptr<Rasterizer>		m_rasterizers[Graphics::NUM_RS_PRESET];
-			std::unique_ptr<DepthStencil>	m_depthStencils[Graphics::NUM_DS_PRESET];
+			std::unique_ptr<Graphics::Blend>		m_blends[Graphics::NUM_BLEND_PRESET];
+			std::unique_ptr<Graphics::Rasterizer>	m_rasterizers[Graphics::NUM_RS_PRESET];
+			std::unique_ptr<Graphics::DepthStencil>	m_depthStencils[Graphics::NUM_DS_PRESET];
 
-			std::function<Blend(uint8_t)>	m_pfnBlends[Graphics::NUM_BLEND_PRESET];
-			std::function<Rasterizer()>		m_pfnRasterizers[Graphics::NUM_RS_PRESET];
-			std::function<DepthStencil()>	m_pfnDepthStencils[Graphics::NUM_DS_PRESET];
+			std::function<Graphics::Blend(uint8_t)>	m_pfnBlends[Graphics::NUM_BLEND_PRESET];
+			std::function<Graphics::Rasterizer()>	m_pfnRasterizers[Graphics::NUM_RS_PRESET];
+			std::function<Graphics::DepthStencil()>	m_pfnDepthStencils[Graphics::NUM_DS_PRESET];
 		};
 	}
 }

@@ -787,6 +787,19 @@ uint8_t XUSG::GetDX12ColorWrite(ColorWrite writeMask)
 	return mask;
 }
 
+D3D12_LINE_RASTERIZATION_MODE XUSG::GetDX12LineRasterizationMode(LineRasterization mode)
+{
+	static const D3D12_LINE_RASTERIZATION_MODE modes[] =
+	{
+		D3D12_LINE_RASTERIZATION_MODE_ALIASED,
+		D3D12_LINE_RASTERIZATION_MODE_ALPHA_ANTIALIASED,
+		D3D12_LINE_RASTERIZATION_MODE_QUADRILATERAL_WIDE,
+		D3D12_LINE_RASTERIZATION_MODE_QUADRILATERAL_NARROW
+	};
+
+	return modes[static_cast<uint32_t>(mode)];
+}
+
 D3D12_COMPARISON_FUNC XUSG::GetDX12ComparisonFunc(ComparisonFunc comparisonFunc)
 {
 	static const D3D12_COMPARISON_FUNC comparisonFuncs[] =

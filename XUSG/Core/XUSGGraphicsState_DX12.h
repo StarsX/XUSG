@@ -69,6 +69,8 @@ namespace XUSG
 
 			const std::string& GetKey() const;
 
+			void GetHandleDesc(void* pHandleDesc, void* pInputElements, PipelineLib* pPipelineLib) const;
+
 		protected:
 			PipelineDesc* m_pKey;
 			std::string m_key;
@@ -95,6 +97,8 @@ namespace XUSG
 			const Blend* GetBlend(BlendPreset preset, uint8_t numColorRTs = 1);
 			const Rasterizer* GetRasterizer(RasterizerPreset preset);
 			const DepthStencil* GetDepthStencil(DepthStencilPreset preset);
+
+			void GetHandleDesc(void* pHandleDesc, void* pInputElements, const std::string& key);
 
 		protected:
 			Pipeline createPipeline(const std::string& key, const wchar_t* name);

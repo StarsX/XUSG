@@ -361,19 +361,6 @@ D3D12_RESOLVE_MODE XUSG::Ultimate::GetDX12ResolveMode(ResolveMode mode)
 	return modes[static_cast<uint32_t>(mode)];
 }
 
-D3D12_LINE_RASTERIZATION_MODE XUSG::Ultimate::GetDX12LineRasterizationMode(LineRasterization mode)
-{
-	static const D3D12_LINE_RASTERIZATION_MODE modes[] =
-	{
-		D3D12_LINE_RASTERIZATION_MODE_ALIASED,
-		D3D12_LINE_RASTERIZATION_MODE_ALPHA_ANTIALIASED,
-		D3D12_LINE_RASTERIZATION_MODE_QUADRILATERAL_WIDE,
-		D3D12_LINE_RASTERIZATION_MODE_QUADRILATERAL_NARROW
-	};
-
-	return modes[static_cast<uint32_t>(mode)];
-}
-
 D3D12_VIEW_INSTANCING_FLAGS XUSG::Ultimate::GetDX12ViewInstanceFlag(ViewInstanceFlag viewInstanceFlag)
 {
 	static const D3D12_VIEW_INSTANCING_FLAGS viewInstanceFlags[] =

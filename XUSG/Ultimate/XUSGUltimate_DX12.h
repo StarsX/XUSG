@@ -88,7 +88,6 @@ namespace XUSG
 
 		D3D12_SHADING_RATE_COMBINER GetDX12ShadingRateCombiner(ShadingRateCombiner combiner);
 		D3D12_RESOLVE_MODE GetDX12ResolveMode(ResolveMode mode);
-		D3D12_LINE_RASTERIZATION_MODE GetDX12LineRasterizationMode(LineRasterization mode);
 
 		D3D12_VIEW_INSTANCING_FLAGS GetDX12ViewInstanceFlag(ViewInstanceFlag viewInstanceFlag);
 		D3D12_VIEW_INSTANCING_FLAGS GetDX12ViewInstanceFlags(ViewInstanceFlag viewInstanceFlags);

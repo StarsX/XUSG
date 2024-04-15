@@ -48,14 +48,6 @@ namespace XUSG
 			COMBINER_SUM
 		};
 
-		enum class LineRasterization : uint8_t
-		{
-			ALIASED,
-			ALPHA_ANTIALIASED,
-			QUADRILATERAL_WIDE,
-			QUADRILATERAL_NARROW
-		};
-
 		enum class ProgramType : uint8_t
 		{
 			GENERIC_PIPELINE,
@@ -78,41 +70,6 @@ namespace XUSG
 		};
 
 		XUSG_DEF_ENUM_FLAG_OPERATORS(WorkGraphFlag);
-
-		struct Rasterizer
-		{
-			FillMode Fill;
-			CullMode Cull;
-			bool FrontCounterClockwise;
-			float DepthBias;
-			float DepthBiasClamp;
-			float SlopeScaledDepthBias;
-			bool DepthClipEnable;
-			LineRasterization LineRasterizationMode;
-			uint8_t ForcedSampleCount;
-			bool ConservativeRaster;
-		};
-
-		struct DepthStencilOp
-		{
-			StencilOp StencilFailOp;
-			StencilOp StencilDepthFailOp;
-			StencilOp StencilPassOp;
-			ComparisonFunc StencilFunc;
-			uint8_t StencilReadMask;
-			uint8_t StencilWriteMask;
-		};
-
-		struct DepthStencil
-		{
-			bool DepthEnable;
-			bool DepthWriteMask;
-			ComparisonFunc Comparison;
-			bool StencilEnable;
-			DepthStencilOp FrontFace;
-			DepthStencilOp BackFace;
-			bool DepthBoundsTestEnable;
-		};
 
 		struct ViewInstance
 		{
@@ -196,8 +153,6 @@ namespace XUSG
 		using RasterizerPreset = Graphics::RasterizerPreset;
 		using DepthStencilPreset = Graphics::DepthStencilPreset;
 
-		using Blend = Graphics::Blend;
-
 		class PipelineLib;
 
 		class XUSG_INTERFACE State
@@ -212,9 +167,9 @@ namespace XUSG
 			virtual void SetNodeMask(uint32_t nodeMask) = 0;
 			virtual void SetFlags(PipelineFlag flag) = 0;
 
-			virtual void OMSetBlendState(const Blend* pBlend, uint32_t sampleMask = UINT_MAX) = 0;
-			virtual void RSSetState(const Rasterizer* pRasterizer) = 0;
-			virtual void DSSetState(const DepthStencil* pDepthStencil) = 0;
+			virtual void OMSetBlendState(const Graphics::Blend* pBlend, uint32_t sampleMask = UINT_MAX) = 0;
+			virtual void RSSetState(const Graphics::Rasterizer* pRasterizer) = 0;
+			virtual void DSSetState(const Graphics::DepthStencil* pDepthStencil) = 0;
 
 			virtual void OMSetBlendState(BlendPreset preset, PipelineLib* pPipelineLib,
 				uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX) = 0;
@@ -264,21 +219,9 @@ namespace XUSG
 			virtual Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr) = 0;
 			virtual Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr) = 0;
 
-			virtual const Blend* GetBlend(BlendPreset preset, uint8_t numColorRTs = 1) = 0;
-			virtual const Rasterizer* GetRasterizer(RasterizerPreset preset) = 0;
-			virtual const DepthStencil* GetDepthStencil(DepthStencilPreset preset) = 0;
-
-			static DepthStencil DepthStencilDefault();
-			static DepthStencil DepthStencilNone();
-			static DepthStencil DepthRead();
-			static DepthStencil DepthReadLessEqual();
-			static DepthStencil DepthReadEqual();
-
-			static Rasterizer RasterizerDefault();
-			static Rasterizer CullBack();
-			static Rasterizer CullNone();
-			static Rasterizer CullFront();
-			static Rasterizer FillWireframe();
+			virtual const Graphics::Blend* GetBlend(BlendPreset preset, uint8_t numColorRTs = 1) = 0;
+			virtual const Graphics::Rasterizer* GetRasterizer(RasterizerPreset preset) = 0;
+			virtual const Graphics::DepthStencil* GetDepthStencil(DepthStencilPreset preset) = 0;
 
 			using uptr = std::unique_ptr<PipelineLib>;
 			using sptr = std::shared_ptr<PipelineLib>;
@@ -436,9 +379,10 @@ namespace XUSG
 		using RasterizerPreset = Ultimate::RasterizerPreset;
 		using DepthStencilPreset = Ultimate::DepthStencilPreset;
 
-		using Blend = Ultimate::Blend;
-		using Rasterizer = Ultimate::Rasterizer;
-		using DepthStencil = Ultimate::DepthStencil;
+		using Blend = Graphics::Blend;
+		using Rasterizer = Graphics::Rasterizer;
+		using DepthStencil = Graphics::DepthStencil;
+
 		using ViewInstance = Ultimate::ViewInstance;
 		using ViewInstanceFlag = Ultimate::ViewInstanceFlag;
 
@@ -512,18 +456,6 @@ namespace XUSG
 			virtual const Blend* GetBlend(BlendPreset preset, uint8_t numColorRTs = 1) = 0;
 			virtual const Rasterizer* GetRasterizer(RasterizerPreset preset) = 0;
 			virtual const DepthStencil* GetDepthStencil(DepthStencilPreset preset) = 0;
-
-			static DepthStencil DepthStencilDefault();
-			static DepthStencil DepthStencilNone();
-			static DepthStencil DepthRead();
-			static DepthStencil DepthReadLessEqual();
-			static DepthStencil DepthReadEqual();
-
-			static Rasterizer RasterizerDefault();
-			static Rasterizer CullBack();
-			static Rasterizer CullNone();
-			static Rasterizer CullFront();
-			static Rasterizer FillWireframe();
 
 			using uptr = std::unique_ptr<PipelineLib>;
 			using sptr = std::shared_ptr<PipelineLib>;

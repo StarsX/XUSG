@@ -18,8 +18,7 @@ Rasterizer PipelineLib::RasterizerDefault()
 	rasterizer.DepthBiasClamp = 0.0f;
 	rasterizer.SlopeScaledDepthBias = 0.0f;
 	rasterizer.DepthClipEnable = true;
-	rasterizer.MultisampleEnable = false;
-	rasterizer.AntialiasedLineEnable = false;
+	rasterizer.LineRasterizationMode = LineRasterization::ALIASED;
 	rasterizer.ForcedSampleCount = 0;
 	rasterizer.ConservativeRaster = false;
 

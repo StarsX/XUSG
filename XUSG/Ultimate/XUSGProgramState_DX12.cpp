@@ -205,17 +205,17 @@ PipelineLib_DX12::PipelineLib_DX12() :
 	m_pfnBlends[BlendPreset::SELECT_MAX] = Graphics::PipelineLib::SelectMax;
 
 	// Rasterizer states
-	m_pfnRasterizers[RasterizerPreset::CULL_BACK] = Ultimate::PipelineLib::CullBack;
-	m_pfnRasterizers[RasterizerPreset::CULL_NONE] = Ultimate::PipelineLib::CullNone;
-	m_pfnRasterizers[RasterizerPreset::CULL_FRONT] = Ultimate::PipelineLib::CullFront;
-	m_pfnRasterizers[RasterizerPreset::FILL_WIREFRAME] = Ultimate::PipelineLib::FillWireframe;
+	m_pfnRasterizers[RasterizerPreset::CULL_BACK] = Graphics::PipelineLib::CullBack;
+	m_pfnRasterizers[RasterizerPreset::CULL_NONE] = Graphics::PipelineLib::CullNone;
+	m_pfnRasterizers[RasterizerPreset::CULL_FRONT] = Graphics::PipelineLib::CullFront;
+	m_pfnRasterizers[RasterizerPreset::FILL_WIREFRAME] = Graphics::PipelineLib::FillWireframe;
 
 	// Depth stencil states
-	m_pfnDepthStencils[DepthStencilPreset::DEFAULT_LESS] = Ultimate::PipelineLib::DepthStencilDefault;
-	m_pfnDepthStencils[DepthStencilPreset::DEPTH_STENCIL_NONE] = Ultimate::PipelineLib::DepthStencilNone;
-	m_pfnDepthStencils[DepthStencilPreset::DEPTH_READ_LESS] = Ultimate::PipelineLib::DepthRead;
-	m_pfnDepthStencils[DepthStencilPreset::DEPTH_READ_LESS_EQUAL] = Ultimate::PipelineLib::DepthReadLessEqual;
-	m_pfnDepthStencils[DepthStencilPreset::DEPTH_READ_EQUAL] = Ultimate::PipelineLib::DepthReadEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEFAULT_LESS] = Graphics::PipelineLib::DepthStencilDefault;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_STENCIL_NONE] = Graphics::PipelineLib::DepthStencilNone;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_READ_LESS] = Graphics::PipelineLib::DepthRead;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_READ_LESS_EQUAL] = Graphics::PipelineLib::DepthReadLessEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_READ_EQUAL] = Graphics::PipelineLib::DepthReadEqual;
 }
 
 PipelineLib_DX12::PipelineLib_DX12(const Device* pDevice) :
@@ -379,7 +379,8 @@ com_ptr<ID3D12StateObject> PipelineLib_DX12::createStateObject(const string& key
 		pRasterizer->SetDepthClipEnable(pDesc->pRasterizer->DepthClipEnable ? TRUE : FALSE);
 		pRasterizer->SetLineRasterizationMode(GetDX12LineRasterizationMode(pDesc->pRasterizer->LineRasterizationMode));
 		pRasterizer->SetForcedSampleCount(pDesc->pRasterizer->ForcedSampleCount);
-		pRasterizer->SetConservativeRaster(pDesc->pRasterizer->ConservativeRaster ? D3D12_CONSERVATIVE_RASTERIZATION_MODE_ON : D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF);
+		pRasterizer->SetConservativeRaster(pDesc->pRasterizer->ConservativeRaster ?
+			D3D12_CONSERVATIVE_RASTERIZATION_MODE_ON : D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF);
 		pProgram->AddSubobject(*pRasterizer);
 	}
 

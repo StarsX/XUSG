@@ -63,6 +63,7 @@ bool GltfLoader::Import(const char* pszFilename, bool needNorm, bool needColor, 
 			const auto size = sizeof(uint8_t) * reqChannels * width * height;
 			m_textures[i].Data.resize(size);
 			memcpy(m_textures[i].Data.data(), pTexData, size);
+			STBI_FREE(pTexData);
 			m_textures[i].Width = width;
 			m_textures[i].Height = height;
 			m_textures[i].Channels = reqChannels;
@@ -517,6 +518,7 @@ void GltfLoader::regenerateUV1(uint32_t vertexOffset, uint32_t vertexCount, bool
 	if (error != xatlas::AddMeshError::Success)
 	{
 		subset.LightMapScl = float2(1.0f);
+		xatlas::Destroy(pAtlas);
 		return;
 	}
 

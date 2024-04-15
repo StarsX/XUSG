@@ -145,6 +145,11 @@ const string& State_DX12::GetKey() const
 	return m_key;
 }
 
+void State_DX12::GetHandleDesc(void* pHandleDesc, void* pInputElements, PipelineLib* pPipelineLib) const
+{
+	pPipelineLib->GetHandleDesc(pHandleDesc, pInputElements, GetKey());
+}
+
 //--------------------------------------------------------------------------------------
 
 PipelineLib_DX12::PipelineLib_DX12() :
@@ -258,8 +263,36 @@ const Graphics::DepthStencil* PipelineLib_DX12::GetDepthStencil(DepthStencilPres
 Pipeline PipelineLib_DX12::createPipeline(const std::string& key, const wchar_t* name)
 {
 	// Fill desc
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC desc;
+	vector<D3D12_INPUT_ELEMENT_DESC> inputElements;
+	GetHandleDesc(&desc, &inputElements, key);
+
+	// Create pipeline
+	com_ptr<ID3D12PipelineState> pipeline;
+	V_RETURN(m_device->CreateGraphicsPipelineState(&desc, IID_PPV_ARGS(&pipeline)), cerr, nullptr);
+	if (name) pipeline->SetName(name);
+	m_pipelines[key] = pipeline;
+
+	return pipeline.get();
+}
+
+Pipeline PipelineLib_DX12::getPipeline(const string& key, const wchar_t* name)
+{
+	const auto pPipeline = m_pipelines.find(key);
+
+	// Create one, if it does not exist
+	if (pPipeline == m_pipelines.end()) return createPipeline(key, name);
+
+	return pPipeline->second.get();
+}
+
+void PipelineLib_DX12::GetHandleDesc(void* pHandleDesc, void* pInputElements, const string& key)
+{
 	const auto pDesc = reinterpret_cast<const PipelineDesc*>(key.data());
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC desc = {};
+	auto& desc = *static_cast<D3D12_GRAPHICS_PIPELINE_STATE_DESC*>(pHandleDesc);
+	desc = {};
+
+	// Fill desc
 	if (pDesc->Layout)
 		desc.pRootSignature = static_cast<ID3D12RootSignature*>(pDesc->Layout);
 
@@ -300,14 +333,19 @@ Pipeline PipelineLib_DX12::createPipeline(const std::string& key, const wchar_t*
 	desc.RasterizerState.FillMode = GetDX12FillMode(pRasterizer->Fill);
 	desc.RasterizerState.CullMode = GetDX12CullMode(pRasterizer->Cull);
 	desc.RasterizerState.FrontCounterClockwise = pRasterizer->FrontCounterClockwise ? TRUE : FALSE;
-	desc.RasterizerState.DepthBias = pRasterizer->DepthBias;
+	desc.RasterizerState.DepthBias = static_cast<INT>(pRasterizer->DepthBias);
 	desc.RasterizerState.DepthBiasClamp = pRasterizer->DepthBiasClamp;
 	desc.RasterizerState.SlopeScaledDepthBias = pRasterizer->SlopeScaledDepthBias;
 	desc.RasterizerState.DepthClipEnable = pRasterizer->DepthClipEnable ? TRUE : FALSE;
-	desc.RasterizerState.MultisampleEnable = pRasterizer->MultisampleEnable ? TRUE : FALSE;
-	desc.RasterizerState.AntialiasedLineEnable = pRasterizer->AntialiasedLineEnable ? TRUE : FALSE;
+	desc.RasterizerState.MultisampleEnable = FALSE;
+	desc.RasterizerState.AntialiasedLineEnable = FALSE;
+	if (pRasterizer->LineRasterizationMode == LineRasterization::ALPHA_ANTIALIASED)
+		desc.RasterizerState.AntialiasedLineEnable = TRUE;
+	else if (pRasterizer->LineRasterizationMode != LineRasterization::ALIASED)
+		desc.RasterizerState.MultisampleEnable = TRUE;
 	desc.RasterizerState.ForcedSampleCount = pRasterizer->ForcedSampleCount;
-	desc.RasterizerState.ConservativeRaster = pRasterizer->ConservativeRaster ? D3D12_CONSERVATIVE_RASTERIZATION_MODE_ON : D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
+	desc.RasterizerState.ConservativeRaster = pRasterizer->ConservativeRaster ?
+		D3D12_CONSERVATIVE_RASTERIZATION_MODE_ON : D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
 
 	// Depth-stencil state
 	const auto pDepthStencil = pDesc->pDepthStencil ? pDesc->pDepthStencil : GetDepthStencil(DepthStencilPreset::DEFAULT_LESS);
@@ -315,8 +353,8 @@ Pipeline PipelineLib_DX12::createPipeline(const std::string& key, const wchar_t*
 	desc.DepthStencilState.DepthWriteMask = pDepthStencil->DepthWriteMask ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
 	desc.DepthStencilState.DepthFunc = GetDX12ComparisonFunc(pDepthStencil->Comparison);
 	desc.DepthStencilState.StencilEnable = pDepthStencil->StencilEnable ? TRUE : FALSE;
-	desc.DepthStencilState.StencilReadMask = pDepthStencil->StencilReadMask;
-	desc.DepthStencilState.StencilWriteMask = pDepthStencil->StencilWriteMask;
+	desc.DepthStencilState.StencilReadMask = pDepthStencil->FrontFace.StencilReadMask;
+	desc.DepthStencilState.StencilWriteMask = pDepthStencil->FrontFace.StencilWriteMask;
 	desc.DepthStencilState.FrontFace.StencilFailOp = GetDX12StencilOp(pDepthStencil->FrontFace.StencilFailOp);
 	desc.DepthStencilState.FrontFace.StencilDepthFailOp = GetDX12StencilOp(pDepthStencil->FrontFace.StencilDepthFailOp);
 	desc.DepthStencilState.FrontFace.StencilPassOp = GetDX12StencilOp(pDepthStencil->FrontFace.StencilPassOp);
@@ -327,7 +365,7 @@ Pipeline PipelineLib_DX12::createPipeline(const std::string& key, const wchar_t*
 	desc.DepthStencilState.BackFace.StencilFunc = GetDX12ComparisonFunc(pDepthStencil->BackFace.StencilFunc);
 
 	// Input layout
-	vector<D3D12_INPUT_ELEMENT_DESC> inputElements;
+	auto& inputElements = *static_cast<vector<D3D12_INPUT_ELEMENT_DESC>*>(pInputElements);
 	if (pDesc->pInputLayout)
 	{
 		desc.InputLayout.NumElements = static_cast<uint32_t>(pDesc->pInputLayout->size());
@@ -375,22 +413,4 @@ Pipeline PipelineLib_DX12::createPipeline(const std::string& key, const wchar_t*
 	default:
 		assert(desc.IBStripCutValue == D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_DISABLED);
 	}
-
-	// Create pipeline
-	com_ptr<ID3D12PipelineState> pipeline;
-	V_RETURN(m_device->CreateGraphicsPipelineState(&desc, IID_PPV_ARGS(&pipeline)), cerr, nullptr);
-	if (name) pipeline->SetName(name);
-	m_pipelines[key] = pipeline;
-
-	return pipeline.get();
-}
-
-Pipeline PipelineLib_DX12::getPipeline(const string& key, const wchar_t* name)
-{
-	const auto pPipeline = m_pipelines.find(key);
-
-	// Create one, if it does not exist
-	if (pPipeline == m_pipelines.end()) return createPipeline(key, name);
-
-	return pPipeline->second.get();
 }

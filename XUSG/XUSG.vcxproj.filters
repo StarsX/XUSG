@@ -240,12 +240,6 @@
     <ClCompile Include="Ultimate\XUSGProgramState_DX12.cpp">
       <Filter>Ultimate\Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Ultimate\XUSGUltimateDepthStencil.cpp">
-      <Filter>Ultimate\Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Ultimate\XUSGUltimateRasterizer.cpp">
-      <Filter>Ultimate\Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Shaders\CSWaveOp.hlsli">

@@ -62,6 +62,11 @@ const string& State_DX12::GetKey() const
 	return m_key;
 }
 
+void State_DX12::GetHandleDesc(void* pHandleDesc, PipelineLib* pPipelineLib) const
+{
+	pPipelineLib->GetHandleDesc(pHandleDesc, GetKey());
+}
+
 //--------------------------------------------------------------------------------------
 
 PipelineLib_DX12::PipelineLib_DX12() :
@@ -104,19 +109,8 @@ Pipeline PipelineLib_DX12::GetPipeline(const State* pState, const wchar_t* name)
 Pipeline PipelineLib_DX12::createPipeline(const string& key, const wchar_t* name)
 {
 	// Fill desc
-	const auto pDesc = reinterpret_cast<const PipelineDesc*>(key.data());
-	D3D12_COMPUTE_PIPELINE_STATE_DESC desc = {};
-	if (pDesc->Layout)
-		desc.pRootSignature = static_cast<ID3D12RootSignature*>(pDesc->Layout);
-
-	if (pDesc->Shader)
-		desc.CS = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pDesc->Shader));
-
-	const auto pCachedPipeline = static_cast<ID3DBlob*>(pDesc->CachedPipeline);
-	desc.CachedPSO.pCachedBlob = pCachedPipeline ? pCachedPipeline->GetBufferPointer() : nullptr;
-	desc.CachedPSO.CachedBlobSizeInBytes = pCachedPipeline ? pCachedPipeline->GetBufferSize() : 0;
-	desc.NodeMask = pDesc->NodeMask;
-	desc.Flags = GetDX12PipelineFlags(pDesc->Flags);
+	D3D12_COMPUTE_PIPELINE_STATE_DESC desc;
+	GetHandleDesc(&desc, key);
 
 	// Create pipeline
 	com_ptr<ID3D12PipelineState> pipeline;
@@ -135,4 +129,24 @@ Pipeline PipelineLib_DX12::getPipeline(const string& key, const wchar_t* name)
 	if (pPipeline == m_pipelines.end()) return createPipeline(key, name);
 
 	return pPipeline->second.get();
+}
+
+void PipelineLib_DX12::GetHandleDesc(void* pHandleDesc, const string& key)
+{
+	const auto pDesc = reinterpret_cast<const PipelineDesc*>(key.data());
+	auto& desc = *static_cast<D3D12_COMPUTE_PIPELINE_STATE_DESC*>(pHandleDesc);
+	desc = {};
+
+	// Fill desc
+	if (pDesc->Layout)
+		desc.pRootSignature = static_cast<ID3D12RootSignature*>(pDesc->Layout);
+
+	if (pDesc->Shader)
+		desc.CS = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pDesc->Shader));
+
+	const auto pCachedPipeline = static_cast<ID3DBlob*>(pDesc->CachedPipeline);
+	desc.CachedPSO.pCachedBlob = pCachedPipeline ? pCachedPipeline->GetBufferPointer() : nullptr;
+	desc.CachedPSO.CachedBlobSizeInBytes = pCachedPipeline ? pCachedPipeline->GetBufferSize() : 0;
+	desc.NodeMask = pDesc->NodeMask;
+	desc.Flags = GetDX12PipelineFlags(pDesc->Flags);
 }

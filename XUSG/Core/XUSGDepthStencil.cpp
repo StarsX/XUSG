@@ -15,11 +15,10 @@ Graphics::DepthStencil PipelineLib::DepthStencilDefault()
 	depthStencil.DepthWriteMask = true;
 	depthStencil.Comparison = ComparisonFunc::LESS;
 	depthStencil.StencilEnable = false;
-	depthStencil.StencilReadMask = 0xff;
-	depthStencil.StencilWriteMask = 0xff;
+	depthStencil.DepthBoundsTestEnable = false;
 
 	const DepthStencilOp defaultStencilOp =
-	{ StencilOp::KEEP, StencilOp::KEEP, StencilOp::KEEP, ComparisonFunc::ALWAYS };
+	{ StencilOp::KEEP, StencilOp::KEEP, StencilOp::KEEP, ComparisonFunc::ALWAYS, 0xff, 0xff };
 	depthStencil.FrontFace = defaultStencilOp;
 	depthStencil.BackFace = defaultStencilOp;
 

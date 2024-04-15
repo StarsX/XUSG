@@ -554,6 +554,14 @@ namespace XUSG
 
 	XUSG_DEF_ENUM_FLAG_OPERATORS(ColorWrite);
 
+	enum class LineRasterization : uint8_t
+	{
+		ALIASED,
+		ALPHA_ANTIALIASED,
+		QUADRILATERAL_WIDE,
+		QUADRILATERAL_NARROW
+	};
+
 	enum class ComparisonFunc : uint8_t
 	{
 		NEVER,
@@ -1110,8 +1118,10 @@ namespace XUSG
 		virtual uint32_t Create(void* pAdapter, uint32_t minFeatureLevel, const wchar_t* name = nullptr) = 0;
 		virtual uint32_t GetDeviceRemovedReason() const = 0;
 
+		// Create from API native handle
 		virtual void Create(void* pHandle, const wchar_t* name = nullptr) = 0;
 
+		// Get API native handle
 		virtual void* GetHandle() const = 0;
 
 		using uptr = std::unique_ptr<Device>;
@@ -1137,8 +1147,10 @@ namespace XUSG
 
 		virtual uint64_t GetCompletedValue() const = 0;
 
+		// Create from API native handle
 		virtual void Create(void* pHandle, const wchar_t* name = nullptr) = 0;
 
+		// Get API native handle
 		virtual void* GetHandle() const = 0;
 
 		using uptr = std::unique_ptr<Fence>;
@@ -1167,8 +1179,10 @@ namespace XUSG
 			const IndirectArgument* pArguments, const PipelineLayout& pipelineLayout = nullptr,
 			uint32_t nodeMask = 0, const wchar_t* name = nullptr) = 0;
 
+		// Create from API native handle
 		virtual void Create(void* pHandle, const wchar_t* name = nullptr) = 0;
 
+		// Get API native handle
 		virtual void* GetHandle() const = 0;
 
 		using uptr = std::unique_ptr<CommandLayout>;
@@ -1190,9 +1204,13 @@ namespace XUSG
 		virtual bool Create(const Device* pDevice, CommandListType type, const wchar_t* name = nullptr) = 0;
 		virtual bool Reset() = 0;
 
+		// Create from API native handle
 		virtual void Create(void* pHandle, const wchar_t* name = nullptr) = 0;
 
+		// Get API native handle
 		virtual void* GetHandle() const = 0;
+
+		// Get API native handle of the device for this command allocator
 		virtual void* GetDeviceHandle() const = 0;
 
 		virtual const Device* GetDevice() const = 0;
@@ -1315,9 +1333,13 @@ namespace XUSG
 			const Resource* pArgumentBuffer, uint64_t argumentBufferOffset = 0,
 			const Resource* pCountBuffer = nullptr, uint64_t countBufferOffset = 0) = 0;
 
+		// Create from API native handle
 		virtual void Create(void* pHandle, const wchar_t* name = nullptr) = 0;
 
+		// Get API native handle
 		virtual void* GetHandle() const = 0;
+
+		// Get API native handle of the device for this command list
 		virtual void* GetDeviceHandle() const = 0;
 
 		virtual const Device* GetDevice() const = 0;
@@ -1353,9 +1375,13 @@ namespace XUSG
 		virtual void ExecuteCommandLists(uint32_t numCommandLists, const CommandList* const* ppCommandLists) = 0;
 		virtual void ExecuteCommandList(const CommandList* pCommandList) = 0;
 
+		// Create from API native handle
 		virtual void Create(void* pHandle, const wchar_t* name = nullptr) = 0;
 
+		// Get API native handle
 		virtual void* GetHandle() const = 0;
+
+		// Get API native handle of the device for this command list
 		virtual void* GetDeviceHandle() const = 0;
 
 		virtual const Device* GetDevice() const = 0;
@@ -1392,8 +1418,10 @@ namespace XUSG
 
 		virtual uint8_t GetCurrentBackBufferIndex() const = 0;
 
+		// Create from API native handle
 		virtual void Create(void* pHandle) = 0;
 
+		// Get API native handle
 		virtual void* GetHandle() const = 0;
 
 		using uptr = std::unique_ptr<SwapChain>;
@@ -1429,10 +1457,12 @@ namespace XUSG
 
 		virtual uint64_t GetVirtualAddress(int offset = 0) const = 0;
 
+		// Create from API native handle
 		virtual void Create(void* pDeviceHandle, void* pResourceHandle,
 			const wchar_t* name = nullptr, uint32_t maxThreads = 1) = 0;
 		virtual void SetName(const wchar_t* name) = 0;
 
+		// Get API native handle
 		virtual void* GetHandle() const = 0;
 
 		using uptr = std::unique_ptr<Resource>;
@@ -2244,12 +2274,11 @@ namespace XUSG
 			FillMode Fill;
 			CullMode Cull;
 			bool FrontCounterClockwise;
-			int DepthBias;
+			float DepthBias;
 			float DepthBiasClamp;
 			float SlopeScaledDepthBias;
 			bool DepthClipEnable;
-			bool MultisampleEnable;
-			bool AntialiasedLineEnable;
+			LineRasterization LineRasterizationMode;
 			uint8_t ForcedSampleCount;
 			bool ConservativeRaster;
 		};
@@ -2260,6 +2289,8 @@ namespace XUSG
 			StencilOp StencilDepthFailOp;
 			StencilOp StencilPassOp;
 			ComparisonFunc StencilFunc;
+			uint8_t StencilReadMask;
+			uint8_t StencilWriteMask;
 		};
 
 		struct DepthStencil
@@ -2268,10 +2299,9 @@ namespace XUSG
 			bool DepthWriteMask;
 			ComparisonFunc Comparison;
 			bool StencilEnable;
-			uint8_t StencilReadMask;
-			uint8_t StencilWriteMask;
 			DepthStencilOp FrontFace;
 			DepthStencilOp BackFace;
+			bool DepthBoundsTestEnable;
 		};
 
 		class PipelineLib;
@@ -2310,7 +2340,12 @@ namespace XUSG
 			virtual Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
 			virtual Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
 
+			// Get the key of the pipeline cache for XUSG pipeline lib
 			virtual const std::string& GetKey() const = 0;
+
+			// Get API native desc of this PSO handle
+			// pInputElements should be a pointer to std::vector<[API]_INPUT_ELEMENT_DESC>
+			virtual void GetHandleDesc(void* pHandleDesc, void* pInputElements, PipelineLib* pPipelineLib) const = 0;
 
 			using uptr = std::unique_ptr<State>;
 			using sptr = std::shared_ptr<State>;
@@ -2339,6 +2374,10 @@ namespace XUSG
 			virtual const Blend* GetBlend(BlendPreset preset, uint8_t numColorRTs = 1) = 0;
 			virtual const Rasterizer* GetRasterizer(RasterizerPreset preset) = 0;
 			virtual const DepthStencil* GetDepthStencil(DepthStencilPreset preset) = 0;
+
+			// Get API native desc of this PSO handle
+			// pInputElements should be a pointer to std::vector<[API]_INPUT_ELEMENT_DESC>
+			virtual void GetHandleDesc(void* pHandleDesc, void* pInputElements, const std::string& key) = 0;
 
 			static DepthStencil DepthStencilDefault();
 			static DepthStencil DepthStencilNone();
@@ -2400,7 +2439,11 @@ namespace XUSG
 			virtual Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
 			virtual Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
 
+			// Get the key of the pipeline cache for XUSG pipeline lib
 			virtual const std::string& GetKey() const = 0;
+
+			// Get API native desc of this PSO handle
+			virtual void GetHandleDesc(void* pHandleDesc, PipelineLib* pPipelineLib) const = 0;
 
 			using uptr = std::unique_ptr<State>;
 			using sptr = std::shared_ptr<State>;
@@ -2421,6 +2464,9 @@ namespace XUSG
 
 			virtual Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr) = 0;
 			virtual Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr) = 0;
+
+			// Get API native desc of this PSO handle
+			virtual void GetHandleDesc(void* pHandleDesc, const std::string& key) = 0;
 
 			using uptr = std::unique_ptr<PipelineLib>;
 			using sptr = std::shared_ptr<PipelineLib>;
