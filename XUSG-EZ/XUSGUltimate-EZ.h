@@ -60,10 +60,10 @@ namespace XUSG
 				virtual void RSSetShadingRateImage(Resource* pShadingRateImage) = 0;
 
 				virtual void MSSetPipelineState(const Pipeline& pipelineState, const State* pState = nullptr) = 0;
-				virtual void MSSetBlendState(BlendPreset preset, uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX) = 0;
+				virtual void MSSetBlendState(Graphics::BlendPreset preset, uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX) = 0;
 				virtual void MSSetSample(uint8_t count, uint8_t quality = 0) = 0;
-				virtual void MSSetRasterizerState(RasterizerPreset preset) = 0;
-				virtual void MSSetDepthStencilState(DepthStencilPreset preset) = 0;
+				virtual void MSSetRasterizerState(Graphics::RasterizerPreset preset) = 0;
+				virtual void MSSetDepthStencilState(Graphics::DepthStencilPreset preset) = 0;
 				virtual void MSSetShader(Shader::Stage stage, const Blob& shader) = 0;
 				virtual void MSSetNodeMask(uint32_t nodeMask) = 0;
 				virtual void DispatchMesh(uint32_t ThreadGroupCountX, uint32_t ThreadGroupCountY, uint32_t ThreadGroupCountZ) = 0;

@@ -317,7 +317,7 @@ void EZ::CommandList_DXR::RTSetPipelineState(const Pipeline& pipelineState, RayT
 		if (pipelineState && pipeline != pipelineState)
 		{
 			pipeline = pipelineState;
-			m_rayTracingPipelineLib->SetPipeline(pState->GetKey(), pipeline);
+			m_rayTracingPipelineLib->SetPipeline(pState, pipeline);
 		}
 	}
 	else pipeline = pipelineState;

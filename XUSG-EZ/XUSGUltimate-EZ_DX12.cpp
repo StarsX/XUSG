@@ -138,7 +138,7 @@ void EZ::CommandList_DX12::MSSetPipelineState(const Pipeline& pipelineState, con
 		if (pipelineState && pipeline != pipelineState)
 		{
 			pipeline = pipelineState;
-			m_meshShaderPipelineLib->SetPipeline(pState->GetKey(), pipeline);
+			m_meshShaderPipelineLib->SetPipeline(pState, pipeline);
 		}
 	}
 	else pipeline = pipelineState;
@@ -154,7 +154,7 @@ void EZ::CommandList_DX12::MSSetPipelineState(const Pipeline& pipelineState, con
 	}
 }
 
-void EZ::CommandList_DX12::MSSetBlendState(BlendPreset preset, uint8_t numColorRTs, uint32_t sampleMask)
+void EZ::CommandList_DX12::MSSetBlendState(Graphics::BlendPreset preset, uint8_t numColorRTs, uint32_t sampleMask)
 {
 	assert(m_meshShaderState);
 	m_meshShaderState->OMSetBlendState(preset, m_meshShaderPipelineLib.get(), numColorRTs, sampleMask);
@@ -168,14 +168,14 @@ void EZ::CommandList_DX12::MSSetSample(uint8_t count, uint8_t quality)
 	m_isMSStateDirty = true;
 }
 
-void EZ::CommandList_DX12::MSSetRasterizerState(RasterizerPreset preset)
+void EZ::CommandList_DX12::MSSetRasterizerState(Graphics::RasterizerPreset preset)
 {
 	assert(m_meshShaderState);
 	m_meshShaderState->RSSetState(preset, m_meshShaderPipelineLib.get());
 	m_isMSStateDirty = true;
 }
 
-void EZ::CommandList_DX12::MSSetDepthStencilState(DepthStencilPreset preset)
+void EZ::CommandList_DX12::MSSetDepthStencilState(Graphics::DepthStencilPreset preset)
 {
 	assert(m_meshShaderState);
 	m_meshShaderState->DSSetState(preset, m_meshShaderPipelineLib.get());

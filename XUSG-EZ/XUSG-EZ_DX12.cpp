@@ -346,7 +346,7 @@ void EZ::CommandList_DX12::SetGraphicsPipelineState(const Pipeline& pipelineStat
 		if (pipelineState && pipeline != pipelineState)
 		{
 			pipeline = pipelineState;
-			m_graphicsPipelineLib->SetPipeline(pState->GetKey(), pipeline);
+			m_graphicsPipelineLib->SetPipeline(pState, pipeline);
 		}
 	}
 	else pipeline = pipelineState;
@@ -373,7 +373,7 @@ void EZ::CommandList_DX12::SetComputePipelineState(const Pipeline& pipelineState
 		if (pipelineState && pipeline != pipelineState)
 		{
 			pipeline = pipelineState;
-			m_computePipelineLib->SetPipeline(pState->GetKey(), pipeline);
+			m_computePipelineLib->SetPipeline(pState, pipeline);
 		}
 	}
 	else pipeline = pipelineState;
