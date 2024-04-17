@@ -52,10 +52,10 @@ namespace XUSG
 			void RSSetState(const Graphics::Rasterizer* pRasterizer);
 			void DSSetState(const Graphics::DepthStencil* pDepthStencil);
 
-			void OMSetBlendState(BlendPreset preset, PipelineLib* pPipelineLib,
+			void OMSetBlendState(Graphics::BlendPreset preset, PipelineLib* pPipelineLib,
 				uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX);
-			void RSSetState(RasterizerPreset preset, PipelineLib* pPipelineLib);
-			void DSSetState(DepthStencilPreset preset, PipelineLib* pPipelineLib);
+			void RSSetState(Graphics::RasterizerPreset preset, PipelineLib* pPipelineLib);
+			void DSSetState(Graphics::DepthStencilPreset preset, PipelineLib* pPipelineLib);
 
 			void IASetInputLayout(const InputLayout* pLayout);
 			void IASetPrimitiveTopologyType(PrimitiveTopologyType type);
@@ -74,6 +74,31 @@ namespace XUSG
 			Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const;
 			Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const;
 
+			PipelineLayout GetPipelineLayout() const;
+			Blob GetShader(Shader::Stage stage) const;
+			Blob GetCachedPipeline() const;
+			uint32_t GetNodeMask() const;
+			PipelineFlag GetFlags() const;
+
+			uint32_t OMGetSampleMask() const;
+			const Graphics::Blend* OMGetBlendState() const;
+			const Graphics::Rasterizer* RSGetState() const;
+			const Graphics::DepthStencil* DSGetState() const;
+
+			const InputLayout* IAGetInputLayout() const;
+			PrimitiveTopologyType IAGetPrimitiveTopologyType() const;
+			IBStripCutValue IAGetIndexBufferStripCutValue() const;
+
+			uint8_t OMGetNumRenderTargets() const;
+			Format OMGetRTVFormat(uint8_t i) const;
+			Format OMGetDSVFormat() const;
+			uint8_t OMGetSampleCount() const;
+			uint8_t OMGetSampleQuality() const;
+
+			uint8_t GetNumViewInstances(uint8_t n, ViewInstanceFlag flags) const;
+			ViewInstanceFlag GetViewInstanceFlags() const;
+			const ViewInstance& GetViewInstance(uint8_t i) const;
+
 			const std::string& GetKey() const;
 
 		protected:
@@ -90,7 +115,7 @@ namespace XUSG
 			virtual ~PipelineLib_DX12();
 
 			void SetDevice(const Device* pDevice);
-			void SetPipeline(const std::string& key, const Pipeline& pipeline);
+			void SetPipeline(const State* pState, const Pipeline& pipeline);
 
 			void SetInputLayout(uint32_t index, const InputElement* pElements, uint32_t numElements);
 			const InputLayout* GetInputLayout(uint32_t index) const;
@@ -99,13 +124,18 @@ namespace XUSG
 			Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr);
 			Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr);
 
-			const Graphics::Blend* GetBlend(BlendPreset preset, uint8_t numColorRTs = 1);
-			const Graphics::Rasterizer* GetRasterizer(RasterizerPreset preset);
-			const Graphics::DepthStencil* GetDepthStencil(DepthStencilPreset preset);
+			const Graphics::Blend* GetBlend(Graphics::BlendPreset preset, uint8_t numColorRTs = 1);
+			const Graphics::Rasterizer* GetRasterizer(Graphics::RasterizerPreset preset);
+			const Graphics::DepthStencil* GetDepthStencil(Graphics::DepthStencilPreset preset);
 
 		protected:
 			Pipeline createPipeline(const std::string& key, const wchar_t* name);
 			Pipeline getPipeline(const std::string& key, const wchar_t* name);
+
+			static void getStream(CD3DX12_PIPELINE_STATE_STREAM2* pStream, void* pInputElements, const std::string& key);
+			static void getStream(CD3DX12_PIPELINE_STATE_STREAM3* pStream, void* pInputElements, const std::string& key);
+			static void getStream(CD3DX12_PIPELINE_STATE_STREAM4* pStream, void* pInputElements, const std::string& key);
+			static void getStream(CD3DX12_PIPELINE_STATE_STREAM5* pStream, void* pInputElements, const std::string& key);
 
 			com_ptr<ID3D12Device> m_device;
 

@@ -57,14 +57,39 @@ Pipeline State_DX12::GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name)
 	return pPipelineLib->GetPipeline(this, name);
 }
 
+PipelineLayout State_DX12::GetPipelineLayout() const
+{
+	return m_pKey->Layout;
+}
+
+Blob State_DX12::GetShader() const
+{
+	return m_pKey->Shader;
+}
+
+Blob State_DX12::GetCachedPipeline() const
+{
+	return m_pKey->CachedPipeline;
+}
+
+uint32_t State_DX12::GetNodeMask() const
+{
+	return m_pKey->NodeMask;
+}
+
+PipelineFlag State_DX12::GetFlags() const
+{
+	return m_pKey->Flags;
+}
+
+void State_DX12::GetHandleDesc(void* pHandleDesc) const
+{
+	PipelineLib_DX12::GetHandleDesc(pHandleDesc, GetKey());
+}
+
 const string& State_DX12::GetKey() const
 {
 	return m_key;
-}
-
-void State_DX12::GetHandleDesc(void* pHandleDesc, PipelineLib* pPipelineLib) const
-{
-	pPipelineLib->GetHandleDesc(pHandleDesc, GetKey());
 }
 
 //--------------------------------------------------------------------------------------
@@ -91,19 +116,28 @@ void PipelineLib_DX12::SetDevice(const Device* pDevice)
 	assert(m_device);
 }
 
-void PipelineLib_DX12::SetPipeline(const string& key, const Pipeline& pipeline)
+void PipelineLib_DX12::SetPipeline(const State* pState, const Pipeline& pipeline)
 {
-	m_pipelines[key] = pipeline;
+	const auto p = dynamic_cast<const State_DX12*>(pState);
+	assert(p);
+
+	m_pipelines[p->GetKey()] = pipeline;
 }
 
 Pipeline PipelineLib_DX12::CreatePipeline(const State* pState, const wchar_t* name)
 {
-	return createPipeline(pState->GetKey(), name);
+	const auto p = dynamic_cast<const State_DX12*>(pState);
+	assert(p);
+
+	return createPipeline(p->GetKey(), name);
 }
 
 Pipeline PipelineLib_DX12::GetPipeline(const State* pState, const wchar_t* name)
 {
-	return getPipeline(pState->GetKey(), name);
+	const auto p = dynamic_cast<const State_DX12*>(pState);
+	assert(p);
+
+	return getPipeline(p->GetKey(), name);
 }
 
 Pipeline PipelineLib_DX12::createPipeline(const string& key, const wchar_t* name)

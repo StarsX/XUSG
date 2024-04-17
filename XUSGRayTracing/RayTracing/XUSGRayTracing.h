@@ -366,8 +366,6 @@ namespace XUSG
 			virtual Pipeline CreatePipeline(PipelineLib* pPipelineCache, const wchar_t* name = nullptr) = 0;
 			virtual Pipeline GetPipeline(PipelineLib* pPipelineCache, const wchar_t* name = nullptr) = 0;
 
-			virtual const std::string& GetKey() = 0;
-
 			virtual const wchar_t* GetHitGroupName(uint32_t index) = 0;
 			virtual uint32_t GetNumHitGroups() = 0;
 
@@ -386,7 +384,7 @@ namespace XUSG
 			virtual ~PipelineLib() {}
 
 			virtual void SetDevice(const Device* pDevice) = 0;
-			virtual void SetPipeline(const std::string& key, const Pipeline& pipeline) = 0;
+			virtual void SetPipeline(State* pState, const Pipeline& pipeline) = 0;
 
 			virtual Pipeline CreatePipeline(State* pState, const wchar_t* name = nullptr) = 0;
 			virtual Pipeline GetPipeline(State* pState, const wchar_t* name = nullptr) = 0;

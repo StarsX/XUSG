@@ -130,12 +130,12 @@ namespace XUSG
 				uint32_t ThreadGroupCountY,
 				uint32_t ThreadGroupCountZ) const = 0;
 
-			virtual void SetProgram(ProgramType type, ProgramIdentifier identifier, WorkGraphFlag flags,
+			virtual void SetProgram(ProgramType type, ProgramIdentifier identifier, WorkGraphFlag flags = WorkGraphFlag::NONE,
 				uint64_t backingMemoryAddress = 0, uint64_t backingMemoryByteSize = 0,
 				uint64_t localRootArgTableAddress = 0, uint64_t localRootArgTableByteSize = 0,
-				uint64_t localRootArgTableByteStride = 0) const = 0;
+				uint64_t localRootArgTableByteStride = 0) = 0;
 			virtual void DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride = 0) = 0;
-			virtual void DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes = false) const = 0;
+			virtual void DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes = false) = 0;
 
 			using uptr = std::unique_ptr<CommandList>;
 			using sptr = std::shared_ptr<CommandList>;
@@ -149,10 +149,6 @@ namespace XUSG
 		//--------------------------------------------------------------------------------------
 		// Pipeline state
 		//--------------------------------------------------------------------------------------
-		using BlendPreset = Graphics::BlendPreset;
-		using RasterizerPreset = Graphics::RasterizerPreset;
-		using DepthStencilPreset = Graphics::DepthStencilPreset;
-
 		class PipelineLib;
 
 		class XUSG_INTERFACE State
@@ -171,10 +167,10 @@ namespace XUSG
 			virtual void RSSetState(const Graphics::Rasterizer* pRasterizer) = 0;
 			virtual void DSSetState(const Graphics::DepthStencil* pDepthStencil) = 0;
 
-			virtual void OMSetBlendState(BlendPreset preset, PipelineLib* pPipelineLib,
+			virtual void OMSetBlendState(Graphics::BlendPreset preset, PipelineLib* pPipelineLib,
 				uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX) = 0;
-			virtual void RSSetState(RasterizerPreset preset, PipelineLib* pPipelineLib) = 0;
-			virtual void DSSetState(DepthStencilPreset preset, PipelineLib* pPipelineLib) = 0;
+			virtual void RSSetState(Graphics::RasterizerPreset preset, PipelineLib* pPipelineLib) = 0;
+			virtual void DSSetState(Graphics::DepthStencilPreset preset, PipelineLib* pPipelineLib) = 0;
 
 			virtual void IASetInputLayout(const InputLayout* pLayout) = 0;
 			virtual void IASetPrimitiveTopologyType(PrimitiveTopologyType type) = 0;
@@ -193,7 +189,30 @@ namespace XUSG
 			virtual Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
 			virtual Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
 
-			virtual const std::string& GetKey() const = 0;
+			virtual PipelineLayout GetPipelineLayout() const = 0;
+			virtual Blob GetShader(Shader::Stage stage) const = 0;
+			virtual Blob GetCachedPipeline() const = 0;
+			virtual uint32_t GetNodeMask() const = 0;
+			virtual PipelineFlag GetFlags() const = 0;
+
+			virtual uint32_t OMGetSampleMask() const = 0;
+			virtual const Graphics::Blend* OMGetBlendState() const = 0;
+			virtual const Graphics::Rasterizer* RSGetState() const = 0;
+			virtual const Graphics::DepthStencil* DSGetState() const = 0;
+
+			virtual const InputLayout* IAGetInputLayout() const = 0;
+			virtual PrimitiveTopologyType IAGetPrimitiveTopologyType() const = 0;
+			virtual IBStripCutValue IAGetIndexBufferStripCutValue() const = 0;
+
+			virtual uint8_t OMGetNumRenderTargets() const = 0;
+			virtual Format OMGetRTVFormat(uint8_t i) const = 0;
+			virtual Format OMGetDSVFormat() const = 0;
+			virtual uint8_t OMGetSampleCount() const = 0;
+			virtual uint8_t OMGetSampleQuality() const = 0;
+
+			virtual uint8_t GetNumViewInstances(uint8_t n, ViewInstanceFlag flags) const = 0;
+			virtual ViewInstanceFlag GetViewInstanceFlags() const = 0;
+			virtual const ViewInstance& GetViewInstance(uint8_t i) const = 0;
 
 			using uptr = std::unique_ptr<State>;
 			using sptr = std::shared_ptr<State>;
@@ -210,7 +229,7 @@ namespace XUSG
 			virtual ~PipelineLib() {};
 
 			virtual void SetDevice(const Device* pDevice) = 0;
-			virtual void SetPipeline(const std::string& key, const Pipeline& pipeline) = 0;
+			virtual void SetPipeline(const State* pState, const Pipeline& pipeline) = 0;
 
 			virtual void SetInputLayout(uint32_t index, const InputElement* pElements, uint32_t numElements) = 0;
 			virtual const InputLayout* GetInputLayout(uint32_t index) const = 0;
@@ -219,9 +238,9 @@ namespace XUSG
 			virtual Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr) = 0;
 			virtual Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr) = 0;
 
-			virtual const Graphics::Blend* GetBlend(BlendPreset preset, uint8_t numColorRTs = 1) = 0;
-			virtual const Graphics::Rasterizer* GetRasterizer(RasterizerPreset preset) = 0;
-			virtual const Graphics::DepthStencil* GetDepthStencil(DepthStencilPreset preset) = 0;
+			virtual const Graphics::Blend* GetBlend(Graphics::BlendPreset preset, uint8_t numColorRTs = 1) = 0;
+			virtual const Graphics::Rasterizer* GetRasterizer(Graphics::RasterizerPreset preset) = 0;
+			virtual const Graphics::DepthStencil* GetDepthStencil(Graphics::DepthStencilPreset preset) = 0;
 
 			using uptr = std::unique_ptr<PipelineLib>;
 			using sptr = std::shared_ptr<PipelineLib>;
@@ -320,8 +339,6 @@ namespace XUSG
 			virtual Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) = 0;
 			virtual Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) = 0;
 
-			virtual const std::string& GetKey() = 0;
-
 			virtual const wchar_t* GetProgramName(uint32_t workGraphIndex) const = 0;
 
 			virtual uint32_t GetNumWorkGraphs() const = 0;
@@ -355,7 +372,7 @@ namespace XUSG
 			virtual ~PipelineLib() {}
 
 			virtual void SetDevice(const Device* pDevice) = 0;
-			virtual void SetPipeline(const std::string& key, const Pipeline& pipeline) = 0;
+			virtual void SetPipeline(State* pState, const Pipeline& pipeline) = 0;
 
 			virtual Pipeline CreatePipeline(State* pState, const wchar_t* name = nullptr) = 0;
 			virtual Pipeline GetPipeline(State* pState, const wchar_t* name = nullptr) = 0;
@@ -373,11 +390,11 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Generic program pipeline state
 	//--------------------------------------------------------------------------------------
-	namespace GenericProgram
+	namespace Generic
 	{
-		using BlendPreset = Ultimate::BlendPreset;
-		using RasterizerPreset = Ultimate::RasterizerPreset;
-		using DepthStencilPreset = Ultimate::DepthStencilPreset;
+		using BlendPreset = Graphics::BlendPreset;
+		using RasterizerPreset = Graphics::RasterizerPreset;
+		using DepthStencilPreset = Graphics::DepthStencilPreset;
 
 		using Blend = Graphics::Blend;
 		using Rasterizer = Graphics::Rasterizer;
@@ -427,7 +444,32 @@ namespace XUSG
 			virtual Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
 			virtual Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
 
-			virtual const std::string& GetKey() const = 0;
+			virtual PipelineLayout GetPipelineLayout() const = 0;
+			virtual Blob GetShaderLibrary(uint8_t index) const = 0;
+			virtual uint8_t GetShaderLibraryIndex(Shader::Stage stage) const = 0;
+			virtual const wchar_t* GetShaderName(Shader::Stage stage) const = 0;
+			virtual const wchar_t* GetProgramName() const = 0;
+			virtual uint32_t GetNodeMask() const = 0;
+			virtual PipelineFlag GetFlags() const = 0;
+
+			virtual uint32_t OMGetSampleMask() const = 0;
+			virtual const Graphics::Blend* OMGetBlendState() const = 0;
+			virtual const Graphics::Rasterizer* RSGetState() const = 0;
+			virtual const Graphics::DepthStencil* DSGetState() const = 0;
+
+			virtual const InputLayout* IAGetInputLayout() const = 0;
+			virtual PrimitiveTopologyType IAGetPrimitiveTopologyType() const = 0;
+			virtual IBStripCutValue IAGetIndexBufferStripCutValue() const = 0;
+
+			virtual uint8_t OMGetNumRenderTargets() const = 0;
+			virtual Format OMGetRTVFormat(uint8_t i) const = 0;
+			virtual Format OMGetDSVFormat() const = 0;
+			virtual uint8_t OMGetSampleCount() const = 0;
+			virtual uint8_t OMGetSampleQuality() const = 0;
+
+			virtual uint8_t GetNumViewInstances(uint8_t n, ViewInstanceFlag flags) const = 0;
+			virtual ViewInstanceFlag GetViewInstanceFlags() const = 0;
+			virtual const ViewInstance& GetViewInstance(uint8_t i) const = 0;
 
 			using uptr = std::unique_ptr<State>;
 			using sptr = std::shared_ptr<State>;
@@ -444,7 +486,7 @@ namespace XUSG
 			virtual ~PipelineLib() {};
 
 			virtual void SetDevice(const Device* pDevice) = 0;
-			virtual void SetPipeline(const std::string& key, const Pipeline& pipeline) = 0;
+			virtual void SetPipeline(const State* pState, const Pipeline& pipeline) = 0;
 
 			virtual void SetInputLayout(uint32_t index, const InputElement* pElements, uint32_t numElements) = 0;
 			virtual const InputLayout* GetInputLayout(uint32_t index) const = 0;

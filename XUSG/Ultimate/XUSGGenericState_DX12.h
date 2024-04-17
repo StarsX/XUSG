@@ -9,7 +9,7 @@
 
 namespace XUSG
 {
-	namespace GenericProgram
+	namespace Generic
 	{
 		struct ShaderStages
 		{
@@ -82,6 +82,33 @@ namespace XUSG
 			Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const;
 			Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const;
 
+			PipelineLayout GetPipelineLayout() const;
+			Blob GetShaderLibrary(uint8_t index) const;
+			uint8_t GetShaderLibraryIndex(Shader::Stage stage) const;
+			const wchar_t* GetShaderName(Shader::Stage stage) const;
+			const wchar_t* GetProgramName() const;
+			uint32_t GetNodeMask() const;
+			PipelineFlag GetFlags() const;
+
+			uint32_t OMGetSampleMask() const;
+			const Graphics::Blend* OMGetBlendState() const;
+			const Graphics::Rasterizer* RSGetState() const;
+			const Graphics::DepthStencil* DSGetState() const;
+
+			const InputLayout* IAGetInputLayout() const;
+			PrimitiveTopologyType IAGetPrimitiveTopologyType() const;
+			IBStripCutValue IAGetIndexBufferStripCutValue() const;
+
+			uint8_t OMGetNumRenderTargets() const;
+			Format OMGetRTVFormat(uint8_t i) const;
+			Format OMGetDSVFormat() const;
+			uint8_t OMGetSampleCount() const;
+			uint8_t OMGetSampleQuality() const;
+
+			uint8_t GetNumViewInstances(uint8_t n, ViewInstanceFlag flags) const;
+			ViewInstanceFlag GetViewInstanceFlags() const;
+			const ViewInstance& GetViewInstance(uint8_t i) const;
+
 			const std::string& GetKey() const;
 
 		protected:
@@ -98,7 +125,7 @@ namespace XUSG
 			virtual ~PipelineLib_DX12();
 
 			void SetDevice(const Device* pDevice);
-			void SetPipeline(const std::string& key, const Pipeline& pipeline);
+			void SetPipeline(const State* pState, const Pipeline& pipeline);
 
 			void SetInputLayout(uint32_t index, const InputElement* pElements, uint32_t numElements);
 			const InputLayout* GetInputLayout(uint32_t index) const;

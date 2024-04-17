@@ -117,7 +117,7 @@ void CommandList_DX12::DispatchMesh(uint32_t threadGroupCountX, uint32_t threadG
 
 void CommandList_DX12::SetProgram(ProgramType type, ProgramIdentifier identifier, WorkGraphFlag flags,
 	uint64_t backingMemoryAddress, uint64_t backingMemoryByteSize, uint64_t localRootArgTableAddress,
-	uint64_t localRootArgTableByteSize, uint64_t localRootArgTableByteStride) const
+	uint64_t localRootArgTableByteSize, uint64_t localRootArgTableByteStride)
 {
 	D3D12_SET_PROGRAM_DESC desc = {};
 
@@ -152,7 +152,8 @@ void CommandList_DX12::SetProgram(ProgramType type, ProgramIdentifier identifier
 		desc.GenericPipeline.ProgramIdentifier.OpaqueData[3] = identifier.OpaqueData[3];
 	}
 
-	m_commandListU->SetProgram(&desc);
+	createAgilityInterface();
+	m_commandListA->SetProgram(&desc);
 }
 
 void CommandList_DX12::DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride)
@@ -182,10 +183,11 @@ void CommandList_DX12::DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput*
 		desc.MultiNodeCPUInput.pNodeInputs = m_nodeInputs.data();
 	}
 
-	m_commandListU->DispatchGraph(&desc);
+	createAgilityInterface();
+	m_commandListA->DispatchGraph(&desc);
 }
 
-void CommandList_DX12::DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes) const
+void CommandList_DX12::DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes)
 {
 	D3D12_DISPATCH_GRAPH_DESC desc = {};
 	if (isMultiNodes)
@@ -199,12 +201,23 @@ void CommandList_DX12::DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiN
 		desc.NodeGPUInput = nodeGPUInputAddress;
 	}
 
-	m_commandListU->DispatchGraph(&desc);
+	createAgilityInterface();
+	m_commandListA->DispatchGraph(&desc);
 }
 
-XUSG::com_ptr<ID3D12GraphicsCommandList10>& CommandList_DX12::GetGraphicsCommandList()
+XUSG::com_ptr<ID3D12GraphicsCommandList6>& CommandList_DX12::GetGraphicsCommandList()
 {
 	return m_commandListU;
+}
+
+void CommandList_DX12::createAgilityInterface()
+{
+	if (m_commandListA == nullptr)
+	{
+		const auto hr = m_commandList->QueryInterface(IID_PPV_ARGS(&m_commandListA));
+
+		if (FAILED(hr)) OutputDebugString(L"Couldn't get DirectX agility interface for the command list.\n");
+	}
 }
 
 //--------------------------------------------------------------------------------------

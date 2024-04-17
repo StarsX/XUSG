@@ -344,19 +344,28 @@ void PipelineLib_DX12::SetDevice(const Device* pDevice)
 	assert(m_device);
 }
 
-void PipelineLib_DX12::SetPipeline(const string& key, const Pipeline& pipeline)
+void PipelineLib_DX12::SetPipeline(State* pState, const Pipeline& pipeline)
 {
-	m_stateObjects[key] = static_cast<ID3D12StateObject*>(pipeline);
+	const auto p = dynamic_cast<State_DX12*>(pState);
+	assert(p);
+
+	m_stateObjects[p->GetKey()] = static_cast<ID3D12StateObject*>(pipeline);
 }
 
 Pipeline PipelineLib_DX12::CreatePipeline(State* pState, const wchar_t* name)
 {
-	return CreateStateObject(pState->GetKey(), name).get();
+	const auto p = dynamic_cast<State_DX12*>(pState);
+	assert(p);
+
+	return CreateStateObject(p->GetKey(), name).get();
 }
 
 Pipeline PipelineLib_DX12::GetPipeline(State* pState, const wchar_t* name)
 {
-	return GetStateObject(pState->GetKey(), name).get();
+	const auto p = dynamic_cast<State_DX12*>(pState);
+	assert(p);
+
+	return GetStateObject(p->GetKey(), name).get();
 }
 
 com_ptr<ID3D12StateObject> PipelineLib_DX12::CreateStateObject(const string& key, const wchar_t* name)

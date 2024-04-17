@@ -6,12 +6,12 @@
 #include "Core/XUSGCommand_DX12.h"
 #include "Core/XUSGResource_DX12.h"
 #include "Core/XUSGEnum_DX12.h"
-#include "XUSGProgramState_DX12.h"
+#include "XUSGGenericState_DX12.h"
 #include "XUSGUltimate_DX12.h"
 
 using namespace std;
 using namespace XUSG;
-using namespace GenericProgram;
+using namespace Generic;
 
 State_DX12::State_DX12()
 {
@@ -173,6 +173,120 @@ Pipeline State_DX12::GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name)
 	return pPipelineLib->GetPipeline(this, name);
 }
 
+PipelineLayout State_DX12::GetPipelineLayout() const
+{
+	return m_pKey->Layout;
+}
+
+Blob State_DX12::GetShaderLibrary(uint8_t index) const
+{
+	assert(index < Shader::Stage::NUM_STAGE);
+
+	return m_pKey->ShaderLibs[index];
+}
+
+uint8_t State_DX12::GetShaderLibraryIndex(Shader::Stage stage) const
+{
+	return m_pKey->ShaderStages[stage].LibIndex;
+}
+
+const wchar_t* State_DX12::GetShaderName(Shader::Stage stage) const
+{
+	return m_pKey->ShaderStages[stage].ShaderName;
+}
+
+const wchar_t* State_DX12::GetProgramName() const
+{
+	return m_pKey->Program;
+}
+
+uint32_t State_DX12::GetNodeMask() const
+{
+	return m_pKey->NodeMask;
+}
+
+PipelineFlag State_DX12::GetFlags() const
+{
+	return m_pKey->Flags;
+}
+
+uint32_t State_DX12::OMGetSampleMask() const
+{
+	return m_pKey->SampleMask;
+}
+
+const Graphics::Blend* State_DX12::OMGetBlendState() const
+{
+	return m_pKey->pBlend;
+}
+
+const Graphics::Rasterizer* State_DX12::RSGetState() const
+{
+	return m_pKey->pRasterizer;
+}
+
+const Graphics::DepthStencil* State_DX12::DSGetState() const
+{
+	return m_pKey->pDepthStencil;
+}
+
+const InputLayout* State_DX12::IAGetInputLayout() const
+{
+	return m_pKey->pInputLayout;
+}
+
+PrimitiveTopologyType State_DX12::IAGetPrimitiveTopologyType() const
+{
+	return m_pKey->PrimTopologyType;
+}
+
+IBStripCutValue State_DX12::IAGetIndexBufferStripCutValue() const
+{
+	return static_cast<IBStripCutValue>(m_pKey->IBStripCutValue);
+}
+
+uint8_t State_DX12::OMGetNumRenderTargets() const
+{
+	return m_pKey->NumRenderTargets;
+}
+
+Format State_DX12::OMGetRTVFormat(uint8_t i) const
+{
+	assert(i < m_pKey->NumRenderTargets);
+
+	return m_pKey->RTVFormats[i];
+}
+
+Format State_DX12::OMGetDSVFormat() const
+{
+	return m_pKey->DSVFormat;
+}
+
+uint8_t State_DX12::OMGetSampleCount() const
+{
+	return m_pKey->SampleCount;
+}
+
+uint8_t State_DX12::OMGetSampleQuality() const
+{
+	return m_pKey->SampleQuality;
+}
+
+uint8_t State_DX12::GetNumViewInstances(uint8_t n, ViewInstanceFlag flags) const
+{
+	return m_pKey->NumViewInstances;
+}
+
+ViewInstanceFlag State_DX12::GetViewInstanceFlags() const
+{
+	return m_pKey->ViewInstanceFlags;
+}
+
+const ViewInstance& State_DX12::GetViewInstance(uint8_t i) const
+{
+	return m_pKey->ViewInstances[i];
+}
+
 const string& State_DX12::GetKey() const
 {
 	return m_key;
@@ -234,9 +348,12 @@ void PipelineLib_DX12::SetDevice(const Device* pDevice)
 	assert(m_device);
 }
 
-void PipelineLib_DX12::SetPipeline(const string& key, const Pipeline& pipeline)
+void PipelineLib_DX12::SetPipeline(const State* pState, const Pipeline& pipeline)
 {
-	m_stateObjects[key] = pipeline;
+	const auto p = dynamic_cast<const State_DX12*>(pState);
+	assert(p);
+
+	m_stateObjects[p->GetKey()] = static_cast<ID3D12StateObject*>(pipeline);
 }
 
 void PipelineLib_DX12::SetInputLayout(uint32_t index, const InputElement* pElements, uint32_t numElements)
@@ -256,15 +373,21 @@ const InputLayout* PipelineLib_DX12::CreateInputLayout(const InputElement* pElem
 
 Pipeline PipelineLib_DX12::CreatePipeline(const State* pState, const wchar_t* name)
 {
-	return createStateObject(pState->GetKey(), name).get();
+	const auto p = dynamic_cast<const State_DX12*>(pState);
+	assert(p);
+
+	return createStateObject(p->GetKey(), name).get();
 }
 
 Pipeline PipelineLib_DX12::GetPipeline(const State* pState, const wchar_t* name)
 {
-	return getStateObject(pState->GetKey(), name).get();
+	const auto p = dynamic_cast<const State_DX12*>(pState);
+	assert(p);
+
+	return getStateObject(p->GetKey(), name).get();
 }
 
-const Blend* PipelineLib_DX12::GetBlend(BlendPreset preset, uint8_t numColorRTs)
+const Generic::Blend* PipelineLib_DX12::GetBlend(BlendPreset preset, uint8_t numColorRTs)
 {
 	if (m_blends[preset] == nullptr)
 		m_blends[preset] = make_unique<Blend>(m_pfnBlends[preset](numColorRTs));
@@ -272,7 +395,7 @@ const Blend* PipelineLib_DX12::GetBlend(BlendPreset preset, uint8_t numColorRTs)
 	return m_blends[preset].get();
 }
 
-const Rasterizer* PipelineLib_DX12::GetRasterizer(RasterizerPreset preset)
+const Generic::Rasterizer* PipelineLib_DX12::GetRasterizer(RasterizerPreset preset)
 {
 	if (m_rasterizers[preset] == nullptr)
 		m_rasterizers[preset] = make_unique<Rasterizer>(m_pfnRasterizers[preset]());
@@ -280,7 +403,7 @@ const Rasterizer* PipelineLib_DX12::GetRasterizer(RasterizerPreset preset)
 	return m_rasterizers[preset].get();
 }
 
-const GenericProgram::DepthStencil* PipelineLib_DX12::GetDepthStencil(DepthStencilPreset preset)
+const Generic::DepthStencil* PipelineLib_DX12::GetDepthStencil(DepthStencilPreset preset)
 {
 	if (m_depthStencils[preset] == nullptr)
 		m_depthStencils[preset] = make_unique<DepthStencil>(m_pfnDepthStencils[preset]());
@@ -326,9 +449,8 @@ com_ptr<ID3D12StateObject> PipelineLib_DX12::createStateObject(const string& key
 			const auto libDXIL = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pDesc->ShaderLibs[i]));
 			pLib->SetDXILLibrary(&libDXIL);
 
-			const auto& shaderNames = libShaderNames[i];
-			if (!shaderNames.empty()) // Export shaders
-				pLib->DefineExports(shaderNames.data(), static_cast<uint32_t>(shaderNames.size()));
+			for (const auto& shaderName : libShaderNames[i]) // Export shaders
+				pLib->DefineExport(shaderName, L"*");
 			// Else, use default shader exports for a DXIL library/collection subobject ~ surface all shaders.
 		}
 	}

@@ -67,9 +67,30 @@ namespace XUSG
 			Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const;
 			Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const;
 
-			const std::string& GetKey() const;
+			PipelineLayout GetPipelineLayout() const;
+			Blob GetShader(Shader::Stage stage) const;
+			Blob GetCachedPipeline() const;
+			uint32_t GetNodeMask() const;
+			PipelineFlag GetFlags() const;
 
-			void GetHandleDesc(void* pHandleDesc, void* pInputElements, PipelineLib* pPipelineLib) const;
+			uint32_t OMGetSampleMask() const;
+			const Blend* OMGetBlendState() const;
+			const Rasterizer* RSGetState() const;
+			const DepthStencil* DSGetState() const;
+
+			const InputLayout* IAGetInputLayout() const;
+			PrimitiveTopologyType IAGetPrimitiveTopologyType() const;
+			IBStripCutValue IAGetIndexBufferStripCutValue() const;
+
+			uint8_t OMGetNumRenderTargets() const;
+			Format OMGetRTVFormat(uint8_t i) const;
+			Format OMGetDSVFormat() const;
+			uint8_t OMGetSampleCount() const;
+			uint8_t OMGetSampleQuality() const;
+
+			void GetHandleDesc(void* pHandleDesc, void* pInputElements) const;
+
+			const std::string& GetKey() const;
 
 		protected:
 			PipelineDesc* m_pKey;
@@ -85,7 +106,7 @@ namespace XUSG
 			virtual ~PipelineLib_DX12();
 
 			void SetDevice(const Device* pDevice);
-			void SetPipeline(const std::string& key, const Pipeline& pipeline);
+			void SetPipeline(const State* pState, const Pipeline& pipeline);
 
 			void SetInputLayout(uint32_t index, const InputElement* pElements, uint32_t numElements);
 			const InputLayout* GetInputLayout(uint32_t index) const;
@@ -98,7 +119,7 @@ namespace XUSG
 			const Rasterizer* GetRasterizer(RasterizerPreset preset);
 			const DepthStencil* GetDepthStencil(DepthStencilPreset preset);
 
-			void GetHandleDesc(void* pHandleDesc, void* pInputElements, const std::string& key);
+			static void GetHandleDesc(void* pHandleDesc, void* pInputElements, const std::string& key);
 
 		protected:
 			Pipeline createPipeline(const std::string& key, const wchar_t* name);

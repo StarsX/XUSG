@@ -125,7 +125,7 @@ namespace XUSG
 			virtual ~PipelineLib_DX12();
 
 			void SetDevice(const Device* pDevice);
-			void SetPipeline(const std::string& key, const Pipeline& pipeline);
+			void SetPipeline(State* pState, const Pipeline& pipeline);
 
 			Pipeline CreatePipeline(State* pState, const wchar_t* name = nullptr);
 			Pipeline GetPipeline(State* pState, const wchar_t* name = nullptr);

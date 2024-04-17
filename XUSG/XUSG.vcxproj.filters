@@ -160,7 +160,7 @@
     <ClInclude Include="Ultimate\XUSGPipelineState_DX12.h">
       <Filter>Ultimate\Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Ultimate\XUSGProgramState_DX12.h">
+    <ClInclude Include="Ultimate\XUSGGenericState_DX12.h">
       <Filter>Ultimate\Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -237,7 +237,7 @@
     <ClCompile Include="Ultimate\XUSGPipelineState_DX12.cpp">
       <Filter>Ultimate\Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Ultimate\XUSGProgramState_DX12.cpp">
+    <ClCompile Include="Ultimate\XUSGGenericState_DX12.cpp">
       <Filter>Ultimate\Source Files</Filter>
     </ClCompile>
   </ItemGroup>

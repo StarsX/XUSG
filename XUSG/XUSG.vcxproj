@@ -53,7 +53,7 @@
     <ClInclude Include="Core\XUSG_DX12.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="Ultimate\XUSGPipelineState_DX12.h" />
-    <ClInclude Include="Ultimate\XUSGProgramState_DX12.h" />
+    <ClInclude Include="Ultimate\XUSGGenericState_DX12.h" />
     <ClInclude Include="Ultimate\XUSGUltimate.h" />
     <ClInclude Include="Ultimate\XUSGUltimate_DX12.h" />
     <ClInclude Include="Ultimate\XUSGWorkGraph_DX12.h" />
@@ -201,7 +201,7 @@
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h</ForcedIncludeFiles>
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdafx.h</ForcedIncludeFiles>
     </ClCompile>
-    <ClCompile Include="Ultimate\XUSGProgramState_DX12.cpp">
+    <ClCompile Include="Ultimate\XUSGGenericState_DX12.cpp">
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">stdafx.h</ForcedIncludeFiles>
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdafx.h</ForcedIncludeFiles>
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h</ForcedIncludeFiles>

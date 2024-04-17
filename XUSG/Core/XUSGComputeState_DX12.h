@@ -37,7 +37,13 @@ namespace XUSG
 
 			const std::string& GetKey() const;
 
-			void GetHandleDesc(void* pHandleDesc, PipelineLib* pPipelineLib) const;
+			PipelineLayout GetPipelineLayout() const;
+			Blob GetShader() const;
+			Blob GetCachedPipeline() const;
+			uint32_t GetNodeMask() const;
+			PipelineFlag GetFlags() const;
+
+			void GetHandleDesc(void* pHandleDesc) const;
 
 		protected:
 			PipelineDesc* m_pKey;
@@ -53,12 +59,12 @@ namespace XUSG
 			virtual ~PipelineLib_DX12();
 
 			void SetDevice(const Device* pDevice);
-			void SetPipeline(const std::string& key, const Pipeline& pipeline);
+			void SetPipeline(const State* pState, const Pipeline& pipeline);
 
 			Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr);
 			Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr);
 
-			void GetHandleDesc(void* pHandleDesc, const std::string& key);
+			static void GetHandleDesc(void* pHandleDesc, const std::string& key);
 
 		protected:
 			virtual Pipeline createPipeline(const std::string& key, const wchar_t* name);

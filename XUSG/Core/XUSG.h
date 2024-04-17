@@ -2340,12 +2340,30 @@ namespace XUSG
 			virtual Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
 			virtual Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
 
-			// Get the key of the pipeline cache for XUSG pipeline lib
-			virtual const std::string& GetKey() const = 0;
+			virtual PipelineLayout GetPipelineLayout() const = 0;
+			virtual Blob GetShader(Shader::Stage stage) const = 0;
+			virtual Blob GetCachedPipeline() const = 0;
+			virtual uint32_t GetNodeMask() const = 0;
+			virtual PipelineFlag GetFlags() const = 0;
+
+			virtual uint32_t OMGetSampleMask() const = 0;
+			virtual const Blend* OMGetBlendState() const = 0;
+			virtual const Rasterizer* RSGetState() const = 0;
+			virtual const DepthStencil* DSGetState() const = 0;
+
+			virtual const InputLayout* IAGetInputLayout() const = 0;
+			virtual PrimitiveTopologyType IAGetPrimitiveTopologyType() const = 0;
+			virtual IBStripCutValue IAGetIndexBufferStripCutValue() const = 0;
+
+			virtual uint8_t OMGetNumRenderTargets() const = 0;
+			virtual Format OMGetRTVFormat(uint8_t i) const = 0;
+			virtual Format OMGetDSVFormat() const = 0;
+			virtual uint8_t OMGetSampleCount() const = 0;
+			virtual uint8_t OMGetSampleQuality() const = 0;
 
 			// Get API native desc of this PSO handle
 			// pInputElements should be a pointer to std::vector<[API]_INPUT_ELEMENT_DESC>
-			virtual void GetHandleDesc(void* pHandleDesc, void* pInputElements, PipelineLib* pPipelineLib) const = 0;
+			virtual void GetHandleDesc(void* pHandleDesc, void* pInputElements) const = 0;
 
 			using uptr = std::unique_ptr<State>;
 			using sptr = std::shared_ptr<State>;
@@ -2362,7 +2380,7 @@ namespace XUSG
 			virtual ~PipelineLib() {};
 
 			virtual void SetDevice(const Device* pDevice) = 0;
-			virtual void SetPipeline(const std::string& key, const Pipeline& pipeline) = 0;
+			virtual void SetPipeline(const State* pState, const Pipeline& pipeline) = 0;
 
 			virtual void SetInputLayout(uint32_t index, const InputElement* pElements, uint32_t numElements) = 0;
 			virtual const InputLayout* GetInputLayout(uint32_t index) const = 0;
@@ -2374,10 +2392,6 @@ namespace XUSG
 			virtual const Blend* GetBlend(BlendPreset preset, uint8_t numColorRTs = 1) = 0;
 			virtual const Rasterizer* GetRasterizer(RasterizerPreset preset) = 0;
 			virtual const DepthStencil* GetDepthStencil(DepthStencilPreset preset) = 0;
-
-			// Get API native desc of this PSO handle
-			// pInputElements should be a pointer to std::vector<[API]_INPUT_ELEMENT_DESC>
-			virtual void GetHandleDesc(void* pHandleDesc, void* pInputElements, const std::string& key) = 0;
 
 			static DepthStencil DepthStencilDefault();
 			static DepthStencil DepthStencilNone();
@@ -2439,11 +2453,14 @@ namespace XUSG
 			virtual Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
 			virtual Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
 
-			// Get the key of the pipeline cache for XUSG pipeline lib
-			virtual const std::string& GetKey() const = 0;
+			virtual PipelineLayout GetPipelineLayout() const = 0;
+			virtual Blob GetShader() const = 0;
+			virtual Blob GetCachedPipeline() const = 0;
+			virtual uint32_t GetNodeMask() const = 0;
+			virtual PipelineFlag GetFlags() const = 0;
 
 			// Get API native desc of this PSO handle
-			virtual void GetHandleDesc(void* pHandleDesc, PipelineLib* pPipelineLib) const = 0;
+			virtual void GetHandleDesc(void* pHandleDesc) const = 0;
 
 			using uptr = std::unique_ptr<State>;
 			using sptr = std::shared_ptr<State>;
@@ -2460,13 +2477,10 @@ namespace XUSG
 			virtual ~PipelineLib() {};
 
 			virtual void SetDevice(const Device* pDevice) = 0;
-			virtual void SetPipeline(const std::string& key, const Pipeline& pipeline) = 0;
+			virtual void SetPipeline(const State* pState, const Pipeline& pipeline) = 0;
 
 			virtual Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr) = 0;
 			virtual Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr) = 0;
-
-			// Get API native desc of this PSO handle
-			virtual void GetHandleDesc(void* pHandleDesc, const std::string& key) = 0;
 
 			using uptr = std::unique_ptr<PipelineLib>;
 			using sptr = std::shared_ptr<PipelineLib>;

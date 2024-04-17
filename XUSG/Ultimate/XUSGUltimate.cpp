@@ -8,7 +8,7 @@
 #include "XUSGUltimate_DX12.h"
 #include "XUSGPipelineState_DX12.h"
 #include "XUSGWorkGraph_DX12.h"
-#include "XUSGProgramState_DX12.h"
+#include "XUSGGenericState_DX12.h"
 
 using namespace std;
 using namespace XUSG;
@@ -108,32 +108,32 @@ WorkGraph::PipelineLib::sptr WorkGraph::PipelineLib::MakeShared(const Device* pD
 	return make_shared<PipelineLib_DX12>(pDevice);
 }
 
-GenericProgram::State::uptr GenericProgram::State::MakeUnique(API api)
+Generic::State::uptr Generic::State::MakeUnique(API api)
 {
 	return make_unique<State_DX12>();
 }
 
-GenericProgram::State::sptr GenericProgram::State::MakeShared(API api)
+Generic::State::sptr Generic::State::MakeShared(API api)
 {
 	return make_shared<State_DX12>();
 }
 
-GenericProgram::PipelineLib::uptr GenericProgram::PipelineLib::MakeUnique(API api)
+Generic::PipelineLib::uptr Generic::PipelineLib::MakeUnique(API api)
 {
 	return make_unique<PipelineLib_DX12>();
 }
 
-GenericProgram::PipelineLib::sptr GenericProgram::PipelineLib::MakeShared(API api)
+Generic::PipelineLib::sptr Generic::PipelineLib::MakeShared(API api)
 {
 	return make_shared<PipelineLib_DX12>();
 }
 
-GenericProgram::PipelineLib::uptr GenericProgram::PipelineLib::MakeUnique(const Device* pDevice, API api)
+Generic::PipelineLib::uptr Generic::PipelineLib::MakeUnique(const Device* pDevice, API api)
 {
 	return make_unique<PipelineLib_DX12>(pDevice);
 }
 
-GenericProgram::PipelineLib::sptr GenericProgram::PipelineLib::MakeShared(const Device* pDevice, API api)
+Generic::PipelineLib::sptr Generic::PipelineLib::MakeShared(const Device* pDevice, API api)
 {
 	return make_shared<PipelineLib_DX12>(pDevice);
 }

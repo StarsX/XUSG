@@ -140,14 +140,103 @@ Pipeline State_DX12::GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name)
 	return pPipelineLib->GetPipeline(this, name);
 }
 
+PipelineLayout State_DX12::GetPipelineLayout() const
+{
+	return m_pKey->Layout;
+}
+
+Blob State_DX12::GetShader(Shader::Stage stage) const
+{
+	assert(stage < Shader::Stage::NUM_GRAPHICS);
+
+	return m_pKey->Shaders[stage];
+}
+
+Blob State_DX12::GetCachedPipeline() const
+{
+	return m_pKey->CachedPipeline;
+}
+
+uint32_t State_DX12::GetNodeMask() const
+{
+	return m_pKey->NodeMask;
+}
+
+PipelineFlag State_DX12::GetFlags() const
+{
+	return m_pKey->Flags;
+}
+
+uint32_t State_DX12::OMGetSampleMask() const
+{
+	return m_pKey->SampleMask;
+}
+
+const Graphics::Blend* State_DX12::OMGetBlendState() const
+{
+	return m_pKey->pBlend;
+}
+
+const Graphics::Rasterizer* State_DX12::RSGetState() const
+{
+	return m_pKey->pRasterizer;
+}
+
+const Graphics::DepthStencil* State_DX12::DSGetState() const
+{
+	return m_pKey->pDepthStencil;
+}
+
+const InputLayout* State_DX12::IAGetInputLayout() const
+{
+	return m_pKey->pInputLayout;
+}
+
+PrimitiveTopologyType State_DX12::IAGetPrimitiveTopologyType() const
+{
+	return m_pKey->PrimTopologyType;
+}
+
+IBStripCutValue State_DX12::IAGetIndexBufferStripCutValue() const
+{
+	return static_cast<IBStripCutValue>(m_pKey->IBStripCutValue);
+}
+
+uint8_t State_DX12::OMGetNumRenderTargets() const
+{
+	return m_pKey->NumRenderTargets;
+}
+
+Format State_DX12::OMGetRTVFormat(uint8_t i) const
+{
+	assert(i < m_pKey->NumRenderTargets);
+
+	return m_pKey->RTVFormats[i];
+}
+
+Format State_DX12::OMGetDSVFormat() const
+{
+	return m_pKey->DSVFormat;
+}
+
+uint8_t State_DX12::OMGetSampleCount() const
+{
+	return m_pKey->SampleCount;
+}
+
+uint8_t State_DX12::OMGetSampleQuality() const
+{
+	return m_pKey->SampleQuality;
+}
+
+void State_DX12::GetHandleDesc(void* pHandleDesc, void* pInputElements) const
+{
+	PipelineLib_DX12::GetHandleDesc(pHandleDesc, pInputElements, GetKey());
+}
+
 const string& State_DX12::GetKey() const
 {
 	return m_key;
-}
-
-void State_DX12::GetHandleDesc(void* pHandleDesc, void* pInputElements, PipelineLib* pPipelineLib) const
-{
-	pPipelineLib->GetHandleDesc(pHandleDesc, pInputElements, GetKey());
 }
 
 //--------------------------------------------------------------------------------------
@@ -206,9 +295,12 @@ void PipelineLib_DX12::SetDevice(const Device* pDevice)
 	assert(m_device);
 }
 
-void PipelineLib_DX12::SetPipeline(const string& key, const Pipeline& pipeline)
+void PipelineLib_DX12::SetPipeline(const State* pState, const Pipeline& pipeline)
 {
-	m_pipelines[key] = pipeline;
+	const auto p = dynamic_cast<const State_DX12*>(pState);
+	assert(p);
+
+	m_pipelines[p->GetKey()] = pipeline;
 }
 
 void PipelineLib_DX12::SetInputLayout(uint32_t index, const InputElement* pElements, uint32_t numElements)
@@ -228,15 +320,21 @@ const InputLayout* PipelineLib_DX12::CreateInputLayout(const InputElement* pElem
 
 Pipeline PipelineLib_DX12::CreatePipeline(const State* pState, const wchar_t* name)
 {
-	return createPipeline(pState->GetKey(), name);
+	const auto p = dynamic_cast<const State_DX12*>(pState);
+	assert(p);
+
+	return createPipeline(p->GetKey(), name);
 }
 
 Pipeline PipelineLib_DX12::GetPipeline(const State* pState, const wchar_t* name)
 {
-	return getPipeline(pState->GetKey(), name);
+	const auto p = dynamic_cast<const State_DX12*>(pState);
+	assert(p);
+
+	return getPipeline(p->GetKey(), name);
 }
 
-const Blend* PipelineLib_DX12::GetBlend(BlendPreset preset, uint8_t numColorRTs)
+const Graphics::Blend* PipelineLib_DX12::GetBlend(BlendPreset preset, uint8_t numColorRTs)
 {
 	if (m_blends[preset] == nullptr)
 		m_blends[preset] = make_unique<Blend>(m_pfnBlends[preset](numColorRTs));
@@ -244,7 +342,7 @@ const Blend* PipelineLib_DX12::GetBlend(BlendPreset preset, uint8_t numColorRTs)
 	return m_blends[preset].get();
 }
 
-const Rasterizer* PipelineLib_DX12::GetRasterizer(RasterizerPreset preset)
+const Graphics::Rasterizer* PipelineLib_DX12::GetRasterizer(RasterizerPreset preset)
 {
 	if (m_rasterizers[preset] == nullptr)
 		m_rasterizers[preset] = make_unique<Rasterizer>(m_pfnRasterizers[preset]());
@@ -308,7 +406,13 @@ void PipelineLib_DX12::GetHandleDesc(void* pHandleDesc, void* pInputElements, co
 		desc.GS = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pDesc->Shaders[Shader::Stage::GS]));
 
 	// Blend state
-	const auto pBlend = pDesc->pBlend ? pDesc->pBlend : GetBlend(BlendPreset::DEFAULT_OPAQUE);
+	unique_ptr<Blend> blend;
+	auto pBlend = pDesc->pBlend;
+	if (pBlend == nullptr)
+	{
+		blend = make_unique<Blend>(DefaultOpaque(pDesc->NumRenderTargets));
+		pBlend = blend.get();
+	}
 	desc.BlendState.AlphaToCoverageEnable = pBlend->AlphaToCoverageEnable ? TRUE : FALSE;
 	desc.BlendState.IndependentBlendEnable = pBlend->IndependentBlendEnable ? TRUE : FALSE;
 	for (uint8_t i = 0; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
@@ -329,7 +433,13 @@ void PipelineLib_DX12::GetHandleDesc(void* pHandleDesc, void* pInputElements, co
 	desc.SampleMask = pDesc->SampleMask;
 
 	// Rasterizer state
-	const auto pRasterizer = pDesc->pRasterizer ? pDesc->pRasterizer : GetRasterizer(RasterizerPreset::CULL_BACK);
+	unique_ptr<Rasterizer> rasterizer;
+	auto pRasterizer = pDesc->pRasterizer;
+	if (pRasterizer == nullptr)
+	{
+		rasterizer = make_unique<Rasterizer>(CullBack());
+		pRasterizer = rasterizer.get();
+	}
 	desc.RasterizerState.FillMode = GetDX12FillMode(pRasterizer->Fill);
 	desc.RasterizerState.CullMode = GetDX12CullMode(pRasterizer->Cull);
 	desc.RasterizerState.FrontCounterClockwise = pRasterizer->FrontCounterClockwise ? TRUE : FALSE;
@@ -348,7 +458,13 @@ void PipelineLib_DX12::GetHandleDesc(void* pHandleDesc, void* pInputElements, co
 		D3D12_CONSERVATIVE_RASTERIZATION_MODE_ON : D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
 
 	// Depth-stencil state
-	const auto pDepthStencil = pDesc->pDepthStencil ? pDesc->pDepthStencil : GetDepthStencil(DepthStencilPreset::DEFAULT_LESS);
+	unique_ptr<DepthStencil> depthStencil;
+	auto pDepthStencil = pDesc->pDepthStencil;
+	if (pDepthStencil == nullptr)
+	{
+		depthStencil = make_unique<DepthStencil>(DepthStencilDefault());
+		pDepthStencil = depthStencil.get();
+	}
 	desc.DepthStencilState.DepthEnable = pDepthStencil->DepthEnable ? TRUE : FALSE;
 	desc.DepthStencilState.DepthWriteMask = pDepthStencil->DepthWriteMask ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
 	desc.DepthStencilState.DepthFunc = GetDX12ComparisonFunc(pDepthStencil->Comparison);

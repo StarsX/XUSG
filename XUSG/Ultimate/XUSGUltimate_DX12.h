@@ -36,17 +36,20 @@ namespace XUSG
 				uint32_t ThreadGroupCountY,
 				uint32_t ThreadGroupCountZ) const;
 
-			void SetProgram(ProgramType type, ProgramIdentifier identifier, WorkGraphFlag flags,
+			void SetProgram(ProgramType type, ProgramIdentifier identifier, WorkGraphFlag flags = WorkGraphFlag::NONE,
 				uint64_t backingMemoryAddress = 0, uint64_t backingMemoryByteSize = 0,
 				uint64_t localRootArgTableAddress = 0, uint64_t localRootArgTableByteSize = 0,
-				uint64_t localRootArgTableByteStride = 0) const;
+				uint64_t localRootArgTableByteStride = 0);
 			void DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride = 0);
-			void DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes = false) const;
+			void DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes = false);
 
-			com_ptr<ID3D12GraphicsCommandList10>& GetGraphicsCommandList();
+			com_ptr<ID3D12GraphicsCommandList6>& GetGraphicsCommandList();
 
 		protected:
-			com_ptr<ID3D12GraphicsCommandList10> m_commandListU;
+			void createAgilityInterface();
+
+			com_ptr<ID3D12GraphicsCommandList6> m_commandListU;
+			com_ptr<ID3D12GraphicsCommandList10> m_commandListA;
 
 			std::vector<D3D12_NODE_CPU_INPUT> m_nodeInputs;
 		};
