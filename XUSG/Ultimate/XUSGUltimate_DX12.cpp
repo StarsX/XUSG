@@ -11,7 +11,10 @@
 using namespace std;
 using namespace XUSG::Ultimate;
 
-#define APPEND_FLAG(type, dx12Type, flags, flag, none) (static_cast<bool>(flags & type::flag) ? dx12Type##_##flag : dx12Type##_##none)
+#define APPEND_FLAG(type, dx12Type, flags, flag, none) ((flags & type::flag) == type::flag ? dx12Type##_##flag : dx12Type##_##none)
+#define APPEND_BARRIER_SYNC(barrierSyncs, barrierSync) APPEND_FLAG(BarrierSync, D3D12_BARRIER_SYNC, barrierSyncs, barrierSync, NONE)
+#define APPEND_BARRIER_ACCESS(barrierAccesses, barrierAccess) APPEND_FLAG(BarrierAccess, D3D12_BARRIER_ACCESS, barrierAccesses, barrierAccess, COMMON)
+#define APPEND_TEXTURE_BARRIER_FLAG(flags, flag) APPEND_FLAG(TextureBarrierFlag, D3D12_TEXTURE_BARRIER_FLAG, flags, flag, NONE)
 #define APPEND_VIEW_INSTANCE_FLAG(flags, flag) APPEND_FLAG(ViewInstanceFlag, D3D12_VIEW_INSTANCING_FLAG, flags, flag, NONE)
 #define APPEND_WORK_GRAPH_FLAG(flags, flag) APPEND_FLAG(WorkGraphFlag, D3D12_SET_WORK_GRAPH_FLAG, flags, flag, NONE)
 
@@ -50,6 +53,234 @@ bool CommandList_DX12::CreateInterface()
 	}
 
 	return true;
+}
+
+void CommandList_DX12::Barrier(uint32_t numBarriers, const XUSG::ResourceBarrier* pBarriers)
+{
+	XUSG::CommandList_DX12::Barrier(numBarriers, pBarriers);
+}
+
+void CommandList_DX12::Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups)
+{
+	if (numBarrierGroups)
+	{
+		assert(pBarrierGroups);
+		if (m_barrierGroups.size() < numBarrierGroups) m_barrierGroups.resize(numBarrierGroups);
+		if (m_barrierGroupBarrierStarts.size() < numBarrierGroups) m_barrierGroupBarrierStarts.resize(numBarrierGroups);
+		m_globalBarriers.clear();
+		m_textureBarriers.clear();
+		m_bufferBarriers.clear();
+
+		for (auto i = 0u; i < numBarrierGroups; ++i)
+		{
+			const auto& barrierGroup = pBarrierGroups[i];
+			if (barrierGroup.NumBarriers)
+			{
+				assert(barrierGroup.pBarriers);
+				auto& dxBarrierGroup = m_barrierGroups[i];
+				auto& barrierStart = m_barrierGroupBarrierStarts[i];
+				dxBarrierGroup.Type = barrierGroup.pBarriers->pResource ?
+					(barrierGroup.pBarriers->LayoutBefore == BarrierLayout::UNDEFINED &&
+						barrierGroup.pBarriers->LayoutAfter == BarrierLayout::UNDEFINED ?
+						D3D12_BARRIER_TYPE_BUFFER : D3D12_BARRIER_TYPE_TEXTURE) :
+					D3D12_BARRIER_TYPE_GLOBAL;
+				dxBarrierGroup.NumBarriers = barrierGroup.NumBarriers;
+
+				switch (dxBarrierGroup.Type)
+				{
+				case D3D12_BARRIER_TYPE_GLOBAL:
+				{
+					barrierStart = static_cast<uint32_t>(m_globalBarriers.size());
+					m_globalBarriers.resize(barrierStart + barrierGroup.NumBarriers);
+
+					for (auto j = 0u; j < barrierGroup.NumBarriers; ++j)
+					{
+						const auto& barrier = barrierGroup.pBarriers[j];
+						const auto type = barrier.pResource ?
+							(barrier.LayoutBefore == BarrierLayout::UNDEFINED &&
+								barrier.LayoutAfter == BarrierLayout::UNDEFINED ?
+								D3D12_BARRIER_TYPE_BUFFER : D3D12_BARRIER_TYPE_TEXTURE) :
+							D3D12_BARRIER_TYPE_GLOBAL;
+						assert(type == D3D12_BARRIER_TYPE_GLOBAL);
+						assert(!barrier.pResource);
+
+						auto& globalBarrier = m_globalBarriers[barrierStart + j];
+						globalBarrier.SyncBefore = GetDX12BarrierSyncs(barrier.SyncBefore);
+						globalBarrier.SyncAfter = GetDX12BarrierSyncs(barrier.SyncAfter);
+						globalBarrier.AccessBefore = GetDX12BarrierAccesses(barrier.AccessBefore);
+						globalBarrier.AccessAfter = GetDX12BarrierAccesses(barrier.AccessAfter);
+					}
+					break;
+				}
+				case D3D12_BARRIER_TYPE_TEXTURE:
+				{
+					barrierStart = static_cast<uint32_t>(m_textureBarriers.size());
+					m_textureBarriers.resize(barrierStart + barrierGroup.NumBarriers);
+
+					for (auto j = 0u; j < barrierGroup.NumBarriers; ++j)
+					{
+						const auto& barrier = barrierGroup.pBarriers[j];
+						const auto type = barrier.pResource ?
+							(barrier.LayoutBefore == BarrierLayout::UNDEFINED &&
+								barrier.LayoutAfter == BarrierLayout::UNDEFINED ?
+								D3D12_BARRIER_TYPE_BUFFER : D3D12_BARRIER_TYPE_TEXTURE) :
+							D3D12_BARRIER_TYPE_GLOBAL;
+						assert(type == D3D12_BARRIER_TYPE_TEXTURE);
+						assert(barrier.pResource);
+
+						auto& textureBarrier = m_textureBarriers[barrierStart + j];
+						textureBarrier.SyncBefore = GetDX12BarrierSyncs(barrier.SyncBefore);
+						textureBarrier.SyncAfter = GetDX12BarrierSyncs(barrier.SyncAfter);
+						textureBarrier.AccessBefore = GetDX12BarrierAccesses(barrier.AccessBefore);
+						textureBarrier.AccessAfter = GetDX12BarrierAccesses(barrier.AccessAfter);
+						textureBarrier.LayoutBefore = GetDX12BarrierLayout(barrier.LayoutBefore);
+						textureBarrier.LayoutAfter = GetDX12BarrierLayout(barrier.LayoutAfter);
+						textureBarrier.pResource = static_cast<ID3D12Resource*>(barrier.pResource->GetHandle());
+						textureBarrier.Subresources.IndexOrFirstMipLevel = barrier.IndexOrFirstMipLevel;
+						textureBarrier.Subresources.NumMipLevels = barrier.NumMipLevels;
+						textureBarrier.Subresources.FirstArraySlice = barrier.FirstArraySlice;
+						textureBarrier.Subresources.NumArraySlices = barrier.NumArraySlices;
+						textureBarrier.Subresources.FirstPlane = barrier.FirstPlane;
+						textureBarrier.Subresources.NumPlanes = barrier.NumPlanes;
+						textureBarrier.Flags = GetDX12TextureBarrierFlags(barrier.Flags);
+					}
+					break;
+				}
+				case D3D12_BARRIER_TYPE_BUFFER:
+				{
+					barrierStart = static_cast<uint32_t>(m_bufferBarriers.size());
+					m_bufferBarriers.resize(barrierStart + barrierGroup.NumBarriers);
+
+					for (auto j = 0u; j < barrierGroup.NumBarriers; ++j)
+					{
+						const auto& barrier = barrierGroup.pBarriers[j];
+						const auto type = barrier.pResource ?
+							(barrier.LayoutBefore == BarrierLayout::UNDEFINED &&
+								barrier.LayoutAfter == BarrierLayout::UNDEFINED ?
+								D3D12_BARRIER_TYPE_BUFFER : D3D12_BARRIER_TYPE_TEXTURE) :
+							D3D12_BARRIER_TYPE_GLOBAL;
+						assert(type == D3D12_BARRIER_TYPE_BUFFER);
+						assert(barrier.pResource);
+
+						auto& bufferBarrier = m_bufferBarriers[barrierStart + j];
+						bufferBarrier.SyncBefore = GetDX12BarrierSyncs(barrier.SyncBefore);
+						bufferBarrier.SyncAfter = GetDX12BarrierSyncs(barrier.SyncAfter);
+						bufferBarrier.AccessBefore = GetDX12BarrierAccesses(barrier.AccessBefore);
+						bufferBarrier.AccessAfter = GetDX12BarrierAccesses(barrier.AccessAfter);
+						bufferBarrier.pResource = static_cast<ID3D12Resource*>(barrier.pResource->GetHandle());
+						bufferBarrier.Offset = barrier.Offset;
+						bufferBarrier.Size = barrier.Size;
+					}
+					break;
+				}
+				}
+
+				switch (dxBarrierGroup.Type)
+				{
+				case D3D12_BARRIER_TYPE_GLOBAL:
+					dxBarrierGroup.pGlobalBarriers = &m_globalBarriers[barrierStart];
+					break;
+				case D3D12_BARRIER_TYPE_TEXTURE:
+					dxBarrierGroup.pTextureBarriers = &m_textureBarriers[barrierStart];
+					break;
+				case D3D12_BARRIER_TYPE_BUFFER:
+					dxBarrierGroup.pBufferBarriers = &m_bufferBarriers[barrierStart];
+					break;
+				}
+			}
+		}
+
+		m_commandListA->Barrier(numBarrierGroups, m_barrierGroups.data());
+	}
+}
+
+void CommandList_DX12::Barrier(uint32_t numBufferBarriers, ResourceBarrier* pBufferBarriers,
+	uint32_t numTextureBarriers, ResourceBarrier* pTextureBarriers,
+	uint32_t numGlobalBarriers, ResourceBarrier* pGlobalBarriers)
+{
+	m_barrierGroups.clear();
+
+	if (numBufferBarriers)
+	{
+		assert(pBufferBarriers);
+		if (m_bufferBarriers.size() < numBufferBarriers) m_bufferBarriers.resize(numBufferBarriers);
+
+		for (auto i = 0u; i < numBufferBarriers; ++i)
+		{
+			const auto& barrier = pBufferBarriers[i];
+			auto& bufferBarrier = m_bufferBarriers[i];
+			bufferBarrier.SyncBefore = GetDX12BarrierSyncs(barrier.SyncBefore);
+			bufferBarrier.SyncAfter = GetDX12BarrierSyncs(barrier.SyncAfter);
+			bufferBarrier.AccessBefore = GetDX12BarrierAccesses(barrier.AccessBefore);
+			bufferBarrier.AccessAfter = GetDX12BarrierAccesses(barrier.AccessAfter);
+			bufferBarrier.pResource = static_cast<ID3D12Resource*>(barrier.pResource->GetHandle());
+			bufferBarrier.Offset = barrier.Offset;
+			bufferBarrier.Size = barrier.Size;
+		}
+
+		m_barrierGroups.emplace_back();
+		auto& barrierGroup = m_barrierGroups.back();
+		barrierGroup.Type = D3D12_BARRIER_TYPE_BUFFER;
+		barrierGroup.NumBarriers = numBufferBarriers;
+		barrierGroup.pBufferBarriers = m_bufferBarriers.data();
+	}
+
+	if (numTextureBarriers)
+	{
+		assert(pTextureBarriers);
+		if (m_textureBarriers.size() < numTextureBarriers) m_textureBarriers.resize(numTextureBarriers);
+
+		for (auto i = 0u; i < numTextureBarriers; ++i)
+		{
+			const auto& barrier = pTextureBarriers[i];
+			auto& textureBarrier = m_textureBarriers[i];
+			textureBarrier.SyncBefore = GetDX12BarrierSyncs(barrier.SyncBefore);
+			textureBarrier.SyncAfter = GetDX12BarrierSyncs(barrier.SyncAfter);
+			textureBarrier.AccessBefore = GetDX12BarrierAccesses(barrier.AccessBefore);
+			textureBarrier.AccessAfter = GetDX12BarrierAccesses(barrier.AccessAfter);
+			textureBarrier.LayoutBefore = GetDX12BarrierLayout(barrier.LayoutBefore);
+			textureBarrier.LayoutAfter = GetDX12BarrierLayout(barrier.LayoutAfter);
+			textureBarrier.pResource = static_cast<ID3D12Resource*>(barrier.pResource->GetHandle());
+			textureBarrier.Subresources.IndexOrFirstMipLevel = barrier.IndexOrFirstMipLevel;
+			textureBarrier.Subresources.NumMipLevels = barrier.NumMipLevels;
+			textureBarrier.Subresources.FirstArraySlice = barrier.FirstArraySlice;
+			textureBarrier.Subresources.NumArraySlices = barrier.NumArraySlices;
+			textureBarrier.Subresources.FirstPlane = barrier.FirstPlane;
+			textureBarrier.Subresources.NumPlanes = barrier.NumPlanes;
+			textureBarrier.Flags = GetDX12TextureBarrierFlags(barrier.Flags);
+		}
+
+		m_barrierGroups.emplace_back();
+		auto& barrierGroup = m_barrierGroups.back();
+		barrierGroup.Type = D3D12_BARRIER_TYPE_TEXTURE;
+		barrierGroup.NumBarriers = numBufferBarriers;
+		barrierGroup.pTextureBarriers = m_textureBarriers.data();
+	}
+
+	if (numGlobalBarriers)
+	{
+		assert(pGlobalBarriers);
+		if (m_globalBarriers.size() < numGlobalBarriers) m_globalBarriers.resize(numGlobalBarriers);
+
+		for (auto i = 0u; i < numGlobalBarriers; ++i)
+		{
+			const auto& barrier = pGlobalBarriers[i];
+			auto& globalBarrier = m_globalBarriers[i];
+			globalBarrier.SyncBefore = GetDX12BarrierSyncs(barrier.SyncBefore);
+			globalBarrier.SyncAfter = GetDX12BarrierSyncs(barrier.SyncAfter);
+			globalBarrier.AccessBefore = GetDX12BarrierAccesses(barrier.AccessBefore);
+			globalBarrier.AccessAfter = GetDX12BarrierAccesses(barrier.AccessAfter);
+		}
+
+		m_barrierGroups.emplace_back();
+		auto& barrierGroup = m_barrierGroups.back();
+		barrierGroup.Type = D3D12_BARRIER_TYPE_GLOBAL;
+		barrierGroup.NumBarriers = numBufferBarriers;
+		barrierGroup.pGlobalBarriers = m_globalBarriers.data();
+	}
+
+	if (!m_barrierGroups.empty())
+		m_commandListA->Barrier(static_cast<uint32_t>(m_barrierGroups.size()), m_barrierGroups.data());
 }
 
 void CommandList_DX12::SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions) const
@@ -344,6 +575,160 @@ XUSG::ProgramIdentifier XUSG::Ultimate::GetProgramIdentifierFromDX12(const XUSG:
 //--------------------------------------------------------------------------------------
 // DX12 enum transfer functions
 //--------------------------------------------------------------------------------------
+
+D3D12_BARRIER_SYNC XUSG::Ultimate::GetDX12BarrierSync(BarrierSync barrierSync)
+{
+	static const D3D12_BARRIER_SYNC barrierSyncs[] =
+	{
+		D3D12_BARRIER_SYNC_ALL,
+		D3D12_BARRIER_SYNC_DRAW,
+		D3D12_BARRIER_SYNC_INDEX_INPUT,
+		D3D12_BARRIER_SYNC_VERTEX_SHADING,
+		D3D12_BARRIER_SYNC_PIXEL_SHADING,
+		D3D12_BARRIER_SYNC_DEPTH_STENCIL,
+		D3D12_BARRIER_SYNC_RENDER_TARGET,
+		D3D12_BARRIER_SYNC_COMPUTE_SHADING,
+		D3D12_BARRIER_SYNC_RAYTRACING,
+		D3D12_BARRIER_SYNC_COPY,
+		D3D12_BARRIER_SYNC_RESOLVE,
+		D3D12_BARRIER_SYNC_EXECUTE_INDIRECT,
+		D3D12_BARRIER_SYNC_ALL_SHADING,
+		D3D12_BARRIER_SYNC_NON_PIXEL_SHADING,
+		D3D12_BARRIER_SYNC_EMIT_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO,
+		D3D12_BARRIER_SYNC_CLEAR_UNORDERED_ACCESS_VIEW,
+		D3D12_BARRIER_SYNC_VIDEO_DECODE,
+		D3D12_BARRIER_SYNC_VIDEO_PROCESS,
+		D3D12_BARRIER_SYNC_VIDEO_ENCODE,
+		D3D12_BARRIER_SYNC_BUILD_RAYTRACING_ACCELERATION_STRUCTURE,
+		D3D12_BARRIER_SYNC_COPY_RAYTRACING_ACCELERATION_STRUCTURE,
+		D3D12_BARRIER_SYNC_SPLIT
+	};
+
+	if (barrierSync == BarrierSync::NONE) return D3D12_BARRIER_SYNC_NONE;
+
+	const auto index = Log2(static_cast<uint32_t>(barrierSync));
+
+	return barrierSyncs[index];
+}
+
+D3D12_BARRIER_SYNC XUSG::Ultimate::GetDX12BarrierSyncs(BarrierSync barrierSync)
+{
+	auto barrierSyncs = D3D12_BARRIER_SYNC_NONE;
+	barrierSyncs |= APPEND_BARRIER_SYNC(barrierSync, ALL);
+	barrierSyncs |= APPEND_BARRIER_SYNC(barrierSync, DRAW);
+	barrierSyncs |= APPEND_BARRIER_SYNC(barrierSync, INDEX_INPUT);
+	barrierSyncs |= APPEND_BARRIER_SYNC(barrierSync, VERTEX_SHADING);
+	barrierSyncs |= APPEND_BARRIER_SYNC(barrierSync, PIXEL_SHADING);
+	barrierSyncs |= APPEND_BARRIER_SYNC(barrierSync, DEPTH_STENCIL);
+	barrierSyncs |= APPEND_BARRIER_SYNC(barrierSync, RENDER_TARGET);
+	barrierSyncs |= APPEND_BARRIER_SYNC(barrierSync, COMPUTE_SHADING);
+	barrierSyncs |= APPEND_BARRIER_SYNC(barrierSync, RAYTRACING);
+	barrierSyncs |= APPEND_BARRIER_SYNC(barrierSync, COPY);
+	barrierSyncs |= APPEND_BARRIER_SYNC(barrierSync, RESOLVE);
+	barrierSyncs |= APPEND_BARRIER_SYNC(barrierSync, EXECUTE_INDIRECT);
+	barrierSyncs |= APPEND_BARRIER_SYNC(barrierSync, ALL_SHADING);
+	barrierSyncs |= APPEND_BARRIER_SYNC(barrierSync, NON_PIXEL_SHADING);
+	barrierSyncs |= APPEND_BARRIER_SYNC(barrierSync, EMIT_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO);
+	barrierSyncs |= APPEND_BARRIER_SYNC(barrierSync, CLEAR_UNORDERED_ACCESS_VIEW);
+	barrierSyncs |= APPEND_BARRIER_SYNC(barrierSync, VIDEO_DECODE);
+	barrierSyncs |= APPEND_BARRIER_SYNC(barrierSync, VIDEO_PROCESS);
+	barrierSyncs |= APPEND_BARRIER_SYNC(barrierSync, VIDEO_ENCODE);
+	barrierSyncs |= APPEND_BARRIER_SYNC(barrierSync, BUILD_RAYTRACING_ACCELERATION_STRUCTURE);
+	barrierSyncs |= APPEND_BARRIER_SYNC(barrierSync, COPY_RAYTRACING_ACCELERATION_STRUCTURE);
+	barrierSyncs |= APPEND_BARRIER_SYNC(barrierSync, SPLIT);
+
+	return barrierSyncs;
+}
+
+D3D12_BARRIER_ACCESS XUSG::Ultimate::GetDX12BarrierAccess(BarrierAccess barrierAccess)
+{
+	static const D3D12_BARRIER_ACCESS barrierAccesses[] =
+	{
+		D3D12_BARRIER_ACCESS_VERTEX_BUFFER,
+		D3D12_BARRIER_ACCESS_CONSTANT_BUFFER,
+		D3D12_BARRIER_ACCESS_INDEX_BUFFER,
+		D3D12_BARRIER_ACCESS_RENDER_TARGET,
+		D3D12_BARRIER_ACCESS_UNORDERED_ACCESS,
+		D3D12_BARRIER_ACCESS_DEPTH_STENCIL_WRITE,
+		D3D12_BARRIER_ACCESS_DEPTH_STENCIL_READ,
+		D3D12_BARRIER_ACCESS_SHADER_RESOURCE,
+		D3D12_BARRIER_ACCESS_STREAM_OUTPUT,
+		D3D12_BARRIER_ACCESS_INDIRECT_ARGUMENT,
+		D3D12_BARRIER_ACCESS_COPY_DEST,
+		D3D12_BARRIER_ACCESS_COPY_SOURCE,
+		D3D12_BARRIER_ACCESS_RESOLVE_DEST,
+		D3D12_BARRIER_ACCESS_RESOLVE_SOURCE,
+		D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_READ,
+		D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_WRITE,
+		D3D12_BARRIER_ACCESS_SHADING_RATE_SOURCE,
+		D3D12_BARRIER_ACCESS_VIDEO_DECODE_READ,
+		D3D12_BARRIER_ACCESS_VIDEO_DECODE_WRITE,
+		D3D12_BARRIER_ACCESS_VIDEO_PROCESS_READ,
+		D3D12_BARRIER_ACCESS_VIDEO_PROCESS_WRITE,
+		D3D12_BARRIER_ACCESS_VIDEO_ENCODE_READ,
+		D3D12_BARRIER_ACCESS_VIDEO_ENCODE_WRITE,
+		D3D12_BARRIER_ACCESS_NO_ACCESS
+	};
+
+	if (barrierAccess == BarrierAccess::COMMON) return D3D12_BARRIER_ACCESS_COMMON;
+
+	const auto index = Log2(static_cast<uint32_t>(barrierAccess));
+
+	return barrierAccesses[index];
+}
+
+D3D12_BARRIER_ACCESS XUSG::Ultimate::GetDX12BarrierAccesses(BarrierAccess barrierAccess)
+{
+	auto barrierAccesses = D3D12_BARRIER_ACCESS_COMMON;
+	barrierAccesses |= APPEND_BARRIER_ACCESS(barrierAccess, VERTEX_BUFFER);
+	barrierAccesses |= APPEND_BARRIER_ACCESS(barrierAccess, CONSTANT_BUFFER);
+	barrierAccesses |= APPEND_BARRIER_ACCESS(barrierAccess, INDEX_BUFFER);
+	barrierAccesses |= APPEND_BARRIER_ACCESS(barrierAccess, RENDER_TARGET);
+	barrierAccesses |= APPEND_BARRIER_ACCESS(barrierAccess, UNORDERED_ACCESS);
+	barrierAccesses |= APPEND_BARRIER_ACCESS(barrierAccess, DEPTH_STENCIL_WRITE);
+	barrierAccesses |= APPEND_BARRIER_ACCESS(barrierAccess, DEPTH_STENCIL_READ);
+	barrierAccesses |= APPEND_BARRIER_ACCESS(barrierAccess, SHADER_RESOURCE);
+	barrierAccesses |= APPEND_BARRIER_ACCESS(barrierAccess, STREAM_OUTPUT);
+	barrierAccesses |= APPEND_BARRIER_ACCESS(barrierAccess, INDIRECT_ARGUMENT);
+	barrierAccesses |= APPEND_BARRIER_ACCESS(barrierAccess, COPY_DEST);
+	barrierAccesses |= APPEND_BARRIER_ACCESS(barrierAccess, COPY_SOURCE);
+	barrierAccesses |= APPEND_BARRIER_ACCESS(barrierAccess, RESOLVE_DEST);
+	barrierAccesses |= APPEND_BARRIER_ACCESS(barrierAccess, RESOLVE_SOURCE);
+	barrierAccesses |= APPEND_BARRIER_ACCESS(barrierAccess, RAYTRACING_ACCELERATION_STRUCTURE_READ);
+	barrierAccesses |= APPEND_BARRIER_ACCESS(barrierAccess, RAYTRACING_ACCELERATION_STRUCTURE_WRITE);
+	barrierAccesses |= APPEND_BARRIER_ACCESS(barrierAccess, SHADING_RATE_SOURCE);
+	barrierAccesses |= APPEND_BARRIER_ACCESS(barrierAccess, VIDEO_DECODE_READ);
+	barrierAccesses |= APPEND_BARRIER_ACCESS(barrierAccess, VIDEO_DECODE_WRITE);
+	barrierAccesses |= APPEND_BARRIER_ACCESS(barrierAccess, VIDEO_PROCESS_READ);
+	barrierAccesses |= APPEND_BARRIER_ACCESS(barrierAccess, VIDEO_PROCESS_WRITE);
+	barrierAccesses |= APPEND_BARRIER_ACCESS(barrierAccess, VIDEO_ENCODE_READ);
+	barrierAccesses |= APPEND_BARRIER_ACCESS(barrierAccess, VIDEO_ENCODE_WRITE);
+	barrierAccesses |= APPEND_BARRIER_ACCESS(barrierAccess, NO_ACCESS);
+
+	return barrierAccesses;
+}
+
+D3D12_TEXTURE_BARRIER_FLAGS XUSG::Ultimate::GetDX12TextureBarrierFlag(TextureBarrierFlag textureBarrierFlag)
+{
+	static const D3D12_TEXTURE_BARRIER_FLAGS textureBarrierFlags[] =
+	{
+		D3D12_TEXTURE_BARRIER_FLAG_DISCARD
+	};
+
+	if (textureBarrierFlag == TextureBarrierFlag::NONE) return D3D12_TEXTURE_BARRIER_FLAG_NONE;
+
+	const auto index = Log2(static_cast<uint32_t>(textureBarrierFlag));
+
+	return textureBarrierFlags[index];
+}
+
+D3D12_TEXTURE_BARRIER_FLAGS XUSG::Ultimate::GetDX12TextureBarrierFlags(TextureBarrierFlag textureBarrierFlags)
+{
+	auto flags = D3D12_TEXTURE_BARRIER_FLAG_NONE;
+	flags |= APPEND_TEXTURE_BARRIER_FLAG(textureBarrierFlags, DISCARD);
+
+	return flags;
+}
 
 D3D12_SHADING_RATE_COMBINER XUSG::Ultimate::GetDX12ShadingRateCombiner(ShadingRateCombiner combiner)
 {

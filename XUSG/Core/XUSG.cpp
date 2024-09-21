@@ -406,3 +406,48 @@ size_t XUSG::AlignConstantBufferView(size_t byteSize, API api)
 {
 	return AlignDX12ConstantBufferView(byteSize);
 }
+
+BarrierLayout XUSG::GetBarrierLayout(ResourceState resourceState)
+{
+	auto bufferState = ResourceState::VERTEX_AND_CONSTANT_BUFFER;
+	bufferState |= ResourceState::INDEX_BUFFER;
+	bufferState |= ResourceState::STREAM_OUT;
+	bufferState |= ResourceState::INDIRECT_ARGUMENT;
+	bufferState |= ResourceState::RAYTRACING_ACCELERATION_STRUCTURE;
+	assert((resourceState & bufferState) == ResourceState::COMMON);
+
+	switch (resourceState)
+	{
+	case ResourceState::COMMON:
+		return BarrierLayout::COMMON;
+	case ResourceState::RENDER_TARGET:
+		return BarrierLayout::RENDER_TARGET;
+	case ResourceState::UNORDERED_ACCESS:
+		return BarrierLayout::UNORDERED_ACCESS;
+	case ResourceState::DEPTH_WRITE:
+		return BarrierLayout::DEPTH_STENCIL_WRITE;
+	case ResourceState::DEPTH_READ:
+		return BarrierLayout::DEPTH_STENCIL_READ;
+	case ResourceState::NON_PIXEL_SHADER_RESOURCE:
+	case ResourceState::PIXEL_SHADER_RESOURCE:
+	case ResourceState::ALL_SHADER_RESOURCE:
+		return BarrierLayout::SHADER_RESOURCE;
+	case ResourceState::COPY_DEST:
+		return BarrierLayout::COPY_DEST;
+	case ResourceState::COPY_SOURCE:
+		return BarrierLayout::COPY_SOURCE;
+	case ResourceState::RESOLVE_DEST:
+		return BarrierLayout::RESOLVE_DEST;
+	case ResourceState::RESOLVE_SOURCE:
+		return BarrierLayout::RESOLVE_SOURCE;
+	case ResourceState::SHADING_RATE_SOURCE:
+		return BarrierLayout::SHADING_RATE_SOURCE;
+	}
+
+	if ((resourceState & (ResourceState::DEPTH_READ | ResourceState::RESOLVE_SOURCE)) != ResourceState::COMMON)
+		return BarrierLayout::DIRECT_QUEUE_GENERIC_READ;
+	else if ((resourceState & (ResourceState::ALL_SHADER_RESOURCE | ResourceState::COPY_SOURCE)) != ResourceState::COMMON)
+		return BarrierLayout::GENERIC_READ_RESOURCE;
+
+	return BarrierLayout::UNDEFINED;
+}

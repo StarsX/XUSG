@@ -7,10 +7,9 @@
 
 using namespace XUSG;
 
-#define REMOVE_PACKED_UAV		(~ResourceFlag::NEED_PACKED_UAV | ResourceFlag::ALLOW_UNORDERED_ACCESS)
 #define REMOVE_RAYTRACING_AS	(~ResourceFlag::ACCELERATION_STRUCTURE | ResourceFlag::ALLOW_UNORDERED_ACCESS)
 
-#define APPEND_FLAG(type, dx12Type, flags, flag, none) (static_cast<bool>(flags & type::flag) ? dx12Type##_##flag : dx12Type##_##none)
+#define APPEND_FLAG(type, dx12Type, flags, flag, none) ((flags & type::flag) == type::flag ? dx12Type##_##flag : dx12Type##_##none)
 #define APPEND_COMMAND_QUEUE_FLAG(flags, flag) APPEND_FLAG(CommandQueueFlag, D3D12_COMMAND_QUEUE_FLAG, flags, flag, NONE)
 #define APPEND_HEAP_FLAG(flags, flag) APPEND_FLAG(MemoryFlag, D3D12_HEAP_FLAG, flags, flag, NONE)
 #define APPEND_RESOURCE_FLAG(flags, flag) APPEND_FLAG(ResourceFlag, D3D12_RESOURCE_FLAG, flags, flag, NONE)
@@ -21,11 +20,11 @@ using namespace XUSG;
 #define APPEND_ROOT_SIGNATURE_FLAG(flags, flag) APPEND_FLAG(PipelineLayoutFlag, D3D12_ROOT_SIGNATURE_FLAG, flags, flag, NONE)
 #define APPEND_FENCE_FLAG(flags, flag) APPEND_FLAG(FenceFlag, D3D12_FENCE_FLAG, flags, flag, NONE)
 #define APPEND_SAMPLER_FLAG(flags, flag) APPEND_FLAG(SamplerFlag, D3D12_SAMPLER_FLAG, flags, flag, NONE)
-#define APPEND_COLOR_WRITE(mask, bit) (static_cast<bool>(mask & ColorWrite::bit) ? D3D12_COLOR_WRITE_ENABLE##_##bit : 0)
+#define APPEND_COLOR_WRITE(mask, bit) ((mask & ColorWrite::bit) == ColorWrite::bit ? D3D12_COLOR_WRITE_ENABLE##_##bit : 0)
 #define APPEND_PIPELINE_FLAG(flags, flag) APPEND_FLAG(PipelineFlag, D3D12_PIPELINE_STATE_FLAG, flags, flag, NONE)
 #define APPEND_TILE_COPY_FLAG(flags, flag) APPEND_FLAG(TileCopyFlag, D3D12_TILE_COPY_FLAG, flags, flag, NONE)
-#define APPEND_SWAP_CHAIN_FLAG(flags, flag) (static_cast<bool>(flags & SwapChainFlag::flag) ? DXGI_SWAP_CHAIN_FLAG_##flag : 0)
-#define APPEND_PRESENT_FLAG(flags, flag) (static_cast<bool>(flags & PresentFlag::flag) ? DXGI_PRESENT_##flag : 0)
+#define APPEND_SWAP_CHAIN_FLAG(flags, flag) ((flags & SwapChainFlag::flag) == SwapChainFlag::flag ? DXGI_SWAP_CHAIN_FLAG_##flag : 0)
+#define APPEND_PRESENT_FLAG(flags, flag) ((flags & PresentFlag::flag) == PresentFlag::flag ? DXGI_PRESENT_##flag : 0)
 
 DXGI_FORMAT XUSG::GetDXGIFormat(Format format)
 {
@@ -326,7 +325,7 @@ D3D12_RESOURCE_DIMENSION XUSG::GetDX12ResourceDimension(ResourceDimension resour
 	return resourceDimensions[static_cast<uint32_t>(resourceDimension)];
 }
 
-D3D12_TEXTURE_LAYOUT XUSG::GetDX12TextureLayout(TextureLayout layout)
+D3D12_TEXTURE_LAYOUT XUSG::GetDX12TextureLayout(TextureLayout textureLayout)
 {
 	static const D3D12_TEXTURE_LAYOUT textureLayouts[] =
 	{
@@ -336,7 +335,7 @@ D3D12_TEXTURE_LAYOUT XUSG::GetDX12TextureLayout(TextureLayout layout)
 		D3D12_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE
 	};
 
-	return textureLayouts[static_cast<uint32_t>(layout)];
+	return textureLayouts[static_cast<uint32_t>(textureLayout)];
 }
 
 D3D12_COMMAND_QUEUE_FLAGS XUSG::GetDX12CommandQueueFlag(CommandQueueFlag commandQueueFlag)
@@ -427,7 +426,6 @@ D3D12_RESOURCE_FLAGS XUSG::GetDX12ResourceFlag(ResourceFlag resourceFlag)
 
 D3D12_RESOURCE_FLAGS XUSG::GetDX12ResourceFlags(ResourceFlag resourceFlags)
 {
-	resourceFlags &= REMOVE_PACKED_UAV;
 	resourceFlags &= REMOVE_RAYTRACING_AS;
 
 	auto flags = D3D12_RESOURCE_FLAG_NONE;
@@ -531,6 +529,48 @@ D3D12_RESOURCE_BARRIER_FLAGS XUSG::GetDX12BarrierFlags(BarrierFlag barrierFlags)
 	return flags;
 }
 
+D3D12_BARRIER_LAYOUT XUSG::GetDX12BarrierLayout(BarrierLayout barrierLayout)
+{
+	static const D3D12_BARRIER_LAYOUT barrierLayouts[] =
+	{
+		D3D12_BARRIER_LAYOUT_COMMON,
+		D3D12_BARRIER_LAYOUT_GENERIC_READ,
+		D3D12_BARRIER_LAYOUT_RENDER_TARGET,
+		D3D12_BARRIER_LAYOUT_UNORDERED_ACCESS,
+		D3D12_BARRIER_LAYOUT_DEPTH_STENCIL_WRITE,
+		D3D12_BARRIER_LAYOUT_DEPTH_STENCIL_READ,
+		D3D12_BARRIER_LAYOUT_SHADER_RESOURCE,
+		D3D12_BARRIER_LAYOUT_COPY_SOURCE,
+		D3D12_BARRIER_LAYOUT_COPY_DEST,
+		D3D12_BARRIER_LAYOUT_RESOLVE_SOURCE,
+		D3D12_BARRIER_LAYOUT_RESOLVE_DEST,
+		D3D12_BARRIER_LAYOUT_SHADING_RATE_SOURCE,
+		D3D12_BARRIER_LAYOUT_VIDEO_DECODE_READ,
+		D3D12_BARRIER_LAYOUT_VIDEO_DECODE_WRITE,
+		D3D12_BARRIER_LAYOUT_VIDEO_PROCESS_READ,
+		D3D12_BARRIER_LAYOUT_VIDEO_PROCESS_WRITE,
+		D3D12_BARRIER_LAYOUT_VIDEO_ENCODE_READ,
+		D3D12_BARRIER_LAYOUT_VIDEO_ENCODE_WRITE,
+		D3D12_BARRIER_LAYOUT_DIRECT_QUEUE_COMMON,
+		D3D12_BARRIER_LAYOUT_DIRECT_QUEUE_GENERIC_READ,
+		D3D12_BARRIER_LAYOUT_DIRECT_QUEUE_UNORDERED_ACCESS,
+		D3D12_BARRIER_LAYOUT_DIRECT_QUEUE_SHADER_RESOURCE,
+		D3D12_BARRIER_LAYOUT_DIRECT_QUEUE_COPY_SOURCE,
+		D3D12_BARRIER_LAYOUT_DIRECT_QUEUE_COPY_DEST,
+		D3D12_BARRIER_LAYOUT_COMPUTE_QUEUE_COMMON,
+		D3D12_BARRIER_LAYOUT_COMPUTE_QUEUE_GENERIC_READ,
+		D3D12_BARRIER_LAYOUT_COMPUTE_QUEUE_UNORDERED_ACCESS,
+		D3D12_BARRIER_LAYOUT_COMPUTE_QUEUE_SHADER_RESOURCE,
+		D3D12_BARRIER_LAYOUT_COMPUTE_QUEUE_COPY_SOURCE,
+		D3D12_BARRIER_LAYOUT_COMPUTE_QUEUE_COPY_DEST,
+		D3D12_BARRIER_LAYOUT_VIDEO_QUEUE_COMMON
+	};
+
+	if (barrierLayout == BarrierLayout::UNDEFINED) return D3D12_BARRIER_LAYOUT_UNDEFINED;
+
+	return barrierLayouts[static_cast<uint32_t>(barrierLayout)];
+}
+
 D3D12_DESCRIPTOR_RANGE_FLAGS XUSG::GetDX12DescriptorRangeFlag(DescriptorFlag descriptorFlag)
 {
 	static const D3D12_DESCRIPTOR_RANGE_FLAGS descriptorRangeFlags[] =
@@ -626,7 +666,7 @@ D3D12_ROOT_SIGNATURE_FLAGS XUSG::GetDX12RootSignatureFlags(PipelineLayoutFlag pi
 	flags |= APPEND_ROOT_SIGNATURE_FLAG(pipelineLayoutFlags, DENY_GEOMETRY_SHADER_ROOT_ACCESS);
 	flags |= APPEND_ROOT_SIGNATURE_FLAG(pipelineLayoutFlags, DENY_PIXEL_SHADER_ROOT_ACCESS);
 	flags |= APPEND_ROOT_SIGNATURE_FLAG(pipelineLayoutFlags, ALLOW_STREAM_OUTPUT);
-	flags |= static_cast<bool>(pipelineLayoutFlags & PipelineLayoutFlag::LOCAL_PIPELINE_LAYOUT) ?
+	flags |= (pipelineLayoutFlags & PipelineLayoutFlag::LOCAL_PIPELINE_LAYOUT) == PipelineLayoutFlag::LOCAL_PIPELINE_LAYOUT ?
 		D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE :
 		D3D12_ROOT_SIGNATURE_FLAG_NONE;
 	flags |= APPEND_ROOT_SIGNATURE_FLAG(pipelineLayoutFlags, DENY_AMPLIFICATION_SHADER_ROOT_ACCESS);

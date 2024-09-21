@@ -24,6 +24,11 @@ namespace XUSG
 
 			bool CreateInterface();
 
+			void Barrier(uint32_t numBarriers, const XUSG::ResourceBarrier* pBarriers);
+			void Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups);
+			void Barrier(uint32_t numBufferBarriers, ResourceBarrier* pBufferBarriers,
+				uint32_t numTextureBarriers, ResourceBarrier* pTextureBarriers,
+				uint32_t numGlobalBarriers, ResourceBarrier* pGlobalBarriers);
 			void SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions) const;
 			void ResolveSubresourceRegion(const Resource* pDstResource, uint32_t dstSubresource,
 				uint32_t dstX, uint32_t dstY, const Resource* pSrcResource, uint32_t srcSubresource,
@@ -48,10 +53,16 @@ namespace XUSG
 		protected:
 			void createAgilityInterface();
 
-			com_ptr<ID3D12GraphicsCommandList6> m_commandListU;
-			com_ptr<ID3D12GraphicsCommandList10> m_commandListA;
+			com_ptr<ID3D12GraphicsCommandList6>		m_commandListU;
+			com_ptr<ID3D12GraphicsCommandList10>	m_commandListA;
 
-			std::vector<D3D12_NODE_CPU_INPUT> m_nodeInputs;
+			std::vector<D3D12_BARRIER_GROUP>		m_barrierGroups;
+			std::vector<D3D12_GLOBAL_BARRIER>		m_globalBarriers;
+			std::vector<D3D12_TEXTURE_BARRIER>		m_textureBarriers;
+			std::vector<D3D12_BUFFER_BARRIER>		m_bufferBarriers;
+			std::vector<uint32_t>					m_barrierGroupBarrierStarts;
+
+			std::vector<D3D12_NODE_CPU_INPUT>		m_nodeInputs;
 		};
 
 		ProgramIdentifier GetProgramIdentifierFromDX12(const Pipeline& stateObject, const wchar_t* programName);
@@ -88,6 +99,15 @@ namespace XUSG
 		protected:
 			com_ptr<ID3D12Device8> m_deviceU;
 		};
+
+		D3D12_BARRIER_SYNC GetDX12BarrierSync(BarrierSync barrierSync);
+		D3D12_BARRIER_SYNC GetDX12BarrierSyncs(BarrierSync barrierSync);
+
+		D3D12_BARRIER_ACCESS GetDX12BarrierAccess(BarrierAccess barrierAccess);
+		D3D12_BARRIER_ACCESS GetDX12BarrierAccesses(BarrierAccess barrierAccess);
+
+		D3D12_TEXTURE_BARRIER_FLAGS GetDX12TextureBarrierFlag(TextureBarrierFlag textureBarrierFlag);
+		D3D12_TEXTURE_BARRIER_FLAGS GetDX12TextureBarrierFlags(TextureBarrierFlag textureBarrierFlags);
 
 		D3D12_SHADING_RATE_COMBINER GetDX12ShadingRateCombiner(ShadingRateCombiner combiner);
 		D3D12_RESOLVE_MODE GetDX12ResolveMode(ResolveMode mode);

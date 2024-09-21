@@ -18,7 +18,7 @@ namespace XUSG
 	D3D12_CULL_MODE GetDX12CullMode(CullMode cullMode);
 	D3D12_INDIRECT_ARGUMENT_TYPE GetDX12IndirectArgumentType(IndirectArgumentType indirectArgumentType);
 	D3D12_RESOURCE_DIMENSION GetDX12ResourceDimension(ResourceDimension resourceDimension);
-	D3D12_TEXTURE_LAYOUT GetDX12TextureLayout(TextureLayout layout);
+	D3D12_TEXTURE_LAYOUT GetDX12TextureLayout(TextureLayout textureLayout);
 
 	D3D12_COMMAND_QUEUE_FLAGS GetDX12CommandQueueFlag(CommandQueueFlag commandQueueFlag);
 	D3D12_COMMAND_QUEUE_FLAGS GetDX12CommandQueueFlags(CommandQueueFlag commandQueueFlags);
@@ -34,6 +34,8 @@ namespace XUSG
 
 	D3D12_RESOURCE_BARRIER_FLAGS GetDX12BarrierFlag(BarrierFlag barrierFlag);
 	D3D12_RESOURCE_BARRIER_FLAGS GetDX12BarrierFlags(BarrierFlag barrierFlags);
+
+	D3D12_BARRIER_LAYOUT GetDX12BarrierLayout(BarrierLayout barrierLayout);
 
 	D3D12_DESCRIPTOR_RANGE_FLAGS GetDX12DescriptorRangeFlag(DescriptorFlag descriptorFlag);
 	D3D12_DESCRIPTOR_RANGE_FLAGS GetDX12DescriptorRangeFlags(DescriptorFlag descriptorFlag);

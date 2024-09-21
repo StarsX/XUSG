@@ -112,7 +112,8 @@ namespace XUSG
 		Format GetFormat() const;
 
 	protected:
-		static Format mapToPackedFormat(Format& format);
+		static bool checkCastableFormats(Format& format, uint8_t numUavFormats, const Format* uavFormats);
+		static bool getTypelessFormat(Format& format);
 
 		Format m_format;
 
@@ -136,11 +137,13 @@ namespace XUSG
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 			TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			uint8_t numUavFormats = 0, const Format* uavFormats = nullptr,
 			uint32_t maxThreads = 1);
 		bool CreateResource(uint32_t width, uint32_t height, Format format, uint16_t arraySize = 1,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1, uint8_t sampleCount = 1,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, ResourceState initialResourceState = ResourceState::COMMON,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN, uint32_t maxThreads = 1);
+			TextureLayout textureLayout = TextureLayout::UNKNOWN, uint8_t numCastableFormats = 0,
+			const Format* pCastableFormats = nullptr, uint32_t maxThreads = 1);
 		bool Upload(CommandList* pCommandList, Resource* pUploader,
 			const SubresourceData* pSubresourceData, uint32_t numSubresources = 1,
 			ResourceState dstState = ResourceState::COMMON, uint32_t firstSubresource = 0,
@@ -165,7 +168,7 @@ namespace XUSG
 			BarrierFlag flags = BarrierFlag::NONE, ResourceState srcState = ResourceState::AUTO,
 			uint32_t threadIdx = 0);
 		uint32_t SetBarrier(ResourceBarrier* pBarriers, uint8_t mipLevel, ResourceState dstState,
-			uint32_t numBarriers = 0, uint32_t slice = 0, BarrierFlag flags = BarrierFlag::NONE,
+			uint32_t numBarriers = 0, uint32_t arraySlice = 0, BarrierFlag flags = BarrierFlag::NONE,
 			ResourceState srcState = ResourceState::AUTO, uint32_t threadIdx = 0);
 
 		void Blit(const CommandList* pCommandList, uint32_t groupSizeX, uint32_t groupSizeY,
@@ -187,8 +190,8 @@ namespace XUSG
 			uint8_t numMips = 0, uint16_t baseSlice = 0, uint16_t numSlices = 0, uint32_t threadIdx = 0);
 
 		const Descriptor& GetUAV(uint8_t index = 0) const;
-		const Descriptor& GetPackedUAV(uint8_t index = 0) const;
-		const Descriptor& GetSRVLevel(uint8_t level) const;
+		const Descriptor& GetUAV(Format format, uint8_t index = 0) const;
+		const Descriptor& GetSingleLevelSRV(uint8_t level) const;
 
 		uint32_t	GetHeight() const;
 		uint16_t	GetArraySize() const;
@@ -199,14 +202,14 @@ namespace XUSG
 	protected:
 		bool createSRVs(uint32_t& descriptorIdx, uint16_t arraySize, Format format, uint8_t numMips,
 			bool multisamples, bool isCubeMap, uint16_t srvComponentMapping);
-		bool createSRVLevels(uint32_t& descriptorIdx, uint16_t arraySize, uint8_t numMips, Format format,
+		bool createSingleLevelSRVs(uint32_t& descriptorIdx, uint16_t arraySize, uint8_t numMips, Format format,
 			bool multisamples, bool isCubeMap, uint16_t srvComponentMapping);
 		bool createUAVs(uint32_t& descriptorIdx, uint16_t arraySize, Format format, uint8_t numMips);
-		bool createPackedUAVs(uint32_t& descriptorIdx, uint16_t arraySize, Format format, uint8_t numMips);
+		bool createCastableUAVs(uint32_t& descriptorIdx, uint16_t arraySize, Format format, uint8_t numMips);
 
+		std::vector<Descriptor>	m_singleLevelSrvs;
 		std::vector<Descriptor>	m_uavs;
-		std::vector<Descriptor>	m_packedUavs;
-		std::vector<Descriptor>	m_srvLevels;
+		std::unordered_map<Format, std::vector<Descriptor>> m_castableUavs;
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -226,6 +229,7 @@ namespace XUSG
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 			TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			uint8_t numUavFormats = 0, const Format* uavFormats = nullptr,
 			uint32_t maxThreads = 1);
 		bool CreateArray(const Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize,
 			Format format, ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
@@ -233,13 +237,14 @@ namespace XUSG
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 			TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			uint8_t numUavFormats = 0, const Format* uavFormats = nullptr,
 			uint32_t maxThreads = 1);
 		bool Initialize(const Device* pDevice, Format format);
 		bool CreateResource(uint32_t width, uint32_t height, Format format, uint16_t arraySize = 1,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1, uint8_t sampleCount = 1,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, ResourceState initialResourceState = ResourceState::COMMON,
 			const float* pClearColor = nullptr, TextureLayout textureLayout = TextureLayout::UNKNOWN,
-			uint32_t maxThreads = 1);
+			uint8_t numCastableFormats = 0, const Format* pCastableFormats = nullptr, uint32_t maxThreads = 1);
 		bool CreateFromSwapChain(const Device* pDevice, const SwapChain* pSwapChain,
 			uint32_t bufferIndex, uint32_t maxThreads = 1);
 
@@ -270,7 +275,8 @@ namespace XUSG
 		bool create(const Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize,
 			Format format, uint8_t numMips, uint8_t sampleCount, ResourceFlag resourceFlags,
 			const float* pClearColor, bool isCubeMap, MemoryFlag memoryFlags, const wchar_t* name,
-			uint16_t srvComponentMapping, TextureLayout textureLayout, uint32_t maxThreads);
+			uint16_t srvComponentMapping, TextureLayout textureLayout, uint8_t numUavFormats,
+			const Format* uavFormats, uint32_t maxThreads);
 
 		com_ptr<ID3D12DescriptorHeap> m_rtvHeap;
 
@@ -350,12 +356,14 @@ namespace XUSG
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 			TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			uint8_t numUavFormats = 0, const Format* uavFormats = nullptr,
 			uint32_t maxThreads = 1);
 		bool CreateResource(uint32_t width, uint32_t height, uint16_t depth,
 			Format format, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, MemoryFlag memoryFlags = MemoryFlag::NONE,
 			ResourceState initialResourceState = ResourceState::COMMON,
 			TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			uint8_t numCastableFormats = 0, const Format* pCastableFormats = nullptr,
 			uint32_t maxThreads = 1);
 
 		Descriptor CreateSRV(const Descriptor& srvHeapStart, uint32_t descriptorIdx,
@@ -385,7 +393,8 @@ namespace XUSG
 			const wchar_t* name = nullptr, const size_t* counterByteOffsets = nullptr, uint32_t maxThreads = 1);
 		bool CreateResource(size_t byteWidth, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			MemoryType memoryType = MemoryType::DEFAULT, MemoryFlag memoryFlags = MemoryFlag::NONE,
-			ResourceState initialResourceState = ResourceState::COMMON, uint32_t maxThreads = 1);
+			ResourceState initialResourceState = ResourceState::COMMON, uint8_t numCastableFormats = 0,
+			const Format* pCastableFormats = nullptr, uint32_t maxThreads = 1);
 		bool Upload(CommandList* pCommandList, Resource* pUploader, const void* pData, size_t size,
 			size_t offset = 0, ResourceState dstState = ResourceState::COMMON, uint32_t threadIdx = 0);
 		bool Upload(CommandList* pCommandList, uint32_t descriptorIndex, Resource* pUploader, const void* pData,
@@ -464,12 +473,13 @@ namespace XUSG
 			uint32_t numUAVs = 1, const uint32_t* firstUavElements = nullptr,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
-			const size_t* counterByteOffsets = nullptr, uint32_t maxThreads = 1);
+			const size_t* counterByteOffsets = nullptr, uint8_t numUavFormats = 0,
+			const Format* uavFormats = nullptr, uint32_t maxThreads = 1);
 
-		const Descriptor& GetPackedUAV(uint32_t index = 0) const;
+		const Descriptor& GetUAV(Format format, uint32_t index = 0) const;
 
 	protected:
-		std::vector<Descriptor>	m_packedUavs;
+		std::unordered_map<Format, std::vector<Descriptor>> m_castableUavs;
 	};
 
 	//--------------------------------------------------------------------------------------

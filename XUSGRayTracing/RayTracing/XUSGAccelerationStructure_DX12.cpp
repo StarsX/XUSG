@@ -192,7 +192,7 @@ void BottomLevelAS_DX12::Build(CommandList* pCommandList, const Resource* pScrat
 
 		ResourceBarrier barrier;
 		const auto numBarriers = m_postbuildInfo->SetBarrier(&barrier, ResourceState::UNORDERED_ACCESS);
-		pCommandList->Barrier(numBarriers, &barrier);
+		static_cast<XUSG::CommandList*>(pCommandList)->Barrier(numBarriers, &barrier);
 	}
 
 	vector<PostbuildInfo> postbuildInfoDescs(numPostbuildInfoDescs);
@@ -323,7 +323,7 @@ void TopLevelAS_DX12::Build(CommandList* pCommandList, const Resource* pScratch,
 
 		ResourceBarrier barrier;
 		const auto numBarriers = m_postbuildInfo->SetBarrier(&barrier, ResourceState::UNORDERED_ACCESS);
-		pCommandList->Barrier(numBarriers, &barrier);
+		static_cast<XUSG::CommandList*>(pCommandList)->Barrier(numBarriers, &barrier);
 	}
 
 	vector<PostbuildInfo> postbuildInfoDescs(numPostbuildInfoDescs);
