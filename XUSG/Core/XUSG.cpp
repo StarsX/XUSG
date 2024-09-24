@@ -115,9 +115,11 @@ ShaderResource::sptr ShaderResource::MakeShared(API api)
 	return make_shared<ShaderResource_DX12>();
 }
 
-Texture* Texture::AsTexture()
+uint8_t Texture::CalculateMipLevels(uint32_t width, uint32_t height, uint32_t depth)
 {
-	return static_cast<Texture*>(this);
+	const auto texSize = (max)((max)(width, height), depth);
+
+	return Log2(texSize) + 1;
 }
 
 Texture::uptr Texture::MakeUnique(API api)
@@ -382,24 +384,6 @@ uint8_t XUSG::Log2(uint32_t value)
 #else
 	return static_cast<uint8_t>(log2(value));
 #endif
-}
-
-uint8_t XUSG::CalculateMipLevels(uint32_t width, uint32_t height, uint32_t depth)
-{
-	const auto texSize = (std::max)((std::max)(width, height), depth);
-
-	return Log2(texSize) + 1;
-}
-
-uint8_t XUSG::CalculateMipLevels(uint64_t width, uint32_t height, uint32_t depth)
-{
-	return CalculateMipLevels(static_cast<uint32_t>(width), height, depth);
-}
-
-uint32_t XUSG::CalculateSubresource(uint8_t mipSlice, uint8_t numMips,
-	uint32_t arraySlice, uint32_t arraySize, uint8_t planeSlice)
-{
-	return mipSlice + arraySlice * numMips + planeSlice * numMips * arraySize;
 }
 
 size_t XUSG::AlignConstantBufferView(size_t byteSize, API api)

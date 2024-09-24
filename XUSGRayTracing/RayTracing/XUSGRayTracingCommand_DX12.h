@@ -37,9 +37,6 @@ namespace XUSG
 			void DispatchRays(uint32_t width, uint32_t height, uint32_t depth,
 				const ShaderTable* pRayGen, const ShaderTable* pHitGroup, const ShaderTable* pMiss,
 				const ShaderTable* pCallable = nullptr) const;
-			void DispatchRays(const Pipeline& pipeline, uint32_t width, uint32_t height, uint32_t depth,
-				const ShaderTable* pRayGen, const ShaderTable* pHitGroup, const ShaderTable* pMiss,
-				const ShaderTable* pCallable = nullptr) const;
 
 			const Device* GetRTDevice() const;
 
@@ -49,9 +46,7 @@ namespace XUSG
 			const Device* m_pDeviceRT;
 		};
 
-		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_TYPE GetDXRAccelerationStructurePostbuildInfoType(
-			PostbuildInfoType type);
-		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_COPY_MODE GetDXRAccelerationStructureCopyMode(
-			CopyMode mode);
+		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_TYPE GetDXRAccelerationStructurePostbuildInfoType(PostbuildInfoType type);
+		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_COPY_MODE GetDXRAccelerationStructureCopyMode(CopyMode mode);
 	}
 }

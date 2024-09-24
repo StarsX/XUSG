@@ -399,8 +399,8 @@ Pipeline PipelineLib_DX12::createPipeline(const string& key, const wchar_t* name
 	vector<D3D12_INPUT_ELEMENT_DESC> inputElements;
 
 	com_ptr<ID3D12PipelineState> pipeline = nullptr;
-	com_ptr<ID3D12Device2> dxDevice;
-	V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&dxDevice)), cerr, nullptr);
+	com_ptr<ID3D12Device2> device = nullptr;
+	V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&device)), cerr, nullptr);
 
 	D3D12_FEATURE_DATA_D3D12_OPTIONS19 featureData = {};
 	if (FAILED(m_device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS19, &featureData, sizeof(featureData))) ||
@@ -422,7 +422,7 @@ Pipeline PipelineLib_DX12::createPipeline(const string& key, const wchar_t* name
 				desc.SizeInBytes = sizeof(stream);
 
 				// Create pipeline
-				V_RETURN(dxDevice->CreatePipelineState(&desc, IID_PPV_ARGS(&pipeline)), cerr, nullptr);
+				V_RETURN(device->CreatePipelineState(&desc, IID_PPV_ARGS(&pipeline)), cerr, nullptr);
 			}
 			else
 			{
@@ -434,7 +434,7 @@ Pipeline PipelineLib_DX12::createPipeline(const string& key, const wchar_t* name
 				desc.SizeInBytes = sizeof(stream);
 
 				// Create pipeline
-				V_RETURN(dxDevice->CreatePipelineState(&desc, IID_PPV_ARGS(&pipeline)), cerr, nullptr);
+				V_RETURN(device->CreatePipelineState(&desc, IID_PPV_ARGS(&pipeline)), cerr, nullptr);
 			}
 		}
 		else
@@ -447,7 +447,7 @@ Pipeline PipelineLib_DX12::createPipeline(const string& key, const wchar_t* name
 			desc.SizeInBytes = sizeof(stream);
 
 			// Create pipeline
-			V_RETURN(dxDevice->CreatePipelineState(&desc, IID_PPV_ARGS(&pipeline)), cerr, nullptr);
+			V_RETURN(device->CreatePipelineState(&desc, IID_PPV_ARGS(&pipeline)), cerr, nullptr);
 		}
 	}
 	else
@@ -460,7 +460,7 @@ Pipeline PipelineLib_DX12::createPipeline(const string& key, const wchar_t* name
 		desc.SizeInBytes = sizeof(stream);
 
 		// Create pipeline
-		V_RETURN(dxDevice->CreatePipelineState(&desc, IID_PPV_ARGS(&pipeline)), cerr, nullptr);
+		V_RETURN(device->CreatePipelineState(&desc, IID_PPV_ARGS(&pipeline)), cerr, nullptr);
 	}
 
 	if (name) pipeline->SetName(name);

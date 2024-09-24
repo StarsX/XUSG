@@ -32,7 +32,6 @@ namespace XUSG
 		ResourceState GetResourceState(uint32_t subresource = 0, uint32_t threadIdx = 0) const;
 
 		uint64_t GetWidth() const;
-
 		uint64_t GetVirtualAddress(int offset = 0) const;
 
 		void Create(void* pDeviceHandle, void* pResourceHandle,
@@ -163,13 +162,10 @@ namespace XUSG
 			uint16_t firstArraySlice = 0, Format format = Format::UNKNOWN, uint8_t mipLevel = 0,
 			uint8_t plane = 0);
 
-		uint32_t SetBarrier(ResourceBarrier* pBarriers, ResourceState dstState,
-			uint32_t numBarriers = 0, uint32_t subresource = XUSG_BARRIER_ALL_SUBRESOURCES,
-			BarrierFlag flags = BarrierFlag::NONE, ResourceState srcState = ResourceState::AUTO,
-			uint32_t threadIdx = 0);
+		using ShaderResource_DX12::SetBarrier;
 		uint32_t SetBarrier(ResourceBarrier* pBarriers, uint8_t mipLevel, ResourceState dstState,
-			uint32_t numBarriers = 0, uint32_t arraySlice = 0, BarrierFlag flags = BarrierFlag::NONE,
-			ResourceState srcState = ResourceState::AUTO, uint32_t threadIdx = 0);
+			uint32_t numBarriers = 0, uint16_t arraySlice = 0, BarrierFlag flags = BarrierFlag::NONE,
+			ResourceState srcState = ResourceState::AUTO, uint8_t plane = 0, uint32_t threadIdx = 0);
 
 		void Blit(const CommandList* pCommandList, uint32_t groupSizeX, uint32_t groupSizeY,
 			uint32_t groupSizeZ, const DescriptorTable& uavSrvTable, uint32_t uavSrvSlot = 0,
@@ -189,15 +185,14 @@ namespace XUSG
 			const DescriptorTable* pSrvTables = nullptr, uint32_t srvSlot = 0, uint8_t baseMip = 1,
 			uint8_t numMips = 0, uint16_t baseSlice = 0, uint16_t numSlices = 0, uint32_t threadIdx = 0);
 
-		const Descriptor& GetUAV(uint8_t index = 0) const;
-		const Descriptor& GetUAV(Format format, uint8_t index = 0) const;
-		const Descriptor& GetSingleLevelSRV(uint8_t level) const;
+		const Descriptor& GetUAV(uint8_t level = 0, Format format = Format::UNKNOWN) const;
+		const Descriptor& GetSRV(uint8_t firstLevel = 0, bool singleLevel = false) const;
 
+		uint32_t	CalculateSubresource(uint8_t mipLevel, uint16_t arraySlice = 0, uint8_t plane = 0) const;
 		uint32_t	GetHeight() const;
 		uint16_t	GetArraySize() const;
 		uint8_t		GetNumMips() const;
-
-		size_t GetRequiredIntermediateSize(uint32_t firstSubresource, uint32_t numSubresources) const;
+		size_t		GetRequiredIntermediateSize(uint32_t firstSubresource, uint32_t numSubresources) const;
 
 	protected:
 		bool createSRVs(uint32_t& descriptorIdx, uint16_t arraySize, Format format, uint8_t numMips,
@@ -253,6 +248,7 @@ namespace XUSG
 			uint16_t firstArraySlice = 0, Format format = Format::UNKNOWN, uint8_t mipLevel = 0,
 			bool multisamples = false);
 
+		using Texture_DX12::Blit;
 		void Blit(const CommandList* pCommandList, const DescriptorTable& srcSrvTable,
 			uint32_t srcSlot = 0, uint8_t mipLevel = 0, uint16_t baseSlice = 0,
 			uint16_t numSlices = 0, const DescriptorTable& samplerTable = XUSG_NULL,
@@ -263,6 +259,8 @@ namespace XUSG
 			int8_t srcMipLevel, ResourceState srcState, const DescriptorTable& srcSrvTable,
 			uint32_t srcSlot = 0, uint32_t numBarriers = 0, uint16_t baseSlice = 0, uint16_t numSlices = 0,
 			uint32_t offsetForSliceId = 0, uint32_t cbSlot = 2, uint32_t threadIdx = 0);
+
+		using Texture_DX12::GenerateMips;
 		uint32_t GenerateMips(CommandList* pCommandList, ResourceBarrier* pBarriers, ResourceState dstState,
 			const PipelineLayout& pipelineLayout, const Pipeline& pipeline, const DescriptorTable* pSrcSrvTables,
 			uint32_t srcSlot = 0, const DescriptorTable& samplerTable = XUSG_NULL, uint32_t samplerSlot = 1,
@@ -273,7 +271,7 @@ namespace XUSG
 
 	protected:
 		bool create(const Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize,
-			Format format, uint8_t numMips, uint8_t sampleCount, ResourceFlag resourceFlags,
+			Format format, uint8_t& numMips, uint8_t sampleCount, ResourceFlag resourceFlags,
 			const float* pClearColor, bool isCubeMap, MemoryFlag memoryFlags, const wchar_t* name,
 			uint16_t srvComponentMapping, TextureLayout textureLayout, uint8_t numUavFormats,
 			const Format* uavFormats, uint32_t maxThreads);
@@ -321,12 +319,11 @@ namespace XUSG
 			uint16_t firstArraySlice = 0, Format format = Format::UNKNOWN, uint8_t mipLevel = 0,
 			bool multisamples = false, bool readOnlyDepth = false, bool readOnlyStencil = false);
 
-		const Descriptor& GetDSV(uint16_t slice = 0, uint8_t mipLevel = 0) const;
-		const Descriptor& GetReadOnlyDSV(uint16_t slice = 0, uint8_t mipLevel = 0) const;
-		const Descriptor& GetStencilSRV() const;
+		const Descriptor& GetDSV(uint16_t slice = 0, uint8_t mipLevel = 0, bool readOnly = false) const;
+		const Descriptor& GetSRV(uint8_t firstLevel = 0, bool singleLevel = false, bool stencil = false) const;
 
 	protected:
-		bool create(const Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize, uint8_t numMips,
+		bool create(const Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize, uint8_t& numMips,
 			uint8_t sampleCount, Format format, ResourceFlag resourceFlags, float clearDepth, uint8_t clearStencil,
 			bool& hasSRV, Format& formatStencil, bool isCubeMap, MemoryFlag memoryFlags, const wchar_t* name,
 			uint16_t srvComponentMapping, uint16_t stencilSrvComponentMapping, TextureLayout textureLayout,
@@ -372,6 +369,7 @@ namespace XUSG
 		Descriptor CreateUAV(const Descriptor& uavHeapStart, uint32_t descriptorIdx, uint16_t wSize,
 			uint16_t firstWSlice = 0, Format format = Format::UNKNOWN, uint8_t mipLevel = 0);
 
+		uint32_t CalculateSubresource(uint8_t mipLevel) const;
 		uint16_t GetDepth() const;
 	};
 
@@ -476,7 +474,7 @@ namespace XUSG
 			const size_t* counterByteOffsets = nullptr, uint8_t numUavFormats = 0,
 			const Format* uavFormats = nullptr, uint32_t maxThreads = 1);
 
-		const Descriptor& GetUAV(Format format, uint32_t index = 0) const;
+		const Descriptor& GetUAV(uint32_t index = 0, Format format = Format::UNKNOWN) const;
 
 	protected:
 		std::unordered_map<Format, std::vector<Descriptor>> m_castableUavs;

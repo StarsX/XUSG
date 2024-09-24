@@ -87,8 +87,8 @@ uint32_t Ultimate::SetBarrier(ResourceBarrier* pBufferBarriers, Buffer* pBuffer,
 		XUSG_BARRIER_ALL_SUBRESOURCES, flags, srcState, threadIdx);
 
 	bufferBarrier.LayoutBefore = bufferBarrier.LayoutAfter = BarrierLayout::UNDEFINED;
-	SetBarrierState(bufferBarrier.SyncBefore, bufferBarrier.AccessBefore, barrier.StateBefore);
-	SetBarrierState(bufferBarrier.SyncAfter, bufferBarrier.AccessAfter, barrier.StateAfter);
+	MapBarrierState(bufferBarrier.SyncBefore, bufferBarrier.AccessBefore, barrier.StateBefore);
+	MapBarrierState(bufferBarrier.SyncAfter, bufferBarrier.AccessAfter, barrier.StateAfter);
 	bufferBarrier.pResource = barrier.pResource;
 	bufferBarrier.Offset = 0;
 	bufferBarrier.Size = UINT64_MAX;
@@ -107,34 +107,26 @@ uint32_t Ultimate::SetBarrier(ResourceBarrier* pBufferBarriers, Buffer* pBuffer,
 }
 
 uint32_t Ultimate::SetBarrier(ResourceBarrier* pTextureBarriers, Texture* pTexture, ResourceState dstState,
-	uint32_t numBarriers, uint32_t indexOrFirstMipLevel, uint32_t numMipLevels,
-	uint32_t firstArraySlice, uint32_t numArraySlices, uint32_t firstPlane, uint32_t numPlanes,
-	BarrierFlag flags, ResourceState srcState, TextureBarrierFlag textureFlags, uint32_t threadIdx)
+	uint32_t numBarriers, uint32_t indexOrFirstMip, uint8_t numMipLevels, uint16_t firstArraySlice,
+	uint16_t numArraySlices, uint8_t firstPlane, uint8_t numPlanes, BarrierFlag flags,
+	ResourceState srcState, TextureBarrierFlag textureFlags, uint32_t threadIdx)
 {
 	XUSG::ResourceBarrier barrier;
 	if (numMipLevels)
 	{
-		const auto numMips = pTexture->GetNumMips();
-		const auto arraySize = pTexture->GetArraySize();
+		const auto firstMipLevel = static_cast<uint8_t>(indexOrFirstMip);
 		for (auto planeSlice = firstPlane; planeSlice < firstPlane + numPlanes; ++planeSlice)
-		{
 			for (auto arraySlice = firstArraySlice; arraySlice < firstArraySlice + numArraySlices; ++arraySlice)
-			{
-				for (auto mipSlice = indexOrFirstMipLevel; mipSlice < indexOrFirstMipLevel + numMipLevels; ++mipSlice)
-				{
-					const auto subresource = CalculateSubresource(mipSlice, numMips, arraySlice, arraySize, planeSlice);
-					pTexture->SetBarrier(&barrier, dstState, numBarriers, subresource, flags, srcState, threadIdx);
-				}
-			}
-		}
+				for (auto mipSlice = firstMipLevel; mipSlice < firstMipLevel + numMipLevels; ++mipSlice)
+					pTexture->SetBarrier(&barrier, mipSlice, dstState, numBarriers, arraySlice, flags, srcState, planeSlice, threadIdx);
 	}
-	else pTexture->SetBarrier(&barrier, dstState, numBarriers, indexOrFirstMipLevel, flags, srcState, threadIdx);
+	else pTexture->SetBarrier(&barrier, dstState, numBarriers, indexOrFirstMip, flags, srcState, threadIdx);
 
 	auto& textureBarrier = pTextureBarriers[numBarriers++];
-	SetBarrierState(textureBarrier.SyncBefore, textureBarrier.AccessBefore, textureBarrier.LayoutBefore, barrier.StateBefore);
-	SetBarrierState(textureBarrier.SyncAfter, textureBarrier.AccessAfter, textureBarrier.LayoutAfter, barrier.StateAfter);
+	MapBarrierState(textureBarrier.SyncBefore, textureBarrier.AccessBefore, textureBarrier.LayoutBefore, barrier.StateBefore);
+	MapBarrierState(textureBarrier.SyncAfter, textureBarrier.AccessAfter, textureBarrier.LayoutAfter, barrier.StateAfter);
 	textureBarrier.pResource = barrier.pResource;
-	textureBarrier.IndexOrFirstMipLevel = indexOrFirstMipLevel;
+	textureBarrier.IndexOrFirstMipLevel = indexOrFirstMip;
 	textureBarrier.NumMipLevels = numMipLevels;
 	textureBarrier.FirstArraySlice = firstArraySlice;
 	textureBarrier.NumArraySlices = numArraySlices;
@@ -155,7 +147,7 @@ uint32_t Ultimate::SetBarrier(ResourceBarrier* pTextureBarriers, Texture* pTextu
 	return numBarriers;
 }
 
-void Ultimate::SetBarrierState(BarrierSync& barrierSync, BarrierAccess& barrierAccess, ResourceState resourceState)
+void Ultimate::MapBarrierState(BarrierSync& barrierSync, BarrierAccess& barrierAccess, ResourceState resourceState)
 {
 	switch (resourceState)
 	{
@@ -250,7 +242,7 @@ void Ultimate::SetBarrierState(BarrierSync& barrierSync, BarrierAccess& barrierA
 		barrierAccess |= BarrierAccess::SHADING_RATE_SOURCE;
 }
 
-void Ultimate::SetBarrierState(BarrierSync& barrierSync, BarrierAccess& barrierAccess,
+void Ultimate::MapBarrierState(BarrierSync& barrierSync, BarrierAccess& barrierAccess,
 	BarrierLayout& barrierLayout, ResourceState resourceState)
 {
 	switch (resourceState)

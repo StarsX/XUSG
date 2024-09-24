@@ -547,9 +547,9 @@ DescriptorTable DescriptorTableLib_DX12::createSamplerTable(const string& key, D
 			// Create a sampler descriptor
 			if ((pSampler->Flags & (SamplerFlag::UINT_BORDER_COLOR | SamplerFlag::NON_NORMALIZED_COORDINATES)) != SamplerFlag::NONE)
 			{
-				com_ptr<ID3D12Device11> dxDevice;
-				V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&dxDevice)), cerr, XUSG_NULL);
-				dxDevice->CreateSampler2(&desc, dst);
+				com_ptr<ID3D12Device11> device = nullptr;
+				V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&device)), cerr, XUSG_NULL);
+				device->CreateSampler2(&desc, dst);
 			}
 			else m_device->CreateSampler(reinterpret_cast<D3D12_SAMPLER_DESC*>(&desc), dst);
 

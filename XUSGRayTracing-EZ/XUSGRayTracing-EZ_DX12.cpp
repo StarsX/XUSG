@@ -163,7 +163,7 @@ bool EZ::CommandList_DXR::AllocateAccelerationStructure(AccelerationStructure* p
 	XUSG_N_RETURN(pAccelerationStructure->Allocate(m_pDeviceRT, m_asUavCount++, byteWidth), false);
 
 	const auto descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
-	descriptorTable->SetDescriptors(0, 1, &pAccelerationStructure->GetResource()->GetUAV());
+	descriptorTable->SetDescriptors(0, 1, &pAccelerationStructure->GetUAV());
 	const auto uavTable = descriptorTable->GetCbvSrvUavTable(m_descriptorTableLib.get());
 	XUSG_N_RETURN(uavTable, false);
 
@@ -552,7 +552,7 @@ XUSG::Resource* EZ::CommandList_DXR::needScratch(uint32_t size)
 {
 	if (m_scratches.empty() || !m_scratches.back() || m_scratches.back()->GetWidth() < size)
 	{
-		m_scratches.emplace_back(Resource::MakeUnique(API::DIRECTX_12));
+		m_scratches.emplace_back(Buffer::MakeUnique(API::DIRECTX_12));
 		AccelerationStructure::AllocateUAVBuffer(m_pDeviceRT, m_scratches.back().get(), size);
 	}
 

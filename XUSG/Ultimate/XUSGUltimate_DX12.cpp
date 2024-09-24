@@ -55,11 +55,6 @@ bool CommandList_DX12::CreateInterface()
 	return true;
 }
 
-void CommandList_DX12::Barrier(uint32_t numBarriers, const XUSG::ResourceBarrier* pBarriers)
-{
-	XUSG::CommandList_DX12::Barrier(numBarriers, pBarriers);
-}
-
 void CommandList_DX12::Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups)
 {
 	if (numBarrierGroups)
@@ -469,6 +464,7 @@ bool SamplerFeedBack_DX12::Create(const Device* pDevice, const Texture* pTarget,
 	ResourceFlag resourceFlags, bool isCubeMap, MemoryFlag memoryFlags, const wchar_t* name,
 	uint16_t srvComponentMapping, TextureLayout textureLayout, uint32_t maxThreads)
 {
+	assert(format == Format::MIN_MIP_OPAQUE || format == Format::MIP_REGION_USED_OPAQUE);
 	XUSG_N_RETURN(Initialize(pDevice, format), false);
 
 	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;

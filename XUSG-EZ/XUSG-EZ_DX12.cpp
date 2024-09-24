@@ -660,7 +660,7 @@ void EZ::CommandList_DX12::Blit(Texture* pDstResource, Texture* pSrcResource, Sa
 	// Set SRV
 	assert(pSrcResource);
 	assert(srcMip < pDstResource->GetNumMips());
-	const auto srv = pSrcResource->GetNumMips() > 1 ? EZ::GetSRVLevel(pSrcResource, srcMip) : EZ::GetSRV(pSrcResource);
+	const auto srv = pSrcResource->GetNumMips() > 1 ? EZ::GetSRV(pSrcResource, srcMip, true) : EZ::GetSRV(pSrcResource);
 	SetResources(Shader::Stage::CS, DescriptorType::SRV, 0, 1, &srv);
 
 	// Dispatch grid
@@ -689,7 +689,7 @@ void EZ::CommandList_DX12::Blit(Texture3D* pDstResource, Texture* pSrcResource, 
 	// Set SRV
 	assert(pSrcResource);
 	assert(srcMip < pDstResource->GetNumMips());
-	const auto srv = pSrcResource->GetNumMips() > 1 ? EZ::GetSRVLevel(pSrcResource, srcMip) : EZ::GetSRV(pSrcResource);
+	const auto srv = pSrcResource->GetNumMips() > 1 ? EZ::GetSRV(pSrcResource, srcMip, true) : EZ::GetSRV(pSrcResource);
 	SetResources(Shader::Stage::CS, DescriptorType::SRV, 0, 1, &srv);
 
 	// Dispatch grid
@@ -721,7 +721,7 @@ void EZ::CommandList_DX12::GenerateMips(Texture* pResource, SamplerPreset sample
 		SetResources(Shader::Stage::CS, DescriptorType::UAV, 0, 1, &uav);
 
 		// Set SRV
-		const auto srv = EZ::GetSRVLevel(pResource, i - 1);
+		const auto srv = EZ::GetSRV(pResource, i - 1, true);
 		SetResources(Shader::Stage::CS, DescriptorType::SRV, 0, 1, &srv);
 
 		// Dispatch grid
@@ -751,7 +751,7 @@ void EZ::CommandList_DX12::GenerateMips(Texture3D* pResource, SamplerPreset samp
 		SetResources(Shader::Stage::CS, DescriptorType::UAV, 0, 1, &uav);
 
 		// Set SRV
-		const auto srv = EZ::GetSRVLevel(pResource, i - 1);
+		const auto srv = EZ::GetSRV(pResource, i - 1, true);
 		SetResources(Shader::Stage::CS, DescriptorType::SRV, 0, 1, &srv);
 
 		// Dispatch grid
@@ -1153,6 +1153,7 @@ void EZ::CommandList_DX12::setBarriers(uint32_t numResources, const ResourceView
 uint32_t EZ::CommandList_DX12::generateBarriers(ResourceBarrier* pBarriers,
 	const ResourceView& resrouceView, uint32_t numBarriers, BarrierFlag flags)
 {
+	assert(resrouceView.pResource || resrouceView.Subresources.empty());
 	for (const auto& subresource : resrouceView.Subresources)
 		numBarriers = resrouceView.pResource->SetBarrier(pBarriers, resrouceView.DstState, numBarriers, subresource, flags);
 

@@ -31,16 +31,46 @@ void AccelerationStructure::SetUAVCount(uint32_t numUAVs)
 	g_numUAVs = numUAVs;
 }
 
-bool AccelerationStructure::AllocateUAVBuffer(const Device* pDevice, Resource* pResource,
-	size_t byteWidth, ResourceState dstState, API api)
+bool AccelerationStructure::AllocateDestBuffer(const Device* pDevice, Buffer* pDestBuffer, size_t byteWidth,
+	uint32_t numSRVs, const uint32_t* firstSrvElements, uint32_t numUAVs, const uint32_t* firstUavElements,
+	MemoryFlag memoryFlags, const wchar_t* name, uint32_t maxThreads, API api)
 {
-	return AccelerationStructure_DX12::AllocateUAVBuffer(pDevice, pResource, byteWidth, dstState);
+	return AccelerationStructure_DX12::AllocateDestBuffer(pDevice, pDestBuffer,
+		byteWidth, numSRVs, firstSrvElements, numUAVs, firstUavElements,
+		memoryFlags, name, maxThreads);
 }
 
-bool AccelerationStructure::AllocateUploadBuffer(const Device* pDevice, Resource* pResource,
-	size_t byteWidth, void* pData, API api)
+bool AccelerationStructure::AllocateUAVBuffer(const Device* pDevice, Buffer* pBuffer, size_t byteWidth,
+	ResourceState dstState, MemoryFlag memoryFlag, const wchar_t* name, uint32_t maxThreads)
 {
-	return AccelerationStructure_DX12::AllocateUploadBuffer(pDevice, pResource, byteWidth, pData);
+	XUSG_N_RETURN(pBuffer->Initialize(pDevice, Format::R32_TYPELESS), false);
+	XUSG_N_RETURN(pBuffer->CreateResource(byteWidth, ResourceFlag::ALLOW_UNORDERED_ACCESS,
+		MemoryType::DEFAULT, memoryFlag, dstState, 0, nullptr, maxThreads), false);
+	pBuffer->SetName(name);
+
+	return true;
+}
+
+bool AccelerationStructure::AllocateUploadBuffer(const Device* pDevice, Buffer* pBuffer,
+	size_t byteWidth, void* pData, MemoryFlag memoryFlag, const wchar_t* name)
+{
+	XUSG_N_RETURN(pBuffer->Initialize(pDevice, Format::R32_TYPELESS), false);
+	XUSG_N_RETURN(pBuffer->CreateResource(byteWidth, ResourceFlag::NONE, MemoryType::UPLOAD,
+		memoryFlag, ResourceState::GENERIC_READ_RESOURCE), false);
+	pBuffer->SetName(name);
+
+	void* pMappedData = pBuffer->Map();
+	memcpy(pMappedData, pData, byteWidth);
+	pBuffer->Unmap();
+
+	return true;
+}
+
+uint32_t AccelerationStructure::SetBarrier(ResourceBarrier* pBarriers, Resource* pResource, uint32_t numBarriers)
+{
+	pBarriers[numBarriers++] = { pResource, ResourceState::UNORDERED_ACCESS, ResourceState::UNORDERED_ACCESS };
+
+	return numBarriers;
 }
 
 void BottomLevelAS::SetTriangleGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
@@ -77,17 +107,27 @@ BottomLevelAS::sptr BottomLevelAS::MakeShared(API api)
 	return make_shared<BottomLevelAS_DX12>();
 }
 
-void TopLevelAS::SetInstances(const Device* pDevice, Resource* pInstances,
-	uint32_t numInstances, const BottomLevelAS* const* pBottomLevelASs,
-	const float* const* transforms, API api)
+void TopLevelAS::SetInstances(const Device* pDevice, Buffer* pInstances, uint32_t numInstances,
+	const BottomLevelAS* const* ppBottomLevelASs, const float* const* transforms,
+	MemoryFlag memoryFlags, const wchar_t* instanceName, API api)
 {
-	TopLevelAS_DX12::SetInstances(pDevice, pInstances, numInstances, pBottomLevelASs, transforms);
+	assert(numInstances == 0 || (ppBottomLevelASs && transforms));
+
+	vector<InstanceDesc> instanceDescs(numInstances);
+	for (auto i = 0u; i < numInstances; ++i)
+	{
+		instanceDescs[i].pTransform = transforms[i];
+		instanceDescs[i].InstanceMask = 1;
+		instanceDescs[i].pBottomLevelAS = ppBottomLevelASs[i];
+	}
+
+	SetInstances(pDevice, pInstances, numInstances, instanceDescs.data(), memoryFlags, instanceName, api);
 }
 
-void TopLevelAS::SetInstances(const Device* pDevice, Resource* pInstances,
-	uint32_t numInstances, const InstanceDesc* pInstanceDescs, API api)
+void TopLevelAS::SetInstances(const Device* pDevice, Buffer* pInstances, uint32_t numInstances,
+	const InstanceDesc* pInstanceDescs, MemoryFlag memoryFlags, const wchar_t* instanceName, API api)
 {
-	TopLevelAS_DX12::SetInstances(pDevice, pInstances, numInstances, pInstanceDescs);
+	TopLevelAS_DX12::SetInstances(pDevice, pInstances, numInstances, pInstanceDescs, memoryFlags, instanceName);
 }
 
 TopLevelAS::uptr TopLevelAS::MakeUnique(API api)

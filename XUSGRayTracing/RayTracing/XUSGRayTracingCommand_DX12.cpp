@@ -81,8 +81,8 @@ void RayTracing::CommandList_DX12::CopyRaytracingAccelerationStructure(const Acc
 	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(m_pDeviceRT->GetRTHandle());
 	if (!pDxDevice->UsingRaytracingDriver() && pDescriptorHeap) SetDescriptorHeaps(1, pDescriptorHeap);
 
-	m_commandListRT->CopyRaytracingAccelerationStructure(pDst->GetResource()->GetVirtualAddress(),
-		pSrc->GetResource()->GetVirtualAddress(), GetDXRAccelerationStructureCopyMode(mode),
+	m_commandListRT->CopyRaytracingAccelerationStructure(pDst->GetVirtualAddress(),
+		pSrc->GetVirtualAddress(), GetDXRAccelerationStructureCopyMode(mode),
 		AccelerationStructure::GetUAVCount());
 }
 
@@ -151,17 +151,6 @@ void RayTracing::CommandList_DX12::DispatchRays(uint32_t width, uint32_t height,
 	dispatchDesc.Depth = depth;
 
 	m_commandListRT->DispatchRays(&dispatchDesc);
-}
-
-void RayTracing::CommandList_DX12::DispatchRays(const Pipeline& pipeline,
-	uint32_t width, uint32_t height, uint32_t depth,
-	const ShaderTable* pRayGen,
-	const ShaderTable* pHitGroup,
-	const ShaderTable* pMiss,
-	const ShaderTable* pCallable) const
-{
-	SetRayTracingPipeline(pipeline);
-	DispatchRays(width, height, depth, pRayGen, pHitGroup, pMiss, pCallable);
 }
 
 const RayTracing::Device* RayTracing::CommandList_DX12::GetRTDevice() const

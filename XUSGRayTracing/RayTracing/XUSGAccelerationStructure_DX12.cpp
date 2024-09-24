@@ -26,14 +26,28 @@ AccelerationStructure_DX12::~AccelerationStructure_DX12()
 {
 }
 
-Buffer::sptr AccelerationStructure_DX12::GetResource() const
+void AccelerationStructure_DX12::SetDestData(const Device* pDevice, const Buffer::sptr destBuffer,
+	size_t offset, uint32_t descriptorIndex, uint32_t srvIndex, uint32_t uavIndex)
 {
-	return m_resource;
+	m_resource = destBuffer;
+	m_offset = offset;
+	m_srvIndex = srvIndex;
+	m_uavIndex = uavIndex;
+
+	// The Fallback Layer interface uses WRAPPED_GPU_POINTER to encapsulate the underlying pointer
+	// which will either be an emulated GPU pointer for the compute - based path or a GPU_VIRTUAL_ADDRESS for the DXR path.
+	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(pDevice->GetRTHandle());
+	m_pointer = pDxDevice->GetWrappedPointerSimple(descriptorIndex, m_resource->GetVirtualAddress() + offset);
 }
 
-Buffer::sptr AccelerationStructure_DX12::GetPostbuildInfo() const
+uint32_t AccelerationStructure_DX12::SetBarrier(ResourceBarrier* pBarriers, uint32_t numBarriers)
 {
-	return m_postbuildInfoRB;
+	return AccelerationStructure::SetBarrier(pBarriers, m_resource.get(), numBarriers);
+}
+
+Buffer* AccelerationStructure_DX12::GetPostbuildInfo() const
+{
+	return m_postbuildInfoRB.get();
 }
 
 uint32_t AccelerationStructure_DX12::GetResultDataMaxSize() const
@@ -51,47 +65,43 @@ uint32_t AccelerationStructure_DX12::GetUpdateScratchDataSize() const
 	return static_cast<uint32_t>(m_prebuildInfo.UpdateScratchDataSizeInBytes);
 }
 
+uint64_t AccelerationStructure_DX12::GetVirtualAddress() const
+{
+	return m_resource->GetVirtualAddress() + m_offset;
+}
+
 uint64_t AccelerationStructure_DX12::GetResourcePointer() const
 {
 	return m_pointer.GpuVA;
 }
 
-bool AccelerationStructure_DX12::AllocateUAVBuffer(const XUSG::Device* pDevice, Resource* pResource,
-	size_t byteWidth, ResourceState dstState)
+const Descriptor& AccelerationStructure_DX12::GetSRV() const
 {
-	const auto heapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-	const auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(byteWidth, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
-
-	const auto pDxDevice = static_cast<ID3D12Device*>(pDevice->GetHandle());
-	auto& dxResource = dynamic_cast<Resource_DX12*>(pResource)->GetResource();
-
-	assert(pDxDevice);
-	V_RETURN(pDxDevice->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &bufferDesc,
-		GetDX12ResourceStates(dstState), nullptr, IID_PPV_ARGS(&dxResource)), cerr, false);
-
-	return true;
+	return m_resource->GetSRV(m_srvIndex);
 }
 
-bool AccelerationStructure_DX12::AllocateUploadBuffer(const XUSG::Device* pDevice, Resource* pResource,
-	size_t byteWidth, void* pData)
+const Descriptor& AccelerationStructure_DX12::GetUAV() const
 {
-	const auto heapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
-	const auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(byteWidth);
+	return m_resource->GetUAV(m_uavIndex);
+}
 
-	const auto pDxDevice = static_cast<ID3D12Device*>(pDevice->GetHandle());
-	auto& dxResource = dynamic_cast<Resource_DX12*>(pResource)->GetResource();
+bool AccelerationStructure_DX12::AllocateDestBuffer(const Device* pDevice, Buffer* pResource, size_t byteWidth,
+	uint32_t numSRVs, const uint32_t* firstSrvElements, uint32_t numUAVs, const uint32_t* firstUavElements,
+	MemoryFlag memoryFlags, const wchar_t* name, uint32_t maxThreads)
+{
+	// Allocate resources for acceleration structures.
+	// Acceleration structures can only be placed in resources that are created in the default heap (or custom heap equivalent). 
+	// Default heap is OK since the application doesn't need CPU read/write access to them. 
+	// The resources that will contain acceleration structures must be created in the state D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE, 
+	// and must have resource flag D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS. The ALLOW_UNORDERED_ACCESS requirement simply acknowledges both: 
+	//  - the system will be doing this type of access in its implementation of acceleration structure builds behind the scenes.
+	//  - from the app point of view, synchronization of writes/reads to acceleration structures is accomplished using UAV barriers.
+	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(pDevice->GetRTHandle());
+	const auto resourceFlags = pDxDevice->UsingRaytracingDriver() ? ResourceFlag::ACCELERATION_STRUCTURE : ResourceFlag::ALLOW_UNORDERED_ACCESS;
 
-	assert(pDxDevice);
-	V_RETURN(pDxDevice->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE,
-		&bufferDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
-		IID_PPV_ARGS(&dxResource)), cerr, false);
-
-	void* pMappedData;
-	dxResource->Map(0, nullptr, &pMappedData);
-	memcpy(pMappedData, pData, byteWidth);
-	dxResource->Unmap(0, nullptr);
-
-	return true;
+	return pResource->Create(pDevice, byteWidth, resourceFlags, MemoryType::DEFAULT,
+		numSRVs, firstSrvElements, numUAVs, firstUavElements, memoryFlags, name,
+		nullptr, maxThreads);
 }
 
 bool AccelerationStructure_DX12::prebuild(const Device* pDevice)
@@ -110,25 +120,20 @@ bool AccelerationStructure_DX12::prebuild(const Device* pDevice)
 	return m_prebuildInfo.ResultDataMaxSizeInBytes;
 }
 
-bool AccelerationStructure_DX12::allocate(const Device* pDevice, size_t byteWidth, uint32_t descriptorIndex, uint32_t numSRVs)
+bool AccelerationStructure_DX12::allocate(const Device* pDevice, size_t byteWidth, uint32_t descriptorIndex,
+	uint32_t numSRVs, MemoryFlag memoryFlags, const wchar_t* name, uint32_t maxThreads)
 {
-	// Allocate resources for acceleration structures.
-	// Acceleration structures can only be placed in resources that are created in the default heap (or custom heap equivalent). 
-	// Default heap is OK since the application doesn't need CPU read/write access to them. 
-	// The resources that will contain acceleration structures must be created in the state D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE, 
-	// and must have resource flag D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS. The ALLOW_UNORDERED_ACCESS requirement simply acknowledges both: 
-	//  - the system will be doing this type of access in its implementation of acceleration structure builds behind the scenes.
-	//  - from the app point of view, synchronization of writes/reads to acceleration structures is accomplished using UAV barriers.
 	m_resource = Buffer::MakeShared();
-	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(pDevice->GetRTHandle());
-	const auto resourceFlags = pDxDevice->UsingRaytracingDriver() ?
-		ResourceFlag::ACCELERATION_STRUCTURE | ResourceFlag::ALLOW_UNORDERED_ACCESS :
-		ResourceFlag::ALLOW_UNORDERED_ACCESS;
 	byteWidth = byteWidth ? byteWidth : GetResultDataMaxSize();
-	XUSG_N_RETURN(m_resource->Create(pDevice, byteWidth, resourceFlags, MemoryType::DEFAULT, numSRVs), false);
+	XUSG_N_RETURN(AllocateDestBuffer(pDevice, m_resource.get(), byteWidth, numSRVs,
+		nullptr, 1, nullptr, memoryFlags, name, maxThreads), false);
+	m_offset = 0;
+	m_srvIndex = 0;
+	m_uavIndex = 0;
 
 	// The Fallback Layer interface uses WRAPPED_GPU_POINTER to encapsulate the underlying pointer
 	// which will either be an emulated GPU pointer for the compute - based path or a GPU_VIRTUAL_ADDRESS for the DXR path.
+	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(pDevice->GetRTHandle());
 	m_pointer = pDxDevice->GetWrappedPointerSimple(descriptorIndex, m_resource->GetVirtualAddress());
 
 	return true;
@@ -162,9 +167,10 @@ bool BottomLevelAS_DX12::Prebuild(const Device* pDevice, uint32_t numGeometries,
 	return prebuild(pDevice);
 }
 
-bool BottomLevelAS_DX12::Allocate(const Device* pDevice, uint32_t descriptorIndex, size_t byteWidth)
+bool BottomLevelAS_DX12::Allocate(const Device* pDevice, uint32_t descriptorIndex, size_t byteWidth,
+	MemoryFlag memoryFlags, const wchar_t* name, uint32_t maxThreads)
 {
-	return allocate(pDevice, byteWidth, descriptorIndex, 0);
+	return allocate(pDevice, byteWidth, descriptorIndex, 0, memoryFlags, name, maxThreads);
 }
 
 void BottomLevelAS_DX12::Build(CommandList* pCommandList, const Resource* pScratch, const BottomLevelAS* pSource,
@@ -175,17 +181,17 @@ void BottomLevelAS_DX12::Build(CommandList* pCommandList, const Resource* pScrat
 		if (pSource && (m_buildDesc.Inputs.Flags & D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE)
 			== D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE)
 		{
-			m_buildDesc.SourceAccelerationStructureData = pSource->GetResource()->GetVirtualAddress();
+			m_buildDesc.SourceAccelerationStructureData = pSource->GetVirtualAddress();
 			m_buildDesc.Inputs.Flags |= D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PERFORM_UPDATE;
 		}
 
-		m_buildDesc.DestAccelerationStructureData = m_resource->GetVirtualAddress();
+		m_buildDesc.DestAccelerationStructureData = GetVirtualAddress();
 		m_buildDesc.ScratchAccelerationStructureData = pScratch->GetVirtualAddress();
 	}
 
 	if (numPostbuildInfoDescs)
 	{
-		m_postbuildInfoRB = Buffer::MakeShared();
+		m_postbuildInfoRB = Buffer::MakeUnique();
 		m_postbuildInfo = Buffer::MakeUnique();
 		m_postbuildInfo->Create(pCommandList->GetDevice(), sizeof(uint64_t) * numPostbuildInfoDescs,
 			ResourceFlag::DENY_SHADER_RESOURCE | ResourceFlag::ALLOW_UNORDERED_ACCESS);
@@ -290,9 +296,10 @@ bool TopLevelAS_DX12::Prebuild(const Device* pDevice, uint32_t numInstances, Bui
 	return prebuild(pDevice);
 }
 
-bool TopLevelAS_DX12::Allocate(const Device* pDevice, uint32_t descriptorIndex, size_t byteWidth)
+bool TopLevelAS_DX12::Allocate(const Device* pDevice, uint32_t descriptorIndex, size_t byteWidth,
+	MemoryFlag memoryFlags, const wchar_t* name, uint32_t maxThreads)
 {
-	return allocate(pDevice, byteWidth, descriptorIndex, 1);
+	return allocate(pDevice, byteWidth, descriptorIndex, 1, memoryFlags, name, maxThreads);
 }
 
 void TopLevelAS_DX12::Build(CommandList* pCommandList, const Resource* pScratch,
@@ -305,11 +312,11 @@ void TopLevelAS_DX12::Build(CommandList* pCommandList, const Resource* pScratch,
 		if (pSource && (m_buildDesc.Inputs.Flags & D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE)
 			== D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE)
 		{
-			m_buildDesc.SourceAccelerationStructureData = pSource->GetResource()->GetVirtualAddress();
+			m_buildDesc.SourceAccelerationStructureData = pSource->GetVirtualAddress();
 			m_buildDesc.Inputs.Flags |= D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PERFORM_UPDATE;
 		}
 
-		m_buildDesc.DestAccelerationStructureData = m_resource->GetVirtualAddress();
+		m_buildDesc.DestAccelerationStructureData = GetVirtualAddress();
 		m_buildDesc.Inputs.InstanceDescs = pInstanceDescs->GetVirtualAddress();
 		m_buildDesc.ScratchAccelerationStructureData = pScratch->GetVirtualAddress();
 	}
@@ -340,26 +347,9 @@ void TopLevelAS_DX12::Build(CommandList* pCommandList, const Resource* pScratch,
 	if (m_postbuildInfo) m_postbuildInfo->ReadBack(pCommandList, m_postbuildInfoRB.get());
 }
 
-void TopLevelAS_DX12::SetInstances(const RayTracing::Device* pDevice, Resource* pInstances,
-	uint32_t numInstances, const BottomLevelAS* const* ppBottomLevelASs, const float* const* transforms)
+void TopLevelAS_DX12::SetInstances(const Device* pDevice, Buffer* pInstances, uint32_t numInstances,
+	const InstanceDesc* pInstanceDescs, MemoryFlag memoryFlags, const wchar_t* instanceName)
 {
-	assert(numInstances == 0 || (ppBottomLevelASs && transforms));
-
-	vector<InstanceDesc> instanceDescs(numInstances);
-	for (auto i = 0u; i < numInstances; ++i)
-	{
-		instanceDescs[i].pTransform = transforms[i];
-		instanceDescs[i].InstanceMask = 1;
-		instanceDescs[i].pBottomLevelAS = ppBottomLevelASs[i];
-	}
-
-	SetInstances(pDevice, pInstances, numInstances, instanceDescs.data());
-}
-
-void TopLevelAS_DX12::SetInstances(const RayTracing::Device* pDevice, Resource* pInstances,
-	uint32_t numInstances, const InstanceDesc* pInstanceDescs)
-{
-	const auto pDxInstances = pInstances ? static_cast<ID3D12Resource*>(pInstances->GetHandle()) : nullptr;
 	assert(numInstances == 0 || pInstanceDescs);
 
 	// Note on Emulated GPU pointers (AKA Wrapped pointers) requirement in Fallback Layer:
@@ -386,13 +376,13 @@ void TopLevelAS_DX12::SetInstances(const RayTracing::Device* pDevice, Resource* 
 		instanceDescs[i].AccelerationStructure = reinterpret_cast<const WRAPPED_GPU_POINTER&>(bottomLevelASPtr);
 	}
 
-	if (pDxInstances)
+	if (pInstances->GetHandle())
 	{
-		void* pMappedData;
-		pDxInstances->Map(0, nullptr, &pMappedData);
+		void* pMappedData = pInstances->Map();
 		memcpy(pMappedData, instanceDescs.data(), sizeof(D3D12_RAYTRACING_FALLBACK_INSTANCE_DESC) * numInstances);
-		pDxInstances->Unmap(0, nullptr);
+		pInstances->Unmap();
 	}
 	else AccelerationStructure_DX12::AllocateUploadBuffer(pDevice, pInstances,
-		sizeof(D3D12_RAYTRACING_FALLBACK_INSTANCE_DESC) * numInstances, instanceDescs.data());
+		sizeof(D3D12_RAYTRACING_FALLBACK_INSTANCE_DESC) * numInstances,
+		instanceDescs.data(), memoryFlags, instanceName);
 }

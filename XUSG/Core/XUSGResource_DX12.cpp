@@ -369,7 +369,7 @@ bool ShaderResource_DX12::checkCastableFormats(Format& format, uint8_t numUavFor
 		{
 			for (uint8_t i = 0; i < numUavFormats; ++i)
 			{
-				if (uavFormats[i] != Format::R32_UINT || uavFormats[i] != Format::R32_SINT)
+				if (uavFormats[i] != Format::R32_UINT && uavFormats[i] != Format::R32_SINT)
 				{
 					needCastableFormats = true;
 					break;
@@ -467,13 +467,17 @@ bool Texture_DX12::Create(const Device* pDevice, uint32_t width, uint32_t height
 	MemoryFlag memoryFlags, const wchar_t* name, uint16_t srvComponentMapping, TextureLayout textureLayout,
 	uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads)
 {
-	assert(numMips >= 1);
 	assert(sampleCount >= 1 && sampleCount <= 16);
-	assert(sampleCount <= 1 || numMips <= 1);
+	assert(sampleCount <= 1 || numMips == 1);
 	XUSG_N_RETURN(Initialize(pDevice, format), false);
 
 	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
 	const auto hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
+
+	// Process MIP levels
+	const auto fullMips = CalculateMipLevels(width, height);
+	numMips = numMips ? (min)(numMips, fullMips) : fullMips;
+	numMips = max<uint8_t>(numMips, 1);
 
 	// Check castable UAV formats
 	const auto needCastableFormats = checkCastableFormats(format, numUavFormats, uavFormats);
@@ -558,11 +562,13 @@ bool Texture_DX12::CreateResource(uint32_t width, uint32_t height, Format format
 			sampleCount, 0, GetDX12ResourceFlags(resourceFlags), GetDX12TextureLayout(textureLayout));
 
 		// Create the texture.
-		com_ptr<ID3D12Device10> dxDevice;
-		V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&dxDevice)), cerr, XUSG_NULL);
-		V_RETURN(dxDevice->CreateCommittedResource3(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
+		com_ptr<ID3D12Device10> device = nullptr;
+		com_ptr<ID3D12Resource2> resource = nullptr;
+		V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&device)), cerr, false);
+		V_RETURN(device->CreateCommittedResource3(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
 			GetDX12BarrierLayout(GetBarrierLayout(m_states[0][0])), nullptr, nullptr, numCastableFormats,
-			castableFormats.data(), IID_PPV_ARGS(&m_resource)), clog, false);
+			castableFormats.data(), IID_PPV_ARGS(&resource)), clog, false);
+		m_resource = resource;
 	}
 	else
 	{
@@ -798,19 +804,12 @@ Descriptor Texture_DX12::CreateUAV(const Descriptor& uavHeapStart, uint32_t desc
 	return descriptor;
 }
 
-uint32_t Texture_DX12::SetBarrier(ResourceBarrier* pBarriers, ResourceState dstState, uint32_t numBarriers,
-	uint32_t subresource, BarrierFlag flags, ResourceState srcState, uint32_t threadIdx)
-{
-	return ShaderResource_DX12::SetBarrier(pBarriers, dstState, numBarriers, subresource, flags, srcState, threadIdx);
-}
-
 uint32_t Texture_DX12::SetBarrier(ResourceBarrier* pBarriers, uint8_t mipLevel, ResourceState dstState,
-	uint32_t numBarriers, uint32_t arraySlice, BarrierFlag flags, ResourceState srcState, uint32_t threadIdx)
+	uint32_t numBarriers, uint16_t arraySlice, BarrierFlag flags, ResourceState srcState, uint8_t plane,
+	uint32_t threadIdx)
 {
 	assert(m_resource);
-	const auto desc = m_resource->GetDesc();
-	const auto numMipLevels = static_cast<uint8_t>(desc.MipLevels);
-	const auto subresource = CalculateSubresource(mipLevel, numMipLevels, arraySlice, desc.DepthOrArraySize);
+	const auto subresource = CalculateSubresource(mipLevel, arraySlice, plane);
 
 	return SetBarrier(pBarriers, dstState, numBarriers, subresource, flags, srcState, threadIdx);
 }
@@ -843,9 +842,7 @@ uint32_t Texture_DX12::Blit(CommandList* pCommandList, ResourceBarrier* pBarrier
 	uint32_t srvSlot, uint16_t baseSlice, uint16_t numSlices, uint32_t threadIdx)
 {
 	const auto prevBarriers = numBarriers;
-	const auto desc = m_resource->GetDesc();
-	if (!numSlices) numSlices = desc.DepthOrArraySize - baseSlice;
-	const auto numMipLevels = static_cast<uint8_t>(desc.MipLevels);
+	if (!numSlices) numSlices = GetArraySize() - baseSlice;
 
 	if (!mipLevel && srcMipLevel <= mipLevel)
 		numBarriers = SetBarrier(pBarriers, ResourceState::UNORDERED_ACCESS, numBarriers,
@@ -853,7 +850,7 @@ uint32_t Texture_DX12::Blit(CommandList* pCommandList, ResourceBarrier* pBarrier
 	else for (uint16_t i = 0; i < numSlices; ++i)
 	{
 		const uint16_t j = baseSlice + i;
-		const auto subresource = CalculateSubresource(mipLevel, numMipLevels, j, desc.DepthOrArraySize);
+		const auto subresource = CalculateSubresource(mipLevel, j);
 		if (m_states[threadIdx][subresource] != ResourceState::UNORDERED_ACCESS)
 		{
 			pBarriers[numBarriers++] = { this, m_states[threadIdx][subresource], ResourceState::UNORDERED_ACCESS, subresource };
@@ -888,10 +885,8 @@ uint32_t Texture_DX12::GenerateMips(CommandList* pCommandList, ResourceBarrier* 
 		numBarriers = SetBarrier(pBarriers, ResourceState::UNORDERED_ACCESS, numBarriers,
 			XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
 
-	const auto desc = m_resource->GetDesc();
-	if (!numSlices) numSlices = desc.DepthOrArraySize - baseSlice;
-	if (!numMips) numMips = desc.MipLevels - baseMip;
-	const auto numMipLevels = static_cast<uint8_t>(desc.MipLevels);
+	if (!numSlices) numSlices = GetArraySize() - baseSlice;
+	if (!numMips) numMips = GetNumMips() - baseMip;
 
 	for (uint8_t i = 0; i < numMips; ++i)
 	{
@@ -901,14 +896,14 @@ uint32_t Texture_DX12::GenerateMips(CommandList* pCommandList, ResourceBarrier* 
 		if (j) for (uint16_t k = 0; k < numSlices; ++k)
 		{
 			const uint16_t n = baseSlice + k;
-			auto subresource = CalculateSubresource(j, numMipLevels, n, desc.DepthOrArraySize);
+			auto subresource = CalculateSubresource(j, n);
 			if (m_states[threadIdx][subresource] != ResourceState::UNORDERED_ACCESS)
 			{
 				pBarriers[numBarriers++] = { this, m_states[threadIdx][subresource], ResourceState::UNORDERED_ACCESS, subresource };
 				m_states[threadIdx][subresource] = ResourceState::UNORDERED_ACCESS;
 			}
 
-			subresource = CalculateSubresource(j - 1, numMipLevels, n, desc.DepthOrArraySize);
+			subresource = CalculateSubresource(j - 1, n);
 			if ((m_states[threadIdx][subresource] & dstState) != dstState)
 				numBarriers = SetBarrier(pBarriers, dstState, numBarriers, subresource,
 					BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
@@ -929,25 +924,39 @@ uint32_t Texture_DX12::GenerateMips(CommandList* pCommandList, ResourceBarrier* 
 	return numBarriers;
 }
 
-const Descriptor& Texture_DX12::GetUAV(uint8_t index) const
+const Descriptor& Texture_DX12::GetUAV(uint8_t level, Format format) const
 {
-	assert(m_uavs.size() > index);
-	return m_uavs[index];
+	if (format != Format::UNKNOWN && format != m_format)
+	{
+		const auto iter = m_castableUavs.find(format);
+		assert(iter != m_castableUavs.cend());
+		assert(iter->second.size() > level);
+
+		return iter->second[level];
+	}
+	else
+	{
+		assert(m_uavs.size() > level);
+		return m_uavs[level];
+	}
 }
 
-const Descriptor& Texture_DX12::GetUAV(Format format, uint8_t index) const
+const Descriptor& Texture_DX12::GetSRV(uint8_t firstLevel, bool singleLevel) const
 {
-	const auto iter = m_castableUavs.find(format);
-	assert(iter != m_castableUavs.cend());
-	assert(iter->second.size() > index);
-
-	return iter->second[index];
+	if (singleLevel)
+	{
+		assert(m_singleLevelSrvs.size() > firstLevel);
+		return m_singleLevelSrvs[firstLevel];
+	}
+	else return ShaderResource_DX12::GetSRV(firstLevel);
 }
 
-const Descriptor& Texture_DX12::GetSingleLevelSRV(uint8_t level) const
+uint32_t Texture_DX12::CalculateSubresource(uint8_t mipLevel, uint16_t arraySlice, uint8_t plane) const
 {
-	assert(m_singleLevelSrvs.size() > level);
-	return m_singleLevelSrvs[level];
+	const auto numMips = GetNumMips();
+
+	return mipLevel + arraySlice * numMips + plane * numMips * GetArraySize();
+	//return D3D12CalcSubresource(mipLevel, arraySlice, plane, numMips, GetArraySize());
 }
 
 uint32_t Texture_DX12::GetHeight() const
@@ -1179,11 +1188,13 @@ bool RenderTarget_DX12::CreateResource(uint32_t width, uint32_t height, Format f
 			0, GetDX12ResourceFlags(ResourceFlag::ALLOW_RENDER_TARGET | resourceFlags), GetDX12TextureLayout(textureLayout));
 
 		// Create the render-target texture.
-		com_ptr<ID3D12Device10> dxDevice;
-		V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&dxDevice)), cerr, XUSG_NULL);
-		V_RETURN(dxDevice->CreateCommittedResource3(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
+		com_ptr<ID3D12Device10> device = nullptr;
+		com_ptr<ID3D12Resource2> resource = nullptr;
+		V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&device)), cerr, false);
+		V_RETURN(device->CreateCommittedResource3(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
 			GetDX12BarrierLayout(GetBarrierLayout(m_states[0][0])), &clearValue, nullptr,
-			numCastableFormats, castableFormats.data(), IID_PPV_ARGS(&m_resource)), clog, false);
+			numCastableFormats, castableFormats.data(), IID_PPV_ARGS(&resource)), clog, false);
+		m_resource = resource;
 	}
 	else
 	{
@@ -1381,17 +1392,21 @@ const Descriptor& RenderTarget_DX12::GetRTV(uint16_t slice, uint8_t mipLevel) co
 }
 
 bool RenderTarget_DX12::create(const Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize,
-	Format format, uint8_t numMips, uint8_t sampleCount, ResourceFlag resourceFlags, const float* pClearColor,
+	Format format, uint8_t& numMips, uint8_t sampleCount, ResourceFlag resourceFlags, const float* pClearColor,
 	bool isCubeMap, MemoryFlag memoryFlags, const wchar_t* name, uint16_t srvComponentMapping,
 	TextureLayout textureLayout, uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads)
 {
-	assert(numMips >= 1);
 	assert(sampleCount >= 1 && sampleCount <= 16);
-	assert(sampleCount <= 1 || numMips <= 1);
+	assert(sampleCount <= 1 || numMips == 1);
 	XUSG_N_RETURN(Initialize(pDevice, format), false);
 
 	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
 	const auto hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
+
+	// Process MIP levels
+	const auto fullMips = CalculateMipLevels(width, height);
+	numMips = numMips ? (min)(numMips, fullMips) : fullMips;
+	numMips = max<uint8_t>(numMips, 1);
 
 	// Check castable UAV formats
 	const auto needCastableFormats = checkCastableFormats(format, numUavFormats, uavFormats);
@@ -1660,35 +1675,35 @@ Descriptor DepthStencil_DX12::CreateDSV(const Descriptor& dsvHeapStart, uint32_t
 	return descriptor;
 }
 
-const Descriptor& DepthStencil_DX12::GetDSV(uint16_t slice, uint8_t mipLevel) const
+const Descriptor& DepthStencil_DX12::GetDSV(uint16_t slice, uint8_t mipLevel, bool readOnly) const
 {
-	assert(m_dsvs.size() > slice && m_dsvs[slice].size() > mipLevel);
-	return m_dsvs[slice][mipLevel];
+	const auto& dsvs = readOnly ? m_readOnlyDsvs : m_dsvs;
+	assert(dsvs.size() > slice && dsvs[slice].size() > mipLevel);
+
+	return dsvs[slice][mipLevel];
 }
 
-const Descriptor& DepthStencil_DX12::GetReadOnlyDSV(uint16_t slice, uint8_t mipLevel) const
+const Descriptor& DepthStencil_DX12::GetSRV(uint8_t firstLevel, bool singleLevel, bool stencil) const
 {
-	assert(m_readOnlyDsvs.size() > slice && m_readOnlyDsvs[slice].size() > mipLevel);
-	return m_readOnlyDsvs[slice][mipLevel];
-}
-
-const Descriptor& DepthStencil_DX12::GetStencilSRV() const
-{
-	return m_stencilSrv;
+	return stencil ? m_stencilSrv : Texture_DX12::GetSRV(firstLevel, singleLevel);
 }
 
 bool DepthStencil_DX12::create(const Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize,
-	uint8_t numMips, uint8_t sampleCount, Format format, ResourceFlag resourceFlags, float clearDepth,
+	uint8_t& numMips, uint8_t sampleCount, Format format, ResourceFlag resourceFlags, float clearDepth,
 	uint8_t clearStencil, bool& hasSRV, Format& formatStencil, bool isCubeMap, MemoryFlag memoryFlags,
 	const wchar_t* name, uint16_t srvComponentMapping, uint16_t stencilSrvComponentMapping,
 	TextureLayout textureLayout, uint32_t maxThreads)
 {
-	assert(numMips >= 1);
 	assert(sampleCount >= 1 && sampleCount <= 16);
 	assert(sampleCount <= 1 || numMips <= 1);
 	XUSG_N_RETURN(Initialize(pDevice, format), false);
 
 	hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
+
+	// Process MIP levels
+	const auto fullMips = CalculateMipLevels(width, height);
+	numMips = numMips ? (min)(numMips, fullMips) : fullMips;
+	numMips = max<uint8_t>(numMips, 1);
 
 	// Map formats
 	auto formatDepth = Format::UNKNOWN;
@@ -1771,11 +1786,15 @@ bool Texture3D_DX12::Create(const Device* pDevice, uint32_t width, uint32_t heig
 	const wchar_t* name, uint16_t srvComponentMapping, TextureLayout textureLayout,
 	uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads)
 {
-	assert(numMips >= 1);
 	XUSG_N_RETURN(Initialize(pDevice, format), false);
 
 	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
 	const auto hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
+
+	// Process MIP levels
+	const auto fullMips = CalculateMipLevels(width, height);
+	numMips = numMips ? (min)(numMips, fullMips) : fullMips;
+	numMips = max<uint8_t>(numMips, 1);
 
 	// Check castable UAV formats
 	const auto needCastableFormats = checkCastableFormats(format, numUavFormats, uavFormats);
@@ -1876,11 +1895,13 @@ bool Texture3D_DX12::CreateResource(uint32_t width, uint32_t height, uint16_t de
 			numMips, GetDX12ResourceFlags(resourceFlags), GetDX12TextureLayout(textureLayout));
 
 		// Create the texture.
-		com_ptr<ID3D12Device10> dxDevice;
-		V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&dxDevice)), cerr, XUSG_NULL);
-		V_RETURN(dxDevice->CreateCommittedResource3(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
+		com_ptr<ID3D12Device10> device = nullptr;
+		com_ptr<ID3D12Resource2> resource = nullptr;
+		V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&device)), cerr, false);
+		V_RETURN(device->CreateCommittedResource3(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
 			GetDX12BarrierLayout(GetBarrierLayout(m_states[0][0])), nullptr, nullptr, numCastableFormats,
-			castableFormats.data(), IID_PPV_ARGS(&m_resource)), clog, false);
+			castableFormats.data(), IID_PPV_ARGS(&resource)), clog, false);
+		m_resource = resource;
 	}
 	else
 	{
@@ -1940,6 +1961,11 @@ Descriptor Texture3D_DX12::CreateUAV(const Descriptor& uavHeapStart, uint32_t de
 	m_device->CreateUnorderedAccessView(m_resource.get(), nullptr, &desc, { descriptor });
 
 	return descriptor;
+}
+
+uint32_t Texture3D_DX12::CalculateSubresource(uint8_t mipLevel) const
+{
+	return mipLevel;
 }
 
 uint16_t Texture3D_DX12::GetDepth() const
@@ -2018,12 +2044,13 @@ bool Buffer_DX12::CreateResource(size_t byteWidth, ResourceFlag resourceFlags, M
 		const auto desc = CD3DX12_RESOURCE_DESC1::Buffer(byteWidth, GetDX12ResourceFlags(resourceFlags));
 
 		// Create the buffer.
-		com_ptr<ID3D12Device10> dxDevice;
-		V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&dxDevice)), cerr, XUSG_NULL);
-		// Create the buffer.
-		V_RETURN(dxDevice->CreateCommittedResource3(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
+		com_ptr<ID3D12Device10> device = nullptr;
+		com_ptr<ID3D12Resource2> resource = nullptr;
+		V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&device)), cerr, false);
+		V_RETURN(device->CreateCommittedResource3(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
 			D3D12_BARRIER_LAYOUT_UNDEFINED, nullptr, nullptr, numCastableFormats, castableFormats.data(),
-			IID_PPV_ARGS(&m_resource)), clog, false);
+			IID_PPV_ARGS(&resource)), clog, false);
+		m_resource = resource;
 	}
 	else
 	{
@@ -2412,13 +2439,17 @@ bool TypedBuffer_DX12::Create(const Device* pDevice, uint32_t numElements, uint3
 	return true;
 }
 
-const Descriptor& TypedBuffer_DX12::GetUAV(Format format, uint32_t index) const
+const Descriptor& TypedBuffer_DX12::GetUAV(uint32_t index, Format format) const
 {
-	const auto iter = m_castableUavs.find(format);
-	assert(iter != m_castableUavs.cend());
-	assert(iter->second.size() > index);
+	if (format != Format::UNKNOWN && format != m_format)
+	{
+		const auto iter = m_castableUavs.find(format);
+		assert(iter != m_castableUavs.cend());
+		assert(iter->second.size() > index);
 
-	return iter->second[index];
+		return iter->second[index];
+	}
+	else return Buffer_DX12::GetUAV(index);
 }
 
 //--------------------------------------------------------------------------------------

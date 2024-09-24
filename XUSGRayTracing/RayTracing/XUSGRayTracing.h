@@ -120,26 +120,43 @@ namespace XUSG
 			virtual ~AccelerationStructure() {}
 
 			// Auto allocate a buffer with byteWidth = GetResultDataMaxSize() when setting byteWidth = 0
-			virtual bool Allocate(const Device* pDevice, uint32_t descriptorIndex, size_t byteWidth = 0) = 0;
+			virtual bool Allocate(const Device* pDevice, uint32_t descriptorIndex, size_t byteWidth = 0,
+				MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr, uint32_t maxThreads = 1) = 0;
 
-			virtual Buffer::sptr GetResource() const = 0;
-			virtual Buffer::sptr GetPostbuildInfo() const = 0;
+			virtual void SetDestData(const Device* pDevice, const Buffer::sptr destBuffer, size_t offset,
+				uint32_t descriptorIndex, uint32_t srvIndex = 0, uint32_t uavIndex = 0) = 0;
+
+			virtual uint32_t SetBarrier(ResourceBarrier* pBarriers, uint32_t numBarriers = 0) = 0;
+
+			virtual Buffer* GetPostbuildInfo() const = 0;
 
 			virtual uint32_t GetResultDataMaxSize() const = 0;
 			virtual uint32_t GetScratchDataMaxSize() const = 0;
 			virtual uint32_t GetUpdateScratchDataSize() const = 0;
 
+			virtual uint64_t GetVirtualAddress() const = 0;
 			virtual uint64_t GetResourcePointer() const = 0;
+
+			virtual const Descriptor& GetSRV() const = 0;
+			virtual const Descriptor& GetUAV() const = 0;
 
 			static uint32_t GetUAVCount();
 
 			static void SetUAVCount(uint32_t numUAVs);
 
-			static bool AllocateUAVBuffer(const Device* pDevice, Resource* pResource,
-				size_t byteWidth, ResourceState dstState = ResourceState::COMMON,
-				API api = API::DIRECTX_12);
-			static bool AllocateUploadBuffer(const Device* pDevice, Resource* pResource,
-				size_t byteWidth, void* pData, API api = API::DIRECTX_12);
+			static bool AllocateDestBuffer(const Device* pDevice, Buffer* pDestBuffer, size_t byteWidth,
+				uint32_t numSRVs = 1, const uint32_t* firstSrvElements = nullptr,
+				uint32_t numUAVs = 1, const uint32_t* firstUavElements = nullptr,
+				MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
+				uint32_t maxThreads = 1, API api = API::DIRECTX_12);
+			static bool AllocateUAVBuffer(const Device* pDevice, Buffer* pBuffer, size_t byteWidth,
+				ResourceState dstState = ResourceState::COMMON, MemoryFlag memoryFlags = MemoryFlag::NONE,
+				const wchar_t* name = nullptr,
+				uint32_t maxThreads = 1);
+			static bool AllocateUploadBuffer(const Device* pDevice, Buffer* pBuffer, size_t byteWidth,
+				void* pData, MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr);
+
+			static uint32_t SetBarrier(ResourceBarrier* pBarriers, Resource* pResource, uint32_t numBarriers = 0);
 		};
 
 		//--------------------------------------------------------------------------------------
@@ -200,12 +217,13 @@ namespace XUSG
 				const TopLevelAS* pSource = nullptr, uint8_t numPostbuildInfoDescs = 0,
 				const PostbuildInfoType* pPostbuildInfoTypes = nullptr) = 0;
 
-			static void SetInstances(const Device* pDevice, Resource* pInstances,
-				uint32_t numInstances, const BottomLevelAS* const* ppBottomLevelASs,
-				const float* const* transforms, API api = API::DIRECTX_12);
-			static void SetInstances(const Device* pDevice, Resource* pInstances,
-				uint32_t numInstances, const InstanceDesc* pInstanceDescs,
+			static void SetInstances(const Device* pDevice, Buffer* pInstances, uint32_t numInstances,
+				const BottomLevelAS* const* ppBottomLevelASs, const float* const* transforms,
+				MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* instanceName = nullptr,
 				API api = API::DIRECTX_12);
+			static void SetInstances(const Device* pDevice, Buffer* pInstances, uint32_t numInstances,
+				const InstanceDesc* pInstanceDescs, MemoryFlag memoryFlags = MemoryFlag::NONE,
+				const wchar_t* instanceName = nullptr, API api = API::DIRECTX_12);
 
 			using uptr = std::unique_ptr<TopLevelAS>;
 			using sptr = std::shared_ptr<TopLevelAS>;
@@ -301,9 +319,6 @@ namespace XUSG
 			virtual void SetTopLevelAccelerationStructure(uint32_t index, uint64_t topLevelASPtr) const = 0;
 			virtual void SetRayTracingPipeline(const Pipeline& pipeline) const = 0;
 			virtual void DispatchRays(uint32_t width, uint32_t height, uint32_t depth,
-				const ShaderTable* pRayGen, const ShaderTable* pHitGroup, const ShaderTable* pMiss,
-				const ShaderTable* pCallable = nullptr) const = 0;
-			virtual void DispatchRays(const Pipeline& pipeline, uint32_t width, uint32_t height, uint32_t depth,
 				const ShaderTable* pRayGen, const ShaderTable* pHitGroup, const ShaderTable* pMiss,
 				const ShaderTable* pCallable = nullptr) const = 0;
 

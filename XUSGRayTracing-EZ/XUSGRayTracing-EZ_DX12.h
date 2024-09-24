@@ -134,7 +134,7 @@ namespace XUSG
 				RayTracing::PipelineLib::uptr m_rayTracingPipelineLib;
 
 				uint32_t m_scratchSize;
-				std::vector<Resource::uptr> m_scratches;
+				std::vector<Buffer::uptr> m_scratches;
 
 				RayTracing::State::uptr m_rayTracingState;
 				bool m_isRTStateDirty;

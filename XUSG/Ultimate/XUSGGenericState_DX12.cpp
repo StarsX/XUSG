@@ -640,9 +640,9 @@ com_ptr<ID3D12StateObject> PipelineLib_DX12::createStateObject(const string& key
 
 	// Create pipeline
 	com_ptr<ID3D12StateObject> stateObject = nullptr;
-	com_ptr<ID3D12Device9> dxDevice;
-	V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&dxDevice)), cerr, nullptr);
-	H_RETURN(dxDevice->CreateStateObject(pPsoDesc, IID_PPV_ARGS(&stateObject)), cerr,
+	com_ptr<ID3D12Device9> device = nullptr;
+	V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&device)), cerr, nullptr);
+	H_RETURN(device->CreateStateObject(pPsoDesc, IID_PPV_ARGS(&stateObject)), cerr,
 		L"Couldn't create DirectX generic state object.\n", stateObject.get());
 
 	if (name) stateObject->SetName(name);

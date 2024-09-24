@@ -16,12 +16,10 @@ using namespace XUSG::RayTracing::EZ;
 
 XUSG::EZ::ResourceView EZ::GetSRV(AccelerationStructure* pAS)
 {
-	const auto pResource = pAS->GetResource().get();
-
 	XUSG::EZ::ResourceView resourceView;
-	resourceView.pResource = pResource;
-	resourceView.View = pResource->GetSRV();
-	resourceView.Subresources = { XUSG_BARRIER_ALL_SUBRESOURCES };
+	resourceView.pResource = nullptr;
+	resourceView.View = pAS->GetSRV();
+	resourceView.Subresources = {};
 	resourceView.DstState = XUSG::ResourceState::RAYTRACING_ACCELERATION_STRUCTURE;
 	resourceView.pCounter = nullptr;
 

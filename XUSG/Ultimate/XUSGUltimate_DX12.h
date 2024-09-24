@@ -24,7 +24,7 @@ namespace XUSG
 
 			bool CreateInterface();
 
-			void Barrier(uint32_t numBarriers, const XUSG::ResourceBarrier* pBarriers);
+			using XUSG::CommandList_DX12::Barrier;
 			void Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups);
 			void Barrier(uint32_t numBufferBarriers, ResourceBarrier* pBufferBarriers,
 				uint32_t numTextureBarriers, ResourceBarrier* pTextureBarriers,

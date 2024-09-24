@@ -100,7 +100,7 @@ void EZ::CommandList_DX12::ResolveSubresourceRegion(Resource* pDstResource, uint
 	assert(pSrcResource);
 
 	// Generate barriers for each resource
-	ResourceBarrier barriers[2];
+	XUSG::ResourceBarrier barriers[2];
 	auto numBarriers = pDstResource->SetBarrier(barriers, ResourceState::RESOLVE_DEST, 0, dstSubresource);
 	numBarriers = pSrcResource->SetBarrier(barriers, ResourceState::RESOLVE_SOURCE, numBarriers, srcSubresource);
 	XUSG::CommandList_DX12::Barrier(numBarriers, barriers);
