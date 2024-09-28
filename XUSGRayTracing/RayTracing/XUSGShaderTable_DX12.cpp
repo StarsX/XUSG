@@ -54,97 +54,84 @@ uint32_t ShaderRecord_DX12::GetShaderIDSize(const Device* pDevice)
 	return shaderIDSize;
 }
 
+size_t ShaderRecord_DX12::Align(uint32_t byteSize)
+{
+	return XUSG::Align(byteSize, D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT);
+}
+
 //--------------------------------------------------------------------------------------
 
 ShaderTable_DX12::ShaderTable_DX12() :
 	m_resource(nullptr),
-	m_mappedShaderRecords(nullptr)
+	m_byteOffset(0),
+	m_byteSize(0),
+	m_byteStride(0),
+	m_mappedData(nullptr)
 {
 }
 
 ShaderTable_DX12::~ShaderTable_DX12()
 {
-	if (m_resource) Unmap();
 }
 
 bool ShaderTable_DX12::Create(const XUSG::Device* pDevice, uint32_t numShaderRecords,
-	uint32_t shaderRecordSize, const wchar_t* name)
+	uint32_t shaderRecordSize, MemoryFlag memoryFlags, const wchar_t* name)
 {
-	if (m_resource) Unmap();
+	m_byteStride = ShaderRecord_DX12::Align(shaderRecordSize);
 
-	m_shaderRecordSize = (shaderRecordSize + D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT - 1) &
-		~(D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT - 1);
-	//m_shaderRecords.reserve(numShaderRecords);
+	m_resource = Buffer::MakeShared(API::DIRECTX_12);
+	const auto byteWidth = Align(m_byteStride * numShaderRecords);
+	XUSG_N_RETURN(m_resource->Initialize(pDevice, Format::R32_TYPELESS), false);
+	XUSG_N_RETURN(m_resource->CreateResource(byteWidth, ResourceFlag::NONE, MemoryType::UPLOAD,
+		memoryFlags, ResourceState::GENERIC_READ_RESOURCE), false);
+	m_resource->SetName(name);
 
-	const auto bufferWidth = numShaderRecords * m_shaderRecordSize;
-	XUSG_N_RETURN(allocate(pDevice, bufferWidth, name), false);
-	XUSG_N_RETURN(Map(), false);
+	m_byteOffset = 0;
+	Reset();
+
+	m_mappedData = static_cast<uint8_t*>(m_resource->Map());
 
 	return true;
 }
 
-bool ShaderTable_DX12::AddShaderRecord(const ShaderRecord* pShaderRecord)
+void ShaderTable_DX12::Create(Buffer::sptr resource, uint32_t shaderRecordSize, uintptr_t byteOffset)
 {
-	//if (m_shaderRecords.size() >= m_shaderRecords.capacity()) return false;
-	//m_shaderRecords.push_back(shaderRecord);
-	pShaderRecord->CopyTo(m_mappedShaderRecords);
-	reinterpret_cast<uint8_t*&>(m_mappedShaderRecords) += m_shaderRecordSize;
+	m_byteStride = ShaderRecord_DX12::Align(shaderRecordSize);
 
-	return true;
+	m_resource = resource;
+	m_byteOffset = byteOffset;
+	Reset();
+
+	m_mappedData = static_cast<uint8_t*>(m_resource->Map()) + byteOffset;
 }
 
-void* ShaderTable_DX12::Map()
+void ShaderTable_DX12::AddShaderRecord(const ShaderRecord* pShaderRecord)
 {
-	if (m_mappedShaderRecords == nullptr)
-	{
-		// Map and initialize the constant buffer. We don't unmap this until the
-		// app closes. Keeping things mapped for the lifetime of the resource is okay.
-		CD3DX12_RANGE readRange(0, 0);	// We do not intend to read from this resource on the CPU.
-		V_RETURN(static_cast<ID3D12Resource*>(m_resource->GetHandle())->Map(0, &readRange, &m_mappedShaderRecords), cerr, nullptr);
-	}
-
-	return m_mappedShaderRecords;
-}
-
-void ShaderTable_DX12::Unmap()
-{
-	if (m_mappedShaderRecords)
-	{
-		static_cast<ID3D12Resource*>(m_resource->GetHandle())->Unmap(0, nullptr);
-		m_mappedShaderRecords = nullptr;
-	}
+	pShaderRecord->CopyTo(m_mappedData + m_byteSize);
+	m_byteSize += m_byteStride;
 }
 
 void ShaderTable_DX12::Reset()
 {
-	Unmap();
-	Map();
+	m_byteSize = 0;
 }
 
-const Resource* ShaderTable_DX12::GetResource() const
+uint64_t ShaderTable_DX12::GetVirtualAddress() const
 {
-	return m_resource.get();
+	return m_resource->GetVirtualAddress() + m_byteOffset;
 }
 
-uint32_t ShaderTable_DX12::GetShaderRecordSize() const
+size_t ShaderTable_DX12::GetByteSize() const
 {
-	return m_shaderRecordSize;
+	return m_byteSize;
 }
 
-bool ShaderTable_DX12::allocate(const XUSG::Device* pDevice, uint32_t byteWidth, const wchar_t* name)
+size_t ShaderTable_DX12::GetByteStride() const
 {
-	const auto heapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
-	const auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(byteWidth);
+	return m_byteStride;
+}
 
-	m_resource = Resource::MakeUnique(API::DIRECTX_12);
-	const auto pDxDevice = static_cast<ID3D12Device*>(pDevice->GetHandle());
-	auto& resource = dynamic_cast<Resource_DX12*>(m_resource.get())->GetResource();
-
-	assert(pDxDevice);
-	V_RETURN(pDxDevice->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE,
-		&bufferDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
-		IID_PPV_ARGS(&resource)), cerr, false);
-	if (name) resource->SetName(name);
-
-	return true;
+size_t ShaderTable_DX12::Align(size_t byteSize)
+{
+	return XUSG::Align(byteSize, D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT);
 }

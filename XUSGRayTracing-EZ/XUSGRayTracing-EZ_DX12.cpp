@@ -22,45 +22,22 @@ EZ::CommandList_DXR::CommandList_DXR() :
 	m_scratches(0),
 	m_isRTStateDirty(false),
 	m_rayTracingState(nullptr),
-	m_asUavCount(0),
 	m_tlasBindingToParamIndexMap(0)
 {
 }
 
 EZ::CommandList_DXR::CommandList_DXR(RayTracing::CommandList* pCommandList,
-	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
-	const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
-	const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
-	const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE],
-	const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE],
-	const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
-	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
-	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
-	uint32_t maxTLASSrvs, uint32_t spaceTLAS,
-	uint32_t slotExt, uint32_t spaceExt) :
+	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize) :
 	CommandList_DXR()
 {
-	Create(pCommandList, samplerHeapSize, cbvSrvUavHeapSize, maxSamplers,
-		pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
-		maxCbvSpaces, maxSrvSpaces, maxUavSpaces,
-		maxTLASSrvs, spaceTLAS, slotExt, spaceExt);
+	Create(pCommandList, samplerHeapSize, cbvSrvUavHeapSize);
 }
 
 EZ::CommandList_DXR::~CommandList_DXR()
 {
 }
 
-bool EZ::CommandList_DXR::Create(RayTracing::CommandList* pCommandList,
-	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
-	const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
-	const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
-	const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE],
-	const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE],
-	const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
-	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
-	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
-	uint32_t maxTLASSrvs, uint32_t spaceTLAS,
-	uint32_t slotExt, uint32_t spaceExt)
+bool EZ::CommandList_DXR::Create(RayTracing::CommandList* pCommandList, uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize)
 {
 	XUSG_N_RETURN(Ultimate::EZ::CommandList_DX12::init(pCommandList, samplerHeapSize, cbvSrvUavHeapSize), false);
 
@@ -73,6 +50,29 @@ bool EZ::CommandList_DXR::Create(RayTracing::CommandList* pCommandList,
 	m_rayTracingPipelineLib = PipelineLib::MakeUnique(m_pDeviceRT, API::DIRECTX_12);
 	m_rayTracingState = State::MakeUnique(API::DIRECTX_12);
 
+	return true;
+}
+
+bool EZ::CommandList_DXR::Create(const RayTracing::Device* pDevice, void* pHandle,
+	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize, const wchar_t* name)
+{
+	m_pDeviceRT = pDevice;
+	RayTracing::CommandList_DX12::Create(pHandle, name);
+
+	return Create(this, samplerHeapSize, cbvSrvUavHeapSize);
+}
+
+bool EZ::CommandList_DXR::CreatePipelineLayouts(
+	const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
+	const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
+	const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE],
+	const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE],
+	const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
+	uint32_t maxTLASSrvs, uint32_t spaceTLAS,
+	uint32_t slotExt, uint32_t spaceExt)
+{
 	// Create common pipeline layouts
 	XUSG_N_RETURN(createGraphicsPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
 		pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces, slotExt, spaceExt), false);
@@ -97,27 +97,6 @@ bool EZ::CommandList_DXR::Create(RayTracing::CommandList* pCommandList,
 	return true;
 }
 
-bool EZ::CommandList_DXR::Create(const RayTracing::Device* pDevice, void* pHandle,
-	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
-	const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
-	const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
-	const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE],
-	const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE],
-	const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
-	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
-	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
-	uint32_t maxTLASSrvs, uint32_t spaceTLAS,
-	uint32_t slotExt, uint32_t spaceExt, const wchar_t* name)
-{
-	m_pDeviceRT = pDevice;
-	RayTracing::CommandList_DX12::Create(pHandle, name);
-
-	return Create(this, samplerHeapSize, cbvSrvUavHeapSize, maxSamplers,
-		pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
-		maxCbvSpaces, maxSrvSpaces, maxUavSpaces,
-		maxTLASSrvs, spaceTLAS, slotExt, spaceExt);
-}
-
 bool EZ::CommandList_DXR::Reset(const CommandAllocator* pAllocator, const Pipeline& initialState)
 {
 	if (!m_scratches.empty())
@@ -135,14 +114,12 @@ bool EZ::CommandList_DXR::Reset(const CommandAllocator* pAllocator, const Pipeli
 bool EZ::CommandList_DXR::PrebuildBLAS(BottomLevelAS* pBLAS, uint32_t numGeometries,
 	const GeometryBuffer& geometries, BuildFlag flags)
 {
-	// Set barrier command
-	XUSG::CommandList_DX12::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
-	m_barriers.clear();
-
 	assert(pBLAS);
 	XUSG_N_RETURN(pBLAS->Prebuild(m_pDeviceRT, numGeometries, geometries, flags), false);
 
-	m_scratchSize = (max)(m_scratchSize, pBLAS->GetScratchDataMaxSize());
+	m_scratchSize = (max)(m_scratchSize, pBLAS->GetScratchDataByteSize());
+	if ((flags & BuildFlag::ALLOW_UPDATE) == BuildFlag::ALLOW_UPDATE)
+		m_scratchSize = (max)(m_scratchSize, pBLAS->GetUpdateScratchDataByteSize());
 
 	return true;
 }
@@ -152,7 +129,9 @@ bool EZ::CommandList_DXR::PrebuildTLAS(TopLevelAS* pTLAS, uint32_t numInstances,
 	assert(pTLAS);
 	XUSG_N_RETURN(pTLAS->Prebuild(m_pDeviceRT, numInstances, flags), false);
 
-	m_scratchSize = (max)(m_scratchSize, pTLAS->GetScratchDataMaxSize());
+	m_scratchSize = (max)(m_scratchSize, pTLAS->GetScratchDataByteSize());
+	if ((flags & BuildFlag::ALLOW_UPDATE) == BuildFlag::ALLOW_UPDATE)
+		m_scratchSize = (max)(m_scratchSize, pTLAS->GetUpdateScratchDataByteSize());
 
 	return true;
 }
@@ -160,14 +139,7 @@ bool EZ::CommandList_DXR::PrebuildTLAS(TopLevelAS* pTLAS, uint32_t numInstances,
 bool EZ::CommandList_DXR::AllocateAccelerationStructure(AccelerationStructure* pAccelerationStructure, size_t byteWidth)
 {
 	assert(pAccelerationStructure);
-	XUSG_N_RETURN(pAccelerationStructure->Allocate(m_pDeviceRT, m_asUavCount++, byteWidth), false);
-
-	const auto descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
-	descriptorTable->SetDescriptors(0, 1, &pAccelerationStructure->GetUAV());
-	const auto uavTable = descriptorTable->GetCbvSrvUavTable(m_descriptorTableLib.get());
-	XUSG_N_RETURN(uavTable, false);
-
-	return true;
+	return pAccelerationStructure->Allocate(m_pDeviceRT, m_descriptorTableLib.get(), byteWidth);
 }
 
 void EZ::CommandList_DXR::SetTriangleGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
@@ -239,15 +211,29 @@ void EZ::CommandList_DXR::SetAABBGeometries(GeometryBuffer& geometries, uint32_t
 	BottomLevelAS::SetAABBGeometries(geometries, numGeometries, vbvs.data(), pGeometryFlags);
 }
 
+void EZ::CommandList_DXR::SetBLASDestination(BottomLevelAS* pBLAS, const Buffer::sptr destBuffer,
+	uintptr_t byteOffset, uint32_t uavIndex)
+{
+	pBLAS->SetDestination(m_pDeviceRT, destBuffer, byteOffset, uavIndex, m_descriptorTableLib.get());
+}
+
+void EZ::CommandList_DXR::SetTLASDestination(TopLevelAS* pTLAS, const Buffer::sptr destBuffer,
+	uintptr_t byteOffset, uint32_t uavIndex, uint32_t srvIndex)
+{
+	pTLAS->SetDestination(m_pDeviceRT, destBuffer, byteOffset, uavIndex, srvIndex, m_descriptorTableLib.get());
+}
+
 void EZ::CommandList_DXR::BuildBLAS(BottomLevelAS* pBLAS, const BottomLevelAS* pSource,
 	uint8_t numPostbuildInfoDescs, const PostbuildInfoType* pPostbuildInfoTypes)
 {
 	assert(pBLAS);
 	const auto pScratch = needScratch(m_scratchSize);
-	pBLAS->Build(this, pScratch, pSource, numPostbuildInfoDescs, pPostbuildInfoTypes);
 
-	const ResourceBarrier barrier = { nullptr, ResourceState::UNORDERED_ACCESS };
-	XUSG::CommandList_DX12::Barrier(1, &barrier);
+	// Set barrier command
+	XUSG::CommandList_DX12::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
+	m_barriers.clear();
+
+	pBLAS->Build(this, pScratch, pSource, numPostbuildInfoDescs, pPostbuildInfoTypes);
 }
 
 void EZ::CommandList_DXR::BuildTLAS(TopLevelAS* pTLAS, const Resource* pInstanceDescs, const TopLevelAS* pSource,
@@ -257,10 +243,11 @@ void EZ::CommandList_DXR::BuildTLAS(TopLevelAS* pTLAS, const Resource* pInstance
 	const auto pScratch = needScratch(m_scratchSize);
 	const auto descriptorHeap = m_descriptorTableLib->GetDescriptorHeap(CBV_SRV_UAV_HEAP);
 
-	pTLAS->Build(this, pScratch, pInstanceDescs, descriptorHeap, pSource, numPostbuildInfoDescs, pPostbuildInfoTypes);
-
+	// Set barrier command
 	const ResourceBarrier barrier = { nullptr, ResourceState::UNORDERED_ACCESS };
 	XUSG::CommandList_DX12::Barrier(1, &barrier);
+
+	pTLAS->Build(this, pScratch, pInstanceDescs, descriptorHeap, pSource, numPostbuildInfoDescs, pPostbuildInfoTypes);
 }
 
 void EZ::CommandList_DXR::CopyRaytracingAccelerationStructure(const AccelerationStructure* pDst,
@@ -366,24 +353,21 @@ void EZ::CommandList_DXR::DispatchRaysIndirect(const CommandLayout* pCommandlayo
 		m_uploaders.emplace_back();
 		auto& uploader = m_uploaders.back();
 
-		uploader = Buffer::MakeUnique();
+		uploader = Buffer::MakeUnique(API::DIRECTX_12);
 		const auto result = uploader->Create(m_pDevice, sizeof(DX12DispatchRaysDescHeader),
 			ResourceFlag::DENY_SHADER_RESOURCE, MemoryType::UPLOAD, 0, nullptr,
 			0, nullptr, MemoryFlag::NONE);
 		assert(result);
 
 		const auto pDispatchDescHeader = static_cast<DX12DispatchRaysDescHeader*>(uploader->Map());
-		const auto dxRayGen = pRayGen ? static_cast<ID3D12Resource*>(pRayGen->GetResource()->GetHandle()) : nullptr;
-		const auto dxHitGroup = pHitGroup ? static_cast<ID3D12Resource*>(pHitGroup->GetResource()->GetHandle()) : nullptr;
-		const auto dxMiss = pMiss ? static_cast<ID3D12Resource*>(pMiss->GetResource()->GetHandle()) : nullptr;
-		pDispatchDescHeader->RayGenerationShaderRecord.StartAddress = dxRayGen ? dxRayGen->GetGPUVirtualAddress() : 0;
-		pDispatchDescHeader->RayGenerationShaderRecord.SizeInBytes = pRayGen ? pRayGen->GetResource()->GetWidth() : 0;
-		pDispatchDescHeader->HitGroupTable.StartAddress = dxHitGroup ? dxHitGroup->GetGPUVirtualAddress() : 0;
-		pDispatchDescHeader->HitGroupTable.SizeInBytes = pHitGroup ? pHitGroup->GetResource()->GetWidth() : 0;
-		pDispatchDescHeader->HitGroupTable.StrideInBytes = pHitGroup ? pHitGroup->GetShaderRecordSize() : 0;
-		pDispatchDescHeader->MissShaderTable.StartAddress = dxMiss ? dxMiss->GetGPUVirtualAddress() : 0;
-		pDispatchDescHeader->MissShaderTable.SizeInBytes = pMiss ? pMiss->GetResource()->GetWidth() : 0;
-		pDispatchDescHeader->MissShaderTable.StrideInBytes = pMiss ? pMiss->GetShaderRecordSize() : 0;
+		pDispatchDescHeader->RayGenerationShaderRecord.StartAddress = pRayGen ? pRayGen->GetVirtualAddress() : 0;
+		pDispatchDescHeader->RayGenerationShaderRecord.SizeInBytes = pRayGen ? pRayGen->GetByteSize() : 0;
+		pDispatchDescHeader->HitGroupTable.StartAddress = pHitGroup ? pHitGroup->GetVirtualAddress() : 0;
+		pDispatchDescHeader->HitGroupTable.SizeInBytes = pHitGroup ? pHitGroup->GetByteSize() : 0;
+		pDispatchDescHeader->HitGroupTable.StrideInBytes = pHitGroup ? pHitGroup->GetByteStride() : 0;
+		pDispatchDescHeader->MissShaderTable.StartAddress = pMiss ? pMiss->GetVirtualAddress() : 0;
+		pDispatchDescHeader->MissShaderTable.SizeInBytes = pMiss ? pMiss->GetByteSize() : 0;
+		pDispatchDescHeader->MissShaderTable.StrideInBytes = pMiss ? pMiss->GetByteStride() : 0;
 		uploader->Unmap();
 
 		CopyBufferRegion(pArgumentBuffer, argumentBufferOffset, uploader.get(), 0, sizeof(DX12DispatchRaysDescHeader));
@@ -548,7 +532,7 @@ void EZ::CommandList_DXR::predispatchRays(CShaderTablePtr& pRayGen, CShaderTable
 	}
 }
 
-XUSG::Resource* EZ::CommandList_DXR::needScratch(uint32_t size)
+XUSG::Resource* EZ::CommandList_DXR::needScratch(size_t size)
 {
 	if (m_scratches.empty() || !m_scratches.back() || m_scratches.back()->GetWidth() < size)
 	{

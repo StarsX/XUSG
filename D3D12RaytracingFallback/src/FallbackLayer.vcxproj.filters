@@ -49,15 +49,6 @@
     <FxCompile Include="LoadTrianglesNoIndexBuffer.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="NullTraverseLib.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="StateMachineLib.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="TraverseShaderLib.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
     <FxCompile Include="TopLevelBuildBVHSplits.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
@@ -79,122 +70,24 @@
     <FxCompile Include="RearrangeTriangles.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="*Lib.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
     <FxCompile Include="TreeletReorder.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="*Lib.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="*Lib.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="*Lib.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
     <FxCompile Include="LoadProceduralGeometry.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
     <FxCompile Include="CalculateMortonCodesForPrimitives.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
     <FxCompile Include="CalculateSceneAABBFromPrimitives.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
     <FxCompile Include="FindTreelets.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
     <FxCompile Include="ClearBuffers.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
-    <FxCompile Include="*Lib.hlsl" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AccelerationStructureBuilderFactory.cpp">
@@ -379,9 +272,6 @@
     <ClInclude Include="HLSLRayTracingInternalPrototypes.h">
       <Filter>Shader Headers</Filter>
     </ClInclude>
-    <ClInclude Include="HLSLRayTracingPrototypes.h">
-      <Filter>Shader Headers</Filter>
-    </ClInclude>
     <ClInclude Include="RayTracingHlslCompat.h">
       <Filter>Shader Headers</Filter>
     </ClInclude>
@@ -407,9 +297,6 @@
       <Filter>Shader Headers</Filter>
     </ClInclude>
     <ClInclude Include="DebugLog.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="D3D12RaytracingFallback.h">
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="FallbackDebug.h">
@@ -439,7 +326,9 @@
     <ClInclude Include="DxbcParser.h">
       <Filter>Headers</Filter>
     </ClInclude>
-    <ClInclude Include="..\Include\D3D12RaytracingFallback.h" />
+    <ClInclude Include="..\Include\D3D12RaytracingFallback.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="BitonicSortCommon.hlsli">
@@ -486,9 +375,8 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="*Lib.hlsl" />
-    <CustomBuild Include="*Lib.hlsl" />
-    <CustomBuild Include="*Lib.hlsl" />
-    <CustomBuild Include="*Lib.hlsl" />
+    <CustomBuild Include="*Lib.hlsl">
+      <Filter>Shaders</Filter>
+    </CustomBuild>
   </ItemGroup>
 </Project>

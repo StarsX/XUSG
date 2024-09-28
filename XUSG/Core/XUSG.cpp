@@ -105,6 +105,11 @@ ConstantBuffer::sptr ConstantBuffer::MakeShared(API api)
 	return make_shared<ConstantBuffer_DX12>();
 }
 
+size_t ConstantBuffer::AlignCBV(size_t byteSize, API api)
+{
+	return ConstantBuffer_DX12::AlignCBV(byteSize);
+}
+
 ShaderResource::uptr ShaderResource::MakeUnique(API api)
 {
 	return make_unique<ShaderResource_DX12>();
@@ -115,13 +120,6 @@ ShaderResource::sptr ShaderResource::MakeShared(API api)
 	return make_shared<ShaderResource_DX12>();
 }
 
-uint8_t Texture::CalculateMipLevels(uint32_t width, uint32_t height, uint32_t depth)
-{
-	const auto texSize = (max)((max)(width, height), depth);
-
-	return Log2(texSize) + 1;
-}
-
 Texture::uptr Texture::MakeUnique(API api)
 {
 	return make_unique<Texture_DX12>();
@@ -130,6 +128,13 @@ Texture::uptr Texture::MakeUnique(API api)
 Texture::sptr Texture::MakeShared(API api)
 {
 	return make_shared<Texture_DX12>();
+}
+
+uint8_t Texture::CalculateMipLevels(uint32_t width, uint32_t height, uint32_t depth)
+{
+	const auto texSize = (max)((max)(width, height), depth);
+
+	return Log2(texSize) + 1;
 }
 
 RenderTarget::uptr RenderTarget::MakeUnique(API api)
@@ -170,6 +175,11 @@ Buffer::uptr Buffer::MakeUnique(API api)
 Buffer::sptr Buffer::MakeShared(API api)
 {
 	return make_shared<Buffer_DX12>();
+}
+
+size_t Buffer::AlignRawView(size_t byteSize, API api)
+{
+	return Buffer_DX12::AlignRawView(byteSize);
 }
 
 StructuredBuffer::uptr StructuredBuffer::MakeUnique(API api)
@@ -386,9 +396,9 @@ uint8_t XUSG::Log2(uint32_t value)
 #endif
 }
 
-size_t XUSG::AlignConstantBufferView(size_t byteSize, API api)
+size_t XUSG::Align(size_t size, size_t alignment)
 {
-	return AlignDX12ConstantBufferView(byteSize);
+	return (size + (alignment - 1)) & ~(alignment - 1);
 }
 
 BarrierLayout XUSG::GetBarrierLayout(ResourceState resourceState)

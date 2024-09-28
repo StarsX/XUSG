@@ -50,7 +50,7 @@ cbuffer TreeletConstants : CONSTANT_REGISTER(ConstantsRegister)
     InputConstants Constants;
 };
 
-#define BIT(x) (1 << (x))
+#define BIT(x) (1u << (x))
 
 static const uint NumInternalTreeletNodes = FullTreeletSize - 1;
 

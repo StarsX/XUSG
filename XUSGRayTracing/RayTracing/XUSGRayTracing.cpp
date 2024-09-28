@@ -19,20 +19,8 @@ using namespace std;
 using namespace XUSG;
 using namespace XUSG::RayTracing;
 
-uint32_t g_numUAVs = 0;
-
-uint32_t AccelerationStructure::GetUAVCount()
-{
-	return g_numUAVs;
-}
-
-void AccelerationStructure::SetUAVCount(uint32_t numUAVs)
-{
-	g_numUAVs = numUAVs;
-}
-
 bool AccelerationStructure::AllocateDestBuffer(const Device* pDevice, Buffer* pDestBuffer, size_t byteWidth,
-	uint32_t numSRVs, const uint32_t* firstSrvElements, uint32_t numUAVs, const uint32_t* firstUavElements,
+	uint32_t numSRVs, const uintptr_t* firstSrvElements, uint32_t numUAVs, const uintptr_t* firstUavElements,
 	MemoryFlag memoryFlags, const wchar_t* name, uint32_t maxThreads, API api)
 {
 	return AccelerationStructure_DX12::AllocateDestBuffer(pDevice, pDestBuffer,
@@ -41,22 +29,22 @@ bool AccelerationStructure::AllocateDestBuffer(const Device* pDevice, Buffer* pD
 }
 
 bool AccelerationStructure::AllocateUAVBuffer(const Device* pDevice, Buffer* pBuffer, size_t byteWidth,
-	ResourceState dstState, MemoryFlag memoryFlag, const wchar_t* name, uint32_t maxThreads)
+	ResourceState dstState, MemoryFlag memoryFlags, const wchar_t* name, uint32_t maxThreads)
 {
 	XUSG_N_RETURN(pBuffer->Initialize(pDevice, Format::R32_TYPELESS), false);
 	XUSG_N_RETURN(pBuffer->CreateResource(byteWidth, ResourceFlag::ALLOW_UNORDERED_ACCESS,
-		MemoryType::DEFAULT, memoryFlag, dstState, 0, nullptr, maxThreads), false);
+		MemoryType::DEFAULT, memoryFlags, dstState, 0, nullptr, maxThreads), false);
 	pBuffer->SetName(name);
 
 	return true;
 }
 
 bool AccelerationStructure::AllocateUploadBuffer(const Device* pDevice, Buffer* pBuffer,
-	size_t byteWidth, void* pData, MemoryFlag memoryFlag, const wchar_t* name)
+	size_t byteWidth, void* pData, MemoryFlag memoryFlags, const wchar_t* name)
 {
 	XUSG_N_RETURN(pBuffer->Initialize(pDevice, Format::R32_TYPELESS), false);
 	XUSG_N_RETURN(pBuffer->CreateResource(byteWidth, ResourceFlag::NONE, MemoryType::UPLOAD,
-		memoryFlag, ResourceState::GENERIC_READ_RESOURCE), false);
+		memoryFlags, ResourceState::GENERIC_READ_RESOURCE), false);
 	pBuffer->SetName(name);
 
 	void* pMappedData = pBuffer->Map();
@@ -174,6 +162,11 @@ ShaderRecord::sptr ShaderRecord::MakeShared(const Device* pDevice, const Pipelin
 	return make_shared<ShaderRecord_DX12>(pDevice, pipeline, shaderName, pLocalDescriptorArgs, localDescriptorArgSize);
 }
 
+size_t ShaderRecord::Align(uint32_t byteSize, API api)
+{
+	return ShaderRecord_DX12::Align(byteSize);
+}
+
 ShaderTable::uptr ShaderTable::MakeUnique(API api)
 {
 	return make_unique<ShaderTable_DX12>();
@@ -182,6 +175,11 @@ ShaderTable::uptr ShaderTable::MakeUnique(API api)
 ShaderTable::sptr ShaderTable::MakeShared(API api)
 {
 	return make_shared<ShaderTable_DX12>();
+}
+
+size_t ShaderTable::Align(size_t byteSize, API api)
+{
+	return ShaderTable_DX12::Align(byteSize);
 }
 
 RayTracing::CommandList::uptr RayTracing::CommandList::MakeUnique(API api)

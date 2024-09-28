@@ -15,21 +15,36 @@
 
 namespace FallbackLayer
 {
-    ConstructHierarchyPass::ConstructHierarchyPass(ID3D12Device *pDevice, UINT nodeMask, UINT numUAVs)
+    ConstructHierarchyPass::ConstructHierarchyPass(ID3D12Device *pDevice, UINT nodeMask)
     {
-        D3D12_DESCRIPTOR_RANGE1 globalDescriptorHeapRange = CD3DX12_DESCRIPTOR_RANGE1(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, numUAVs, GlobalDescriptorHeapRegister, GlobalDescriptorHeapRegisterSpace, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE | D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE);
+        CD3DX12_ROOT_PARAMETER1 rootParameters[NumRootParameters];
+        rootParameters[HierarchyUAVParam].InitAsUnorderedAccessView(HierarchyBufferRegister);
+        rootParameters[MortonCodesBufferParam].InitAsUnorderedAccessView(MortonCodesBufferRegister);
+        rootParameters[InputRootConstants].InitAsConstants(SizeOfInUint32(InputConstants), InputConstantsRegister);
+
+        auto rootSignatureDesc = CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC(NumRootParameters - 1, rootParameters);
+        CreateRootSignatureHelper(pDevice, rootSignatureDesc, &m_pRootSignatures[Level::Bottom]);
+
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignatures[Level::Bottom].Get(), COMPILED_SHADER(g_pBottomLevelBuildBVHSplits), &m_pBuildSplits[Level::Bottom]);
+    }
+
+    void ConstructHierarchyPass::CreateTopLevelPipeline(ID3D12Device* pDevice, UINT nodeMask, UINT numUAVs)
+    {
+        assert(numUAVs > 0);
+        const D3D12_DESCRIPTOR_RANGE1 globalDescriptorHeapRange =
+            CD3DX12_DESCRIPTOR_RANGE1(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, numUAVs, GlobalDescriptorHeapRegister, GlobalDescriptorHeapRegisterSpace,
+                D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE | D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE, 0);
+
         CD3DX12_ROOT_PARAMETER1 rootParameters[NumRootParameters];
         rootParameters[HierarchyUAVParam].InitAsUnorderedAccessView(HierarchyBufferRegister);
         rootParameters[MortonCodesBufferParam].InitAsUnorderedAccessView(MortonCodesBufferRegister);
         rootParameters[InputRootConstants].InitAsConstants(SizeOfInUint32(InputConstants), InputConstantsRegister);
         rootParameters[GlobalDescriptorHeap].InitAsDescriptorTable(1, &globalDescriptorHeapRange);
 
-        auto rootSignatureDesc = CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC(ARRAYSIZE(rootParameters), rootParameters);
-        CreateRootSignatureHelper(pDevice, rootSignatureDesc, &m_pRootSignature);
+        auto rootSignatureDesc = CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC(NumRootParameters, rootParameters);
+        CreateRootSignatureHelper(pDevice, rootSignatureDesc, &m_pRootSignatures[Level::Top]);
 
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pTopLevelBuildBVHSplits), &m_pBuildSplits[Level::Top]);
-
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pBottomLevelBuildBVHSplits), &m_pBuildSplits[Level::Bottom]);
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignatures[Level::Top].Get(), COMPILED_SHADER(g_pTopLevelBuildBVHSplits), &m_pBuildSplits[Level::Top]);
     }
 
     void ConstructHierarchyPass::ConstructHierarchy(ID3D12GraphicsCommandList *pCommandList,
@@ -45,14 +60,12 @@ namespace FallbackLayer
 
         InputConstants constants = { numElements };
 
-        pCommandList->SetComputeRootSignature(m_pRootSignature.Get());
+        pCommandList->SetComputeRootSignature(m_pRootSignatures[level].Get());
         pCommandList->SetComputeRoot32BitConstants(InputRootConstants, SizeOfInUint32(InputConstants), &constants, 0);
         pCommandList->SetComputeRootUnorderedAccessView(MortonCodesBufferParam, mortonCodeBuffer);
         pCommandList->SetComputeRootUnorderedAccessView(HierarchyUAVParam, hierarchyBuffer);
         if (level == Top)
-        {
             pCommandList->SetComputeRootDescriptorTable(GlobalDescriptorHeap, globalDescriptorHeap);
-        }
 
         // Only given the GPU VA not the resource itself so need to resort to doing an overarching UAV barrier
         const UINT dispatchWidth = DivideAndRoundUp<UINT>(numElements, THREAD_GROUP_1D_WIDTH);

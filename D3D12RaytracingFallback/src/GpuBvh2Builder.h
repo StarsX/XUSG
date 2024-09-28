@@ -15,13 +15,14 @@ namespace FallbackLayer
     class GpuBvh2Builder : public IAccelerationStructureBuilder
     {
     public:
-        GpuBvh2Builder(ID3D12Device *pDevice, UINT totalLaneCount, UINT nodeMask, UINT numUAVs);
+        GpuBvh2Builder(ID3D12Device *pDevice, UINT totalLaneCount, UINT nodeMask);
         virtual ~GpuBvh2Builder() {}
 
         virtual void BuildRaytracingAccelerationStructure(
             _In_  ID3D12GraphicsCommandList *pCommandList,
             _In_  const D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC *pDesc,
-            _In_ ID3D12DescriptorHeap *pCbvSrvUavDescriptorHeap
+            _In_ ID3D12DescriptorHeap *pCbvSrvUavDescriptorHeap,
+            _In_ UINT NumUAVs
         );
 
         virtual void CopyRaytracingAccelerationStructure(
@@ -79,6 +80,10 @@ namespace FallbackLayer
 
         PostBuildInfoQuery m_postBuildInfoQuery;
         GpuBvh2Copy m_copyPass;
+
+        // For reinitialized passes
+        UINT m_nodeMask;
+        UINT m_numUAVs;
 
         struct GpuBVHBuffers {
             D3D12_GPU_VIRTUAL_ADDRESS scratchElementBuffer;

@@ -17,7 +17,7 @@ namespace FallbackLayer
     public:
         AccelerationStructureBuilderFactory(ID3D12Device *pDevice, UINT nodeMask) : m_pDevice(pDevice), m_nodeMask(nodeMask) {}
 
-        IAccelerationStructureBuilder &GetAccelerationStructureBuilder(UINT numUAVs);
+        IAccelerationStructureBuilder &GetAccelerationStructureBuilder();
 
     private:
         enum BuilderType {
@@ -26,8 +26,8 @@ namespace FallbackLayer
         };
 
         BuilderType DetermineBestBuilder();
-        IAccelerationStructureBuilder &GetBuilder(BuilderType builderType, UINT numUAVs);
-        IAccelerationStructureBuilder *CreateBuilder(BuilderType type, UINT numUAVs);
+        IAccelerationStructureBuilder &GetBuilder(BuilderType builderType);
+        IAccelerationStructureBuilder *CreateBuilder(BuilderType type);
 
         std::unique_ptr<IAccelerationStructureBuilder> m_spBuilders[NumBuilders];
 

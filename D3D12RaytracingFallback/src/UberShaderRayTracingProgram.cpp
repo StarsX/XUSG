@@ -220,7 +220,8 @@ namespace FallbackLayer
         const D3D12_DISPATCH_RAYS_DESC &desc)
     {
         assert(pSrvCbvUavDescriptorHeap);
-        pCommandList->SetComputeRootDescriptorTable(m_patchRootSignatureParameterStart + CbvSrvUavDescriptorHeapAliasedTables, pSrvCbvUavDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+        pCommandList->SetComputeRootDescriptorTable(m_patchRootSignatureParameterStart + UavCbvDescriptorHeapAliasedTables, pSrvCbvUavDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+        pCommandList->SetComputeRootDescriptorTable(m_patchRootSignatureParameterStart + SrvDescriptorHeapAliasedTables, pSrvCbvUavDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 
         if (pSamplerDescriptorHeap)
         {

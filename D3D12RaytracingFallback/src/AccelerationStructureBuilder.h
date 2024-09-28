@@ -28,7 +28,8 @@ namespace FallbackLayer
         virtual void BuildRaytracingAccelerationStructure(
             _In_  ID3D12GraphicsCommandList *pCommandList,
             _In_  const D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC *pDesc,
-            _In_ ID3D12DescriptorHeap *pCbvSrvUavDescriptorHeap) = 0;
+            _In_ ID3D12DescriptorHeap *pCbvSrvUavDescriptorHeap,
+            _In_ UINT NumUAVs) = 0;
 
         virtual void CopyRaytracingAccelerationStructure(
             _In_  ID3D12GraphicsCommandList *pCommandList,

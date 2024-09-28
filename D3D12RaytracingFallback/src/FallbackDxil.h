@@ -64,7 +64,8 @@ enum RootSignatureParameterOffset {
   RayGenShaderRecord,
   CallableShaderRecord,
   DispatchConstants,
-  CbvSrvUavDescriptorHeapAliasedTables,
+  UavCbvDescriptorHeapAliasedTables,
+  SrvDescriptorHeapAliasedTables,
   SamplerDescriptorHeapAliasedTables,
   AccelerationStructuresList,
 #if ENABLE_UAV_LOG

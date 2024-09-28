@@ -7,8 +7,6 @@
 
 using namespace XUSG;
 
-#define REMOVE_RAYTRACING_AS	(~ResourceFlag::ACCELERATION_STRUCTURE | ResourceFlag::ALLOW_UNORDERED_ACCESS)
-
 #define APPEND_FLAG(type, dx12Type, flags, flag, none) ((flags & type::flag) == type::flag ? dx12Type##_##flag : dx12Type##_##none)
 #define APPEND_COMMAND_QUEUE_FLAG(flags, flag) APPEND_FLAG(CommandQueueFlag, D3D12_COMMAND_QUEUE_FLAG, flags, flag, NONE)
 #define APPEND_HEAP_FLAG(flags, flag) APPEND_FLAG(MemoryFlag, D3D12_HEAP_FLAG, flags, flag, NONE)
@@ -426,8 +424,6 @@ D3D12_RESOURCE_FLAGS XUSG::GetDX12ResourceFlag(ResourceFlag resourceFlag)
 
 D3D12_RESOURCE_FLAGS XUSG::GetDX12ResourceFlags(ResourceFlag resourceFlags)
 {
-	resourceFlags &= REMOVE_RAYTRACING_AS;
-
 	auto flags = D3D12_RESOURCE_FLAG_NONE;
 	flags |= APPEND_RESOURCE_FLAG(resourceFlags, ALLOW_RENDER_TARGET);
 	flags |= APPEND_RESOURCE_FLAG(resourceFlags, ALLOW_DEPTH_STENCIL);
@@ -437,6 +433,9 @@ D3D12_RESOURCE_FLAGS XUSG::GetDX12ResourceFlags(ResourceFlag resourceFlags)
 	flags |= APPEND_RESOURCE_FLAG(resourceFlags, ALLOW_SIMULTANEOUS_ACCESS);
 	flags |= APPEND_RESOURCE_FLAG(resourceFlags, VIDEO_DECODE_REFERENCE_ONLY);
 	flags |= APPEND_RESOURCE_FLAG(resourceFlags, VIDEO_ENCODE_REFERENCE_ONLY);
+
+	if ((resourceFlags & ResourceFlag::ACCELERATION_STRUCTURE) == ResourceFlag::ACCELERATION_STRUCTURE)
+		flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 
 	return flags;
 }

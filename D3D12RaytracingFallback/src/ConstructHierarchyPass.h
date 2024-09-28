@@ -14,7 +14,9 @@ namespace FallbackLayer
     class ConstructHierarchyPass
     {
     public:
-        ConstructHierarchyPass(ID3D12Device *pDevice, UINT nodeMask, UINT numUAVs);
+        ConstructHierarchyPass(ID3D12Device *pDevice, UINT nodeMask);
+
+        void CreateTopLevelPipeline(ID3D12Device* pDevice, UINT nodeMask, UINT numUAVs);
 
         void ConstructHierarchy(ID3D12GraphicsCommandList *pCommandList,
             SceneType sceneType,
@@ -39,7 +41,7 @@ namespace FallbackLayer
             NumLevels
         };
 
-        Microsoft::WRL::ComPtr<ID3D12RootSignature> m_pRootSignature;
+        Microsoft::WRL::ComPtr<ID3D12RootSignature> m_pRootSignatures[Level::NumLevels];
         Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pBuildSplits[Level::NumLevels];
     };
 }

@@ -19,6 +19,10 @@ namespace XUSG
 		virtual ~Resource_DX12();
 
 		bool Initialize(const Device* pDevice);
+		bool ReadFromSubresource(void* pDstData, uint32_t dstRowPitch, uint32_t dstDepthPitch,
+			uint32_t srcSubresource, const BoxRange* pSrcBox = nullptr);
+		bool WriteToSubresource(uint32_t dstSubresource, const void* pSrcData, uint32_t srcRowPitch,
+			uint32_t srcDepthPitch, const BoxRange* pDstBox = nullptr);
 
 		Descriptor AllocateCbvSrvUavHeap(uint32_t numDescriptors);
 
@@ -34,6 +38,8 @@ namespace XUSG
 		uint64_t GetWidth() const;
 		uint64_t GetVirtualAddress(int offset = 0) const;
 
+		void Unmap(const Range* pWrittenRange = nullptr);
+
 		void Create(void* pDeviceHandle, void* pResourceHandle,
 			const wchar_t* name = nullptr, uint32_t maxThreads = 1);
 		void SetName(const wchar_t* name);
@@ -48,6 +54,8 @@ namespace XUSG
 		std::vector<std::vector<ResourceState>> m_states;
 
 		com_ptr<ID3D12DescriptorHeap> m_cbvSrvUavHeap;
+
+		void* m_pDataBegin;
 
 		bool m_hasPromotion;
 
@@ -80,17 +88,17 @@ namespace XUSG
 		Descriptor CreateCBV(const Descriptor& cbvHeapStart, uint32_t descriptorIdx,
 			uint32_t byteSize, size_t byteOffset = 0);
 
-		void* Map(uint32_t cbvIndex = 0);
-		void Unmap();
+		void* Map(uint32_t cbvIndex = 0, uintptr_t readBegin = 0, uintptr_t readEnd = 0);
+		void* Map(const Range* pReadRange, uint32_t cbvIndex = 0);
 
 		const Descriptor& GetCBV(uint32_t index = 0) const;
 		uint32_t GetCBVOffset(uint32_t index) const;
 
+		static size_t AlignCBV(size_t byteSize);
+
 	protected:
 		std::vector<Descriptor>	m_cbvs;
-		std::vector<size_t> m_cbvByteOffsets;
-
-		void* m_pDataBegin;
+		std::vector<uintptr_t>	m_cbvByteOffsets;
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -193,6 +201,9 @@ namespace XUSG
 		uint16_t	GetArraySize() const;
 		uint8_t		GetNumMips() const;
 		size_t		GetRequiredIntermediateSize(uint32_t firstSubresource, uint32_t numSubresources) const;
+
+		void* Map(uint32_t subresource = 0, uintptr_t readBegin = 0, uintptr_t readEnd = 0);
+		void* Map(const Range* pReadRange, uint32_t subresource = 0);
 
 	protected:
 		bool createSRVs(uint32_t& descriptorIdx, uint16_t arraySize, Format format, uint8_t numMips,
@@ -386,9 +397,9 @@ namespace XUSG
 
 		bool Create(const Device* pDevice, size_t byteWidth, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			MemoryType memoryType = MemoryType::DEFAULT, uint32_t numSRVs = 1,
-			const uint32_t* firstSrvElements = nullptr, uint32_t numUAVs = 1,
-			const uint32_t* firstUavElements = nullptr, MemoryFlag memoryFlags = MemoryFlag::NONE,
-			const wchar_t* name = nullptr, const size_t* counterByteOffsets = nullptr, uint32_t maxThreads = 1);
+			const uintptr_t* firstSrvElements = nullptr, uint32_t numUAVs = 1,
+			const uintptr_t* firstUavElements = nullptr, MemoryFlag memoryFlags = MemoryFlag::NONE,
+			const wchar_t* name = nullptr, const uintptr_t* counterByteOffsets = nullptr, uint32_t maxThreads = 1);
 		bool CreateResource(size_t byteWidth, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			MemoryType memoryType = MemoryType::DEFAULT, MemoryFlag memoryFlags = MemoryFlag::NONE,
 			ResourceState initialResourceState = ResourceState::COMMON, uint8_t numCastableFormats = 0,
@@ -401,37 +412,36 @@ namespace XUSG
 			size_t srcOffset = 0, ResourceState dstState = ResourceState::COMMON, uint32_t threadIdx = 0);
 
 		Descriptor CreateSRV(const Descriptor& srvHeapStart, uint32_t descriptorIdx,
-			uint32_t numElements, uint32_t byteStride, Format format, uint32_t firstElement = 0,
+			uint32_t numElements, uint32_t byteStride, Format format, uintptr_t firstElement = 0,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING);
 		Descriptor CreateUAV(const Descriptor& uavHeapStart, uint32_t descriptorIdx, uint32_t numElements,
-			uint32_t byteStride, Format format, uint32_t firstElement = 0, size_t counterByteOffset = 0);
+			uint32_t byteStride, Format format, uintptr_t firstElement = 0, size_t counterByteOffset = 0);
 
 		const Descriptor& GetUAV(uint32_t index = 0) const;
 
 		void* Map(uint32_t descriptorIndex = 0, uintptr_t readBegin = 0, uintptr_t readEnd = 0);
 		void* Map(const Range* pReadRange, uint32_t descriptorIndex = 0);
 
-		void Unmap();
 		void SetCounter(const Resource::sptr& counter);
 
 		Resource::sptr GetCounter() const;
 
-	protected:
-		bool create(const Device* pDevice, uint32_t numElements, uint32_t byteStride, Format format,
-			ResourceFlag resourceFlags, MemoryType memoryType, uint32_t numSRVs, const uint32_t* firstSrvElements,
-			uint32_t numUAVs, const uint32_t* firstUavElements, MemoryFlag memoryFlags, const wchar_t* name,
-			const size_t* counterByteOffsets, uint32_t maxThreads);
+		static size_t AlignRawView(size_t byteSize);
 
-		void getViewRange(uint32_t& viewElements, uint32_t& firstElement, uint32_t i,
-			uint32_t bufferElements, uint32_t byteStride, const uint32_t* firstElements,
-			uint32_t numDescriptors, size_t* pByteOffset = nullptr);
+	protected:
+		bool create(const Device* pDevice, size_t numElements, uint32_t byteStride, Format format,
+			ResourceFlag resourceFlags, MemoryType memoryType, uint32_t numSRVs, const uintptr_t* firstSrvElements,
+			uint32_t numUAVs, const uintptr_t* firstUavElements, MemoryFlag memoryFlags, const wchar_t* name,
+			const uintptr_t* counterByteOffsets, uint32_t maxThreads);
+
+		void getViewRange(uint32_t& viewElements, uintptr_t& firstElement, uint32_t i,
+			size_t bufferElements, uint32_t byteStride, const uintptr_t* firstElements,
+			uint32_t numDescriptors, uintptr_t* pByteOffset = nullptr);
 
 		std::vector<Descriptor>	m_uavs;
-		std::vector<size_t>	m_srvByteOffsets;
+		std::vector<uintptr_t>	m_srvByteOffsets;
 
 		std::shared_ptr<Resource> m_counter;
-
-		void* m_pDataBegin;
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -445,12 +455,12 @@ namespace XUSG
 		StructuredBuffer_DX12();
 		virtual ~StructuredBuffer_DX12();
 
-		bool Create(const Device* pDevice, uint32_t numElements, uint32_t byteStride,
+		bool Create(const Device* pDevice, size_t numElements, uint32_t byteStride,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
-			uint32_t numSRVs = 1, const uint32_t* firstSrvElements = nullptr,
-			uint32_t numUAVs = 1, const uint32_t* firstUavElements = nullptr,
+			uint32_t numSRVs = 1, const uintptr_t* firstSrvElements = nullptr,
+			uint32_t numUAVs = 1, const uintptr_t* firstUavElements = nullptr,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
-			const size_t* counterByteOffsets = nullptr, uint32_t maxThreads = 1);
+			const uintptr_t* counterByteOffsets = nullptr, uint32_t maxThreads = 1);
 		bool Initialize(const Device* pDevice);
 	};
 
@@ -465,13 +475,13 @@ namespace XUSG
 		TypedBuffer_DX12();
 		virtual ~TypedBuffer_DX12();
 
-		bool Create(const Device* pDevice, uint32_t numElements, uint32_t byteStride, Format format,
+		bool Create(const Device* pDevice, size_t numElements, uint32_t byteStride, Format format,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
-			uint32_t numSRVs = 1, const uint32_t* firstSrvElements = nullptr,
-			uint32_t numUAVs = 1, const uint32_t* firstUavElements = nullptr,
+			uint32_t numSRVs = 1, const uintptr_t* firstSrvElements = nullptr,
+			uint32_t numUAVs = 1, const uintptr_t* firstUavElements = nullptr,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
-			const size_t* counterByteOffsets = nullptr, uint8_t numUavFormats = 0,
+			const uintptr_t* counterByteOffsets = nullptr, uint8_t numUavFormats = 0,
 			const Format* uavFormats = nullptr, uint32_t maxThreads = 1);
 
 		const Descriptor& GetUAV(uint32_t index = 0, Format format = Format::UNKNOWN) const;
@@ -491,27 +501,27 @@ namespace XUSG
 		VertexBuffer_DX12();
 		virtual ~VertexBuffer_DX12();
 
-		bool Create(const Device* pDevice, uint32_t numVertices, uint32_t byteStride,
+		bool Create(const Device* pDevice, size_t numVertices, uint32_t byteStride,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
-			uint32_t numVBVs = 1, const uint32_t* firstVertices = nullptr,
-			uint32_t numSRVs = 1, const uint32_t* firstSrvElements = nullptr,
-			uint32_t numUAVs = 1, const uint32_t* firstUavElements = nullptr,
+			uint32_t numVBVs = 1, const uintptr_t* firstVertices = nullptr,
+			uint32_t numSRVs = 1, const uintptr_t* firstSrvElements = nullptr,
+			uint32_t numUAVs = 1, const uintptr_t* firstUavElements = nullptr,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
-			const size_t* counterByteOffsets = nullptr, uint32_t maxThreads = 1);
-		bool CreateAsRaw(const Device* pDevice, uint32_t numVertices, uint32_t byteStride,
+			const uintptr_t* counterByteOffsets = nullptr, uint32_t maxThreads = 1);
+		bool CreateAsRaw(const Device* pDevice, size_t numVertices, uint32_t byteStride,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
-			uint32_t numVBVs = 1, const uint32_t* firstVertices = nullptr,
-			uint32_t numSRVs = 1, const uint32_t* firstSrvElements = nullptr,
-			uint32_t numUAVs = 1, const uint32_t* firstUavElements = nullptr,
+			uint32_t numVBVs = 1, const uintptr_t* firstVertices = nullptr,
+			uint32_t numSRVs = 1, const uintptr_t* firstSrvElements = nullptr,
+			uint32_t numUAVs = 1, const uintptr_t* firstUavElements = nullptr,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
-			const size_t* counterByteOffsets = nullptr, uint32_t maxThreads = 1);
+			const uintptr_t* counterByteOffsets = nullptr, uint32_t maxThreads = 1);
 
-		void CreateVBV(VertexBufferView& vbv, uint32_t numVertices, uint32_t byteStride, uint32_t firstVertex = 0);
+		void CreateVBV(VertexBufferView& vbv, uint32_t numVertices, uint32_t byteStride, uintptr_t firstVertex = 0);
 
 		const VertexBufferView& GetVBV(uint32_t index = 0) const;
 
 	protected:
-		void createVBVs(uint32_t numVertices, uint32_t byteStride, uint32_t numVBVs, const uint32_t* firstVertices);
+		void createVBVs(size_t numVertices, uint32_t byteStride, uint32_t numVBVs, const uintptr_t* firstVertices);
 
 		std::vector<VertexBufferView> m_vbvs;
 	};
@@ -530,12 +540,12 @@ namespace XUSG
 		bool Create(const Device* pDevice, size_t byteWidth, Format format = Format::R32_UINT,
 			ResourceFlag resourceFlags = ResourceFlag::DENY_SHADER_RESOURCE,
 			MemoryType memoryType = MemoryType::DEFAULT,
-			uint32_t numIBVs = 1, const size_t* ibvByteOffsets = nullptr,
-			uint32_t numSRVs = 1, const uint32_t* firstSrvElements = nullptr,
-			uint32_t numUAVs = 1, const uint32_t* firstUavElements = nullptr,
+			uint32_t numIBVs = 1, const uintptr_t* ibvByteOffsets = nullptr,
+			uint32_t numSRVs = 1, const uintptr_t* firstSrvElements = nullptr,
+			uint32_t numUAVs = 1, const uintptr_t* firstUavElements = nullptr,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
-			const size_t* counterByteOffsets = nullptr, uint32_t maxThreads = 1);
+			const uintptr_t* counterByteOffsets = nullptr, uint32_t maxThreads = 1);
 
 		void CreateIBV(IndexBufferView& ibv, Format format, uint32_t byteSize, size_t byteOffset = 0);
 

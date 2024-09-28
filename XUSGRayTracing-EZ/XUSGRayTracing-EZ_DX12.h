@@ -19,21 +19,13 @@ namespace XUSG
 			{
 			public:
 				CommandList_DXR();
-				CommandList_DXR(RayTracing::CommandList* pCommandList,
-					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
-					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
-					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
-					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
-					const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
-					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
-					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
-					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
-					uint32_t maxTLASSrvs = 0, uint32_t spaceTLAS = 0,
-					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
+				CommandList_DXR(RayTracing::CommandList* pCommandList, uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize);
 				virtual ~CommandList_DXR();
 
-				bool Create(RayTracing::CommandList* pCommandList,
-					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
+				bool Create(RayTracing::CommandList* pCommandList, uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize);
+				bool Create(const RayTracing::Device* pDevice, void* pHandle, uint32_t samplerHeapSize,
+					uint32_t cbvSrvUavHeapSize, const wchar_t* name = nullptr);
+				bool CreatePipelineLayouts(
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
@@ -43,18 +35,6 @@ namespace XUSG
 					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					uint32_t maxTLASSrvs = 0, uint32_t spaceTLAS = 0,
 					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
-				bool Create(const RayTracing::Device* pDevice, void* pHandle,
-					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
-					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
-					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
-					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
-					const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
-					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
-					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
-					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
-					uint32_t maxTLASSrvs = 0, uint32_t spaceTLAS = 0,
-					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE,
-					const wchar_t* name = nullptr);
 				bool Reset(const CommandAllocator* pAllocator, const Pipeline& initialState);
 				bool PrebuildBLAS(BottomLevelAS* pBLAS, uint32_t numGeometries, const GeometryBuffer& geometries,
 					BuildFlag flags = BuildFlag::PREFER_FAST_TRACE);
@@ -67,6 +47,10 @@ namespace XUSG
 					const GeometryFlag* pGeometryFlags = nullptr, const ResourceView* pTransforms = nullptr);
 				void SetAABBGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
 					XUSG::EZ::VertexBufferView* pVBs, const GeometryFlag* pGeometryFlags = nullptr);
+				void SetBLASDestination(BottomLevelAS* pBLAS, const Buffer::sptr destBuffer,
+					uintptr_t byteOffset, uint32_t uavIndex);
+				void SetTLASDestination(TopLevelAS* pTLAS, const Buffer::sptr destBuffer,
+					uintptr_t byteOffset, uint32_t uavIndex, uint32_t srvIndex);
 				void BuildBLAS(BottomLevelAS* pBLAS, const BottomLevelAS* pSource = nullptr,
 					uint8_t numPostbuildInfoDescs = 0, const PostbuildInfoType* pPostbuildInfoTypes = nullptr);
 				void BuildTLAS(TopLevelAS* pTLAS, const Resource* pInstanceDescs, const TopLevelAS* pSource = nullptr,
@@ -125,7 +109,7 @@ namespace XUSG
 				void predispatchRays(CShaderTablePtr& pRayGen, CShaderTablePtr& pHitGroup, CShaderTablePtr& pMiss,
 					const wchar_t* rayGenShaderName, const wchar_t* const* pMissShaderNames, uint32_t numMissShaders);
 
-				Resource* needScratch(uint32_t size);
+				Resource* needScratch(size_t size);
 
 				const ShaderTable* getShaderTable(const std::string& key,
 					std::unordered_map<std::string, ShaderTable::uptr>& shaderTables,
@@ -133,13 +117,12 @@ namespace XUSG
 
 				RayTracing::PipelineLib::uptr m_rayTracingPipelineLib;
 
-				uint32_t m_scratchSize;
+				size_t m_scratchSize;
 				std::vector<Buffer::uptr> m_scratches;
 
 				RayTracing::State::uptr m_rayTracingState;
 				bool m_isRTStateDirty;
 
-				uint32_t m_asUavCount;
 				std::vector<uint32_t> m_tlasBindingToParamIndexMap;
 
 				std::vector<Buffer::uptr> m_uploaders;

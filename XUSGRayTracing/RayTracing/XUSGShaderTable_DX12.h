@@ -26,6 +26,8 @@ namespace XUSG
 
 			static uint32_t GetShaderIDSize(const Device* pDevice);
 
+			static size_t Align(uint32_t byteSize);
+
 		protected:
 			struct PointerWithSize
 			{
@@ -47,26 +49,25 @@ namespace XUSG
 			virtual ~ShaderTable_DX12();
 
 			bool Create(const XUSG::Device* pDevice, uint32_t numShaderRecords, uint32_t shaderRecordSize,
-				const wchar_t* name = nullptr);
+				MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr);
 
-			bool AddShaderRecord(const ShaderRecord* pShaderRecord);
-
-			void* Map();
-			void Unmap();
+			void Create(Buffer::sptr resource, uint32_t shaderRecordSize, uintptr_t byteOffset);
+			void AddShaderRecord(const ShaderRecord* pShaderRecord);
 			void Reset();
 
-			const Resource* GetResource() const;
-			uint32_t GetShaderRecordSize() const;
+			uint64_t GetVirtualAddress() const;
+			size_t GetByteSize() const;
+			size_t GetByteStride() const;
+
+			static size_t Align(size_t byteSize);
 
 		protected:
-			bool allocate(const XUSG::Device* pDevice, uint32_t byteWidth, const wchar_t* name);
+			Buffer::sptr m_resource;
+			uintptr_t m_byteOffset;
+			size_t m_byteSize;
+			size_t m_byteStride;
 
-			Resource::uptr m_resource;
-
-			//std::vector<ShaderRecord> m_shaderRecords;
-
-			void* m_mappedShaderRecords;
-			uint32_t m_shaderRecordSize;
+			uint8_t* m_mappedData;
 		};
 	}
 }

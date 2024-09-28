@@ -14,7 +14,10 @@ namespace FallbackLayer
     class LoadInstancesPass
     {
     public:
-        LoadInstancesPass(ID3D12Device *pDevice, UINT nodeMask, UINT numUAVs);
+        LoadInstancesPass();
+
+        void CreateTopLevelPipeline(ID3D12Device* pDevice, UINT nodeMask, UINT numUAVs);
+
         void LoadInstances(ID3D12GraphicsCommandList *pCommandList, 
             D3D12_GPU_VIRTUAL_ADDRESS outputBVH, 
             D3D12_GPU_VIRTUAL_ADDRESS instancesDesc, 
@@ -27,8 +30,9 @@ namespace FallbackLayer
         {
             OutputBVHRootUAV = 0,
             InstanceDescsSRV,
-            GlobalDescriptorHeap,
             Constants,
+            GlobalDescriptorHeap,
+            GlobalDescriptorHeapSRV,
             CachedSortBuffer,
             NumRootParameters,
         };

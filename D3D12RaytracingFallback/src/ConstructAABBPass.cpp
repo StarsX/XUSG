@@ -17,9 +17,30 @@
 
 namespace FallbackLayer
 {
-    ConstructAABBPass::ConstructAABBPass(ID3D12Device *pDevice, UINT nodeMask, UINT numUAVs)
+    ConstructAABBPass::ConstructAABBPass(ID3D12Device *pDevice, UINT nodeMask)
     {
-        D3D12_DESCRIPTOR_RANGE1 globalDescriptorHeapRange = CD3DX12_DESCRIPTOR_RANGE1(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, numUAVs, GlobalDescriptorHeapRegister, GlobalDescriptorHeapRegisterSpace, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE | D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE, 0);
+        CD3DX12_ROOT_PARAMETER1 rootParameters[NumRootParameters];
+        rootParameters[OutputBVHRootUAVParam].InitAsUnorderedAccessView(OutputBVHRegister);
+        rootParameters[ScratchUAVParam].InitAsUnorderedAccessView(ScratchBufferRegister);
+        rootParameters[HierarchyUAVParam].InitAsUnorderedAccessView(HierarchyBufferRegister);
+        rootParameters[AABBParentBufferParam].InitAsUnorderedAccessView(AABBParentBufferRegister);
+        rootParameters[ChildNodesProcessedCountBufferParam].InitAsUnorderedAccessView(ChildNodesProcessedBufferRegister);
+        rootParameters[InputRootConstants].InitAsConstants(SizeOfInUint32(InputConstants), InputConstantsRegister);
+
+        auto rootSignatureDesc = CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC(NumRootParameters - 1, rootParameters);
+        CreateRootSignatureHelper(pDevice, rootSignatureDesc, &m_pRootSignatures[Level::Bottom]);
+
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignatures[Level::Bottom].Get(), COMPILED_SHADER(g_pBottomLevelComputeAABBs), &m_pComputeAABBs[Level::Bottom]);
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignatures[Level::Bottom].Get(), COMPILED_SHADER(g_pBottomLevelPrepareForComputeAABBs), &m_pPrepareForComputeAABBs[Level::Bottom]);
+    }
+
+    void ConstructAABBPass::CreateTopLevelPipeline(ID3D12Device* pDevice, UINT nodeMask, UINT numUAVs)
+    {
+        assert(numUAVs > 0);
+        const D3D12_DESCRIPTOR_RANGE1 globalDescriptorHeapRange =
+            CD3DX12_DESCRIPTOR_RANGE1(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, numUAVs, GlobalDescriptorHeapRegister, GlobalDescriptorHeapRegisterSpace,
+                D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE | D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE, 0);
+
         CD3DX12_ROOT_PARAMETER1 rootParameters[NumRootParameters];
         rootParameters[OutputBVHRootUAVParam].InitAsUnorderedAccessView(OutputBVHRegister);
         rootParameters[ScratchUAVParam].InitAsUnorderedAccessView(ScratchBufferRegister);
@@ -29,14 +50,11 @@ namespace FallbackLayer
         rootParameters[InputRootConstants].InitAsConstants(SizeOfInUint32(InputConstants), InputConstantsRegister);
         rootParameters[GlobalDescriptorHeap].InitAsDescriptorTable(1, &globalDescriptorHeapRange);
 
-        auto rootSignatureDesc = CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC(ARRAYSIZE(rootParameters), rootParameters);
-        CreateRootSignatureHelper(pDevice, rootSignatureDesc, &m_pRootSignature);
+        auto rootSignatureDesc = CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC(NumRootParameters, rootParameters);
+        CreateRootSignatureHelper(pDevice, rootSignatureDesc, &m_pRootSignatures[Level::Top]);
 
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pTopLevelComputeAABBs), &m_pComputeAABBs[Level::Top]);
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pTopLevelPrepareForComputeAABBs), &m_pPrepareForComputeAABBs[Level::Top]);
-
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pBottomLevelComputeAABBs), &m_pComputeAABBs[Level::Bottom]);
-        CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pBottomLevelPrepareForComputeAABBs), &m_pPrepareForComputeAABBs[Level::Bottom]);
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignatures[Level::Top].Get(), COMPILED_SHADER(g_pTopLevelComputeAABBs), &m_pComputeAABBs[Level::Top]);
+        CreatePSOHelper(pDevice, nodeMask, m_pRootSignatures[Level::Top].Get(), COMPILED_SHADER(g_pTopLevelPrepareForComputeAABBs), &m_pPrepareForComputeAABBs[Level::Top]);
     }
 
     void ConstructAABBPass::ConstructAABB(ID3D12GraphicsCommandList *pCommandList,
@@ -58,7 +76,7 @@ namespace FallbackLayer
         constants.NumberOfElements = numElements;
         constants.UpdateFlags = ((UINT) prepareUpdate) | (performUpdate << 1);
 
-        pCommandList->SetComputeRootSignature(m_pRootSignature.Get());
+        pCommandList->SetComputeRootSignature(m_pRootSignatures[level].Get());
         pCommandList->SetComputeRoot32BitConstants(InputRootConstants, SizeOfInUint32(InputConstants), &constants, 0);
         pCommandList->SetComputeRootUnorderedAccessView(OutputBVHRootUAVParam, outputVH);
         if (!isEmptyAccelerationStructure)
@@ -69,14 +87,10 @@ namespace FallbackLayer
         }
 
         if (prepareUpdate || performUpdate)
-        {
             pCommandList->SetComputeRootUnorderedAccessView(AABBParentBufferParam, outputAABBParentBuffer);
-        }
 
         if (level == Top)
-        {
             pCommandList->SetComputeRootDescriptorTable(GlobalDescriptorHeap, globalDescriptorHeap);
-        }
 
         // Only given the GPU VA not the resource itself so need to resort to doing an overarching UAV barrier
         const UINT dispatchWidth = isEmptyAccelerationStructure ? 1 : DivideAndRoundUp<UINT>(numElements, THREAD_GROUP_1D_WIDTH);
@@ -93,5 +107,4 @@ namespace FallbackLayer
         pCommandList->Dispatch(dispatchWidth, 1, 1);
         pCommandList->ResourceBarrier(1, &uavBarrier);
     }
-
 }

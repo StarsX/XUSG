@@ -383,7 +383,7 @@ namespace XUSG
 		ALLOW_SIMULTANEOUS_ACCESS = (1 << 5),
 		VIDEO_DECODE_REFERENCE_ONLY = (1 << 6),
 		VIDEO_ENCODE_REFERENCE_ONLY = (1 << 7),
-		ACCELERATION_STRUCTURE = ALLOW_UNORDERED_ACCESS | (1 << 8)
+		ACCELERATION_STRUCTURE = (1 << 8)
 	};
 
 	XUSG_DEF_ENUM_FLAG_OPERATORS(ResourceFlag);
@@ -1477,6 +1477,10 @@ namespace XUSG
 		virtual ~Resource() {};
 
 		virtual bool Initialize(const Device* pDevice) = 0;
+		virtual bool ReadFromSubresource(void* pDstData, uint32_t dstRowPitch, uint32_t dstDepthPitch,
+			uint32_t srcSubresource, const BoxRange* pSrcBox = nullptr) = 0;
+		virtual bool WriteToSubresource(uint32_t dstSubresource, const void* pSrcData, uint32_t srcRowPitch,
+			uint32_t srcDepthPitch, const BoxRange* pDstBox = nullptr) = 0;
 
 		virtual Descriptor AllocateCbvSrvUavHeap(uint32_t numDescriptors) = 0;
 
@@ -1491,6 +1495,8 @@ namespace XUSG
 
 		virtual uint64_t GetWidth() const = 0;
 		virtual uint64_t GetVirtualAddress(int offset = 0) const = 0;
+
+		virtual void Unmap(const Range* pWrittenRange = nullptr) = 0;
 
 		// Create from API native handle
 		virtual void Create(void* pDeviceHandle, void* pResourceHandle,
@@ -1532,8 +1538,8 @@ namespace XUSG
 		virtual Descriptor CreateCBV(const Descriptor& cbvHeapStart, uint32_t descriptorIdx,
 			uint32_t byteSize, size_t byteOffset = 0) = 0;
 
-		virtual void* Map(uint32_t cbvIndex = 0) = 0;
-		virtual void Unmap() = 0;
+		virtual void* Map(uint32_t cbvIndex = 0, uintptr_t readBegin = 0, uintptr_t readEnd = 0) = 0;
+		virtual void* Map(const Range* pReadRange, uint32_t cbvIndex = 0) = 0;
 
 		virtual const Descriptor& GetCBV(uint32_t index = 0) const = 0;
 		virtual uint32_t GetCBVOffset(uint32_t index) const = 0;
@@ -1543,6 +1549,8 @@ namespace XUSG
 
 		static uptr MakeUnique(API api = API::DIRECTX_12);
 		static sptr MakeShared(API api = API::DIRECTX_12);
+
+		static size_t AlignCBV(size_t byteSize, API api = API::DIRECTX_12);
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -1645,13 +1653,16 @@ namespace XUSG
 		virtual uint8_t		GetNumMips() const = 0;
 		virtual size_t		GetRequiredIntermediateSize(uint32_t firstSubresource, uint32_t numSubresources) const = 0;
 
-		static uint8_t CalculateMipLevels(uint32_t width, uint32_t height, uint32_t depth = 1);
+		virtual void* Map(uint32_t subresource = 0, uintptr_t readBegin = 0, uintptr_t readEnd = 0) = 0;
+		virtual void* Map(const Range* pReadRange, uint32_t subresource = 0) = 0;
 
 		using uptr = std::unique_ptr<Texture>;
 		using sptr = std::shared_ptr<Texture>;
 
 		static uptr MakeUnique(API api = API::DIRECTX_12);
 		static sptr MakeShared(API api = API::DIRECTX_12);
+
+		static uint8_t CalculateMipLevels(uint32_t width, uint32_t height, uint32_t depth = 1);
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -1832,9 +1843,10 @@ namespace XUSG
 
 		virtual bool Create(const Device* pDevice, size_t byteWidth, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			MemoryType memoryType = MemoryType::DEFAULT, uint32_t numSRVs = 1,
-			const uint32_t* firstSrvElements = nullptr, uint32_t numUAVs = 1,
-			const uint32_t* firstUavElements = nullptr, MemoryFlag memoryFlags = MemoryFlag::NONE,
-			const wchar_t* name = nullptr, const size_t* counterByteOffsets = nullptr, uint32_t maxThreads = 1) = 0;
+			const uintptr_t* firstSrvElements = nullptr, uint32_t numUAVs = 1,
+			const uintptr_t* firstUavElements = nullptr, MemoryFlag memoryFlags = MemoryFlag::NONE,
+			const wchar_t* name = nullptr, const uintptr_t* counterByteOffsets = nullptr,
+			uint32_t maxThreads = 1) = 0;
 		virtual bool CreateResource(size_t byteWidth, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			MemoryType memoryType = MemoryType::DEFAULT, MemoryFlag memoryFlags = MemoryFlag::NONE,
 			ResourceState initialResourceState = ResourceState::COMMON, uint8_t numCastableFormats = 0,
@@ -1847,17 +1859,16 @@ namespace XUSG
 			size_t srcOffset = 0, ResourceState dstState = ResourceState::COMMON, uint32_t threadIdx = 0) = 0;
 
 		virtual Descriptor CreateSRV(const Descriptor& srvHeapStart, uint32_t descriptorIdx,
-			uint32_t numElements, uint32_t byteStride, Format format, uint32_t firstElement = 0,
+			uint32_t numElements, uint32_t byteStride, Format format, size_t firstElement = 0,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING) = 0;
 		virtual Descriptor CreateUAV(const Descriptor& uavHeapStart, uint32_t descriptorIdx, uint32_t numElements,
-			uint32_t byteStride, Format format, uint32_t firstElement = 0, size_t counterByteOffset = 0) = 0;
+			uint32_t byteStride, Format format, size_t firstElement = 0, size_t counterByteOffset = 0) = 0;
 
 		virtual const Descriptor& GetUAV(uint32_t index = 0) const = 0;
 
 		virtual void* Map(uint32_t descriptorIndex = 0, uintptr_t readBegin = 0, uintptr_t readEnd = 0) = 0;
 		virtual void* Map(const Range* pReadRange, uint32_t descriptorIndex = 0) = 0;
 
-		virtual void Unmap() = 0;
 		virtual void SetCounter(const Resource::sptr& counter) = 0;
 
 		virtual Resource::sptr GetCounter() const = 0;
@@ -1867,6 +1878,8 @@ namespace XUSG
 
 		static uptr MakeUnique(API api = API::DIRECTX_12);
 		static sptr MakeShared(API api = API::DIRECTX_12);
+
+		static size_t AlignRawView(size_t byteSize, API api = API::DIRECTX_12);
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -1884,12 +1897,12 @@ namespace XUSG
 		//StructuredBuffer();
 		virtual ~StructuredBuffer() {};
 
-		virtual bool Create(const Device* pDevice, uint32_t numElements, uint32_t byteStride,
+		virtual bool Create(const Device* pDevice, size_t numElements, uint32_t byteStride,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
-			uint32_t numSRVs = 1, const uint32_t* firstSrvElements = nullptr,
-			uint32_t numUAVs = 1, const uint32_t* firstUavElements = nullptr,
+			uint32_t numSRVs = 1, const uintptr_t* firstSrvElements = nullptr,
+			uint32_t numUAVs = 1, const uintptr_t* firstUavElements = nullptr,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
-			const size_t* counterByteOffsets = nullptr, uint32_t maxThreads = 1) = 0;
+			const uintptr_t* counterByteOffsets = nullptr, uint32_t maxThreads = 1) = 0;
 		virtual bool Initialize(const Device* pDevice) = 0;
 
 		using uptr = std::unique_ptr<StructuredBuffer>;
@@ -1909,13 +1922,13 @@ namespace XUSG
 		//TypedBuffer();
 		virtual ~TypedBuffer() {};
 
-		virtual bool Create(const Device* pDevice, uint32_t numElements, uint32_t byteStride, Format format,
+		virtual bool Create(const Device* pDevice, size_t numElements, uint32_t byteStride, Format format,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
-			uint32_t numSRVs = 1, const uint32_t* firstSrvElements = nullptr,
-			uint32_t numUAVs = 1, const uint32_t* firstUavElements = nullptr,
+			uint32_t numSRVs = 1, const uintptr_t* firstSrvElements = nullptr,
+			uint32_t numUAVs = 1, const uintptr_t* firstUavElements = nullptr,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
-			const size_t* counterByteOffsets = nullptr, uint8_t numUavFormats = 0,
+			const uintptr_t* counterByteOffsets = nullptr, uint8_t numUavFormats = 0,
 			const Format* uavFormats = nullptr, uint32_t maxThreads = 1) = 0;
 
 		virtual const Descriptor& GetUAV(uint32_t index = 0, Format format = Format::UNKNOWN) const = 0;
@@ -1937,22 +1950,22 @@ namespace XUSG
 		//VertexBuffer();
 		virtual ~VertexBuffer() {};
 
-		virtual bool Create(const Device* pDevice, uint32_t numVertices, uint32_t byteStride,
+		virtual bool Create(const Device* pDevice, size_t numVertices, uint32_t byteStride,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
-			uint32_t numVBVs = 1, const uint32_t* firstVertices = nullptr,
-			uint32_t numSRVs = 1, const uint32_t* firstSrvElements = nullptr,
-			uint32_t numUAVs = 1, const uint32_t* firstUavElements = nullptr,
+			uint32_t numVBVs = 1, const uintptr_t* firstVertices = nullptr,
+			uint32_t numSRVs = 1, const uintptr_t* firstSrvElements = nullptr,
+			uint32_t numUAVs = 1, const uintptr_t* firstUavElements = nullptr,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
-			const size_t* counterByteOffsets = nullptr, uint32_t maxThreads = 1) = 0;
-		virtual bool CreateAsRaw(const Device* pDevice, uint32_t numVertices, uint32_t byteStride,
+			const uintptr_t* counterByteOffsets = nullptr, uint32_t maxThreads = 1) = 0;
+		virtual bool CreateAsRaw(const Device* pDevice, size_t numVertices, uint32_t byteStride,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
-			uint32_t numVBVs = 1, const uint32_t* firstVertices = nullptr,
-			uint32_t numSRVs = 1, const uint32_t* firstSrvElements = nullptr,
-			uint32_t numUAVs = 1, const uint32_t* firstUavElements = nullptr,
+			uint32_t numVBVs = 1, const uintptr_t* firstVertices = nullptr,
+			uint32_t numSRVs = 1, const uintptr_t* firstSrvElements = nullptr,
+			uint32_t numUAVs = 1, const uintptr_t* firstUavElements = nullptr,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
-			const size_t* counterByteOffsets = nullptr, uint32_t maxThreads = 1) = 0;
+			const uintptr_t* counterByteOffsets = nullptr, uint32_t maxThreads = 1) = 0;
 
-		virtual void CreateVBV(VertexBufferView& vbv, uint32_t numVertices, uint32_t byteStride, uint32_t firstVertex = 0) = 0;
+		virtual void CreateVBV(VertexBufferView& vbv, uint32_t numVertices, uint32_t byteStride, size_t firstVertex = 0) = 0;
 
 		virtual const VertexBufferView& GetVBV(uint32_t index = 0) const = 0;
 
@@ -1976,12 +1989,12 @@ namespace XUSG
 		virtual bool Create(const Device* pDevice, size_t byteWidth, Format format = Format::R32_UINT,
 			ResourceFlag resourceFlags = ResourceFlag::DENY_SHADER_RESOURCE,
 			MemoryType memoryType = MemoryType::DEFAULT,
-			uint32_t numIBVs = 1, const size_t* ibvByteOffsets = nullptr,
-			uint32_t numSRVs = 1, const uint32_t* firstSrvElements = nullptr,
-			uint32_t numUAVs = 1, const uint32_t* firstUavElements = nullptr,
+			uint32_t numIBVs = 1, const uintptr_t* ibvByteOffsets = nullptr,
+			uint32_t numSRVs = 1, const uintptr_t* firstSrvElements = nullptr,
+			uint32_t numUAVs = 1, const uintptr_t* firstUavElements = nullptr,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
-			const size_t* counterByteOffsets = nullptr, uint32_t maxThreads = 1) = 0;
+			const uintptr_t* counterByteOffsets = nullptr, uint32_t maxThreads = 1) = 0;
 
 		virtual void CreateIBV(IndexBufferView& ibv, Format format, uint32_t byteSize, size_t byteOffset = 0) = 0;
 
@@ -2542,7 +2555,7 @@ namespace XUSG
 
 	XUSG_INTERFACE uint8_t Log2(uint32_t value);
 
-	XUSG_INTERFACE size_t AlignConstantBufferView(size_t byteSize, API api = API::DIRECTX_12);
+	XUSG_INTERFACE size_t Align(size_t size, size_t alignment);
 
 	XUSG_INTERFACE BarrierLayout GetBarrierLayout(ResourceState resourceState);
 }

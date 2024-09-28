@@ -22,12 +22,14 @@ Resource_DX12::Resource_DX12() :
 	m_resource(nullptr),
 	m_states(0),
 	m_cbvSrvUavHeap(nullptr),
+	m_pDataBegin(nullptr),
 	m_hasPromotion(false)
 {
 }
 
 Resource_DX12::~Resource_DX12()
 {
+	if (m_resource) Unmap();
 }
 
 bool Resource_DX12::Initialize(const Device* pDevice)
@@ -39,6 +41,48 @@ bool Resource_DX12::Initialize(const Device* pDevice)
 	m_states.clear();
 	m_cbvSrvUavHeap = nullptr;
 	m_hasPromotion = false;
+
+	return true;
+}
+
+bool Resource_DX12::ReadFromSubresource(void* pDstData, uint32_t dstRowPitch,
+	uint32_t dstDepthPitch, uint32_t srcSubresource, const BoxRange* pSrcBox)
+{
+	if (!m_resource) return false;
+
+	D3D12_BOX box;
+	if (pSrcBox)
+	{
+		box.left = pSrcBox->Left;
+		box.top = pSrcBox->Top;
+		box.front = pSrcBox->Front;
+		box.right = pSrcBox->Right;
+		box.bottom = pSrcBox->Bottom;
+		box.back = pSrcBox->Back;
+	}
+	V_RETURN(m_resource->ReadFromSubresource(pDstData, dstRowPitch, dstDepthPitch,
+		srcSubresource, pSrcBox ? &box : nullptr), cerr, false);
+
+	return true;
+}
+
+bool Resource_DX12::WriteToSubresource(uint32_t dstSubresource, const void* pSrcData,
+	uint32_t srcRowPitch, uint32_t srcDepthPitch, const BoxRange* pDstBox)
+{
+	if (!m_resource) return false;
+
+	D3D12_BOX box;
+	if (pDstBox)
+	{
+		box.left = pDstBox->Left;
+		box.top = pDstBox->Top;
+		box.front = pDstBox->Front;
+		box.right = pDstBox->Right;
+		box.bottom = pDstBox->Bottom;
+		box.back = pDstBox->Back;
+	}
+	V_RETURN(m_resource->WriteToSubresource(dstSubresource, pDstBox ? &box : nullptr,
+		pSrcData, srcRowPitch, srcDepthPitch), cerr, false);
 
 	return true;
 }
@@ -112,6 +156,22 @@ uint64_t Resource_DX12::GetVirtualAddress(int offset) const
 	return m_resource ? m_resource->GetGPUVirtualAddress() + offset : 0;
 }
 
+void Resource_DX12::Unmap(const Range* pWrittenRange)
+{
+	if (m_pDataBegin)
+	{
+		D3D12_RANGE range;
+		if (pWrittenRange)
+		{
+			range.Begin = pWrittenRange->Begin;
+			range.End = pWrittenRange->End;
+		}
+
+		m_resource->Unmap(0, pWrittenRange ? &range : nullptr);
+		m_pDataBegin = nullptr;
+	}
+}
+
 void Resource_DX12::Create(void* pDeviceHandle, void* pResourceHandle,
 	const wchar_t* name, uint32_t maxThreads)
 {
@@ -155,14 +215,12 @@ com_ptr<ID3D12Resource>& Resource_DX12::GetResource()
 ConstantBuffer_DX12::ConstantBuffer_DX12() :
 	Resource_DX12(),
 	m_cbvs(0),
-	m_cbvByteOffsets(0),
-	m_pDataBegin(nullptr)
+	m_cbvByteOffsets(0)
 {
 }
 
 ConstantBuffer_DX12::~ConstantBuffer_DX12()
 {
-	if (m_resource) Unmap();
 }
 
 bool ConstantBuffer_DX12::Create(const Device* pDevice, size_t byteWidth, uint32_t numCBVs,
@@ -177,7 +235,7 @@ bool ConstantBuffer_DX12::Create(const Device* pDevice, size_t byteWidth, uint32
 	{
 		size_t numBytes = 0;
 		// CB size is required to be D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT-byte aligned.
-		const auto cbvSize = AlignConstantBufferView(byteWidth / numCBVs);
+		const auto cbvSize = AlignCBV(byteWidth / numCBVs);
 		offsetList.resize(numCBVs);
 
 		for (auto& offset : offsetList)
@@ -292,26 +350,28 @@ Descriptor ConstantBuffer_DX12::CreateCBV(const Descriptor& cbvHeapStart, uint32
 	return descriptor;
 }
 
-void* ConstantBuffer_DX12::Map(uint32_t cbvIndex)
+void* ConstantBuffer_DX12::Map(uint32_t cbvIndex, uintptr_t readBegin, uintptr_t readEnd)
+{
+	const Range range(readBegin, readEnd);
+
+	return Map(&range, cbvIndex);
+}
+
+void* ConstantBuffer_DX12::Map(const Range* pReadRange, uint32_t cbvIndex)
 {
 	if (m_pDataBegin == nullptr)
 	{
-		// Map and initialize the constant buffer. We don't unmap this until the
-		// app closes. Keeping things mapped for the lifetime of the resource is okay.
-		CD3DX12_RANGE readRange(0, 0);	// We do not intend to read from this resource on the CPU.
-		V_RETURN(m_resource->Map(0, &readRange, &m_pDataBegin), cerr, nullptr);
+		D3D12_RANGE range;
+		if (pReadRange)
+		{
+			range.Begin = pReadRange->Begin;
+			range.End = pReadRange->End;
+		}
+
+		V_RETURN(m_resource->Map(0, pReadRange ? &range : nullptr, &m_pDataBegin), cerr, nullptr);
 	}
 
 	return &reinterpret_cast<uint8_t*>(m_pDataBegin)[m_cbvByteOffsets[cbvIndex]];
-}
-
-void ConstantBuffer_DX12::Unmap()
-{
-	if (m_pDataBegin)
-	{
-		m_resource->Unmap(0, nullptr);
-		m_pDataBegin = nullptr;
-	}
 }
 
 const Descriptor& ConstantBuffer_DX12::GetCBV(uint32_t index) const
@@ -323,6 +383,11 @@ const Descriptor& ConstantBuffer_DX12::GetCBV(uint32_t index) const
 uint32_t ConstantBuffer_DX12::GetCBVOffset(uint32_t index) const
 {
 	return static_cast<uint32_t>(m_cbvByteOffsets[index]);
+}
+
+size_t ConstantBuffer_DX12::AlignCBV(size_t byteSize)
+{
+	return Align(byteSize, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
 }
 
 //--------------------------------------------------------------------------------------
@@ -977,6 +1042,31 @@ uint8_t Texture_DX12::GetNumMips() const
 size_t Texture_DX12::GetRequiredIntermediateSize(uint32_t firstSubresource, uint32_t numSubresources) const
 {
 	return static_cast<size_t>(::GetRequiredIntermediateSize(m_resource.get(), firstSubresource, numSubresources));
+}
+
+void* Texture_DX12::Map(uint32_t subresource, uintptr_t readBegin, uintptr_t readEnd)
+{
+	const Range range(readBegin, readEnd);
+
+	return Map(&range, subresource);
+}
+
+void* Texture_DX12::Map(const Range* pReadRange, uint32_t subresource)
+{
+	// Map the texture.
+	if (m_pDataBegin == nullptr)
+	{
+		D3D12_RANGE range;
+		if (pReadRange)
+		{
+			range.Begin = pReadRange->Begin;
+			range.End = pReadRange->End;
+		}
+
+		V_RETURN(m_resource->Map(subresource, pReadRange ? &range : nullptr, &m_pDataBegin), cerr, nullptr);
+	}
+
+	return m_pDataBegin;
 }
 
 bool Texture_DX12::createSRVs(uint32_t& descriptorIdx, uint16_t arraySize, Format format,
@@ -1980,28 +2070,25 @@ uint16_t Texture3D_DX12::GetDepth() const
 Buffer_DX12::Buffer_DX12() :
 	ShaderResource_DX12(),
 	m_uavs(0),
-	m_srvByteOffsets(0),
-	m_pDataBegin(nullptr)
+	m_srvByteOffsets(0)
 {
 	m_hasPromotion = true;
 }
 
 Buffer_DX12::~Buffer_DX12()
 {
-	if (m_resource) Unmap();
 }
 
 bool Buffer_DX12::Create(const Device* pDevice, size_t byteWidth, ResourceFlag resourceFlags,
-	MemoryType memoryType, uint32_t numSRVs, const uint32_t* firstSrvElements,
-	uint32_t numUAVs, const uint32_t* firstUavElements, MemoryFlag memoryFlags,
-	const wchar_t* name, const size_t* counterByteOffsets, uint32_t maxThreads)
+	MemoryType memoryType, uint32_t numSRVs, const uintptr_t* firstSrvElements,
+	uint32_t numUAVs, const uintptr_t* firstUavElements, MemoryFlag memoryFlags,
+	const wchar_t* name, const uintptr_t* counterByteOffsets, uint32_t maxThreads)
 {
 	const uint32_t byteStride = sizeof(uint32_t);
-	const auto bufferElements = static_cast<uint32_t>(byteWidth / byteStride);
 
-	return create(pDevice, bufferElements, byteStride, Format::R32_TYPELESS, resourceFlags,
-		memoryType, numSRVs, firstSrvElements, numUAVs, firstUavElements, memoryFlags,
-		name, counterByteOffsets, maxThreads);
+	return create(pDevice, byteWidth / byteStride, byteStride, Format::R32_TYPELESS,
+		resourceFlags, memoryType, numSRVs, firstSrvElements, numUAVs, firstUavElements,
+		memoryFlags, name, counterByteOffsets, maxThreads);
 }
 
 bool Buffer_DX12::CreateResource(size_t byteWidth, ResourceFlag resourceFlags, MemoryType memoryType,
@@ -2142,7 +2229,7 @@ bool Buffer_DX12::ReadBack(CommandList* pCommandList, Buffer* pReadBuffer, size_
 }
 
 Descriptor Buffer_DX12::CreateSRV(const Descriptor& srvHeapStart, uint32_t descriptorIdx, uint32_t numElements,
-	uint32_t byteStride, Format format, uint32_t firstElement, uint16_t srvComponentMapping)
+	uint32_t byteStride, Format format, uintptr_t firstElement, uint16_t srvComponentMapping)
 {
 	D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
 	desc.Shader4ComponentMapping = srvComponentMapping;
@@ -2176,7 +2263,7 @@ Descriptor Buffer_DX12::CreateSRV(const Descriptor& srvHeapStart, uint32_t descr
 }
 
 Descriptor Buffer_DX12::CreateUAV(const Descriptor& uavHeapStart, uint32_t descriptorIdx, uint32_t numElements,
-	uint32_t byteStride, Format format, uint32_t firstElement, size_t counterByteOffset)
+	uint32_t byteStride, Format format, uintptr_t firstElement, size_t counterByteOffset)
 {
 	D3D12_UNORDERED_ACCESS_VIEW_DESC desc = {};
 	desc.Format = GetDXGIFormat(format);
@@ -2211,7 +2298,7 @@ void* Buffer_DX12::Map(uint32_t descriptorIndex, uintptr_t readBegin, uintptr_t 
 
 void* Buffer_DX12::Map(const Range* pReadRange, uint32_t descriptorIndex)
 {
-	// Map and initialize the buffer.
+	// Map the buffer.
 	if (m_pDataBegin == nullptr)
 	{
 		D3D12_RANGE range;
@@ -2224,18 +2311,9 @@ void* Buffer_DX12::Map(const Range* pReadRange, uint32_t descriptorIndex)
 		V_RETURN(m_resource->Map(0, pReadRange ? &range : nullptr, &m_pDataBegin), cerr, nullptr);
 	}
 
-	const auto offset = !descriptorIndex ? 0 : m_srvByteOffsets[descriptorIndex];
+	const auto offset = descriptorIndex ? m_srvByteOffsets[descriptorIndex] : 0;
 
 	return &reinterpret_cast<uint8_t*>(m_pDataBegin)[offset];
-}
-
-void Buffer_DX12::Unmap()
-{
-	if (m_pDataBegin)
-	{
-		m_resource->Unmap(0, nullptr);
-		m_pDataBegin = nullptr;
-	}
 }
 
 void Buffer_DX12::SetCounter(const Resource::sptr& counter)
@@ -2248,10 +2326,15 @@ Resource::sptr Buffer_DX12::GetCounter() const
 	return m_counter;
 }
 
-bool Buffer_DX12::create(const Device* pDevice, uint32_t numElements, uint32_t byteStride, Format format,
-	ResourceFlag resourceFlags, MemoryType memoryType, uint32_t numSRVs, const uint32_t* firstSrvElements,
-	uint32_t numUAVs, const uint32_t* firstUavElements, MemoryFlag memoryFlags, const wchar_t* name,
-	const size_t* counterByteOffsets, uint32_t maxThreads)
+size_t Buffer_DX12::AlignRawView(size_t byteSize)
+{
+	return Align(byteSize, D3D12_RAW_UAV_SRV_BYTE_ALIGNMENT);
+}
+
+bool Buffer_DX12::create(const Device* pDevice, size_t numElements, uint32_t byteStride, Format format,
+	ResourceFlag resourceFlags, MemoryType memoryType, uint32_t numSRVs, const uintptr_t* firstSrvElements,
+	uint32_t numUAVs, const uintptr_t* firstUavElements, MemoryFlag memoryFlags, const wchar_t* name,
+	const uintptr_t* counterByteOffsets, uint32_t maxThreads)
 {
 	XUSG_N_RETURN(Initialize(pDevice, format), false);
 
@@ -2263,8 +2346,8 @@ bool Buffer_DX12::create(const Device* pDevice, uint32_t numElements, uint32_t b
 
 	// Create buffer
 	if (numElements)
-		XUSG_N_RETURN(CreateResource(static_cast<size_t>(byteStride) * numElements, resourceFlags,
-			memoryType, memoryFlags, ResourceState::COMMON, 0, nullptr, maxThreads), false);
+		XUSG_N_RETURN(CreateResource(byteStride * numElements, resourceFlags, memoryType,
+			memoryFlags, ResourceState::COMMON, 0, nullptr, maxThreads), false);
 
 	SetName(name);
 
@@ -2280,7 +2363,8 @@ bool Buffer_DX12::create(const Device* pDevice, uint32_t numElements, uint32_t b
 		m_srvs.resize(numSRVs);
 		for (auto i = 0u; i < numSRVs; ++i)
 		{
-			uint32_t srvNumElements, firstElement;
+			uint32_t srvNumElements;
+			size_t firstElement;
 			getViewRange(srvNumElements, firstElement, i, numElements, byteStride, firstSrvElements, numSRVs, &m_srvByteOffsets[i]);
 			XUSG_X_RETURN(m_srvs[i], CreateSRV(srvUavHeapStart, descriptorIdx + i, srvNumElements,
 				byteStride, format, firstElement), false);
@@ -2294,7 +2378,8 @@ bool Buffer_DX12::create(const Device* pDevice, uint32_t numElements, uint32_t b
 		m_uavs.resize(numUAVs);
 		for (auto i = 0u; i < numUAVs; ++i)
 		{
-			uint32_t uavNumElements, firstElement;
+			uint32_t uavNumElements;
+			size_t firstElement;
 			getViewRange(uavNumElements, firstElement, i, numElements, byteStride, firstUavElements, numUAVs);
 			XUSG_X_RETURN(m_uavs[i], CreateUAV(srvUavHeapStart, descriptorIdx + i, uavNumElements, byteStride,
 				format, firstElement, counterByteOffsets ? counterByteOffsets[i] : 0), false);
@@ -2304,15 +2389,15 @@ bool Buffer_DX12::create(const Device* pDevice, uint32_t numElements, uint32_t b
 	return true;
 }
 
-void Buffer_DX12::getViewRange(uint32_t& viewElements, uint32_t& firstElement, uint32_t i,
-	uint32_t bufferElements, uint32_t byteStride, const uint32_t* firstElements,
-	uint32_t numDescriptors, size_t* pByteOffset)
+void Buffer_DX12::getViewRange(uint32_t& viewElements, uintptr_t& firstElement, uint32_t i,
+	size_t bufferElements, uint32_t byteStride, const uintptr_t* firstElements,
+	uint32_t numDescriptors, uintptr_t* pByteOffset)
 {
 	firstElement = firstElements ? firstElements[i] : 0;
-	viewElements = (!firstElements || i + 1 >= numDescriptors ?
-		bufferElements : firstElements[i + 1]) - firstElement;
+	viewElements = static_cast<uint32_t>((firstElements && i + 1 < numDescriptors ?
+		firstElements[i + 1] : bufferElements) - firstElement);
 
-	if (pByteOffset) *pByteOffset = static_cast<size_t>(byteStride) * firstElement;
+	if (pByteOffset) *pByteOffset = byteStride * firstElement;
 }
 
 //--------------------------------------------------------------------------------------
@@ -2328,14 +2413,14 @@ StructuredBuffer_DX12::~StructuredBuffer_DX12()
 {
 }
 
-bool StructuredBuffer_DX12::Create(const Device* pDevice, uint32_t numElements, uint32_t byteStride,
-	ResourceFlag resourceFlags, MemoryType memoryType, uint32_t numSRVs, const uint32_t* firstSrvElements,
-	uint32_t numUAVs, const uint32_t* firstUavElements, MemoryFlag memoryFlags, const wchar_t* name,
-	const size_t* counterByteOffsets, uint32_t maxThreads)
+bool StructuredBuffer_DX12::Create(const Device* pDevice, size_t numElements, uint32_t byteStride,
+	ResourceFlag resourceFlags, MemoryType memoryType, uint32_t numSRVs, const uintptr_t* firstSrvElements,
+	uint32_t numUAVs, const uintptr_t* firstUavElements, MemoryFlag memoryFlags, const wchar_t* name,
+	const uintptr_t* counterByteOffsets, uint32_t maxThreads)
 {
 	return create(pDevice, numElements, byteStride, Format::UNKNOWN, resourceFlags,
-		memoryType, numSRVs, firstSrvElements, numUAVs, firstUavElements, memoryFlags,
-		name, counterByteOffsets, maxThreads);
+		memoryType, numSRVs, firstSrvElements, numUAVs, firstUavElements,
+		memoryFlags, name, counterByteOffsets, maxThreads);
 }
 
 bool StructuredBuffer_DX12::Initialize(const Device* pDevice)
@@ -2356,11 +2441,11 @@ TypedBuffer_DX12::~TypedBuffer_DX12()
 {
 }
 
-bool TypedBuffer_DX12::Create(const Device* pDevice, uint32_t numElements, uint32_t byteStride,
+bool TypedBuffer_DX12::Create(const Device* pDevice, size_t numElements, uint32_t byteStride,
 	Format format, ResourceFlag resourceFlags, MemoryType memoryType, uint32_t numSRVs,
-	const uint32_t* firstSrvElements, uint32_t numUAVs, const uint32_t* firstUavElements,
+	const uintptr_t* firstSrvElements, uint32_t numUAVs, const uintptr_t* firstUavElements,
 	MemoryFlag memoryFlags, const wchar_t* name, uint16_t srvComponentMapping,
-	const size_t* counterByteOffsets, uint8_t numUavFormats,
+	const uintptr_t* counterByteOffsets, uint8_t numUavFormats,
 	const Format* uavFormats, uint32_t maxThreads)
 {
 	XUSG_N_RETURN(Initialize(pDevice, format), false);
@@ -2379,9 +2464,8 @@ bool TypedBuffer_DX12::Create(const Device* pDevice, uint32_t numElements, uint3
 	{
 		const uint8_t numCastableFormats = needCastableFormats ? numUavFormats : 0;
 		const auto pCastableFormats = needCastableFormats ? uavFormats : nullptr;
-		XUSG_N_RETURN(CreateResource(static_cast<size_t>(byteStride) * numElements, resourceFlags,
-			memoryType, memoryFlags, ResourceState::COMMON, numCastableFormats, pCastableFormats,
-			maxThreads), false);
+		XUSG_N_RETURN(CreateResource(byteStride * numElements, resourceFlags, memoryType, memoryFlags,
+			ResourceState::COMMON, numCastableFormats, pCastableFormats, maxThreads), false);
 	}
 
 	SetName(name);
@@ -2399,7 +2483,8 @@ bool TypedBuffer_DX12::Create(const Device* pDevice, uint32_t numElements, uint3
 		m_srvs.resize(numSRVs);
 		for (auto i = 0u; i < numSRVs; ++i)
 		{
-			uint32_t srvNumElements, firstElement;
+			uint32_t srvNumElements;
+			size_t firstElement;
 			getViewRange(srvNumElements, firstElement, i, numElements, byteStride, firstSrvElements, numSRVs, &m_srvByteOffsets[i]);
 			XUSG_X_RETURN(m_srvs[i], CreateSRV(srvUavHeapStart, descriptorIdx + i, srvNumElements,
 				byteStride, m_format, firstElement, srvComponentMapping), false);
@@ -2413,7 +2498,8 @@ bool TypedBuffer_DX12::Create(const Device* pDevice, uint32_t numElements, uint3
 		m_uavs.resize(numUAVs);
 		for (auto i = 0u; i < numUAVs; ++i)
 		{
-			uint32_t uavNumElements, firstElement;
+			uint32_t uavNumElements;
+			size_t firstElement;
 			getViewRange(uavNumElements, firstElement, i, numElements, byteStride, firstUavElements, numUAVs);
 			XUSG_X_RETURN(m_uavs[i], CreateUAV(srvUavHeapStart, descriptorIdx + i, uavNumElements, byteStride,
 				m_format, firstElement, counterByteOffsets ? counterByteOffsets[i] : 0), false);
@@ -2428,7 +2514,8 @@ bool TypedBuffer_DX12::Create(const Device* pDevice, uint32_t numElements, uint3
 			castableUavs.resize(numUAVs);
 			for (auto j = 0u; j < numUAVs; ++j)
 			{
-				uint32_t uavNumElements, firstElement;
+				uint32_t uavNumElements;
+				size_t firstElement;
 				getViewRange(uavNumElements, firstElement, j, numElements, byteStride, firstUavElements, numUAVs);
 				XUSG_X_RETURN(castableUavs[j], CreateUAV(srvUavHeapStart, descriptorIdx + j, uavNumElements,
 					byteStride, uavFormat, firstElement, counterByteOffsets ? counterByteOffsets[j] : 0), false);
@@ -2466,11 +2553,11 @@ VertexBuffer_DX12::~VertexBuffer_DX12()
 {
 }
 
-bool VertexBuffer_DX12::Create(const Device* pDevice, uint32_t numVertices, uint32_t byteStride,
+bool VertexBuffer_DX12::Create(const Device* pDevice, size_t numVertices, uint32_t byteStride,
 	ResourceFlag resourceFlags, MemoryType memoryType, uint32_t numVBVs,
-	const uint32_t* firstVertices, uint32_t numSRVs, const uint32_t* firstSrvElements,
-	uint32_t numUAVs, const uint32_t* firstUavElements, MemoryFlag memoryFlags,
-	const wchar_t* name, const size_t* counterByteOffsets, uint32_t maxThreads)
+	const uintptr_t* firstVertices, uint32_t numSRVs, const uintptr_t* firstSrvElements,
+	uint32_t numUAVs, const uintptr_t* firstUavElements, MemoryFlag memoryFlags,
+	const wchar_t* name, const uintptr_t* counterByteOffsets, uint32_t maxThreads)
 {
 	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
 	const auto hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
@@ -2485,11 +2572,11 @@ bool VertexBuffer_DX12::Create(const Device* pDevice, uint32_t numVertices, uint
 	return true;
 }
 
-bool VertexBuffer_DX12::CreateAsRaw(const Device* pDevice, uint32_t numVertices, uint32_t byteStride,
+bool VertexBuffer_DX12::CreateAsRaw(const Device* pDevice, size_t numVertices, uint32_t byteStride,
 	ResourceFlag resourceFlags, MemoryType memoryType, uint32_t numVBVs,
-	const uint32_t* firstVertices, uint32_t numSRVs, const uint32_t* firstSrvElements,
-	uint32_t numUAVs, const uint32_t* firstUavElements, MemoryFlag memoryFlags,
-	const wchar_t* name, const size_t* counterByteOffsets, uint32_t maxThreads)
+	const uintptr_t* firstVertices, uint32_t numSRVs, const uintptr_t* firstSrvElements,
+	uint32_t numUAVs, const uintptr_t* firstUavElements, MemoryFlag memoryFlags,
+	const wchar_t* name, const uintptr_t* counterByteOffsets, uint32_t maxThreads)
 {
 	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
 	const auto hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
@@ -2504,7 +2591,7 @@ bool VertexBuffer_DX12::CreateAsRaw(const Device* pDevice, uint32_t numVertices,
 	return true;
 }
 
-void VertexBuffer_DX12::CreateVBV(VertexBufferView& vbv, uint32_t numVertices, uint32_t byteStride, uint32_t firstVertex)
+void VertexBuffer_DX12::CreateVBV(VertexBufferView& vbv, uint32_t numVertices, uint32_t byteStride, uintptr_t firstVertex)
 {
 	vbv.BufferLocation = m_resource->GetGPUVirtualAddress() + byteStride * firstVertex;
 	vbv.StrideInBytes = byteStride;
@@ -2517,12 +2604,13 @@ const VertexBufferView& VertexBuffer_DX12::GetVBV(uint32_t index) const
 	return m_vbvs[index];
 }
 
-void VertexBuffer_DX12::createVBVs(uint32_t numVertices, uint32_t byteStride, uint32_t numVBVs, const uint32_t* firstVertices)
+void VertexBuffer_DX12::createVBVs(size_t numVertices, uint32_t byteStride, uint32_t numVBVs, const uintptr_t* firstVertices)
 {
 	m_vbvs.resize(numVBVs);
 	for (auto i = 0u; i < numVBVs; ++i)
 	{
-		uint32_t vbvNumVertices, firstVertex;
+		uint32_t vbvNumVertices;
+		size_t firstVertex;
 		getViewRange(vbvNumVertices, firstVertex, i, numVertices, byteStride, firstVertices, numVBVs);
 		CreateVBV(m_vbvs[i], vbvNumVertices, byteStride, firstVertex);
 	}
@@ -2544,10 +2632,10 @@ IndexBuffer_DX12::~IndexBuffer_DX12()
 
 bool IndexBuffer_DX12::Create(const Device* pDevice, size_t byteWidth, Format format,
 	ResourceFlag resourceFlags, MemoryType memoryType, uint32_t numIBVs,
-	const size_t* ibvByteOffsets, uint32_t numSRVs, const uint32_t* firstSrvElements,
-	uint32_t numUAVs, const uint32_t* firstUavElements, MemoryFlag memoryFlags,
+	const uintptr_t* ibvByteOffsets, uint32_t numSRVs, const uintptr_t* firstSrvElements,
+	uint32_t numUAVs, const uintptr_t* firstUavElements, MemoryFlag memoryFlags,
 	const wchar_t* name, uint16_t srvComponentMapping,
-	const size_t* counterByteOffsets, uint32_t maxThreads)
+	const uintptr_t* counterByteOffsets, uint32_t maxThreads)
 {
 	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
 	const auto hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
@@ -2555,10 +2643,9 @@ bool IndexBuffer_DX12::Create(const Device* pDevice, size_t byteWidth, Format fo
 	assert(format == Format::R32_UINT || format == Format::R16_UINT);
 	const uint32_t byteStride = format == Format::R32_UINT ? sizeof(uint32_t) : sizeof(uint16_t);
 
-	const auto numElements = static_cast<uint32_t>(byteWidth / byteStride);
-	XUSG_N_RETURN(TypedBuffer_DX12::Create(pDevice, numElements, byteStride, format, resourceFlags,
-		memoryType, numSRVs, firstSrvElements, numUAVs, firstUavElements, memoryFlags, name,
-		srvComponentMapping, counterByteOffsets, 0, nullptr, maxThreads), false);
+	XUSG_N_RETURN(TypedBuffer_DX12::Create(pDevice, byteWidth / byteStride, byteStride, format,
+		resourceFlags, memoryType, numSRVs, firstSrvElements, numUAVs, firstUavElements, memoryFlags,
+		name, srvComponentMapping, counterByteOffsets, 0, nullptr, maxThreads), false);
 
 	// Create index buffer views.
 	m_ibvs.resize(numIBVs);

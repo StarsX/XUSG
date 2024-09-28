@@ -12,8 +12,11 @@ using namespace std;
 using namespace XUSG;
 using namespace XUSG::RayTracing;
 
+uint32_t g_numUAVs = 0;
+
 RayTracing::CommandList_DX12::CommandList_DX12() :
-	Ultimate::CommandList_DX12()
+	Ultimate::CommandList_DX12(),
+	m_pDeviceRT(nullptr)
 {
 }
 
@@ -59,7 +62,7 @@ void RayTracing::CommandList_DX12::BuildRaytracingAccelerationStructure(const Bu
 	assert(pDesc);
 	const auto pBuildDesc = static_cast<const D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC*>(pDesc);
 	m_commandListRT->BuildRaytracingAccelerationStructure(pBuildDesc, numPostbuildInfoDescs,
-		pPostbuildInfoDescs ? postbuildInfoDescs.data() : nullptr, AccelerationStructure::GetUAVCount());
+		pPostbuildInfoDescs ? postbuildInfoDescs.data() : nullptr, g_numUAVs);
 }
 
 void RayTracing::CommandList_DX12::EmitRaytracingAccelerationStructurePostbuildInfo(const PostbuildInfo* pDesc,
@@ -70,8 +73,8 @@ void RayTracing::CommandList_DX12::EmitRaytracingAccelerationStructurePostbuildI
 	desc.DestBuffer = pDesc->DestBuffer;
 	desc.InfoType = GetDXRAccelerationStructurePostbuildInfoType(pDesc->InfoType);
 
-	m_commandListRT->EmitRaytracingAccelerationStructurePostbuildInfo(&desc, numAccelerationStructures,
-		pAccelerationStructureData, AccelerationStructure::GetUAVCount());
+	m_commandListRT->EmitRaytracingAccelerationStructurePostbuildInfo(&desc,
+		numAccelerationStructures, pAccelerationStructureData);
 }
 
 void RayTracing::CommandList_DX12::CopyRaytracingAccelerationStructure(const AccelerationStructure* pDst,
@@ -82,8 +85,7 @@ void RayTracing::CommandList_DX12::CopyRaytracingAccelerationStructure(const Acc
 	if (!pDxDevice->UsingRaytracingDriver() && pDescriptorHeap) SetDescriptorHeaps(1, pDescriptorHeap);
 
 	m_commandListRT->CopyRaytracingAccelerationStructure(pDst->GetVirtualAddress(),
-		pSrc->GetVirtualAddress(), GetDXRAccelerationStructureCopyMode(mode),
-		AccelerationStructure::GetUAVCount());
+		pSrc->GetVirtualAddress(), GetDXRAccelerationStructureCopyMode(mode));
 }
 
 void RayTracing::CommandList_DX12::SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps)
@@ -131,21 +133,17 @@ void RayTracing::CommandList_DX12::DispatchRays(uint32_t width, uint32_t height,
 	D3D12_DISPATCH_RAYS_DESC dispatchDesc = {};
 
 	// Since each shader table has only one shader record, the stride is same as the size.
-	const auto dxRayGen = pRayGen ? static_cast<ID3D12Resource*>(pRayGen->GetResource()->GetHandle()) : nullptr;
-	const auto dxHitGroup = pHitGroup ? static_cast<ID3D12Resource*>(pHitGroup->GetResource()->GetHandle()) : nullptr;
-	const auto dxMiss = pMiss ? static_cast<ID3D12Resource*>(pMiss->GetResource()->GetHandle()) : nullptr;
-	const auto dxCallable = pCallable ? static_cast<ID3D12Resource*>(pCallable->GetResource()->GetHandle()) : nullptr;
-	dispatchDesc.RayGenerationShaderRecord.StartAddress = dxRayGen ? dxRayGen->GetGPUVirtualAddress() : 0;
-	dispatchDesc.RayGenerationShaderRecord.SizeInBytes = pRayGen ? pRayGen->GetResource()->GetWidth() : 0;
-	dispatchDesc.HitGroupTable.StartAddress = dxHitGroup ? dxHitGroup->GetGPUVirtualAddress() : 0;
-	dispatchDesc.HitGroupTable.SizeInBytes = pHitGroup ? pHitGroup->GetResource()->GetWidth() : 0;
-	dispatchDesc.HitGroupTable.StrideInBytes = pHitGroup ? pHitGroup->GetShaderRecordSize() : 0;
-	dispatchDesc.MissShaderTable.StartAddress = dxMiss ? dxMiss->GetGPUVirtualAddress() : 0;
-	dispatchDesc.MissShaderTable.SizeInBytes = pMiss ? pMiss->GetResource()->GetWidth() : 0;
-	dispatchDesc.MissShaderTable.StrideInBytes = pMiss ? pMiss->GetShaderRecordSize() : 0;
-	dispatchDesc.CallableShaderTable.StartAddress = pCallable ? dxCallable->GetGPUVirtualAddress() : 0;
-	dispatchDesc.CallableShaderTable.SizeInBytes = pCallable ? pCallable->GetResource()->GetWidth() : 0;
-	dispatchDesc.CallableShaderTable.StrideInBytes = pCallable ? pCallable->GetShaderRecordSize() : 0;
+	dispatchDesc.RayGenerationShaderRecord.StartAddress = pRayGen ? pRayGen->GetVirtualAddress() : 0;
+	dispatchDesc.RayGenerationShaderRecord.SizeInBytes = pRayGen ? pRayGen->GetByteSize() : 0;
+	dispatchDesc.HitGroupTable.StartAddress = pHitGroup ? pHitGroup->GetVirtualAddress() : 0;
+	dispatchDesc.HitGroupTable.SizeInBytes = pHitGroup ? pHitGroup->GetByteSize() : 0;
+	dispatchDesc.HitGroupTable.StrideInBytes = pHitGroup ? pHitGroup->GetByteStride() : 0;
+	dispatchDesc.MissShaderTable.StartAddress = pMiss ? pMiss->GetVirtualAddress() : 0;
+	dispatchDesc.MissShaderTable.SizeInBytes = pMiss ? pMiss->GetByteSize() : 0;
+	dispatchDesc.MissShaderTable.StrideInBytes = pMiss ? pMiss->GetByteStride() : 0;
+	dispatchDesc.CallableShaderTable.StartAddress = pCallable ? pCallable->GetVirtualAddress() : 0;
+	dispatchDesc.CallableShaderTable.SizeInBytes = pCallable ? pCallable->GetByteSize() : 0;
+	dispatchDesc.CallableShaderTable.StrideInBytes = pCallable ? pCallable->GetByteStride() : 0;
 	dispatchDesc.Width = width;
 	dispatchDesc.Height = height;
 	dispatchDesc.Depth = depth;

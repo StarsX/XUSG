@@ -11,7 +11,8 @@
 using namespace std;
 using namespace XUSG;
 
-CommandAllocator_DX12::CommandAllocator_DX12()
+CommandAllocator_DX12::CommandAllocator_DX12() :
+	m_pDevice(nullptr)
 {
 }
 
@@ -66,7 +67,9 @@ const Device* CommandAllocator_DX12::GetDevice() const
 
 //--------------------------------------------------------------------------------------
 
-CommandList_DX12::CommandList_DX12()
+CommandList_DX12::CommandList_DX12() :
+	m_pDevice(nullptr),
+	m_descriptorHeapStarts()
 {
 }
 
@@ -702,7 +705,8 @@ com_ptr<ID3D12GraphicsCommandList>& CommandList_DX12::GetGraphicsCommandList()
 
 //--------------------------------------------------------------------------------------
 
-CommandQueue_DX12::CommandQueue_DX12()
+CommandQueue_DX12::CommandQueue_DX12() :
+	m_pDevice(nullptr)
 {
 }
 

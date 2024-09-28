@@ -13,10 +13,10 @@
 namespace FallbackLayer
 {
 
-    IAccelerationStructureBuilder &AccelerationStructureBuilderFactory::GetAccelerationStructureBuilder(UINT numUAVs)
+    IAccelerationStructureBuilder &AccelerationStructureBuilderFactory::GetAccelerationStructureBuilder()
     {
         const BuilderType builderType = DetermineBestBuilder();
-        return GetBuilder(builderType, numUAVs);
+        return GetBuilder(builderType);
     }
 
     AccelerationStructureBuilderFactory::BuilderType AccelerationStructureBuilderFactory::DetermineBestBuilder()
@@ -24,18 +24,17 @@ namespace FallbackLayer
         return GpuBvh2BuilderType;
     }
 
-    IAccelerationStructureBuilder &AccelerationStructureBuilderFactory::GetBuilder(BuilderType builderType, UINT numUAVs)
+    IAccelerationStructureBuilder &AccelerationStructureBuilderFactory::GetBuilder(BuilderType builderType)
     {
         assert(builderType < NumBuilders);
         if (!m_spBuilders[builderType])
         {
-            m_spBuilders[builderType] = std::unique_ptr<IAccelerationStructureBuilder>(CreateBuilder(builderType, numUAVs));
+            m_spBuilders[builderType] = std::unique_ptr<IAccelerationStructureBuilder>(CreateBuilder(builderType));
         }
         return *m_spBuilders[builderType];
     }
 
-
-    IAccelerationStructureBuilder *AccelerationStructureBuilderFactory::CreateBuilder(BuilderType type, UINT numUAVs)
+    IAccelerationStructureBuilder *AccelerationStructureBuilderFactory::CreateBuilder(BuilderType type)
     {
         switch (type)
         {
@@ -43,7 +42,7 @@ namespace FallbackLayer
         {
             D3D12_FEATURE_DATA_D3D12_OPTIONS1 waveData;
             ThrowInternalFailure(m_pDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS1, &waveData, sizeof(waveData)));
-            return new GpuBvh2Builder(m_pDevice, waveData.TotalLaneCount, m_nodeMask, numUAVs);
+            return new GpuBvh2Builder(m_pDevice, waveData.TotalLaneCount, m_nodeMask);
         }
         default:
             return nullptr;

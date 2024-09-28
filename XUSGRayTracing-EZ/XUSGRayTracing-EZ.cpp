@@ -14,11 +14,11 @@ using namespace std;
 using namespace XUSG::RayTracing;
 using namespace XUSG::RayTracing::EZ;
 
-XUSG::EZ::ResourceView EZ::GetSRV(AccelerationStructure* pAS)
+XUSG::EZ::ResourceView EZ::GetSRV(TopLevelAS* pTLAS)
 {
 	XUSG::EZ::ResourceView resourceView;
 	resourceView.pResource = nullptr;
-	resourceView.View = pAS->GetSRV();
+	resourceView.View = pTLAS->GetSRV();
 	resourceView.Subresources = {};
 	resourceView.DstState = XUSG::ResourceState::RAYTRACING_ACCELERATION_STRUCTURE;
 	resourceView.pCounter = nullptr;
@@ -37,33 +37,13 @@ EZ::CommandList::sptr EZ::CommandList::MakeShared(API api)
 }
 
 EZ::CommandList::uptr EZ::CommandList::MakeUnique(RayTracing::CommandList* pCommandList,
-	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
-	const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
-	const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
-	const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE],
-	const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE],
-	const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
-	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
-	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
-	uint32_t maxTLASSrvs, uint32_t spaceTLAS, API api)
+	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize, API api)
 {
-	return make_unique<CommandList_DXR>(pCommandList, samplerHeapSize, cbvSrvUavHeapSize,
-		maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
-		maxCbvSpaces, maxSrvSpaces, maxUavSpaces, maxTLASSrvs, spaceTLAS);
+	return make_unique<CommandList_DXR>(pCommandList, samplerHeapSize, cbvSrvUavHeapSize);
 }
 
 EZ::CommandList::sptr EZ::CommandList::MakeShared(RayTracing::CommandList* pCommandList,
-	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
-	const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
-	const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
-	const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE],
-	const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE],
-	const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
-	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
-	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
-	uint32_t maxTLASSrvs, uint32_t spaceTLAS, API api)
+	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize, API api)
 {
-	return make_shared<CommandList_DXR>(pCommandList, samplerHeapSize, cbvSrvUavHeapSize,
-		maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
-		maxCbvSpaces, maxSrvSpaces, maxUavSpaces, maxTLASSrvs, spaceTLAS);
+	return make_shared<CommandList_DXR>(pCommandList, samplerHeapSize, cbvSrvUavHeapSize);
 }

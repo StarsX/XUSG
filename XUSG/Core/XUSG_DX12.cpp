@@ -193,7 +193,8 @@ void* CommandLayout_DX12::GetHandle() const
 
 //--------------------------------------------------------------------------------------
 
-SwapChain_DX12::SwapChain_DX12()
+SwapChain_DX12::SwapChain_DX12() :
+	m_allowTearing(false)
 {
 }
 

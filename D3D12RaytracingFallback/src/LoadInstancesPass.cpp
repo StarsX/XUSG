@@ -12,19 +12,30 @@
 #include "LoadInstancesBindings.h"
 #include "CompiledShaders/TopLevelLoadAABBsFromArrayOfPointers.h"
 #include "CompiledShaders/TopLevelLoadAABBsFromArrayOfInstances.h"
+#include "LoadInstancesPass.h"
 
 namespace FallbackLayer
 {
-    LoadInstancesPass::LoadInstancesPass(ID3D12Device *pDevice, UINT nodeMask, UINT numUAVs)
+    LoadInstancesPass::LoadInstancesPass()
+    {}
+
+    void LoadInstancesPass::CreateTopLevelPipeline(ID3D12Device* pDevice, UINT nodeMask, UINT numUAVs)
     {
-        D3D12_DESCRIPTOR_RANGE1 globalDescriptorHeapRange[2];
-        globalDescriptorHeapRange[0] = CD3DX12_DESCRIPTOR_RANGE1(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, numUAVs, DescriptorHeapBufferRegister, DescriptorHeapBufferRegisterSpace, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE | D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE);
-        globalDescriptorHeapRange[1] = CD3DX12_DESCRIPTOR_RANGE1(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1024, DescriptorHeapSRVBufferRegister, DescriptorHeapSRVBufferRegisterSpace, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE | D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE);
+        assert(numUAVs > 0);
+        D3D12_DESCRIPTOR_RANGE1 globalDescriptorHeapRanges[2];
+        const auto numSRVs = numUAVs != UINT_MAX ? 1024 : UINT_MAX;
+        globalDescriptorHeapRanges[0] =
+            CD3DX12_DESCRIPTOR_RANGE1(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, numUAVs, DescriptorHeapBufferRegister, DescriptorHeapBufferRegisterSpace,
+                D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE | D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE, 0);
+        globalDescriptorHeapRanges[1] =
+            CD3DX12_DESCRIPTOR_RANGE1(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, numSRVs, DescriptorHeapSRVBufferRegister, DescriptorHeapSRVBufferRegisterSpace,
+                D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE | D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE, 0);
 
         CD3DX12_ROOT_PARAMETER1 parameters[RootParameterSlot::NumRootParameters];
         parameters[OutputBVHRootUAV].InitAsUnorderedAccessView(OutputBVHRegister);
         parameters[InstanceDescsSRV].InitAsShaderResourceView(InstanceDescsRegister);
-        parameters[GlobalDescriptorHeap].InitAsDescriptorTable(ARRAYSIZE(globalDescriptorHeapRange), globalDescriptorHeapRange);
+        parameters[GlobalDescriptorHeap].InitAsDescriptorTable(1, &globalDescriptorHeapRanges[0]);
+        parameters[GlobalDescriptorHeapSRV].InitAsDescriptorTable(1, &globalDescriptorHeapRanges[1]);
         parameters[CachedSortBuffer].InitAsUnorderedAccessView(CachedSortBufferRegister);
         parameters[Constants].InitAsConstants(SizeOfInUint32(LoadInstancesConstants), LoadInstancesConstantsRegister);
 
@@ -35,7 +46,7 @@ namespace FallbackLayer
         CreatePSOHelper(pDevice, nodeMask, m_pRootSignature.Get(), COMPILED_SHADER(g_pTopLevelLoadAABBsFromArrayOfInstances), &m_pLoadAABBsFromArrayOfInstancesPSO);
     }
 
-    void LoadInstancesPass::LoadInstances(ID3D12GraphicsCommandList *pCommandList, 
+    void LoadInstancesPass::LoadInstances(ID3D12GraphicsCommandList *pCommandList,
         D3D12_GPU_VIRTUAL_ADDRESS outputBVH, 
         D3D12_GPU_VIRTUAL_ADDRESS instancesDesc, 
         D3D12_ELEMENTS_LAYOUT instanceDescLayout, 
@@ -65,13 +76,12 @@ namespace FallbackLayer
         LoadInstancesConstants constants = { numElements, (UINT) performUpdate };
         pCommandList->SetComputeRoot32BitConstants(Constants, SizeOfInUint32(LoadInstancesConstants), &constants, 0);
         pCommandList->SetComputeRootDescriptorTable(GlobalDescriptorHeap, descriptorHeapBase);
+        pCommandList->SetComputeRootDescriptorTable(GlobalDescriptorHeapSRV, descriptorHeapBase);
         pCommandList->SetComputeRootShaderResourceView(InstanceDescsSRV, instancesDesc);
         pCommandList->SetComputeRootUnorderedAccessView(OutputBVHRootUAV, outputBVH);
 
         if (performUpdate)
-        {
             pCommandList->SetComputeRootUnorderedAccessView(CachedSortBuffer, cachedSortBuffer);
-        }
 
         const UINT dispatchWidth = DivideAndRoundUp<UINT>(numElements, THREAD_GROUP_1D_WIDTH);
         pCommandList->Dispatch(dispatchWidth, 1, 1);

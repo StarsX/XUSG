@@ -20,7 +20,7 @@ cbuffer Constants : register(b0)
 
 uint NextPow2( uint Val )
 {
-    uint Mask = (1 << firstbithigh(Val)) - 1;
+    uint Mask = (1u << firstbithigh(Val)) - 1;
     return (Val + Mask) & ~Mask;
 }
 
@@ -30,7 +30,7 @@ void main( uint GI : SV_GroupIndex )
     if (GI >= MaxIterations)
         return;
 
-    uint k = 2048 << GI;
+    uint k = 2048u << GI;
 
     uint ElementCount = ListCount;
     // We need one more iteration every time the number of thread groups doubles

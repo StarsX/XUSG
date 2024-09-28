@@ -80,14 +80,12 @@ public:
     virtual void STDMETHODCALLTYPE EmitRaytracingAccelerationStructurePostbuildInfo(
         _In_  const D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_DESC *pDesc,
         _In_  UINT NumSourceAccelerationStructures,
-        _In_reads_(NumSourceAccelerationStructures)  const D3D12_GPU_VIRTUAL_ADDRESS *pSourceAccelerationStructureData,
-        _In_ UINT NumUAVs) = 0;
+        _In_reads_(NumSourceAccelerationStructures)  const D3D12_GPU_VIRTUAL_ADDRESS *pSourceAccelerationStructureData) = 0;
 
     virtual void STDMETHODCALLTYPE CopyRaytracingAccelerationStructure(
         _In_  D3D12_GPU_VIRTUAL_ADDRESS DestAccelerationStructureData,
         _In_  D3D12_GPU_VIRTUAL_ADDRESS SourceAccelerationStructureData,
-        _In_  D3D12_RAYTRACING_ACCELERATION_STRUCTURE_COPY_MODE Mode,
-        _In_ UINT NumUAVs) = 0;
+        _In_  D3D12_RAYTRACING_ACCELERATION_STRUCTURE_COPY_MODE Mode) = 0;
 
     virtual void STDMETHODCALLTYPE SetDescriptorHeaps(
         _In_  UINT NumDescriptorHeaps,
@@ -133,8 +131,7 @@ public:
 
     virtual void STDMETHODCALLTYPE GetRaytracingAccelerationStructurePrebuildInfo(
         _In_  const D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS *pDesc,
-        _Out_  D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO *pInfo,
-        _In_ UINT NumUAVs) = 0;
+        _Out_  D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO *pInfo) = 0;
 
     virtual void QueryRaytracingCommandList(
         ID3D12GraphicsCommandList *pCommandList, 
@@ -152,14 +149,14 @@ public:
         _In_ const D3D12_VERSIONED_ROOT_SIGNATURE_DESC* pRootSignature,
         _Out_ ID3DBlob** ppBlob,
         _Always_(_Outptr_opt_result_maybenull_) ID3DBlob** ppErrorBlob,
-        _In_ UINT numUAVs, _In_ UINT numCBVs = 0) = 0;
+        _In_ UINT numUAVs) = 0;
 
     virtual HRESULT WINAPI D3D12SerializeRootSignature(
         _In_ const D3D12_ROOT_SIGNATURE_DESC* pRootSignature,
         _In_ D3D_ROOT_SIGNATURE_VERSION Version,
         _Out_ ID3DBlob** ppBlob,
         _Always_(_Outptr_opt_result_maybenull_) ID3DBlob** ppErrorBlob,
-        _In_ UINT numUAVs, _In_ UINT numCBVs = 0) = 0;
+        _In_ UINT numUAVs) = 0;
 };
 
 enum CreateRaytracingFallbackDeviceFlags

@@ -17,6 +17,8 @@ namespace FallbackLayer
     GUID FallbackLayerBlobPrivateDataGUID = { 0xf0545791, 0x860b, 0x472e, 0x9c, 0xc5, 0x84, 0x2c, 0xf1, 0x4e, 0x37, 0x60 };
     GUID FallbackLayerPatchedParameterStartGUID = { 0xea063348, 0x974e, 0x4227, 0x82, 0x55, 0x34, 0x5e, 0x29, 0x14, 0xeb, 0x7f };
 
+    D3D12_RESOURCE_BINDING_TIER ResourceBindingTier = D3D12_RESOURCE_BINDING_TIER_3;
+
     RaytracingDevice::RaytracingDevice(ID3D12Device *pDevice, UINT NodeMask, DWORD createRaytracingFallbackDeviceFlags) :
         m_pDevice(pDevice), m_RaytracingProgramFactory(pDevice), m_AccelerationStructureBuilderFactory(pDevice, NodeMask),
         m_flags(createRaytracingFallbackDeviceFlags)
@@ -33,7 +35,8 @@ namespace FallbackLayer
 
         D3D12_FEATURE_DATA_D3D12_OPTIONS d3d12Options;
         ThrowInternalFailure(m_pDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS, &d3d12Options, sizeof(d3d12Options)));
-        if (d3d12Options.ResourceBindingTier < D3D12_RESOURCE_BINDING_TIER_2)
+        ResourceBindingTier = d3d12Options.ResourceBindingTier;
+        if (ResourceBindingTier < D3D12_RESOURCE_BINDING_TIER_2)
         {
             ThrowFailure(E_INVALIDARG,
                 L"The graphics driver does not support resource binding tier 2. For more info, check \"Known working drivers\" in the readme.md");
@@ -178,7 +181,7 @@ namespace FallbackLayer
         _Out_ std::vector<TD3DX12_ROOT_PARAMETER> &patchedRootParameters,
         _Out_ std::vector<TD3DX12_DESCRIPTOR_RANGE> &patchedRanges,
         _Out_ TD3D12_ROOT_SIGNATURE_DESC &patchedRootSignatureDesc,
-        _In_ UINT numUAVs, _In_ UINT numCBVs)
+        _In_ UINT numUAVs)
     {
         bool bLocalRootSignature = pRootSignature->Flags & D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE;
         bool bGlobalRootSignature = !bLocalRootSignature;
@@ -211,30 +214,43 @@ namespace FallbackLayer
             TD3DX12_ROOT_PARAMETER *pOriginalParameters = (TD3DX12_ROOT_PARAMETER*)pRootSignature->pParameters;
             std::copy(pOriginalParameters, pOriginalParameters + pRootSignature->NumParameters, patchedRootParameters.begin());
 
-            UINT CbvSrvUavParamterCount = 0;
             D3D12_DESCRIPTOR_RANGE_TYPE descriptorTypes[] =
             {
                 D3D12_DESCRIPTOR_RANGE_TYPE_UAV,
-                D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
                 D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
-
+                D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
                 D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER
             };
 
-            // SRV, UAV, CBV, and sampler
-            const UINT descriptorCounts[] = { 1024, numUAVs, numCBVs, UINT8_MAX };
+            UINT descriptorTableParamCounts[ARRAYSIZE(descriptorTypes)] = {};
 
-            for (auto descriptorType : descriptorTypes)
+            // SRV, UAV, CBV, and sampler
+            UINT descriptorCounts[ARRAYSIZE(descriptorTypes)];
+            descriptorCounts[D3D12_DESCRIPTOR_RANGE_TYPE_UAV] = numUAVs;
+            descriptorCounts[D3D12_DESCRIPTOR_RANGE_TYPE_CBV] = 0;
+            descriptorCounts[D3D12_DESCRIPTOR_RANGE_TYPE_SRV] = 1024;
+            descriptorCounts[D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER] = UINT8_MAX;
+
+            for (const auto& descriptorType : descriptorTypes)
             {
-                const auto descriptorCount = descriptorCounts[descriptorType];
-                UINT numSpacesNeeded = descriptorCount > 0 ? 1 : 0;
-                //if (descriptorType == D3D12_DESCRIPTOR_RANGE_TYPE_SRV || descriptorType == D3D12_DESCRIPTOR_RANGE_TYPE_UAV)
-                if (descriptorType == D3D12_DESCRIPTOR_RANGE_TYPE_SRV)
-                    numSpacesNeeded = descriptorCount > 0 ? FallbackLayerNumDescriptorHeapSpacesPerView : 0;
+                UINT descriptorCount, numSpacesNeeded;
+                if (ResourceBindingTier >= D3D12_RESOURCE_BINDING_TIER_3)
+                {
+                    descriptorCount = UINT_MAX;
+                    numSpacesNeeded = 1;
+                    if (descriptorType == D3D12_DESCRIPTOR_RANGE_TYPE_SRV || descriptorType == D3D12_DESCRIPTOR_RANGE_TYPE_UAV)
+                        numSpacesNeeded = FallbackLayerNumDescriptorHeapSpacesPerView;
+                }
+                else
+                {
+                    descriptorCount = descriptorCounts[descriptorType];
+                    numSpacesNeeded = descriptorCount > 0 ? 1 : 0;
+                    numSpacesNeeded = descriptorType == D3D12_DESCRIPTOR_RANGE_TYPE_SRV ? FallbackLayerNumDescriptorHeapSpacesPerView : numSpacesNeeded;
+                }
 
                 auto range = TD3DX12_DESCRIPTOR_RANGE(
-                    descriptorType, descriptorCounts[descriptorType], FallbackLayerDescriptorHeapTable, FallbackLayerRegisterSpace + FallbackLayerDescriptorHeapSpaceOffset);
-                //range.OffsetInDescriptorsFromTableStart = 0;
+                    descriptorType, descriptorCount, FallbackLayerDescriptorHeapTable, FallbackLayerRegisterSpace + FallbackLayerDescriptorHeapSpaceOffset);
+                range.OffsetInDescriptorsFromTableStart = 0;
                 __if_exists(TD3DX12_DESCRIPTOR_RANGE::Flags)
                 {
                     if (range.RangeType != D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER)
@@ -246,14 +262,17 @@ namespace FallbackLayer
                 for (UINT i = 0; i < numSpacesNeeded; i++)
                 {
                     patchedRanges.push_back(range);
-                    range.RegisterSpace++;
+                    ++range.RegisterSpace;
                 }
 
-                if (descriptorType != D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER)
-                {
-                    CbvSrvUavParamterCount += numSpacesNeeded;
-                }
+                descriptorTableParamCounts[descriptorType] += numSpacesNeeded;
             }
+
+            const auto uavParamCount = descriptorTableParamCounts[D3D12_DESCRIPTOR_RANGE_TYPE_UAV];
+            const auto srvParamCount = descriptorTableParamCounts[D3D12_DESCRIPTOR_RANGE_TYPE_SRV];
+            const auto cbvParamCount = descriptorTableParamCounts[D3D12_DESCRIPTOR_RANGE_TYPE_CBV];
+            const auto uavCbvParamCount = uavParamCount + cbvParamCount;
+            const auto uavCbvSrvParamCount = uavCbvParamCount + srvParamCount;
 
             UINT patchedParameterOffset = pRootSignature->NumParameters;
             patchedRootParameters[patchedParameterOffset + HitGroupRecord].InitAsShaderResourceView(FallbackLayerHitGroupRecordByteAddressBufferRegister, FallbackLayerRegisterSpace);
@@ -261,8 +280,9 @@ namespace FallbackLayer
             patchedRootParameters[patchedParameterOffset + RayGenShaderRecord].InitAsShaderResourceView(FallbackLayerRayGenShaderRecordByteAddressBufferRegister, FallbackLayerRegisterSpace);
             patchedRootParameters[patchedParameterOffset + CallableShaderRecord].InitAsShaderResourceView(FallbackLayerCallableShaderRecordByteAddressBufferRegister, FallbackLayerRegisterSpace);
             patchedRootParameters[patchedParameterOffset + DispatchConstants].InitAsConstants(SizeOfInUint32(DispatchRaysConstants), FallbackLayerDispatchConstantsRegister, FallbackLayerRegisterSpace);
-            patchedRootParameters[patchedParameterOffset + CbvSrvUavDescriptorHeapAliasedTables].InitAsDescriptorTable(CbvSrvUavParamterCount, patchedRanges.data());
-            patchedRootParameters[patchedParameterOffset + SamplerDescriptorHeapAliasedTables].InitAsDescriptorTable(1, patchedRanges.data() + CbvSrvUavParamterCount);
+            patchedRootParameters[patchedParameterOffset + UavCbvDescriptorHeapAliasedTables].InitAsDescriptorTable(uavParamCount, patchedRanges.data());
+            patchedRootParameters[patchedParameterOffset + SrvDescriptorHeapAliasedTables].InitAsDescriptorTable(srvParamCount, &patchedRanges[uavCbvParamCount]);
+            patchedRootParameters[patchedParameterOffset + SamplerDescriptorHeapAliasedTables].InitAsDescriptorTable(1, &patchedRanges[uavCbvSrvParamCount]);
             patchedRootParameters[patchedParameterOffset + AccelerationStructuresList].InitAsConstants(SizeOfInUint32(WRAPPED_GPU_POINTER), FallbackLayerAccelerationStructureList, FallbackLayerRegisterSpace);
 #if ENABLE_UAV_LOG
             patchedRootParameters[patchedParameterOffset + DebugUAVLog].InitAsUnorderedAccessView(UAVLogRegister, FallbackLayerRegisterSpace);
@@ -281,7 +301,7 @@ namespace FallbackLayer
         _In_ const D3D12_VERSIONED_ROOT_SIGNATURE_DESC* pRootSignature,
         _Out_ ID3DBlob** ppBlob,
         _Always_(_Outptr_opt_result_maybenull_) ID3DBlob** ppErrorBlob,
-        _In_ UINT numUAVs, _In_ UINT numCBVs)
+        _In_ UINT numUAVs)
     {
         std::vector<CD3DX12_ROOT_PARAMETER> patchedRootParameters;
         std::vector<CD3DX12_DESCRIPTOR_RANGE> patchedRanges;
@@ -293,10 +313,10 @@ namespace FallbackLayer
         switch (pRootSignature->Version)
         {
         case D3D_ROOT_SIGNATURE_VERSION_1_0:
-            PatchRootSignature(&pRootSignature->Desc_1_0, AreShaderRecordRootDescriptorsEnabled(), patchedRootParameters, patchedRanges, patchedDesc.Desc_1_0, numUAVs, numCBVs);
+            PatchRootSignature(&pRootSignature->Desc_1_0, AreShaderRecordRootDescriptorsEnabled(), patchedRootParameters, patchedRanges, patchedDesc.Desc_1_0, numUAVs);
             break;
         case D3D_ROOT_SIGNATURE_VERSION_1_1:
-            PatchRootSignature(&pRootSignature->Desc_1_1, AreShaderRecordRootDescriptorsEnabled(), patchedRootParameters1, patchedRanges1, patchedDesc.Desc_1_1, numUAVs, numCBVs);
+            PatchRootSignature(&pRootSignature->Desc_1_1, AreShaderRecordRootDescriptorsEnabled(), patchedRootParameters1, patchedRanges1, patchedDesc.Desc_1_1, numUAVs);
             break;
         }
 
@@ -307,12 +327,12 @@ namespace FallbackLayer
         _In_ D3D_ROOT_SIGNATURE_VERSION Version,
         _Out_ ID3DBlob** ppBlob,
         _Always_(_Outptr_opt_result_maybenull_) ID3DBlob** ppErrorBlob,
-        _In_ UINT numUAVs, _In_ UINT numCBVs)
+        _In_ UINT numUAVs)
     {
         D3D12_ROOT_SIGNATURE_DESC patchedDesc;
         std::vector<CD3DX12_ROOT_PARAMETER> patchedRootParameters;
         std::vector<CD3DX12_DESCRIPTOR_RANGE> patchedRanges;
-        PatchRootSignature(pRootSignature, AreShaderRecordRootDescriptorsEnabled(), patchedRootParameters, patchedRanges, patchedDesc, numUAVs, numCBVs);
+        PatchRootSignature(pRootSignature, AreShaderRecordRootDescriptorsEnabled(), patchedRootParameters, patchedRanges, patchedDesc, numUAVs);
 
         if (patchedDesc.Flags & D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE)
         {
@@ -333,11 +353,13 @@ namespace FallbackLayer
 #if USE_PIX_MARKERS
         PIXScopedEvent(m_pCommandList.Get(), FallbackPixColor, L"BuildRaytracingAccelerationStructure");
 #endif
-        auto &accelerationStructureBuilder = m_device.m_AccelerationStructureBuilderFactory.GetAccelerationStructureBuilder(NumUAVs);
+        const auto numUAVs = ResourceBindingTier >= D3D12_RESOURCE_BINDING_TIER_3 ? UINT_MAX : NumUAVs;
+        auto &accelerationStructureBuilder = m_device.m_AccelerationStructureBuilderFactory.GetAccelerationStructureBuilder();
         accelerationStructureBuilder.BuildRaytracingAccelerationStructure(
             m_pCommandList.Get(),
             pDesc,
-            m_pBoundDescriptorHeaps[SrvUavCbvType]);
+            m_pBoundDescriptorHeaps[SrvUavCbvType],
+            numUAVs);
 
         if (NumPostbuildInfoDescs)
         {
@@ -547,8 +569,7 @@ namespace FallbackLayer
     void STDMETHODCALLTYPE D3D12RaytracingCommandList::EmitRaytracingAccelerationStructurePostbuildInfo(
         _In_  const D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_DESC *pDesc,
         _In_  UINT NumSourceAccelerationStructures,
-        _In_reads_(NumSourceAccelerationStructures) const D3D12_GPU_VIRTUAL_ADDRESS *pSourceAccelerationStructureData,
-        _In_ UINT NumUAVs)
+        _In_reads_(NumSourceAccelerationStructures) const D3D12_GPU_VIRTUAL_ADDRESS *pSourceAccelerationStructureData)
     {
         if (pDesc->InfoType != D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_COMPACTED_SIZE ||
             pDesc->InfoType != D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_CURRENT_SIZE)
@@ -562,7 +583,7 @@ namespace FallbackLayer
         PIXScopedEvent(m_pCommandList.Get(), FallbackPixColor, L"EmitRaytracingAccelerationStructurePostBuildInfo");
 #endif
 
-        m_device.GetAccelerationStructureBuilderFactory().GetAccelerationStructureBuilder(NumUAVs).EmitRaytracingAccelerationStructurePostbuildInfo(
+        m_device.GetAccelerationStructureBuilderFactory().GetAccelerationStructureBuilder().EmitRaytracingAccelerationStructurePostbuildInfo(
             m_pCommandList.Get(),
             pDesc,
             NumSourceAccelerationStructures,
@@ -572,13 +593,12 @@ namespace FallbackLayer
     void STDMETHODCALLTYPE D3D12RaytracingCommandList::CopyRaytracingAccelerationStructure(
         _In_  D3D12_GPU_VIRTUAL_ADDRESS DestAccelerationStructureData,
         _In_  D3D12_GPU_VIRTUAL_ADDRESS SourceAccelerationStructureData,
-        _In_  D3D12_RAYTRACING_ACCELERATION_STRUCTURE_COPY_MODE Mode,
-        _In_ UINT NumUAVs)
+        _In_  D3D12_RAYTRACING_ACCELERATION_STRUCTURE_COPY_MODE Mode)
     {
 #if USE_PIX_MARKERS
         PIXScopedEvent(m_pCommandList.Get(), FallbackPixColor, L"CopyRaytracingAccelerationStructure");
 #endif
-        m_device.GetAccelerationStructureBuilderFactory().GetAccelerationStructureBuilder(NumUAVs).CopyRaytracingAccelerationStructure(
+        m_device.GetAccelerationStructureBuilderFactory().GetAccelerationStructureBuilder().CopyRaytracingAccelerationStructure(
             m_pCommandList.Get(),
             DestAccelerationStructureData,
             SourceAccelerationStructureData,
@@ -681,10 +701,9 @@ namespace FallbackLayer
 
     void STDMETHODCALLTYPE RaytracingDevice::GetRaytracingAccelerationStructurePrebuildInfo(
         _In_  const D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS *pDesc,
-        _Out_  D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO *pInfo,
-        _In_ UINT NumUAVs)
+        _Out_  D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO *pInfo)
     {
-        m_AccelerationStructureBuilderFactory.GetAccelerationStructureBuilder(NumUAVs).GetRaytracingAccelerationStructurePrebuildInfo(
+        m_AccelerationStructureBuilderFactory.GetAccelerationStructureBuilder().GetRaytracingAccelerationStructurePrebuildInfo(
             pDesc,
             pInfo);
     }

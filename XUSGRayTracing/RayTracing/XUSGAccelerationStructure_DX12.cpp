@@ -18,7 +18,11 @@ extern uint32_t g_numUAVs;
 // Acceleration structure
 //--------------------------------------------------------------------------------------
 
-AccelerationStructure_DX12::AccelerationStructure_DX12()
+AccelerationStructure_DX12::AccelerationStructure_DX12() :
+	m_buildDesc(),
+	m_prebuildInfo(),
+	m_pointer(),
+	m_byteOffset(0)
 {
 }
 
@@ -26,18 +30,24 @@ AccelerationStructure_DX12::~AccelerationStructure_DX12()
 {
 }
 
-void AccelerationStructure_DX12::SetDestData(const Device* pDevice, const Buffer::sptr destBuffer,
-	size_t offset, uint32_t descriptorIndex, uint32_t srvIndex, uint32_t uavIndex)
+void AccelerationStructure_DX12::SetDestination(const Device* pDevice, const Buffer::sptr destBuffer,
+	uintptr_t byteOffset, uint32_t uavIndex, DescriptorTableLib* pDescriptorTableLib)
 {
 	m_resource = destBuffer;
-	m_offset = offset;
-	m_srvIndex = srvIndex;
-	m_uavIndex = uavIndex;
+	m_byteOffset = byteOffset;
 
-	// The Fallback Layer interface uses WRAPPED_GPU_POINTER to encapsulate the underlying pointer
-	// which will either be an emulated GPU pointer for the compute - based path or a GPU_VIRTUAL_ADDRESS for the DXR path.
-	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(pDevice->GetRTHandle());
-	m_pointer = pDxDevice->GetWrappedPointerSimple(descriptorIndex, m_resource->GetVirtualAddress() + offset);
+	if (pDescriptorTableLib)
+	{
+		const auto descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
+		descriptorTable->SetDescriptors(0, 1, &destBuffer->GetUAV(uavIndex));
+		const auto descriptorIndex = descriptorTable->GetCbvSrvUavTableIndex(pDescriptorTableLib);
+		g_numUAVs = (max)(descriptorIndex + 1, g_numUAVs);
+
+		// The Fallback Layer interface uses WRAPPED_GPU_POINTER to encapsulate the underlying pointer
+		// which will either be an emulated GPU pointer for the compute - based path or a GPU_VIRTUAL_ADDRESS for the DXR path.
+		const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(pDevice->GetRTHandle());
+		m_pointer = pDxDevice->GetWrappedPointerSimple(descriptorIndex, m_resource->GetVirtualAddress() + byteOffset);
+	}
 }
 
 uint32_t AccelerationStructure_DX12::SetBarrier(ResourceBarrier* pBarriers, uint32_t numBarriers)
@@ -45,29 +55,46 @@ uint32_t AccelerationStructure_DX12::SetBarrier(ResourceBarrier* pBarriers, uint
 	return AccelerationStructure::SetBarrier(pBarriers, m_resource.get(), numBarriers);
 }
 
+const PrebuildInfo& AccelerationStructure_DX12::GetPrebuildInfo() const
+{
+	return m_prebuildInfo;
+}
+
 Buffer* AccelerationStructure_DX12::GetPostbuildInfo() const
 {
 	return m_postbuildInfoRB.get();
 }
 
-uint32_t AccelerationStructure_DX12::GetResultDataMaxSize() const
+size_t AccelerationStructure_DX12::GetResultDataMaxByteSize() const
 {
-	return static_cast<uint32_t>(m_prebuildInfo.ResultDataMaxSizeInBytes);
+	const auto resultDataMaxByteSize = static_cast<size_t>(m_prebuildInfo.ResultDataMaxByteSize);
+
+	return Buffer_DX12::AlignRawView(resultDataMaxByteSize);
 }
 
-uint32_t AccelerationStructure_DX12::GetScratchDataMaxSize() const
+size_t AccelerationStructure_DX12::GetScratchDataByteSize() const
 {
-	return static_cast<uint32_t>(m_prebuildInfo.ScratchDataSizeInBytes);
+	return static_cast<size_t>(m_prebuildInfo.ScratchDataByteSize);
 }
 
-uint32_t AccelerationStructure_DX12::GetUpdateScratchDataSize() const
+size_t AccelerationStructure_DX12::GetUpdateScratchDataByteSize() const
 {
-	return static_cast<uint32_t>(m_prebuildInfo.UpdateScratchDataSizeInBytes);
+	return static_cast<size_t>(m_prebuildInfo.UpdateScratchDataByteSize);
+}
+
+size_t AccelerationStructure_DX12::GetCompactedByteSize() const
+{
+	using T = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_COMPACTED_SIZE_DESC;
+	const auto pPostbuildInfo = static_cast<const T*>(m_postbuildInfoRB->Map(nullptr));
+	const auto compactedByteSize = static_cast<size_t>(pPostbuildInfo->CompactedSizeInBytes);
+	m_postbuildInfoRB->Unmap();
+
+	return Buffer_DX12::AlignRawView(compactedByteSize);
 }
 
 uint64_t AccelerationStructure_DX12::GetVirtualAddress() const
 {
-	return m_resource->GetVirtualAddress() + m_offset;
+	return m_resource->GetVirtualAddress() + m_byteOffset;
 }
 
 uint64_t AccelerationStructure_DX12::GetResourcePointer() const
@@ -75,18 +102,8 @@ uint64_t AccelerationStructure_DX12::GetResourcePointer() const
 	return m_pointer.GpuVA;
 }
 
-const Descriptor& AccelerationStructure_DX12::GetSRV() const
-{
-	return m_resource->GetSRV(m_srvIndex);
-}
-
-const Descriptor& AccelerationStructure_DX12::GetUAV() const
-{
-	return m_resource->GetUAV(m_uavIndex);
-}
-
 bool AccelerationStructure_DX12::AllocateDestBuffer(const Device* pDevice, Buffer* pResource, size_t byteWidth,
-	uint32_t numSRVs, const uint32_t* firstSrvElements, uint32_t numUAVs, const uint32_t* firstUavElements,
+	uint32_t numSRVs, const uintptr_t* firstSrvElements, uint32_t numUAVs, const uintptr_t* firstUavElements,
 	MemoryFlag memoryFlags, const wchar_t* name, uint32_t maxThreads)
 {
 	// Allocate resources for acceleration structures.
@@ -111,30 +128,37 @@ bool AccelerationStructure_DX12::prebuild(const Device* pDevice)
 
 	D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO prebuildInfo;
 	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(pDevice->GetRTHandle());
-	pDxDevice->GetRaytracingAccelerationStructurePrebuildInfo(&inputs, &prebuildInfo, g_numUAVs);
+	pDxDevice->GetRaytracingAccelerationStructurePrebuildInfo(&inputs, &prebuildInfo);
 
-	m_prebuildInfo.ResultDataMaxSizeInBytes = prebuildInfo.ResultDataMaxSizeInBytes;
-	m_prebuildInfo.ScratchDataSizeInBytes = prebuildInfo.ScratchDataSizeInBytes;
-	m_prebuildInfo.UpdateScratchDataSizeInBytes = prebuildInfo.UpdateScratchDataSizeInBytes;
+	m_prebuildInfo.ResultDataMaxByteSize = prebuildInfo.ResultDataMaxSizeInBytes;
+	m_prebuildInfo.ScratchDataByteSize = prebuildInfo.ScratchDataSizeInBytes;
+	m_prebuildInfo.UpdateScratchDataByteSize = prebuildInfo.UpdateScratchDataSizeInBytes;
 
-	return m_prebuildInfo.ResultDataMaxSizeInBytes;
+	return m_prebuildInfo.ResultDataMaxByteSize;
 }
 
-bool AccelerationStructure_DX12::allocate(const Device* pDevice, size_t byteWidth, uint32_t descriptorIndex,
-	uint32_t numSRVs, MemoryFlag memoryFlags, const wchar_t* name, uint32_t maxThreads)
+bool AccelerationStructure_DX12::allocate(const Device* pDevice, size_t byteWidth,
+	DescriptorTableLib* pDescriptorTableLib, uint32_t numSRVs, MemoryFlag memoryFlags,
+	const wchar_t* name, uint32_t maxThreads)
 {
-	m_resource = Buffer::MakeShared();
-	byteWidth = byteWidth ? byteWidth : GetResultDataMaxSize();
+	m_resource = Buffer::MakeShared(API::DIRECTX_12);
+	byteWidth = byteWidth ? byteWidth : GetResultDataMaxByteSize();
 	XUSG_N_RETURN(AllocateDestBuffer(pDevice, m_resource.get(), byteWidth, numSRVs,
 		nullptr, 1, nullptr, memoryFlags, name, maxThreads), false);
-	m_offset = 0;
-	m_srvIndex = 0;
-	m_uavIndex = 0;
+	m_byteOffset = 0;
 
-	// The Fallback Layer interface uses WRAPPED_GPU_POINTER to encapsulate the underlying pointer
-	// which will either be an emulated GPU pointer for the compute - based path or a GPU_VIRTUAL_ADDRESS for the DXR path.
-	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(pDevice->GetRTHandle());
-	m_pointer = pDxDevice->GetWrappedPointerSimple(descriptorIndex, m_resource->GetVirtualAddress());
+	if (pDescriptorTableLib)
+	{
+		const auto descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
+		descriptorTable->SetDescriptors(0, 1, &m_resource->GetUAV());
+		const auto descriptorIndex = descriptorTable->GetCbvSrvUavTableIndex(pDescriptorTableLib);
+		g_numUAVs = (max)(descriptorIndex + 1, g_numUAVs);
+
+		// The Fallback Layer interface uses WRAPPED_GPU_POINTER to encapsulate the underlying pointer
+		// which will either be an emulated GPU pointer for the compute - based path or a GPU_VIRTUAL_ADDRESS for the DXR path.
+		const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(pDevice->GetRTHandle());
+		m_pointer = pDxDevice->GetWrappedPointerSimple(descriptorIndex, m_resource->GetVirtualAddress());
+	}
 
 	return true;
 }
@@ -167,10 +191,10 @@ bool BottomLevelAS_DX12::Prebuild(const Device* pDevice, uint32_t numGeometries,
 	return prebuild(pDevice);
 }
 
-bool BottomLevelAS_DX12::Allocate(const Device* pDevice, uint32_t descriptorIndex, size_t byteWidth,
-	MemoryFlag memoryFlags, const wchar_t* name, uint32_t maxThreads)
+bool BottomLevelAS_DX12::Allocate(const Device* pDevice, DescriptorTableLib* pDescriptorTableLib,
+	size_t byteWidth, MemoryFlag memoryFlags, const wchar_t* name, uint32_t maxThreads)
 {
-	return allocate(pDevice, byteWidth, descriptorIndex, 0, memoryFlags, name, maxThreads);
+	return allocate(pDevice, byteWidth, pDescriptorTableLib, 0, memoryFlags, name, maxThreads);
 }
 
 void BottomLevelAS_DX12::Build(CommandList* pCommandList, const Resource* pScratch, const BottomLevelAS* pSource,
@@ -275,7 +299,8 @@ void BottomLevelAS_DX12::SetAABBGeometries(GeometryBuffer& geometries, uint32_t 
 //--------------------------------------------------------------------------------------
 
 TopLevelAS_DX12::TopLevelAS_DX12() :
-	AccelerationStructure_DX12()
+	AccelerationStructure_DX12(),
+	m_srvIndex(0)
 {
 }
 
@@ -296,10 +321,19 @@ bool TopLevelAS_DX12::Prebuild(const Device* pDevice, uint32_t numInstances, Bui
 	return prebuild(pDevice);
 }
 
-bool TopLevelAS_DX12::Allocate(const Device* pDevice, uint32_t descriptorIndex, size_t byteWidth,
-	MemoryFlag memoryFlags, const wchar_t* name, uint32_t maxThreads)
+bool TopLevelAS_DX12::Allocate(const Device* pDevice, DescriptorTableLib* pDescriptorTableLib,
+	size_t byteWidth, MemoryFlag memoryFlags, const wchar_t* name, uint32_t maxThreads)
 {
-	return allocate(pDevice, byteWidth, descriptorIndex, 1, memoryFlags, name, maxThreads);
+	m_srvIndex = 0;
+
+	return allocate(pDevice, byteWidth, pDescriptorTableLib, 1, memoryFlags, name, maxThreads);
+}
+
+void TopLevelAS_DX12::SetDestination(const Device* pDevice, const Buffer::sptr destBuffer, uintptr_t byteOffset,
+	uint32_t uavIndex, uint32_t srvIndex, DescriptorTableLib* pDescriptorTableLib)
+{
+	m_srvIndex = srvIndex;
+	AccelerationStructure_DX12::SetDestination(pDevice, destBuffer, byteOffset, uavIndex, pDescriptorTableLib);
 }
 
 void TopLevelAS_DX12::Build(CommandList* pCommandList, const Resource* pScratch,
@@ -345,6 +379,11 @@ void TopLevelAS_DX12::Build(CommandList* pCommandList, const Resource* pScratch,
 		numPostbuildInfoDescs ? postbuildInfoDescs.data() : nullptr, &descriptorHeap);
 
 	if (m_postbuildInfo) m_postbuildInfo->ReadBack(pCommandList, m_postbuildInfoRB.get());
+}
+
+const Descriptor& TopLevelAS_DX12::GetSRV() const
+{
+	return m_resource->GetSRV(m_srvIndex);
 }
 
 void TopLevelAS_DX12::SetInstances(const Device* pDevice, Buffer* pInstances, uint32_t numInstances,

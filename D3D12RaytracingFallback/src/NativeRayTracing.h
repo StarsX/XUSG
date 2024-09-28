@@ -78,8 +78,7 @@ public:
     virtual void STDMETHODCALLTYPE EmitRaytracingAccelerationStructurePostbuildInfo(
         _In_  const D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_DESC *pDesc,
         _In_  UINT NumSourceAccelerationStructures,
-        _In_reads_(NumSourceAccelerationStructures)  const D3D12_GPU_VIRTUAL_ADDRESS *pSourceAccelerationStructureData,
-        _In_ UINT NumUAVs = UINT_MAX)
+        _In_reads_(NumSourceAccelerationStructures)  const D3D12_GPU_VIRTUAL_ADDRESS *pSourceAccelerationStructureData)
     {
         m_pCommandList->EmitRaytracingAccelerationStructurePostbuildInfo(
             pDesc,
@@ -90,8 +89,7 @@ public:
     virtual void STDMETHODCALLTYPE CopyRaytracingAccelerationStructure(
         _In_  D3D12_GPU_VIRTUAL_ADDRESS DestAccelerationStructureData,
         _In_  D3D12_GPU_VIRTUAL_ADDRESS SourceAccelerationStructureData,
-        _In_  D3D12_RAYTRACING_ACCELERATION_STRUCTURE_COPY_MODE Flags,
-        _In_ UINT NumUAVs = UINT_MAX)
+        _In_  D3D12_RAYTRACING_ACCELERATION_STRUCTURE_COPY_MODE Flags)
     {
         m_pCommandList->CopyRaytracingAccelerationStructure(
             DestAccelerationStructureData,
@@ -199,8 +197,7 @@ public:
 
     virtual void STDMETHODCALLTYPE GetRaytracingAccelerationStructurePrebuildInfo(
         _In_  const D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS *pDesc,
-        _Out_  D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO *pInfo,
-        _In_ UINT NumUAVs = UINT_MAX)
+        _Out_  D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO *pInfo)
     {
         m_pDevice->GetRaytracingAccelerationStructurePrebuildInfo(
             pDesc,
@@ -231,7 +228,7 @@ public:
         _In_ const D3D12_VERSIONED_ROOT_SIGNATURE_DESC* pRootSignature,
         _Out_ ID3DBlob** ppBlob,
         _Always_(_Outptr_opt_result_maybenull_) ID3DBlob** ppErrorBlob,
-        _In_ UINT numUAVs = UINT_MAX, _In_ UINT numCBVs = 0)
+        _In_ UINT numUAVs = UINT_MAX)
     {
         return ::D3D12SerializeVersionedRootSignature(pRootSignature, ppBlob, ppErrorBlob);
     }
@@ -241,7 +238,7 @@ public:
         _In_ D3D_ROOT_SIGNATURE_VERSION Version,
         _Out_ ID3DBlob** ppBlob,
         _Always_(_Outptr_opt_result_maybenull_) ID3DBlob** ppErrorBlob,
-        _In_ UINT numUAVs = UINT_MAX, _In_ UINT numCBVs = 0)
+        _In_ UINT numUAVs = UINT_MAX)
     {
         return ::D3D12SerializeRootSignature(pRootSignature, Version, ppBlob, ppErrorBlob);
     }

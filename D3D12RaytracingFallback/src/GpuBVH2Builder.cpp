@@ -14,25 +14,40 @@
 
 namespace FallbackLayer
 {
-    GpuBvh2Builder::GpuBvh2Builder(ID3D12Device *pDevice, UINT totalLaneCount, UINT nodeMask, UINT numUAVs) :
+    GpuBvh2Builder::GpuBvh2Builder(ID3D12Device *pDevice, UINT totalLaneCount, UINT nodeMask) :
         m_sceneAABBCalculator(pDevice, nodeMask),
         m_mortonCodeCalculator(pDevice, nodeMask),
         m_sorterPass(pDevice, nodeMask),
         m_rearrangePass(pDevice, nodeMask),
-        m_loadInstancesPass(pDevice, nodeMask, numUAVs),
+        m_loadInstancesPass(),
         m_loadPrimitivesPass(pDevice, nodeMask),
-        m_constructHierarchyPass(pDevice, nodeMask, numUAVs),
-        m_constructAABBPass(pDevice, nodeMask, numUAVs),
+        m_constructHierarchyPass(pDevice, nodeMask),
+        m_constructAABBPass(pDevice, nodeMask),
         m_postBuildInfoQuery(pDevice, nodeMask),
         m_copyPass(pDevice, totalLaneCount, nodeMask),
-        m_treeletReorder(pDevice, nodeMask)
+        m_treeletReorder(pDevice, nodeMask),
+        m_nodeMask(nodeMask),
+        m_numUAVs(0)
     {}
 
     void GpuBvh2Builder::BuildRaytracingAccelerationStructure(
         _In_  ID3D12GraphicsCommandList *pCommandList,
         _In_  const D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC *pDesc,
-        _In_ ID3D12DescriptorHeap *pCbvSrvUavDescriptorHeap)
+        _In_ ID3D12DescriptorHeap *pCbvSrvUavDescriptorHeap,
+        _In_ UINT NumUAVs)
     {
+        if (m_numUAVs < NumUAVs)
+        {
+            Microsoft::WRL::ComPtr<ID3D12Device> device = nullptr;
+            if (SUCCEEDED(pCommandList->GetDevice(IID_PPV_ARGS(&device))))
+            {
+                m_loadInstancesPass.CreateTopLevelPipeline(device.Get(), m_nodeMask, NumUAVs);
+                m_constructHierarchyPass.CreateTopLevelPipeline(device.Get(), m_nodeMask, NumUAVs);
+                m_constructAABBPass.CreateTopLevelPipeline(device.Get(), m_nodeMask, NumUAVs);
+                m_numUAVs = NumUAVs;
+            }
+        }
+
         switch (pDesc->Inputs.Type)
         {
             case D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL:

@@ -70,9 +70,9 @@ namespace XUSG
 
 		struct PrebuildInfo
 		{
-			uint64_t ResultDataMaxSizeInBytes;
-			uint64_t ScratchDataSizeInBytes;
-			uint64_t UpdateScratchDataSizeInBytes;
+			uint64_t ResultDataMaxByteSize;
+			uint64_t ScratchDataByteSize;
+			uint64_t UpdateScratchDataByteSize;
 		};
 
 		struct PostbuildInfo
@@ -119,34 +119,30 @@ namespace XUSG
 			//AccelerationStructure();
 			virtual ~AccelerationStructure() {}
 
-			// Auto allocate a buffer with byteWidth = GetResultDataMaxSize() when setting byteWidth = 0
-			virtual bool Allocate(const Device* pDevice, uint32_t descriptorIndex, size_t byteWidth = 0,
+			// Auto allocate a buffer with byteWidth = GetResultDataMaxByteSize() when setting byteWidth = 0
+			virtual bool Allocate(const Device* pDevice, DescriptorTableLib* pDescriptorTableLib, size_t byteWidth = 0,
 				MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr, uint32_t maxThreads = 1) = 0;
 
-			virtual void SetDestData(const Device* pDevice, const Buffer::sptr destBuffer, size_t offset,
-				uint32_t descriptorIndex, uint32_t srvIndex = 0, uint32_t uavIndex = 0) = 0;
+			virtual void SetDestination(const Device* pDevice, const Buffer::sptr destBuffer,
+				uintptr_t byteOffset, uint32_t uavIndex, DescriptorTableLib* pDescriptorTableLib) = 0;
 
 			virtual uint32_t SetBarrier(ResourceBarrier* pBarriers, uint32_t numBarriers = 0) = 0;
 
+			virtual const PrebuildInfo& GetPrebuildInfo() const = 0;
+
 			virtual Buffer* GetPostbuildInfo() const = 0;
 
-			virtual uint32_t GetResultDataMaxSize() const = 0;
-			virtual uint32_t GetScratchDataMaxSize() const = 0;
-			virtual uint32_t GetUpdateScratchDataSize() const = 0;
+			virtual size_t GetResultDataMaxByteSize() const = 0;
+			virtual size_t GetScratchDataByteSize() const = 0;
+			virtual size_t GetUpdateScratchDataByteSize() const = 0;
+			virtual size_t GetCompactedByteSize() const = 0;
 
 			virtual uint64_t GetVirtualAddress() const = 0;
 			virtual uint64_t GetResourcePointer() const = 0;
 
-			virtual const Descriptor& GetSRV() const = 0;
-			virtual const Descriptor& GetUAV() const = 0;
-
-			static uint32_t GetUAVCount();
-
-			static void SetUAVCount(uint32_t numUAVs);
-
 			static bool AllocateDestBuffer(const Device* pDevice, Buffer* pDestBuffer, size_t byteWidth,
-				uint32_t numSRVs = 1, const uint32_t* firstSrvElements = nullptr,
-				uint32_t numUAVs = 1, const uint32_t* firstUavElements = nullptr,
+				uint32_t numSRVs = 1, const uintptr_t* firstSrvElements = nullptr,
+				uint32_t numUAVs = 1, const uintptr_t* firstUavElements = nullptr,
 				MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 				uint32_t maxThreads = 1, API api = API::DIRECTX_12);
 			static bool AllocateUAVBuffer(const Device* pDevice, Buffer* pBuffer, size_t byteWidth,
@@ -171,6 +167,7 @@ namespace XUSG
 
 			virtual bool Prebuild(const Device* pDevice, uint32_t numGeometries, const GeometryBuffer& geometries,
 				BuildFlag flags = BuildFlag::PREFER_FAST_TRACE) = 0;
+
 			virtual void Build(CommandList* pCommandList, const Resource* pScratch,
 				const BottomLevelAS* pSource = nullptr, uint8_t numPostbuildInfoDescs = 0,
 				const PostbuildInfoType* pPostbuildInfoTypes = nullptr) = 0;
@@ -212,10 +209,15 @@ namespace XUSG
 
 			virtual bool Prebuild(const Device* pDevice, uint32_t numInstances,
 				BuildFlag flags = BuildFlag::PREFER_FAST_TRACE) = 0;
+
+			virtual void SetDestination(const Device* pDevice, const Buffer::sptr destBuffer, uintptr_t byteOffset,
+				uint32_t uavIndex, uint32_t srvIndex, DescriptorTableLib* pDescriptorTableLib) = 0;
 			virtual void Build(CommandList* pCommandList, const Resource* pScratch,
 				const Resource* pInstanceDescs, const DescriptorHeap& descriptorHeap,
 				const TopLevelAS* pSource = nullptr, uint8_t numPostbuildInfoDescs = 0,
 				const PostbuildInfoType* pPostbuildInfoTypes = nullptr) = 0;
+
+			virtual const Descriptor& GetSRV() const = 0;
 
 			static void SetInstances(const Device* pDevice, Buffer* pInstances, uint32_t numInstances,
 				const BottomLevelAS* const* ppBottomLevelASs, const float* const* transforms,
@@ -263,6 +265,8 @@ namespace XUSG
 			static sptr MakeShared(const Device* pDevice, const Pipeline& pipeline, const wchar_t* shaderName,
 				const void* pLocalDescriptorArgs = nullptr, uint32_t localDescriptorArgSize = 0,
 				API api = API::DIRECTX_12); // shader - shader name for DX12
+
+			static size_t Align(uint32_t byteSize, API api = API::DIRECTX_12);
 		};
 
 		//--------------------------------------------------------------------------------------
@@ -275,22 +279,23 @@ namespace XUSG
 			virtual ~ShaderTable() {}
 
 			virtual bool Create(const XUSG::Device* pDevice, uint32_t numShaderRecords, uint32_t shaderRecordSize,
-				const wchar_t* name = nullptr) = 0;
+				MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr) = 0;
 
-			virtual bool AddShaderRecord(const ShaderRecord* pShaderRecord) = 0;
-
-			virtual void* Map() = 0;
-			virtual void Unmap() = 0;
+			virtual void Create(Buffer::sptr resource, uint32_t shaderRecordSize, uintptr_t byteOffset) = 0;
+			virtual void AddShaderRecord(const ShaderRecord* pShaderRecord) = 0;
 			virtual void Reset() = 0;
 
-			virtual const Resource* GetResource() const = 0;
-			virtual uint32_t GetShaderRecordSize() const = 0;
+			virtual uint64_t GetVirtualAddress() const = 0;
+			virtual size_t GetByteSize() const = 0;
+			virtual size_t GetByteStride() const = 0;
 
 			using uptr = std::unique_ptr<ShaderTable>;
 			using sptr = std::shared_ptr<ShaderTable>;
 
 			static uptr MakeUnique(API api = API::DIRECTX_12);
 			static sptr MakeShared(API api = API::DIRECTX_12);
+
+			static size_t Align(size_t byteSize, API api = API::DIRECTX_12);
 		};
 
 		//--------------------------------------------------------------------------------------

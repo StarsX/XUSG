@@ -14,7 +14,9 @@ namespace FallbackLayer
     class ConstructAABBPass
     {
     public:
-        ConstructAABBPass(ID3D12Device *pDevice, UINT nodeMask, UINT numUAVs);
+        ConstructAABBPass(ID3D12Device *pDevice, UINT nodeMask);
+
+        void CreateTopLevelPipeline(ID3D12Device* pDevice, UINT nodeMask, UINT numUAVs);
 
         void ConstructAABB(ID3D12GraphicsCommandList *pCommandList,
             SceneType sceneType,
@@ -47,7 +49,7 @@ namespace FallbackLayer
             NumLevels
         };
 
-        Microsoft::WRL::ComPtr<ID3D12RootSignature> m_pRootSignature;
+        Microsoft::WRL::ComPtr<ID3D12RootSignature> m_pRootSignatures[Level::NumLevels];
         Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pPrepareForComputeAABBs[Level::NumLevels];
         Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pComputeAABBs[Level::NumLevels];
     };
