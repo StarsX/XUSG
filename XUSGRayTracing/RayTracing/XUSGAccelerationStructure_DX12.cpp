@@ -38,10 +38,15 @@ void AccelerationStructure_DX12::SetDestination(const Device* pDevice, const Buf
 
 	if (pDescriptorTableLib)
 	{
-		const auto descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
-		descriptorTable->SetDescriptors(0, 1, &destBuffer->GetUAV(uavIndex));
-		const auto descriptorIndex = descriptorTable->GetCbvSrvUavTableIndex(pDescriptorTableLib);
-		g_numUAVs = (max)(descriptorIndex + 1, g_numUAVs);
+		uint32_t descriptorIndex;
+		if (destBuffer->GetResourceState() != ResourceState::RAYTRACING_ACCELERATION_STRUCTURE)
+		{
+			const auto descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
+			descriptorTable->SetDescriptors(0, 1, &destBuffer->GetUAV(uavIndex));
+			descriptorIndex = descriptorTable->GetCbvSrvUavTableIndex(pDescriptorTableLib);
+			g_numUAVs = (max)(descriptorIndex + 1, g_numUAVs);
+		}
+		else descriptorIndex = 0;
 
 		// The Fallback Layer interface uses WRAPPED_GPU_POINTER to encapsulate the underlying pointer
 		// which will either be an emulated GPU pointer for the compute - based path or a GPU_VIRTUAL_ADDRESS for the DXR path.
@@ -149,10 +154,15 @@ bool AccelerationStructure_DX12::allocate(const Device* pDevice, size_t byteWidt
 
 	if (pDescriptorTableLib)
 	{
-		const auto descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
-		descriptorTable->SetDescriptors(0, 1, &m_resource->GetUAV());
-		const auto descriptorIndex = descriptorTable->GetCbvSrvUavTableIndex(pDescriptorTableLib);
-		g_numUAVs = (max)(descriptorIndex + 1, g_numUAVs);
+		uint32_t descriptorIndex;
+		if (m_resource->GetResourceState() != ResourceState::RAYTRACING_ACCELERATION_STRUCTURE)
+		{
+			const auto descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
+			descriptorTable->SetDescriptors(0, 1, &m_resource->GetUAV());
+			descriptorIndex = descriptorTable->GetCbvSrvUavTableIndex(pDescriptorTableLib);
+			g_numUAVs = (max)(descriptorIndex + 1, g_numUAVs);
+		}
+		else descriptorIndex = 0;
 
 		// The Fallback Layer interface uses WRAPPED_GPU_POINTER to encapsulate the underlying pointer
 		// which will either be an emulated GPU pointer for the compute - based path or a GPU_VIRTUAL_ADDRESS for the DXR path.
