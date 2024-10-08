@@ -38,10 +38,10 @@ void State_DX12::SetShaderLibrary(uint32_t index, const Blob& shaderLib,
 	memcpy(keyShaderLib.Shaders.data(), pShaderNames, sizeof(wchar_t*) * numShaders);
 }
 
-void State_DX12::SetProgram(const wchar_t* programName)
+void State_DX12::SetProgramName(const wchar_t* programName)
 {
 	m_isSerialized = false;
-	m_pKeyHeader->Program = programName;
+	m_pKeyHeader->ProgramName = programName;
 }
 
 void State_DX12::SetLocalPipelineLayout(uint32_t index, const XUSG::PipelineLayout& layout,
@@ -382,7 +382,7 @@ com_ptr<ID3D12StateObject> PipelineLib_DX12::CreateStateObject(const string& key
 	// Defines the shader program name.
 	auto pWorkGraph = pPsoDesc.CreateSubobject<CD3DX12_WORK_GRAPH_SUBOBJECT>();
 	pWorkGraph->IncludeAllAvailableNodes();
-	pWorkGraph->SetProgramName(keyHeader.Program);
+	pWorkGraph->SetProgramName(keyHeader.ProgramName);
 
 	// DXIL library
 	auto pKeyShaderLibHeader = reinterpret_cast<const State_DX12::KeyShaderLibHeader*>(&key[sizeKeyHeader]);
@@ -435,9 +435,12 @@ com_ptr<ID3D12StateObject> PipelineLib_DX12::CreateStateObject(const string& key
 	}
 
 	// Global pipeline layout
-	// This is a pipeline layout that is shared across all node shaders invoked during a DispatchGraph() call.
-	const auto pGlobalRootSignature = pPsoDesc.CreateSubobject<CD3DX12_GLOBAL_ROOT_SIGNATURE_SUBOBJECT>();
-	pGlobalRootSignature->SetRootSignature(static_cast<ID3D12RootSignature*>(keyHeader.GlobalLayout));
+	if (keyHeader.GlobalLayout)
+	{
+		// This is a pipeline layout that is shared across all node shaders invoked during a DispatchGraph() call.
+		const auto pGlobalRootSignature = pPsoDesc.CreateSubobject<CD3DX12_GLOBAL_ROOT_SIGNATURE_SUBOBJECT>();
+		pGlobalRootSignature->SetRootSignature(static_cast<ID3D12RootSignature*>(keyHeader.GlobalLayout));
+	}
 
 	// Broad-casting overrides
 	const auto pKeyBroadCastingOverrides = reinterpret_cast<const State_DX12::KeyBroadCastingOverrides*>

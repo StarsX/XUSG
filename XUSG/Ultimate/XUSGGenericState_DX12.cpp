@@ -5,6 +5,7 @@
 #include "Core/XUSG_DX12.h"
 #include "Core/XUSGCommand_DX12.h"
 #include "Core/XUSGResource_DX12.h"
+#include "Core/XUSGPipelineLayout_DX12.h"
 #include "Core/XUSGEnum_DX12.h"
 #include "XUSGGenericState_DX12.h"
 #include "XUSGUltimate_DX12.h"

@@ -132,4 +132,6 @@ namespace XUSG
 	};
 
 	Blob GetDX12PipelineCache(Pipeline pipeline);
+
+	size_t GetDX12BlobData(const Blob& blob, const void*& pData);
 }

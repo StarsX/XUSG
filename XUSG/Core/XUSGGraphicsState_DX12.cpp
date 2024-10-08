@@ -512,9 +512,9 @@ void PipelineLib_DX12::GetHandleDesc(void* pHandleDesc, void* pInputElements, co
 	desc.SampleDesc.Count = pDesc->SampleCount;
 	desc.SampleDesc.Quality = pDesc->SampleQuality;
 
-	const auto pCachedPipeline = static_cast<ID3DBlob*>(pDesc->CachedPipeline);
-	desc.CachedPSO.pCachedBlob = pCachedPipeline ? pCachedPipeline->GetBufferPointer() : nullptr;
-	desc.CachedPSO.CachedBlobSizeInBytes = pCachedPipeline ? pCachedPipeline->GetBufferSize() : 0;
+	if (pDesc->CachedPipeline)
+		desc.CachedPSO.CachedBlobSizeInBytes = GetDX12BlobData(pDesc->CachedPipeline, desc.CachedPSO.pCachedBlob);
+
 	desc.NodeMask = pDesc->NodeMask;
 	desc.Flags = GetDX12PipelineFlags(pDesc->Flags);
 

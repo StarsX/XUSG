@@ -5,6 +5,7 @@
 #include "Core/XUSG_DX12.h"
 #include "Core/XUSGCommand_DX12.h"
 #include "Core/XUSGResource_DX12.h"
+#include "Core/XUSGPipelineLayout_DX12.h"
 #include "Core/XUSGEnum_DX12.h"
 #include "XUSGUltimate_DX12.h"
 
@@ -341,6 +342,11 @@ void CommandList_DX12::DispatchMesh(uint32_t threadGroupCountX, uint32_t threadG
 	m_commandListU->DispatchMesh(threadGroupCountX, threadGroupCountY, threadGroupCountZ);
 }
 
+void CommandList_DX12::SetStateObject(const Pipeline& stateObject)
+{
+	m_commandListU->SetPipelineState1(static_cast<ID3D12StateObject*>(stateObject));
+}
+
 void CommandList_DX12::SetProgram(ProgramType type, ProgramIdentifier identifier, WorkGraphFlag flags,
 	uint64_t backingMemoryAddress, uint64_t backingMemoryByteSize, uint64_t localRootArgTableAddress,
 	uint64_t localRootArgTableByteSize, uint64_t localRootArgTableByteStride)
@@ -444,6 +450,72 @@ void CommandList_DX12::createAgilityInterface()
 
 		if (FAILED(hr)) OutputDebugString(L"Couldn't get DirectX agility interface for the command list.\n");
 	}
+}
+
+//--------------------------------------------------------------------------------------
+// Pipeline layout
+//--------------------------------------------------------------------------------------
+
+PipelineLayoutLib_DX12::PipelineLayoutLib_DX12() :
+	XUSG::PipelineLayoutLib_DX12()
+{
+}
+
+PipelineLayoutLib_DX12::PipelineLayoutLib_DX12(const Device* pDevice) :
+	XUSG::PipelineLayoutLib_DX12(pDevice)
+{
+}
+
+PipelineLayoutLib_DX12::~PipelineLayoutLib_DX12()
+{
+}
+
+XUSG::PipelineLayout PipelineLayoutLib_DX12::CreateRootSignatureFromLibSubobject(
+	const Blob& blobLib, const wchar_t* name, uint32_t nodeMask)
+{
+	string key(sizeof(blobLib), 0);
+	memcpy(&key[0], blobLib, sizeof(blobLib));
+
+	return createRootSignatureFromLibSubobject(key, blobLib, name, nodeMask);
+}
+
+XUSG::PipelineLayout PipelineLayoutLib_DX12::GetRootSignatureFromLibSubobject(const Blob& blobLib,
+	const wchar_t* name, bool create, uint32_t nodeMask)
+{
+	string key(sizeof(blobLib), 0);
+	memcpy(&key[0], blobLib, sizeof(blobLib));
+
+	return getRootSignatureFromLibSubobject(key, blobLib, name, create, nodeMask);
+}
+
+XUSG::PipelineLayout PipelineLayoutLib_DX12::createRootSignatureFromLibSubobject(const string& key,
+	const Blob& blobLib, const wchar_t* name, uint32_t nodeMask)
+{
+	com_ptr<ID3D12RootSignature> rootSignature;
+	com_ptr<ID3D12Device14> device = nullptr;
+	const auto pBlob = static_cast<ID3DBlob*>(blobLib);
+	V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&device)), cerr, nullptr);
+	V_RETURN(device->CreateRootSignatureFromSubobjectInLibrary(nodeMask, pBlob->GetBufferPointer(),
+		pBlob->GetBufferSize(), name, IID_PPV_ARGS(&rootSignature)), cerr, nullptr);
+	rootSignature->SetName(name);
+	m_rootSignatures[key] = rootSignature;
+
+	return rootSignature.get();
+}
+
+XUSG::PipelineLayout PipelineLayoutLib_DX12::getRootSignatureFromLibSubobject(const string& key,
+	const Blob& blobLib, const wchar_t* name, bool create, uint32_t nodeMask)
+{
+	const auto layoutIter = m_rootSignatures.find(key);
+
+	// Create one, if it does not exist
+	if (layoutIter == m_rootSignatures.end())
+	{
+		if (create) return createRootSignatureFromLibSubobject(key, blobLib, name, nodeMask);
+		else return nullptr;
+	}
+
+	return layoutIter->second.get();
 }
 
 //--------------------------------------------------------------------------------------
@@ -551,7 +623,7 @@ XUSG::Descriptor SamplerFeedBack_DX12::CreateUAV(const Descriptor& uavHeapStart,
 	return descriptor;
 }
 
-XUSG::ProgramIdentifier XUSG::Ultimate::GetProgramIdentifierFromDX12(const XUSG::Pipeline& stateObject, const wchar_t* programName)
+XUSG::ProgramIdentifier XUSG::Ultimate::GetDX12ProgramIdentifier(const XUSG::Pipeline& stateObject, const wchar_t* programName)
 {
 	using namespace XUSG;
 	com_ptr<ID3D12StateObjectProperties1> properties;

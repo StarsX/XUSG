@@ -70,13 +70,6 @@ Buffer* AccelerationStructure_DX12::GetPostbuildInfo() const
 	return m_postbuildInfoRB.get();
 }
 
-size_t AccelerationStructure_DX12::GetResultDataMaxByteSize() const
-{
-	const auto resultDataMaxByteSize = static_cast<size_t>(m_prebuildInfo.ResultDataMaxByteSize);
-
-	return Buffer_DX12::AlignRawView(resultDataMaxByteSize);
-}
-
 size_t AccelerationStructure_DX12::GetScratchDataByteSize() const
 {
 	return static_cast<size_t>(m_prebuildInfo.ScratchDataByteSize);
@@ -249,6 +242,13 @@ void BottomLevelAS_DX12::Build(CommandList* pCommandList, const Resource* pScrat
 	if (m_postbuildInfo) m_postbuildInfo->ReadBack(pCommandList, m_postbuildInfoRB.get());
 }
 
+size_t BottomLevelAS_DX12::GetResultDataMaxByteSize() const
+{
+	const auto resultDataMaxByteSize = static_cast<size_t>(m_prebuildInfo.ResultDataMaxByteSize);
+
+	return Buffer_DX12::AlignRawView(resultDataMaxByteSize);
+}
+
 void BottomLevelAS_DX12::SetTriangleGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
 	Format vertexFormat, const VertexBufferView* pVBs, const IndexBufferView* pIBs,
 	const GeometryFlag* pGeometryFlags, const ResourceView* pTransforms)
@@ -389,6 +389,13 @@ void TopLevelAS_DX12::Build(CommandList* pCommandList, const Resource* pScratch,
 		numPostbuildInfoDescs ? postbuildInfoDescs.data() : nullptr, &descriptorHeap);
 
 	if (m_postbuildInfo) m_postbuildInfo->ReadBack(pCommandList, m_postbuildInfoRB.get());
+}
+
+size_t TopLevelAS_DX12::GetResultDataMaxByteSize() const
+{
+	const auto resultDataMaxByteSize = static_cast<size_t>(m_prebuildInfo.ResultDataMaxByteSize);
+
+	return Align(resultDataMaxByteSize, D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT);
 }
 
 const Descriptor& TopLevelAS_DX12::GetSRV() const

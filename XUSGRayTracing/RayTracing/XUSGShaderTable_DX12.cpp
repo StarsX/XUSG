@@ -11,16 +11,16 @@ using namespace std;
 using namespace XUSG;
 using namespace XUSG::RayTracing;
 
-ShaderRecord_DX12::ShaderRecord_DX12(const void* pShaderID, uint32_t shaderIDSize,
+ShaderRecord_DX12::ShaderRecord_DX12(const void* pShaderIdentifier, uint32_t shaderIdentifierSize,
 	const void* pLocalDescriptorArgs, uint32_t localDescriptorArgSize) :
-	m_shaderID(pShaderID, shaderIDSize),
+	m_shaderIdentifier(pShaderIdentifier, shaderIdentifierSize),
 	m_localDescriptorArgs(pLocalDescriptorArgs, localDescriptorArgSize)
 {
 }
 
 ShaderRecord_DX12::ShaderRecord_DX12(const Device* pDevice, const Pipeline& pipeline,
 	const wchar_t* shaderName, const void* pLocalDescriptorArgs, uint32_t localDescriptorArgSize) :
-	ShaderRecord_DX12(GetShaderID(pipeline, shaderName), GetShaderIDSize(pDevice),
+	ShaderRecord_DX12(GetShaderIdentifier(pipeline, shaderName), GetShaderIdentifierSize(pDevice),
 		pLocalDescriptorArgs, localDescriptorArgSize)
 {
 }
@@ -32,26 +32,26 @@ ShaderRecord_DX12::~ShaderRecord_DX12()
 void ShaderRecord_DX12::CopyTo(void* dest) const
 {
 	const auto byteDest = static_cast<uint8_t*>(dest);
-	memcpy(dest, m_shaderID.Ptr, m_shaderID.Size);
+	memcpy(dest, m_shaderIdentifier.Ptr, m_shaderIdentifier.Size);
 
 	if (m_localDescriptorArgs.Ptr)
-		memcpy(byteDest + m_shaderID.Size, m_localDescriptorArgs.Ptr, m_localDescriptorArgs.Size);
+		memcpy(byteDest + m_shaderIdentifier.Size, m_localDescriptorArgs.Ptr, m_localDescriptorArgs.Size);
 }
 
-const void* XUSG::RayTracing::ShaderRecord_DX12::GetShaderID(const Pipeline& pipeline, const wchar_t* shaderName)
+const void* XUSG::RayTracing::ShaderRecord_DX12::GetShaderIdentifier(const Pipeline& pipeline, const wchar_t* shaderName)
 {
 	const auto pPipeline = static_cast<ID3D12RaytracingFallbackStateObject*>(pipeline);
 
 	return pPipeline->GetShaderIdentifier(shaderName);
 }
 
-uint32_t ShaderRecord_DX12::GetShaderIDSize(const Device* pDevice)
+uint32_t ShaderRecord_DX12::GetShaderIdentifierSize(const Device* pDevice)
 {
 	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(pDevice->GetRTHandle());
-	const auto shaderIDSize = pDxDevice->UsingRaytracingDriver() ?
+	const auto shaderIdentifierSize = pDxDevice->UsingRaytracingDriver() ?
 		D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES : pDxDevice->GetShaderIdentifierSize();
 
-	return shaderIDSize;
+	return shaderIdentifierSize;
 }
 
 size_t ShaderRecord_DX12::Align(uint32_t byteSize)

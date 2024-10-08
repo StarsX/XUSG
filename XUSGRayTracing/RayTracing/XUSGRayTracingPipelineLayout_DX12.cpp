@@ -3,8 +3,8 @@
 //--------------------------------------------------------------------------------------
 
 #include "Core/XUSG_DX12.h"
-#include "Core/XUSGEnum_DX12.h"
 #include "Core/XUSGPipelineLayout_DX12.h"
+#include "Core/XUSGEnum_DX12.h"
 #include "XUSGRayTracingPipelineLayout_DX12.h"
 
 using namespace std;

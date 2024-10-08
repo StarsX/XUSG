@@ -1657,15 +1657,25 @@ bool DepthStencil_DX12::Initialize(const Device* pDevice, Format& format)
 	// Map format
 	switch (format)
 	{
-	case Format::R24G8_TYPELESS:
-		format = Format::D24_UNORM_S8_UINT;
-		break;
+	//case Format::D24_UNORM_S8_UINT:
+	//case Format::R24_UNORM_X8_TYPELESS:
+	//case Format::R24G8_TYPELESS:
+	//case Format::X24_TYPELESS_G8_UINT:
+	//	format = Format::D24_UNORM_S8_UINT;
+	//	break;
+	case Format::D32_FLOAT_S8X24_UINT:
+	case Format::R32_FLOAT_X8X24_TYPELESS:
 	case Format::R32G8X24_TYPELESS:
+	case Format::X32_TYPELESS_G8X24_UINT:
 		format = Format::D32_FLOAT_S8X24_UINT;
 		break;
+	case Format::D16_UNORM:
+	case Format::R16_UNORM:
 	case Format::R16_TYPELESS:
 		format = Format::D16_UNORM;
 		break;
+	case Format::D32_FLOAT:
+	case Format::R32_FLOAT:
 	case Format::R32_TYPELESS:
 		format = Format::D32_FLOAT;
 		break;

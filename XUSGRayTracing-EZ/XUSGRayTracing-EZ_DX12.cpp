@@ -3,6 +3,7 @@
 //--------------------------------------------------------------------------------------
 
 #include "Core/XUSGCommand_DX12.h"
+#include "Core/XUSGPipelineLayout_DX12.h"
 #include "Core/XUSGResource_DX12.h"
 #include "Ultimate/XUSGUltimate_DX12.h"
 #include "RayTracing/XUSGRayTracingCommand_DX12.h"
@@ -234,6 +235,10 @@ void EZ::CommandList_DXR::BuildBLAS(BottomLevelAS* pBLAS, const BottomLevelAS* p
 	m_barriers.clear();
 
 	pBLAS->Build(this, pScratch, pSource, numPostbuildInfoDescs, pPostbuildInfoTypes);
+
+	// Set barrier command
+	const ResourceBarrier barrier = { nullptr, ResourceState::UNORDERED_ACCESS };
+	XUSG::CommandList_DX12::Barrier(1, &barrier);
 }
 
 void EZ::CommandList_DXR::BuildTLAS(TopLevelAS* pTLAS, const Resource* pInstanceDescs, const TopLevelAS* pSource,
@@ -243,11 +248,11 @@ void EZ::CommandList_DXR::BuildTLAS(TopLevelAS* pTLAS, const Resource* pInstance
 	const auto pScratch = needScratch(m_scratchSize);
 	const auto descriptorHeap = m_descriptorTableLib->GetDescriptorHeap(CBV_SRV_UAV_HEAP);
 
+	pTLAS->Build(this, pScratch, pInstanceDescs, descriptorHeap, pSource, numPostbuildInfoDescs, pPostbuildInfoTypes);
+
 	// Set barrier command
 	const ResourceBarrier barrier = { nullptr, ResourceState::UNORDERED_ACCESS };
 	XUSG::CommandList_DX12::Barrier(1, &barrier);
-
-	pTLAS->Build(this, pScratch, pInstanceDescs, descriptorHeap, pSource, numPostbuildInfoDescs, pPostbuildInfoTypes);
 }
 
 void EZ::CommandList_DXR::CopyRaytracingAccelerationStructure(const AccelerationStructure* pDst,
@@ -498,7 +503,7 @@ void EZ::CommandList_DXR::predispatchRays(CShaderTablePtr& pRayGen, CShaderTable
 				for (auto i = 0u; i < numHitGroups; ++i) // Set hit-group shader IDs into the key
 				{
 					const auto hitGroupName = m_rayTracingState->GetHitGroupName(i);
-					pShaderIDs[i] = ShaderRecord::GetShaderID(pipeline, hitGroupName, API::DIRECTX_12);
+					pShaderIDs[i] = ShaderRecord::GetShaderIdentifier(pipeline, hitGroupName, API::DIRECTX_12);
 				}
 				pHitGroup = getShaderTable(key, m_hitGroupTables, numHitGroups);
 			}
@@ -514,7 +519,7 @@ void EZ::CommandList_DXR::predispatchRays(CShaderTablePtr& pRayGen, CShaderTable
 	{
 		string key(sizeof(void*), '\0');
 		auto& shaderID = reinterpret_cast<const void*&>(key[0]);
-		shaderID = ShaderRecord::GetShaderID(m_pipeline, rayGenShaderName, API::DIRECTX_12);
+		shaderID = ShaderRecord::GetShaderIdentifier(m_pipeline, rayGenShaderName, API::DIRECTX_12);
 		pRayGen = getShaderTable(key, m_rayGenTables, 1);
 	}
 
@@ -526,7 +531,7 @@ void EZ::CommandList_DXR::predispatchRays(CShaderTablePtr& pRayGen, CShaderTable
 		for (auto i = 0u; i < numMissShaders; ++i) // Set hit-group shader IDs into the key
 		{
 			assert(pMissShaderNames[i]);
-			pShaderIDs[i] = ShaderRecord::GetShaderID(m_pipeline, pMissShaderNames[i], API::DIRECTX_12);
+			pShaderIDs[i] = ShaderRecord::GetShaderIdentifier(m_pipeline, pMissShaderNames[i], API::DIRECTX_12);
 		}
 		pMiss = getShaderTable(key, m_missTables, numMissShaders);
 	}
@@ -551,7 +556,7 @@ const ShaderTable* EZ::CommandList_DXR::getShaderTable(const string& key,
 
 	if (shaderTablePair == shaderTables.cend())
 	{
-		const auto shaderIDSize = ShaderRecord::GetShaderIDSize(m_pDeviceRT, API::DIRECTX_12);
+		const auto shaderIDSize = ShaderRecord::GetShaderIdentifierSize(m_pDeviceRT, API::DIRECTX_12);
 
 		auto& shaderTable = shaderTables[key];
 		shaderTable = ShaderTable::MakeUnique(API::DIRECTX_12);

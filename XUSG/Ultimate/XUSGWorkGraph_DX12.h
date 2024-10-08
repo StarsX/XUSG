@@ -21,7 +21,7 @@ namespace XUSG
 				uint32_t NumLocalPipelineLayouts;
 				uint32_t NumBroadCastingOverrides;
 				uint32_t NodeMask;
-				const wchar_t* Program;
+				const wchar_t* ProgramName;
 			};
 
 			struct KeyShaderLibHeader
@@ -66,7 +66,7 @@ namespace XUSG
 
 			void SetShaderLibrary(uint32_t index, const Blob& shaderLib,
 				uint32_t numShaders = 0, const wchar_t** pShaderNames = nullptr);
-			void SetProgram(const wchar_t* programName);
+			void SetProgramName(const wchar_t* programName);
 			void SetLocalPipelineLayout(uint32_t index, const PipelineLayout& layout,
 				uint32_t numShaders, const wchar_t** pShaderNames);
 			void SetGlobalPipelineLayout(const PipelineLayout& layout);

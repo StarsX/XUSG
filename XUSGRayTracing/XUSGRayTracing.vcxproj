@@ -95,7 +95,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(OutDir);$(SolutionDir)Build\$(Platform)\$(Configuration)\Output\FallbackLayer;$(SolutionDir)D3D12RaytracingFallback\packages\WinPixEventRuntime.1.0.180612001\bin</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir);$(SolutionDir)Build\$(Platform)\$(Configuration)\Output\FallbackLayer;$(SolutionDir)D3D12RaytracingFallback\packages\WinPixEventRuntime.1.0.180612001\bin;$(SolutionDir)packages\WinPixEventRuntime.1.0.180612001\bin</AdditionalLibraryDirectories>
       <AdditionalDependencies>d3d12.lib;XUSG.lib;dxguid.lib;FallbackLayer.lib;WinPixEventRuntime.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>

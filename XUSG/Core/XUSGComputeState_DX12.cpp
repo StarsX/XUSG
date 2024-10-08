@@ -178,9 +178,9 @@ void PipelineLib_DX12::GetHandleDesc(void* pHandleDesc, const string& key)
 	if (pDesc->Shader)
 		desc.CS = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pDesc->Shader));
 
-	const auto pCachedPipeline = static_cast<ID3DBlob*>(pDesc->CachedPipeline);
-	desc.CachedPSO.pCachedBlob = pCachedPipeline ? pCachedPipeline->GetBufferPointer() : nullptr;
-	desc.CachedPSO.CachedBlobSizeInBytes = pCachedPipeline ? pCachedPipeline->GetBufferSize() : 0;
+	if (pDesc->CachedPipeline)
+		desc.CachedPSO.CachedBlobSizeInBytes = GetDX12BlobData(pDesc->CachedPipeline, desc.CachedPSO.pCachedBlob);
+
 	desc.NodeMask = pDesc->NodeMask;
 	desc.Flags = GetDX12PipelineFlags(pDesc->Flags);
 }

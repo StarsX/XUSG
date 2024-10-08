@@ -26,7 +26,6 @@ namespace XUSG
 
 			Buffer* GetPostbuildInfo() const;
 
-			size_t GetResultDataMaxByteSize() const;
 			size_t GetScratchDataByteSize() const;
 			size_t GetUpdateScratchDataByteSize() const;
 			size_t GetCompactedByteSize() const;
@@ -74,6 +73,8 @@ namespace XUSG
 				const BottomLevelAS* pSource = nullptr, uint8_t numPostbuildInfoDescs = 0,
 				const PostbuildInfoType* pPostbuildInfoTypes = nullptr);
 
+			size_t GetResultDataMaxByteSize() const;
+
 			static void SetTriangleGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
 				Format vertexFormat, const VertexBufferView* pVBs, const IndexBufferView* pIBs = nullptr,
 				const GeometryFlag* pGeometryFlags = nullptr, const ResourceView* pTransforms = nullptr);
@@ -99,6 +100,8 @@ namespace XUSG
 				const Resource* pInstanceDescs, const DescriptorHeap& descriptorHeap,
 				const TopLevelAS* pSource = nullptr, uint8_t numPostbuildInfoDescs = 0,
 				const PostbuildInfoType* pPostbuildInfoTypes = nullptr);
+
+			size_t GetResultDataMaxByteSize() const;
 
 			const Descriptor& GetSRV() const;
 

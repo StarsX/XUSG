@@ -5,6 +5,7 @@
 #include "Core/XUSG_DX12.h"
 #include "Core/XUSGCommand_DX12.h"
 #include "Core/XUSGResource_DX12.h"
+#include "Core/XUSGPipelineLayout_DX12.h"
 #include "Core/XUSGEnum_DX12.h"
 #include "XUSGPipelineState_DX12.h"
 #include "XUSGUltimate_DX12.h"
@@ -624,11 +625,14 @@ void PipelineLib_DX12::getStream(CD3DX12_PIPELINE_STATE_STREAM2* pStream, void* 
 	sampleDesc.Count = pDesc->SampleCount;
 	sampleDesc.Quality = pDesc->SampleQuality;
 
-	// Cached PSO, node mask, and flags
-	const auto pCachedPipeline = static_cast<ID3DBlob*>(pDesc->CachedPipeline);
-	D3D12_CACHED_PIPELINE_STATE& cachedPSO = stream.CachedPSO;
-	cachedPSO.pCachedBlob = pCachedPipeline ? pCachedPipeline->GetBufferPointer() : nullptr;
-	cachedPSO.CachedBlobSizeInBytes = pCachedPipeline ? pCachedPipeline->GetBufferSize() : 0;
+	// Cached PSO
+	if (pDesc->CachedPipeline)
+	{
+		D3D12_CACHED_PIPELINE_STATE& cachedPSO = stream.CachedPSO;
+		cachedPSO.CachedBlobSizeInBytes = GetDX12BlobData(pDesc->CachedPipeline, cachedPSO.pCachedBlob);
+	}
+
+	// Node mask and flags
 	stream.NodeMask = pDesc->NodeMask;
 	stream.Flags = GetDX12PipelineFlags(pDesc->Flags);
 
@@ -805,11 +809,14 @@ void PipelineLib_DX12::getStream(CD3DX12_PIPELINE_STATE_STREAM3* pStream, void* 
 	sampleDesc.Count = pDesc->SampleCount;
 	sampleDesc.Quality = pDesc->SampleQuality;
 
-	// Cached PSO, node mask, and flags
-	const auto pCachedPipeline = static_cast<ID3DBlob*>(pDesc->CachedPipeline);
-	D3D12_CACHED_PIPELINE_STATE& cachedPSO = stream.CachedPSO;
-	cachedPSO.pCachedBlob = pCachedPipeline ? pCachedPipeline->GetBufferPointer() : nullptr;
-	cachedPSO.CachedBlobSizeInBytes = pCachedPipeline ? pCachedPipeline->GetBufferSize() : 0;
+	// Cached PSO
+	if (pDesc->CachedPipeline)
+	{
+		D3D12_CACHED_PIPELINE_STATE& cachedPSO = stream.CachedPSO;
+		cachedPSO.CachedBlobSizeInBytes = GetDX12BlobData(pDesc->CachedPipeline, cachedPSO.pCachedBlob);
+	}
+
+	// Node mask and flags
 	stream.NodeMask = pDesc->NodeMask;
 	stream.Flags = GetDX12PipelineFlags(pDesc->Flags);
 
@@ -986,11 +993,14 @@ void PipelineLib_DX12::getStream(CD3DX12_PIPELINE_STATE_STREAM4* pStream, void* 
 	sampleDesc.Count = pDesc->SampleCount;
 	sampleDesc.Quality = pDesc->SampleQuality;
 
-	// Cached PSO, node mask, and flags
-	const auto pCachedPipeline = static_cast<ID3DBlob*>(pDesc->CachedPipeline);
-	D3D12_CACHED_PIPELINE_STATE& cachedPSO = stream.CachedPSO;
-	cachedPSO.pCachedBlob = pCachedPipeline ? pCachedPipeline->GetBufferPointer() : nullptr;
-	cachedPSO.CachedBlobSizeInBytes = pCachedPipeline ? pCachedPipeline->GetBufferSize() : 0;
+	// Cached PSO
+	if (pDesc->CachedPipeline)
+	{
+		D3D12_CACHED_PIPELINE_STATE& cachedPSO = stream.CachedPSO;
+		cachedPSO.CachedBlobSizeInBytes = GetDX12BlobData(pDesc->CachedPipeline, cachedPSO.pCachedBlob);
+	}
+
+	// Node mask and flags
 	stream.NodeMask = pDesc->NodeMask;
 	stream.Flags = GetDX12PipelineFlags(pDesc->Flags);
 
@@ -1162,11 +1172,14 @@ void PipelineLib_DX12::getStream(CD3DX12_PIPELINE_STATE_STREAM5* pStream, void* 
 	sampleDesc.Count = pDesc->SampleCount;
 	sampleDesc.Quality = pDesc->SampleQuality;
 
-	// Cached PSO, node mask, and flags
-	const auto pCachedPipeline = static_cast<ID3DBlob*>(pDesc->CachedPipeline);
-	D3D12_CACHED_PIPELINE_STATE& cachedPSO = stream.CachedPSO;
-	cachedPSO.pCachedBlob = pCachedPipeline ? pCachedPipeline->GetBufferPointer() : nullptr;
-	cachedPSO.CachedBlobSizeInBytes = pCachedPipeline ? pCachedPipeline->GetBufferSize() : 0;
+	// Cached PSO
+	if (pDesc->CachedPipeline)
+	{
+		D3D12_CACHED_PIPELINE_STATE& cachedPSO = stream.CachedPSO;
+		cachedPSO.CachedBlobSizeInBytes = GetDX12BlobData(pDesc->CachedPipeline, cachedPSO.pCachedBlob);
+	}
+
+	// Node mask and flags
 	stream.NodeMask = pDesc->NodeMask;
 	stream.Flags = GetDX12PipelineFlags(pDesc->Flags);
 

@@ -4,6 +4,7 @@
 
 #include "Core/XUSGCommand_DX12.h"
 #include "Core/XUSGResource_DX12.h"
+#include "Core/XUSGPipelineLayout_DX12.h"
 #include "Core/XUSGGraphicsState_DX12.h"
 #include "XUSGUltimate_DX12.h"
 #include "XUSGPipelineState_DX12.h"
@@ -31,6 +32,26 @@ Ultimate::CommandList::uptr Ultimate::CommandList::MakeUnique(XUSG::CommandList&
 Ultimate::CommandList::sptr Ultimate::CommandList::MakeShared(XUSG::CommandList& commandList, API api)
 {
 	return make_shared<CommandList_DX12>(commandList);
+}
+
+Ultimate::PipelineLayoutLib::uptr Ultimate::PipelineLayoutLib::MakeUnique(API api)
+{
+	return make_unique<PipelineLayoutLib_DX12>();
+}
+
+Ultimate::PipelineLayoutLib::sptr Ultimate::PipelineLayoutLib::MakeShared(API api)
+{
+	return make_shared<PipelineLayoutLib_DX12>();
+}
+
+Ultimate::PipelineLayoutLib::uptr Ultimate::PipelineLayoutLib::MakeUnique(const Device* pDevice, API api)
+{
+	return make_unique<PipelineLayoutLib_DX12>(pDevice);
+}
+
+Ultimate::PipelineLayoutLib::sptr Ultimate::PipelineLayoutLib::MakeShared(const Device* pDevice, API api)
+{
+	return make_shared<PipelineLayoutLib_DX12>(pDevice);
 }
 
 Ultimate::State::uptr Ultimate::State::MakeUnique(API api)
@@ -73,9 +94,9 @@ Ultimate::SamplerFeedBack::sptr Ultimate::SamplerFeedBack::MakeShared(API api)
 	return make_shared<SamplerFeedBack_DX12>();
 }
 
-ProgramIdentifier Ultimate::GetProgramIdentifier(const Pipeline& stateObject, const wchar_t* programName)
+ProgramIdentifier Ultimate::GetProgramIdentifier(const Pipeline& stateObject, const wchar_t* programName, API api)
 {
-	return GetProgramIdentifierFromDX12(stateObject, programName);
+	return GetDX12ProgramIdentifier(stateObject, programName);
 }
 
 uint32_t Ultimate::SetBarrier(ResourceBarrier* pBufferBarriers, Buffer* pBuffer, ResourceState dstState,

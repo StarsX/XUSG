@@ -83,9 +83,9 @@ namespace XUSG
 			const wchar_t* name = nullptr, uint32_t nodeMask = 0);
 		PipelineLayout GetPipelineLayout(Util::PipelineLayout* pUtil, PipelineLayoutFlag flags,
 			const wchar_t* name = nullptr, bool create = true, uint32_t nodeMask = 0);
-		PipelineLayout CreateRootSignature(const void* pBlobSignature, size_t size,
-			const wchar_t* name, uint32_t nodeMask = 0);
-		PipelineLayout GetRootSignature(const void* pBlobSignature, size_t size,
+		PipelineLayout CreateRootSignature(const Blob& blobSignature,
+			const wchar_t* name = nullptr, uint32_t nodeMask = 0);
+		PipelineLayout GetRootSignature(const Blob& blobSignature,
 			const wchar_t* name = nullptr, bool create = true, uint32_t nodeMask = 0);
 
 		DescriptorTableLayout CreateDescriptorTableLayout(uint32_t index, const Util::PipelineLayout* pUtil);
@@ -95,11 +95,11 @@ namespace XUSG
 
 	protected:
 		virtual PipelineLayout createPipelineLayout(const std::string& key, const wchar_t* name, uint32_t nodeMask);
-		virtual PipelineLayout createRootSignature(const std::string& key, const void* pBlobSignature,
-			size_t size, const wchar_t* name, uint32_t nodeMask);
+		virtual PipelineLayout createRootSignature(const std::string& key, const Blob& blobSignature,
+			const wchar_t* name, uint32_t nodeMask);
 		PipelineLayout getPipelineLayout(const std::string& key, const wchar_t* name, bool create, uint32_t nodeMask);
-		PipelineLayout getRootSignature(const std::string& key, const void* pBlobSignature,
-			size_t size, const wchar_t* name, bool create, uint32_t nodeMask);
+		PipelineLayout getRootSignature(const std::string& key, const Blob& blobSignature,
+			const wchar_t* name, bool create, uint32_t nodeMask);
 
 		virtual DescriptorTableLayout createDescriptorTableLayout(const std::string& key);
 		DescriptorTableLayout getDescriptorTableLayout(const std::string& key);

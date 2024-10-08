@@ -254,6 +254,7 @@ namespace XUSG
 				uint32_t ThreadGroupCountY,
 				uint32_t ThreadGroupCountZ) const = 0;
 
+			virtual void SetStateObject(const Pipeline& stateObject) = 0;
 			virtual void SetProgram(ProgramType type, ProgramIdentifier identifier, WorkGraphFlag flags = WorkGraphFlag::NONE,
 				uint64_t backingMemoryAddress = 0, uint64_t backingMemoryByteSize = 0,
 				uint64_t localRootArgTableAddress = 0, uint64_t localRootArgTableByteSize = 0,
@@ -268,6 +269,31 @@ namespace XUSG
 			static sptr MakeShared(API api = API::DIRECTX_12);
 			static uptr MakeUnique(XUSG::CommandList& commandList, API api = API::DIRECTX_12);
 			static sptr MakeShared(XUSG::CommandList& commandList, API api = API::DIRECTX_12);
+		};
+
+		//--------------------------------------------------------------------------------------
+		// Pipeline layout
+		//--------------------------------------------------------------------------------------
+		class XUSG_INTERFACE PipelineLayoutLib :
+			public virtual XUSG::PipelineLayoutLib
+		{
+		public:
+			//PipelineLayoutLib();
+			//PipelineLayoutLib(const Device* pDevice) = 0;
+			virtual ~PipelineLayoutLib() {};
+
+			virtual PipelineLayout CreateRootSignatureFromLibSubobject(const Blob& blobLib,
+				const wchar_t* name, uint32_t nodeMask = 0) = 0;
+			virtual PipelineLayout GetRootSignatureFromLibSubobject(const Blob& blobLib,
+				const wchar_t* name, bool create = true, uint32_t nodeMask = 0) = 0;
+
+			using uptr = std::unique_ptr<PipelineLayoutLib>;
+			using sptr = std::shared_ptr<PipelineLayoutLib>;
+
+			static uptr MakeUnique(API api = API::DIRECTX_12);
+			static sptr MakeShared(API api = API::DIRECTX_12);
+			static uptr MakeUnique(const Device* pDevice, API api = API::DIRECTX_12);
+			static sptr MakeShared(const Device* pDevice, API api = API::DIRECTX_12);
 		};
 
 		//--------------------------------------------------------------------------------------
@@ -410,7 +436,8 @@ namespace XUSG
 			static sptr MakeShared(API api = API::DIRECTX_12);
 		};
 
-		XUSG_INTERFACE ProgramIdentifier GetProgramIdentifier(const Pipeline& stateObject, const wchar_t* programName);
+		XUSG_INTERFACE ProgramIdentifier GetProgramIdentifier(const Pipeline& stateObject,
+			const wchar_t* programName, API api = API::DIRECTX_12);
 
 		XUSG_INTERFACE uint32_t SetBarrier(ResourceBarrier* pBufferBarriers, Buffer* pBuffer, ResourceState dstState,
 			uint32_t numBarriers = 0, BarrierFlag flags = BarrierFlag::NONE, ResourceState srcState = ResourceState::AUTO,
@@ -468,7 +495,7 @@ namespace XUSG
 
 			virtual void SetShaderLibrary(uint32_t index, const Blob& shaderLib,
 				uint32_t numShaders = 0, const wchar_t** pShaderNames = nullptr) = 0;
-			virtual void SetProgram(const wchar_t* programName) = 0;
+			virtual void SetProgramName(const wchar_t* programName) = 0;
 			virtual void SetLocalPipelineLayout(uint32_t index, const PipelineLayout& layout,
 				uint32_t numShaders, const wchar_t** pShaderNames) = 0;
 			virtual void SetGlobalPipelineLayout(const PipelineLayout& layout) = 0;

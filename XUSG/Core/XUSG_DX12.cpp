@@ -328,3 +328,11 @@ Blob XUSG::GetDX12PipelineCache(Pipeline pipeline)
 
 	return blob.get();
 }
+
+size_t XUSG::GetDX12BlobData(const Blob& blob, const void*& pData)
+{
+	const auto pBlob = static_cast<ID3DBlob*>(blob);
+	pData = pBlob->GetBufferPointer();
+
+	return pBlob->GetBufferSize();
+}

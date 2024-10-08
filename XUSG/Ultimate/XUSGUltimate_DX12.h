@@ -41,6 +41,7 @@ namespace XUSG
 				uint32_t ThreadGroupCountY,
 				uint32_t ThreadGroupCountZ) const;
 
+			void SetStateObject(const Pipeline& stateObject);
 			void SetProgram(ProgramType type, ProgramIdentifier identifier, WorkGraphFlag flags = WorkGraphFlag::NONE,
 				uint64_t backingMemoryAddress = 0, uint64_t backingMemoryByteSize = 0,
 				uint64_t localRootArgTableAddress = 0, uint64_t localRootArgTableByteSize = 0,
@@ -65,7 +66,31 @@ namespace XUSG
 			std::vector<D3D12_NODE_CPU_INPUT>		m_nodeInputs;
 		};
 
-		ProgramIdentifier GetProgramIdentifierFromDX12(const Pipeline& stateObject, const wchar_t* programName);
+		//--------------------------------------------------------------------------------------
+		// Pipeline layout
+		//--------------------------------------------------------------------------------------
+		class PipelineLayoutLib_DX12 :
+			public virtual PipelineLayoutLib,
+			public virtual XUSG::PipelineLayoutLib_DX12
+		{
+		public:
+			PipelineLayoutLib_DX12();
+			PipelineLayoutLib_DX12(const Device* pDevice);
+			virtual ~PipelineLayoutLib_DX12();
+
+			PipelineLayout CreateRootSignatureFromLibSubobject(const Blob& blobLib,
+				const wchar_t* name, uint32_t nodeMask = 0);
+			PipelineLayout GetRootSignatureFromLibSubobject(const Blob& blobLib,
+				const wchar_t* name, bool create = true, uint32_t nodeMask = 0);
+
+		protected:
+			virtual PipelineLayout createRootSignatureFromLibSubobject(const std::string& key,
+				const Blob& blobLib, const wchar_t* name, uint32_t nodeMask);
+			PipelineLayout getRootSignatureFromLibSubobject(const std::string& key, const Blob& blobLib,
+				const wchar_t* name, bool create, uint32_t nodeMask);
+		};
+
+		ProgramIdentifier GetDX12ProgramIdentifier(const Pipeline& stateObject, const wchar_t* programName);
 
 		//--------------------------------------------------------------------------------------
 		// Sampler feedback

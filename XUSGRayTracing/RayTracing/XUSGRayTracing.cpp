@@ -128,26 +128,26 @@ TopLevelAS::sptr TopLevelAS::MakeShared(API api)
 	return make_shared<TopLevelAS_DX12>();
 }
 
-const void* ShaderRecord::GetShaderID(const Pipeline& pipeline, const wchar_t* shaderName, API api)
+const void* ShaderRecord::GetShaderIdentifier(const Pipeline& pipeline, const wchar_t* shaderName, API api)
 {
-	return ShaderRecord_DX12::GetShaderID(pipeline, shaderName);
+	return ShaderRecord_DX12::GetShaderIdentifier(pipeline, shaderName);
 }
 
-uint32_t ShaderRecord::GetShaderIDSize(const Device* pDevice, API api)
+uint32_t ShaderRecord::GetShaderIdentifierSize(const Device* pDevice, API api)
 {
-	return ShaderRecord_DX12::GetShaderIDSize(pDevice);
+	return ShaderRecord_DX12::GetShaderIdentifierSize(pDevice);
 }
 
-ShaderRecord::uptr ShaderRecord::MakeUnique(void* pShaderID, uint32_t shaderIDSize,
+ShaderRecord::uptr ShaderRecord::MakeUnique(void* pShaderIdentifier, uint32_t shaderIdentifierSize,
 	const void* pLocalDescriptorArgs, uint32_t localDescriptorArgSize, API api)
 {
-	return make_unique<ShaderRecord_DX12>(pShaderID, shaderIDSize, pLocalDescriptorArgs, localDescriptorArgSize);
+	return make_unique<ShaderRecord_DX12>(pShaderIdentifier, shaderIdentifierSize, pLocalDescriptorArgs, localDescriptorArgSize);
 }
 
-ShaderRecord::sptr ShaderRecord::MakeShared(void* pShaderID, uint32_t shaderIDSize,
+ShaderRecord::sptr ShaderRecord::MakeShared(void* pShaderIdentifier, uint32_t shaderIdentifierSize,
 	const void* pLocalDescriptorArgs, uint32_t localDescriptorArgSize, API api)
 {
-	return make_shared<ShaderRecord_DX12>(pShaderID, shaderIDSize, pLocalDescriptorArgs, localDescriptorArgSize);
+	return make_shared<ShaderRecord_DX12>(pShaderIdentifier, shaderIdentifierSize, pLocalDescriptorArgs, localDescriptorArgSize);
 }
 
 ShaderRecord::uptr ShaderRecord::MakeUnique(const Device* pDevice, const Pipeline& pipeline, const wchar_t* shaderName,

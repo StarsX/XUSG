@@ -240,7 +240,7 @@ namespace XUSG
 		class XUSG_INTERFACE ShaderRecord
 		{
 		public:
-			//ShaderRecord(const void* pShaderID, uint32_t shaderIDSize,
+			//ShaderRecord(const void* pShaderIdentifier, uint32_t shaderIdentifierSize,
 				//const void* pLocalDescriptorArgs = nullptr, uint32_t localDescriptorArgSize = 0);
 			//ShaderRecord(const Device* pDevice, const Pipeline& pipeline, const wchar_t* shaderName,
 				//const void* pLocalDescriptorArgs = nullptr, uint32_t localDescriptorArgSize = 0);
@@ -248,16 +248,16 @@ namespace XUSG
 
 			virtual void CopyTo(void* dest) const = 0;
 
-			static const void* GetShaderID(const Pipeline& pipeline, const wchar_t* shaderName, API api = API::DIRECTX_12);
+			static const void* GetShaderIdentifier(const Pipeline& pipeline, const wchar_t* shaderName, API api = API::DIRECTX_12);
 
-			static uint32_t GetShaderIDSize(const Device* pDevice, API api = API::DIRECTX_12);
+			static uint32_t GetShaderIdentifierSize(const Device* pDevice, API api = API::DIRECTX_12);
 
 			using uptr = std::unique_ptr<ShaderRecord>;
 			using sptr = std::shared_ptr<ShaderRecord>;
 
-			static uptr MakeUnique(void* pShaderID, uint32_t shaderIDSize, const void* pLocalDescriptorArgs = nullptr,
+			static uptr MakeUnique(void* pShaderIdentifier, uint32_t shaderIdentifierSize, const void* pLocalDescriptorArgs = nullptr,
 				uint32_t localDescriptorArgSize = 0, API api = API::DIRECTX_12);
-			static sptr MakeShared(void* pShaderID, uint32_t shaderIDSize, const void* pLocalDescriptorArgs = nullptr,
+			static sptr MakeShared(void* pShaderIdentifier, uint32_t shaderIdentifierSize, const void* pLocalDescriptorArgs = nullptr,
 				uint32_t localDescriptorArgSize = 0, API api = API::DIRECTX_12);
 			static uptr MakeUnique(const Device* pDevice, const Pipeline& pipeline, const wchar_t* shaderName,
 				const void* pLocalDescriptorArgs = nullptr, uint32_t localDescriptorArgSize = 0,

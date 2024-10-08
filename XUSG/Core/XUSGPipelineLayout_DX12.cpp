@@ -296,22 +296,22 @@ PipelineLayout PipelineLayoutLib_DX12::GetPipelineLayout(Util::PipelineLayout* p
 	return getPipelineLayout(pipelineLayoutKey, name, create, nodeMask);
 }
 
-PipelineLayout PipelineLayoutLib_DX12::CreateRootSignature(const void* pBlobSignature,
-	size_t size, const wchar_t* name, uint32_t nodeMask)
+PipelineLayout PipelineLayoutLib_DX12::CreateRootSignature(const Blob& blobSignature,
+	const wchar_t* name, uint32_t nodeMask)
 {
-	string key(sizeof(pBlobSignature), 0);
-	memcpy(&key[0], pBlobSignature, sizeof(pBlobSignature));
+	string key(sizeof(blobSignature), 0);
+	memcpy(&key[0], blobSignature, sizeof(blobSignature));
 
-	return createRootSignature(key, pBlobSignature, size, name, nodeMask);
+	return createRootSignature(key, blobSignature, name, nodeMask);
 }
 
-PipelineLayout PipelineLayoutLib_DX12::GetRootSignature(const void* pBlobSignature,
-	size_t size, const wchar_t* name, bool create, uint32_t nodeMask)
+PipelineLayout PipelineLayoutLib_DX12::GetRootSignature(const Blob& blobSignature,
+	const wchar_t* name, bool create, uint32_t nodeMask)
 {
-	string key(sizeof(pBlobSignature), 0);
-	memcpy(&key[0], pBlobSignature, sizeof(pBlobSignature));
+	string key(sizeof(blobSignature), 0);
+	memcpy(&key[0], blobSignature, sizeof(blobSignature));
 
-	return getRootSignature(key, pBlobSignature, size, name, create, nodeMask);
+	return getRootSignature(key, blobSignature, name, create, nodeMask);
 }
 
 DescriptorTableLayout PipelineLayoutLib_DX12::CreateDescriptorTableLayout(uint32_t index, const Util::PipelineLayout* pUtil)
@@ -373,14 +373,16 @@ PipelineLayout PipelineLayoutLib_DX12::createPipelineLayout(const string& key, c
 	H_RETURN(D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, highestVersion, signature.put(), error.put()),
 		cerr, reinterpret_cast<char*>(error->GetBufferPointer()), nullptr);
 
-	return createRootSignature(key, signature->GetBufferPointer(), signature->GetBufferSize(), name, nodeMask);
+	return createRootSignature(key, signature.get(), name, nodeMask);
 }
 
-PipelineLayout PipelineLayoutLib_DX12::createRootSignature(const string& key, const void* pBlobSignature,
-	size_t size, const wchar_t* name, uint32_t nodeMask)
+PipelineLayout PipelineLayoutLib_DX12::createRootSignature(const string& key,
+	const Blob& blobSignature, const wchar_t* name, uint32_t nodeMask)
 {
 	com_ptr<ID3D12RootSignature> rootSignature;
-	V_RETURN(m_device->CreateRootSignature(nodeMask, pBlobSignature, size, IID_PPV_ARGS(&rootSignature)), cerr, nullptr);
+	const auto pBlob = static_cast<ID3DBlob*>(blobSignature);
+	V_RETURN(m_device->CreateRootSignature(nodeMask, pBlob->GetBufferPointer(),
+		pBlob->GetBufferSize(), IID_PPV_ARGS(&rootSignature)), cerr, nullptr);
 	if (name) rootSignature->SetName(name);
 	m_rootSignatures[key] = rootSignature;
 
@@ -401,15 +403,15 @@ PipelineLayout PipelineLayoutLib_DX12::getPipelineLayout(const string& key, cons
 	return layoutIter->second.get();
 }
 
-PipelineLayout PipelineLayoutLib_DX12::getRootSignature(const string& key, const void* pBlobSignature,
-	size_t size, const wchar_t* name, bool create, uint32_t nodeMask)
+PipelineLayout PipelineLayoutLib_DX12::getRootSignature(const string& key, const Blob& blobSignature,
+	const wchar_t* name, bool create, uint32_t nodeMask)
 {
 	const auto layoutIter = m_rootSignatures.find(key);
 
 	// Create one, if it does not exist
 	if (layoutIter == m_rootSignatures.end())
 	{
-		if (create) return createRootSignature(key, pBlobSignature, size, name, nodeMask);
+		if (create) return createRootSignature(key, blobSignature, name, nodeMask);
 		else return nullptr;
 	}
 

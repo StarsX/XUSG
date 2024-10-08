@@ -2243,9 +2243,9 @@ namespace XUSG
 			const wchar_t* name = nullptr, uint32_t nodeMask = 0) = 0;
 		virtual PipelineLayout GetPipelineLayout(Util::PipelineLayout* pUtil, PipelineLayoutFlag flags,
 			const wchar_t* name = nullptr, bool create = true, uint32_t nodeMask = 0) = 0;
-		virtual PipelineLayout CreateRootSignature(const void* pBlobSignature, size_t size,
-			const wchar_t* name, uint32_t nodeMask = 0) = 0;
-		virtual PipelineLayout GetRootSignature(const void* pBlobSignature, size_t size,
+		virtual PipelineLayout CreateRootSignature(const Blob& blobSignature,
+			const wchar_t* name = nullptr, uint32_t nodeMask = 0) = 0;
+		virtual PipelineLayout GetRootSignature(const Blob& blobSignature,
 			const wchar_t* name = nullptr, bool create = true, uint32_t nodeMask = 0) = 0;
 
 		virtual DescriptorTableLayout CreateDescriptorTableLayout(uint32_t index, const Util::PipelineLayout* pUtil) = 0;
@@ -2554,6 +2554,8 @@ namespace XUSG
 	XUSG_INTERFACE Blob GetPipelineCache(Pipeline pipeline, API api = API::DIRECTX_12);
 
 	XUSG_INTERFACE uint8_t Log2(uint32_t value);
+
+	XUSG_INTERFACE size_t GetBlobData(const Blob& blob, const void*& pData, API api = API::DIRECTX_12);
 
 	XUSG_INTERFACE size_t Align(size_t size, size_t alignment);
 

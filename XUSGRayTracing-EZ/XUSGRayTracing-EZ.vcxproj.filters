@@ -69,6 +69,9 @@
     <ClInclude Include="..\XUSG\Core\XUSGResource_DX12.h">
       <Filter>Core</Filter>
     </ClInclude>
+    <ClInclude Include="..\XUSG\Core\XUSGPipelineLayout_DX12.h">
+      <Filter>Core</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -103,6 +106,9 @@
     </ClCompile>
     <ClCompile Include="..\XUSG-EZ\XUSG-EZ.cpp">
       <Filter>XUSG-EZ</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSG\Core\XUSGPipelineLayout_DX12.cpp">
+      <Filter>Core</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

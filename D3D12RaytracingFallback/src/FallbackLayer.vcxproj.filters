@@ -378,5 +378,8 @@
     <CustomBuild Include="*Lib.hlsl">
       <Filter>Shaders</Filter>
     </CustomBuild>
+    <CustomBuild Include="*Lib.hlsl" />
+    <CustomBuild Include="*Lib.hlsl" />
+    <CustomBuild Include="*Lib.hlsl" />
   </ItemGroup>
 </Project>
