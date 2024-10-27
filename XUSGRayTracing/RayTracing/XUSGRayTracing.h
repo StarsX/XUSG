@@ -132,10 +132,10 @@ namespace XUSG
 
 			virtual Buffer* GetPostbuildInfo() const = 0;
 
-			virtual size_t GetResultDataMaxByteSize() const = 0;
+			virtual size_t GetResultDataMaxByteSize(bool isAligned = true) const = 0;
 			virtual size_t GetScratchDataByteSize() const = 0;
 			virtual size_t GetUpdateScratchDataByteSize() const = 0;
-			virtual size_t GetCompactedByteSize() const = 0;
+			virtual size_t GetCompactedByteSize(bool isAligned = true) const = 0;
 
 			virtual uint64_t GetVirtualAddress() const = 0;
 			virtual uint64_t GetResourcePointer() const = 0;
@@ -153,6 +153,8 @@ namespace XUSG
 				void* pData, MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr);
 
 			static uint32_t SetBarrier(ResourceBarrier* pBarriers, Resource* pResource, uint32_t numBarriers = 0);
+
+			static size_t Align(size_t byteSize, API api = API::DIRECTX_12);
 		};
 
 		//--------------------------------------------------------------------------------------

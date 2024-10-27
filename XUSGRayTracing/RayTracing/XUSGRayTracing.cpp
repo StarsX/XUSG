@@ -61,6 +61,11 @@ uint32_t AccelerationStructure::SetBarrier(ResourceBarrier* pBarriers, Resource*
 	return numBarriers;
 }
 
+size_t AccelerationStructure::Align(size_t byteSize, API api)
+{
+	return AccelerationStructure_DX12::Align(byteSize);
+}
+
 void BottomLevelAS::SetTriangleGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
 	Format vertexFormat, const VertexBufferView* pVBs, const IndexBufferView* pIBs,
 	const GeometryFlag* geometryFlags, const ResourceView* pTransforms, API api)

@@ -70,6 +70,13 @@ Buffer* AccelerationStructure_DX12::GetPostbuildInfo() const
 	return m_postbuildInfoRB.get();
 }
 
+size_t AccelerationStructure_DX12::GetResultDataMaxByteSize(bool isAligned) const
+{
+	const auto resultDataMaxByteSize = static_cast<size_t>(m_prebuildInfo.ResultDataMaxByteSize);
+
+	return isAligned ? Align(resultDataMaxByteSize) : resultDataMaxByteSize;
+}
+
 size_t AccelerationStructure_DX12::GetScratchDataByteSize() const
 {
 	return static_cast<size_t>(m_prebuildInfo.ScratchDataByteSize);
@@ -80,14 +87,14 @@ size_t AccelerationStructure_DX12::GetUpdateScratchDataByteSize() const
 	return static_cast<size_t>(m_prebuildInfo.UpdateScratchDataByteSize);
 }
 
-size_t AccelerationStructure_DX12::GetCompactedByteSize() const
+size_t AccelerationStructure_DX12::GetCompactedByteSize(bool isAligned) const
 {
 	using T = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_COMPACTED_SIZE_DESC;
 	const auto pPostbuildInfo = static_cast<const T*>(m_postbuildInfoRB->Map(nullptr));
 	const auto compactedByteSize = static_cast<size_t>(pPostbuildInfo->CompactedSizeInBytes);
 	m_postbuildInfoRB->Unmap();
 
-	return Buffer_DX12::AlignRawView(compactedByteSize);
+	return isAligned ? Align(compactedByteSize) : compactedByteSize;
 }
 
 uint64_t AccelerationStructure_DX12::GetVirtualAddress() const
@@ -119,6 +126,11 @@ bool AccelerationStructure_DX12::AllocateDestBuffer(const Device* pDevice, Buffe
 		nullptr, maxThreads);
 }
 
+size_t AccelerationStructure_DX12::Align(size_t byteSize)
+{
+	return XUSG::Align(byteSize, D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT);
+}
+
 bool AccelerationStructure_DX12::prebuild(const Device* pDevice)
 {
 	const auto& inputs = m_buildDesc.Inputs;
@@ -140,7 +152,7 @@ bool AccelerationStructure_DX12::allocate(const Device* pDevice, size_t byteWidt
 	const wchar_t* name, uint32_t maxThreads)
 {
 	m_resource = Buffer::MakeShared(API::DIRECTX_12);
-	byteWidth = byteWidth ? byteWidth : GetResultDataMaxByteSize();
+	byteWidth = byteWidth ? byteWidth : GetResultDataMaxByteSize(false);
 	XUSG_N_RETURN(AllocateDestBuffer(pDevice, m_resource.get(), byteWidth, numSRVs,
 		nullptr, 1, nullptr, memoryFlags, name, maxThreads), false);
 	m_byteOffset = 0;
@@ -240,13 +252,6 @@ void BottomLevelAS_DX12::Build(CommandList* pCommandList, const Resource* pScrat
 		numPostbuildInfoDescs ? postbuildInfoDescs.data() : nullptr);
 
 	if (m_postbuildInfo) m_postbuildInfo->ReadBack(pCommandList, m_postbuildInfoRB.get());
-}
-
-size_t BottomLevelAS_DX12::GetResultDataMaxByteSize() const
-{
-	const auto resultDataMaxByteSize = static_cast<size_t>(m_prebuildInfo.ResultDataMaxByteSize);
-
-	return Buffer_DX12::AlignRawView(resultDataMaxByteSize);
 }
 
 void BottomLevelAS_DX12::SetTriangleGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
@@ -389,13 +394,6 @@ void TopLevelAS_DX12::Build(CommandList* pCommandList, const Resource* pScratch,
 		numPostbuildInfoDescs ? postbuildInfoDescs.data() : nullptr, &descriptorHeap);
 
 	if (m_postbuildInfo) m_postbuildInfo->ReadBack(pCommandList, m_postbuildInfoRB.get());
-}
-
-size_t TopLevelAS_DX12::GetResultDataMaxByteSize() const
-{
-	const auto resultDataMaxByteSize = static_cast<size_t>(m_prebuildInfo.ResultDataMaxByteSize);
-
-	return Align(resultDataMaxByteSize, D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT);
 }
 
 const Descriptor& TopLevelAS_DX12::GetSRV() const

@@ -26,9 +26,10 @@ namespace XUSG
 
 			Buffer* GetPostbuildInfo() const;
 
+			size_t GetResultDataMaxByteSize(bool isAligned = true) const;
 			size_t GetScratchDataByteSize() const;
 			size_t GetUpdateScratchDataByteSize() const;
-			size_t GetCompactedByteSize() const;
+			size_t GetCompactedByteSize(bool isAligned = true) const;
 
 			uint64_t GetVirtualAddress() const;
 			uint64_t GetResourcePointer() const;
@@ -38,6 +39,8 @@ namespace XUSG
 				uint32_t numUAVs = 1, const uintptr_t* firstUavElements = nullptr,
 				MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 				uint32_t maxThreads = 1);
+
+			static size_t Align(size_t byteSize);
 
 		protected:
 			bool prebuild(const Device* pDevice);
@@ -73,8 +76,6 @@ namespace XUSG
 				const BottomLevelAS* pSource = nullptr, uint8_t numPostbuildInfoDescs = 0,
 				const PostbuildInfoType* pPostbuildInfoTypes = nullptr);
 
-			size_t GetResultDataMaxByteSize() const;
-
 			static void SetTriangleGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
 				Format vertexFormat, const VertexBufferView* pVBs, const IndexBufferView* pIBs = nullptr,
 				const GeometryFlag* pGeometryFlags = nullptr, const ResourceView* pTransforms = nullptr);
@@ -100,8 +101,6 @@ namespace XUSG
 				const Resource* pInstanceDescs, const DescriptorHeap& descriptorHeap,
 				const TopLevelAS* pSource = nullptr, uint8_t numPostbuildInfoDescs = 0,
 				const PostbuildInfoType* pPostbuildInfoTypes = nullptr);
-
-			size_t GetResultDataMaxByteSize() const;
 
 			const Descriptor& GetSRV() const;
 
