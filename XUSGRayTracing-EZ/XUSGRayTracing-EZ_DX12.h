@@ -33,6 +33,9 @@ namespace XUSG
 					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					uint32_t maxTLASSrvs = 0, uint32_t spaceTLAS = 0,
 					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
 				bool Reset(const CommandAllocator* pAllocator, const Pipeline& initialState);
@@ -104,6 +107,7 @@ namespace XUSG
 				bool createComputePipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
 					const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
 					uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces,
+					uint32_t max32BitConstants, uint32_t constantSlot, uint32_t constantSpace,
 					uint32_t maxTLASSrvs, uint32_t spaceTLAS, uint32_t slotExt, uint32_t spaceExt);
 
 				void predispatchRays(CShaderTablePtr& pRayGen, CShaderTablePtr& pHitGroup, CShaderTablePtr& pMiss,

@@ -71,13 +71,18 @@ bool EZ::CommandList_DXR::CreatePipelineLayouts(
 	const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE],
+	const uint32_t constantSlots[Shader::Stage::NUM_STAGE],
+	const uint32_t constantSpaces[Shader::Stage::NUM_STAGE],
 	uint32_t maxTLASSrvs, uint32_t spaceTLAS,
 	uint32_t slotExt, uint32_t spaceExt)
 {
 	// Create common pipeline layouts
 	XUSG_N_RETURN(createGraphicsPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
-		pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces, slotExt, spaceExt), false);
+		pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces, max32BitConstants,
+		constantSlots, constantSpaces, slotExt, spaceExt), false);
 
+	const auto cMaxCbvSpaces = maxCbvSpaces ? maxCbvSpaces[Shader::Stage::CS] : 1;
 	XUSG_N_RETURN(createComputePipelineLayouts(maxSamplers ? maxSamplers[Shader::Stage::CS] : 16,
 		pMaxCbvsEachSpace ? pMaxCbvsEachSpace[Shader::Stage::CS] : nullptr,
 		pMaxSrvsEachSpace ? pMaxSrvsEachSpace[Shader::Stage::CS] : nullptr,
@@ -85,6 +90,9 @@ bool EZ::CommandList_DXR::CreatePipelineLayouts(
 		maxCbvSpaces ? maxCbvSpaces[Shader::Stage::CS] : 1,
 		maxSrvSpaces ? maxSrvSpaces[Shader::Stage::CS] : 1,
 		maxUavSpaces ? maxUavSpaces[Shader::Stage::CS] : 1,
+		max32BitConstants ? max32BitConstants[Shader::Stage::CS] : 0,
+		constantSlots ? constantSlots[Shader::Stage::CS] : 0,
+		constantSpaces ? constantSpaces[Shader::Stage::CS] : cMaxCbvSpaces - 1,
 		maxTLASSrvs, spaceTLAS, slotExt, spaceExt), false);
 
 	D3D12_FEATURE_DATA_D3D12_OPTIONS7 featureSupportData = {};
@@ -93,7 +101,8 @@ bool EZ::CommandList_DXR::CreatePipelineLayouts(
 
 	if (m_commandListU && SUCCEEDED(hr) && featureSupportData.MeshShaderTier != D3D12_MESH_SHADER_TIER_NOT_SUPPORTED)
 		XUSG_N_RETURN(createMeshShaderPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
-			pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces, slotExt, spaceExt), false);
+			pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces, max32BitConstants,
+			constantSlots, constantSpaces, slotExt, spaceExt), false);
 
 	return true;
 }
@@ -385,6 +394,7 @@ void EZ::CommandList_DXR::DispatchRaysIndirect(const CommandLayout* pCommandlayo
 bool EZ::CommandList_DXR::createComputePipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
 	const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
 	uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces,
+	uint32_t max32BitConstants, uint32_t constantSlot, uint32_t constantSpace,
 	uint32_t maxTLASSrvs, uint32_t spaceTLAS, uint32_t slotExt, uint32_t spaceExt)
 {
 	// Create common compute pipeline layout with ray tracing
@@ -411,9 +421,15 @@ bool EZ::CommandList_DXR::createComputePipelineLayouts(uint32_t maxSamplers, con
 	{
 		if (s < maxCbvSpaces)
 		{
-			const auto maxDescriptors = pMaxCbvsEachSpace ? pMaxCbvsEachSpace[s] : 12;
+			auto maxDescriptors = pMaxCbvsEachSpace ? pMaxCbvsEachSpace[s] : 12;
+			auto slot = 0;
+			if (s == constantSpace && max32BitConstants > 0)
+			{
+				maxDescriptors = constantSlot ? (min)(maxDescriptors, constantSlot) : maxDescriptors - 1;
+				slot = constantSlot ? 0 : 1;
+			}
 			m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::CBV)][s] = paramIndex;
-			pipelineLayout->SetRange(paramIndex++, DescriptorType::CBV, maxDescriptors, 0, s, DescriptorFlag::DESCRIPTORS_VOLATILE);
+			pipelineLayout->SetRange(paramIndex++, DescriptorType::CBV, maxDescriptors, slot, s, DescriptorFlag::DESCRIPTORS_VOLATILE);
 		}
 
 		if (s < maxSrvSpaces && !(s == spaceTLAS && maxTLASSrvs > 0))
@@ -429,6 +445,12 @@ bool EZ::CommandList_DXR::createComputePipelineLayouts(uint32_t maxSamplers, con
 			m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::UAV)][s] = paramIndex;
 			pipelineLayout->SetRange(paramIndex++, DescriptorType::UAV, maxDescriptors, 0, s, DescriptorFlag::DESCRIPTORS_VOLATILE);
 		}
+	}
+
+	if (max32BitConstants > 0)
+	{
+		m_computeConstantParamIndex = paramIndex;
+		pipelineLayout->SetConstants(paramIndex++, max32BitConstants, constantSlot, constantSpace);
 	}
 
 	for (auto slot = 0u; slot < maxTLASSrvs; ++slot)

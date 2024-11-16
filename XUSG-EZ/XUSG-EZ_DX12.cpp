@@ -31,7 +31,10 @@ EZ::CommandList_DX12::CommandList_DX12() :
 	m_clearDSVs(0),
 	m_clearRTVs(0),
 	m_graphicsSpaceToParamIndexMap(),
-	m_computeSpaceToParamIndexMap()
+	m_computeSpaceToParamIndexMap(),
+	m_graphicsConstantParamIndices(),
+	m_computeConstantParamIndex(0),
+	m_shaders()
 {
 	m_shaderLib = ShaderLib::MakeUnique();
 }
@@ -44,12 +47,16 @@ EZ::CommandList_DX12::CommandList_DX12(XUSG::CommandList* pCommandList, uint32_t
 	const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE],
+	const uint32_t constantSlots[Shader::Stage::NUM_STAGE],
+	const uint32_t constantSpaces[Shader::Stage::NUM_STAGE],
 	uint32_t slotExt, uint32_t spaceExt) :
 	CommandList_DX12()
 {
 	Create(pCommandList, samplerHeapSize, cbvSrvUavHeapSize, maxSamplers,
 		pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
-		maxCbvSpaces, maxSrvSpaces, maxUavSpaces, slotExt, spaceExt);
+		maxCbvSpaces, maxSrvSpaces, maxUavSpaces, max32BitConstants,
+		constantSlots, constantSpaces, slotExt, spaceExt);
 }
 
 EZ::CommandList_DX12::~CommandList_DX12()
@@ -65,21 +72,29 @@ bool EZ::CommandList_DX12::Create(XUSG::CommandList* pCommandList,
 	const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE],
+	const uint32_t constantSlots[Shader::Stage::NUM_STAGE],
+	const uint32_t constantSpaces[Shader::Stage::NUM_STAGE],
 	uint32_t slotExt, uint32_t spaceExt)
 {
 	XUSG_N_RETURN(init(pCommandList, samplerHeapSize, cbvSrvUavHeapSize), false);
 
 	// Create common pipeline layouts
 	XUSG_N_RETURN(createGraphicsPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
-		pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces, slotExt, spaceExt), false);
+		pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces, max32BitConstants,
+		constantSlots, constantSpaces, slotExt, spaceExt), false);
 
+	const auto cMaxCbvSpaces = maxCbvSpaces ? maxCbvSpaces[Shader::Stage::CS] : 1;
 	XUSG_N_RETURN(createComputePipelineLayouts(maxSamplers ? maxSamplers[Shader::Stage::CS] : 16,
 		pMaxCbvsEachSpace ? pMaxCbvsEachSpace[Shader::Stage::CS] : nullptr,
 		pMaxSrvsEachSpace ? pMaxSrvsEachSpace[Shader::Stage::CS] : nullptr,
 		pMaxUavsEachSpace ? pMaxUavsEachSpace[Shader::Stage::CS] : nullptr,
-		maxCbvSpaces ? maxCbvSpaces[Shader::Stage::CS] : 1,
+		cMaxCbvSpaces,
 		maxSrvSpaces ? maxSrvSpaces[Shader::Stage::CS] : 1,
 		maxUavSpaces ? maxUavSpaces[Shader::Stage::CS] : 1,
+		max32BitConstants ? max32BitConstants[Shader::Stage::CS] : 0,
+		constantSlots ? constantSlots[Shader::Stage::CS] : 0,
+		constantSpaces ? constantSpaces[Shader::Stage::CS] : cMaxCbvSpaces - 1,
 		slotExt, spaceExt), false);
 
 	return true;
@@ -94,6 +109,9 @@ bool EZ::CommandList_DX12::Create(const Device* pDevice, void* pHandle,
 	const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE],
+	const uint32_t constantSlots[Shader::Stage::NUM_STAGE],
+	const uint32_t constantSpaces[Shader::Stage::NUM_STAGE],
 	uint32_t slotExt, uint32_t spaceExt, const wchar_t* name)
 {
 	m_pDevice = pDevice;
@@ -101,7 +119,8 @@ bool EZ::CommandList_DX12::Create(const Device* pDevice, void* pHandle,
 
 	return Create(this, samplerHeapSize, cbvSrvUavHeapSize, maxSamplers,
 		pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
-		maxCbvSpaces, maxSrvSpaces, maxUavSpaces);
+		maxCbvSpaces, maxSrvSpaces, maxUavSpaces, max32BitConstants,
+		constantSlots, constantSpaces, slotExt, spaceExt);
 }
 
 bool EZ::CommandList_DX12::Close(RenderTarget* pBackBuffer)
@@ -473,6 +492,30 @@ void EZ::CommandList_DX12::SetComputeDescriptorTable(DescriptorType descriptorTy
 	XUSG::CommandList_DX12::SetComputeDescriptorTable(m_computeSpaceToParamIndexMap[static_cast<uint32_t>(descriptorType)][space], descriptorTable);
 }
 
+void EZ::CommandList_DX12::SetGraphics32BitConstant(Shader::Stage stage, uint32_t srcData, uint32_t destOffsetIn32BitValues) const
+{
+	assert(stage < Shader::Stage::NUM_GRAPHICS);
+	XUSG::CommandList_DX12::SetGraphics32BitConstant(m_graphicsConstantParamIndices[stage], srcData, destOffsetIn32BitValues);
+}
+
+void EZ::CommandList_DX12::SetCompute32BitConstant(uint32_t srcData, uint32_t destOffsetIn32BitValues) const
+{
+	XUSG::CommandList_DX12::SetCompute32BitConstant(m_computeConstantParamIndex, srcData, destOffsetIn32BitValues);
+}
+
+void EZ::CommandList_DX12::SetGraphics32BitConstants(Shader::Stage stage, uint32_t num32BitValuesToSet,
+	const void* pSrcData, uint32_t destOffsetIn32BitValues) const
+{
+	assert(stage < Shader::Stage::NUM_GRAPHICS);
+	XUSG::CommandList_DX12::SetGraphics32BitConstants(m_graphicsConstantParamIndices[stage],
+		num32BitValuesToSet, pSrcData, destOffsetIn32BitValues);
+}
+
+void EZ::CommandList_DX12::SetCompute32BitConstants(uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues) const
+{
+	XUSG::CommandList_DX12::SetCompute32BitConstants(m_computeConstantParamIndex, num32BitValuesToSet, pSrcData, destOffsetIn32BitValues);
+}
+
 void EZ::CommandList_DX12::IASetPrimitiveTopology(PrimitiveTopology primitiveTopology)
 {
 	assert(m_graphicsState);
@@ -792,6 +835,16 @@ const XUSG::PipelineLayout& EZ::CommandList_DX12::GetComputePipelineLayout() con
 	return m_pipelineLayouts[COMPUTE];
 }
 
+uint32_t EZ::CommandList_DX12::GetGraphicsConstantParamIndex(Shader::Stage stage) const
+{
+	return m_graphicsConstantParamIndices[stage];
+}
+
+uint32_t EZ::CommandList_DX12::GetComputeConstantParamIndex() const
+{
+	return m_computeConstantParamIndex;
+}
+
 bool EZ::CommandList_DX12::init(XUSG::CommandList* pCommandList, uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize)
 {
 	m_pDevice = pCommandList->GetDevice();
@@ -822,6 +875,9 @@ bool EZ::CommandList_DX12::createGraphicsPipelineLayouts(
 	const uint32_t maxCbvSpaces[Shader::Stage::NUM_GRAPHICS],
 	const uint32_t maxSrvSpaces[Shader::Stage::NUM_GRAPHICS],
 	const uint32_t maxUavSpaces[Shader::Stage::NUM_GRAPHICS],
+	const uint32_t max32BitConstants[Shader::Stage::NUM_GRAPHICS],
+	const uint32_t constantSlots[Shader::Stage::NUM_GRAPHICS],
+	const uint32_t constantSpaces[Shader::Stage::NUM_GRAPHICS],
 	uint32_t slotExt, uint32_t spaceExt)
 {
 	// Create common graphics pipeline layout
@@ -863,13 +919,23 @@ bool EZ::CommandList_DX12::createGraphicsPipelineLayouts(
 		spaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::SRV)].resize(stageMaxSrvSpaces);
 		spaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::UAV)].resize(stageMaxUavSpaces);
 
+		const auto num32BitValues = max32BitConstants ? max32BitConstants[stage] : 0;
+		const auto constantSpace = constantSpaces ? constantSpaces[stage] : 0;
+		const auto constantSlot = constantSlots ? constantSlots[stage] : 0;
+
 		for (auto s = 0u; s < maxSpaces; ++s)
 		{
 			if (s < stageMaxCbvSpaces)
 			{
-				const auto maxDescriptors = pMaxCbvsEachSpace && pMaxCbvsEachSpace[stage] ? pMaxCbvsEachSpace[stage][s] : 14;
+				auto maxDescriptors = pMaxCbvsEachSpace && pMaxCbvsEachSpace[stage] ? pMaxCbvsEachSpace[stage][s] : 14;
+				auto slot = 0;
+				if (s == constantSpace && num32BitValues > 0)
+				{
+					maxDescriptors = constantSlot ? (min)(maxDescriptors, constantSlot) : maxDescriptors - 1;
+					slot = constantSlot ? 0 : 1;
+				}
 				spaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::CBV)][s] = paramIndex;
-				pipelineLayout->SetRange(paramIndex, DescriptorType::CBV, maxDescriptors, 0, s, DescriptorFlag::DESCRIPTORS_VOLATILE);
+				pipelineLayout->SetRange(paramIndex, DescriptorType::CBV, maxDescriptors, slot, s, DescriptorFlag::DESCRIPTORS_VOLATILE);
 				pipelineLayout->SetShaderStage(paramIndex++, stage);
 			}
 
@@ -889,6 +955,12 @@ bool EZ::CommandList_DX12::createGraphicsPipelineLayouts(
 				pipelineLayout->SetShaderStage(paramIndex++, stage);
 			}
 		}
+
+		if (num32BitValues > 0)
+		{
+			m_graphicsConstantParamIndices[stage] = paramIndex;
+			pipelineLayout->SetConstants(paramIndex++, num32BitValues, constantSlot, constantSpace, stage);
+		}
 	}
 
 	pipelineLayout->SetRange(paramIndex++, DescriptorType::UAV, 1, slotExt, spaceExt);
@@ -901,7 +973,9 @@ bool EZ::CommandList_DX12::createGraphicsPipelineLayouts(
 
 bool EZ::CommandList_DX12::createComputePipelineLayouts(uint32_t maxSamplers,
 	const uint32_t* pMaxCbvsEachSpace, const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
-	uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces, uint32_t slotExt, uint32_t spaceExt)
+	uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces,
+	uint32_t max32BitConstants, uint32_t constantSlot, uint32_t constantSpace,
+	uint32_t slotExt, uint32_t spaceExt)
 {
 	// Create common compute pipeline layout
 	auto paramIndex = 0u;
@@ -926,9 +1000,15 @@ bool EZ::CommandList_DX12::createComputePipelineLayouts(uint32_t maxSamplers,
 	{
 		if (s < maxCbvSpaces)
 		{
-			const auto maxDescriptors = pMaxCbvsEachSpace ? pMaxCbvsEachSpace[s] : 14;
+			auto maxDescriptors = pMaxCbvsEachSpace ? pMaxCbvsEachSpace[s] : 14;
+			auto slot = 0;
+			if (s == constantSpace && max32BitConstants > 0)
+			{
+				maxDescriptors = constantSlot ? (min)(maxDescriptors, constantSlot) : maxDescriptors - 1;
+				slot = constantSlot ? 0 : 1;
+			}
 			m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::CBV)][s] = paramIndex;
-			pipelineLayout->SetRange(paramIndex++, DescriptorType::CBV, maxDescriptors, 0, s, DescriptorFlag::DESCRIPTORS_VOLATILE);
+			pipelineLayout->SetRange(paramIndex++, DescriptorType::CBV, maxDescriptors, slot, s, DescriptorFlag::DESCRIPTORS_VOLATILE);
 		}
 
 		if (s < maxSrvSpaces)
@@ -944,6 +1024,12 @@ bool EZ::CommandList_DX12::createComputePipelineLayouts(uint32_t maxSamplers,
 			m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::UAV)][s] = paramIndex;
 			pipelineLayout->SetRange(paramIndex++, DescriptorType::UAV, maxDescriptors, 0, s, DescriptorFlag::DESCRIPTORS_VOLATILE);
 		}
+	}
+
+	if (max32BitConstants > 0)
+	{
+		m_computeConstantParamIndex = paramIndex;
+		pipelineLayout->SetConstants(paramIndex++, max32BitConstants, constantSlot, constantSpace);
 	}
 
 	pipelineLayout->SetRange(paramIndex++, DescriptorType::UAV, 1, slotExt, spaceExt);

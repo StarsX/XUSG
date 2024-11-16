@@ -16,8 +16,10 @@ EZ::CommandList_DX12::CommandList_DX12() :
 	XUSG::CommandList_DX12(),
 	XUSG::EZ::CommandList_DX12(),
 	m_meshShaderPipelineLib(nullptr),
+	m_pipelineLayout(nullptr),
 	m_isMSStateDirty(false),
-	m_meshShaderState(nullptr)
+	m_meshShaderState(nullptr),
+	m_meshShaderConstantParamIndices()
 {
 }
 
@@ -30,12 +32,16 @@ EZ::CommandList_DX12::CommandList_DX12(Ultimate::CommandList* pCommandList,
 	const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE],
+	const uint32_t constantSlots[Shader::Stage::NUM_STAGE],
+	const uint32_t constantSpaces[Shader::Stage::NUM_STAGE],
 	uint32_t slotExt, uint32_t spaceExt) :
 	CommandList_DX12()
 {
 	Create(pCommandList, samplerHeapSize, cbvSrvUavHeapSize, maxSamplers,
 		pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
-		maxCbvSpaces, maxSrvSpaces, maxUavSpaces, slotExt, spaceExt);
+		maxCbvSpaces, maxSrvSpaces, maxUavSpaces, max32BitConstants,
+		constantSlots, constantSpaces, slotExt, spaceExt);
 }
 
 EZ::CommandList_DX12::~CommandList_DX12()
@@ -51,25 +57,34 @@ bool EZ::CommandList_DX12::Create(Ultimate::CommandList* pCommandList,
 	const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE],
+	const uint32_t constantSlots[Shader::Stage::NUM_STAGE],
+	const uint32_t constantSpaces[Shader::Stage::NUM_STAGE],
 	uint32_t slotExt, uint32_t spaceExt)
 {
 	XUSG_N_RETURN(init(pCommandList, samplerHeapSize, cbvSrvUavHeapSize), false);
 
 	// Create common pipeline layouts
 	XUSG_N_RETURN(createGraphicsPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
-		pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces, slotExt, spaceExt), false);
+		pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces, max32BitConstants,
+		constantSlots, constantSpaces, slotExt, spaceExt), false);
 
+	const auto cMaxCbvSpaces = maxCbvSpaces ? maxCbvSpaces[Shader::Stage::CS] : 1;
 	XUSG_N_RETURN(createComputePipelineLayouts(maxSamplers ? maxSamplers[Shader::Stage::CS] : 16,
 		pMaxCbvsEachSpace ? pMaxCbvsEachSpace[Shader::Stage::CS] : nullptr,
 		pMaxSrvsEachSpace ? pMaxSrvsEachSpace[Shader::Stage::CS] : nullptr,
 		pMaxUavsEachSpace ? pMaxUavsEachSpace[Shader::Stage::CS] : nullptr,
-		maxCbvSpaces ? maxCbvSpaces[Shader::Stage::CS] : 1,
+		cMaxCbvSpaces,
 		maxSrvSpaces ? maxSrvSpaces[Shader::Stage::CS] : 1,
 		maxUavSpaces ? maxUavSpaces[Shader::Stage::CS] : 1,
+		max32BitConstants ? max32BitConstants[Shader::Stage::CS] : 0,
+		constantSlots ? constantSlots[Shader::Stage::CS] : 0,
+		constantSpaces ? constantSpaces[Shader::Stage::CS] : cMaxCbvSpaces - 1,
 		slotExt, spaceExt), false);
 
 	XUSG_N_RETURN(createMeshShaderPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
-		pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces, slotExt, spaceExt), false);
+		pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces, max32BitConstants,
+		constantSlots, constantSpaces, slotExt, spaceExt), false);
 
 	return true;
 }
@@ -83,6 +98,9 @@ bool EZ::CommandList_DX12::Create(const Device* pDevice, void* pHandle,
 	const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE],
+	const uint32_t constantSlots[Shader::Stage::NUM_STAGE],
+	const uint32_t constantSpaces[Shader::Stage::NUM_STAGE],
 	uint32_t slotExt, uint32_t spaceExt, const wchar_t* name)
 {
 	m_pDevice = pDevice;
@@ -90,7 +108,8 @@ bool EZ::CommandList_DX12::Create(const Device* pDevice, void* pHandle,
 
 	return Create(this, samplerHeapSize, cbvSrvUavHeapSize, maxSamplers,
 		pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
-		maxCbvSpaces, maxSrvSpaces, maxUavSpaces);
+		maxCbvSpaces, maxSrvSpaces, maxUavSpaces, max32BitConstants,
+		constantSlots, constantSpaces, slotExt, spaceExt);
 }
 
 void EZ::CommandList_DX12::ResolveSubresourceRegion(Resource* pDstResource, uint32_t dstSubresource,
@@ -191,6 +210,20 @@ void EZ::CommandList_DX12::MSSetShader(Shader::Stage stage, const Blob& shader)
 	m_isMSStateDirty = true;
 }
 
+void EZ::CommandList_DX12::MSSet32BitConstant(Shader::Stage stage, uint32_t srcData, uint32_t destOffsetIn32BitValues) const
+{
+	const auto stageIdx = getShaderStageIndex(stage);
+	XUSG::CommandList_DX12::SetGraphics32BitConstant(m_meshShaderConstantParamIndices[stageIdx], srcData, destOffsetIn32BitValues);
+}
+
+void EZ::CommandList_DX12::MSSet32BitConstants(Shader::Stage stage, uint32_t num32BitValuesToSet,
+	const void* pSrcData, uint32_t destOffsetIn32BitValues) const
+{
+	const auto stageIdx = getShaderStageIndex(stage);
+	XUSG::CommandList_DX12::SetGraphics32BitConstants(m_meshShaderConstantParamIndices[stageIdx],
+		num32BitValuesToSet, pSrcData, destOffsetIn32BitValues);
+}
+
 void EZ::CommandList_DX12::MSSetNodeMask(uint32_t nodeMask)
 {
 	assert(m_meshShaderState);
@@ -219,6 +252,11 @@ const XUSG::PipelineLayout& EZ::CommandList_DX12::GetMSPipelineLayout() const
 	return m_pipelineLayout;
 }
 
+uint32_t EZ::CommandList_DX12::GetMSConstantParamIndex(Shader::Stage stage) const
+{
+	return m_meshShaderConstantParamIndices[getShaderStageIndex(stage)];
+}
+
 bool EZ::CommandList_DX12::init(Ultimate::CommandList* pCommandList, uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize)
 {
 	XUSG_N_RETURN(XUSG::EZ::CommandList_DX12::init(pCommandList, samplerHeapSize, cbvSrvUavHeapSize), false);
@@ -242,6 +280,9 @@ bool EZ::CommandList_DX12::createMeshShaderPipelineLayouts(
 	const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE],
+	const uint32_t constantSlots[Shader::Stage::NUM_STAGE],
+	const uint32_t constantSpaces[Shader::Stage::NUM_STAGE],
 	uint32_t slotExt, uint32_t spaceExt)
 {
 	// Create common mesh-shader pipeline layout
@@ -280,13 +321,24 @@ bool EZ::CommandList_DX12::createMeshShaderPipelineLayouts(
 		spaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::CBV)].resize(stageMaxCbvSpaces);
 		spaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::SRV)].resize(stageMaxSrvSpaces);
 		spaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::UAV)].resize(stageMaxUavSpaces);
+
+		const auto num32BitValues = max32BitConstants ? max32BitConstants[stage] : 0;
+		const auto constantSpace = constantSpaces ? constantSpaces[stage] : 0;
+		const auto constantSlot = constantSlots ? constantSlots[stage] : 0;
+
 		for (auto s = 0u; s < maxSpaces; ++s)
 		{
 			if (s < stageMaxCbvSpaces)
 			{
-				const auto maxDescriptors = pMaxCbvsEachSpace && pMaxCbvsEachSpace[stage] ? pMaxCbvsEachSpace[stage][s] : 14;
+				auto maxDescriptors = pMaxCbvsEachSpace && pMaxCbvsEachSpace[stage] ? pMaxCbvsEachSpace[stage][s] : 14;
+				auto slot = 0;
+				if (s == constantSpace && num32BitValues > 0)
+				{
+					maxDescriptors = constantSlot ? (min)(maxDescriptors, constantSlot) : maxDescriptors - 1;
+					slot = constantSlot ? 0 : 1;
+				}
 				spaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::CBV)][s] = paramIndex;
-				pipelineLayout->SetRange(paramIndex, DescriptorType::CBV, maxDescriptors, 0, s, DescriptorFlag::DESCRIPTORS_VOLATILE);
+				pipelineLayout->SetRange(paramIndex, DescriptorType::CBV, maxDescriptors, slot, s, DescriptorFlag::DESCRIPTORS_VOLATILE);
 				pipelineLayout->SetShaderStage(paramIndex++, stage);
 			}
 
@@ -305,6 +357,12 @@ bool EZ::CommandList_DX12::createMeshShaderPipelineLayouts(
 				pipelineLayout->SetRange(paramIndex, DescriptorType::UAV, maxDescriptors, 0, s, DescriptorFlag::DESCRIPTORS_VOLATILE);
 				pipelineLayout->SetShaderStage(paramIndex++, stage);
 			}
+		}
+
+		if (num32BitValues > 0)
+		{
+			m_meshShaderConstantParamIndices[i] = paramIndex;
+			pipelineLayout->SetConstants(paramIndex++, num32BitValues, constantSlot, constantSpace, stage);
 		}
 	}
 
@@ -392,4 +450,20 @@ const XUSG::Shader::Stage& EZ::CommandList_DX12::getShaderStage(uint8_t index) c
 	assert(stages[AS] == Shader::Stage::AS);
 
 	return stages[index];
+}
+
+EZ::CommandList_DX12::StageIndex EZ::CommandList_DX12::getShaderStageIndex(Shader::Stage stage) const
+{
+	switch (stage)
+	{
+	case Shader::Stage::PS:
+		return PS;
+	case Shader::Stage::MS:
+		return MS;
+	case Shader::Stage::AS:
+		return AS;
+	default:
+		assert(!"Invalid shader stage");
+		return PS;
+	}
 }

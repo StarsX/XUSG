@@ -28,6 +28,9 @@ namespace XUSG
 					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
 				virtual ~CommandList_DX12();
 
@@ -40,6 +43,9 @@ namespace XUSG
 					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
 				bool Create(const Device* pDevice, void* pHandle,
 					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
@@ -50,6 +56,9 @@ namespace XUSG
 					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE,
 					const wchar_t* name = nullptr);
 
@@ -75,6 +84,8 @@ namespace XUSG
 				void MSSetRasterizerState(Graphics::RasterizerPreset preset);
 				void MSSetDepthStencilState(Graphics::DepthStencilPreset preset);
 				void MSSetShader(Shader::Stage stage, const Blob& shader);
+				void MSSet32BitConstant(Shader::Stage stage, uint32_t srcData, uint32_t destOffsetIn32BitValues = 0) const;
+				void MSSet32BitConstants(Shader::Stage stage, uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues = 0) const;
 				void MSSetNodeMask(uint32_t nodeMask);
 				void DispatchMesh(uint32_t ThreadGroupCountX, uint32_t ThreadGroupCountY, uint32_t ThreadGroupCountZ);
 				void DispatchMeshIndirect(const CommandLayout* pCommandlayout,
@@ -85,6 +96,8 @@ namespace XUSG
 					uint64_t countBufferOffset = 0);
 
 				const XUSG::PipelineLayout& GetMSPipelineLayout() const;
+
+				uint32_t GetMSConstantParamIndex(Shader::Stage stage) const;
 
 				Ultimate::CommandList* AsUltimateCommandList() { return dynamic_cast<Ultimate::CommandList*>(this); }
 
@@ -107,11 +120,15 @@ namespace XUSG
 					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
 					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
 					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
+					const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE],
+					const uint32_t constantSlots[Shader::Stage::NUM_STAGE],
+					const uint32_t constantSpaces[Shader::Stage::NUM_STAGE],
 					uint32_t slotExt, uint32_t spaceExt);
 
 				void predispatchMesh();
 
 				const Shader::Stage& getShaderStage(uint8_t index) const;
+				StageIndex getShaderStageIndex(Shader::Stage stage) const;
 
 				PipelineLib::uptr m_meshShaderPipelineLib;
 
@@ -121,6 +138,8 @@ namespace XUSG
 				bool m_isMSStateDirty;
 
 				std::vector<uint32_t> m_meshShaderSpaceToParamIndexMap[NUM_STAGE][CbvSrvUavTypes];
+
+				uint32_t m_meshShaderConstantParamIndices[NUM_STAGE];
 			};
 		}
 	}

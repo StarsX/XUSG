@@ -42,11 +42,16 @@ EZ::CommandList::uptr EZ::CommandList::MakeUnique(Ultimate::CommandList* pComman
 	const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE],
 	const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
-	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE], API api)
+	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE],
+	const uint32_t constantSlots[Shader::Stage::NUM_STAGE],
+	const uint32_t constantSpaces[Shader::Stage::NUM_STAGE],
+	uint32_t slotExt, uint32_t spaceExt, API api)
 {
 	return make_unique<EZ::CommandList_DX12>(pCommandList, samplerHeapSize, cbvSrvUavHeapSize,
 		maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
-		maxCbvSpaces, maxSrvSpaces, maxUavSpaces);
+		maxCbvSpaces, maxSrvSpaces, maxUavSpaces, max32BitConstants,
+		constantSlots, constantSpaces, slotExt, spaceExt);
 }
 
 EZ::CommandList::sptr EZ::CommandList::MakeShared(Ultimate::CommandList* pCommandList,
@@ -57,9 +62,14 @@ EZ::CommandList::sptr EZ::CommandList::MakeShared(Ultimate::CommandList* pComman
 	const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE],
 	const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
-	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE], API api)
+	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE],
+	const uint32_t constantSlots[Shader::Stage::NUM_STAGE],
+	const uint32_t constantSpaces[Shader::Stage::NUM_STAGE],
+	uint32_t slotExt, uint32_t spaceExt, API api)
 {
 	return make_shared<EZ::CommandList_DX12>(pCommandList, samplerHeapSize, cbvSrvUavHeapSize,
 		maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
-		maxCbvSpaces, maxSrvSpaces, maxUavSpaces);
+		maxCbvSpaces, maxSrvSpaces, maxUavSpaces, max32BitConstants,
+		constantSlots, constantSpaces, slotExt, spaceExt);
 }

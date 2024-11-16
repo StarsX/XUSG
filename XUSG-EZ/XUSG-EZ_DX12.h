@@ -18,13 +18,16 @@ namespace XUSG
 			CommandList_DX12();
 			CommandList_DX12(XUSG::CommandList* pCommandList,
 				uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
-				const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
-				const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
-				const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE],
-				const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE],
-				const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
-				const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
-				const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
+				const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
 			virtual ~CommandList_DX12();
 
@@ -37,6 +40,9 @@ namespace XUSG
 				const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
 			bool Create(const Device* pDevice, void* pHandle,
 				uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
@@ -47,6 +53,9 @@ namespace XUSG
 				const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE,
 				const wchar_t* name = nullptr);
 			bool Close(RenderTarget* pBackBuffer = nullptr);
@@ -125,6 +134,10 @@ namespace XUSG
 				uint32_t numResources, const ResourceView* pResourceViews, uint32_t space = 0);
 			void SetGraphicsDescriptorTable(Shader::Stage stage, DescriptorType descriptorType, const DescriptorTable& descriptorTable, uint32_t space);
 			void SetComputeDescriptorTable(DescriptorType descriptorType, const DescriptorTable& descriptorTable, uint32_t space);
+			void SetGraphics32BitConstant(Shader::Stage stage, uint32_t srcData, uint32_t destOffsetIn32BitValues = 0) const;
+			void SetCompute32BitConstant(uint32_t srcData, uint32_t destOffsetIn32BitValues = 0) const;
+			void SetGraphics32BitConstants(Shader::Stage stage, uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues = 0) const;
+			void SetCompute32BitConstants(uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues = 0) const;
 			void IASetPrimitiveTopology(PrimitiveTopology primitiveTopology);
 			void IASetIndexBuffer(const IndexBufferView& view);
 			void IASetVertexBuffers(uint32_t startSlot, uint32_t numViews, const VertexBufferView* pViews);
@@ -202,6 +215,9 @@ namespace XUSG
 			const XUSG::PipelineLayout& GetGraphicsPipelineLayout() const;
 			const XUSG::PipelineLayout& GetComputePipelineLayout() const;
 
+			uint32_t GetGraphicsConstantParamIndex(Shader::Stage stage) const;
+			uint32_t GetComputeConstantParamIndex() const;
+
 			void* GetHandle() const { return XUSG::CommandList_DX12::GetHandle(); }
 			void* GetDeviceHandle() const { return XUSG::CommandList_DX12::GetDeviceHandle(); }
 
@@ -274,10 +290,14 @@ namespace XUSG
 				const uint32_t maxCbvSpaces[Shader::Stage::NUM_GRAPHICS],
 				const uint32_t maxSrvSpaces[Shader::Stage::NUM_GRAPHICS],
 				const uint32_t maxUavSpaces[Shader::Stage::NUM_GRAPHICS],
+				const uint32_t max32BitConstants[Shader::Stage::NUM_GRAPHICS],
+				const uint32_t constantSlots[Shader::Stage::NUM_GRAPHICS],
+				const uint32_t constantSpaces[Shader::Stage::NUM_GRAPHICS],
 				uint32_t slotExt, uint32_t spaceExt);
 			bool createComputePipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
 				const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
 				uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces,
+				uint32_t max32BitConstants, uint32_t constantSlot, uint32_t constantSpace,
 				uint32_t slotExt, uint32_t spaceExt);
 			bool createShaders();
 
@@ -321,6 +341,9 @@ namespace XUSG
 
 			std::vector<uint32_t> m_graphicsSpaceToParamIndexMap[Shader::Stage::NUM_GRAPHICS][CbvSrvUavTypes];
 			std::vector<uint32_t> m_computeSpaceToParamIndexMap[CbvSrvUavTypes];
+
+			uint32_t m_graphicsConstantParamIndices[Shader::Stage::NUM_GRAPHICS];
+			uint32_t m_computeConstantParamIndex;
 
 			Blob m_shaders[NUM_SHADER];
 		};
