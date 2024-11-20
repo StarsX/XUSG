@@ -1225,15 +1225,18 @@ void EZ::CommandList_DX12::setBarriers(uint32_t numResources, const ResourceView
 		numBarriersEst = pResourceViews[i].pCounter ? numBarriersEst + 1 : numBarriersEst;
 	}
 
-	// Generate barriers for each resource
-	const auto startIdx = m_barriers.size();
-	m_barriers.resize(startIdx + numBarriersEst);
-	auto numBarriers = 0u;
-	for (auto i = 0u; i < numResources; ++i)
-		numBarriers = generateBarriers(&m_barriers[startIdx], pResourceViews[i], numBarriers);
+	if (numBarriersEst > 0)
+	{
+		// Generate barriers for each resource
+		const auto startIdx = m_barriers.size();
+		m_barriers.resize(startIdx + numBarriersEst);
+		auto numBarriers = 0u;
+		for (auto i = 0u; i < numResources; ++i)
+			numBarriers = generateBarriers(&m_barriers[startIdx], pResourceViews[i], numBarriers);
 
-	// Shrink the size of barrier list
-	if (numBarriers < numBarriersEst) m_barriers.resize(startIdx + numBarriers);
+		// Shrink the size of barrier list
+		if (numBarriers < numBarriersEst) m_barriers.resize(startIdx + numBarriers);
+	}
 }
 
 uint32_t EZ::CommandList_DX12::generateBarriers(ResourceBarrier* pBarriers,
