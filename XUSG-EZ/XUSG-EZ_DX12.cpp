@@ -147,8 +147,7 @@ bool EZ::CommandList_DX12::Reset(const CommandAllocator* pAllocator, const Pipel
 	};
 	XUSG::CommandList_DX12::SetDescriptorHeaps(static_cast<uint32_t>(size(descriptorHeaps)), descriptorHeaps);
 
-	// Set pipeline layouts
-	XUSG::CommandList_DX12::SetGraphicsPipelineLayout(m_pipelineLayouts[GRAPHICS]);
+	// Set pipeline layout
 	XUSG::CommandList_DX12::SetComputePipelineLayout(m_pipelineLayouts[COMPUTE]);
 	m_pipeline = initialState;
 	m_pInputLayout = nullptr;
@@ -1066,6 +1065,9 @@ void EZ::CommandList_DX12::predraw()
 	clearRTVs();
 	clearUAVsUint();
 	clearUAVsFloat();
+
+	// Set pipeline layout
+	XUSG::CommandList_DX12::SetGraphicsPipelineLayout(m_pipelineLayouts[GRAPHICS]);
 
 	// Set descriptor tables
 	for (uint8_t i = 0; i < Shader::Stage::NUM_GRAPHICS; ++i)

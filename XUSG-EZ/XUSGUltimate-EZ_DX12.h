@@ -78,15 +78,20 @@ namespace XUSG
 
 				void RSSetShadingRateImage(Resource* pShadingRateImage);
 
-				void MSSetPipelineState(const Pipeline& pipelineState, const State* pState = nullptr);
-				void MSSetBlendState(Graphics::BlendPreset preset, uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX);
-				void MSSetSample(uint8_t count, uint8_t quality = 0);
-				void MSSetRasterizerState(Graphics::RasterizerPreset preset);
-				void MSSetDepthStencilState(Graphics::DepthStencilPreset preset);
-				void MSSetShader(Shader::Stage stage, const Blob& shader);
-				void MSSet32BitConstant(Shader::Stage stage, uint32_t srcData, uint32_t destOffsetIn32BitValues = 0) const;
-				void MSSet32BitConstants(Shader::Stage stage, uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues = 0) const;
-				void MSSetNodeMask(uint32_t nodeMask);
+				using XUSG::EZ::CommandList_DX12::SetGraphicsPipelineState;
+				void SetGraphicsPipelineState(const Pipeline& pipelineState, const State* pState = nullptr);
+				void OMSetBlendState(const Graphics::Blend* pBlend, uint32_t sampleMask = UINT_MAX);
+				void OMSetBlendState(Graphics::BlendPreset preset, uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX);
+				void OMSetSample(uint8_t count, uint8_t quality = 0);
+				void RSSetState(const Graphics::Rasterizer* pRasterizer);
+				void RSSetState(Graphics::RasterizerPreset preset);
+				void DSSetState(const Graphics::DepthStencil* pDepthStencil);
+				void DSSetState(Graphics::DepthStencilPreset preset);
+				void SetGraphicsShader(Shader::Stage stage, const Blob& shader);
+				void SetMeshGraphicsShader(Shader::Stage stage, const Blob& shader);
+				void SetMeshGraphics32BitConstant(Shader::Stage stage, uint32_t srcData, uint32_t destOffsetIn32BitValues = 0) const;
+				void SetMeshGraphics32BitConstants(Shader::Stage stage, uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues = 0) const;
+				void SetGraphicsNodeMask(uint32_t nodeMask);
 				void DispatchMesh(uint32_t ThreadGroupCountX, uint32_t ThreadGroupCountY, uint32_t ThreadGroupCountZ);
 				void DispatchMeshIndirect(const CommandLayout* pCommandlayout,
 					uint32_t maxCommandCount,
@@ -94,6 +99,10 @@ namespace XUSG
 					uint64_t argumentBufferOffset = 0,
 					Resource* pCountBuffer = nullptr,
 					uint64_t countBufferOffset = 0);
+				void OMSetRenderTargets(
+					uint32_t numRenderTargets,
+					const XUSG::EZ::ResourceView* pRenderTargetViews,
+					const XUSG::EZ::ResourceView* pDepthStencilView = nullptr);
 
 				const XUSG::PipelineLayout& GetMSPipelineLayout() const;
 
@@ -135,7 +144,6 @@ namespace XUSG
 				XUSG::PipelineLayout m_pipelineLayout;
 
 				State::uptr m_meshShaderState;
-				bool m_isMSStateDirty;
 
 				std::vector<uint32_t> m_meshShaderSpaceToParamIndexMap[NUM_STAGE][CbvSrvUavTypes];
 

@@ -65,15 +65,20 @@ namespace XUSG
 				virtual void RSSetShadingRate(ShadingRate baseShadingRate, const ShadingRateCombiner* pCombiners) const = 0;
 				virtual void RSSetShadingRateImage(Resource* pShadingRateImage) = 0;
 
-				virtual void MSSetPipelineState(const Pipeline& pipelineState, const State* pState = nullptr) = 0;
-				virtual void MSSetBlendState(Graphics::BlendPreset preset, uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX) = 0;
-				virtual void MSSetSample(uint8_t count, uint8_t quality = 0) = 0;
-				virtual void MSSetRasterizerState(Graphics::RasterizerPreset preset) = 0;
-				virtual void MSSetDepthStencilState(Graphics::DepthStencilPreset preset) = 0;
-				virtual void MSSetShader(Shader::Stage stage, const Blob& shader) = 0;
-				virtual void MSSet32BitConstant(Shader::Stage stage, uint32_t srcData, uint32_t destOffsetIn32BitValues = 0) const = 0;
-				virtual void MSSet32BitConstants(Shader::Stage stage, uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues = 0) const = 0;
-				virtual void MSSetNodeMask(uint32_t nodeMask) = 0;
+				using XUSG::EZ::CommandList::SetGraphicsPipelineState;
+				virtual void SetGraphicsPipelineState(const Pipeline& pipelineState, const State* pState = nullptr) = 0;
+				virtual void OMSetBlendState(const Graphics::Blend* pBlend, uint32_t sampleMask = UINT_MAX) = 0;
+				virtual void OMSetBlendState(Graphics::BlendPreset preset, uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX) = 0;
+				virtual void OMSetSample(uint8_t count, uint8_t quality = 0) = 0;
+				virtual void RSSetState(const Graphics::Rasterizer* pRasterizer) = 0;
+				virtual void RSSetState(Graphics::RasterizerPreset preset) = 0;
+				virtual void DSSetState(const Graphics::DepthStencil* pDepthStencil) = 0;
+				virtual void DSSetState(Graphics::DepthStencilPreset preset) = 0;
+				virtual void SetGraphicsShader(Shader::Stage stage, const Blob& shader) = 0;
+				virtual void SetMeshGraphicsShader(Shader::Stage stage, const Blob& shader) = 0;
+				virtual void SetMeshGraphics32BitConstant(Shader::Stage stage, uint32_t srcData, uint32_t destOffsetIn32BitValues = 0) const = 0;
+				virtual void SetMeshGraphics32BitConstants(Shader::Stage stage, uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues = 0) const = 0;
+				virtual void SetGraphicsNodeMask(uint32_t nodeMask) = 0;
 				virtual void DispatchMesh(uint32_t ThreadGroupCountX, uint32_t ThreadGroupCountY, uint32_t ThreadGroupCountZ) = 0;
 				virtual void DispatchMeshIndirect(const CommandLayout* pCommandlayout,
 					uint32_t maxCommandCount,
@@ -81,6 +86,10 @@ namespace XUSG
 					uint64_t argumentBufferOffset = 0,
 					Resource* pCountBuffer = nullptr,
 					uint64_t countBufferOffset = 0) = 0;
+				virtual void OMSetRenderTargets(
+					uint32_t numRenderTargets,
+					const XUSG::EZ::ResourceView* pRenderTargetViews,
+					const XUSG::EZ::ResourceView* pDepthStencilView = nullptr) = 0;
 
 				virtual const XUSG::PipelineLayout& GetMSPipelineLayout() const = 0;
 
