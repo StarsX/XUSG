@@ -2341,6 +2341,11 @@ size_t Buffer_DX12::AlignRawView(size_t byteSize)
 	return Align(byteSize, D3D12_RAW_UAV_SRV_BYTE_ALIGNMENT);
 }
 
+size_t Buffer_DX12::AlignCounter(size_t byteSize)
+{
+	return Align(byteSize, D3D12_UAV_COUNTER_PLACEMENT_ALIGNMENT);
+}
+
 bool Buffer_DX12::create(const Device* pDevice, size_t numElements, uint32_t byteStride, Format format,
 	ResourceFlag resourceFlags, MemoryType memoryType, uint32_t numSRVs, const uintptr_t* firstSrvElements,
 	uint32_t numUAVs, const uintptr_t* firstUavElements, MemoryFlag memoryFlags, const wchar_t* name,

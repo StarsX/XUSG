@@ -90,10 +90,29 @@ namespace XUSG
 					uint32_t numRenderTargets,
 					const XUSG::EZ::ResourceView* pRenderTargetViews,
 					const XUSG::EZ::ResourceView* pDepthStencilView = nullptr) = 0;
+				virtual void WGSetShaderLibrary(uint32_t index, const Blob& shaderLib,
+					uint32_t numShaders = 0, const wchar_t** pShaderNames = nullptr) = 0;
+				virtual void WGSetProgramName(const wchar_t* name) = 0;
+				virtual void WGOverrideDispatchGrid(const wchar_t* shaderName, uint32_t x, uint32_t y, uint32_t z,
+					WorkGraph::BoolOverride isEntry = WorkGraph::BoolOverride::IS_NULL) = 0;
+				virtual void WGOverrideMaxDispatchGrid(const wchar_t* shaderName, uint32_t x, uint32_t y, uint32_t z,
+					WorkGraph::BoolOverride isEntry = WorkGraph::BoolOverride::IS_NULL) = 0;
+				virtual void DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride = 0) = 0;
+				virtual void DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes = false) = 0;
 
 				virtual const XUSG::PipelineLayout& GetMSPipelineLayout() const = 0;
 
 				virtual uint32_t GetMSConstantParamIndex(Shader::Stage stage) const = 0;
+
+				virtual uint32_t WGGetIndex() = 0;
+				virtual uint32_t WGGetNumNodes() = 0;
+				virtual uint32_t WGGetNodeIndex(const WorkGraph::NodeID& nodeID) = 0;
+				virtual uint32_t WGGetNumEntrypoints() = 0;
+				virtual uint32_t WGGetEntrypointIndex(const WorkGraph::NodeID& nodeID) = 0;
+				virtual uint32_t WGGetEntrypointRecordSizeInBytes(uint32_t entryPointIndex)  = 0;
+
+				virtual WorkGraph::NodeID WGGetNodeID(uint32_t nodeIndex) = 0;
+				virtual WorkGraph::NodeID WGGetEntrypointID(uint32_t entryPointIndex) = 0;
 
 				static uptr MakeUnique(API api = API::DIRECTX_12);
 				static sptr MakeShared(API api = API::DIRECTX_12);

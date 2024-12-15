@@ -427,6 +427,7 @@ namespace XUSG
 		Resource::sptr GetCounter() const;
 
 		static size_t AlignRawView(size_t byteSize);
+		static size_t AlignCounter(size_t byteSize);
 
 	protected:
 		bool create(const Device* pDevice, size_t numElements, uint32_t byteStride, Format format,

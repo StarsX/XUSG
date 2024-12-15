@@ -10,86 +10,80 @@ using namespace Graphics;
 
 Blend PipelineLib::DefaultOpaque(uint8_t n)
 {
-	Blend blend;
-	blend.AlphaToCoverageEnable = false;
-	blend.IndependentBlendEnable = false;
+	Blend blend = {};
+	//blend.AlphaToCoverageEnable = false;
+	//blend.IndependentBlendEnable = false;
 
-	for (auto& renderTarget : blend.RenderTargets)
-	{
-		renderTarget.BlendEnable = false;
-		renderTarget.LogicOpEnable = false;
-		renderTarget.SrcBlend = BlendFactor::ONE;
-		renderTarget.DestBlend = BlendFactor::ZERO;
-		renderTarget.BlendOp = BlendOperator::ADD;
-		renderTarget.SrcBlendAlpha = BlendFactor::ONE;
-		renderTarget.DestBlendAlpha = BlendFactor::ZERO;
-		renderTarget.BlendOpAlpha = BlendOperator::ADD;
-		renderTarget.LogicOp = LogicOperator::NOOP;
-		renderTarget.WriteMask = ColorWrite::ALL;
-	}
+	//blend.RenderTargets->BlendEnable = false;
+	//blend.RenderTargets->LogicOpEnable = false;
+	blend.RenderTargets->SrcBlend = BlendFactor::ONE;
+	blend.RenderTargets->DestBlend = BlendFactor::ZERO;
+	blend.RenderTargets->BlendOp = BlendOperator::ADD;
+	blend.RenderTargets->SrcBlendAlpha = BlendFactor::ONE;
+	blend.RenderTargets->DestBlendAlpha = BlendFactor::ZERO;
+	blend.RenderTargets->BlendOpAlpha = BlendOperator::ADD;
+	blend.RenderTargets->LogicOp = LogicOperator::NOOP;
+	blend.RenderTargets->WriteMask = ColorWrite::ALL;
 
 	return blend;
 }
 
 Blend PipelineLib::Premultiplied(uint8_t n)
 {
-	Blend blend;
-	blend.AlphaToCoverageEnable = false;
-	blend.IndependentBlendEnable = false;
+	Blend blend = {};
+	//blend.AlphaToCoverageEnable = false;
+	//blend.IndependentBlendEnable = false;
 
-	auto& pRenderTarget = blend.RenderTargets;
-	pRenderTarget->BlendEnable = true;
-	pRenderTarget->LogicOpEnable = false;
-	pRenderTarget->SrcBlend = BlendFactor::ONE;
-	pRenderTarget->DestBlend = BlendFactor::INV_SRC_ALPHA;
-	pRenderTarget->BlendOp = BlendOperator::ADD;
-	pRenderTarget->SrcBlendAlpha = BlendFactor::ONE;
-	pRenderTarget->DestBlendAlpha = BlendFactor::INV_SRC_ALPHA;
-	pRenderTarget->BlendOpAlpha = BlendOperator::ADD;
-	pRenderTarget->LogicOp = LogicOperator::NOOP;
-	pRenderTarget->WriteMask = ColorWrite::ALL;
+	blend.RenderTargets->BlendEnable = true;
+	//blend.RenderTargets->LogicOpEnable = false;
+	blend.RenderTargets->SrcBlend = BlendFactor::ONE;
+	blend.RenderTargets->DestBlend = BlendFactor::INV_SRC_ALPHA;
+	blend.RenderTargets->BlendOp = BlendOperator::ADD;
+	blend.RenderTargets->SrcBlendAlpha = BlendFactor::ONE;
+	blend.RenderTargets->DestBlendAlpha = BlendFactor::INV_SRC_ALPHA;
+	blend.RenderTargets->BlendOpAlpha = BlendOperator::ADD;
+	blend.RenderTargets->LogicOp = LogicOperator::NOOP;
+	blend.RenderTargets->WriteMask = ColorWrite::ALL;
 
 	return blend;
 }
 
 Blend PipelineLib::Additive(uint8_t n)
 {
-	Blend blend;
-	blend.AlphaToCoverageEnable = false;
-	blend.IndependentBlendEnable = false;
+	Blend blend = {};
+	//blend.AlphaToCoverageEnable = false;
+	//blend.IndependentBlendEnable = false;
 
-	auto& pRenderTarget = blend.RenderTargets;
-	pRenderTarget->BlendEnable = true;
-	pRenderTarget->LogicOpEnable = false;
-	pRenderTarget->SrcBlend = BlendFactor::SRC_ALPHA;
-	pRenderTarget->DestBlend = BlendFactor::ONE;
-	pRenderTarget->BlendOp = BlendOperator::ADD;
-	pRenderTarget->SrcBlendAlpha = BlendFactor::SRC_ALPHA;
-	pRenderTarget->DestBlendAlpha = BlendFactor::ONE;
-	pRenderTarget->BlendOpAlpha = BlendOperator::ADD;
-	pRenderTarget->LogicOp = LogicOperator::NOOP;
-	pRenderTarget->WriteMask = ColorWrite::ALL;
+	blend.RenderTargets->BlendEnable = true;
+	//blend.RenderTargets->LogicOpEnable = false;
+	blend.RenderTargets->SrcBlend = BlendFactor::SRC_ALPHA;
+	blend.RenderTargets->DestBlend = BlendFactor::ONE;
+	blend.RenderTargets->BlendOp = BlendOperator::ADD;
+	blend.RenderTargets->SrcBlendAlpha = BlendFactor::SRC_ALPHA;
+	blend.RenderTargets->DestBlendAlpha = BlendFactor::ONE;
+	blend.RenderTargets->BlendOpAlpha = BlendOperator::ADD;
+	blend.RenderTargets->LogicOp = LogicOperator::NOOP;
+	blend.RenderTargets->WriteMask = ColorWrite::ALL;
 
 	return blend;
 }
 
 Blend PipelineLib::NonPremultiplied(uint8_t n)
 {
-	Blend blend;
-	blend.AlphaToCoverageEnable = false;
-	blend.IndependentBlendEnable = false;
+	Blend blend = {};
+	//blend.AlphaToCoverageEnable = false;
+	//blend.IndependentBlendEnable = false;
 
-	auto& pRenderTarget = blend.RenderTargets;
-	pRenderTarget->BlendEnable = true;
-	pRenderTarget->LogicOpEnable = false;
-	pRenderTarget->SrcBlend = BlendFactor::SRC_ALPHA;
-	pRenderTarget->DestBlend = BlendFactor::INV_SRC_ALPHA;
-	pRenderTarget->BlendOp = BlendOperator::ADD;
-	pRenderTarget->SrcBlendAlpha = BlendFactor::SRC_ALPHA;
-	pRenderTarget->DestBlendAlpha = BlendFactor::INV_SRC_ALPHA;
-	pRenderTarget->BlendOpAlpha = BlendOperator::ADD;
-	pRenderTarget->LogicOp = LogicOperator::NOOP;
-	pRenderTarget->WriteMask = ColorWrite::ALL;
+	blend.RenderTargets->BlendEnable = true;
+	//blend.RenderTargets->LogicOpEnable = false;
+	blend.RenderTargets->SrcBlend = BlendFactor::SRC_ALPHA;
+	blend.RenderTargets->DestBlend = BlendFactor::INV_SRC_ALPHA;
+	blend.RenderTargets->BlendOp = BlendOperator::ADD;
+	blend.RenderTargets->SrcBlendAlpha = BlendFactor::SRC_ALPHA;
+	blend.RenderTargets->DestBlendAlpha = BlendFactor::INV_SRC_ALPHA;
+	blend.RenderTargets->BlendOpAlpha = BlendOperator::ADD;
+	blend.RenderTargets->LogicOp = LogicOperator::NOOP;
+	blend.RenderTargets->WriteMask = ColorWrite::ALL;
 
 	return blend;
 }
@@ -100,17 +94,16 @@ Blend PipelineLib::NonPremultipliedRT0(uint8_t n)
 	blend.AlphaToCoverageEnable = false;
 	blend.IndependentBlendEnable = true;
 
-	auto& renderTarget = blend.RenderTargets[0];
-	renderTarget.BlendEnable = true;
-	renderTarget.LogicOpEnable = false;
-	renderTarget.SrcBlend = BlendFactor::SRC_ALPHA;
-	renderTarget.DestBlend = BlendFactor::INV_SRC_ALPHA;
-	renderTarget.BlendOp = BlendOperator::ADD;
-	renderTarget.SrcBlendAlpha = BlendFactor::SRC_ALPHA;
-	renderTarget.DestBlendAlpha = BlendFactor::INV_SRC_ALPHA;
-	renderTarget.BlendOpAlpha = BlendOperator::ADD;
-	renderTarget.LogicOp = LogicOperator::NOOP;
-	renderTarget.WriteMask = ColorWrite::ALL;
+	blend.RenderTargets->BlendEnable = true;
+	blend.RenderTargets->LogicOpEnable = false;
+	blend.RenderTargets->SrcBlend = BlendFactor::SRC_ALPHA;
+	blend.RenderTargets->DestBlend = BlendFactor::INV_SRC_ALPHA;
+	blend.RenderTargets->BlendOp = BlendOperator::ADD;
+	blend.RenderTargets->SrcBlendAlpha = BlendFactor::SRC_ALPHA;
+	blend.RenderTargets->DestBlendAlpha = BlendFactor::INV_SRC_ALPHA;
+	blend.RenderTargets->BlendOpAlpha = BlendOperator::ADD;
+	blend.RenderTargets->LogicOp = LogicOperator::NOOP;
+	blend.RenderTargets->WriteMask = ColorWrite::ALL;
 
 	// Default
 	for (uint8_t i = 1; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
@@ -133,126 +126,120 @@ Blend PipelineLib::NonPremultipliedRT0(uint8_t n)
 
 Blend PipelineLib::AlphaToCoverage(uint8_t n)
 {
-	Blend blend;
+	Blend blend = {};
 	blend.AlphaToCoverageEnable = true;
-	blend.IndependentBlendEnable = false;
+	//blend.IndependentBlendEnable = false;
 
-	auto& pRenderTarget = blend.RenderTargets;
-	pRenderTarget->BlendEnable = FALSE;
-	pRenderTarget->LogicOpEnable = false;
-	pRenderTarget->SrcBlend = BlendFactor::SRC_ALPHA;
-	pRenderTarget->DestBlend = BlendFactor::INV_SRC_ALPHA;
-	pRenderTarget->BlendOp = BlendOperator::ADD;
-	pRenderTarget->SrcBlendAlpha = BlendFactor::SRC_ALPHA;
-	pRenderTarget->DestBlendAlpha = BlendFactor::INV_SRC_ALPHA;
-	pRenderTarget->BlendOpAlpha = BlendOperator::ADD;
-	pRenderTarget->LogicOp = LogicOperator::NOOP;
-	pRenderTarget->WriteMask = ColorWrite::ALL;
+	//blend.RenderTargets->BlendEnable = false;
+	//blend.RenderTargets->LogicOpEnable = false;
+	blend.RenderTargets->SrcBlend = BlendFactor::SRC_ALPHA;
+	blend.RenderTargets->DestBlend = BlendFactor::INV_SRC_ALPHA;
+	blend.RenderTargets->BlendOp = BlendOperator::ADD;
+	blend.RenderTargets->SrcBlendAlpha = BlendFactor::SRC_ALPHA;
+	blend.RenderTargets->DestBlendAlpha = BlendFactor::INV_SRC_ALPHA;
+	blend.RenderTargets->BlendOpAlpha = BlendOperator::ADD;
+	blend.RenderTargets->LogicOp = LogicOperator::NOOP;
+	blend.RenderTargets->WriteMask = ColorWrite::ALL;
 
 	return blend;
 }
 
 Blend PipelineLib::Accumulative(uint8_t n)
 {
-	Blend blend;
-	blend.AlphaToCoverageEnable = false;
-	blend.IndependentBlendEnable = false;
+	Blend blend = {};
+	//blend.AlphaToCoverageEnable = false;
+	//blend.IndependentBlendEnable = false;
 
-	auto& pRenderTarget = blend.RenderTargets;
-	pRenderTarget->BlendEnable = true;
-	pRenderTarget->LogicOpEnable = false;
-	pRenderTarget->SrcBlend = BlendFactor::ONE;
-	pRenderTarget->DestBlend = BlendFactor::ONE;
-	pRenderTarget->BlendOp = BlendOperator::ADD;
-	pRenderTarget->SrcBlendAlpha = BlendFactor::ONE;
-	pRenderTarget->DestBlendAlpha = BlendFactor::ONE;
-	pRenderTarget->BlendOpAlpha = BlendOperator::ADD;
-	pRenderTarget->LogicOp = LogicOperator::NOOP;
-	pRenderTarget->WriteMask = ColorWrite::ALL;
+	blend.RenderTargets->BlendEnable = true;
+	//blend.RenderTargets->LogicOpEnable = false;
+	blend.RenderTargets->SrcBlend = BlendFactor::ONE;
+	blend.RenderTargets->DestBlend = BlendFactor::ONE;
+	blend.RenderTargets->BlendOp = BlendOperator::ADD;
+	blend.RenderTargets->SrcBlendAlpha = BlendFactor::ONE;
+	blend.RenderTargets->DestBlendAlpha = BlendFactor::ONE;
+	blend.RenderTargets->BlendOpAlpha = BlendOperator::ADD;
+	blend.RenderTargets->LogicOp = LogicOperator::NOOP;
+	blend.RenderTargets->WriteMask = ColorWrite::ALL;
 
 	return blend;
 }
 
 Blend PipelineLib::AutoNonPremultiplied(uint8_t n)
 {
-	Blend blend;
-	blend.AlphaToCoverageEnable = false;
-	blend.IndependentBlendEnable = false;
+	Blend blend = {};
+	//blend.AlphaToCoverageEnable = false;
+	//blend.IndependentBlendEnable = false;
 
-	auto& pRenderTarget = blend.RenderTargets;
-	pRenderTarget->BlendEnable = true;
-	pRenderTarget->LogicOpEnable = false;
-	pRenderTarget->SrcBlend = BlendFactor::SRC_ALPHA;
-	pRenderTarget->DestBlend = BlendFactor::INV_SRC_ALPHA;
-	pRenderTarget->BlendOp = BlendOperator::ADD;
-	pRenderTarget->SrcBlendAlpha = BlendFactor::ONE;
-	pRenderTarget->DestBlendAlpha = BlendFactor::INV_SRC_ALPHA;
-	pRenderTarget->BlendOpAlpha = BlendOperator::ADD;
-	pRenderTarget->LogicOp = LogicOperator::NOOP;
-	pRenderTarget->WriteMask = ColorWrite::ALL;
+	blend.RenderTargets->BlendEnable = true;
+	//blend.RenderTargets->LogicOpEnable = false;
+	blend.RenderTargets->SrcBlend = BlendFactor::SRC_ALPHA;
+	blend.RenderTargets->DestBlend = BlendFactor::INV_SRC_ALPHA;
+	blend.RenderTargets->BlendOp = BlendOperator::ADD;
+	blend.RenderTargets->SrcBlendAlpha = BlendFactor::ONE;
+	blend.RenderTargets->DestBlendAlpha = BlendFactor::INV_SRC_ALPHA;
+	blend.RenderTargets->BlendOpAlpha = BlendOperator::ADD;
+	blend.RenderTargets->LogicOp = LogicOperator::NOOP;
+	blend.RenderTargets->WriteMask = ColorWrite::ALL;
 
 	return blend;
 }
 
 Blend PipelineLib::ZeroAlphaNonPremultiplied(uint8_t n)
 {
-	Blend blend;
-	blend.AlphaToCoverageEnable = false;
-	blend.IndependentBlendEnable = false;
+	Blend blend = {};
+	//blend.AlphaToCoverageEnable = false;
+	//blend.IndependentBlendEnable = false;
 
-	auto& pRenderTarget = blend.RenderTargets;
-	pRenderTarget->BlendEnable = true;
-	pRenderTarget->LogicOpEnable = false;
-	pRenderTarget->SrcBlend = BlendFactor::SRC_ALPHA;
-	pRenderTarget->DestBlend = BlendFactor::INV_SRC_ALPHA;
-	pRenderTarget->BlendOp = BlendOperator::ADD;
-	pRenderTarget->SrcBlendAlpha = BlendFactor::ZERO;
-	pRenderTarget->DestBlendAlpha = BlendFactor::ZERO;
-	pRenderTarget->BlendOpAlpha = BlendOperator::ADD;
-	pRenderTarget->LogicOp = LogicOperator::NOOP;
-	pRenderTarget->WriteMask = ColorWrite::ALL;
+	blend.RenderTargets->BlendEnable = true;
+	//blend.RenderTargets->LogicOpEnable = false;
+	blend.RenderTargets->SrcBlend = BlendFactor::SRC_ALPHA;
+	blend.RenderTargets->DestBlend = BlendFactor::INV_SRC_ALPHA;
+	blend.RenderTargets->BlendOp = BlendOperator::ADD;
+	blend.RenderTargets->SrcBlendAlpha = BlendFactor::ZERO;
+	blend.RenderTargets->DestBlendAlpha = BlendFactor::ZERO;
+	blend.RenderTargets->BlendOpAlpha = BlendOperator::ADD;
+	blend.RenderTargets->LogicOp = LogicOperator::NOOP;
+	blend.RenderTargets->WriteMask = ColorWrite::ALL;
 
 	return blend;
 }
 
 Blend PipelineLib::Multiplied(uint8_t n)
 {
-	Blend blend;
-	blend.AlphaToCoverageEnable = false;
-	blend.IndependentBlendEnable = false;
+	Blend blend = {};
+	//blend.AlphaToCoverageEnable = false;
+	//blend.IndependentBlendEnable = false;
 
-	auto& pRenderTarget = blend.RenderTargets;
-	pRenderTarget->BlendEnable = true;
-	pRenderTarget->LogicOpEnable = false;
-	pRenderTarget->SrcBlend = BlendFactor::ZERO;
-	pRenderTarget->DestBlend = BlendFactor::SRC_COLOR;
-	pRenderTarget->BlendOp = BlendOperator::ADD;
-	pRenderTarget->SrcBlendAlpha = BlendFactor::ZERO;
-	pRenderTarget->DestBlendAlpha = BlendFactor::SRC_ALPHA;
-	pRenderTarget->BlendOpAlpha = BlendOperator::ADD;
-	pRenderTarget->LogicOp = LogicOperator::NOOP;
-	pRenderTarget->WriteMask = ColorWrite::ALL;
+	blend.RenderTargets->BlendEnable = true;
+	//blend.RenderTargets->LogicOpEnable = false;
+	blend.RenderTargets->SrcBlend = BlendFactor::ZERO;
+	blend.RenderTargets->DestBlend = BlendFactor::SRC_COLOR;
+	blend.RenderTargets->BlendOp = BlendOperator::ADD;
+	blend.RenderTargets->SrcBlendAlpha = BlendFactor::ZERO;
+	blend.RenderTargets->DestBlendAlpha = BlendFactor::SRC_ALPHA;
+	blend.RenderTargets->BlendOpAlpha = BlendOperator::ADD;
+	blend.RenderTargets->LogicOp = LogicOperator::NOOP;
+	blend.RenderTargets->WriteMask = ColorWrite::ALL;
 
 	return blend;
 }
 
 Blend PipelineLib::WeightedPremul(uint8_t n)
 {
-	Blend blend;
-	blend.AlphaToCoverageEnable = false;
-	blend.IndependentBlendEnable = false;
+	Blend blend = {};
+	//blend.AlphaToCoverageEnable = false;
+	//blend.IndependentBlendEnable = false;
 
-	auto& pRenderTarget = blend.RenderTargets;
-	pRenderTarget->BlendEnable = true;
-	pRenderTarget->LogicOpEnable = false;
-	pRenderTarget->SrcBlend = BlendFactor::ONE;
-	pRenderTarget->DestBlend = BlendFactor::ONE;
-	pRenderTarget->BlendOp = BlendOperator::ADD;
-	pRenderTarget->SrcBlendAlpha = BlendFactor::ONE;
-	pRenderTarget->DestBlendAlpha = BlendFactor::ONE;
-	pRenderTarget->BlendOpAlpha = BlendOperator::ADD;
-	pRenderTarget->LogicOp = LogicOperator::NOOP;
-	pRenderTarget->WriteMask = ColorWrite::ALL;
+	blend.RenderTargets->BlendEnable = true;
+	//blend.RenderTargets->LogicOpEnable = false;
+	blend.RenderTargets->SrcBlend = BlendFactor::ONE;
+	blend.RenderTargets->DestBlend = BlendFactor::ONE;
+	blend.RenderTargets->BlendOp = BlendOperator::ADD;
+	blend.RenderTargets->SrcBlendAlpha = BlendFactor::ONE;
+	blend.RenderTargets->DestBlendAlpha = BlendFactor::ONE;
+	blend.RenderTargets->BlendOpAlpha = BlendOperator::ADD;
+	blend.RenderTargets->LogicOp = LogicOperator::NOOP;
+	blend.RenderTargets->WriteMask = ColorWrite::ALL;
 
 	return blend;
 }
@@ -295,7 +282,7 @@ Blend PipelineLib::WeightedPremulPerRT(uint8_t n)
 	renderTarget.WriteMask = ColorWrite::ALL;
 
 	// Default
-	for (auto i = n + 1u; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
+	for (uint8_t i = n + 1; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
 	{
 		auto& renderTarget = blend.RenderTargets[i];
 		renderTarget.BlendEnable = false;
@@ -351,7 +338,7 @@ Blend PipelineLib::WeightedPerRT(uint8_t n)
 	renderTarget.WriteMask = ColorWrite::ALL;
 
 	// Default
-	for (auto i = n + 1u; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
+	for (uint8_t i = n + 1; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
 	{
 		auto& renderTarget = blend.RenderTargets[i];
 		renderTarget.BlendEnable = false;
@@ -371,42 +358,40 @@ Blend PipelineLib::WeightedPerRT(uint8_t n)
 
 Blend PipelineLib::SelectMin(uint8_t n)
 {
-	Blend blend;
-	blend.AlphaToCoverageEnable = false;
-	blend.IndependentBlendEnable = false;
+	Blend blend = {};
+	//blend.AlphaToCoverageEnable = false;
+	//blend.IndependentBlendEnable = false;
 
-	auto& pRenderTarget = blend.RenderTargets;
-	pRenderTarget->BlendEnable = true;
-	pRenderTarget->LogicOpEnable = false;
-	pRenderTarget->SrcBlend = BlendFactor::ONE;
-	pRenderTarget->DestBlend = BlendFactor::ONE;
-	pRenderTarget->BlendOp = BlendOperator::MIN;
-	pRenderTarget->SrcBlendAlpha = BlendFactor::ONE;
-	pRenderTarget->DestBlendAlpha = BlendFactor::ONE;
-	pRenderTarget->BlendOpAlpha = BlendOperator::MIN;
-	pRenderTarget->LogicOp = LogicOperator::NOOP;
-	pRenderTarget->WriteMask = ColorWrite::ALL;
+	blend.RenderTargets->BlendEnable = true;
+	//blend.RenderTargets->LogicOpEnable = false;
+	blend.RenderTargets->SrcBlend = BlendFactor::ONE;
+	blend.RenderTargets->DestBlend = BlendFactor::ONE;
+	blend.RenderTargets->BlendOp = BlendOperator::MIN;
+	blend.RenderTargets->SrcBlendAlpha = BlendFactor::ONE;
+	blend.RenderTargets->DestBlendAlpha = BlendFactor::ONE;
+	blend.RenderTargets->BlendOpAlpha = BlendOperator::MIN;
+	blend.RenderTargets->LogicOp = LogicOperator::NOOP;
+	blend.RenderTargets->WriteMask = ColorWrite::ALL;
 
 	return blend;
 }
 
 Blend PipelineLib::SelectMax(uint8_t n)
 {
-	Blend blend;
-	blend.AlphaToCoverageEnable = false;
-	blend.IndependentBlendEnable = false;
+	Blend blend = {};
+	//blend.AlphaToCoverageEnable = false;
+	//blend.IndependentBlendEnable = false;
 
-	auto& pRenderTarget = blend.RenderTargets;
-	pRenderTarget->BlendEnable = true;
-	pRenderTarget->LogicOpEnable = false;
-	pRenderTarget->SrcBlend = BlendFactor::ONE;
-	pRenderTarget->DestBlend = BlendFactor::ONE;
-	pRenderTarget->BlendOp = BlendOperator::MAX;
-	pRenderTarget->SrcBlendAlpha = BlendFactor::ONE;
-	pRenderTarget->DestBlendAlpha = BlendFactor::ONE;
-	pRenderTarget->BlendOpAlpha = BlendOperator::MAX;
-	pRenderTarget->LogicOp = LogicOperator::NOOP;
-	pRenderTarget->WriteMask = ColorWrite::ALL;
+	blend.RenderTargets->BlendEnable = true;
+	//blend.RenderTargets->LogicOpEnable = false;
+	blend.RenderTargets->SrcBlend = BlendFactor::ONE;
+	blend.RenderTargets->DestBlend = BlendFactor::ONE;
+	blend.RenderTargets->BlendOp = BlendOperator::MAX;
+	blend.RenderTargets->SrcBlendAlpha = BlendFactor::ONE;
+	blend.RenderTargets->DestBlendAlpha = BlendFactor::ONE;
+	blend.RenderTargets->BlendOpAlpha = BlendOperator::MAX;
+	blend.RenderTargets->LogicOp = LogicOperator::NOOP;
+	blend.RenderTargets->WriteMask = ColorWrite::ALL;
 
 	return blend;
 }

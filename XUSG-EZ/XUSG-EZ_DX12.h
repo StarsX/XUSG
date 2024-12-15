@@ -326,8 +326,8 @@ namespace XUSG
 			Graphics::State::uptr m_graphicsState;
 			Compute::State::uptr m_computeState;
 
-			uint32_t m_isGraphicsDirty;
-			uint32_t m_isComputeDirty;
+			bool m_isGraphicsDirty;
+			bool m_isComputeDirty;
 
 			std::vector<Descriptor> m_descriptors;
 			std::vector<Util::DescriptorTable::uptr> m_cbvSrvUavTables[Shader::Stage::NUM_STAGE][CbvSrvUavTypes];

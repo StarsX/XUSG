@@ -18,6 +18,9 @@ EZ::CommandList_DX12::CommandList_DX12() :
 	m_meshShaderPipelineLib(nullptr),
 	m_pipelineLayout(nullptr),
 	m_meshShaderState(nullptr),
+	m_workGraphState(nullptr),
+	m_workGraphProperty(nullptr),
+	m_isWGStateDirty(false),
 	m_meshShaderConstantParamIndices()
 {
 }
@@ -322,6 +325,47 @@ void EZ::CommandList_DX12::OMSetRenderTargets(uint32_t numRenderTargets,
 		pDepthStencilView ? &pDepthStencilView->View : nullptr);
 }
 
+void EZ::CommandList_DX12::WGSetShaderLibrary(uint32_t index, const Blob& shaderLib, uint32_t numShaders, const wchar_t** pShaderNames)
+{
+	assert(m_workGraphState);
+	m_workGraphState->SetShaderLibrary(index, shaderLib, numShaders, pShaderNames);
+	m_isWGStateDirty = true;
+}
+
+void EZ::CommandList_DX12::WGSetProgramName(const wchar_t* name)
+{
+	assert(m_workGraphState);
+	m_workGraphState->SetProgramName(name);
+	m_workGraphName = name;
+	m_isWGStateDirty = true;
+}
+
+void EZ::CommandList_DX12::WGOverrideDispatchGrid(const wchar_t* shaderName, uint32_t x, uint32_t y, uint32_t z, WorkGraph::BoolOverride isEntry)
+{
+	assert(m_workGraphState);
+	m_workGraphState->OverrideDispatchGrid(shaderName, x, y, z, isEntry);
+	m_isWGStateDirty = true;
+}
+
+void EZ::CommandList_DX12::WGOverrideMaxDispatchGrid(const wchar_t* shaderName, uint32_t x, uint32_t y, uint32_t z, WorkGraph::BoolOverride isEntry)
+{
+	assert(m_workGraphState);
+	m_workGraphState->OverrideMaxDispatchGrid(shaderName, x, y, z, isEntry);
+	m_isWGStateDirty = true;
+}
+
+void EZ::CommandList_DX12::DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride)
+{
+	predispatchGraph();
+	Ultimate::CommandList_DX12::DispatchGraph(numNodeInputs, pNodeInputs, nodeInputByteStride);
+}
+
+void EZ::CommandList_DX12::DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes)
+{
+	predispatchGraph();
+	Ultimate::CommandList_DX12::DispatchGraph(nodeGPUInputAddress, isMultiNodes);
+}
+
 const XUSG::PipelineLayout& EZ::CommandList_DX12::GetMSPipelineLayout() const
 {
 	return m_pipelineLayout;
@@ -330,6 +374,79 @@ const XUSG::PipelineLayout& EZ::CommandList_DX12::GetMSPipelineLayout() const
 uint32_t EZ::CommandList_DX12::GetMSConstantParamIndex(Shader::Stage stage) const
 {
 	return m_meshShaderConstantParamIndices[getShaderStageIndex(stage)];
+}
+
+uint32_t EZ::CommandList_DX12::WGGetIndex()
+{
+	getWorkGraphPipeline();
+	if (!m_workGraphProperty) return UINT32_MAX;
+
+	return m_workGraphProperty->Index;
+}
+
+uint32_t EZ::CommandList_DX12::WGGetNumNodes()
+{
+	getWorkGraphPipeline();
+	if (!m_workGraphProperty) return 0;
+
+	return static_cast<uint32_t>(m_workGraphProperty->NodeIDs.size());
+}
+
+uint32_t EZ::CommandList_DX12::WGGetNodeIndex(const WorkGraph::NodeID& nodeID)
+{
+	getWorkGraphPipeline();
+	if (!m_workGraphProperty) return UINT32_MAX;
+
+	const auto it = m_workGraphProperty->NodeIndices.find(nodeID.Name);
+	if (it == m_workGraphProperty->NodeIndices.cend()) return UINT32_MAX;
+
+	return nodeID.ArrayIndex < it->second.size() ? it->second[nodeID.ArrayIndex] : UINT32_MAX;
+}
+
+uint32_t EZ::CommandList_DX12::WGGetNumEntrypoints()
+{
+	getWorkGraphPipeline();
+	if (!m_workGraphProperty) return 0;
+
+	return static_cast<uint32_t>(m_workGraphProperty->EntrypointIDs.size());
+}
+
+uint32_t EZ::CommandList_DX12::WGGetEntrypointIndex(const WorkGraph::NodeID& nodeID)
+{
+	getWorkGraphPipeline();
+	if (!m_workGraphProperty) return UINT32_MAX;
+
+	const auto it = m_workGraphProperty->EntryPointIndices.find(nodeID.Name);
+	if (it == m_workGraphProperty->EntryPointIndices.cend()) return UINT32_MAX;
+
+	return nodeID.ArrayIndex < it->second.size() ? it->second[nodeID.ArrayIndex] : UINT32_MAX;
+}
+
+uint32_t EZ::CommandList_DX12::WGGetEntrypointRecordSizeInBytes(uint32_t entryPointIndex)
+{
+	getWorkGraphPipeline();
+	if (!m_workGraphProperty) return 0;
+
+	return entryPointIndex < m_workGraphProperty->RecordByteSizes.size() ?
+		m_workGraphProperty->RecordByteSizes[entryPointIndex] : 0;
+}
+
+XUSG::WorkGraph::NodeID EZ::CommandList_DX12::WGGetNodeID(uint32_t nodeIndex)
+{
+	getWorkGraphPipeline();
+	if (!m_workGraphProperty) return WorkGraph::NodeID();
+
+	return nodeIndex < m_workGraphProperty->NodeIDs.size() ?
+		m_workGraphProperty->NodeIDs[nodeIndex] : WorkGraph::NodeID();
+}
+
+XUSG::WorkGraph::NodeID EZ::CommandList_DX12::WGGetEntrypointID(uint32_t entryPointIndex)
+{
+	getWorkGraphPipeline();
+	if (!m_workGraphProperty) return WorkGraph::NodeID();
+
+	return entryPointIndex < m_workGraphProperty->EntrypointIDs.size() ?
+		m_workGraphProperty->EntrypointIDs[entryPointIndex] : WorkGraph::NodeID();
 }
 
 bool EZ::CommandList_DX12::init(Ultimate::CommandList* pCommandList, uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize)
@@ -342,6 +459,9 @@ bool EZ::CommandList_DX12::init(Ultimate::CommandList* pCommandList, uint32_t sa
 	{
 		m_meshShaderPipelineLib = PipelineLib::MakeUnique(m_pDevice, API::DIRECTX_12);
 		m_meshShaderState = State::MakeUnique(API::DIRECTX_12);
+
+		m_workGraphPipelineLib = WorkGraph::PipelineLib::MakeUnique(m_pDevice, API::DIRECTX_12);
+		m_workGraphState = WorkGraph::State::MakeUnique(API::DIRECTX_12);
 	}
 
 	return true;
@@ -511,6 +631,132 @@ void EZ::CommandList_DX12::predispatchMesh()
 				m_pipeline = pipeline;
 			}
 			m_isGraphicsDirty = false;
+		}
+	}
+}
+
+void EZ::CommandList_DX12::predispatchGraph()
+{
+	// Set barrier command
+	XUSG::CommandList_DX12::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
+	m_barriers.clear();
+
+	// Clear UAVs
+	clearUAVsUint();
+	clearUAVsFloat();
+
+	// Create and set sampler table
+	auto& samplerTable = m_samplerTables[Shader::Stage::CS];
+	if (samplerTable)
+	{
+		const auto descriptorTable = samplerTable->GetSamplerTable(m_descriptorTableLib.get());
+		if (descriptorTable) XUSG::CommandList_DX12::SetComputeDescriptorTable(0, descriptorTable);
+		samplerTable.reset();
+	}
+
+	// Create and set CBV/SRV/UAV tables
+	for (uint8_t t = 0; t < CbvSrvUavTypes; ++t)
+	{
+		auto& cbvSrvUavTables = m_cbvSrvUavTables[Shader::Stage::CS][t];
+		const auto numSpaces = static_cast<uint32_t>(cbvSrvUavTables.size());
+		for (auto s = 0u; s < numSpaces; ++s)
+		{
+			auto& cbvSrvUavTable = cbvSrvUavTables[s];
+			if (cbvSrvUavTable)
+			{
+				const auto descriptorTable = cbvSrvUavTable->GetCbvSrvUavTable(m_descriptorTableLib.get());
+				if (descriptorTable) XUSG::CommandList_DX12::SetComputeDescriptorTable(
+					m_computeSpaceToParamIndexMap[t][s], descriptorTable);
+				cbvSrvUavTable.reset();
+			}
+		}
+	}
+
+	// Create pipeline for dynamic states
+	getWorkGraphPipeline();
+}
+
+void EZ::CommandList_DX12::getWorkGraphPipeline()
+{
+	// Create pipeline for dynamic states
+	assert(m_workGraphState);
+	if (m_isWGStateDirty)
+	{
+		m_workGraphState->SetGlobalPipelineLayout(m_pipelineLayouts[COMPUTE]);
+		const auto pipeline = m_workGraphState->GetPipeline(m_workGraphPipelineLib.get());
+		if (pipeline)
+		{
+			if (m_pipeline != pipeline)
+			{
+				auto flags = WorkGraphFlag::NONE;
+				const auto workGraphName = m_workGraphName.c_str();
+				const auto workGraphIndex = m_workGraphState->GetWorkGraphIndex(workGraphName);
+				assert(m_workGraphName == m_workGraphState->GetProgramName(workGraphIndex));
+
+				auto& workGraphProperties = m_workGraphProperties[pipeline];
+				if (workGraphProperties.size() <= workGraphIndex) workGraphProperties.resize(workGraphIndex + 1);
+				auto& workGraph = workGraphProperties[workGraphIndex];
+				m_workGraphProperty = &workGraph;
+
+				if (workGraph.RecordByteSizes.empty())
+				{
+					assert(workGraph.EntrypointIDs.empty());
+					assert(workGraph.NodeIDs.empty());
+					assert(!workGraph.BackingMemory);
+					assert(workGraph.EntryPointIndices.empty());
+					assert(workGraph.NodeIndices.empty());
+
+					workGraph.Index = workGraphIndex;
+					workGraph.Identifier = GetDX12ProgramIdentifier(pipeline, workGraphName);
+
+					const auto numEntryPoints = m_workGraphState->GetNumEntrypoints(workGraph.Index);
+					workGraph.EntrypointIDs.resize(numEntryPoints);
+					workGraph.RecordByteSizes.resize(numEntryPoints);
+					for (auto i = 0u; i < numEntryPoints; ++i)
+					{
+						const auto nodeID = m_workGraphState->GetEntrypointID(workGraph.Index, i);
+
+						auto& entryPointIndices = workGraph.EntryPointIndices[nodeID.Name];
+						if (entryPointIndices.size() <= nodeID.ArrayIndex) entryPointIndices.resize(nodeID.ArrayIndex + 1);
+						entryPointIndices[nodeID.ArrayIndex] = m_workGraphState->GetEntrypointIndex(workGraph.Index, nodeID);
+
+						workGraph.RecordByteSizes[i] = m_workGraphState->GetEntrypointRecordSizeInBytes(workGraph.Index, i);
+						workGraph.EntrypointIDs[i] = nodeID;
+					}
+
+					const auto numNodes = m_workGraphState->GetNumNodes(workGraphIndex);
+					workGraph.NodeIDs.resize(numNodes);
+					for (auto i = 0u; i < numNodes; ++i)
+					{
+						const auto nodeID = m_workGraphState->GetNodeID(workGraphIndex, i);
+
+						auto& nodeIndices = workGraph.NodeIndices[nodeID.Name];
+						if (nodeIndices.size() <= nodeID.ArrayIndex) nodeIndices.resize(nodeID.ArrayIndex + 1);
+						nodeIndices[nodeID.ArrayIndex] = m_workGraphState->GetNodeIndex(workGraphIndex, nodeID);
+
+						workGraph.NodeIDs[i] = m_workGraphState->GetNodeID(workGraphIndex, i);
+					}
+
+					WorkGraph::MemoryRequirements memoryReq;
+					m_workGraphState->GetMemoryRequirements(workGraphIndex, &memoryReq);
+
+					workGraph.BackingMemory = Buffer::MakeUnique();
+					workGraph.BackingMemory->Create(m_pDevice, memoryReq.MaxByteSize,
+						ResourceFlag::ALLOW_UNORDERED_ACCESS | ResourceFlag::DENY_SHADER_RESOURCE,
+						MemoryType::DEFAULT, 0, nullptr, 0, nullptr, MemoryFlag::NONE,
+						(m_workGraphName + L".BackingMemory").c_str());
+					flags = WorkGraphFlag::INITIALIZE;
+				}
+
+				CommandList_DX12::SetProgram(ProgramType::WORK_GRAPH, workGraph.Identifier, flags,
+					workGraph.BackingMemory->GetVirtualAddress(), workGraph.BackingMemory->GetWidth());
+				m_pipeline = pipeline;
+			}
+
+			// Different from other types of state objects, m_workGraphState cannot be reused
+			// for the next different pipeline, so we need to remake it
+			m_workGraphState = WorkGraph::State::MakeUnique(API::DIRECTX_12);
+			m_isWGStateDirty = false;
 		}
 	}
 }

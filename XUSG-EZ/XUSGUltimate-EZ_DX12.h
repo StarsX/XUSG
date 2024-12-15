@@ -103,10 +103,29 @@ namespace XUSG
 					uint32_t numRenderTargets,
 					const XUSG::EZ::ResourceView* pRenderTargetViews,
 					const XUSG::EZ::ResourceView* pDepthStencilView = nullptr);
+				void WGSetShaderLibrary(uint32_t index, const Blob& shaderLib,
+					uint32_t numShaders = 0, const wchar_t** pShaderNames = nullptr);
+				void WGSetProgramName(const wchar_t* name);
+				void WGOverrideDispatchGrid(const wchar_t* shaderName, uint32_t x, uint32_t y, uint32_t z,
+					WorkGraph::BoolOverride isEntry = WorkGraph::BoolOverride::IS_NULL);
+				void WGOverrideMaxDispatchGrid(const wchar_t* shaderName, uint32_t x, uint32_t y, uint32_t z,
+					WorkGraph::BoolOverride isEntry = WorkGraph::BoolOverride::IS_NULL);
+				void DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride = 0);
+				void DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes = false);
 
 				const XUSG::PipelineLayout& GetMSPipelineLayout() const;
 
 				uint32_t GetMSConstantParamIndex(Shader::Stage stage) const;
+
+				uint32_t WGGetIndex();
+				uint32_t WGGetNumNodes();
+				uint32_t WGGetNodeIndex(const WorkGraph::NodeID& nodeID);
+				uint32_t WGGetNumEntrypoints();
+				uint32_t WGGetEntrypointIndex(const WorkGraph::NodeID& nodeID);
+				uint32_t WGGetEntrypointRecordSizeInBytes(uint32_t entryPointIndex);
+
+				WorkGraph::NodeID WGGetNodeID(uint32_t nodeIndex);
+				WorkGraph::NodeID WGGetEntrypointID(uint32_t entryPointIndex);
 
 				Ultimate::CommandList* AsUltimateCommandList() { return dynamic_cast<Ultimate::CommandList*>(this); }
 
@@ -118,6 +137,18 @@ namespace XUSG
 					AS,
 
 					NUM_STAGE
+				};
+
+				struct WorkGraphProperty
+				{
+					uint32_t Index;
+					std::vector<uint32_t> RecordByteSizes;
+					std::vector<WorkGraph::NodeID> EntrypointIDs;
+					std::vector<WorkGraph::NodeID> NodeIDs;
+					XUSG::ProgramIdentifier Identifier;
+					Buffer::uptr BackingMemory;
+					std::unordered_map<const wchar_t*, std::vector<uint32_t>> EntryPointIndices;
+					std::unordered_map<const wchar_t*, std::vector<uint32_t>> NodeIndices;
 				};
 
 				bool init(Ultimate::CommandList* pCommandList, uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize);
@@ -135,15 +166,24 @@ namespace XUSG
 					uint32_t slotExt, uint32_t spaceExt);
 
 				void predispatchMesh();
+				void predispatchGraph();
+				void getWorkGraphPipeline();
 
 				const Shader::Stage& getShaderStage(uint8_t index) const;
 				StageIndex getShaderStageIndex(Shader::Stage stage) const;
 
-				PipelineLib::uptr m_meshShaderPipelineLib;
+				PipelineLib::uptr		m_meshShaderPipelineLib;
+				WorkGraph::PipelineLib::uptr m_workGraphPipelineLib;
 
-				XUSG::PipelineLayout m_pipelineLayout;
+				XUSG::PipelineLayout	m_pipelineLayout;
 
-				State::uptr m_meshShaderState;
+				State::uptr				m_meshShaderState;
+				WorkGraph::State::uptr  m_workGraphState;
+				std::wstring			m_workGraphName;
+				const WorkGraphProperty* m_workGraphProperty;
+				bool					m_isWGStateDirty;
+
+				std::unordered_map<Pipeline, std::vector<WorkGraphProperty>> m_workGraphProperties;
 
 				std::vector<uint32_t> m_meshShaderSpaceToParamIndexMap[NUM_STAGE][CbvSrvUavTypes];
 

@@ -1511,6 +1511,8 @@ namespace XUSG
 
 		static uptr MakeUnique(API api = API::DIRECTX_12);
 		static sptr MakeShared(API api = API::DIRECTX_12);
+
+		BarrierLayout GetBarrierLayout(ResourceState resourceState);
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -1880,6 +1882,7 @@ namespace XUSG
 		static sptr MakeShared(API api = API::DIRECTX_12);
 
 		static size_t AlignRawView(size_t byteSize, API api = API::DIRECTX_12);
+		static size_t AlignCounter(size_t byteSize, API api = API::DIRECTX_12);
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -2558,6 +2561,4 @@ namespace XUSG
 	XUSG_INTERFACE size_t GetBlobData(const Blob& blob, const void*& pData, API api = API::DIRECTX_12);
 
 	XUSG_INTERFACE size_t Align(size_t size, size_t alignment);
-
-	XUSG_INTERFACE BarrierLayout GetBarrierLayout(ResourceState resourceState);
 }
