@@ -625,6 +625,9 @@ XUSG::Descriptor SamplerFeedBack_DX12::CreateUAV(const Descriptor& uavHeapStart,
 
 XUSG::ProgramIdentifier XUSG::Ultimate::GetDX12ProgramIdentifier(const XUSG::Pipeline& stateObject, const wchar_t* programName)
 {
+	assert(stateObject);
+	assert(programName);
+
 	using namespace XUSG;
 	com_ptr<ID3D12StateObjectProperties1> properties;
 	V_RETURN(static_cast<ID3D12StateObject*>(stateObject)->QueryInterface(IID_PPV_ARGS(&properties)), cerr, ProgramIdentifier{});

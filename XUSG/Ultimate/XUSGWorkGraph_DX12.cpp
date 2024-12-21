@@ -3,7 +3,11 @@
 //--------------------------------------------------------------------------------------
 
 #include "Core/XUSG_DX12.h"
+#include "Core/XUSGCommand_DX12.h"
+#include "Core/XUSGResource_DX12.h"
+#include "Core/XUSGPipelineLayout_DX12.h"
 #include "XUSGWorkGraph_DX12.h"
+#include "XUSGUltimate_DX12.h"
 
 using namespace std;
 using namespace XUSG;
@@ -110,18 +114,16 @@ Pipeline State_DX12::CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* na
 {
 	const auto pDX12PipelineLib = static_cast<PipelineLib_DX12*>(pPipelineLib);
 	const auto pipeline = pDX12PipelineLib->CreateStateObject(GetKey(), name);
-	setStateObject(pipeline);
 
-	return pipeline.get();
+	return setStateObject(pipeline);
 }
 
 Pipeline State_DX12::GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name)
 {
 	const auto pDX12PipelineLib = static_cast<PipelineLib_DX12*>(pPipelineLib);
 	const auto pipeline = pDX12PipelineLib->GetStateObject(GetKey(), name);
-	setStateObject(pipeline);
 
-	return pipeline.get();
+	return setStateObject(pipeline);
 }
 
 const string& State_DX12::GetKey()
@@ -134,6 +136,11 @@ const string& State_DX12::GetKey()
 const wchar_t* State_DX12::GetProgramName(uint32_t workGraphIndex) const
 {
 	return m_properties->GetProgramName(workGraphIndex);
+}
+
+ProgramIdentifier State_DX12::GetProgramIdentifier(const wchar_t* programName) const
+{
+	return Ultimate::GetDX12ProgramIdentifier(m_properties.get(), programName);
 }
 
 uint32_t State_DX12::GetNumWorkGraphs() const
@@ -153,11 +160,7 @@ uint32_t State_DX12::GetNumNodes(uint32_t workGraphIndex) const
 
 uint32_t State_DX12::GetNodeIndex(uint32_t workGraphIndex, const NodeID& nodeID) const
 {
-	D3D12_NODE_ID dx12NodeID;
-	dx12NodeID.Name = nodeID.Name;
-	dx12NodeID.ArrayIndex = nodeID.ArrayIndex;
-
-	return m_properties->GetNodeIndex(workGraphIndex, dx12NodeID);
+	return m_properties->GetNodeIndex(workGraphIndex, PipelineLib_DX12::GetDX12NodeID(nodeID));
 }
 
 uint32_t State_DX12::GetNodeLocalRootArgumentsTableIndex(uint32_t workGraphIndex, uint32_t nodeIndex) const
@@ -172,11 +175,7 @@ uint32_t State_DX12::GetNumEntrypoints(uint32_t workGraphIndex) const
 
 uint32_t State_DX12::GetEntrypointIndex(uint32_t workGraphIndex, const NodeID& nodeID) const
 {
-	D3D12_NODE_ID dx12NodeID;
-	dx12NodeID.Name = nodeID.Name;
-	dx12NodeID.ArrayIndex = nodeID.ArrayIndex;
-
-	return m_properties->GetEntrypointIndex(workGraphIndex, dx12NodeID);
+	return m_properties->GetEntrypointIndex(workGraphIndex, PipelineLib_DX12::GetDX12NodeID(nodeID));
 }
 
 uint32_t State_DX12::GetEntrypointRecordSizeInBytes(uint32_t workGraphIndex, uint32_t entrypointIndex) const
@@ -186,50 +185,28 @@ uint32_t State_DX12::GetEntrypointRecordSizeInBytes(uint32_t workGraphIndex, uin
 
 NodeID State_DX12::GetNodeID(uint32_t workGraphIndex, uint32_t nodeIndex) const
 {
-	NodeID nodeID;
-	GetNodeID(&nodeID, workGraphIndex, nodeIndex);
-
-	return nodeID;
-}
-
-NodeID* State_DX12::GetNodeID(NodeID* pRetVal, uint32_t workGraphIndex, uint32_t nodeIndex) const
-{
-	assert(pRetVal);
 #if defined(_MSC_VER) || !defined(_WIN32)
 	const auto nodeID = m_properties->GetNodeID(workGraphIndex, nodeIndex);
 #else
 	D3D12_NODE_ID nodeID;
-	m_properties->GetNodeID(&nodeID, workGraphIndex, nodeIndex);
+	const auto pNodeID = m_properties->GetNodeID(&nodeID, workGraphIndex, nodeIndex);
+	assert(pNodeID);
 #endif
 
-	pRetVal->Name = nodeID.Name;
-	pRetVal->ArrayIndex = nodeID.ArrayIndex;
-
-	return pRetVal;
+	return { nodeID.Name, nodeID.ArrayIndex };
 }
 
 NodeID State_DX12::GetEntrypointID(uint32_t workGraphIndex, uint32_t entrypointIndex) const
 {
-	NodeID nodeID;
-	GetEntrypointID(&nodeID, workGraphIndex, entrypointIndex);
-
-	return nodeID;
-}
-
-NodeID* State_DX12::GetEntrypointID(NodeID* pRetVal, uint32_t workGraphIndex, uint32_t entrypointIndex) const
-{
-	assert(pRetVal);
 #if defined(_MSC_VER) || !defined(_WIN32)
 	const auto entrypointID = m_properties->GetEntrypointID(workGraphIndex, entrypointIndex);
 #else
 	D3D12_NODE_ID entrypointID;
-	m_properties->GetEntrypointID(&entrypointID, workGraphIndex, entrypointIndex);
+	const auto pEntrypointID = m_properties->GetEntrypointID(&entrypointID, workGraphIndex, entrypointIndex);
+	assert(pEntrypointID);
 #endif
 
-	pRetVal->Name = entrypointID.Name;
-	pRetVal->ArrayIndex = entrypointID.ArrayIndex;
-
-	return pRetVal;
+	return { entrypointID.Name, entrypointID.ArrayIndex };
 }
 
 void State_DX12::GetMemoryRequirements(uint32_t workGraphIndex, MemoryRequirements* pMemoryReq) const
@@ -312,12 +289,13 @@ void State_DX12::serialize()
 	m_isSerialized = true;
 }
 
-bool State_DX12::setStateObject(const com_ptr<ID3D12StateObject>& stateObject)
+Pipeline State_DX12::setStateObject(const com_ptr<ID3D12StateObject>& stateObject)
 {
-	V_RETURN(stateObject->QueryInterface(IID_PPV_ARGS(&m_properties)), cerr, false);
+	m_pipeline = stateObject.get();
+	V_RETURN(stateObject->QueryInterface(IID_PPV_ARGS(&m_properties)), cerr, m_pipeline);
 	assert(m_properties);
 
-	return true;
+	return m_pipeline;
 }
 
 //--------------------------------------------------------------------------------------
@@ -366,6 +344,94 @@ Pipeline PipelineLib_DX12::GetPipeline(State* pState, const wchar_t* name)
 	assert(p);
 
 	return GetStateObject(p->GetKey(), name).get();
+}
+
+const wchar_t* PipelineLib_DX12::GetProgramName(const Pipeline& stateObject, uint32_t workGraphIndex) const
+{
+	return getWorkGraphProperties(stateObject)->GetProgramName(workGraphIndex);
+}
+
+ProgramIdentifier PipelineLib_DX12::GetProgramIdentifier(const Pipeline& stateObject, const wchar_t* programName) const
+{
+	return Ultimate::GetDX12ProgramIdentifier(stateObject, programName);
+}
+
+uint32_t PipelineLib_DX12::GetNumWorkGraphs(const Pipeline& stateObject) const
+{
+	return getWorkGraphProperties(stateObject)->GetNumWorkGraphs();
+}
+
+uint32_t PipelineLib_DX12::GetWorkGraphIndex(const Pipeline& stateObject, const wchar_t* pProgramName) const
+{
+	return getWorkGraphProperties(stateObject)->GetWorkGraphIndex(pProgramName);
+}
+
+uint32_t PipelineLib_DX12::GetNumNodes(const Pipeline& stateObject, uint32_t workGraphIndex) const
+{
+	return getWorkGraphProperties(stateObject)->GetNumNodes(workGraphIndex);
+}
+
+uint32_t PipelineLib_DX12::GetNodeIndex(const Pipeline& stateObject, uint32_t workGraphIndex, const NodeID& nodeID) const
+{
+	return getWorkGraphProperties(stateObject)->GetNodeIndex(workGraphIndex, GetDX12NodeID(nodeID));
+}
+
+uint32_t PipelineLib_DX12::GetNodeLocalRootArgumentsTableIndex(const Pipeline& stateObject, uint32_t workGraphIndex, uint32_t nodeIndex) const
+{
+	return getWorkGraphProperties(stateObject)->GetNodeLocalRootArgumentsTableIndex(workGraphIndex, nodeIndex);
+}
+
+uint32_t PipelineLib_DX12::GetNumEntrypoints(const Pipeline& stateObject, uint32_t workGraphIndex) const
+{
+	return getWorkGraphProperties(stateObject)->GetNumEntrypoints(workGraphIndex);
+}
+
+uint32_t PipelineLib_DX12::GetEntrypointIndex(const Pipeline& stateObject, uint32_t workGraphIndex, const NodeID& nodeID) const
+{
+	return getWorkGraphProperties(stateObject)->GetEntrypointIndex(workGraphIndex, GetDX12NodeID(nodeID));
+}
+
+uint32_t PipelineLib_DX12::GetEntrypointRecordSizeInBytes(const Pipeline& stateObject, uint32_t workGraphIndex, uint32_t entrypointIndex) const
+{
+	return getWorkGraphProperties(stateObject)->GetEntrypointRecordSizeInBytes(workGraphIndex, entrypointIndex);
+}
+
+NodeID PipelineLib_DX12::GetNodeID(const Pipeline& stateObject, uint32_t workGraphIndex, uint32_t nodeIndex) const
+{
+#if defined(_MSC_VER) || !defined(_WIN32)
+	const auto nodeID = getWorkGraphProperties(stateObject)->GetNodeID(workGraphIndex, nodeIndex);
+#else
+	D3D12_NODE_ID nodeID;
+	const auto pNodeID = getWorkGraphProperties(stateObject)->GetNodeID(&nodeID, workGraphIndex, nodeIndex);
+	assert(pNodeID);
+#endif
+
+	return { nodeID.Name, nodeID.ArrayIndex };
+}
+
+NodeID PipelineLib_DX12::GetEntrypointID(const Pipeline& stateObject, uint32_t workGraphIndex, uint32_t entrypointIndex) const
+{
+#if defined(_MSC_VER) || !defined(_WIN32)
+	const auto entrypointID = getWorkGraphProperties(stateObject)->GetEntrypointID(workGraphIndex, entrypointIndex);
+#else
+	D3D12_NODE_ID entrypointID;
+	const auto pEntrypointID = getWorkGraphProperties(stateObject)->GetEntrypointID(&entrypointID, workGraphIndex, entrypointIndex);
+	assert(pEntrypointID);
+#endif
+
+	return { entrypointID.Name, entrypointID.ArrayIndex };
+}
+
+void PipelineLib_DX12::GetMemoryRequirements(const Pipeline& stateObject, uint32_t workGraphIndex, MemoryRequirements* pMemoryReq) const
+{
+	assert(pMemoryReq);
+
+	D3D12_WORK_GRAPH_MEMORY_REQUIREMENTS memoryReq;
+	getWorkGraphProperties(stateObject)->GetWorkGraphMemoryRequirements(workGraphIndex, &memoryReq);
+
+	pMemoryReq->MinByteSize = memoryReq.MinSizeInBytes;
+	pMemoryReq->MaxByteSize = memoryReq.MaxSizeInBytes;
+	pMemoryReq->SizeGranularityInBytes = memoryReq.SizeGranularityInBytes;
 }
 
 com_ptr<ID3D12StateObject> PipelineLib_DX12::CreateStateObject(const string& key, const wchar_t* name)
@@ -494,4 +560,18 @@ com_ptr<ID3D12StateObject> PipelineLib_DX12::GetStateObject(const string& key, c
 	if (pStateObject == m_stateObjects.end()) return CreateStateObject(key, name);
 
 	return pStateObject->second;
+}
+
+D3D12_NODE_ID PipelineLib_DX12::GetDX12NodeID(const NodeID& nodeID)
+{
+	return { nodeID.Name, nodeID.ArrayIndex };
+}
+
+com_ptr<ID3D12WorkGraphProperties> PipelineLib_DX12::getWorkGraphProperties(const Pipeline& stateObject)
+{
+	com_ptr<ID3D12WorkGraphProperties> properties;
+	V_RETURN(static_cast<ID3D12StateObject*>(stateObject)->QueryInterface(IID_PPV_ARGS(&properties)), cerr, nullptr);
+	assert(properties);
+
+	return properties;
 }

@@ -478,33 +478,6 @@ void EZ::CommandList_DXR::predispatchRays(CShaderTablePtr& pRayGen, CShaderTable
 	clearUAVsUint();
 	clearUAVsFloat();
 
-	// Create and set sampler table
-	auto& samplerTable = m_samplerTables[COMPUTE];
-	if (samplerTable)
-	{
-		const auto descriptorTable = samplerTable->GetSamplerTable(m_descriptorTableLib.get());
-		if (descriptorTable) XUSG::CommandList_DX12::SetComputeDescriptorTable(0, descriptorTable);
-		samplerTable.reset();
-	}
-
-	// Create and set CBV/SRV/UAV tables
-	for (uint8_t t = 0; t < CbvSrvUavTypes; ++t)
-	{
-		auto& cbvSrvUavTables = m_cbvSrvUavTables[Shader::Stage::CS][t];
-		const auto numSpaces = static_cast<uint32_t>(cbvSrvUavTables.size());
-		for (auto s = 0u; s < numSpaces; ++s)
-		{
-			auto& cbvSrvUavTable = cbvSrvUavTables[s];
-			if (cbvSrvUavTable)
-			{
-				const auto descriptorTable = cbvSrvUavTable->GetCbvSrvUavTable(m_descriptorTableLib.get());
-				if (descriptorTable) XUSG::CommandList_DX12::SetComputeDescriptorTable(
-					m_computeSpaceToParamIndexMap[t][s], descriptorTable);
-				cbvSrvUavTable.reset();
-			}
-		}
-	}
-
 	// Create pipeline for dynamic states
 	assert(m_rayTracingState);
 	if (m_isRTStateDirty)
@@ -556,6 +529,33 @@ void EZ::CommandList_DXR::predispatchRays(CShaderTablePtr& pRayGen, CShaderTable
 			pShaderIDs[i] = ShaderRecord::GetShaderIdentifier(m_pipeline, pMissShaderNames[i], API::DIRECTX_12);
 		}
 		pMiss = getShaderTable(key, m_missTables, numMissShaders);
+	}
+
+	// Create and set sampler table
+	auto& samplerTable = m_samplerTables[COMPUTE];
+	if (samplerTable)
+	{
+		const auto descriptorTable = samplerTable->GetSamplerTable(m_descriptorTableLib.get());
+		if (descriptorTable) XUSG::CommandList_DX12::SetComputeDescriptorTable(0, descriptorTable);
+		samplerTable.reset();
+	}
+
+	// Create and set CBV/SRV/UAV tables
+	for (uint8_t t = 0; t < CbvSrvUavTypes; ++t)
+	{
+		auto& cbvSrvUavTables = m_cbvSrvUavTables[Shader::Stage::CS][t];
+		const auto numSpaces = static_cast<uint32_t>(cbvSrvUavTables.size());
+		for (auto s = 0u; s < numSpaces; ++s)
+		{
+			auto& cbvSrvUavTable = cbvSrvUavTables[s];
+			if (cbvSrvUavTable)
+			{
+				const auto descriptorTable = cbvSrvUavTable->GetCbvSrvUavTable(m_descriptorTableLib.get());
+				if (descriptorTable) XUSG::CommandList_DX12::SetComputeDescriptorTable(
+					m_computeSpaceToParamIndexMap[t][s], descriptorTable);
+				cbvSrvUavTable.reset();
+			}
+		}
 	}
 }
 

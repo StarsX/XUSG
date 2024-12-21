@@ -32,6 +32,7 @@ EZ::CommandList_DX12::CommandList_DX12() :
 	m_clearRTVs(0),
 	m_graphicsSpaceToParamIndexMap(),
 	m_computeSpaceToParamIndexMap(),
+	m_graphicsSetDescriptorTables(),
 	m_graphicsConstantParamIndices(),
 	m_computeConstantParamIndex(0),
 	m_shaders()
@@ -483,7 +484,8 @@ void EZ::CommandList_DX12::SetResources(Shader::Stage stage, DescriptorType desc
 void EZ::CommandList_DX12::SetGraphicsDescriptorTable(Shader::Stage stage, DescriptorType descriptorType,
 	const DescriptorTable& descriptorTable, uint32_t space)
 {
-	XUSG::CommandList_DX12::SetGraphicsDescriptorTable(m_graphicsSpaceToParamIndexMap[stage][static_cast<uint32_t>(descriptorType)][space], descriptorTable);
+	// Defer setting the descriptor table after pipeline layout set
+	m_graphicsSetDescriptorTables.emplace_back(SetDescriptorTable{ stage, descriptorType, descriptorTable, space });
 }
 
 void EZ::CommandList_DX12::SetComputeDescriptorTable(DescriptorType descriptorType, const DescriptorTable& descriptorTable, uint32_t space)
@@ -491,26 +493,27 @@ void EZ::CommandList_DX12::SetComputeDescriptorTable(DescriptorType descriptorTy
 	XUSG::CommandList_DX12::SetComputeDescriptorTable(m_computeSpaceToParamIndexMap[static_cast<uint32_t>(descriptorType)][space], descriptorTable);
 }
 
-void EZ::CommandList_DX12::SetGraphics32BitConstant(Shader::Stage stage, uint32_t srcData, uint32_t destOffsetIn32BitValues) const
+void EZ::CommandList_DX12::SetGraphics32BitConstant(Shader::Stage stage, uint32_t srcData, uint32_t destOffsetIn32BitValues)
 {
+	// Defer setting the constant after pipeline layout set
 	assert(stage < Shader::Stage::NUM_GRAPHICS);
-	XUSG::CommandList_DX12::SetGraphics32BitConstant(m_graphicsConstantParamIndices[stage], srcData, destOffsetIn32BitValues);
+	m_graphicsSetSingle32BitConstants.emplace_back(Set32BitConstant{ stage, srcData, destOffsetIn32BitValues });
 }
 
-void EZ::CommandList_DX12::SetCompute32BitConstant(uint32_t srcData, uint32_t destOffsetIn32BitValues) const
+void EZ::CommandList_DX12::SetCompute32BitConstant(uint32_t srcData, uint32_t destOffsetIn32BitValues)
 {
 	XUSG::CommandList_DX12::SetCompute32BitConstant(m_computeConstantParamIndex, srcData, destOffsetIn32BitValues);
 }
 
 void EZ::CommandList_DX12::SetGraphics32BitConstants(Shader::Stage stage, uint32_t num32BitValuesToSet,
-	const void* pSrcData, uint32_t destOffsetIn32BitValues) const
+	const void* pSrcData, uint32_t destOffsetIn32BitValues)
 {
+	// Defer setting the constants after pipeline layout set
 	assert(stage < Shader::Stage::NUM_GRAPHICS);
-	XUSG::CommandList_DX12::SetGraphics32BitConstants(m_graphicsConstantParamIndices[stage],
-		num32BitValuesToSet, pSrcData, destOffsetIn32BitValues);
+	m_graphicsSet32BitConstants.emplace_back(Set32BitConstants{ stage, num32BitValuesToSet, pSrcData, destOffsetIn32BitValues });
 }
 
-void EZ::CommandList_DX12::SetCompute32BitConstants(uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues) const
+void EZ::CommandList_DX12::SetCompute32BitConstants(uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues)
 {
 	XUSG::CommandList_DX12::SetCompute32BitConstants(m_computeConstantParamIndex, num32BitValuesToSet, pSrcData, destOffsetIn32BitValues);
 }
@@ -1066,8 +1069,25 @@ void EZ::CommandList_DX12::predraw()
 	clearUAVsUint();
 	clearUAVsFloat();
 
-	// Set pipeline layout
-	XUSG::CommandList_DX12::SetGraphicsPipelineLayout(m_pipelineLayouts[GRAPHICS]);
+	// Create pipeline for dynamic states
+	assert(m_graphicsState);
+	if (m_isGraphicsDirty)
+	{
+		// Set pipeline layout
+		XUSG::CommandList_DX12::SetGraphicsPipelineLayout(m_pipelineLayouts[GRAPHICS]);
+
+		m_graphicsState->SetPipelineLayout(m_pipelineLayouts[GRAPHICS]);
+		const auto pipeline = m_graphicsState->GetPipeline(m_graphicsPipelineLib.get());
+		if (pipeline)
+		{
+			if (m_pipeline != pipeline)
+			{
+				XUSG::CommandList_DX12::SetPipelineState(pipeline);
+				m_pipeline = pipeline;
+			}
+			m_isGraphicsDirty = false;
+		}
+	}
 
 	// Set descriptor tables
 	for (uint8_t i = 0; i < Shader::Stage::NUM_GRAPHICS; ++i)
@@ -1100,22 +1120,26 @@ void EZ::CommandList_DX12::predraw()
 		}
 	}
 
-	// Create pipeline for dynamic states
-	assert(m_graphicsState);
-	if (m_isGraphicsDirty)
+	for (const auto& set : m_graphicsSetDescriptorTables)
 	{
-		m_graphicsState->SetPipelineLayout(m_pipelineLayouts[GRAPHICS]);
-		const auto pipeline = m_graphicsState->GetPipeline(m_graphicsPipelineLib.get());
-		if (pipeline)
-		{
-			if (m_pipeline != pipeline)
-			{
-				XUSG::CommandList_DX12::SetPipelineState(pipeline);
-				m_pipeline = pipeline;
-			}
-			m_isGraphicsDirty = false;
-		}
+		const auto& paramIdx = m_graphicsSpaceToParamIndexMap[set.Stage][static_cast<uint32_t>(set.Type)][set.Space];
+		XUSG::CommandList_DX12::SetGraphicsDescriptorTable(paramIdx, set.Table);
 	}
+	m_graphicsSetDescriptorTables.clear();
+
+	for (const auto& set : m_graphicsSetSingle32BitConstants)
+	{
+		const auto& paramIdx = m_graphicsConstantParamIndices[set.Stage];
+		XUSG::CommandList_DX12::SetGraphics32BitConstant(paramIdx, set.SrcData, set.Offset);
+	}
+	m_graphicsSetSingle32BitConstants.clear();
+
+	for (const auto& set : m_graphicsSet32BitConstants)
+	{
+		const auto& paramIdx = m_graphicsConstantParamIndices[set.Stage];
+		XUSG::CommandList_DX12::SetGraphics32BitConstants(paramIdx, set.Num32BitValues, set.pSrcData, set.Offset);
+	}
+	m_graphicsSet32BitConstants.clear();
 }
 
 void EZ::CommandList_DX12::predispatch()
@@ -1127,6 +1151,23 @@ void EZ::CommandList_DX12::predispatch()
 	// Clear UAVs
 	clearUAVsUint();
 	clearUAVsFloat();
+
+	// Create pipeline for dynamic states
+	assert(m_computeState);
+	if (m_isComputeDirty)
+	{
+		m_computeState->SetPipelineLayout(m_pipelineLayouts[COMPUTE]);
+		const auto pipeline = m_computeState->GetPipeline(m_computePipelineLib.get());
+		if (pipeline)
+		{
+			if (m_pipeline != pipeline)
+			{
+				XUSG::CommandList_DX12::SetPipelineState(pipeline);
+				m_pipeline = pipeline;
+			}
+			m_isComputeDirty = false;
+		}
+	}
 
 	// Create and set sampler table
 	auto& samplerTable = m_samplerTables[Shader::Stage::CS];
@@ -1152,23 +1193,6 @@ void EZ::CommandList_DX12::predispatch()
 					m_computeSpaceToParamIndexMap[t][s], descriptorTable);
 				cbvSrvUavTable.reset();
 			}
-		}
-	}
-
-	// Create pipeline for dynamic states
-	assert(m_computeState);
-	if (m_isComputeDirty)
-	{
-		m_computeState->SetPipelineLayout(m_pipelineLayouts[COMPUTE]);
-		const auto pipeline = m_computeState->GetPipeline(m_computePipelineLib.get());
-		if (pipeline)
-		{
-			if (m_pipeline != pipeline)
-			{
-				XUSG::CommandList_DX12::SetPipelineState(pipeline);
-				m_pipeline = pipeline;
-			}
-			m_isComputeDirty = false;
 		}
 	}
 }

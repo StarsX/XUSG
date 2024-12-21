@@ -94,11 +94,6 @@ Ultimate::SamplerFeedBack::sptr Ultimate::SamplerFeedBack::MakeShared(API api)
 	return make_shared<SamplerFeedBack_DX12>();
 }
 
-ProgramIdentifier Ultimate::GetProgramIdentifier(const Pipeline& stateObject, const wchar_t* programName, API api)
-{
-	return GetDX12ProgramIdentifier(stateObject, programName);
-}
-
 uint32_t Ultimate::SetBarrier(ResourceBarrier* pBufferBarriers, Buffer* pBuffer, ResourceState dstState,
 	uint32_t numBarriers, BarrierFlag flags, ResourceState srcState, uint32_t threadIdx)
 {

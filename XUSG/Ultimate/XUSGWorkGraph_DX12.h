@@ -82,6 +82,7 @@ namespace XUSG
 			const std::string& GetKey();
 
 			const wchar_t* GetProgramName(uint32_t workGraphIndex) const;
+			ProgramIdentifier GetProgramIdentifier(const wchar_t* programName) const;
 
 			uint32_t GetNumWorkGraphs() const;
 			uint32_t GetWorkGraphIndex(const wchar_t* pProgramName) const;
@@ -93,16 +94,14 @@ namespace XUSG
 			uint32_t GetEntrypointRecordSizeInBytes(uint32_t workGraphIndex, uint32_t entrypointIndex) const;
 
 			NodeID GetNodeID(uint32_t workGraphIndex, uint32_t nodeIndex) const;
-			NodeID* GetNodeID(NodeID* pRetVal, uint32_t workGraphIndex, uint32_t nodeIndex) const;
 			NodeID GetEntrypointID(uint32_t workGraphIndex, uint32_t entrypointIndex) const;
-			NodeID* GetEntrypointID(NodeID* pRetVal, uint32_t workGraphIndex, uint32_t entrypointIndex) const;
 
 			void GetMemoryRequirements(uint32_t workGraphIndex, MemoryRequirements* pMemoryReq) const;
 
 		protected:
 			void serialize();
 
-			bool setStateObject(const com_ptr<ID3D12StateObject>& stateObject);
+			Pipeline setStateObject(const com_ptr<ID3D12StateObject>& stateObject);
 
 			KeyHeader* m_pKeyHeader;
 			std::string m_key;
@@ -113,6 +112,7 @@ namespace XUSG
 
 			bool m_isSerialized;
 
+			Pipeline m_pipeline;
 			com_ptr<ID3D12WorkGraphProperties> m_properties;
 		};
 
@@ -130,13 +130,35 @@ namespace XUSG
 			Pipeline CreatePipeline(State* pState, const wchar_t* name = nullptr);
 			Pipeline GetPipeline(State* pState, const wchar_t* name = nullptr);
 
+			const wchar_t* GetProgramName(const Pipeline& stateObject, uint32_t workGraphIndex) const;
+			ProgramIdentifier GetProgramIdentifier(const Pipeline& stateObject, const wchar_t* programName) const;
+
+			uint32_t GetNumWorkGraphs(const Pipeline& stateObject) const;
+			uint32_t GetWorkGraphIndex(const Pipeline& stateObject, const wchar_t* pProgramName) const;
+			uint32_t GetNumNodes(const Pipeline& stateObject, uint32_t workGraphIndex) const;
+			uint32_t GetNodeIndex(const Pipeline& stateObject, uint32_t workGraphIndex, const NodeID& nodeID) const;
+			uint32_t GetNodeLocalRootArgumentsTableIndex(const Pipeline& stateObject, uint32_t workGraphIndex, uint32_t nodeIndex) const;
+			uint32_t GetNumEntrypoints(const Pipeline& stateObject, uint32_t workGraphIndex) const;
+			uint32_t GetEntrypointIndex(const Pipeline& stateObject, uint32_t workGraphIndex, const NodeID& nodeID) const;
+			uint32_t GetEntrypointRecordSizeInBytes(const Pipeline& stateObject, uint32_t workGraphIndex, uint32_t entrypointIndex) const;
+
+			NodeID GetNodeID(const Pipeline& stateObject, uint32_t workGraphIndex, uint32_t nodeIndex) const;
+			NodeID GetEntrypointID(const Pipeline& stateObject, uint32_t workGraphIndex, uint32_t entrypointIndex) const;
+
+			void GetMemoryRequirements(const Pipeline& stateObject, uint32_t workGraphIndex, MemoryRequirements* pMemoryReq) const;
+
 			com_ptr<ID3D12StateObject> CreateStateObject(const std::string& key, const wchar_t* name);
 			com_ptr<ID3D12StateObject> GetStateObject(const std::string& key, const wchar_t* name);
 
+			static D3D12_NODE_ID GetDX12NodeID(const NodeID& nodeID);
+
 		protected:
+			static com_ptr<ID3D12WorkGraphProperties> getWorkGraphProperties(const Pipeline& stateObject);
+
 			com_ptr<ID3D12Device> m_device;
 
 			std::unordered_map<std::string, com_ptr<ID3D12StateObject>> m_stateObjects;
+
 		};
 	}
 }

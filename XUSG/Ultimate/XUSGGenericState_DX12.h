@@ -79,14 +79,15 @@ namespace XUSG
 			void SetViewInstance(uint8_t i, const ViewInstance& viewInstance);
 			void SetViewInstances(const ViewInstance* viewInstances, uint8_t n, ViewInstanceFlag flags);
 
-			Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const;
-			Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const;
+			Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr);
+			Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr);
 
 			PipelineLayout GetPipelineLayout() const;
 			Blob GetShaderLibrary(uint8_t index) const;
 			uint8_t GetShaderLibraryIndex(Shader::Stage stage) const;
 			const wchar_t* GetShaderName(Shader::Stage stage) const;
 			const wchar_t* GetProgramName() const;
+			ProgramIdentifier GetProgramIdentifier(const wchar_t* programName = nullptr) const;
 			uint32_t GetNodeMask() const;
 			PipelineFlag GetFlags() const;
 
@@ -114,6 +115,8 @@ namespace XUSG
 		protected:
 			PipelineDesc* m_pKey;
 			std::string m_key;
+
+			Pipeline m_pipeline;
 		};
 
 		class PipelineLib_DX12 :
@@ -133,6 +136,8 @@ namespace XUSG
 
 			Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr);
 			Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr);
+
+			ProgramIdentifier GetProgramIdentifier(const Pipeline& stateObject, const wchar_t* programName) const;
 
 			const Blend* GetBlend(BlendPreset preset, uint8_t numColorRTs = 1);
 			const Rasterizer* GetRasterizer(RasterizerPreset preset);

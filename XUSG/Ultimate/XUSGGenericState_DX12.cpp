@@ -164,14 +164,18 @@ void State_DX12::SetViewInstances(const ViewInstance* viewInstances, uint8_t n, 
 	for (auto i = 0u; i < n; ++i) SetViewInstance(i, viewInstances[i]);
 }
 
-Pipeline State_DX12::CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name) const
+Pipeline State_DX12::CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name)
 {
-	return pPipelineLib->CreatePipeline(this, name);
+	m_pipeline = pPipelineLib->CreatePipeline(this, name);
+
+	return m_pipeline;
 }
 
-Pipeline State_DX12::GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name) const
+Pipeline State_DX12::GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name)
 {
-	return pPipelineLib->GetPipeline(this, name);
+	m_pipeline = pPipelineLib->GetPipeline(this, name);
+
+	return m_pipeline;
 }
 
 PipelineLayout State_DX12::GetPipelineLayout() const
@@ -199,6 +203,11 @@ const wchar_t* State_DX12::GetShaderName(Shader::Stage stage) const
 const wchar_t* State_DX12::GetProgramName() const
 {
 	return m_pKey->Program;
+}
+
+ProgramIdentifier State_DX12::GetProgramIdentifier(const wchar_t* programName) const
+{
+	return Ultimate::GetDX12ProgramIdentifier(m_pipeline, programName ? programName : m_pKey->Program);
 }
 
 uint32_t State_DX12::GetNodeMask() const
@@ -386,6 +395,11 @@ Pipeline PipelineLib_DX12::GetPipeline(const State* pState, const wchar_t* name)
 	assert(p);
 
 	return getStateObject(p->GetKey(), name).get();
+}
+
+ProgramIdentifier PipelineLib_DX12::GetProgramIdentifier(const Pipeline& stateObject, const wchar_t* programName) const
+{
+	return Ultimate::GetDX12ProgramIdentifier(stateObject, programName);
 }
 
 const Generic::Blend* PipelineLib_DX12::GetBlend(BlendPreset preset, uint8_t numColorRTs)

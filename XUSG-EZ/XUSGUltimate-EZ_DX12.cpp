@@ -242,26 +242,12 @@ void EZ::CommandList_DX12::SetGraphicsShader(Shader::Stage stage, const Blob& sh
 	else XUSG::EZ::CommandList_DX12::SetGraphicsShader(stage, shader);
 }
 
-void EZ::CommandList_DX12::SetMeshGraphicsShader(Shader::Stage stage, const Blob& shader)
+void EZ::CommandList_DX12::MSSetGraphicsShader(Shader::Stage stage, const Blob& shader)
 {
 	assert(m_meshShaderState);
 	assert(stage == Shader::Stage::PS || stage == Shader::Stage::MS || stage == Shader::Stage::AS);
 	m_meshShaderState->SetShader(stage, shader);
 	m_isGraphicsDirty = true;
-}
-
-void EZ::CommandList_DX12::SetMeshGraphics32BitConstant(Shader::Stage stage, uint32_t srcData, uint32_t destOffsetIn32BitValues) const
-{
-	const auto stageIdx = getShaderStageIndex(stage);
-	XUSG::CommandList_DX12::SetGraphics32BitConstant(m_meshShaderConstantParamIndices[stageIdx], srcData, destOffsetIn32BitValues);
-}
-
-void EZ::CommandList_DX12::SetMeshGraphics32BitConstants(Shader::Stage stage, uint32_t num32BitValuesToSet,
-	const void* pSrcData, uint32_t destOffsetIn32BitValues) const
-{
-	const auto stageIdx = getShaderStageIndex(stage);
-	XUSG::CommandList_DX12::SetGraphics32BitConstants(m_meshShaderConstantParamIndices[stageIdx],
-		num32BitValuesToSet, pSrcData, destOffsetIn32BitValues);
 }
 
 void EZ::CommandList_DX12::SetGraphicsNodeMask(uint32_t nodeMask)
@@ -581,8 +567,25 @@ void EZ::CommandList_DX12::predispatchMesh()
 	clearUAVsUint();
 	clearUAVsFloat();
 
-	// Set pipeline layout
-	XUSG::CommandList_DX12::SetGraphicsPipelineLayout(m_pipelineLayout);
+	// Create pipeline for dynamic states
+	assert(m_meshShaderState);
+	if (m_isGraphicsDirty)
+	{
+		// Set pipeline layout
+		XUSG::CommandList_DX12::SetGraphicsPipelineLayout(m_pipelineLayout);
+
+		m_meshShaderState->SetPipelineLayout(m_pipelineLayout);
+		const auto pipeline = m_meshShaderState->GetPipeline(m_meshShaderPipelineLib.get());
+		if (pipeline)
+		{
+			if (m_pipeline != pipeline)
+			{
+				XUSG::CommandList_DX12::SetPipelineState(pipeline);
+				m_pipeline = pipeline;
+			}
+			m_isGraphicsDirty = false;
+		}
+	}
 
 	// Set descriptor tables
 	for (uint8_t i = 0; i < NUM_STAGE; ++i)
@@ -617,22 +620,29 @@ void EZ::CommandList_DX12::predispatchMesh()
 		}
 	}
 
-	// Create pipeline for dynamic states
-	assert(m_meshShaderState);
-	if (m_isGraphicsDirty)
+	for (const auto& set : m_graphicsSetDescriptorTables)
 	{
-		m_meshShaderState->SetPipelineLayout(m_pipelineLayout);
-		const auto pipeline = m_meshShaderState->GetPipeline(m_meshShaderPipelineLib.get());
-		if (pipeline)
-		{
-			if (m_pipeline != pipeline)
-			{
-				XUSG::CommandList_DX12::SetPipelineState(pipeline);
-				m_pipeline = pipeline;
-			}
-			m_isGraphicsDirty = false;
-		}
+		const auto stageIdx = getShaderStageIndex(set.Stage);
+		const auto& paramIdx = m_meshShaderSpaceToParamIndexMap[stageIdx][static_cast<uint32_t>(set.Type)][set.Space];
+		XUSG::CommandList_DX12::SetGraphicsDescriptorTable(paramIdx, set.Table);
 	}
+	m_graphicsSetDescriptorTables.clear();
+
+	for (const auto& set : m_graphicsSetSingle32BitConstants)
+	{
+		const auto stageIdx = getShaderStageIndex(set.Stage);
+		const auto& paramIdx = m_meshShaderConstantParamIndices[stageIdx];
+		XUSG::CommandList_DX12::SetGraphics32BitConstant(paramIdx, set.SrcData, set.Offset);
+	}
+	m_graphicsSetSingle32BitConstants.clear();
+
+	for (const auto& set : m_graphicsSet32BitConstants)
+	{
+		const auto stageIdx = getShaderStageIndex(set.Stage);
+		const auto& paramIdx = m_meshShaderConstantParamIndices[stageIdx];
+		XUSG::CommandList_DX12::SetGraphics32BitConstants(paramIdx, set.Num32BitValues, set.pSrcData, set.Offset);
+	}
+	m_graphicsSet32BitConstants.clear();
 }
 
 void EZ::CommandList_DX12::predispatchGraph()
@@ -644,6 +654,9 @@ void EZ::CommandList_DX12::predispatchGraph()
 	// Clear UAVs
 	clearUAVsUint();
 	clearUAVsFloat();
+
+	// Create pipeline for dynamic states
+	getWorkGraphPipeline();
 
 	// Create and set sampler table
 	auto& samplerTable = m_samplerTables[Shader::Stage::CS];
@@ -671,9 +684,6 @@ void EZ::CommandList_DX12::predispatchGraph()
 			}
 		}
 	}
-
-	// Create pipeline for dynamic states
-	getWorkGraphPipeline();
 }
 
 void EZ::CommandList_DX12::getWorkGraphPipeline()
@@ -707,7 +717,7 @@ void EZ::CommandList_DX12::getWorkGraphPipeline()
 					assert(workGraph.NodeIndices.empty());
 
 					workGraph.Index = workGraphIndex;
-					workGraph.Identifier = GetDX12ProgramIdentifier(pipeline, workGraphName);
+					workGraph.Identifier = m_workGraphState->GetProgramIdentifier(workGraphName);
 
 					const auto numEntryPoints = m_workGraphState->GetNumEntrypoints(workGraph.Index);
 					workGraph.EntrypointIDs.resize(numEntryPoints);

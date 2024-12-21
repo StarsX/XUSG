@@ -173,10 +173,10 @@ namespace XUSG
 				uint32_t numResources, const ResourceView* pResourceViews, uint32_t space = 0) = 0;
 			virtual void SetGraphicsDescriptorTable(Shader::Stage stage, DescriptorType descriptorType, const DescriptorTable& descriptorTable, uint32_t space) = 0;
 			virtual void SetComputeDescriptorTable(DescriptorType descriptorType, const DescriptorTable& descriptorTable, uint32_t space) = 0;
-			virtual void SetGraphics32BitConstant(Shader::Stage stage, uint32_t srcData, uint32_t destOffsetIn32BitValues = 0) const = 0;
-			virtual void SetCompute32BitConstant(uint32_t srcData, uint32_t destOffsetIn32BitValues = 0) const = 0;
-			virtual void SetGraphics32BitConstants(Shader::Stage stage, uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues = 0) const = 0;
-			virtual void SetCompute32BitConstants(uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues = 0) const = 0;
+			virtual void SetGraphics32BitConstant(Shader::Stage stage, uint32_t srcData, uint32_t destOffsetIn32BitValues = 0) = 0;
+			virtual void SetCompute32BitConstant(uint32_t srcData, uint32_t destOffsetIn32BitValues = 0) = 0;
+			virtual void SetGraphics32BitConstants(Shader::Stage stage, uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues = 0) = 0;
+			virtual void SetCompute32BitConstants(uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues = 0) = 0;
 
 			virtual void IASetPrimitiveTopology(PrimitiveTopology primitiveTopology) = 0;
 			virtual void IASetIndexBuffer(const IndexBufferView& view) = 0;

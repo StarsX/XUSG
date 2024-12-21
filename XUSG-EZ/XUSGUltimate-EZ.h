@@ -75,9 +75,7 @@ namespace XUSG
 				virtual void DSSetState(const Graphics::DepthStencil* pDepthStencil) = 0;
 				virtual void DSSetState(Graphics::DepthStencilPreset preset) = 0;
 				virtual void SetGraphicsShader(Shader::Stage stage, const Blob& shader) = 0;
-				virtual void SetMeshGraphicsShader(Shader::Stage stage, const Blob& shader) = 0;
-				virtual void SetMeshGraphics32BitConstant(Shader::Stage stage, uint32_t srcData, uint32_t destOffsetIn32BitValues = 0) const = 0;
-				virtual void SetMeshGraphics32BitConstants(Shader::Stage stage, uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues = 0) const = 0;
+				virtual void MSSetGraphicsShader(Shader::Stage stage, const Blob& shader) = 0;
 				virtual void SetGraphicsNodeMask(uint32_t nodeMask) = 0;
 				virtual void DispatchMesh(uint32_t ThreadGroupCountX, uint32_t ThreadGroupCountY, uint32_t ThreadGroupCountZ) = 0;
 				virtual void DispatchMeshIndirect(const CommandLayout* pCommandlayout,

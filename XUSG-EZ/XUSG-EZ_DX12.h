@@ -134,10 +134,10 @@ namespace XUSG
 				uint32_t numResources, const ResourceView* pResourceViews, uint32_t space = 0);
 			void SetGraphicsDescriptorTable(Shader::Stage stage, DescriptorType descriptorType, const DescriptorTable& descriptorTable, uint32_t space);
 			void SetComputeDescriptorTable(DescriptorType descriptorType, const DescriptorTable& descriptorTable, uint32_t space);
-			void SetGraphics32BitConstant(Shader::Stage stage, uint32_t srcData, uint32_t destOffsetIn32BitValues = 0) const;
-			void SetCompute32BitConstant(uint32_t srcData, uint32_t destOffsetIn32BitValues = 0) const;
-			void SetGraphics32BitConstants(Shader::Stage stage, uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues = 0) const;
-			void SetCompute32BitConstants(uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues = 0) const;
+			void SetGraphics32BitConstant(Shader::Stage stage, uint32_t srcData, uint32_t destOffsetIn32BitValues = 0);
+			void SetCompute32BitConstant(uint32_t srcData, uint32_t destOffsetIn32BitValues = 0);
+			void SetGraphics32BitConstants(Shader::Stage stage, uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues = 0);
+			void SetCompute32BitConstants(uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues = 0);
 			void IASetPrimitiveTopology(PrimitiveTopology primitiveTopology);
 			void IASetIndexBuffer(const IndexBufferView& view);
 			void IASetVertexBuffers(uint32_t startSlot, uint32_t numViews, const VertexBufferView* pViews);
@@ -279,6 +279,29 @@ namespace XUSG
 				std::vector<RectRange> Rects;
 			};
 
+			struct SetDescriptorTable
+			{
+				Shader::Stage Stage;
+				DescriptorType Type;
+				DescriptorTable Table;
+				uint32_t Space;
+			};
+
+			struct Set32BitConstant
+			{
+				Shader::Stage Stage;
+				uint32_t SrcData;
+				uint32_t Offset;
+			};
+
+			struct Set32BitConstants
+			{
+				Shader::Stage Stage;
+				uint32_t Num32BitValues;
+				const void* pSrcData;
+				uint32_t Offset;
+			};
+
 			static const uint8_t CbvSrvUavTypes = 3;
 
 			bool init(XUSG::CommandList* pCommandList, uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize);
@@ -341,6 +364,10 @@ namespace XUSG
 
 			std::vector<uint32_t> m_graphicsSpaceToParamIndexMap[Shader::Stage::NUM_GRAPHICS][CbvSrvUavTypes];
 			std::vector<uint32_t> m_computeSpaceToParamIndexMap[CbvSrvUavTypes];
+
+			std::vector<SetDescriptorTable> m_graphicsSetDescriptorTables;
+			std::vector<Set32BitConstant> m_graphicsSetSingle32BitConstants;
+			std::vector<Set32BitConstants> m_graphicsSet32BitConstants;
 
 			uint32_t m_graphicsConstantParamIndices[Shader::Stage::NUM_GRAPHICS];
 			uint32_t m_computeConstantParamIndex;
