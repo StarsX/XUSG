@@ -77,9 +77,9 @@ static const DxilContainerHeader* IsDxilContainerLike(const void* ptr, size_t le
 {
 	XUSG_C_RETURN(!ptr || length < 4, nullptr);
 
-	XUSG_C_RETURN(DFCC_Container != *reinterpret_cast<const uint32_t*>(ptr), nullptr);
+	XUSG_C_RETURN(DFCC_Container != *static_cast<const uint32_t*>(ptr), nullptr);
 
-	return reinterpret_cast<const DxilContainerHeader*>(ptr);
+	return static_cast<const DxilContainerHeader*>(ptr);
 }
 
 static bool IsValidDxilContainer(const DxilContainerHeader* pHeader, size_t length)
@@ -205,28 +205,21 @@ Reflector_DX12::~Reflector_DX12()
 
 bool Reflector_DX12::SetShader(const Blob& shader)
 {
-	const auto pShader = reinterpret_cast<ID3DBlob*>(shader);
+	const auto pShader = static_cast<ID3DBlob*>(shader);
 	if (IsDxil(pShader->GetBufferPointer(), pShader->GetBufferSize()))
 	{
 		auto DxcCreateInstance = GetDxcCreateInstanceProc(L"dxcompiler.dll");
 		if (!DxcCreateInstance) return false;
 
-		com_ptr<IDxcLibrary> library = nullptr;;
-		V_RETURN(DxcCreateInstance(CLSID_DxcLibrary, IID_PPV_ARGS(&library)), cerr, false);
+		com_ptr<IDxcUtils> utils = nullptr;;
+		V_RETURN(DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&utils)), cerr, false);
 		com_ptr<IDxcBlobEncoding> blob = nullptr;
-		library->CreateBlobWithEncodingFromPinned(pShader->GetBufferPointer(),
+		utils->CreateBlobFromPinned(pShader->GetBufferPointer(),
 			static_cast<uint32_t>(pShader->GetBufferSize()), 0, blob.put());
 
-		auto shaderIdx = ~0u;
 		com_ptr<IDxcContainerReflection> reflection = nullptr;
 		V_RETURN(DxcCreateInstance(CLSID_DxcContainerReflection,
 			IID_PPV_ARGS(&reflection)), cerr, false);
-
-		reflection->Load(blob.get());
-		V_RETURN(reflection->FindFirstPartKind(DXIL_FOURCC('D', 'X', 'I', 'L'), &shaderIdx), cerr, false);
-		const auto hrShader = reflection->GetPartReflection(shaderIdx, IID_PPV_ARGS(&m_shaderReflection));
-		const auto hrLib = reflection->GetPartReflection(shaderIdx, IID_PPV_ARGS(&m_libraryReflection));
-		F_RETURN(FAILED(hrShader) && FAILED(hrLib), cerr, hrShader, false);
 
 		// Validate DXIL
 		DxcCreateInstance = GetDxcCreateInstanceProc(L"dxil.dll");
@@ -244,15 +237,30 @@ bool Reflector_DX12::SetShader(const Blob& shader)
 			{
 				cout << "The DXIL container failed validation." << endl;
 
-				com_ptr<IDxcBlobEncoding> printBlob = nullptr, printBlobUtf8 = nullptr;
+				com_ptr<IDxcBlobEncoding> printBlob = nullptr;
+				com_ptr<IDxcBlobUtf8> printBlobUtf8 = nullptr;
 				V_RETURN(result->GetErrorBuffer(printBlob.put()), cerr, false);
-				V_RETURN(library->GetBlobAsUtf8(printBlob.get(), printBlobUtf8.put()), cerr, false);
+				V_RETURN(utils->GetBlobAsUtf8(printBlob.get(), printBlobUtf8.put()), cerr, false);
 
 				string error;
-				if (printBlobUtf8) error = reinterpret_cast<const char*>(printBlobUtf8->GetBufferPointer());
+				if (printBlobUtf8) error = static_cast<const char*>(printBlobUtf8->GetBufferPointer());
 
 				cout << "Error:" << endl << error << endl;
 			}
+		}
+
+		auto shaderIdx = ~0u;
+		reflection->Load(blob.get());
+		V_RETURN(reflection->FindFirstPartKind(DXIL_FOURCC('D', 'X', 'I', 'L'), &shaderIdx), cerr, false);
+		const auto hrShader = reflection->GetPartReflection(shaderIdx, IID_PPV_ARGS(&m_shaderReflection));
+		const auto hrLib = reflection->GetPartReflection(shaderIdx, IID_PPV_ARGS(&m_libraryReflection));
+
+		if (FAILED(hrShader) && FAILED(hrLib))
+		{
+			cout << "The DXC container failed to create shader reflection: " << endl;
+			cerr << HrToString(hrShader).c_str() << "; ";
+			cerr << HrToString(hrLib).c_str() << std::endl;
+			return false;
 		}
 	}
 	else V_RETURN(D3DReflect(pShader->GetBufferPointer(), pShader->GetBufferSize(),
