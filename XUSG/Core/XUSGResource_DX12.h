@@ -73,6 +73,7 @@ namespace XUSG
 		ConstantBuffer_DX12();
 		virtual ~ConstantBuffer_DX12();
 
+		using Resource_DX12::Create;
 		bool Create(const Device* pDevice, size_t byteWidth, uint32_t numCBVs = 1,
 			const size_t* cbvByteOffsets = nullptr, MemoryType memoryType = MemoryType::UPLOAD,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr);
@@ -138,6 +139,7 @@ namespace XUSG
 		Texture_DX12();
 		virtual ~Texture_DX12();
 
+		using Resource_DX12::Create;
 		bool Create(const Device* pDevice, uint32_t width, uint32_t height, Format format,
 			uint16_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, bool isCubeMap = false,
@@ -229,6 +231,7 @@ namespace XUSG
 		RenderTarget_DX12();
 		virtual ~RenderTarget_DX12();
 
+		using Resource_DX12::Create;
 		bool Create(const Device* pDevice, uint32_t width, uint32_t height, Format format,
 			uint16_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			uint8_t sampleCount = 1, const float* pClearColor = nullptr, bool isCubeMap = false,
@@ -303,6 +306,7 @@ namespace XUSG
 		DepthStencil_DX12();
 		virtual ~DepthStencil_DX12();
 
+		using Resource_DX12::Create;
 		bool Create(const Device* pDevice, uint32_t width, uint32_t height,
 			Format format = Format::UNKNOWN, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint16_t arraySize = 1, uint8_t numMips = 1, uint8_t sampleCount = 1,
@@ -359,6 +363,7 @@ namespace XUSG
 		Texture3D_DX12();
 		virtual ~Texture3D_DX12();
 
+		using Resource_DX12::Create;
 		bool Create(const Device* pDevice, uint32_t width, uint32_t height, uint16_t depth,
 			Format format, ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
@@ -395,6 +400,7 @@ namespace XUSG
 		Buffer_DX12();
 		virtual ~Buffer_DX12();
 
+		using Resource_DX12::Create;
 		bool Create(const Device* pDevice, size_t byteWidth, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			MemoryType memoryType = MemoryType::DEFAULT, uint32_t numSRVs = 1,
 			const uintptr_t* firstSrvElements = nullptr, uint32_t numUAVs = 1,
@@ -456,6 +462,7 @@ namespace XUSG
 		StructuredBuffer_DX12();
 		virtual ~StructuredBuffer_DX12();
 
+		using Resource_DX12::Create;
 		bool Create(const Device* pDevice, size_t numElements, uint32_t byteStride,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
 			uint32_t numSRVs = 1, const uintptr_t* firstSrvElements = nullptr,
@@ -476,6 +483,7 @@ namespace XUSG
 		TypedBuffer_DX12();
 		virtual ~TypedBuffer_DX12();
 
+		using Resource_DX12::Create;
 		bool Create(const Device* pDevice, size_t numElements, uint32_t byteStride, Format format,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
 			uint32_t numSRVs = 1, const uintptr_t* firstSrvElements = nullptr,
@@ -502,6 +510,7 @@ namespace XUSG
 		VertexBuffer_DX12();
 		virtual ~VertexBuffer_DX12();
 
+		using Resource_DX12::Create;
 		bool Create(const Device* pDevice, size_t numVertices, uint32_t byteStride,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
 			uint32_t numVBVs = 1, const uintptr_t* firstVertices = nullptr,
@@ -538,6 +547,7 @@ namespace XUSG
 		IndexBuffer_DX12();
 		virtual ~IndexBuffer_DX12();
 
+		using Resource_DX12::Create;
 		bool Create(const Device* pDevice, size_t byteWidth, Format format = Format::R32_UINT,
 			ResourceFlag resourceFlags = ResourceFlag::DENY_SHADER_RESOURCE,
 			MemoryType memoryType = MemoryType::DEFAULT,

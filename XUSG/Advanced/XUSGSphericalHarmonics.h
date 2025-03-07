@@ -4,41 +4,7 @@
 
 #pragma once
 
-#ifdef _INDEPENDENT_SPHERICAL_HARMONICS_
-
-#include "Core/XUSG.h"
-
-namespace XUSG
-{
-	class XUSG_INTERFACE SphericalHarmonics
-	{
-	public:
-		//SphericalHarmonics();
-		virtual ~SphericalHarmonics() {}
-
-		virtual bool Init(const Device* pDevice, const ShaderLib::sptr& shaderLib,
-			const Compute::PipelineLib::sptr& computePipelineLib,
-			const PipelineLayoutLib::sptr& pipelineLayoutLib,
-			const DescriptorTableLib::sptr& descriptorTableLib,
-			uint8_t baseCSIndex, uint8_t descriptorHeapIndex = 0) = 0;
-
-		virtual void Transform(CommandList* pCommandList, Resource* pRadiance,
-			const DescriptorTable& srvTable, uint8_t order = 3) = 0;
-
-		virtual StructuredBuffer::sptr GetSHCoefficients() const = 0;
-
-		virtual const DescriptorTable& GetSHCoeffSRVTable() const = 0;
-
-		using uptr = std::unique_ptr<SphericalHarmonics>;
-		using sptr = std::shared_ptr<SphericalHarmonics>;
-
-		static uptr MakeUnique(API api = API::DIRECTX_12);
-		static sptr MakeShared(API api = API::DIRECTX_12);
-	};
-}
-#else
 #include "XUSGAdvanced.h"
-#endif
 
 namespace XUSG
 {

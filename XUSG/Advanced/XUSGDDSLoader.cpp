@@ -2,7 +2,7 @@
 // Copyright (c) XU, Tianchen. All rights reserved.
 //--------------------------------------------------------------------------------------
 
-#include "XUSGDDSLoader.h"
+#include "XUSGAdvanced.h"
 #include "Core/XUSG_DX12.h"
 #include "Core/XUSGEnum_DX12.h"
 #include "dds.h"

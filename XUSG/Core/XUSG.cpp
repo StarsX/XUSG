@@ -451,6 +451,13 @@ size_t XUSG::GetBlobData(const Blob& blob, const void*& pData, API api)
 	return GetDX12BlobData(blob, pData);
 }
 
+size_t XUSG::GetPipelineCacheData(Pipeline pipeline, const void*& pData, API api)
+{
+	const auto blob = GetPipelineCache(pipeline, api);
+
+	return GetBlobData(blob, pData, api);
+}
+
 size_t XUSG::Align(size_t size, size_t alignment)
 {
 	return (size + (alignment - 1)) & ~(alignment - 1);

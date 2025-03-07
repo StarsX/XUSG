@@ -100,9 +100,6 @@
     <ClInclude Include="Core\XUSGEnum_DX12.h">
       <Filter>Core\Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Advanced\XUSGDDSLoader.h">
-      <Filter>Advanced\Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Common\dds.h">
       <Filter>Common</Filter>
     </ClInclude>
@@ -162,6 +159,9 @@
     </ClInclude>
     <ClInclude Include="Ultimate\XUSGGenericState_DX12.h">
       <Filter>Ultimate\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Advanced\XUSGAdvanced.h">
+      <Filter>Advanced\Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

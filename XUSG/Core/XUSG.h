@@ -1525,6 +1525,7 @@ namespace XUSG
 		//ConstantBuffer();
 		virtual ~ConstantBuffer() {};
 
+		using Resource::Create;
 		virtual bool Create(const Device* pDevice, size_t byteWidth, uint32_t numCBVs = 1,
 			const size_t* cbvByteOffsets = nullptr, MemoryType memoryType = MemoryType::UPLOAD,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr) = 0;
@@ -1590,6 +1591,7 @@ namespace XUSG
 		//Texture();
 		virtual ~Texture() {};
 
+		using Resource::Create;
 		// Create a texture with auto SRVs and UAVs, where numMips can be 0 for full MIP chain
 		virtual bool Create(const Device* pDevice, uint32_t width, uint32_t height, Format format,
 			uint16_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
@@ -1682,6 +1684,7 @@ namespace XUSG
 		//RenderTarget();
 		virtual ~RenderTarget() {};
 
+		using Resource::Create;
 		// Create() will create multiple RTVs (1 slice per RTV), where numMips can be 0 for full MIP chain
 		virtual bool Create(const Device* pDevice, uint32_t width, uint32_t height, Format format,
 			uint16_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
@@ -1752,6 +1755,7 @@ namespace XUSG
 		//DepthStencil();
 		virtual ~DepthStencil() {};
 
+		using Resource::Create;
 		// Create() will create multiple DSVs (1 slice per DSV), where numMips can be 0 for full MIP chain
 		virtual bool Create(const Device* pDevice, uint32_t width, uint32_t height,
 			Format format = Format::UNKNOWN, ResourceFlag resourceFlags = ResourceFlag::NONE,
@@ -1801,6 +1805,7 @@ namespace XUSG
 		//Texture3D();
 		virtual ~Texture3D() {};
 
+		using Resource::Create;
 		// Create a 3D texture with auto SRVs and UAVs, where numMips can be 0 for full MIP chain
 		virtual bool Create(const Device* pDevice, uint32_t width, uint32_t height, uint16_t depth,
 			Format format, ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
@@ -1843,6 +1848,7 @@ namespace XUSG
 		//Buffer();
 		virtual ~Buffer() {};
 
+		using Resource::Create;
 		virtual bool Create(const Device* pDevice, size_t byteWidth, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			MemoryType memoryType = MemoryType::DEFAULT, uint32_t numSRVs = 1,
 			const uintptr_t* firstSrvElements = nullptr, uint32_t numUAVs = 1,
@@ -1900,6 +1906,7 @@ namespace XUSG
 		//StructuredBuffer();
 		virtual ~StructuredBuffer() {};
 
+		using Resource::Create;
 		virtual bool Create(const Device* pDevice, size_t numElements, uint32_t byteStride,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
 			uint32_t numSRVs = 1, const uintptr_t* firstSrvElements = nullptr,
@@ -1925,6 +1932,7 @@ namespace XUSG
 		//TypedBuffer();
 		virtual ~TypedBuffer() {};
 
+		using Resource::Create;
 		virtual bool Create(const Device* pDevice, size_t numElements, uint32_t byteStride, Format format,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
 			uint32_t numSRVs = 1, const uintptr_t* firstSrvElements = nullptr,
@@ -1953,6 +1961,7 @@ namespace XUSG
 		//VertexBuffer();
 		virtual ~VertexBuffer() {};
 
+		using Resource::Create;
 		virtual bool Create(const Device* pDevice, size_t numVertices, uint32_t byteStride,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
 			uint32_t numVBVs = 1, const uintptr_t* firstVertices = nullptr,
@@ -1989,6 +1998,7 @@ namespace XUSG
 		//IndexBuffer();
 		virtual ~IndexBuffer() {};
 
+		using Resource::Create;
 		virtual bool Create(const Device* pDevice, size_t byteWidth, Format format = Format::R32_UINT,
 			ResourceFlag resourceFlags = ResourceFlag::DENY_SHADER_RESOURCE,
 			MemoryType memoryType = MemoryType::DEFAULT,
@@ -2559,6 +2569,8 @@ namespace XUSG
 	XUSG_INTERFACE uint8_t Log2(uint32_t value);
 
 	XUSG_INTERFACE size_t GetBlobData(const Blob& blob, const void*& pData, API api = API::DIRECTX_12);
+
+	XUSG_INTERFACE size_t GetPipelineCacheData(Pipeline pipeline, const void*& pData, API api = API::DIRECTX_12);
 
 	XUSG_INTERFACE size_t Align(size_t size, size_t alignment);
 }
