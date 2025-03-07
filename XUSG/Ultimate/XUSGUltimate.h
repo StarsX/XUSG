@@ -411,6 +411,7 @@ namespace XUSG
 			//SamplerFeedBack();
 			virtual ~SamplerFeedBack() {};
 
+			using Resource::Create;
 			// Create a texture with auto SRVs and UAVs
 			virtual bool Create(const Device* pDevice, const Texture* pTarget, Format format,
 				uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,

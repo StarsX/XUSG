@@ -103,6 +103,7 @@ namespace XUSG
 			SamplerFeedBack_DX12();
 			~SamplerFeedBack_DX12();
 
+			using Resource_DX12::Create;
 			bool Create(const Device* pDevice, const Texture* pTarget, Format format,
 				uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
 				ResourceFlag resourceFlags = ResourceFlag::NONE, bool isCubeMap = false,
