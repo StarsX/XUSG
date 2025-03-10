@@ -14,7 +14,7 @@
 
 namespace XUSG
 {
-	stbi_uc* LoadImageFromFile(const char* fileName, int& width, int& height, int& reqChannels, XUSG::Format& format)
+	inline stbi_uc* LoadImageFromFile(const char* fileName, int& width, int& height, int& reqChannels, XUSG::Format& format)
 	{
 		int channels;
 		const auto infoStat = stbi_info(fileName, &width, &height, &channels);
@@ -39,7 +39,7 @@ namespace XUSG
 		return stbi_load(fileName, &width, &height, &channels, reqChannels);
 	}
 
-	bool CreateTextureFromFile(CommandList* pCommandList, const char* fileName,
+	inline bool CreateTextureFromFile(CommandList* pCommandList, const char* fileName,
 		Texture* pTexture, Resource* pUploader, ResourceState state = ResourceState::COMMON,
 		MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr)
 	{

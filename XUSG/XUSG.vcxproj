@@ -20,7 +20,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Advanced\XUSGAdvanced.h" />
-    <ClInclude Include="Advanced\XUSGHalton.h" />
     <ClInclude Include="Advanced\XUSGSHSharedConsts.h" />
     <ClInclude Include="Advanced\XUSGSphericalHarmonics.h" />
     <ClInclude Include="Common\d3d12.h" />

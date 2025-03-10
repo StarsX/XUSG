@@ -462,3 +462,8 @@ size_t XUSG::Align(size_t size, size_t alignment)
 {
 	return (size + (alignment - 1)) & ~(alignment - 1);
 }
+
+uint32_t XUSG::DivideAndRoundUp(uint32_t x, uint32_t n)
+{
+	return XUSG_DIV_UP(x, n);
+}

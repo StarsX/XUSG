@@ -2,7 +2,7 @@
 // Copyright (c) XU, Tianchen. All rights reserved.
 //--------------------------------------------------------------------------------------
 
-#include "XUSGHalton.h"
+#include "XUSGAdvanced.h"
 
 using namespace DirectX;
 using namespace XUSG;

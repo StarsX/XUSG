@@ -2573,4 +2573,6 @@ namespace XUSG
 	XUSG_INTERFACE size_t GetPipelineCacheData(Pipeline pipeline, const void*& pData, API api = API::DIRECTX_12);
 
 	XUSG_INTERFACE size_t Align(size_t size, size_t alignment);
+
+	XUSG_INTERFACE uint32_t DivideAndRoundUp(uint32_t x, uint32_t n);
 }

@@ -106,9 +106,6 @@
     <ClInclude Include="Common\d3d12.h">
       <Filter>Common</Filter>
     </ClInclude>
-    <ClInclude Include="Advanced\XUSGHalton.h">
-      <Filter>Advanced\Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Advanced\XUSGSHSharedConsts.h">
       <Filter>Advanced\Header Files</Filter>
     </ClInclude>
