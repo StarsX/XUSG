@@ -4,11 +4,12 @@
 
 #include "XUSGGltfLoader.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#define _ENABLE_STB_IMAGE_LOADER_
+#include "Advanced/XUSGTextureLoader.h"
+
 #define CGLTF_IMPLEMENTATION
 #include "cgltf.h"
-
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
 #include "xatlas.h"
 
 using namespace std;
@@ -55,15 +56,16 @@ bool GltfLoader::Import(const char* pszFilename, bool needNorm, bool needColor, 
 		for (size_t i = 0; i < pData->images_count; ++i)
 		{
 			const auto texFilePath = pathDir + pData->images[i].uri;
-			int width, height, channels;
-			const auto infoStat = stbi_info(texFilePath.c_str(), &width, &height, &channels);
-			assert(infoStat);
-			const auto reqChannels = channels != 3 ? channels : 4;
-			const auto pTexData = stbi_load(texFilePath.c_str(), &width, &height, &channels, reqChannels);
+
+			int width, height, reqChannels;
+			auto& format = m_textures[i].Format;
+			const auto pTexData = LoadImageFromFile(texFilePath.c_str(), width, height, reqChannels, format);
+
 			const auto size = sizeof(uint8_t) * reqChannels * width * height;
 			m_textures[i].Data.resize(size);
 			memcpy(m_textures[i].Data.data(), pTexData, size);
-			STBI_FREE(pTexData);
+			free(pTexData);
+
 			m_textures[i].Width = width;
 			m_textures[i].Height = height;
 			m_textures[i].Channels = reqChannels;
