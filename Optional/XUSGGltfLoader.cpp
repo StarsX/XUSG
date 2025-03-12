@@ -4,8 +4,7 @@
 
 #include "XUSGGltfLoader.h"
 
-#define STB_IMAGE_IMPLEMENTATION
-#define _ENABLE_STB_IMAGE_LOADER_
+#define _ENABLE_STB_IMAGE_LOADER_ONLY_
 #include "Advanced/XUSGTextureLoader.h"
 
 #define CGLTF_IMPLEMENTATION
