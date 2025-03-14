@@ -66,7 +66,6 @@ namespace XUSG
 			uint32_t Width;
 			uint32_t Height;
 			uint8_t Channels;
-			XUSG::Format Format;
 			std::vector<uint8_t> Data;
 		};
 

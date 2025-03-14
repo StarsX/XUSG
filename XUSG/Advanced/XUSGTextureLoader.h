@@ -14,41 +14,49 @@
 
 namespace XUSG
 {
-	inline stbi_uc* LoadImageFromFile(const char* fileName, int& width, int& height, int& reqChannels, XUSG::Format& format)
+	inline bool LoadImageInfoFromFile(const char* fileName, int& width, int& height, int& channels, int& reqChannels)
 	{
-		int channels;
 		const auto infoStat = stbi_info(fileName, &width, &height, &channels);
-		assert(infoStat);
 		reqChannels = channels != 3 ? channels : 4;
 
+		return infoStat;
+	}
+
+	inline stbi_uc* LoadImageFromFile(const char* fileName, int& width, int& height, int& reqChannels)
+	{
+		int channels;
+		const auto infoStat = LoadImageInfoFromFile(fileName, width, height, channels, reqChannels);
+		assert(infoStat);
+
+		return stbi_load(fileName, &width, &height, &channels, reqChannels);
+	}
+
+	inline Format GetImageFormat(int reqChannels)
+	{
 		switch (reqChannels)
 		{
 		case 1:
-			format = Format::R8_UNORM;
-			break;
+			return Format::R8_UNORM;
 		case 2:
-			format = Format::R8G8_UNORM;
-			break;
+			return Format::R8G8_UNORM;
 		case 4:
-			format = Format::R8G8B8A8_UNORM;
-			break;
+			return Format::R8G8B8A8_UNORM;
 		default:
 			assert(!"Wrong channels, unknown format!");
+			return Format::UNKNOWN;
 		}
-
-		return stbi_load(fileName, &width, &height, &channels, reqChannels);
 	}
 
 	inline bool CreateTextureFromFile(CommandList* pCommandList, const char* fileName,
 		Texture* pTexture, Resource* pUploader, ResourceState state = ResourceState::COMMON,
 		MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr)
 	{
-		Format format;
 		int width, height, reqChannels;
-		const auto pTexData = LoadImageFromFile(fileName, width, height, reqChannels, format);
+		const auto pTexData = LoadImageFromFile(fileName, width, height, reqChannels);
 
-		XUSG_N_RETURN(pTexture->Create(pCommandList->GetDevice(), width, height, format, 1,
-			ResourceFlag::NONE, 1, 1, false, memoryFlags, name), false);
+		XUSG_N_RETURN(pTexture->Create(pCommandList->GetDevice(), width, height,
+			GetImageFormat(reqChannels), 1, ResourceFlag::NONE, 1, 1, false,
+			memoryFlags, name), false);
 
 		XUSG_N_RETURN(pTexture->Upload(pCommandList, pUploader, pTexData, reqChannels, state), false);
 		free(pTexData);

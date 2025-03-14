@@ -54,12 +54,9 @@ bool GltfLoader::Import(const char* pszFilename, bool needNorm, bool needColor, 
 		m_textures.resize(pData->images_count);
 		for (size_t i = 0; i < pData->images_count; ++i)
 		{
-			const auto texFilePath = pathDir + pData->images[i].uri;
-
 			int width, height, reqChannels;
-			auto& format = m_textures[i].Format;
-			const auto pTexData = LoadImageFromFile(texFilePath.c_str(), width, height, reqChannels, format);
-
+			const auto texFilePath = pathDir + pData->images[i].uri;
+			const auto pTexData = LoadImageFromFile(texFilePath.c_str(), width, height, reqChannels);
 			const auto size = sizeof(uint8_t) * reqChannels * width * height;
 			m_textures[i].Data.resize(size);
 			memcpy(m_textures[i].Data.data(), pTexData, size);
