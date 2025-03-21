@@ -14,7 +14,7 @@ Rasterizer PipelineLib::RasterizerDefault()
 	rasterizer.Fill = FillMode::SOLID;
 	rasterizer.Cull = CullMode::BACK;
 	rasterizer.FrontCounterClockwise = false;
-	rasterizer.DepthBias = 0;
+	rasterizer.DepthBias = 0.0f;
 	rasterizer.DepthBiasClamp = 0.0f;
 	rasterizer.SlopeScaledDepthBias = 0.0f;
 	rasterizer.DepthClipEnable = true;
@@ -50,6 +50,30 @@ Rasterizer PipelineLib::FillWireframe()
 {
 	auto rasterizer = RasterizerDefault();
 	rasterizer.Fill = FillMode::WIREFRAME;
+
+	return rasterizer;
+}
+
+Rasterizer PipelineLib::CullBack_Conservative()
+{
+	auto rasterizer = CullBack();
+	rasterizer.ConservativeRaster = true;
+
+	return rasterizer;
+}
+
+Rasterizer PipelineLib::CullNone_Conservative()
+{
+	auto rasterizer = CullNone();
+	rasterizer.ConservativeRaster = true;
+
+	return rasterizer;
+}
+
+Rasterizer PipelineLib::CullFront_Conservative()
+{
+	auto rasterizer = CullFront();
+	rasterizer.ConservativeRaster = true;
 
 	return rasterizer;
 }

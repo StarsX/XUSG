@@ -270,13 +270,65 @@ PipelineLib_DX12::PipelineLib_DX12() :
 	m_pfnRasterizers[RasterizerPreset::CULL_NONE] = CullNone;
 	m_pfnRasterizers[RasterizerPreset::CULL_FRONT] = CullFront;
 	m_pfnRasterizers[RasterizerPreset::FILL_WIREFRAME] = FillWireframe;
+	m_pfnRasterizers[RasterizerPreset::CULL_BACK_CONSERVATIVE] = CullBack_Conservative;
+	m_pfnRasterizers[RasterizerPreset::CULL_NONE_CONSERVATIVE] = CullNone_Conservative;
+	m_pfnRasterizers[RasterizerPreset::CULL_FRONT_CONSERVATIVE] = CullFront_Conservative;
 
 	// Depth stencil states
 	m_pfnDepthStencils[DepthStencilPreset::DEFAULT_LESS] = DepthStencilDefault;
 	m_pfnDepthStencils[DepthStencilPreset::DEPTH_STENCIL_NONE] = DepthStencilNone;
-	m_pfnDepthStencils[DepthStencilPreset::DEPTH_READ_LESS] = DepthRead;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_LESS_EQUAL] = DepthLessEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_EQUAL] = DepthEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_GREATER] = DepthGreater;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_GREATER_EQUAL] = DepthGreaterEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_NOT_EQUAL] = DepthNotEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_ALWAYS] = DepthAlways;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_READ_LESS] = DepthReadLess;
 	m_pfnDepthStencils[DepthStencilPreset::DEPTH_READ_LESS_EQUAL] = DepthReadLessEqual;
 	m_pfnDepthStencils[DepthStencilPreset::DEPTH_READ_EQUAL] = DepthReadEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_READ_GREATER] = DepthReadGreater;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_READ_GREATER_EQUAL] = DepthReadGreaterEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_READ_NOT_EQUAL] = DepthReadNotEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_READ_NEVER] = DepthReadNever;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_READ_ALWAYS] = DepthReadAlways;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_LESS_STENCIL_ZERO] = DepthLess_StencilZero;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_LESS_EQUAL_STENCIL_ZERO] = DepthLessEqual_StencilZero;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_EQUAL_STENCIL_ZERO] = DepthEqual_StencilZero;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_GREATER_STENCIL_ZERO] = DepthGreater_StencilZero;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_GREATER_EQUAL_STENCIL_ZERO] = DepthGreaterEqual_StencilZero;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_NOT_EQUAL_STENCIL_ZERO] = DepthNotEqual_StencilZero;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_NEVER_STENCIL_ZERO] = DepthNever_StencilZero;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_ALWAYS_STENCIL_ZERO] = DepthAlways_StencilZero;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_LESS_STENCIL_REPLACE] = DepthLess_StencilReplace;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_LESS_EQUAL_STENCIL_REPLACE] = DepthLessEqual_StencilReplace;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_EQUAL_STENCIL_REPLACE] = DepthEqual_StencilReplace;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_GREATER_STENCIL_REPLACE] = DepthGreater_StencilReplace;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_GREATER_EQUAL_STENCIL_REPLACE] = DepthGreaterEqual_StencilReplace;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_NOT_EQUAL_STENCIL_REPLACE] = DepthNotEqual_StencilReplace;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_NEVER_STENCIL_REPLACE] = DepthNever_StencilReplace;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_ALWAYS_STENCIL_REPLACE] = DepthAlways_StencilReplace;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_LESS_STENCIL_EQUAL] = DepthLess_StencilEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_LESS_EQUAL_STENCIL_EQUAL] = DepthLessEqual_StencilEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_EQUAL_STENCIL_EQUAL] = DepthEqual_StencilEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_GREATER_STENCIL_EQUAL] = DepthGreater_StencilEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_GREATER_EQUAL_STENCIL_EQUAL] = DepthGreaterEqual_StencilEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_NOT_EQUAL_STENCIL_EQUAL] = DepthNotEqual_StencilEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_NEVER_STENCIL_EQUAL] = DepthNever_StencilEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_ALWAYS_STENCIL_EQUAL] = DepthAlways_StencilEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_LESS_STENCIL_NOT_EQUAL] = DepthLess_StencilNotEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_LESS_EQUAL_STENCIL_NOT_EQUAL] = DepthLessEqual_StencilNotEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_EQUAL_STENCIL_NOT_EQUAL] = DepthEqual_StencilNotEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_GREATER_STENCIL_NOT_EQUAL] = DepthGreater_StencilNotEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_GREATER_EQUAL_STENCIL_NOT_EQUAL] = DepthGreaterEqual_StencilNotEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_NOT_EQUAL_STENCIL_NOT_EQUAL] = DepthNotEqual_StencilNotEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_NEVER_STENCIL_NOT_EQUAL] = DepthNever_StencilNotEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_ALWAYS_STENCIL_NOT_EQUAL] = DepthAlways_StencilNotEqual;
+	m_pfnDepthStencils[DepthStencilPreset::STENCIL_FRONT_INC_BACK_DEC] = StencilFrontIncrBackDecr;
+	m_pfnDepthStencils[DepthStencilPreset::STENCIL_FRONT_DEC_BACK_INC] = StencilFrontDecrBackIncr;
+	m_pfnDepthStencils[DepthStencilPreset::STENCIL_FRONT_PASS_ZERO] = StencilPassZero;
+	m_pfnDepthStencils[DepthStencilPreset::STENCIL_FRONT_FAIL_ZERO] = StencilFailZero;
+	m_pfnDepthStencils[DepthStencilPreset::STENCIL_FRONT_PASS_INVERT] = StencilPassInvert;
+	m_pfnDepthStencils[DepthStencilPreset::STENCIL_FRONT_FAIL_INVERT] = StencilFailInvert;
 }
 
 PipelineLib_DX12::PipelineLib_DX12(const Device* pDevice) :

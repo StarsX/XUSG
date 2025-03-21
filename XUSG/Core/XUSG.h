@@ -2305,6 +2305,9 @@ namespace XUSG
 			CULL_NONE,
 			CULL_FRONT,
 			FILL_WIREFRAME,
+			CULL_BACK_CONSERVATIVE,
+			CULL_NONE_CONSERVATIVE,
+			CULL_FRONT_CONSERVATIVE,
 
 			NUM_RS_PRESET
 		};
@@ -2313,11 +2316,62 @@ namespace XUSG
 		{
 			DEFAULT_LESS,
 			DEPTH_STENCIL_NONE,
+			DEPTH_EQUAL,
+			DEPTH_LESS_EQUAL,
+			DEPTH_GREATER,
+			DEPTH_NOT_EQUAL,
+			DEPTH_GREATER_EQUAL,
+			DEPTH_ALWAYS,
+			DEPTH_READ_NEVER,
 			DEPTH_READ_LESS,
-			DEPTH_READ_LESS_EQUAL,
 			DEPTH_READ_EQUAL,
+			DEPTH_READ_LESS_EQUAL,
+			DEPTH_READ_GREATER,
+			DEPTH_READ_NOT_EQUAL,
+			DEPTH_READ_GREATER_EQUAL,
+			DEPTH_READ_ALWAYS,
+			DEPTH_NEVER_STENCIL_ZERO,
+			DEPTH_LESS_STENCIL_ZERO,
+			DEPTH_EQUAL_STENCIL_ZERO,
+			DEPTH_LESS_EQUAL_STENCIL_ZERO,
+			DEPTH_GREATER_STENCIL_ZERO,
+			DEPTH_NOT_EQUAL_STENCIL_ZERO,
+			DEPTH_GREATER_EQUAL_STENCIL_ZERO,
+			DEPTH_ALWAYS_STENCIL_ZERO,
+			DEPTH_NEVER_STENCIL_REPLACE,
+			DEPTH_LESS_STENCIL_REPLACE,
+			DEPTH_EQUAL_STENCIL_REPLACE,
+			DEPTH_LESS_EQUAL_STENCIL_REPLACE,
+			DEPTH_GREATER_STENCIL_REPLACE,
+			DEPTH_NOT_EQUAL_STENCIL_REPLACE,
+			DEPTH_GREATER_EQUAL_STENCIL_REPLACE,
+			DEPTH_ALWAYS_STENCIL_REPLACE,
+			DEPTH_NEVER_STENCIL_EQUAL,
+			DEPTH_LESS_STENCIL_EQUAL,
+			DEPTH_EQUAL_STENCIL_EQUAL,
+			DEPTH_LESS_EQUAL_STENCIL_EQUAL,
+			DEPTH_GREATER_STENCIL_EQUAL,
+			DEPTH_NOT_EQUAL_STENCIL_EQUAL,
+			DEPTH_GREATER_EQUAL_STENCIL_EQUAL,
+			DEPTH_ALWAYS_STENCIL_EQUAL,
+			DEPTH_NEVER_STENCIL_NOT_EQUAL,
+			DEPTH_LESS_STENCIL_NOT_EQUAL,
+			DEPTH_EQUAL_STENCIL_NOT_EQUAL,
+			DEPTH_LESS_EQUAL_STENCIL_NOT_EQUAL,
+			DEPTH_GREATER_STENCIL_NOT_EQUAL,
+			DEPTH_NOT_EQUAL_STENCIL_NOT_EQUAL,
+			DEPTH_GREATER_EQUAL_STENCIL_NOT_EQUAL,
+			DEPTH_ALWAYS_STENCIL_NOT_EQUAL,
+			STENCIL_FRONT_INC_BACK_DEC,
+			STENCIL_FRONT_DEC_BACK_INC,
+			STENCIL_FRONT_PASS_ZERO,
+			STENCIL_FRONT_FAIL_ZERO,
+			STENCIL_FRONT_PASS_INVERT,
+			STENCIL_FRONT_FAIL_INVERT,
 
-			NUM_DS_PRESET
+			NUM_DS_PRESET,
+			DEPTH_LESS = DEFAULT_LESS,
+			DEPTH_NEVER = DEPTH_READ_NEVER
 		};
 
 		struct RenderTargetBlend
@@ -2467,9 +2521,60 @@ namespace XUSG
 
 			static DepthStencil DepthStencilDefault();
 			static DepthStencil DepthStencilNone();
-			static DepthStencil DepthRead();
+			static DepthStencil DepthNever();
+			static DepthStencil DepthLess();
+			static DepthStencil DepthLessEqual();
+			static DepthStencil DepthEqual();
+			static DepthStencil DepthGreater();
+			static DepthStencil DepthGreaterEqual();
+			static DepthStencil DepthNotEqual();
+			static DepthStencil DepthAlways();
+			static DepthStencil DepthReadNever();
+			static DepthStencil DepthReadLess();
 			static DepthStencil DepthReadLessEqual();
 			static DepthStencil DepthReadEqual();
+			static DepthStencil DepthReadGreater();
+			static DepthStencil DepthReadGreaterEqual();
+			static DepthStencil DepthReadNotEqual();
+			static DepthStencil DepthReadAlways();
+			static DepthStencil DepthNever_StencilZero();
+			static DepthStencil DepthLess_StencilZero();
+			static DepthStencil DepthLessEqual_StencilZero();
+			static DepthStencil DepthEqual_StencilZero();
+			static DepthStencil DepthGreater_StencilZero();
+			static DepthStencil DepthGreaterEqual_StencilZero();
+			static DepthStencil DepthNotEqual_StencilZero();
+			static DepthStencil DepthAlways_StencilZero();
+			static DepthStencil DepthNever_StencilReplace();
+			static DepthStencil DepthLess_StencilReplace();
+			static DepthStencil DepthLessEqual_StencilReplace();
+			static DepthStencil DepthEqual_StencilReplace();
+			static DepthStencil DepthGreater_StencilReplace();
+			static DepthStencil DepthGreaterEqual_StencilReplace();
+			static DepthStencil DepthNotEqual_StencilReplace();
+			static DepthStencil DepthAlways_StencilReplace();
+			static DepthStencil DepthNever_StencilEqual();
+			static DepthStencil DepthLess_StencilEqual();
+			static DepthStencil DepthLessEqual_StencilEqual();
+			static DepthStencil DepthEqual_StencilEqual();
+			static DepthStencil DepthGreater_StencilEqual();
+			static DepthStencil DepthGreaterEqual_StencilEqual();
+			static DepthStencil DepthNotEqual_StencilEqual();
+			static DepthStencil DepthAlways_StencilEqual();
+			static DepthStencil DepthNever_StencilNotEqual();
+			static DepthStencil DepthLess_StencilNotEqual();
+			static DepthStencil DepthLessEqual_StencilNotEqual();
+			static DepthStencil DepthEqual_StencilNotEqual();
+			static DepthStencil DepthGreater_StencilNotEqual();
+			static DepthStencil DepthGreaterEqual_StencilNotEqual();
+			static DepthStencil DepthNotEqual_StencilNotEqual();
+			static DepthStencil DepthAlways_StencilNotEqual();
+			static DepthStencil StencilFrontIncrBackDecr();
+			static DepthStencil StencilFrontDecrBackIncr();
+			static DepthStencil StencilPassZero();
+			static DepthStencil StencilFailZero();
+			static DepthStencil StencilPassInvert();
+			static DepthStencil StencilFailInvert();
 
 			static Blend DefaultOpaque(uint8_t n);
 			static Blend Premultiplied(uint8_t n);
@@ -2492,6 +2597,9 @@ namespace XUSG
 			static Rasterizer CullNone();
 			static Rasterizer CullFront();
 			static Rasterizer FillWireframe();
+			static Rasterizer CullBack_Conservative();
+			static Rasterizer CullNone_Conservative();
+			static Rasterizer CullFront_Conservative();
 
 			using uptr = std::unique_ptr<PipelineLib>;
 			using sptr = std::shared_ptr<PipelineLib>;
@@ -2574,5 +2682,5 @@ namespace XUSG
 
 	XUSG_INTERFACE size_t Align(size_t size, size_t alignment);
 
-	XUSG_INTERFACE uint32_t DivideAndRoundUp(uint32_t x, uint32_t n);
+	XUSG_INTERFACE uint32_t Divide_RoundUp(uint32_t x, uint32_t n);
 }

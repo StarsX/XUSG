@@ -333,13 +333,65 @@ PipelineLib_DX12::PipelineLib_DX12() :
 	m_pfnRasterizers[RasterizerPreset::CULL_NONE] = Graphics::PipelineLib::CullNone;
 	m_pfnRasterizers[RasterizerPreset::CULL_FRONT] = Graphics::PipelineLib::CullFront;
 	m_pfnRasterizers[RasterizerPreset::FILL_WIREFRAME] = Graphics::PipelineLib::FillWireframe;
+	m_pfnRasterizers[RasterizerPreset::CULL_BACK_CONSERVATIVE] = Graphics::PipelineLib::CullBack_Conservative;
+	m_pfnRasterizers[RasterizerPreset::CULL_NONE_CONSERVATIVE] = Graphics::PipelineLib::CullNone_Conservative;
+	m_pfnRasterizers[RasterizerPreset::CULL_FRONT_CONSERVATIVE] = Graphics::PipelineLib::CullFront_Conservative;
 
 	// Depth stencil states
 	m_pfnDepthStencils[DepthStencilPreset::DEFAULT_LESS] = Graphics::PipelineLib::DepthStencilDefault;
 	m_pfnDepthStencils[DepthStencilPreset::DEPTH_STENCIL_NONE] = Graphics::PipelineLib::DepthStencilNone;
-	m_pfnDepthStencils[DepthStencilPreset::DEPTH_READ_LESS] = Graphics::PipelineLib::DepthRead;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_LESS_EQUAL] = Graphics::PipelineLib::DepthLessEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_EQUAL] = Graphics::PipelineLib::DepthEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_GREATER] = Graphics::PipelineLib::DepthGreater;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_GREATER_EQUAL] = Graphics::PipelineLib::DepthGreaterEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_NOT_EQUAL] = Graphics::PipelineLib::DepthNotEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_ALWAYS] = Graphics::PipelineLib::DepthAlways;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_READ_LESS] = Graphics::PipelineLib::DepthReadLess;
 	m_pfnDepthStencils[DepthStencilPreset::DEPTH_READ_LESS_EQUAL] = Graphics::PipelineLib::DepthReadLessEqual;
 	m_pfnDepthStencils[DepthStencilPreset::DEPTH_READ_EQUAL] = Graphics::PipelineLib::DepthReadEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_READ_GREATER] = Graphics::PipelineLib::DepthReadGreater;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_READ_GREATER_EQUAL] = Graphics::PipelineLib::DepthReadGreaterEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_READ_NOT_EQUAL] = Graphics::PipelineLib::DepthReadNotEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_READ_NEVER] = Graphics::PipelineLib::DepthReadNever;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_READ_ALWAYS] = Graphics::PipelineLib::DepthReadAlways;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_LESS_STENCIL_ZERO] = Graphics::PipelineLib::DepthLess_StencilZero;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_LESS_EQUAL_STENCIL_ZERO] = Graphics::PipelineLib::DepthLessEqual_StencilZero;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_EQUAL_STENCIL_ZERO] = Graphics::PipelineLib::DepthEqual_StencilZero;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_GREATER_STENCIL_ZERO] = Graphics::PipelineLib::DepthGreater_StencilZero;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_GREATER_EQUAL_STENCIL_ZERO] = Graphics::PipelineLib::DepthGreaterEqual_StencilZero;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_NOT_EQUAL_STENCIL_ZERO] = Graphics::PipelineLib::DepthNotEqual_StencilZero;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_NEVER_STENCIL_ZERO] = Graphics::PipelineLib::DepthNever_StencilZero;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_ALWAYS_STENCIL_ZERO] = Graphics::PipelineLib::DepthAlways_StencilZero;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_LESS_STENCIL_REPLACE] = Graphics::PipelineLib::DepthLess_StencilReplace;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_LESS_EQUAL_STENCIL_REPLACE] = Graphics::PipelineLib::DepthLessEqual_StencilReplace;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_EQUAL_STENCIL_REPLACE] = Graphics::PipelineLib::DepthEqual_StencilReplace;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_GREATER_STENCIL_REPLACE] = Graphics::PipelineLib::DepthGreater_StencilReplace;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_GREATER_EQUAL_STENCIL_REPLACE] = Graphics::PipelineLib::DepthGreaterEqual_StencilReplace;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_NOT_EQUAL_STENCIL_REPLACE] = Graphics::PipelineLib::DepthNotEqual_StencilReplace;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_NEVER_STENCIL_REPLACE] = Graphics::PipelineLib::DepthNever_StencilReplace;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_ALWAYS_STENCIL_REPLACE] = Graphics::PipelineLib::DepthAlways_StencilReplace;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_LESS_STENCIL_EQUAL] = Graphics::PipelineLib::DepthLess_StencilEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_LESS_EQUAL_STENCIL_EQUAL] = Graphics::PipelineLib::DepthLessEqual_StencilEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_EQUAL_STENCIL_EQUAL] = Graphics::PipelineLib::DepthEqual_StencilEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_GREATER_STENCIL_EQUAL] = Graphics::PipelineLib::DepthGreater_StencilEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_GREATER_EQUAL_STENCIL_EQUAL] = Graphics::PipelineLib::DepthGreaterEqual_StencilEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_NOT_EQUAL_STENCIL_EQUAL] = Graphics::PipelineLib::DepthNotEqual_StencilEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_NEVER_STENCIL_EQUAL] = Graphics::PipelineLib::DepthNever_StencilEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_ALWAYS_STENCIL_EQUAL] = Graphics::PipelineLib::DepthAlways_StencilEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_LESS_STENCIL_NOT_EQUAL] = Graphics::PipelineLib::DepthLess_StencilNotEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_LESS_EQUAL_STENCIL_NOT_EQUAL] = Graphics::PipelineLib::DepthLessEqual_StencilNotEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_EQUAL_STENCIL_NOT_EQUAL] = Graphics::PipelineLib::DepthEqual_StencilNotEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_GREATER_STENCIL_NOT_EQUAL] = Graphics::PipelineLib::DepthGreater_StencilNotEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_GREATER_EQUAL_STENCIL_NOT_EQUAL] = Graphics::PipelineLib::DepthGreaterEqual_StencilNotEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_NOT_EQUAL_STENCIL_NOT_EQUAL] = Graphics::PipelineLib::DepthNotEqual_StencilNotEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_NEVER_STENCIL_NOT_EQUAL] = Graphics::PipelineLib::DepthNever_StencilNotEqual;
+	m_pfnDepthStencils[DepthStencilPreset::DEPTH_ALWAYS_STENCIL_NOT_EQUAL] = Graphics::PipelineLib::DepthAlways_StencilNotEqual;
+	m_pfnDepthStencils[DepthStencilPreset::STENCIL_FRONT_INC_BACK_DEC] = Graphics::PipelineLib::StencilFrontIncrBackDecr;
+	m_pfnDepthStencils[DepthStencilPreset::STENCIL_FRONT_DEC_BACK_INC] = Graphics::PipelineLib::StencilFrontDecrBackIncr;
+	m_pfnDepthStencils[DepthStencilPreset::STENCIL_FRONT_PASS_ZERO] = Graphics::PipelineLib::StencilPassZero;
+	m_pfnDepthStencils[DepthStencilPreset::STENCIL_FRONT_FAIL_ZERO] = Graphics::PipelineLib::StencilFailZero;
+	m_pfnDepthStencils[DepthStencilPreset::STENCIL_FRONT_PASS_INVERT] = Graphics::PipelineLib::StencilPassInvert;
+	m_pfnDepthStencils[DepthStencilPreset::STENCIL_FRONT_FAIL_INVERT] = Graphics::PipelineLib::StencilFailInvert;
 }
 
 PipelineLib_DX12::PipelineLib_DX12(const Device* pDevice) :

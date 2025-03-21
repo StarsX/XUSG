@@ -696,7 +696,7 @@ D3D12_CLEAR_FLAGS XUSG::GetDX12ClearFlags(ClearFlag clearFlags)
 {
 	auto flags = D3D12_CLEAR_FLAGS(0);
 	flags |= (clearFlags & ClearFlag::DEPTH) == ClearFlag::DEPTH ? D3D12_CLEAR_FLAG_DEPTH : D3D12_CLEAR_FLAGS(0);
-	flags |= (clearFlags & ClearFlag::STENCIL) == ClearFlag::DEPTH ? D3D12_CLEAR_FLAG_STENCIL : D3D12_CLEAR_FLAGS(0);
+	flags |= (clearFlags & ClearFlag::STENCIL) == ClearFlag::STENCIL ? D3D12_CLEAR_FLAG_STENCIL : D3D12_CLEAR_FLAGS(0);
 
 	return flags;
 }
