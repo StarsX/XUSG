@@ -43,6 +43,8 @@ namespace XUSG
 					BuildFlag flags = BuildFlag::PREFER_FAST_TRACE);
 				bool PrebuildTLAS(TopLevelAS* pTLAS, uint32_t numInstances,
 					BuildFlag flags = BuildFlag::PREFER_FAST_TRACE);
+				bool PrebuildOmmArray(OpacityMicromapArray* pOmmArray, uint32_t numOpacityMicromaps,
+					const GeometryBuffer& ommArrayDescs, BuildFlag flags = BuildFlag::PREFER_FAST_TRACE);
 				bool AllocateAccelerationStructure(AccelerationStructure* pAccelerationStructure, size_t byteWidth = 0);
 
 				void SetTriangleGeometries(GeometryBuffer& geometries, uint32_t numGeometries, Format vertexFormat,
@@ -50,13 +52,21 @@ namespace XUSG
 					const GeometryFlag* pGeometryFlags = nullptr, const ResourceView* pTransforms = nullptr);
 				void SetAABBGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
 					XUSG::EZ::VertexBufferView* pVBs, const GeometryFlag* pGeometryFlags = nullptr);
+				void SetOMMGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
+					const GeometryBuffer& triGeometries, const BottomLevelAS::OMMLinkage* pOmmLinkages,
+					const GeometryFlag* pGeometryFlags = nullptr);
+				void SetOmmArray(GeometryBuffer& ommArrayDescs, uint32_t numOpacityMicromaps,
+					const OpacityMicromapArray::Desc* pOmmArrayDescs);
 				void SetBLASDestination(BottomLevelAS* pBLAS, const Buffer::sptr destBuffer,
 					uintptr_t byteOffset, uint32_t uavIndex);
 				void SetTLASDestination(TopLevelAS* pTLAS, const Buffer::sptr destBuffer,
 					uintptr_t byteOffset, uint32_t uavIndex, uint32_t srvIndex);
+				void SetOmmArrayDestination(OpacityMicromapArray* pOmmArray, const Buffer::sptr destBuffer, uintptr_t byteOffset);
 				void BuildBLAS(BottomLevelAS* pBLAS, const BottomLevelAS* pSource = nullptr,
 					uint8_t numPostbuildInfoDescs = 0, const PostbuildInfoType* pPostbuildInfoTypes = nullptr);
-				void BuildTLAS(TopLevelAS* pTLAS, const Resource* pInstanceDescs, const TopLevelAS* pSource = nullptr,
+				void BuildTLAS(TopLevelAS* pTLAS, Resource* pInstanceDescs, const TopLevelAS* pSource = nullptr,
+					uint8_t numPostbuildInfoDescs = 0, const PostbuildInfoType* pPostbuildInfoTypes = nullptr);
+				void BuildOmmArray(OpacityMicromapArray* pOmmArray, const OpacityMicromapArray* pSource = nullptr,
 					uint8_t numPostbuildInfoDescs = 0, const PostbuildInfoType* pPostbuildInfoTypes = nullptr);
 				void CopyRaytracingAccelerationStructure(const AccelerationStructure* pDst,
 					const AccelerationStructure* pSrc, CopyMode mode);

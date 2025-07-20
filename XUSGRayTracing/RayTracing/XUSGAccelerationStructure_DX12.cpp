@@ -77,14 +77,18 @@ size_t AccelerationStructure_DX12::GetResultDataMaxByteSize(bool isAligned) cons
 	return isAligned ? Align(resultDataMaxByteSize) : resultDataMaxByteSize;
 }
 
-size_t AccelerationStructure_DX12::GetScratchDataByteSize() const
+size_t AccelerationStructure_DX12::GetScratchDataByteSize(bool isAligned) const
 {
-	return static_cast<size_t>(m_prebuildInfo.ScratchDataByteSize);
+	const auto scratchDataByteSize = static_cast<size_t>(m_prebuildInfo.ScratchDataByteSize);
+
+	return isAligned ? Align(scratchDataByteSize) : scratchDataByteSize;
 }
 
-size_t AccelerationStructure_DX12::GetUpdateScratchDataByteSize() const
+size_t AccelerationStructure_DX12::GetUpdateScratchDataByteSize(bool isAligned) const
 {
-	return static_cast<size_t>(m_prebuildInfo.UpdateScratchDataByteSize);
+	const auto updateScratchDataByteSize = static_cast<size_t>(m_prebuildInfo.UpdateScratchDataByteSize);
+
+	return isAligned ? Align(updateScratchDataByteSize) : updateScratchDataByteSize;
 }
 
 size_t AccelerationStructure_DX12::GetCompactedByteSize(bool isAligned) const
@@ -309,6 +313,50 @@ void BottomLevelAS_DX12::SetAABBGeometries(GeometryBuffer& geometries, uint32_t 
 	}
 }
 
+void BottomLevelAS_DX12::SetOMMGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
+	const GeometryBuffer& triGeometries, const OMMLinkage* pOmmLinkages, const GeometryFlag* pGeometryFlags)
+{
+	const auto geometriesSize = sizeof(D3D12_RAYTRACING_GEOMETRY_DESC) * numGeometries;
+	const auto bufferSize = geometriesSize + (pOmmLinkages ? sizeof(D3D12_RAYTRACING_GEOMETRY_OMM_LINKAGE_DESC) * numGeometries : 0);
+
+	geometries.resize(bufferSize);
+	auto pOmmLinkage = reinterpret_cast<D3D12_RAYTRACING_GEOMETRY_OMM_LINKAGE_DESC*>(&geometries[geometriesSize]);
+	for (auto i = 0u; i < numGeometries; ++i)
+	{
+		auto& geometryDesc = reinterpret_cast<D3D12_RAYTRACING_GEOMETRY_DESC*>(geometries.data())[i];
+		const auto& triGeometryDesc = reinterpret_cast<const D3D12_RAYTRACING_GEOMETRY_DESC*>(triGeometries.data())[i];
+
+		geometryDesc = {};
+		geometryDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_OMM_TRIANGLES;
+		geometryDesc.OmmTriangles.pTriangles = &triGeometryDesc.Triangles;
+		geometryDesc.OmmTriangles.pOmmLinkage = pOmmLinkages ? pOmmLinkage : nullptr;
+
+		// Mark the geometry as opaque. 
+		// PERFORMANCE TIP: mark geometry as opaque whenever applicable as it can enable important ray processing optimizations.
+		// Note: When rays encounter opaque geometry an any hit shader will not be executed whether it is present or not.
+		geometryDesc.Flags = pGeometryFlags ? GetDXRGeometryFlags(pGeometryFlags[i]) : D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
+
+		if (pOmmLinkages)
+		{
+			pOmmLinkage->OpacityMicromapIndexBuffer.StartAddress = pOmmLinkages[i].pOpacityMicromapIndexBuffer->GetVirtualAddress();
+			pOmmLinkage->OpacityMicromapIndexBuffer.StrideInBytes = pOmmLinkages[i].OpacityMicromapIndexBufferStride;
+			pOmmLinkage->OpacityMicromapIndexFormat = GetDXGIFormat(pOmmLinkages[i].OpacityMicromapIndexFormat);
+			pOmmLinkage->OpacityMicromapBaseLocation = pOmmLinkages[i].OpacityMicromapBaseLocation;
+			pOmmLinkage->OpacityMicromapArray = pOmmLinkages[i].pOpacityMicromapArray->GetVirtualAddress() + pOmmLinkages[i].OpacityMicromapArrayOffset;
+		}
+	}
+}
+
+size_t BottomLevelAS_DX12::AlignTransform(size_t byteSize)
+{
+	return XUSG::Align(byteSize, D3D12_RAYTRACING_TRANSFORM3X4_BYTE_ALIGNMENT);
+}
+
+size_t BottomLevelAS_DX12::AlignAABB(size_t byteSize)
+{
+	return XUSG::Align(byteSize, D3D12_RAYTRACING_AABB_BYTE_ALIGNMENT);
+}
+
 //--------------------------------------------------------------------------------------
 // Top level acceleration structure
 //--------------------------------------------------------------------------------------
@@ -439,4 +487,154 @@ void TopLevelAS_DX12::SetInstances(const Device* pDevice, Buffer* pInstances, ui
 	else AccelerationStructure_DX12::AllocateUploadBuffer(pDevice, pInstances,
 		sizeof(D3D12_RAYTRACING_FALLBACK_INSTANCE_DESC) * numInstances,
 		instanceDescs.data(), memoryFlags, instanceName);
+}
+
+size_t TopLevelAS_DX12::AlignInstanceDesc(size_t byteSize)
+{
+	return XUSG::Align(byteSize, D3D12_RAYTRACING_INSTANCE_DESCS_BYTE_ALIGNMENT);
+}
+
+//--------------------------------------------------------------------------------------
+// Opacity micromap array
+//--------------------------------------------------------------------------------------
+
+OpacityMicromapArray_DX12::OpacityMicromapArray_DX12() :
+	AccelerationStructure_DX12()
+{
+}
+
+OpacityMicromapArray_DX12::~OpacityMicromapArray_DX12()
+{
+}
+
+bool OpacityMicromapArray_DX12::Prebuild(const Device* pDevice, uint32_t numOpacityMicromaps,
+	const GeometryBuffer& ommArrayDescs, BuildFlag flags)
+{
+	m_buildDesc = {};
+	auto& inputs = m_buildDesc.Inputs;
+	inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
+	inputs.Flags = GetDXRBuildFlags(flags);
+	inputs.NumDescs = numOpacityMicromaps;
+	inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_OPACITY_MICROMAP_ARRAY;
+	inputs.pOpacityMicromapArrayDesc = reinterpret_cast<const D3D12_RAYTRACING_OPACITY_MICROMAP_ARRAY_DESC*>(ommArrayDescs.data());
+
+	// Get required sizes for an acceleration structure.
+	return prebuild(pDevice);
+}
+
+bool OpacityMicromapArray_DX12::Allocate(const Device* pDevice, DescriptorTableLib* pDescriptorTableLib,
+	size_t byteWidth, MemoryFlag memoryFlags, const wchar_t* name, uint32_t maxThreads)
+{
+	return allocate(pDevice, byteWidth, pDescriptorTableLib, 0, memoryFlags, name, maxThreads);
+}
+
+void OpacityMicromapArray_DX12::SetDestination(const Device* pDevice, const Buffer::sptr destBuffer, uintptr_t byteOffset)
+{
+	AccelerationStructure_DX12::SetDestination(pDevice, destBuffer, byteOffset, 0, nullptr);
+}
+
+void OpacityMicromapArray_DX12::Build(CommandList* pCommandList, const Resource* pScratch, const OpacityMicromapArray* pSource,
+	uint8_t numPostbuildInfoDescs, const PostbuildInfoType* pPostbuildInfoTypes)
+{
+	// Complete Acceleration Structure desc
+	{
+		if (pSource && (m_buildDesc.Inputs.Flags & D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_OMM_UPDATE)
+			== D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_OMM_UPDATE)
+		{
+			m_buildDesc.SourceAccelerationStructureData = pSource->GetVirtualAddress();
+			m_buildDesc.Inputs.Flags |= D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PERFORM_UPDATE;
+		}
+
+		m_buildDesc.DestAccelerationStructureData = GetVirtualAddress();
+		m_buildDesc.ScratchAccelerationStructureData = pScratch->GetVirtualAddress();
+	}
+
+	if (numPostbuildInfoDescs)
+	{
+		m_postbuildInfoRB = Buffer::MakeUnique();
+		m_postbuildInfo = Buffer::MakeUnique();
+		m_postbuildInfo->Create(pCommandList->GetDevice(), sizeof(uint64_t) * numPostbuildInfoDescs,
+			ResourceFlag::DENY_SHADER_RESOURCE | ResourceFlag::ALLOW_UNORDERED_ACCESS);
+
+		ResourceBarrier barrier;
+		const auto numBarriers = m_postbuildInfo->SetBarrier(&barrier, ResourceState::UNORDERED_ACCESS);
+		static_cast<XUSG::CommandList*>(pCommandList)->Barrier(numBarriers, &barrier);
+	}
+
+	vector<PostbuildInfo> postbuildInfoDescs(numPostbuildInfoDescs);
+	for (uint8_t i = 0; i < numPostbuildInfoDescs; ++i)
+	{
+		postbuildInfoDescs[i].DestBuffer = m_postbuildInfo->GetVirtualAddress() + sizeof(uint64_t) * i;
+		postbuildInfoDescs[i].InfoType = pPostbuildInfoTypes[i];
+	}
+
+	// Build acceleration structure.
+	pCommandList->BuildRaytracingAccelerationStructure(&m_buildDesc, numPostbuildInfoDescs,
+		numPostbuildInfoDescs ? postbuildInfoDescs.data() : nullptr);
+
+	if (m_postbuildInfo) m_postbuildInfo->ReadBack(pCommandList, m_postbuildInfoRB.get());
+}
+
+void OpacityMicromapArray_DX12::SetOmmArray(GeometryBuffer& ommArrayDescs, uint32_t numOpacityMicromaps, const Desc* pOmmArrayDescs)
+{
+	const auto ommArraysSize = sizeof(D3D12_RAYTRACING_OPACITY_MICROMAP_ARRAY_DESC) * numOpacityMicromaps;
+	auto bufferSize = ommArraysSize;
+	for (auto i = 0u; i < numOpacityMicromaps; ++i)
+		bufferSize += sizeof(D3D12_RAYTRACING_OPACITY_MICROMAP_HISTOGRAM_ENTRY) * pOmmArrayDescs[i].NumOmmHistogramEntries;
+
+	ommArrayDescs.resize(bufferSize);
+	auto pOmmHistogram = reinterpret_cast<D3D12_RAYTRACING_OPACITY_MICROMAP_HISTOGRAM_ENTRY*>(&ommArrayDescs[ommArraysSize]);
+	for (auto i = 0u; i < numOpacityMicromaps; ++i)
+	{
+		auto& ommArrayDesc = reinterpret_cast<D3D12_RAYTRACING_OPACITY_MICROMAP_ARRAY_DESC*>(ommArrayDescs.data())[i];
+
+		ommArrayDesc = {};
+		ommArrayDesc.NumOmmHistogramEntries = pOmmArrayDescs[i].NumOmmHistogramEntries;
+		for (auto j = 0u; j < ommArrayDesc.NumOmmHistogramEntries; ++j)
+		{
+			assert(pOmmArrayDescs[i].pOmmHistogram);
+			pOmmHistogram->Count = pOmmArrayDescs[i].pOmmHistogram->Count;
+			pOmmHistogram->SubdivisionLevel = pOmmArrayDescs[i].pOmmHistogram->SubdivisionLevel;
+			pOmmHistogram->Format = static_cast<D3D12_RAYTRACING_OPACITY_MICROMAP_FORMAT>(pOmmArrayDescs[i].pOmmHistogram->Format);
+		}
+		ommArrayDesc.pOmmHistogram = pOmmHistogram;
+		ommArrayDesc.InputBuffer = pOmmArrayDescs[i].pInputBuffer->GetVirtualAddress() + pOmmArrayDescs[i].InputOffset;
+		ommArrayDesc.PerOmmDescs.StartAddress = pOmmArrayDescs[i].pPerOmmDescs->GetVirtualAddress() + pOmmArrayDescs[i].PerOmmDescOffset;
+		ommArrayDesc.PerOmmDescs.StrideInBytes = pOmmArrayDescs[i].PerOmmDescStride;
+	}
+}
+
+void OpacityMicromapArray_DX12::SetOmmDescs(const Device* pDevice, Buffer* pOmmDescsBuffer, uint32_t numOmmDescs,
+	const OpacityMicromapDesc* pOmmDescs, MemoryFlag memoryFlags, const wchar_t* ommName)
+{
+	assert(numOmmDescs == 0 || pOmmDescs);
+
+	vector<D3D12_RAYTRACING_OPACITY_MICROMAP_DESC> ommDescs(numOmmDescs);
+	for (auto i = 0u; i < numOmmDescs; ++i)
+	{
+		const auto& ommDesc = pOmmDescs[i];
+		ommDescs[i].ByteOffset = ommDesc.ByteOffset;
+		ommDescs[i].SubdivisionLevel = ommDesc.SubdivisionLevel;
+		ommDescs[i].Format = static_cast<D3D12_RAYTRACING_OPACITY_MICROMAP_FORMAT>(ommDesc.Format);
+	}
+
+	if (pOmmDescsBuffer->GetHandle())
+	{
+		void* pMappedData = pOmmDescsBuffer->Map();
+		memcpy(pMappedData, ommDescs.data(), sizeof(D3D12_RAYTRACING_OPACITY_MICROMAP_DESC) * numOmmDescs);
+		pOmmDescsBuffer->Unmap();
+	}
+	else AccelerationStructure_DX12::AllocateUploadBuffer(pDevice, pOmmDescsBuffer,
+		sizeof(D3D12_RAYTRACING_OPACITY_MICROMAP_DESC) * numOmmDescs,
+		ommDescs.data(), memoryFlags, ommName);
+}
+
+size_t OpacityMicromapArray_DX12::AlignOmmInput(size_t byteSize)
+{
+	return XUSG::Align(byteSize, 128);
+}
+
+size_t XUSG::RayTracing::OpacityMicromapArray_DX12::AlignOmmDesc(size_t byteSize)
+{
+	return XUSG::Align(byteSize, 4);
 }

@@ -146,6 +146,19 @@ bool EZ::CommandList_DXR::PrebuildTLAS(TopLevelAS* pTLAS, uint32_t numInstances,
 	return true;
 }
 
+bool EZ::CommandList_DXR::PrebuildOmmArray(OpacityMicromapArray* pOmmArray, uint32_t numOpacityMicromaps,
+	const GeometryBuffer& ommArrayDescs, BuildFlag flags)
+{
+	assert(pOmmArray);
+	XUSG_N_RETURN(pOmmArray->Prebuild(m_pDeviceRT, numOpacityMicromaps, ommArrayDescs, flags), false);
+
+	m_scratchSize = (max)(m_scratchSize, pOmmArray->GetScratchDataByteSize());
+	if ((flags & BuildFlag::ALLOW_UPDATE) == BuildFlag::ALLOW_UPDATE)
+		m_scratchSize = (max)(m_scratchSize, pOmmArray->GetUpdateScratchDataByteSize());
+
+	return true;
+}
+
 bool EZ::CommandList_DXR::AllocateAccelerationStructure(AccelerationStructure* pAccelerationStructure, size_t byteWidth)
 {
 	assert(pAccelerationStructure);
@@ -221,6 +234,70 @@ void EZ::CommandList_DXR::SetAABBGeometries(GeometryBuffer& geometries, uint32_t
 	BottomLevelAS::SetAABBGeometries(geometries, numGeometries, vbvs.data(), pGeometryFlags);
 }
 
+void EZ::CommandList_DXR::SetOMMGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
+	const GeometryBuffer& triGeometries, const BottomLevelAS::OMMLinkage* pOmmLinkages,
+	const GeometryFlag* pGeometryFlags)
+{
+	if (pOmmLinkages)
+	{
+		// Set barriers if the OMM linkage buffers are not at the read states
+		const auto startIdx = m_barriers.size();
+		m_barriers.resize(startIdx + numGeometries);
+		auto numBarriers = 0u;
+
+		for (auto i = 0u; i < numGeometries; ++i)
+		{
+			const auto& pIB = pOmmLinkages[i].pOpacityMicromapIndexBuffer;
+			const auto pBarrier = &m_barriers[startIdx];
+			if (pIB->GetResourceState() == ResourceState::COMMON)
+				pIB->SetBarrier(pBarrier, ResourceState::COPY_DEST, numBarriers);
+			numBarriers = pIB->SetBarrier(pBarrier, ResourceState::NON_PIXEL_SHADER_RESOURCE, numBarriers);
+		}
+
+		// Shrink the size of barrier list
+		if (numBarriers < numGeometries) m_barriers.resize(startIdx + numBarriers);
+	}
+
+	// Set geometries
+	BottomLevelAS::SetOMMGeometries(geometries, numGeometries, triGeometries, pOmmLinkages, pGeometryFlags);
+}
+
+void EZ::CommandList_DXR::SetOmmArray(GeometryBuffer& ommArrayDescs, uint32_t numOpacityMicromaps,
+	const OpacityMicromapArray::Desc* pOmmArrayDescs)
+{
+	if (pOmmArrayDescs)
+	{
+		// Set barriers if the OMM input buffers are not at the read states
+		const auto startIdx = m_barriers.size();
+		m_barriers.resize(startIdx + numOpacityMicromaps * 2);
+		auto numBarriers = 0u;
+
+		for (auto i = 0u; i < numOpacityMicromaps; ++i)
+		{
+			const auto& pInput = pOmmArrayDescs[i].pInputBuffer;
+			const auto pBarrier = &m_barriers[startIdx];
+			if (pInput->GetResourceState() == ResourceState::COMMON)
+				pInput->SetBarrier(pBarrier, ResourceState::COPY_DEST, numBarriers);
+			numBarriers = pInput->SetBarrier(pBarrier, ResourceState::NON_PIXEL_SHADER_RESOURCE, numBarriers);
+		}
+
+		for (auto i = 0u; i < numOpacityMicromaps; ++i)
+		{
+			const auto& pPerOmmDescs = pOmmArrayDescs[i].pPerOmmDescs;
+			const auto pBarrier = &m_barriers[startIdx];
+			if (pPerOmmDescs->GetResourceState() != ResourceState::COMMON &&
+				pPerOmmDescs->GetResourceState() != ResourceState::GENERIC_READ_RESOURCE)
+				numBarriers = pPerOmmDescs->SetBarrier(pBarrier, ResourceState::NON_PIXEL_SHADER_RESOURCE, numBarriers);
+		}
+
+		// Shrink the size of barrier list
+		if (numBarriers < numOpacityMicromaps * 2) m_barriers.resize(startIdx + numBarriers);
+	}
+
+	// Set OMM array
+	OpacityMicromapArray::SetOmmArray(ommArrayDescs, numOpacityMicromaps, pOmmArrayDescs);
+}
+
 void EZ::CommandList_DXR::SetBLASDestination(BottomLevelAS* pBLAS, const Buffer::sptr destBuffer,
 	uintptr_t byteOffset, uint32_t uavIndex)
 {
@@ -231,6 +308,12 @@ void EZ::CommandList_DXR::SetTLASDestination(TopLevelAS* pTLAS, const Buffer::sp
 	uintptr_t byteOffset, uint32_t uavIndex, uint32_t srvIndex)
 {
 	pTLAS->SetDestination(m_pDeviceRT, destBuffer, byteOffset, uavIndex, srvIndex, m_descriptorTableLib.get());
+}
+
+void EZ::CommandList_DXR::SetOmmArrayDestination(OpacityMicromapArray* pOmmArray,
+	const Buffer::sptr destBuffer, uintptr_t byteOffset)
+{
+	pOmmArray->SetDestination(m_pDeviceRT, destBuffer, byteOffset);
 }
 
 void EZ::CommandList_DXR::BuildBLAS(BottomLevelAS* pBLAS, const BottomLevelAS* pSource,
@@ -250,14 +333,46 @@ void EZ::CommandList_DXR::BuildBLAS(BottomLevelAS* pBLAS, const BottomLevelAS* p
 	XUSG::CommandList_DX12::Barrier(1, &barrier);
 }
 
-void EZ::CommandList_DXR::BuildTLAS(TopLevelAS* pTLAS, const Resource* pInstanceDescs, const TopLevelAS* pSource,
+void EZ::CommandList_DXR::BuildTLAS(TopLevelAS* pTLAS, Resource* pInstanceDescs, const TopLevelAS* pSource,
 	uint8_t numPostbuildInfoDescs, const PostbuildInfoType* pPostbuildInfoTypes)
 {
 	assert(pTLAS);
 	const auto pScratch = needScratch(m_scratchSize);
 	const auto descriptorHeap = m_descriptorTableLib->GetDescriptorHeap(CBV_SRV_UAV_HEAP);
 
+	// Set barriers if the instance descs buffer is not at the read states
+	const auto startIdx = m_barriers.size();
+	m_barriers.resize(startIdx + 1);
+	auto numBarriers = 0u;
+	if (pInstanceDescs->GetResourceState() != ResourceState::COMMON &&
+		pInstanceDescs->GetResourceState() != ResourceState::GENERIC_READ_RESOURCE)
+		numBarriers = pInstanceDescs->SetBarrier(&m_barriers[startIdx], ResourceState::NON_PIXEL_SHADER_RESOURCE, numBarriers);
+
+	// Shrink the size of barrier list
+	if (numBarriers < 1) m_barriers.resize(startIdx + numBarriers);
+
+	// Set barrier command
+	XUSG::CommandList_DX12::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
+	m_barriers.clear();
+
 	pTLAS->Build(this, pScratch, pInstanceDescs, descriptorHeap, pSource, numPostbuildInfoDescs, pPostbuildInfoTypes);
+
+	// Set barrier command
+	const ResourceBarrier barrier = { nullptr, ResourceState::UNORDERED_ACCESS };
+	XUSG::CommandList_DX12::Barrier(1, &barrier);
+}
+
+void EZ::CommandList_DXR::BuildOmmArray(OpacityMicromapArray* pOmmArray, const OpacityMicromapArray* pSource,
+	uint8_t numPostbuildInfoDescs, const PostbuildInfoType* pPostbuildInfoTypes)
+{
+	assert(pOmmArray);
+	const auto pScratch = needScratch(m_scratchSize);
+
+	// Set barrier command
+	XUSG::CommandList_DX12::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
+	m_barriers.clear();
+
+	pOmmArray->Build(this, pScratch, pSource, numPostbuildInfoDescs, pPostbuildInfoTypes);
 
 	// Set barrier command
 	const ResourceBarrier barrier = { nullptr, ResourceState::UNORDERED_ACCESS };

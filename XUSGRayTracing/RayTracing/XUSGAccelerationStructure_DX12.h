@@ -27,8 +27,8 @@ namespace XUSG
 			Buffer* GetPostbuildInfo() const;
 
 			size_t GetResultDataMaxByteSize(bool isAligned = true) const;
-			size_t GetScratchDataByteSize() const;
-			size_t GetUpdateScratchDataByteSize() const;
+			size_t GetScratchDataByteSize(bool isAligned = true) const;
+			size_t GetUpdateScratchDataByteSize(bool isAligned = true) const;
 			size_t GetCompactedByteSize(bool isAligned = true) const;
 
 			uint64_t GetVirtualAddress() const;
@@ -81,6 +81,12 @@ namespace XUSG
 				const GeometryFlag* pGeometryFlags = nullptr, const ResourceView* pTransforms = nullptr);
 			static void SetAABBGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
 				const VertexBufferView* pVBs, const GeometryFlag* pGeometryFlags = nullptr);
+			static void SetOMMGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
+				const GeometryBuffer& triGeometries, const OMMLinkage* pOmmLinkages,
+				const GeometryFlag* pGeometryFlags = nullptr);
+
+			static size_t AlignTransform(size_t byteSize);
+			static size_t AlignAABB(size_t byteSize);
 		};
 
 		class TopLevelAS_DX12 :
@@ -108,8 +114,37 @@ namespace XUSG
 				const InstanceDesc* pInstanceDescs, MemoryFlag memoryFlags = MemoryFlag::NONE,
 				const wchar_t* instanceName = nullptr);
 
+			static size_t AlignInstanceDesc(size_t byteSize);
+
 		protected:
 			uint32_t m_srvIndex;
+		};
+
+		class OpacityMicromapArray_DX12 :
+			public OpacityMicromapArray,
+			public AccelerationStructure_DX12
+		{
+		public:
+			OpacityMicromapArray_DX12();
+			virtual ~OpacityMicromapArray_DX12();
+
+			bool Prebuild(const Device* pDevice, uint32_t numOpacityMicromaps, const GeometryBuffer& ommArrayDescs,
+				BuildFlag flags = BuildFlag::PREFER_FAST_TRACE);
+			bool Allocate(const Device* pDevice, DescriptorTableLib* pDescriptorTableLib = nullptr, size_t byteWidth = 0,
+				MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr, uint32_t maxThreads = 1);
+
+			void SetDestination(const Device* pDevice, const Buffer::sptr destBuffer, uintptr_t byteOffset);
+			void Build(CommandList* pCommandList, const Resource* pScratch,
+				const OpacityMicromapArray* pSource = nullptr, uint8_t numPostbuildInfoDescs = 0,
+				const PostbuildInfoType* pPostbuildInfoTypes = nullptr);
+
+			static void SetOmmArray(GeometryBuffer& ommArrayDescs, uint32_t numOmmArrays, const Desc* pOmmArrayDescs);
+			static void SetOmmDescs(const Device* pDevice, Buffer* pOmmDescsBuffer, uint32_t numOmmDescs,
+				const OpacityMicromapDesc* pOmmDescs, MemoryFlag memoryFlags = MemoryFlag::NONE,
+				const wchar_t* ommName = nullptr);
+
+			static size_t AlignOmmInput(size_t byteSize);
+			static size_t AlignOmmDesc(size_t byteSize);
 		};
 	}
 }

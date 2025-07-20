@@ -53,6 +53,8 @@ namespace XUSG
 					BuildFlag flags = BuildFlag::PREFER_FAST_TRACE) = 0;
 				virtual bool PrebuildTLAS(TopLevelAS* pTLAS, uint32_t numInstances,
 					BuildFlag flags = BuildFlag::PREFER_FAST_TRACE) = 0;
+				virtual bool PrebuildOmmArray(OpacityMicromapArray* pOmmArray, uint32_t numOpacityMicromaps,
+					const GeometryBuffer& ommArrayDescs, BuildFlag flags = BuildFlag::PREFER_FAST_TRACE) = 0;
 
 				// Auto allocate a buffer with byteWidth = GetResultDataMaxByteSize() when setting byteWidth = 0
 				virtual bool AllocateAccelerationStructure(AccelerationStructure* pAccelerationStructure, size_t byteWidth = 0) = 0;
@@ -62,13 +64,21 @@ namespace XUSG
 					const GeometryFlag* pGeometryFlags = nullptr, const ResourceView* pTransforms = nullptr) = 0;
 				virtual void SetAABBGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
 					XUSG::EZ::VertexBufferView* pVBs, const GeometryFlag* pGeometryFlags = nullptr) = 0;
+				virtual void SetOMMGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
+					const GeometryBuffer& triGeometries, const BottomLevelAS::OMMLinkage* pOmmLinkages,
+					const GeometryFlag* pGeometryFlags = nullptr) = 0;
+				virtual void SetOmmArray(GeometryBuffer& ommArrayDescs, uint32_t numOpacityMicromaps,
+					const OpacityMicromapArray::Desc* pOmmArrayDescs) = 0;
 				virtual void SetBLASDestination(BottomLevelAS* pBLAS, const Buffer::sptr destBuffer,
 					uintptr_t byteOffset, uint32_t uavIndex) = 0;
 				virtual void SetTLASDestination(TopLevelAS* pTLAS, const Buffer::sptr destBuffer,
 					uintptr_t byteOffset, uint32_t uavIndex, uint32_t srvIndex) = 0;
+				virtual void SetOmmArrayDestination(OpacityMicromapArray* pOmmArray, const Buffer::sptr destBuffer, uintptr_t byteOffset) = 0;
 				virtual void BuildBLAS(BottomLevelAS* pBLAS, const BottomLevelAS* pSource = nullptr,
 					uint8_t numPostbuildInfoDescs = 0, const PostbuildInfoType* pPostbuildInfoTypes = nullptr) = 0;
-				virtual void BuildTLAS(TopLevelAS* pTLAS, const Resource* pInstanceDescs, const TopLevelAS* pSource = nullptr,
+				virtual void BuildTLAS(TopLevelAS* pTLAS, Resource* pInstanceDescs, const TopLevelAS* pSource = nullptr,
+					uint8_t numPostbuildInfoDescs = 0, const PostbuildInfoType* pPostbuildInfoTypes = nullptr) = 0;
+				virtual void BuildOmmArray(OpacityMicromapArray* pOmmArray, const OpacityMicromapArray* pSource = nullptr,
 					uint8_t numPostbuildInfoDescs = 0, const PostbuildInfoType* pPostbuildInfoTypes = nullptr) = 0;
 				virtual void CopyRaytracingAccelerationStructure(const AccelerationStructure* pDst,
 					const AccelerationStructure* pSrc, CopyMode mode) = 0;

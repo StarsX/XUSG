@@ -18,7 +18,9 @@ namespace XUSG
 			PREFER_FAST_TRACE = (1 << 2),
 			PREFER_FAST_BUILD = (1 << 3),
 			MINIMIZE_MEMORY = (1 << 4),
-			PERFORM_UPDATE = (1 << 5)
+			PERFORM_UPDATE = (1 << 5),
+			ALLOW_OMM_UPDATE = (1 << 6),
+			ALLOW_DISABLE_OMMS = (1 << 7)
 		};
 
 		XUSG_DEF_ENUM_FLAG_OPERATORS(BuildFlag);
@@ -37,7 +39,9 @@ namespace XUSG
 			TRIANGLE_CULL_DISABLE = (1 << 0),
 			TRIANGLE_FRONT_COUNTERCLOCKWISE = (1 << 1),
 			FORCE_OPAQUE = (1 << 2),
-			FORCE_NON_OPAQUE = (1 << 3)
+			FORCE_NON_OPAQUE = (1 << 3),
+			FORCE_OMM_2_STATE = (1 << 4),
+			DISABLE_OMMS = (1 << 5)
 		};
 
 		XUSG_DEF_ENUM_FLAG_OPERATORS(InstanceFlag);
@@ -65,6 +69,20 @@ namespace XUSG
 			DESERIALIZE
 		};
 
+		enum class OMMSpecialIndex
+		{
+			FULLY_TRANSPARENT = -1,
+			FULLY_OPAQUE = -2,
+			FULLY_UNKNOWN_TRANSPARENT = -3,
+			FULLY_UNKNOWN_OPAQUE = -4
+		};
+
+		enum class OpacityMicromapFormat : uint16_t
+		{
+			OC1_2_STATE = 0x1,
+			OC1_4_STATE = 0x2
+		};
+
 		using BuildDesc = void;
 		using GeometryBuffer = std::vector<uint8_t>;
 
@@ -84,7 +102,21 @@ namespace XUSG
 		struct ResourceView
 		{
 			const Resource* pResource;
-			uint64_t Offset;
+			uintptr_t Offset;
+		};
+
+		struct OpacityMicromapDesc
+		{
+			uint32_t ByteOffset;
+			unsigned int SubdivisionLevel : 16;
+			OpacityMicromapFormat Format : 16;
+		};
+
+		struct OMMHistogramEntry
+		{
+			uint32_t Count;
+			uint32_t SubdivisionLevel;
+			OpacityMicromapFormat Format;
 		};
 
 		//--------------------------------------------------------------------------------------
@@ -133,8 +165,8 @@ namespace XUSG
 			virtual Buffer* GetPostbuildInfo() const = 0;
 
 			virtual size_t GetResultDataMaxByteSize(bool isAligned = true) const = 0;
-			virtual size_t GetScratchDataByteSize() const = 0;
-			virtual size_t GetUpdateScratchDataByteSize() const = 0;
+			virtual size_t GetScratchDataByteSize(bool isAligned = true) const = 0;
+			virtual size_t GetUpdateScratchDataByteSize(bool isAligned = true) const = 0;
 			virtual size_t GetCompactedByteSize(bool isAligned = true) const = 0;
 
 			virtual uint64_t GetVirtualAddress() const = 0;
@@ -160,10 +192,22 @@ namespace XUSG
 		//--------------------------------------------------------------------------------------
 		// Bottom-level acceleration structure
 		//--------------------------------------------------------------------------------------
+		class OpacityMicromapArray;
+
 		class XUSG_INTERFACE BottomLevelAS :
 			public virtual AccelerationStructure
 		{
 		public:
+			struct OMMLinkage
+			{
+				Buffer* pOpacityMicromapIndexBuffer;
+				size_t OpacityMicromapIndexBufferStride;
+				Format OpacityMicromapIndexFormat;
+				uint32_t OpacityMicromapBaseLocation;
+				OpacityMicromapArray* pOpacityMicromapArray;
+				uintptr_t OpacityMicromapArrayOffset;
+			};
+
 			//BottomLevelAS();
 			virtual ~BottomLevelAS() {}
 
@@ -181,6 +225,12 @@ namespace XUSG
 			static void SetAABBGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
 				const VertexBufferView* pVBs, const GeometryFlag* pGeometryFlags = nullptr,
 				API api = API::DIRECTX_12);
+			static void SetOMMGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
+				const GeometryBuffer& triGeometries, const OMMLinkage* pOmmLinkages,
+				const GeometryFlag* pGeometryFlags = nullptr, API api = API::DIRECTX_12);
+
+			static size_t AlignTransform(size_t byteSize, API api = API::DIRECTX_12);
+			static size_t AlignAABB(size_t byteSize, API api = API::DIRECTX_12);
 
 			using uptr = std::unique_ptr<BottomLevelAS>;
 			using sptr = std::shared_ptr<BottomLevelAS>;
@@ -229,8 +279,55 @@ namespace XUSG
 				const InstanceDesc* pInstanceDescs, MemoryFlag memoryFlags = MemoryFlag::NONE,
 				const wchar_t* instanceName = nullptr, API api = API::DIRECTX_12);
 
+			static size_t AlignInstanceDesc(size_t byteSize, API api = API::DIRECTX_12);
+
 			using uptr = std::unique_ptr<TopLevelAS>;
 			using sptr = std::shared_ptr<TopLevelAS>;
+
+			static uptr MakeUnique(API api = API::DIRECTX_12);
+			static sptr MakeShared(API api = API::DIRECTX_12);
+		};
+
+		//--------------------------------------------------------------------------------------
+		// Opacity micromap array
+		//--------------------------------------------------------------------------------------
+		class XUSG_INTERFACE OpacityMicromapArray :
+			public virtual AccelerationStructure
+		{
+		public:
+			struct Desc
+			{
+				uint32_t NumOmmHistogramEntries;
+				const OMMHistogramEntry* pOmmHistogram;
+				Buffer* pInputBuffer;
+				uintptr_t InputOffset;
+				Buffer* pPerOmmDescs;
+				uintptr_t PerOmmDescOffset;
+				size_t PerOmmDescStride;
+			};
+
+			//OpacityMicromapArray();
+			virtual ~OpacityMicromapArray() {}
+
+			virtual bool Prebuild(const Device* pDevice, uint32_t numOpacityMicromaps, const GeometryBuffer& ommArrayDescs,
+				BuildFlag flags = BuildFlag::PREFER_FAST_TRACE) = 0;
+
+			virtual void SetDestination(const Device* pDevice, const Buffer::sptr destBuffer, uintptr_t byteOffset) = 0;
+			virtual void Build(CommandList* pCommandList, const Resource* pScratch,
+				const OpacityMicromapArray* pSource = nullptr, uint8_t numPostbuildInfoDescs = 0,
+				const PostbuildInfoType* pPostbuildInfoTypes = nullptr) = 0;
+
+			static void SetOmmArray(GeometryBuffer& ommArrayDescs, uint32_t numOpacityMicromaps,
+				const Desc* pOmmArrayDescs, API api = API::DIRECTX_12);
+			static void SetOmmDescs(const Device* pDevice, Buffer* pOmmDescsBuffer, uint32_t numOmmDescs,
+				const OpacityMicromapDesc* pOmmDescs, MemoryFlag memoryFlags = MemoryFlag::NONE,
+				const wchar_t* ommName = nullptr, API api = API::DIRECTX_12);
+
+			static size_t AlignOmmInput(size_t byteSize, API api = API::DIRECTX_12);
+			static size_t AlignOmmDesc(size_t byteSize, API api = API::DIRECTX_12);
+
+			using uptr = std::unique_ptr<OpacityMicromapArray>;
+			using sptr = std::shared_ptr<OpacityMicromapArray>;
 
 			static uptr MakeUnique(API api = API::DIRECTX_12);
 			static sptr MakeShared(API api = API::DIRECTX_12);

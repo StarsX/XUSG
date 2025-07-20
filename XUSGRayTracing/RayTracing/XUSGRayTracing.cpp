@@ -68,16 +68,34 @@ size_t AccelerationStructure::Align(size_t byteSize, API api)
 
 void BottomLevelAS::SetTriangleGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
 	Format vertexFormat, const VertexBufferView* pVBs, const IndexBufferView* pIBs,
-	const GeometryFlag* geometryFlags, const ResourceView* pTransforms, API api)
+	const GeometryFlag* pGeometryFlags, const ResourceView* pTransforms, API api)
 {
 	BottomLevelAS_DX12::SetTriangleGeometries(geometries, numGeometries,
-		vertexFormat, pVBs, pIBs, geometryFlags, pTransforms);
+		vertexFormat, pVBs, pIBs, pGeometryFlags, pTransforms);
 }
 
 void BottomLevelAS::SetAABBGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
-	const VertexBufferView* pVBs, const GeometryFlag* geometryFlags, API api)
+	const VertexBufferView* pVBs, const GeometryFlag* pGeometryFlags, API api)
 {
-	BottomLevelAS_DX12::SetAABBGeometries(geometries, numGeometries, pVBs, geometryFlags);
+	BottomLevelAS_DX12::SetAABBGeometries(geometries, numGeometries, pVBs, pGeometryFlags);
+}
+
+void BottomLevelAS::SetOMMGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
+	const GeometryBuffer& triGeometries, const OMMLinkage* pOmmLinkages,
+	const GeometryFlag* pGeometryFlags, API api)
+{
+	BottomLevelAS_DX12::SetOMMGeometries(geometries, numGeometries,
+		triGeometries, pOmmLinkages, pGeometryFlags);
+}
+
+size_t BottomLevelAS::AlignTransform(size_t byteSize, API api)
+{
+	return BottomLevelAS_DX12::AlignTransform(byteSize);
+}
+
+size_t BottomLevelAS::AlignAABB(size_t byteSize, API api)
+{
+	return BottomLevelAS_DX12::AlignAABB(byteSize);
 }
 
 RayTracing::Device::uptr RayTracing::Device::MakeUnique(API api)
@@ -123,6 +141,11 @@ void TopLevelAS::SetInstances(const Device* pDevice, Buffer* pInstances, uint32_
 	TopLevelAS_DX12::SetInstances(pDevice, pInstances, numInstances, pInstanceDescs, memoryFlags, instanceName);
 }
 
+size_t TopLevelAS::AlignInstanceDesc(size_t byteSize, API api)
+{
+	return TopLevelAS_DX12::AlignInstanceDesc(byteSize);
+}
+
 TopLevelAS::uptr TopLevelAS::MakeUnique(API api)
 {
 	return make_unique<TopLevelAS_DX12>();
@@ -131,6 +154,38 @@ TopLevelAS::uptr TopLevelAS::MakeUnique(API api)
 TopLevelAS::sptr TopLevelAS::MakeShared(API api)
 {
 	return make_shared<TopLevelAS_DX12>();
+}
+
+void OpacityMicromapArray::SetOmmArray(GeometryBuffer& ommArrayDescs, uint32_t numOpacityMicromaps,
+	const Desc* pOmmArrayDescs, API api)
+{
+	OpacityMicromapArray_DX12::SetOmmArray(ommArrayDescs, numOpacityMicromaps, pOmmArrayDescs);
+}
+
+void OpacityMicromapArray::SetOmmDescs(const Device* pDevice, Buffer* pOMMDescsBuffer, uint32_t numOMMDescs,
+	const OpacityMicromapDesc* pOMMDescs, MemoryFlag memoryFlags, const wchar_t* ommName, API api)
+{
+	OpacityMicromapArray_DX12::SetOmmDescs(pDevice, pOMMDescsBuffer, numOMMDescs, pOMMDescs, memoryFlags, ommName);
+}
+
+size_t OpacityMicromapArray::AlignOmmInput(size_t byteSize, API api)
+{
+	return OpacityMicromapArray_DX12::AlignOmmInput(byteSize);
+}
+
+size_t OpacityMicromapArray::AlignOmmDesc(size_t byteSize, API api)
+{
+	return OpacityMicromapArray_DX12::AlignOmmDesc(byteSize);
+}
+
+OpacityMicromapArray::uptr OpacityMicromapArray::MakeUnique(API api)
+{
+	return make_unique<OpacityMicromapArray_DX12>();
+}
+
+OpacityMicromapArray::sptr OpacityMicromapArray::MakeShared(API api)
+{
+	return make_shared<OpacityMicromapArray_DX12>();
 }
 
 const void* ShaderRecord::GetShaderIdentifier(const Pipeline& pipeline, const wchar_t* shaderName, API api)
