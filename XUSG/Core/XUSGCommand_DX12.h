@@ -68,8 +68,8 @@ namespace XUSG
 			const TextureCopyLocation& src, const BoxRange* pSrcBox = nullptr) const;
 		void CopyResource(const Resource* pDstResource, const Resource* pSrcResource) const;
 		void CopyTiles(const Resource* pTiledResource, const TiledResourceCoord* pTileRegionStartCoord,
-			const TileRegionSize* pTileRegionSize, const Resource* pBuffer, uint64_t bufferStartOffsetInBytes,
-			TileCopyFlag flags) const;
+			const TileRegionSize& tileRegionSize, const Resource* pBuffer, uint64_t bufferStartOffsetInBytes,
+			TileCopyFlag flags = TileCopyFlag::NONE) const;
 		void ResolveSubresource(const Resource* pDstResource, uint32_t dstSubresource,
 			const Resource* pSrcResource, uint32_t srcSubresource, Format format) const;
 		void IASetPrimitiveTopology(PrimitiveTopology primitiveTopology) const;
@@ -181,6 +181,14 @@ namespace XUSG
 
 		void ExecuteCommandLists(uint32_t numCommandLists, const CommandList* const* ppCommandLists);
 		void ExecuteCommandList(const CommandList* pCommandList);
+		void UpdateTileMappings(const Resource* pResource, uint32_t numResourceRegions,
+			const TiledResourceCoord* pResourceRegionStartCoords, const TileRegionSize* pResourceRegionSizes,
+			const Heap* pHeap, uint32_t numHeapRanges, const TileRangeFlag* pHeapRangeFlags,
+			const uint32_t* pHeapRangeStartOffsets, const uint32_t* pHeapRangeTileCounts,
+			TileMappingFlag flags = TileMappingFlag::NONE);
+		void CopyTileMappings(const Resource* pDstResource, const TiledResourceCoord* pDstRegionStartCoord,
+			const Resource* pSrcResource, const TiledResourceCoord* pSrcRegionStartCoordinate,
+			const TileRegionSize& regionSize, TileMappingFlag Flags = TileMappingFlag::NONE) const;
 
 		void Create(void* pHandle, const wchar_t* name = nullptr);
 
@@ -197,5 +205,9 @@ namespace XUSG
 		std::vector<ID3D12CommandList*> m_pCommandLists;
 
 		const Device* m_pDevice;
+
+		std::vector<D3D12_TILED_RESOURCE_COORDINATE> m_resourceRegionStartCoords;
+		std::vector<D3D12_TILE_REGION_SIZE> m_resourceRegionSizes;
+		std::vector<D3D12_TILE_RANGE_FLAGS> m_heapRangeFlags;
 	};
 }

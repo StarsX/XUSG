@@ -173,15 +173,14 @@ void CommandList_DX12::CopyResource(const Resource* pDstResource, const Resource
 }
 
 void CommandList_DX12::CopyTiles(const Resource* pTiledResource, const TiledResourceCoord* pTileRegionStartCoord,
-	const TileRegionSize* pTileRegionSize, const Resource* pBuffer, uint64_t bufferStartOffsetInBytes,
+	const TileRegionSize& tileRegionSize, const Resource* pBuffer, uint64_t bufferStartOffsetInBytes,
 	TileCopyFlag flags) const
 {
 	assert(pTiledResource);
 	assert(pTileRegionStartCoord);
-	assert(pTileRegionSize);
 	assert(pBuffer);
 
-	const D3D12_TILED_RESOURCE_COORDINATE tileRegionStartCoord =
+	const D3D12_TILED_RESOURCE_COORDINATE regionStartCoord =
 	{
 		pTileRegionStartCoord->X,
 		pTileRegionStartCoord->Y,
@@ -189,17 +188,17 @@ void CommandList_DX12::CopyTiles(const Resource* pTiledResource, const TiledReso
 		pTileRegionStartCoord->Subresource
 	};
 
-	const D3D12_TILE_REGION_SIZE tileRegionSize =
+	const D3D12_TILE_REGION_SIZE regionSize =
 	{
-		pTileRegionSize->NumTiles,
-		pTileRegionSize->UseBox,
-		pTileRegionSize->Width,
-		pTileRegionSize->Height,
-		pTileRegionSize->Depth
+		tileRegionSize.NumTiles,
+		tileRegionSize.UseBox,
+		tileRegionSize.Width,
+		tileRegionSize.Height,
+		tileRegionSize.Depth
 	};
 
-	m_commandList->CopyTiles(static_cast<ID3D12Resource*>(pTiledResource->GetHandle()), &tileRegionStartCoord,
-		&tileRegionSize, static_cast<ID3D12Resource*>(pBuffer->GetHandle()), bufferStartOffsetInBytes,
+	m_commandList->CopyTiles(static_cast<ID3D12Resource*>(pTiledResource->GetHandle()), &regionStartCoord,
+		&regionSize, static_cast<ID3D12Resource*>(pBuffer->GetHandle()), bufferStartOffsetInBytes,
 		GetDX12TileCopyFlags(flags));
 }
 
@@ -772,6 +771,91 @@ void CommandQueue_DX12::ExecuteCommandList(const CommandList* pCommandList)
 	const auto pDxCommandList = static_cast<ID3D12CommandList*>(pCommandList->GetHandle());
 
 	m_commandQueue->ExecuteCommandLists(1, &pDxCommandList);
+}
+
+void CommandQueue_DX12::UpdateTileMappings(const Resource* pResource, uint32_t numResourceRegions,
+	const TiledResourceCoord* pResourceRegionStartCoords, const TileRegionSize* pResourceRegionSizes,
+	const Heap* pHeap, uint32_t numHeapRanges, const TileRangeFlag* pHeapRangeFlags,
+	const uint32_t* pHeapRangeStartOffsets, const uint32_t* pHeapRangeTileCounts,
+	TileMappingFlag flags)
+{
+	assert(pResource);
+	assert(numResourceRegions == 0 || pResourceRegionStartCoords);
+	assert(numResourceRegions == 0 || pResourceRegionSizes);
+	assert(numHeapRanges == 0 || pHeapRangeFlags);
+	assert(numHeapRanges == 0 || pHeapRangeStartOffsets);
+	assert(numHeapRanges == 0 || pHeapRangeTileCounts);
+
+	m_resourceRegionStartCoords.resize(numResourceRegions);
+	m_resourceRegionSizes.resize(numResourceRegions);
+	m_heapRangeFlags.resize(numHeapRanges);
+
+	for (auto i = 0u; i < numResourceRegions; ++i)
+	{
+		m_resourceRegionStartCoords[i] =
+		{
+			pResourceRegionStartCoords[i].X,
+			pResourceRegionStartCoords[i].Y,
+			pResourceRegionStartCoords[i].Z,
+			pResourceRegionStartCoords[i].Subresource
+		};
+
+		m_resourceRegionSizes[i] =
+		{
+			pResourceRegionSizes[i].NumTiles,
+			pResourceRegionSizes[i].UseBox,
+			pResourceRegionSizes[i].Width,
+			pResourceRegionSizes[i].Height,
+			pResourceRegionSizes[i].Depth
+		};
+	}
+
+	for (auto i = 0u; i < numHeapRanges; ++i) m_heapRangeFlags[i] = GetDX12TileRangeFlag(pHeapRangeFlags[i]);
+
+	m_commandQueue->UpdateTileMappings(static_cast<ID3D12Resource*>(pResource->GetHandle()), numResourceRegions,
+		m_resourceRegionStartCoords.data(), m_resourceRegionSizes.data(),
+		pHeap ? static_cast<ID3D12Heap*>(pHeap->GetHandle()) : nullptr, numHeapRanges,
+		m_heapRangeFlags.data(), pHeapRangeStartOffsets, pHeapRangeTileCounts,
+		GetDX12TileMappingFlags(flags));
+}
+
+void CommandQueue_DX12::CopyTileMappings(const Resource* pDstResource, const TiledResourceCoord* pDstRegionStartCoord,
+	const Resource* pSrcResource, const TiledResourceCoord* pSrcRegionStartCoordinate, const TileRegionSize& regionSize,
+	TileMappingFlag Flags) const
+{
+	assert(pDstResource);
+	assert(pDstRegionStartCoord);
+	assert(pSrcResource);
+	assert(pSrcRegionStartCoordinate);
+
+	const D3D12_TILED_RESOURCE_COORDINATE dstRegionStartCoord =
+	{
+		pDstRegionStartCoord->X,
+		pDstRegionStartCoord->Y,
+		pDstRegionStartCoord->Z,
+		pDstRegionStartCoord->Subresource
+	};
+
+	const D3D12_TILED_RESOURCE_COORDINATE srcRegionStartCoord =
+	{
+		pSrcRegionStartCoordinate->X,
+		pSrcRegionStartCoordinate->Y,
+		pSrcRegionStartCoordinate->Z,
+		pSrcRegionStartCoordinate->Subresource
+	};
+
+	const D3D12_TILE_REGION_SIZE tileRegionSize =
+	{
+		regionSize.NumTiles,
+		regionSize.UseBox,
+		regionSize.Width,
+		regionSize.Height,
+		regionSize.Depth
+	};
+
+	m_commandQueue->CopyTileMappings(static_cast<ID3D12Resource*>(pDstResource->GetHandle()), &dstRegionStartCoord,
+		static_cast<ID3D12Resource*>(pSrcResource->GetHandle()), &srcRegionStartCoord,
+		&tileRegionSize, GetDX12TileMappingFlags(Flags));
 }
 
 bool CommandQueue_DX12::Wait(const Fence* pFence, uint64_t value)

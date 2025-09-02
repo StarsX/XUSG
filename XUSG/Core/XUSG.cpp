@@ -85,6 +85,16 @@ SwapChain::sptr SwapChain::MakeShared(API api)
 	return make_shared<SwapChain_DX12>();
 }
 
+Heap::uptr Heap::MakeUnique(API api)
+{
+	return make_unique<Heap_DX12>();
+}
+
+Heap::sptr Heap::MakeShared(API api)
+{
+	return make_shared<Heap_DX12>();
+}
+
 Resource::uptr Resource::MakeUnique(API api)
 {
 	return make_unique<Resource_DX12>();
@@ -140,6 +150,11 @@ BarrierLayout Resource::GetBarrierLayout(ResourceState resourceState)
 	return BarrierLayout::UNDEFINED;
 }
 
+size_t Resource::GetTiledResourceTileSize(API api)
+{
+	return Resource_DX12::GetTiledResourceTileSize();
+}
+
 ConstantBuffer::uptr ConstantBuffer::MakeUnique(API api)
 {
 	return make_unique<ConstantBuffer_DX12>();
@@ -148,6 +163,11 @@ ConstantBuffer::uptr ConstantBuffer::MakeUnique(API api)
 ConstantBuffer::sptr ConstantBuffer::MakeShared(API api)
 {
 	return make_shared<ConstantBuffer_DX12>();
+}
+
+void ConstantBuffer::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, const Device* pDevice, size_t byteWidth, API api)
+{
+	ConstantBuffer_DX12::GetAllocationInfo(byteSize, alignment, pDevice, byteWidth);
 }
 
 size_t ConstantBuffer::AlignCBV(size_t byteSize, API api)
@@ -175,6 +195,14 @@ Texture::sptr Texture::MakeShared(API api)
 	return make_shared<Texture_DX12>();
 }
 
+void Texture::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, const Device* pDevice,
+	uint32_t width, uint32_t height, Format format, uint16_t arraySize, ResourceFlag resourceFlags,
+	uint8_t numMips, uint8_t sampleCount, TextureLayout textureLayout, API api)
+{
+	Texture_DX12::GetAllocationInfo(byteSize, alignment, pDevice, width, height,
+		format, arraySize, resourceFlags, numMips, sampleCount, textureLayout);
+}
+
 uint8_t Texture::CalculateMipLevels(uint32_t width, uint32_t height, uint32_t depth)
 {
 	const auto texSize = (max)((max)(width, height), depth);
@@ -192,6 +220,15 @@ RenderTarget::sptr RenderTarget::MakeShared(API api)
 	return make_shared<RenderTarget_DX12>();
 }
 
+void RenderTarget::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, const Device* pDevice,
+	uint32_t width, uint32_t height, Format format, uint16_t arraySize, ResourceFlag resourceFlags,
+	uint8_t numMips, uint8_t sampleCount, TextureLayout textureLayout, API api)
+{
+	Texture::GetAllocationInfo(byteSize, alignment, pDevice, width, height,
+		format, arraySize, ResourceFlag::ALLOW_RENDER_TARGET | resourceFlags,
+		numMips, sampleCount, textureLayout, api);
+}
+
 DepthStencil::uptr DepthStencil::MakeUnique(API api)
 {
 	return make_unique<DepthStencil_DX12>();
@@ -200,6 +237,15 @@ DepthStencil::uptr DepthStencil::MakeUnique(API api)
 DepthStencil::sptr DepthStencil::MakeShared(API api)
 {
 	return make_shared<DepthStencil_DX12>();
+}
+
+void DepthStencil::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, const Device* pDevice,
+	uint32_t width, uint32_t height, Format format, uint16_t arraySize, ResourceFlag resourceFlags,
+	uint8_t numMips, uint8_t sampleCount, TextureLayout textureLayout, API api)
+{
+	Texture::GetAllocationInfo(byteSize, alignment, pDevice, width, height,
+		format, arraySize, ResourceFlag::ALLOW_DEPTH_STENCIL | resourceFlags,
+		numMips, sampleCount, textureLayout, api);
 }
 
 Texture3D::uptr Texture3D::MakeUnique(API api)
@@ -212,6 +258,14 @@ Texture3D::sptr Texture3D::MakeShared(API api)
 	return make_shared<Texture3D_DX12>();
 }
 
+void Texture3D::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, const Device* pDevice,
+	uint32_t width, uint32_t height, uint16_t depth, Format format, ResourceFlag resourceFlags,
+	uint8_t numMips, TextureLayout textureLayout, API api)
+{
+	Texture3D_DX12::GetAllocationInfo(byteSize, alignment, pDevice, width, height, depth,
+		format, resourceFlags, numMips, textureLayout);
+}
+
 Buffer::uptr Buffer::MakeUnique(API api)
 {
 	return make_unique<Buffer_DX12>();
@@ -220,6 +274,12 @@ Buffer::uptr Buffer::MakeUnique(API api)
 Buffer::sptr Buffer::MakeShared(API api)
 {
 	return make_shared<Buffer_DX12>();
+}
+
+void Buffer::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, const Device* pDevice,
+	size_t byteWidth, ResourceFlag resourceFlags, API api)
+{
+	Buffer_DX12::GetAllocationInfo(byteSize, alignment, pDevice, byteWidth, resourceFlags);
 }
 
 size_t Buffer::AlignRawView(size_t byteSize, API api)
@@ -428,6 +488,18 @@ Compute::PipelineLib::sptr Compute::PipelineLib::MakeShared(const Device* pDevic
 	return make_shared<PipelineLib_DX12>(pDevice);
 }
 
+void XUSG::GetPipelineCacheData(Pipeline pipeline, const void** ppData, size_t* pSize, API api)
+{
+	const auto blob = GetPipelineCache(pipeline, api);
+
+	return GetBlobData(blob, ppData, pSize, api);
+}
+
+void XUSG::GetBlobData(const Blob& blob, const void** ppData, size_t* pSize, API api)
+{
+	return GetDX12BlobData(blob, ppData, pSize);
+}
+
 Blob XUSG::GetPipelineCache(Pipeline pipeline, API api)
 {
 	return GetDX12PipelineCache(pipeline);
@@ -444,18 +516,6 @@ uint8_t XUSG::Log2(uint32_t value)
 #else
 	return static_cast<uint8_t>(log2(value));
 #endif
-}
-
-size_t XUSG::GetBlobData(const Blob& blob, const void*& pData, API api)
-{
-	return GetDX12BlobData(blob, pData);
-}
-
-size_t XUSG::GetPipelineCacheData(Pipeline pipeline, const void*& pData, API api)
-{
-	const auto blob = GetPipelineCache(pipeline, api);
-
-	return GetBlobData(blob, pData, api);
 }
 
 size_t XUSG::Align(size_t size, size_t alignment)

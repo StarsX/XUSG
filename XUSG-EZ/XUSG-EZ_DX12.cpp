@@ -237,14 +237,14 @@ void EZ::CommandList_DX12::CopyResource(Resource* pDstResource, Resource* pSrcRe
 }
 
 void EZ::CommandList_DX12::CopyTiles(Resource* pTiledResource, const TiledResourceCoord* pTileRegionStartCoord,
-	const TileRegionSize* pTileRegionSize, const Resource* pBuffer, uint64_t bufferStartOffsetInBytes, TileCopyFlag flags)
+	const TileRegionSize& tileRegionSize, const Resource* pBuffer, uint64_t bufferStartOffsetInBytes, TileCopyFlag flags)
 {
 	ResourceBarrier barrier;
 	const auto numBarriers = pTiledResource->SetBarrier(&barrier, ResourceState::COPY_DEST);
 	XUSG::CommandList_DX12::Barrier(numBarriers, &barrier);
 
 	XUSG::CommandList_DX12::CopyTiles(pTiledResource, pTileRegionStartCoord,
-		pTileRegionSize, pBuffer, bufferStartOffsetInBytes, flags);
+		tileRegionSize, pBuffer, bufferStartOffsetInBytes, flags);
 }
 
 void EZ::CommandList_DX12::ResolveSubresource(Resource* pDstResource, uint32_t dstSubresource,

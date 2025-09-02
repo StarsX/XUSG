@@ -578,6 +578,53 @@ bool SamplerFeedBack_DX12::Create(const Device* pDevice, const Texture* pTarget,
 	return true;
 }
 
+bool SamplerFeedBack_DX12::Create(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset,
+	const Texture* pTarget, Format format, uint32_t mipRegionWidth, uint32_t mipRegionHeight,
+	uint32_t mipRegionDepth, ResourceFlag resourceFlags, bool isCubeMap, const wchar_t* name,
+	uint16_t srvComponentMapping, TextureLayout textureLayout, uint32_t maxThreads)
+{
+	assert(format == Format::MIN_MIP_OPAQUE || format == Format::MIP_REGION_USED_OPAQUE);
+	XUSG_N_RETURN(Initialize(pDevice, format), false);
+
+	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
+
+	uint16_t arraySize;
+	uint8_t numMips;
+
+	if (pTarget)
+	{
+		// Get paired properties
+		arraySize = pTarget->GetArraySize();
+		numMips = pTarget->GetNumMips();
+
+		XUSG_N_RETURN(CreateResource(pHeap, heapOffset, pTarget, format, mipRegionWidth, mipRegionHeight,
+			mipRegionDepth, resourceFlags, isCubeMap, ResourceState::COMMON, textureLayout, maxThreads), false);
+	}
+	else arraySize = numMips = 1;
+
+	SetName(name);
+
+	// Allocate CBV SRV UAV heap
+	uint32_t numDescriptors = 0;
+	if (hasSRV) numDescriptors += max<uint8_t>(numMips, 1);
+	if (pTarget) ++numDescriptors;
+	const auto uavHeapStart = AllocateCbvSrvUavHeap(numDescriptors);
+	auto descriptorIdx = 0u;
+
+	// Create SRVs
+	if (hasSRV)
+		XUSG_N_RETURN(createSRVs(descriptorIdx, arraySize, m_format, numMips, false, isCubeMap, srvComponentMapping), false);
+
+	// Create UAV
+	if (pTarget)
+	{
+		m_uavs.resize(1);
+		XUSG_X_RETURN(m_uavs[0], CreateUAV(uavHeapStart, descriptorIdx, pTarget), false);
+	}
+
+	return true;
+}
+
 bool SamplerFeedBack_DX12::CreateResource(const Texture* pTarget, Format format,
 	uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
 	ResourceFlag resourceFlags, bool isCubeMap, MemoryFlag memoryFlags,
@@ -607,6 +654,39 @@ bool SamplerFeedBack_DX12::CreateResource(const Texture* pTarget, Format format,
 
 	V_RETURN(m_deviceU->CreateCommittedResource2(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
 		GetDX12ResourceStates(m_states[0][0]), nullptr, nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
+
+	return true;
+}
+
+bool SamplerFeedBack_DX12::CreateResource(const Heap* pHeap, uint64_t heapOffset, const Texture* pTarget,
+	Format format, uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
+	ResourceFlag resourceFlags, bool isCubeMap, ResourceState initialResourceState,
+	TextureLayout textureLayout, uint32_t maxThreads)
+{
+	V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&m_deviceU)), cerr, false);
+
+	// Get paired properties
+	const uint16_t arraySize = pTarget->GetArraySize();
+	const uint8_t numMips = pTarget->GetNumMips();
+
+	// Setup the texture description.
+	assert(pTarget);
+	assert(format == Format::MIN_MIP_OPAQUE || format == Format::MIP_REGION_USED_OPAQUE);
+	const auto desc = CD3DX12_RESOURCE_DESC1::Tex2D(GetDXGIFormat(format),
+		pTarget->GetWidth(), pTarget->GetHeight(), arraySize, numMips, 1, 0,
+		GetDX12ResourceFlags(ResourceFlag::ALLOW_UNORDERED_ACCESS | resourceFlags),
+		GetDX12TextureLayout(textureLayout), 0, mipRegionWidth, mipRegionHeight, mipRegionDepth);
+
+	// Determine initial state
+	assert(maxThreads);
+	m_states.resize(maxThreads);
+	for (auto& states : m_states)
+		states.resize(arraySize * numMips, initialResourceState);
+
+	assert(pHeap);
+	V_RETURN(m_deviceU->CreatePlacedResource2(static_cast<ID3D12Heap*>(pHeap->GetHandle()), heapOffset, &desc,
+		GetDX12BarrierLayout(GetBarrierLayout(m_states[0][0])), nullptr, 0, nullptr, IID_PPV_ARGS(&m_resource)),
+		clog, false);
 
 	return true;
 }

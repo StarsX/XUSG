@@ -111,10 +111,22 @@ namespace XUSG
 				uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 				TextureLayout textureLayout = TextureLayout::UNKNOWN,
 				uint32_t maxThreads = 1);
+			bool Create(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, const Texture* pTarget,
+				Format format, uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
+				ResourceFlag resourceFlags = ResourceFlag::NONE, bool isCubeMap = false,
+				const wchar_t* name = nullptr, uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
+				TextureLayout textureLayout = TextureLayout::UNKNOWN,
+				uint32_t maxThreads = 1);
 			bool CreateResource(const Texture* pTarget, Format format,
 				uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
 				ResourceFlag resourceFlags = ResourceFlag::NONE, bool isCubeMap = false,
 				MemoryFlag memoryFlags = MemoryFlag::NONE,
+				ResourceState initialResourceState = ResourceState::COMMON,
+				TextureLayout textureLayout = TextureLayout::UNKNOWN,
+				uint32_t maxThreads = 1);
+			bool CreateResource(const Heap* pHeap, uint64_t heapOffset, const Texture* pTarget,
+				Format format, uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
+				ResourceFlag resourceFlags = ResourceFlag::NONE, bool isCubeMap = false,
 				ResourceState initialResourceState = ResourceState::COMMON,
 				TextureLayout textureLayout = TextureLayout::UNKNOWN,
 				uint32_t maxThreads = 1);
@@ -123,7 +135,7 @@ namespace XUSG
 			Descriptor CreateUAV(const Descriptor& uavHeapStart, uint32_t descriptorIdx, const Resource* pTarget);
 
 		protected:
-			com_ptr<ID3D12Device8> m_deviceU;
+			com_ptr<ID3D12Device10> m_deviceU;
 		};
 
 		D3D12_BARRIER_SYNC GetDX12BarrierSync(BarrierSync barrierSync);

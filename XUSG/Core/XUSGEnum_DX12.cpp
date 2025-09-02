@@ -21,6 +21,7 @@ using namespace XUSG;
 #define APPEND_COLOR_WRITE(mask, bit) ((mask & ColorWrite::bit) == ColorWrite::bit ? D3D12_COLOR_WRITE_ENABLE##_##bit : 0)
 #define APPEND_PIPELINE_FLAG(flags, flag) APPEND_FLAG(PipelineFlag, D3D12_PIPELINE_STATE_FLAG, flags, flag, NONE)
 #define APPEND_TILE_COPY_FLAG(flags, flag) APPEND_FLAG(TileCopyFlag, D3D12_TILE_COPY_FLAG, flags, flag, NONE)
+#define APPEND_TILE_MAPPING_FLAG(flags, flag) APPEND_FLAG(TileMappingFlag, D3D12_TILE_MAPPING_FLAG, flags, flag, NONE)
 #define APPEND_SWAP_CHAIN_FLAG(flags, flag) ((flags & SwapChainFlag::flag) == SwapChainFlag::flag ? DXGI_SWAP_CHAIN_FLAG_##flag : 0)
 #define APPEND_PRESENT_FLAG(flags, flag) ((flags & PresentFlag::flag) == PresentFlag::flag ? DXGI_PRESENT_##flag : 0)
 
@@ -939,6 +940,44 @@ D3D12_TILE_COPY_FLAGS XUSG::GetDX12TileCopyFlags(TileCopyFlag tileCopyFlags)
 	flags |= APPEND_TILE_COPY_FLAG(tileCopyFlags, NO_HAZARD);
 	flags |= APPEND_TILE_COPY_FLAG(tileCopyFlags, LINEAR_BUFFER_TO_SWIZZLED_TILED_RESOURCE);
 	flags |= APPEND_TILE_COPY_FLAG(tileCopyFlags, SWIZZLED_TILED_RESOURCE_TO_LINEAR_BUFFER);
+
+	return flags;
+}
+
+D3D12_TILE_RANGE_FLAGS XUSG::GetDX12TileRangeFlag(TileRangeFlag tileRangeFlag)
+{
+	static const D3D12_TILE_RANGE_FLAGS tileRangeFlags[] =
+	{
+		D3D12_TILE_RANGE_FLAG_NULL,
+		D3D12_TILE_RANGE_FLAG_SKIP,
+		D3D12_TILE_RANGE_FLAG_REUSE_SINGLE_TILE
+	};
+
+	if (tileRangeFlag == TileRangeFlag::NONE) return D3D12_TILE_RANGE_FLAG_NONE;
+
+	const auto index = Log2(static_cast<uint32_t>(tileRangeFlag));
+
+	return tileRangeFlags[index];
+}
+
+D3D12_TILE_MAPPING_FLAGS XUSG::GetDX12TileMappingFlag(TileMappingFlag tileMappingFlag)
+{
+	static const D3D12_TILE_MAPPING_FLAGS tileMappingFlags[] =
+	{
+		D3D12_TILE_MAPPING_FLAG_NO_HAZARD
+	};
+
+	if (tileMappingFlag == TileMappingFlag::NONE) return D3D12_TILE_MAPPING_FLAG_NONE;
+
+	const auto index = Log2(static_cast<uint32_t>(tileMappingFlag));
+
+	return tileMappingFlags[index];
+}
+
+D3D12_TILE_MAPPING_FLAGS XUSG::GetDX12TileMappingFlags(TileMappingFlag tileMappingFlags)
+{
+	auto flags = D3D12_TILE_MAPPING_FLAG_NONE;
+	flags |= APPEND_TILE_MAPPING_FLAG(tileMappingFlags, NO_HAZARD);
 
 	return flags;
 }

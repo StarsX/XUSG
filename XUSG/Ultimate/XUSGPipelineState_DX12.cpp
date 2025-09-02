@@ -681,7 +681,9 @@ void PipelineLib_DX12::getStream(CD3DX12_PIPELINE_STATE_STREAM2* pStream, void* 
 	if (pDesc->CachedPipeline)
 	{
 		D3D12_CACHED_PIPELINE_STATE& cachedPSO = stream.CachedPSO;
-		cachedPSO.CachedBlobSizeInBytes = GetDX12BlobData(pDesc->CachedPipeline, cachedPSO.pCachedBlob);
+		size_t cachedBlobSize;
+		GetDX12BlobData(pDesc->CachedPipeline, &cachedPSO.pCachedBlob, &cachedBlobSize);
+		cachedPSO.CachedBlobSizeInBytes = cachedBlobSize;
 	}
 
 	// Node mask and flags
@@ -865,7 +867,9 @@ void PipelineLib_DX12::getStream(CD3DX12_PIPELINE_STATE_STREAM3* pStream, void* 
 	if (pDesc->CachedPipeline)
 	{
 		D3D12_CACHED_PIPELINE_STATE& cachedPSO = stream.CachedPSO;
-		cachedPSO.CachedBlobSizeInBytes = GetDX12BlobData(pDesc->CachedPipeline, cachedPSO.pCachedBlob);
+		size_t cachedBlobSize;
+		GetDX12BlobData(pDesc->CachedPipeline, &cachedPSO.pCachedBlob, &cachedBlobSize);
+		cachedPSO.CachedBlobSizeInBytes = cachedBlobSize;
 	}
 
 	// Node mask and flags
@@ -1049,7 +1053,9 @@ void PipelineLib_DX12::getStream(CD3DX12_PIPELINE_STATE_STREAM4* pStream, void* 
 	if (pDesc->CachedPipeline)
 	{
 		D3D12_CACHED_PIPELINE_STATE& cachedPSO = stream.CachedPSO;
-		cachedPSO.CachedBlobSizeInBytes = GetDX12BlobData(pDesc->CachedPipeline, cachedPSO.pCachedBlob);
+		size_t cachedBlobSize;
+		GetDX12BlobData(pDesc->CachedPipeline, &cachedPSO.pCachedBlob, &cachedBlobSize);
+		cachedPSO.CachedBlobSizeInBytes = cachedBlobSize;
 	}
 
 	// Node mask and flags
@@ -1228,7 +1234,9 @@ void PipelineLib_DX12::getStream(CD3DX12_PIPELINE_STATE_STREAM5* pStream, void* 
 	if (pDesc->CachedPipeline)
 	{
 		D3D12_CACHED_PIPELINE_STATE& cachedPSO = stream.CachedPSO;
-		cachedPSO.CachedBlobSizeInBytes = GetDX12BlobData(pDesc->CachedPipeline, cachedPSO.pCachedBlob);
+		size_t cachedBlobSize;
+		GetDX12BlobData(pDesc->CachedPipeline, &cachedPSO.pCachedBlob, &cachedBlobSize);
+		cachedPSO.CachedBlobSizeInBytes = cachedBlobSize;
 	}
 
 	// Node mask and flags

@@ -45,6 +45,8 @@ namespace XUSG
 			const wchar_t* name = nullptr);
 		bool GetFence(Fence* pFence, uint64_t initialValue, FenceFlag flags,
 			const wchar_t* name = nullptr);
+		bool MakeResident(uint32_t numObjects, void* const* ppObjects);
+		bool Evict(uint32_t numObjects, void* const* ppObjects);
 
 		uint32_t Create(void* pAdapter, uint32_t minFeatureLevel, const wchar_t* name = nullptr);
 		uint32_t GetDeviceRemovedReason() const;
@@ -133,5 +135,5 @@ namespace XUSG
 
 	Blob GetDX12PipelineCache(Pipeline pipeline);
 
-	size_t GetDX12BlobData(const Blob& blob, const void*& pData);
+	void GetDX12BlobData(const Blob& blob, const void** ppData, size_t* pSize);
 }

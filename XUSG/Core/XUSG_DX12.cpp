@@ -41,6 +41,24 @@ bool Device_DX12::GetFence(Fence* pFence, uint64_t initialValue, FenceFlag flags
 	return pFence->Create(this, initialValue, flags, name);
 }
 
+bool Device_DX12::MakeResident(uint32_t numObjects, void* const* ppObjects)
+{
+	vector<ID3D12Pageable*> objects(numObjects);
+	for (auto i = 0u; i < numObjects; ++i) objects[i] = static_cast<ID3D12Pageable*>(ppObjects[i]);
+	V_RETURN(m_device->MakeResident(numObjects, objects.data()), cerr, false);
+
+	return true;
+}
+
+bool Device_DX12::Evict(uint32_t numObjects, void* const* ppObjects)
+{
+	vector<ID3D12Pageable*> objects(numObjects);
+	for (auto i = 0u; i < numObjects; ++i) objects[i] = static_cast<ID3D12Pageable*>(ppObjects[i]);
+	V_RETURN(m_device->Evict(numObjects, objects.data()), cerr, false);
+
+	return true;
+}
+
 uint32_t Device_DX12::Create(void* pAdapter, uint32_t minFeatureLevel, const wchar_t* name)
 {
 	const auto hr = D3D12CreateDevice(static_cast<IUnknown*>(pAdapter),
@@ -321,18 +339,17 @@ void* SwapChain_DX12::GetHandle() const
 	return m_swapChain.get();
 }
 
+void XUSG::GetDX12BlobData(const Blob& blob, const void** ppData, size_t* pSize)
+{
+	const auto pBlob = static_cast<ID3DBlob*>(blob);
+	if (ppData) *ppData = pBlob->GetBufferPointer();
+	if (pSize) *pSize = pBlob->GetBufferSize();
+}
+
 Blob XUSG::GetDX12PipelineCache(Pipeline pipeline)
 {
 	com_ptr<ID3DBlob> blob;
 	V_RETURN(static_cast<ID3D12PipelineState*>(pipeline)->GetCachedBlob(&blob), cerr, nullptr);
 
 	return blob.get();
-}
-
-size_t XUSG::GetDX12BlobData(const Blob& blob, const void*& pData)
-{
-	const auto pBlob = static_cast<ID3DBlob*>(blob);
-	pData = pBlob->GetBufferPointer();
-
-	return pBlob->GetBufferSize();
 }

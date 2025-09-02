@@ -96,8 +96,8 @@ namespace XUSG
 				const TextureCopyLocation& src, const BoxRange* pSrcBox = nullptr);
 			void CopyResource(Resource* pDstResource, Resource* pSrcResource);
 			void CopyTiles(Resource* pTiledResource, const TiledResourceCoord* pTileRegionStartCoord,
-				const TileRegionSize* pTileRegionSize, const Resource* pBuffer, uint64_t bufferStartOffsetInBytes,
-				TileCopyFlag flags);
+				const TileRegionSize& tileRegionSize, const Resource* pBuffer, uint64_t bufferStartOffsetInBytes,
+				TileCopyFlag flags = TileCopyFlag::NONE);
 			void ResolveSubresource(Resource* pDstResource, uint32_t dstSubresource,
 				Resource* pSrcResource, uint32_t srcSubresource, Format format);
 			void IASetInputLayout(const InputLayout* pLayout);

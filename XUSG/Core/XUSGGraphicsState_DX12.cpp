@@ -565,7 +565,11 @@ void PipelineLib_DX12::GetHandleDesc(void* pHandleDesc, void* pInputElements, co
 	desc.SampleDesc.Quality = pDesc->SampleQuality;
 
 	if (pDesc->CachedPipeline)
-		desc.CachedPSO.CachedBlobSizeInBytes = GetDX12BlobData(pDesc->CachedPipeline, desc.CachedPSO.pCachedBlob);
+	{
+		size_t cachedBlobSize;
+		GetDX12BlobData(pDesc->CachedPipeline, &desc.CachedPSO.pCachedBlob, &cachedBlobSize);
+		desc.CachedPSO.CachedBlobSizeInBytes = cachedBlobSize;
+	}
 
 	desc.NodeMask = pDesc->NodeMask;
 	desc.Flags = GetDX12PipelineFlags(pDesc->Flags);
