@@ -319,11 +319,6 @@ com_ptr<ID3D12Resource>& Resource_DX12::GetResource()
 	return m_resource;
 }
 
-size_t Resource_DX12::GetTiledResourceTileSize()
-{
-	return D3D12_TILED_RESOURCE_TILE_SIZE_IN_BYTES;
-}
-
 //--------------------------------------------------------------------------------------
 // Constant buffer
 //--------------------------------------------------------------------------------------
@@ -569,6 +564,11 @@ const Descriptor& ConstantBuffer_DX12::GetCBV(uint32_t index) const
 uint32_t ConstantBuffer_DX12::GetCBVOffset(uint32_t index) const
 {
 	return static_cast<uint32_t>(m_cbvByteOffsets[index]);
+}
+
+size_t ConstantBuffer_DX12::GetTiledResourceTileSize() const
+{
+	return D3D12_TILED_RESOURCE_TILE_SIZE_IN_BYTES;
 }
 
 void ConstantBuffer_DX12::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, const Device* pDevice, size_t byteWidth)
@@ -1379,6 +1379,11 @@ uint8_t Texture_DX12::GetNumMips() const
 size_t Texture_DX12::GetRequiredIntermediateSize(uint32_t firstSubresource, uint32_t numSubresources) const
 {
 	return static_cast<size_t>(::GetRequiredIntermediateSize(m_resource.get(), firstSubresource, numSubresources));
+}
+
+size_t Texture_DX12::GetTiledResourceTileSize() const
+{
+	return D3D12_TILED_RESOURCE_TILE_SIZE_IN_BYTES;
 }
 
 void* Texture_DX12::Map(uint32_t subresource, uintptr_t readBegin, uintptr_t readEnd)
@@ -3351,6 +3356,11 @@ void Buffer_DX12::SetCounter(const Resource::sptr& counter)
 Resource::sptr Buffer_DX12::GetCounter() const
 {
 	return m_counter;
+}
+
+size_t Buffer_DX12::GetTiledResourceTileSize() const
+{
+	return D3D12_TILED_RESOURCE_TILE_SIZE_IN_BYTES;
 }
 
 void Buffer_DX12::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment,

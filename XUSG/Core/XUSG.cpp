@@ -150,11 +150,6 @@ BarrierLayout Resource::GetBarrierLayout(ResourceState resourceState)
 	return BarrierLayout::UNDEFINED;
 }
 
-size_t Resource::GetTiledResourceTileSize(API api)
-{
-	return Resource_DX12::GetTiledResourceTileSize();
-}
-
 ConstantBuffer::uptr ConstantBuffer::MakeUnique(API api)
 {
 	return make_unique<ConstantBuffer_DX12>();
@@ -505,6 +500,11 @@ Blob XUSG::GetPipelineCache(Pipeline pipeline, API api)
 	return GetDX12PipelineCache(pipeline);
 }
 
+size_t XUSG::Align(size_t size, size_t alignment)
+{
+	return (size + (alignment - 1)) & ~(alignment - 1);
+}
+
 uint8_t XUSG::Log2(uint32_t value)
 {
 #if defined(WIN32) || (_WIN32)
@@ -516,11 +516,6 @@ uint8_t XUSG::Log2(uint32_t value)
 #else
 	return static_cast<uint8_t>(log2(value));
 #endif
-}
-
-size_t XUSG::Align(size_t size, size_t alignment)
-{
-	return (size + (alignment - 1)) & ~(alignment - 1);
 }
 
 uint32_t XUSG::Divide_RoundUp(uint32_t x, uint32_t n)

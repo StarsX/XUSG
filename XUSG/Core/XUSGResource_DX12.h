@@ -85,8 +85,6 @@ namespace XUSG
 
 		com_ptr<ID3D12Resource>& GetResource();
 
-		static size_t GetTiledResourceTileSize();
-
 	protected:
 		com_ptr<ID3D12Device>	m_device;
 		com_ptr<ID3D12Resource>	m_resource;
@@ -137,6 +135,7 @@ namespace XUSG
 
 		const Descriptor& GetCBV(uint32_t index = 0) const;
 		uint32_t GetCBVOffset(uint32_t index) const;
+		size_t GetTiledResourceTileSize() const;
 
 		static void GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, const Device* pDevice, size_t byteWidth);
 
@@ -261,6 +260,7 @@ namespace XUSG
 		uint16_t	GetArraySize() const;
 		uint8_t		GetNumMips() const;
 		size_t		GetRequiredIntermediateSize(uint32_t firstSubresource, uint32_t numSubresources) const;
+		size_t		GetTiledResourceTileSize() const;
 
 		void* Map(uint32_t subresource = 0, uintptr_t readBegin = 0, uintptr_t readEnd = 0);
 		void* Map(const Range* pReadRange, uint32_t subresource = 0);
@@ -567,6 +567,7 @@ namespace XUSG
 		void SetCounter(const Resource::sptr& counter);
 
 		Resource::sptr GetCounter() const;
+		size_t GetTiledResourceTileSize() const;
 
 		static void GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, const Device* pDevice,
 			size_t byteWidth, ResourceFlag resourceFlags = ResourceFlag::NONE);

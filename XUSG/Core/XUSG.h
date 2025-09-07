@@ -1599,8 +1599,6 @@ namespace XUSG
 		static sptr MakeShared(API api = API::DIRECTX_12);
 
 		static BarrierLayout GetBarrierLayout(ResourceState resourceState);
-
-		static size_t GetTiledResourceTileSize(API api = API::DIRECTX_12);
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -1638,6 +1636,7 @@ namespace XUSG
 
 		virtual const Descriptor& GetCBV(uint32_t index = 0) const = 0;
 		virtual uint32_t GetCBVOffset(uint32_t index) const = 0;
+		virtual size_t GetTiledResourceTileSize() const = 0;
 
 		using uptr = std::unique_ptr<ConstantBuffer>;
 		using sptr = std::shared_ptr<ConstantBuffer>;
@@ -1764,6 +1763,7 @@ namespace XUSG
 		virtual uint16_t	GetArraySize() const = 0;
 		virtual uint8_t		GetNumMips() const = 0;
 		virtual size_t		GetRequiredIntermediateSize(uint32_t firstSubresource, uint32_t numSubresources) const = 0;
+		virtual size_t		GetTiledResourceTileSize() const = 0;
 
 		virtual void* Map(uint32_t subresource = 0, uintptr_t readBegin = 0, uintptr_t readEnd = 0) = 0;
 		virtual void* Map(const Range* pReadRange, uint32_t subresource = 0) = 0;
@@ -2070,6 +2070,7 @@ namespace XUSG
 		virtual void SetCounter(const Resource::sptr& counter) = 0;
 
 		virtual Resource::sptr GetCounter() const = 0;
+		virtual size_t GetTiledResourceTileSize() const = 0;
 
 		using uptr = std::unique_ptr<Buffer>;
 		using sptr = std::shared_ptr<Buffer>;
@@ -2905,9 +2906,9 @@ namespace XUSG
 
 	XUSG_INTERFACE Blob GetPipelineCache(Pipeline pipeline, API api = API::DIRECTX_12);
 
-	XUSG_INTERFACE uint8_t Log2(uint32_t value);
-
 	XUSG_INTERFACE size_t Align(size_t size, size_t alignment);
+
+	XUSG_INTERFACE uint8_t Log2(uint32_t value);
 
 	XUSG_INTERFACE uint32_t Divide_RoundUp(uint32_t x, uint32_t n);
 }
