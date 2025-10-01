@@ -364,6 +364,7 @@ namespace XUSG
 		ALLOW_SHADER_ATOMICS = (1 << 8),
 		CREATE_NOT_RESIDENT = (1 << 9),
 		CREATE_NOT_ZEROED = (1 << 10),
+		TOOLS_USE_MANUAL_WRITE_TRACKING = (1 << 11),
 		ALLOW_ALL_BUFFERS_AND_TEXTURES = 0,
 		ALLOW_ONLY_BUFFERS = DENY_RT_DS_TEXTURES | DENY_NON_RT_DS_TEXTURES,
 		ALLOW_ONLY_NON_RT_DS_TEXTURES = D3D12_HEAP_FLAG_DENY_BUFFERS | DENY_RT_DS_TEXTURES,
@@ -505,7 +506,8 @@ namespace XUSG
 	enum class CommandQueueFlag : uint8_t
 	{
 		NONE = 0,
-		DISABLE_GPU_TIMEOUT = (1 << 0)
+		DISABLE_GPU_TIMEOUT = (1 << 0),
+		ALLOW_DYNAMIC_PRIORITY = (1 << 1)
 	};
 
 	XUSG_DEF_ENUM_FLAG_OPERATORS(CommandQueueFlag);
@@ -2910,5 +2912,5 @@ namespace XUSG
 
 	XUSG_INTERFACE uint8_t Log2(uint32_t value);
 
-	XUSG_INTERFACE uint32_t Divide_RoundUp(uint32_t x, uint32_t n);
+	XUSG_INTERFACE uint32_t DivideAndRoundUp(uint32_t x, uint32_t n);
 }

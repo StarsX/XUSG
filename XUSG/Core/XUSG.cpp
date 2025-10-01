@@ -518,7 +518,7 @@ uint8_t XUSG::Log2(uint32_t value)
 #endif
 }
 
-uint32_t XUSG::Divide_RoundUp(uint32_t x, uint32_t n)
+uint32_t XUSG::DivideAndRoundUp(uint32_t x, uint32_t n)
 {
 	return XUSG_DIV_UP(x, n);
 }

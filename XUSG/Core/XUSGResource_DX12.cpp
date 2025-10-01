@@ -37,7 +37,16 @@ bool Heap_DX12::Create(const Device* pDevice, uint64_t byteSize, MemoryType memo
 	m_memoryType = memoryType;
 	const CD3DX12_HEAP_DESC desc(byteSize, GetDX12HeapType(memoryType), alignment, GetDX12HeapFlags(memoryFlags));
 
-	V_RETURN(m_device->CreateHeap(&desc, IID_PPV_ARGS(&m_heap)), clog, false);
+	if ((memoryFlags & MemoryFlag::SHARED) == MemoryFlag::SHARED)
+	{
+		com_ptr<ID3D12CompatibilityDevice> device = nullptr;
+		V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&device)), cerr, false);
+		V_RETURN(device->CreateSharedHeap(&desc, D3D12_COMPATIBILITY_SHARED_FLAG_KEYED_MUTEX, IID_PPV_ARGS(&m_heap)), clog, false);
+	}
+	else
+	{
+		V_RETURN(m_device->CreateHeap(&desc, IID_PPV_ARGS(&m_heap)), clog, false);
+	}
 
 	SetName(name);
 
@@ -438,8 +447,19 @@ bool ConstantBuffer_DX12::CreateResource(size_t byteWidth, MemoryType memoryType
 	m_states[0].resize(1);
 	m_states[0][0] = memoryType == MemoryType::DEFAULT ? initialResourceState : ResourceState::GENERIC_READ_RESOURCE;
 
-	V_RETURN(m_device->CreateCommittedResource(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
-		GetDX12ResourceStates(m_states[0][0]), nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
+	if ((memoryFlags & MemoryFlag::SHARED) == MemoryFlag::SHARED)
+	{
+		com_ptr<ID3D12CompatibilityDevice> device = nullptr;
+		V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&device)), cerr, false);
+		V_RETURN(device->CreateSharedResource(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
+			GetDX12ResourceStates(m_states[0][0]), nullptr, nullptr, D3D12_COMPATIBILITY_SHARED_FLAG_KEYED_MUTEX,
+			nullptr, nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
+	}
+	else
+	{
+		V_RETURN(m_device->CreateCommittedResource(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
+			GetDX12ResourceStates(m_states[0][0]), nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
+	}
 
 	return true;
 }
@@ -903,8 +923,19 @@ bool Texture_DX12::CreateResource(uint32_t width, uint32_t height, Format format
 			sampleCount, 0, GetDX12ResourceFlags(resourceFlags), GetDX12TextureLayout(textureLayout));
 
 		// Create the texture.
-		V_RETURN(m_device->CreateCommittedResource(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
-			GetDX12ResourceStates(m_states[0][0]), nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
+		if ((memoryFlags & MemoryFlag::SHARED) == MemoryFlag::SHARED)
+		{
+			com_ptr<ID3D12CompatibilityDevice> device = nullptr;
+			V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&device)), cerr, false);
+			V_RETURN(device->CreateSharedResource(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
+				GetDX12ResourceStates(m_states[0][0]), nullptr, nullptr, D3D12_COMPATIBILITY_SHARED_FLAG_KEYED_MUTEX,
+				nullptr, nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
+		}
+		else
+		{
+			V_RETURN(m_device->CreateCommittedResource(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
+				GetDX12ResourceStates(m_states[0][0]), nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
+		}
 	}
 
 	return true;
@@ -1693,8 +1724,19 @@ bool RenderTarget_DX12::CreateResource(uint32_t width, uint32_t height, Format f
 			0, GetDX12ResourceFlags(ResourceFlag::ALLOW_RENDER_TARGET | resourceFlags), GetDX12TextureLayout(textureLayout));
 
 		// Create the render-target texture.
-		V_RETURN(m_device->CreateCommittedResource(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
-			GetDX12ResourceStates(m_states[0][0]), &clearValue, IID_PPV_ARGS(&m_resource)), clog, false);
+		if ((memoryFlags & MemoryFlag::SHARED) == MemoryFlag::SHARED)
+		{
+			com_ptr<ID3D12CompatibilityDevice> device = nullptr;
+			V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&device)), cerr, false);
+			V_RETURN(device->CreateSharedResource(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
+				GetDX12ResourceStates(m_states[0][0]), &clearValue, nullptr, D3D12_COMPATIBILITY_SHARED_FLAG_KEYED_MUTEX,
+				nullptr, nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
+		}
+		else
+		{
+			V_RETURN(m_device->CreateCommittedResource(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
+				GetDX12ResourceStates(m_states[0][0]), &clearValue, IID_PPV_ARGS(&m_resource)), clog, false);
+		}
 	}
 
 	return true;
@@ -2348,8 +2390,19 @@ bool DepthStencil_DX12::CreateResource(uint32_t width, uint32_t height, Format f
 	clearValue.DepthStencil.Stencil = clearStencil;
 
 	// Create the depth-stencil texture.
-	V_RETURN(m_device->CreateCommittedResource(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
-		GetDX12ResourceStates(m_states[0][0]), &clearValue, IID_PPV_ARGS(&m_resource)), clog, false);
+	if ((memoryFlags & MemoryFlag::SHARED) == MemoryFlag::SHARED)
+	{
+		com_ptr<ID3D12CompatibilityDevice> device = nullptr;
+		V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&device)), cerr, false);
+		V_RETURN(device->CreateSharedResource(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
+			GetDX12ResourceStates(m_states[0][0]), &clearValue, nullptr, D3D12_COMPATIBILITY_SHARED_FLAG_KEYED_MUTEX,
+			nullptr, nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
+	}
+	else
+	{
+		V_RETURN(m_device->CreateCommittedResource(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
+			GetDX12ResourceStates(m_states[0][0]), &clearValue, IID_PPV_ARGS(&m_resource)), clog, false);
+	}
 
 	return true;
 }
@@ -2853,8 +2906,19 @@ bool Texture3D_DX12::CreateResource(uint32_t width, uint32_t height, uint16_t de
 			numMips, GetDX12ResourceFlags(resourceFlags), GetDX12TextureLayout(textureLayout));
 
 		// Create the texture.
-		V_RETURN(m_device->CreateCommittedResource(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
-			GetDX12ResourceStates(m_states[0][0]), nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
+		if ((memoryFlags & MemoryFlag::SHARED) == MemoryFlag::SHARED)
+		{
+			com_ptr<ID3D12CompatibilityDevice> device = nullptr;
+			V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&device)), cerr, false);
+			V_RETURN(device->CreateSharedResource(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
+				GetDX12ResourceStates(m_states[0][0]), nullptr, nullptr, D3D12_COMPATIBILITY_SHARED_FLAG_KEYED_MUTEX,
+				nullptr, nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
+		}
+		else
+		{
+			V_RETURN(m_device->CreateCommittedResource(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
+				GetDX12ResourceStates(m_states[0][0]), nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
+		}
 	}
 
 	return true;
@@ -3093,8 +3157,18 @@ bool Buffer_DX12::CreateResource(size_t byteWidth, ResourceFlag resourceFlags, M
 		const auto desc = CD3DX12_RESOURCE_DESC::Buffer(byteWidth, GetDX12ResourceFlags(resourceFlags));
 
 		// Create the buffer.
-		V_RETURN(m_device->CreateCommittedResource(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
-			GetDX12ResourceStates(m_states[0][0]), nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
+		if ((memoryFlags & MemoryFlag::SHARED) == MemoryFlag::SHARED)
+		{
+			com_ptr<ID3D12CompatibilityDevice> device = nullptr;
+			V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&device)), cerr, false);
+			V_RETURN(device->CreateSharedResource(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
+				GetDX12ResourceStates(m_states[0][0]), nullptr, nullptr, D3D12_COMPATIBILITY_SHARED_FLAG_KEYED_MUTEX,
+				nullptr, nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
+		}
+		{
+			V_RETURN(m_device->CreateCommittedResource(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
+				GetDX12ResourceStates(m_states[0][0]), nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
+		}
 	}
 
 	return true;
