@@ -23,6 +23,7 @@
     <ClInclude Include="Advanced\XUSGSHSharedConsts.h" />
     <ClInclude Include="Advanced\XUSGSphericalHarmonics.h" />
     <ClInclude Include="Common\d3d12.h" />
+    <ClInclude Include="Common\d3d12compatibility.h" />
     <ClInclude Include="Common\d3dcommon.h" />
     <ClInclude Include="Common\d3dx12.h" />
     <ClInclude Include="Common\d3dx12_barriers.h" />

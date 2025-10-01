@@ -24,6 +24,7 @@
 #include <windows.h>
 
 #include "d3dx12.h"
+#include "d3d12compatibility.h"
 #include <dxgi1_5.h>
 #include <D3Dcompiler.h>
 #include <DirectXMath.h>

@@ -96,6 +96,9 @@
     <ClInclude Include="..\XUSG\Common\dxgiformat.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="..\XUSG\Common\d3d12compatibility.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="RayTracing\XUSGRayTracing.cpp">

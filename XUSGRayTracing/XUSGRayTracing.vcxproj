@@ -163,6 +163,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\XUSG\Common\d3d12.h" />
+    <ClInclude Include="..\XUSG\Common\d3d12compatibility.h" />
     <ClInclude Include="..\XUSG\Common\d3dcommon.h" />
     <ClInclude Include="..\XUSG\Common\d3dx12.h" />
     <ClInclude Include="..\XUSG\Common\DXFrameworkHelper.h" />

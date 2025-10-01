@@ -160,6 +160,9 @@
     <ClInclude Include="Advanced\XUSGAdvanced.h">
       <Filter>Advanced\Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Common\d3d12compatibility.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
