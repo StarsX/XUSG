@@ -31,8 +31,7 @@ bool AccelerationStructure::AllocateDestBuffer(const Device* pDevice, Buffer* pD
 bool AccelerationStructure::AllocateUAVBuffer(const Device* pDevice, Buffer* pBuffer, size_t byteWidth,
 	ResourceState dstState, MemoryFlag memoryFlags, const wchar_t* name, uint32_t maxThreads)
 {
-	XUSG_N_RETURN(pBuffer->Initialize(pDevice, Format::R32_TYPELESS), false);
-	XUSG_N_RETURN(pBuffer->CreateResource(byteWidth, ResourceFlag::ALLOW_UNORDERED_ACCESS,
+	XUSG_N_RETURN(pBuffer->CreateResource(pDevice, byteWidth, ResourceFlag::ALLOW_UNORDERED_ACCESS,
 		MemoryType::DEFAULT, memoryFlags, dstState, 0, nullptr, maxThreads), false);
 	pBuffer->SetName(name);
 
@@ -42,8 +41,7 @@ bool AccelerationStructure::AllocateUAVBuffer(const Device* pDevice, Buffer* pBu
 bool AccelerationStructure::AllocateUploadBuffer(const Device* pDevice, Buffer* pBuffer,
 	size_t byteWidth, void* pData, MemoryFlag memoryFlags, const wchar_t* name)
 {
-	XUSG_N_RETURN(pBuffer->Initialize(pDevice, Format::R32_TYPELESS), false);
-	XUSG_N_RETURN(pBuffer->CreateResource(byteWidth, ResourceFlag::NONE, MemoryType::UPLOAD,
+	XUSG_N_RETURN(pBuffer->CreateResource(pDevice, byteWidth, ResourceFlag::NONE, MemoryType::UPLOAD,
 		memoryFlags, ResourceState::GENERIC_READ_RESOURCE), false);
 	pBuffer->SetName(name);
 

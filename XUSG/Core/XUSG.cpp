@@ -160,9 +160,10 @@ ConstantBuffer::sptr ConstantBuffer::MakeShared(API api)
 	return make_shared<ConstantBuffer_DX12>();
 }
 
-void ConstantBuffer::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, const Device* pDevice, size_t byteWidth, API api)
+void ConstantBuffer::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, const Device* pDevice,
+	size_t byteWidth, uint64_t requiredAlignment, API api)
 {
-	ConstantBuffer_DX12::GetAllocationInfo(byteSize, alignment, pDevice, byteWidth);
+	ConstantBuffer_DX12::GetAllocationInfo(byteSize, alignment, pDevice, byteWidth, requiredAlignment);
 }
 
 size_t ConstantBuffer::AlignCBV(size_t byteSize, API api)
@@ -192,10 +193,11 @@ Texture::sptr Texture::MakeShared(API api)
 
 void Texture::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, const Device* pDevice,
 	uint32_t width, uint32_t height, Format format, uint16_t arraySize, ResourceFlag resourceFlags,
-	uint8_t numMips, uint8_t sampleCount, TextureLayout textureLayout, API api)
+	uint8_t numMips, uint8_t sampleCount, TextureLayout textureLayout, uint64_t requiredAlignment,
+	API api)
 {
-	Texture_DX12::GetAllocationInfo(byteSize, alignment, pDevice, width, height,
-		format, arraySize, resourceFlags, numMips, sampleCount, textureLayout);
+	Texture_DX12::GetAllocationInfo(byteSize, alignment, pDevice, width, height, format,
+		arraySize, resourceFlags, numMips, sampleCount, textureLayout, requiredAlignment);
 }
 
 uint8_t Texture::CalculateMipLevels(uint32_t width, uint32_t height, uint32_t depth)
@@ -217,11 +219,12 @@ RenderTarget::sptr RenderTarget::MakeShared(API api)
 
 void RenderTarget::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, const Device* pDevice,
 	uint32_t width, uint32_t height, Format format, uint16_t arraySize, ResourceFlag resourceFlags,
-	uint8_t numMips, uint8_t sampleCount, TextureLayout textureLayout, API api)
+	uint8_t numMips, uint8_t sampleCount, TextureLayout textureLayout, uint64_t requiredAlignment,
+	API api)
 {
 	Texture::GetAllocationInfo(byteSize, alignment, pDevice, width, height,
 		format, arraySize, ResourceFlag::ALLOW_RENDER_TARGET | resourceFlags,
-		numMips, sampleCount, textureLayout, api);
+		numMips, sampleCount, textureLayout, requiredAlignment, api);
 }
 
 DepthStencil::uptr DepthStencil::MakeUnique(API api)
@@ -236,11 +239,12 @@ DepthStencil::sptr DepthStencil::MakeShared(API api)
 
 void DepthStencil::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, const Device* pDevice,
 	uint32_t width, uint32_t height, Format format, uint16_t arraySize, ResourceFlag resourceFlags,
-	uint8_t numMips, uint8_t sampleCount, TextureLayout textureLayout, API api)
+	uint8_t numMips, uint8_t sampleCount, TextureLayout textureLayout, uint64_t requiredAlignment,
+	API api)
 {
 	Texture::GetAllocationInfo(byteSize, alignment, pDevice, width, height,
 		format, arraySize, ResourceFlag::ALLOW_DEPTH_STENCIL | resourceFlags,
-		numMips, sampleCount, textureLayout, api);
+		numMips, sampleCount, textureLayout, requiredAlignment, api);
 }
 
 Texture3D::uptr Texture3D::MakeUnique(API api)
@@ -255,10 +259,10 @@ Texture3D::sptr Texture3D::MakeShared(API api)
 
 void Texture3D::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, const Device* pDevice,
 	uint32_t width, uint32_t height, uint16_t depth, Format format, ResourceFlag resourceFlags,
-	uint8_t numMips, TextureLayout textureLayout, API api)
+	uint8_t numMips, TextureLayout textureLayout, uint64_t requiredAlignment, API api)
 {
 	Texture3D_DX12::GetAllocationInfo(byteSize, alignment, pDevice, width, height, depth,
-		format, resourceFlags, numMips, textureLayout);
+		format, resourceFlags, numMips, textureLayout, requiredAlignment);
 }
 
 Buffer::uptr Buffer::MakeUnique(API api)
@@ -272,9 +276,9 @@ Buffer::sptr Buffer::MakeShared(API api)
 }
 
 void Buffer::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, const Device* pDevice,
-	size_t byteWidth, ResourceFlag resourceFlags, API api)
+	size_t byteWidth, ResourceFlag resourceFlags, uint64_t requiredAlignment, API api)
 {
-	Buffer_DX12::GetAllocationInfo(byteSize, alignment, pDevice, byteWidth, resourceFlags);
+	Buffer_DX12::GetAllocationInfo(byteSize, alignment, pDevice, byteWidth, resourceFlags, requiredAlignment);
 }
 
 size_t Buffer::AlignRawView(size_t byteSize, API api)

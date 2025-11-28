@@ -117,16 +117,16 @@ namespace XUSG
 				const wchar_t* name = nullptr, uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 				TextureLayout textureLayout = TextureLayout::UNKNOWN,
 				uint32_t maxThreads = 1);
-			bool CreateResource(const Texture* pTarget, Format format,
+			bool CreateResource(const Device* pDevice, const Texture* pTarget, Format format,
 				uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
 				ResourceFlag resourceFlags = ResourceFlag::NONE, bool isCubeMap = false,
 				MemoryFlag memoryFlags = MemoryFlag::NONE,
 				ResourceState initialResourceState = ResourceState::COMMON,
 				TextureLayout textureLayout = TextureLayout::UNKNOWN,
 				uint32_t maxThreads = 1);
-			bool CreateResource(const Heap* pHeap, uint64_t heapOffset, const Texture* pTarget,
-				Format format, uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
-				ResourceFlag resourceFlags = ResourceFlag::NONE, bool isCubeMap = false,
+			bool CreateResource(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset,
+				const Texture* pTarget, Format format, uint32_t mipRegionWidth, uint32_t mipRegionHeight,
+				uint32_t mipRegionDepth, ResourceFlag resourceFlags = ResourceFlag::NONE, bool isCubeMap = false,
 				ResourceState initialResourceState = ResourceState::COMMON,
 				TextureLayout textureLayout = TextureLayout::UNKNOWN,
 				uint32_t maxThreads = 1);
