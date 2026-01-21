@@ -657,7 +657,8 @@ void EZ::CommandList_DX12::ClearUnorderedAccessViewUint(const ResourceView& unor
 	uavTable->SetDescriptors(0, 1, &unorderedAccessView.View);
 	const auto descriptorTable = uavTable->GetCbvSrvUavTable(m_descriptorTableLib.get());
 
-	m_clearUAVsUint.emplace_back(ClearUAVUint{ unorderedAccessView.pResource, unorderedAccessView.View,
+	m_clearUAVs.emplace_back(unorderedAccessView);
+	m_clearUAVsUint.emplace_back(ClearUAVUint{ &m_clearUAVs.back(),
 		descriptorTable, values[0], values[1], values[2], values[3] });
 
 	auto& clearView = m_clearUAVsUint.back();
@@ -674,7 +675,8 @@ void EZ::CommandList_DX12::ClearUnorderedAccessViewFloat(const ResourceView& uno
 	uavTable->SetDescriptors(0, 1, &unorderedAccessView.View);
 	const auto descriptorTable = uavTable->GetCbvSrvUavTable(m_descriptorTableLib.get());
 
-	m_clearUAVsFloat.emplace_back(ClearUAVFloat{ unorderedAccessView.pResource, unorderedAccessView.View,
+	m_clearUAVs.emplace_back(unorderedAccessView);
+	m_clearUAVsFloat.emplace_back(ClearUAVFloat{ &m_clearUAVs.back(),
 		descriptorTable, values[0], values[1], values[2], values[3] });
 
 	auto& clearView = m_clearUAVsFloat.back();
@@ -1066,8 +1068,7 @@ void EZ::CommandList_DX12::predraw()
 	// Clear DSVs, RTVs, and UAVs
 	clearDSVs();
 	clearRTVs();
-	clearUAVsUint();
-	clearUAVsFloat();
+	clearUAVs();
 
 	// Create pipeline for dynamic states
 	assert(m_graphicsState);
@@ -1149,8 +1150,7 @@ void EZ::CommandList_DX12::predispatch()
 	m_barriers.clear();
 
 	// Clear UAVs
-	clearUAVsUint();
-	clearUAVsFloat();
+	clearUAVs();
 
 	// Create pipeline for dynamic states
 	assert(m_computeState);
@@ -1225,20 +1225,27 @@ void EZ::CommandList_DX12::clearRTVs()
 	m_clearRTVs.clear();
 }
 
-void EZ::CommandList_DX12::clearUAVsUint()
+void EZ::CommandList_DX12::clearUAVs()
 {
 	for (const auto& args : m_clearUAVsUint)
-		XUSG::CommandList_DX12::ClearUnorderedAccessViewUint(args.UAVTable, args.UnorderedAccessView,
-			args.pResource, args.Values, static_cast<uint32_t>(args.Rects.size()), args.Rects.data());
-	m_clearUAVsUint.clear();
-}
+		XUSG::CommandList_DX12::ClearUnorderedAccessViewUint(args.UAVTable, args.pUAV->View,
+			args.pUAV->pResource, args.Values, static_cast<uint32_t>(args.Rects.size()), args.Rects.data());
 
-void EZ::CommandList_DX12::clearUAVsFloat()
-{
 	for (const auto& args : m_clearUAVsFloat)
-		XUSG::CommandList_DX12::ClearUnorderedAccessViewFloat(args.UAVTable, args.UnorderedAccessView,
-			args.pResource, args.Values, static_cast<uint32_t>(args.Rects.size()), args.Rects.data());
+		XUSG::CommandList_DX12::ClearUnorderedAccessViewFloat(args.UAVTable, args.pUAV->View,
+			args.pUAV->pResource, args.Values, static_cast<uint32_t>(args.Rects.size()), args.Rects.data());
+
+	// Set barrier and barrier command
+	if (!m_clearUAVs.empty())
+	{
+		setBarriers(static_cast<uint32_t>(m_clearUAVs.size()), m_clearUAVs.data());
+		XUSG::CommandList_DX12::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
+		m_barriers.clear();
+	}
+
+	m_clearUAVsUint.clear();
 	m_clearUAVsFloat.clear();
+	m_clearUAVs.clear();
 }
 
 void EZ::CommandList_DX12::setBarriers(uint32_t numResources, const ResourceView* pResourceViews)

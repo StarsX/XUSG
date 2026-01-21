@@ -263,8 +263,7 @@ namespace XUSG
 
 			struct ClearUAVUint
 			{
-				const Resource* pResource;
-				Descriptor UnorderedAccessView;
+				const ResourceView* pUAV;
 				DescriptorTable UAVTable;
 				uint32_t Values[4];
 				std::vector<RectRange> Rects;
@@ -272,8 +271,7 @@ namespace XUSG
 
 			struct ClearUAVFloat
 			{
-				const Resource* pResource;
-				Descriptor UnorderedAccessView;
+				const ResourceView* pUAV;
 				DescriptorTable UAVTable;
 				float Values[4];
 				std::vector<RectRange> Rects;
@@ -329,8 +327,7 @@ namespace XUSG
 			void preexecuteIndirect(Resource* pArgumentBuffer, Resource* pCountBuffer);
 			void clearDSVs();
 			void clearRTVs();
-			void clearUAVsUint();
-			void clearUAVsFloat();
+			void clearUAVs();
 			void setBarriers(uint32_t numResources, const ResourceView* pResourceViews);
 
 			static uint32_t generateBarriers(ResourceBarrier* pBarriers, const ResourceView& resrouceView,
@@ -361,6 +358,7 @@ namespace XUSG
 			std::vector<ClearRTV> m_clearRTVs;
 			std::vector<ClearUAVUint> m_clearUAVsUint;
 			std::vector<ClearUAVFloat> m_clearUAVsFloat;
+			std::vector<ResourceView> m_clearUAVs;
 
 			std::vector<uint32_t> m_graphicsSpaceToParamIndexMap[Shader::Stage::NUM_GRAPHICS][CbvSrvUavTypes];
 			std::vector<uint32_t> m_computeSpaceToParamIndexMap[CbvSrvUavTypes];

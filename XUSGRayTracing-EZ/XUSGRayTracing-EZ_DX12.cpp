@@ -590,8 +590,7 @@ void EZ::CommandList_DXR::predispatchRays(CShaderTablePtr& pRayGen, CShaderTable
 	m_barriers.clear();
 
 	// Clear UAVs
-	clearUAVsUint();
-	clearUAVsFloat();
+	clearUAVs();
 
 	// Create pipeline for dynamic states
 	assert(m_rayTracingState);

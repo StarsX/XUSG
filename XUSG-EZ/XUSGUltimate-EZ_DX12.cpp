@@ -564,8 +564,7 @@ void EZ::CommandList_DX12::predispatchMesh()
 	// Clear DSVs, RTVs, and UAVs
 	clearDSVs();
 	clearRTVs();
-	clearUAVsUint();
-	clearUAVsFloat();
+	clearUAVs();
 
 	// Create pipeline for dynamic states
 	assert(m_meshShaderState);
@@ -652,8 +651,7 @@ void EZ::CommandList_DX12::predispatchGraph()
 	m_barriers.clear();
 
 	// Clear UAVs
-	clearUAVsUint();
-	clearUAVsFloat();
+	clearUAVs();
 
 	// Create pipeline for dynamic states
 	getWorkGraphPipeline();
