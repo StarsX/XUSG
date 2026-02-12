@@ -34,7 +34,8 @@ namespace XUSG
 
 		XUSG_DEF_ENUM_FLAG_OPERATORS(GeometryFlag);
 
-		enum class InstanceFlag {
+		enum class InstanceFlag : uint8_t
+		{
 			NONE = 0,
 			TRIANGLE_CULL_DISABLE = (1 << 0),
 			TRIANGLE_FRONT_COUNTERCLOCKWISE = (1 << 1),
@@ -46,10 +47,17 @@ namespace XUSG
 
 		XUSG_DEF_ENUM_FLAG_OPERATORS(InstanceFlag);
 
+		enum class GeometryType : uint8_t
+		{
+			TRIANGLES,
+			PROCEDURAL_PRIMITIVE_AABBS,
+			OMM_TRIANGLES
+		};
+
 		enum class HitGroupType : uint8_t
 		{
 			TRIANGLES,
-			PROCEDURAL
+			PROCEDURAL_PRIMITIVE
 		};
 
 		enum class PostbuildInfoType : uint8_t
@@ -198,14 +206,51 @@ namespace XUSG
 			public virtual AccelerationStructure
 		{
 		public:
+			struct TriangleGeometry
+			{
+				uint64_t Transform;
+				Format IndexFormat;
+				Format VertexFormat;
+				uint32_t IndexCount;
+				uint32_t VertexCount;
+				uint64_t IndexBuffer;
+				uint64_t VertexBufferStart;
+				uint16_t VertexBufferStride;
+			};
+
+			struct AABBGeometry
+			{
+				uint32_t AABBCount;
+				uint64_t AABBsStart;
+				uint16_t AABBsStride;
+			};
+
 			struct OMMLinkage
 			{
-				Buffer* pOpacityMicromapIndexBuffer;
-				size_t OpacityMicromapIndexBufferStride;
+				uint64_t OpacityMicromapIndexBufferStart;
+				uint16_t OpacityMicromapIndexBufferStride;
 				Format OpacityMicromapIndexFormat;
 				uint32_t OpacityMicromapBaseLocation;
 				OpacityMicromapArray* pOpacityMicromapArray;
 				uintptr_t OpacityMicromapArrayOffset;
+			};
+
+			struct OMMTriangleGeometry
+			{
+				const TriangleGeometry* pTriangles;
+				const OMMLinkage* pOmmLinkage;
+			};
+
+			struct GeometryDesc
+			{
+				GeometryType Type;
+				GeometryFlag Flags;
+				union
+				{
+					TriangleGeometry Triangles;
+					AABBGeometry AABBs;
+					OMMTriangleGeometry OmmTriangles;
+				};
 			};
 
 			//BottomLevelAS();
@@ -218,16 +263,18 @@ namespace XUSG
 				const BottomLevelAS* pSource = nullptr, uint8_t numPostbuildInfoDescs = 0,
 				const PostbuildInfoType* pPostbuildInfoTypes = nullptr) = 0;
 
-			static void SetTriangleGeometries(GeometryBuffer& geometries, uint32_t numGeometries, Format vertexFormat,
-				const VertexBufferView* pVBs, const IndexBufferView* pIBs = nullptr,
-				const GeometryFlag* pGeometryFlags = nullptr, const ResourceView* pTransforms = nullptr,
-				API api = API::DIRECTX_12);
-			static void SetAABBGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
-				const VertexBufferView* pVBs, const GeometryFlag* pGeometryFlags = nullptr,
-				API api = API::DIRECTX_12);
-			static void SetOMMGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
-				const GeometryBuffer& triGeometries, const OMMLinkage* pOmmLinkages,
-				const GeometryFlag* pGeometryFlags = nullptr, API api = API::DIRECTX_12);
+			static void SetTriangleGeometry(TriangleGeometry& triangles, Format vertexFormat,
+				const VertexBufferView& vbv, const IndexBufferView* pIbv = nullptr,
+				GeometryFlag flags = GeometryFlag::FULL_OPAQUE, const ResourceView* pTransform = nullptr);
+			static void SetTriangleGeometry(GeometryDesc& geometry, Format vertexFormat,
+				const VertexBufferView& vbv, const IndexBufferView* pIbv = nullptr,
+				GeometryFlag flags = GeometryFlag::FULL_OPAQUE, const ResourceView* pTransform = nullptr);
+			static void SetAABBGeometry(GeometryDesc& geometry, const VertexBufferView& vbv,
+				GeometryFlag flags = GeometryFlag::NONE);
+			static void SetOMMGeometry(GeometryDesc& geometry, const TriangleGeometry* pTriangles,
+				const OMMLinkage* pOmmLinkage, GeometryFlag flags = GeometryFlag::NONE);
+			static void SetGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
+				GeometryDesc* pGeometries, API api = API::DIRECTX_12);
 
 			static size_t AlignTransform(size_t byteSize, API api = API::DIRECTX_12);
 			static size_t AlignAABB(size_t byteSize, API api = API::DIRECTX_12);
@@ -271,10 +318,9 @@ namespace XUSG
 
 			virtual const Descriptor& GetSRV() const = 0;
 
-			static void SetInstances(const Device* pDevice, Buffer* pInstances, uint32_t numInstances,
-				const BottomLevelAS* const* ppBottomLevelASs, const float* const* transforms,
-				MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* instanceName = nullptr,
-				API api = API::DIRECTX_12);
+			static void SetInstance(InstanceDesc& instanceDesc, const BottomLevelAS* pBottomLevelAS,
+				const float* transform, InstanceFlag flags = InstanceFlag::NONE, uint32_t instanceID = 0,
+				uint8_t instanceMask = 1, uint32_t instanceContributionToHitGroupIndex = 0);
 			static void SetInstances(const Device* pDevice, Buffer* pInstances, uint32_t numInstances,
 				const InstanceDesc* pInstanceDescs, MemoryFlag memoryFlags = MemoryFlag::NONE,
 				const wchar_t* instanceName = nullptr, API api = API::DIRECTX_12);

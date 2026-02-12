@@ -49,6 +49,8 @@ namespace XUSG
 			void DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride = 0);
 			void DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes = false);
 
+			void ConvertLinearAlgebraMatrix(const LinearAlgebraMatrixConversionInfo* pConversions, uint32_t numConversions);
+
 			com_ptr<ID3D12GraphicsCommandList6>& GetGraphicsCommandList();
 
 		protected:
@@ -64,6 +66,8 @@ namespace XUSG
 			std::vector<uint32_t>					m_barrierGroupBarrierStarts;
 
 			std::vector<D3D12_NODE_CPU_INPUT>		m_nodeInputs;
+
+			std::vector<D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_INFO> m_matrixConversions;
 		};
 
 		//--------------------------------------------------------------------------------------
@@ -89,8 +93,6 @@ namespace XUSG
 			PipelineLayout getRootSignatureFromLibSubobject(const std::string& key, const Blob& blobLib,
 				const wchar_t* name, bool create, uint32_t nodeMask);
 		};
-
-		ProgramIdentifier GetDX12ProgramIdentifier(const Pipeline& stateObject, const wchar_t* programName);
 
 		//--------------------------------------------------------------------------------------
 		// Sampler feedback
@@ -133,10 +135,11 @@ namespace XUSG
 			//bool CreateUAV(const Resource* pTarget);
 
 			Descriptor CreateUAV(const Descriptor& uavHeapStart, uint32_t descriptorIdx, const Resource* pTarget);
-
-		protected:
-			com_ptr<ID3D12Device10> m_deviceU;
 		};
+
+		ProgramIdentifier GetDX12ProgramIdentifier(const Pipeline& stateObject, const wchar_t* programName);
+
+		void GetDX12LinearAlgebraMatrixInfo(const Device* pDevice, LinearAlgebraMatrixInfo& matrixInfo);
 
 		D3D12_BARRIER_SYNC GetDX12BarrierSync(BarrierSync barrierSync);
 		D3D12_BARRIER_SYNC GetDX12BarrierSyncs(BarrierSync barrierSync);
@@ -155,5 +158,8 @@ namespace XUSG
 
 		D3D12_SET_WORK_GRAPH_FLAGS GetDX12WorkGraphFlag(WorkGraphFlag workGraphFlag);
 		D3D12_SET_WORK_GRAPH_FLAGS GetDX12WorkGraphFlags(WorkGraphFlag workGraphFlags);
+
+		D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT GetDX12LinearAlgebraMatrixLayout(LinearAlgebraMatrixLayout layout);
+		D3D12_LINEAR_ALGEBRA_DATATYPE GetDX12LinearAlgebraDataType(LinearAlgebraDataType dataType);
 	}
 }

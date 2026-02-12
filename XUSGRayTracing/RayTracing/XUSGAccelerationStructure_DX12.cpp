@@ -258,91 +258,79 @@ void BottomLevelAS_DX12::Build(CommandList* pCommandList, const Resource* pScrat
 	if (m_postbuildInfo) m_postbuildInfo->ReadBack(pCommandList, m_postbuildInfoRB.get());
 }
 
-void BottomLevelAS_DX12::SetTriangleGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
-	Format vertexFormat, const VertexBufferView* pVBs, const IndexBufferView* pIBs,
-	const GeometryFlag* pGeometryFlags, const ResourceView* pTransforms)
+static D3D12_RAYTRACING_GEOMETRY_TRIANGLES_DESC GetDX12RayTracingGeometryTrianglesDesc(const BottomLevelAS::TriangleGeometry& triangles)
 {
-	geometries.resize(sizeof(D3D12_RAYTRACING_GEOMETRY_DESC) * numGeometries);
-	for (auto i = 0u; i < numGeometries; ++i)
-	{
-		auto& geometryDesc = reinterpret_cast<D3D12_RAYTRACING_GEOMETRY_DESC*>(geometries.data())[i];
+	D3D12_RAYTRACING_GEOMETRY_TRIANGLES_DESC trianglesDesc;
+	trianglesDesc.Transform3x4 = triangles.Transform;
+	trianglesDesc.IndexFormat = GetDXGIFormat(triangles.IndexFormat);
+	trianglesDesc.VertexFormat = GetDXGIFormat(triangles.VertexFormat);
+	trianglesDesc.IndexCount = triangles.IndexCount;
+	trianglesDesc.VertexCount = triangles.VertexCount;
+	trianglesDesc.IndexBuffer = triangles.IndexBuffer;
+	trianglesDesc.VertexBuffer.StartAddress = triangles.VertexBufferStart;
+	trianglesDesc.VertexBuffer.StrideInBytes = triangles.VertexBufferStride;
 
-		auto strideIB = 0u;
-		if (pIBs)
-		{
-			assert(pIBs[i].Format == Format::R32_UINT || pIBs[i].Format == Format::R16_UINT);
-			strideIB = pIBs[i].Format == Format::R32_UINT ? sizeof(uint32_t) : sizeof(uint16_t);
-		}
-
-		geometryDesc = {};
-		geometryDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
-		geometryDesc.Triangles.Transform3x4 = pTransforms ? pTransforms[i].pResource->GetVirtualAddress() + pTransforms[i].Offset : 0;
-		geometryDesc.Triangles.IndexFormat = pIBs ? GetDXGIFormat(pIBs[i].Format) : DXGI_FORMAT_UNKNOWN;
-		geometryDesc.Triangles.VertexFormat = GetDXGIFormat(vertexFormat);
-		geometryDesc.Triangles.IndexCount = pIBs ? pIBs[i].SizeInBytes / strideIB : 0;
-		geometryDesc.Triangles.VertexCount = pVBs ? pVBs[i].SizeInBytes / pVBs[i].StrideInBytes : 0;
-		geometryDesc.Triangles.IndexBuffer = pIBs ? pIBs[i].BufferLocation : 0;
-		geometryDesc.Triangles.VertexBuffer.StartAddress = pVBs ? pVBs[i].BufferLocation : 0;
-		geometryDesc.Triangles.VertexBuffer.StrideInBytes = pVBs ? pVBs[i].StrideInBytes : 0;
-
-		// Mark the geometry as opaque. 
-		// PERFORMANCE TIP: mark geometry as opaque whenever applicable as it can enable important ray processing optimizations.
-		// Note: When rays encounter opaque geometry an any hit shader will not be executed whether it is present or not.
-		geometryDesc.Flags = pGeometryFlags ? GetDXRGeometryFlags(pGeometryFlags[i]) : D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
-	}
+	return trianglesDesc;
 }
 
-void BottomLevelAS_DX12::SetAABBGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
-	const VertexBufferView* pVBs, const GeometryFlag* pGeometryFlags)
+void BottomLevelAS_DX12::SetGeometries(GeometryBuffer& geometries, uint32_t numGeometries, GeometryDesc* pGeometries)
 {
-	geometries.resize(sizeof(D3D12_RAYTRACING_GEOMETRY_DESC) * numGeometries);
-	for (auto i = 0u; i < numGeometries; ++i)
-	{
-		auto& geometryDesc = reinterpret_cast<D3D12_RAYTRACING_GEOMETRY_DESC*>(geometries.data())[i];
-
-		geometryDesc = {};
-		geometryDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_PROCEDURAL_PRIMITIVE_AABBS;
-		geometryDesc.AABBs.AABBCount = pVBs ? pVBs[i].SizeInBytes / pVBs[i].StrideInBytes : 0;
-		geometryDesc.AABBs.AABBs.StartAddress = pVBs ? pVBs[i].BufferLocation : 0;
-		geometryDesc.AABBs.AABBs.StrideInBytes = pVBs ? pVBs[i].StrideInBytes : sizeof(D3D12_RAYTRACING_AABB);
-
-		// Mark the geometry as opaque. 
-		// PERFORMANCE TIP: mark geometry as opaque whenever applicable as it can enable important ray processing optimizations.
-		// Note: When rays encounter opaque geometry an any hit shader will not be executed whether it is present or not.
-		geometryDesc.Flags = pGeometryFlags ? GetDXRGeometryFlags(pGeometryFlags[i]) : D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
-	}
-}
-
-void BottomLevelAS_DX12::SetOMMGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
-	const GeometryBuffer& triGeometries, const OMMLinkage* pOmmLinkages, const GeometryFlag* pGeometryFlags)
-{
+	assert(pGeometries);
 	const auto geometriesSize = sizeof(D3D12_RAYTRACING_GEOMETRY_DESC) * numGeometries;
-	const auto bufferSize = geometriesSize + (pOmmLinkages ? sizeof(D3D12_RAYTRACING_GEOMETRY_OMM_LINKAGE_DESC) * numGeometries : 0);
+	auto bufferSize = geometriesSize;
+	size_t ommTriGeometriesSize = 0;
+	for (auto i = 0u; i < numGeometries; ++i)
+	{
+		if (pGeometries[i].Type == GeometryType::OMM_TRIANGLES)
+		{
+			if (pGeometries[i].OmmTriangles.pTriangles) ommTriGeometriesSize += sizeof(D3D12_RAYTRACING_GEOMETRY_TRIANGLES_DESC);
+			if (pGeometries[i].OmmTriangles.pOmmLinkage) bufferSize += sizeof(D3D12_RAYTRACING_GEOMETRY_OMM_LINKAGE_DESC);
+		}
+	}
+	bufferSize += ommTriGeometriesSize;
 
 	geometries.resize(bufferSize);
-	auto pOmmLinkage = reinterpret_cast<D3D12_RAYTRACING_GEOMETRY_OMM_LINKAGE_DESC*>(&geometries[geometriesSize]);
+	auto pTriangles = reinterpret_cast<D3D12_RAYTRACING_GEOMETRY_TRIANGLES_DESC*>(&geometries[geometriesSize]);
+	auto pOmmLinkage = reinterpret_cast<D3D12_RAYTRACING_GEOMETRY_OMM_LINKAGE_DESC*>(&geometries[geometriesSize + ommTriGeometriesSize]);
 	for (auto i = 0u; i < numGeometries; ++i)
 	{
+		const auto& geometry = pGeometries[i];
 		auto& geometryDesc = reinterpret_cast<D3D12_RAYTRACING_GEOMETRY_DESC*>(geometries.data())[i];
-		const auto& triGeometryDesc = reinterpret_cast<const D3D12_RAYTRACING_GEOMETRY_DESC*>(triGeometries.data())[i];
+		geometryDesc.Flags = GetDXRGeometryFlags(geometry.Flags);
 
-		geometryDesc = {};
-		geometryDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_OMM_TRIANGLES;
-		geometryDesc.OmmTriangles.pTriangles = &triGeometryDesc.Triangles;
-		geometryDesc.OmmTriangles.pOmmLinkage = pOmmLinkages ? pOmmLinkage : nullptr;
-
-		// Mark the geometry as opaque. 
-		// PERFORMANCE TIP: mark geometry as opaque whenever applicable as it can enable important ray processing optimizations.
-		// Note: When rays encounter opaque geometry an any hit shader will not be executed whether it is present or not.
-		geometryDesc.Flags = pGeometryFlags ? GetDXRGeometryFlags(pGeometryFlags[i]) : D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
-
-		if (pOmmLinkages)
+		switch (geometry.Type)
 		{
-			pOmmLinkage->OpacityMicromapIndexBuffer.StartAddress = pOmmLinkages[i].pOpacityMicromapIndexBuffer->GetVirtualAddress();
-			pOmmLinkage->OpacityMicromapIndexBuffer.StrideInBytes = pOmmLinkages[i].OpacityMicromapIndexBufferStride;
-			pOmmLinkage->OpacityMicromapIndexFormat = GetDXGIFormat(pOmmLinkages[i].OpacityMicromapIndexFormat);
-			pOmmLinkage->OpacityMicromapBaseLocation = pOmmLinkages[i].OpacityMicromapBaseLocation;
-			pOmmLinkage->OpacityMicromapArray = pOmmLinkages[i].pOpacityMicromapArray->GetVirtualAddress() + pOmmLinkages[i].OpacityMicromapArrayOffset;
+		case GeometryType::TRIANGLES:
+			geometryDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
+			geometryDesc.Triangles = GetDX12RayTracingGeometryTrianglesDesc(geometry.Triangles);
+			break;
+		case GeometryType::PROCEDURAL_PRIMITIVE_AABBS:
+			geometryDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_PROCEDURAL_PRIMITIVE_AABBS;
+			geometryDesc.AABBs.AABBCount = geometry.AABBs.AABBCount;
+			geometryDesc.AABBs.AABBs.StartAddress = geometry.AABBs.AABBsStart;
+			geometryDesc.AABBs.AABBs.StrideInBytes = geometry.AABBs.AABBsStride;
+		case GeometryType::OMM_TRIANGLES:
+		{
+			geometryDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_OMM_TRIANGLES;
+
+			if (geometry.OmmTriangles.pTriangles)
+				*pTriangles = GetDX12RayTracingGeometryTrianglesDesc(*geometry.OmmTriangles.pTriangles);
+
+			if (geometry.OmmTriangles.pOmmLinkage)
+			{
+				pOmmLinkage->OpacityMicromapIndexBuffer.StartAddress = geometry.OmmTriangles.pOmmLinkage->OpacityMicromapIndexBufferStart;
+				pOmmLinkage->OpacityMicromapIndexBuffer.StrideInBytes = geometry.OmmTriangles.pOmmLinkage->OpacityMicromapIndexBufferStride;
+				pOmmLinkage->OpacityMicromapIndexFormat = GetDXGIFormat(geometry.OmmTriangles.pOmmLinkage->OpacityMicromapIndexFormat);
+				pOmmLinkage->OpacityMicromapBaseLocation = geometry.OmmTriangles.pOmmLinkage->OpacityMicromapBaseLocation;
+				pOmmLinkage->OpacityMicromapArray = geometry.OmmTriangles.pOmmLinkage->pOpacityMicromapArray->GetVirtualAddress() + geometry.OmmTriangles.pOmmLinkage->OpacityMicromapArrayOffset;
+			}
+
+			geometryDesc.OmmTriangles.pTriangles = pGeometries[i].OmmTriangles.pTriangles ? pTriangles++ : nullptr;
+			geometryDesc.OmmTriangles.pOmmLinkage = pGeometries[i].OmmTriangles.pOmmLinkage ? pOmmLinkage++ : nullptr;
+			break;
+		}
+		default:
+			assert(!"Unsupported geometry type.");
 		}
 	}
 }
@@ -597,7 +585,7 @@ void OpacityMicromapArray_DX12::SetOmmArray(GeometryBuffer& ommArrayDescs, uint3
 			pOmmHistogram->SubdivisionLevel = pOmmArrayDescs[i].pOmmHistogram->SubdivisionLevel;
 			pOmmHistogram->Format = static_cast<D3D12_RAYTRACING_OPACITY_MICROMAP_FORMAT>(pOmmArrayDescs[i].pOmmHistogram->Format);
 		}
-		ommArrayDesc.pOmmHistogram = pOmmHistogram;
+		ommArrayDesc.pOmmHistogram = pOmmHistogram++;
 		ommArrayDesc.InputBuffer = pOmmArrayDescs[i].pInputBuffer->GetVirtualAddress() + pOmmArrayDescs[i].InputOffset;
 		ommArrayDesc.PerOmmDescs.StartAddress = pOmmArrayDescs[i].pPerOmmDescs->GetVirtualAddress() + pOmmArrayDescs[i].PerOmmDescOffset;
 		ommArrayDesc.PerOmmDescs.StrideInBytes = pOmmArrayDescs[i].PerOmmDescStride;

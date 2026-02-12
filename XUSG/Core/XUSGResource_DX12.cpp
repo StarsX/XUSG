@@ -176,9 +176,14 @@ Descriptor Resource_DX12::AllocateCbvSrvUavHeap(const Device* pDevice, uint32_t 
 Descriptor Resource_DX12::SetCbvSrvUavHeap(const Resource* pResourceWithDescriptorHeap)
 {
 	const auto pResource = dynamic_cast<const Resource_DX12*>(pResourceWithDescriptorHeap);
-	if (pResource) m_cbvSrvUavHeap = pResource->GetCbvSrvUavHeap(m_cbvSrvUavIdx);
+	if (pResource)
+	{
+		m_cbvSrvUavHeap = pResource->GetCbvSrvUavHeap(m_cbvSrvUavIdx);
 
-	return m_cbvSrvUavHeap->GetCPUDescriptorHandleForHeapStart().ptr;
+		return m_cbvSrvUavHeap->GetCPUDescriptorHandleForHeapStart().ptr;
+	}
+
+	return 0;
 }
 
 uint32_t Resource_DX12::SetBarrier(ResourceBarrier* pBarriers, ResourceState dstState, uint32_t numBarriers,
@@ -523,7 +528,9 @@ bool ConstantBuffer_DX12::Upload(CommandList* pCommandList, Resource* pUploader,
 {
 	// Create the GPU upload buffer.
 	assert(pUploader);
-	auto& uploaderResource = dynamic_cast<Resource_DX12*>(pUploader)->GetResource();
+	const auto p = dynamic_cast<Resource_DX12*>(pUploader);
+	assert(p);
+	auto& uploaderResource = p->GetResource();
 	if (!uploaderResource)
 	{
 		const CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_UPLOAD);
@@ -1061,7 +1068,9 @@ bool Texture_DX12::Upload(CommandList* pCommandList, Resource* pUploader,
 
 	// Create the GPU upload buffer.
 	assert(pUploader);
-	auto& uploaderResource = dynamic_cast<Resource_DX12*>(pUploader)->GetResource();
+	const auto p = dynamic_cast<Resource_DX12*>(pUploader);
+	assert(p);
+	auto& uploaderResource = p->GetResource();
 	if (!uploaderResource)
 	{
 		const CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_UPLOAD);
@@ -1132,7 +1141,9 @@ bool Texture_DX12::ReadBack(CommandList* pCommandList, Buffer* pReadBuffer, uint
 			ResourceFlag::DENY_SHADER_RESOURCE, MemoryType::READBACK, 0, nullptr, 0, nullptr, MemoryFlag::NONE,
 			(m_name + L".ReadResource").c_str()), false);
 
-	auto& readResource = dynamic_cast<Resource_DX12*>(pReadBuffer)->GetResource();
+	const auto p = dynamic_cast<Resource_DX12*>(pReadBuffer);
+	assert(p);
+	auto& readResource = p->GetResource();
 	assert(readResource);
 
 	vector<ResourceState> dstStates(numSubresources);
@@ -1887,9 +1898,14 @@ Descriptor RenderTarget_DX12::AllocateRtvHeap(const Device* pDevice, uint32_t nu
 Descriptor RenderTarget_DX12::SetRtvHeap(const RenderTarget* pResourceWithDescriptorHeap)
 {
 	const auto pResource = dynamic_cast<const RenderTarget_DX12*>(pResourceWithDescriptorHeap);
-	if (pResource) m_rtvHeap = pResource->GetRtvHeap(m_rtvIdx);
+	if (pResource)
+	{
+		m_rtvHeap = pResource->GetRtvHeap(m_rtvIdx);
 
-	return m_rtvHeap->GetCPUDescriptorHandleForHeapStart().ptr;
+		return m_rtvHeap->GetCPUDescriptorHandleForHeapStart().ptr;
+	}
+
+	return 0;
 }
 
 Descriptor RenderTarget_DX12::CreateRTV(const Descriptor& rtvHeapStart, uint32_t descriptorIdx,
@@ -2520,9 +2536,14 @@ Descriptor DepthStencil_DX12::AllocateDsvHeap(const Device* pDevice, uint32_t nu
 Descriptor DepthStencil_DX12::SetDsvHeap(const DepthStencil* pResourceWithDescriptorHeap)
 {
 	const auto pResource = dynamic_cast<const DepthStencil_DX12*>(pResourceWithDescriptorHeap);
-	if (pResource) m_dsvHeap = pResource->GetDsvHeap(m_dsvIdx);
+	if (pResource)
+	{
+		m_dsvHeap = pResource->GetDsvHeap(m_dsvIdx);
 
-	return m_dsvHeap->GetCPUDescriptorHandleForHeapStart().ptr;
+		return m_dsvHeap->GetCPUDescriptorHandleForHeapStart().ptr;
+	}
+
+	return 0;
 }
 
 Descriptor DepthStencil_DX12::CreateDSV(const Descriptor& dsvHeapStart, uint32_t descriptorIdx,
@@ -3356,7 +3377,9 @@ bool Buffer_DX12::Upload(CommandList* pCommandList, Resource* pUploader, const v
 {
 	// Create the GPU upload buffer.
 	assert(pUploader);
-	auto& uploaderResource = dynamic_cast<Resource_DX12*>(pUploader)->GetResource();
+	const auto p = dynamic_cast<Resource_DX12*>(pUploader);
+	assert(p);
+	auto& uploaderResource = p->GetResource();
 	if (!uploaderResource)
 	{
 		const CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_UPLOAD);
@@ -3408,7 +3431,9 @@ bool Buffer_DX12::ReadBack(CommandList* pCommandList, Buffer* pReadBuffer, size_
 		XUSG_N_RETURN(pReadBuffer->Create(pCommandList->GetDevice(), readSize + dstOffset, ResourceFlag::DENY_SHADER_RESOURCE,
 			MemoryType::READBACK, 0, nullptr, 0, nullptr, MemoryFlag::NONE, (m_name + L".ReadResource").c_str()), false);
 
-	auto& readResource = dynamic_cast<Resource_DX12*>(pReadBuffer)->GetResource();
+	const auto p = dynamic_cast<Resource_DX12*>(pReadBuffer);
+	assert(p);
+	auto& readResource = p->GetResource();
 	assert(readResource);
 
 	ResourceBarrier barrier;

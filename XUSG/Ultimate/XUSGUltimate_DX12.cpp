@@ -33,7 +33,10 @@ CommandList_DX12::CommandList_DX12() :
 CommandList_DX12::CommandList_DX12(XUSG::CommandList& commandList) :
 	XUSG::CommandList_DX12()
 {
-	m_commandList = dynamic_cast<XUSG::CommandList_DX12&>(commandList).GetGraphicsCommandList();
+	const auto pCommandList = dynamic_cast<XUSG::CommandList_DX12*>(&commandList);
+	assert(pCommandList);
+
+	m_commandList = pCommandList->GetGraphicsCommandList();
 	CreateInterface();
 }
 
@@ -437,6 +440,44 @@ void CommandList_DX12::DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiN
 	m_commandListA->DispatchGraph(&desc);
 }
 
+static D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_DEST_INFO GetDX12LinearAlgebraConversionDestInfo(const LinearAlgebraMatrixInfo& matrixInfo)
+{
+	D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_DEST_INFO destInfo;
+	destInfo.DestSize = matrixInfo.Size;
+	destInfo.DestLayout = GetDX12LinearAlgebraMatrixLayout(matrixInfo.Layout);
+	destInfo.DestStride = matrixInfo.Stride;
+	destInfo.NumRows = matrixInfo.NumRows;
+	destInfo.NumColumns = matrixInfo.NumColumns;
+	destInfo.DestDataType = GetDX12LinearAlgebraDataType(matrixInfo.DataType);
+
+	return destInfo;
+}
+
+void CommandList_DX12::ConvertLinearAlgebraMatrix(const LinearAlgebraMatrixConversionInfo* pConversions, uint32_t numConversions)
+{
+	assert(pConversions);
+	m_matrixConversions.resize(numConversions);
+	for (auto i = 0u; i < numConversions; ++i)
+	{
+		const auto& conversion = pConversions[i];
+		auto& desc = m_matrixConversions[i];
+
+		desc.DestInfo = GetDX12LinearAlgebraConversionDestInfo(conversion.DstInfo);
+		desc.SrcInfo.SrcSize = conversion.SrcSize;
+		desc.SrcInfo.SrcDataType = GetDX12LinearAlgebraDataType(conversion.SrcDataType);
+		desc.SrcInfo.SrcLayout = GetDX12LinearAlgebraMatrixLayout(conversion.SrcLayout);
+		desc.SrcInfo.SrcStride = conversion.SrcStride;
+		desc.DataDesc.DestVA = conversion.Dst;
+		desc.DataDesc.SrcVA = conversion.Src;
+	}
+
+	com_ptr<ID3D12GraphicsCommandListPreview> commandList = nullptr;
+	const auto hr = m_commandList->QueryInterface(IID_PPV_ARGS(&commandList));
+	if (FAILED(hr)) OutputDebugString(L"Couldn't get DirectX preview interface for the command list.\n");
+
+	commandList->ConvertLinearAlgebraMatrix(m_matrixConversions.data(), numConversions);
+}
+
 XUSG::com_ptr<ID3D12GraphicsCommandList6>& CommandList_DX12::GetGraphicsCommandList()
 {
 	return m_commandListU;
@@ -630,8 +671,9 @@ bool SamplerFeedBack_DX12::CreateResource(const Device* pDevice, const Texture* 
 	bool isCubeMap, MemoryFlag memoryFlags, ResourceState initialResourceState, TextureLayout textureLayout,
 	uint32_t maxThreads)
 {
+	com_ptr<ID3D12Device10> device;
 	XUSG_N_RETURN(initialize(pDevice), false);
-	V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&m_deviceU)), cerr, false);
+	V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&device)), cerr, false);
 
 	m_format = m_format != Format::UNKNOWN ? m_format : format;
 
@@ -654,7 +696,7 @@ bool SamplerFeedBack_DX12::CreateResource(const Device* pDevice, const Texture* 
 	for (auto& states : m_states)
 		states.resize(arraySize * numMips, initialResourceState);
 
-	V_RETURN(m_deviceU->CreateCommittedResource2(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
+	V_RETURN(device->CreateCommittedResource2(&heapProperties, GetDX12HeapFlags(memoryFlags), &desc,
 		GetDX12ResourceStates(m_states[0][0]), nullptr, nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
 
 	return true;
@@ -665,8 +707,9 @@ bool SamplerFeedBack_DX12::CreateResource(const Device* pDevice, const Heap* pHe
 	uint32_t mipRegionDepth, ResourceFlag resourceFlags, bool isCubeMap, ResourceState initialResourceState,
 	TextureLayout textureLayout, uint32_t maxThreads)
 {
+	com_ptr<ID3D12Device10> device;
 	XUSG_N_RETURN(initialize(pDevice), false);
-	V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&m_deviceU)), cerr, false);
+	V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&device)), cerr, false);
 
 	m_format = m_format != Format::UNKNOWN ? m_format : format;
 
@@ -689,7 +732,7 @@ bool SamplerFeedBack_DX12::CreateResource(const Device* pDevice, const Heap* pHe
 		states.resize(arraySize * numMips, initialResourceState);
 
 	assert(pHeap);
-	V_RETURN(m_deviceU->CreatePlacedResource2(static_cast<ID3D12Heap*>(pHeap->GetHandle()), heapOffset, &desc,
+	V_RETURN(device->CreatePlacedResource2(static_cast<ID3D12Heap*>(pHeap->GetHandle()), heapOffset, &desc,
 		GetDX12BarrierLayout(GetBarrierLayout(m_states[0][0])), nullptr, 0, nullptr, IID_PPV_ARGS(&m_resource)),
 		clog, false);
 
@@ -702,7 +745,10 @@ XUSG::Descriptor SamplerFeedBack_DX12::CreateUAV(const Descriptor& uavHeapStart,
 	assert(pTarget);
 	const auto stride = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	const auto descriptor = uavHeapStart + stride * descriptorIdx;
-	m_deviceU->CreateSamplerFeedbackUnorderedAccessView(static_cast<ID3D12Resource*>(pTarget->GetHandle()),
+
+	com_ptr<ID3D12Device10> device;
+	V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&device)), cerr, false);
+	device->CreateSamplerFeedbackUnorderedAccessView(static_cast<ID3D12Resource*>(pTarget->GetHandle()),
 		m_resource.get(), { descriptor });
 
 	return descriptor;
@@ -726,6 +772,18 @@ XUSG::ProgramIdentifier XUSG::Ultimate::GetDX12ProgramIdentifier(const XUSG::Pip
 	identifier.OpaqueData[3] = programId.OpaqueData[3];
 
 	return identifier;
+}
+
+void XUSG::Ultimate::GetDX12LinearAlgebraMatrixInfo(const Device* pDevice, LinearAlgebraMatrixInfo& matrixInfo)
+{
+	auto destInfo = GetDX12LinearAlgebraConversionDestInfo(matrixInfo);
+
+	com_ptr<ID3D12DevicePreview> device = nullptr;
+	const auto hr = static_cast<ID3D12Device*>(pDevice->GetHandle())->QueryInterface(IID_PPV_ARGS(&device));
+	if (FAILED(hr)) OutputDebugString(L"Couldn't get DirectX preview interface for the device.\n");
+
+	device->GetLinearAlgebraMatrixConversionDestinationInfo(&destInfo);
+	matrixInfo.Size = destInfo.DestSize;
 }
 
 //--------------------------------------------------------------------------------------
@@ -957,4 +1015,38 @@ D3D12_SET_WORK_GRAPH_FLAGS XUSG::Ultimate::GetDX12WorkGraphFlags(WorkGraphFlag w
 	flags |= APPEND_WORK_GRAPH_FLAG(workGraphFlags, INITIALIZE);
 
 	return flags;
+}
+
+D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT XUSG::Ultimate::GetDX12LinearAlgebraMatrixLayout(LinearAlgebraMatrixLayout layout)
+{
+	static const D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT layouts[] =
+	{
+		D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR,
+		D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_COLUMN_MAJOR,
+		D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_MUL_OPTIMAL,
+		D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL
+	};
+
+	return layouts[static_cast<uint32_t>(layout)];
+}
+
+D3D12_LINEAR_ALGEBRA_DATATYPE XUSG::Ultimate::GetDX12LinearAlgebraDataType(LinearAlgebraDataType dataType)
+{
+	static const D3D12_LINEAR_ALGEBRA_DATATYPE dataTypes[] =
+	{
+		D3D12_LINEAR_ALGEBRA_DATATYPE_SINT16,
+		D3D12_LINEAR_ALGEBRA_DATATYPE_UINT16,
+		D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32,
+		D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32,
+		D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16,
+		D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32,
+		D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8_T4_PACKED,
+		D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8_T4_PACKED,
+		D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8,
+		D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8,
+		D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3,
+		D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2
+	};
+
+	return dataTypes[static_cast<uint32_t>(dataType)];
 }

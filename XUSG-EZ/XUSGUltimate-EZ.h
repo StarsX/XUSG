@@ -112,6 +112,8 @@ namespace XUSG
 				virtual WorkGraph::NodeID WGGetNodeID(uint32_t nodeIndex) = 0;
 				virtual WorkGraph::NodeID WGGetEntrypointID(uint32_t entryPointIndex) = 0;
 
+				virtual Ultimate::CommandList* AsUltimateCommandList() = 0;
+
 				static uptr MakeUnique(API api = API::DIRECTX_12);
 				static sptr MakeShared(API api = API::DIRECTX_12);
 				static uptr MakeUnique(Ultimate::CommandList* pCommandList,

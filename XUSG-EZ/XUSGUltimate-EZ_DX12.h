@@ -125,7 +125,7 @@ namespace XUSG
 				WorkGraph::NodeID WGGetNodeID(uint32_t nodeIndex);
 				WorkGraph::NodeID WGGetEntrypointID(uint32_t entryPointIndex);
 
-				Ultimate::CommandList* AsUltimateCommandList() { return dynamic_cast<Ultimate::CommandList*>(this); }
+				Ultimate::CommandList* AsUltimateCommandList();
 
 			protected:
 				enum StageIndex : uint8_t

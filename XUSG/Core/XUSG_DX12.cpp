@@ -311,7 +311,10 @@ bool SwapChain_DX12::PresentEx(uint8_t syncInterval, PresentFlag flags, uint32_t
 
 bool SwapChain_DX12::GetBuffer(uint8_t buffer, Resource* pResource) const
 {
-	V_RETURN(m_swapChain->GetBuffer(buffer, IID_PPV_ARGS(&dynamic_cast<Resource_DX12*>(pResource)->GetResource())), cerr, false);
+	const auto p = dynamic_cast<Resource_DX12*>(pResource);
+	assert(p);
+
+	V_RETURN(m_swapChain->GetBuffer(buffer, IID_PPV_ARGS(&p->GetResource())), cerr, false);
 
 	return true;
 }

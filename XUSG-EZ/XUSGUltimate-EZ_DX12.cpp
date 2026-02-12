@@ -435,6 +435,14 @@ XUSG::WorkGraph::NodeID EZ::CommandList_DX12::WGGetEntrypointID(uint32_t entryPo
 		m_workGraphProperty->EntrypointIDs[entryPointIndex] : WorkGraph::NodeID();
 }
 
+CommandList* EZ::CommandList_DX12::AsUltimateCommandList()
+{
+	const auto pCommandList = dynamic_cast<Ultimate::CommandList*>(this);
+	assert(pCommandList);
+
+	return pCommandList;
+}
+
 bool EZ::CommandList_DX12::init(Ultimate::CommandList* pCommandList, uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize)
 {
 	XUSG_N_RETURN(XUSG::EZ::CommandList_DX12::init(pCommandList, samplerHeapSize, cbvSrvUavHeapSize), false);

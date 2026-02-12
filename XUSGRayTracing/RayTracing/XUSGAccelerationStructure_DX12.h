@@ -76,14 +76,7 @@ namespace XUSG
 				const BottomLevelAS* pSource = nullptr, uint8_t numPostbuildInfoDescs = 0,
 				const PostbuildInfoType* pPostbuildInfoTypes = nullptr);
 
-			static void SetTriangleGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
-				Format vertexFormat, const VertexBufferView* pVBs, const IndexBufferView* pIBs = nullptr,
-				const GeometryFlag* pGeometryFlags = nullptr, const ResourceView* pTransforms = nullptr);
-			static void SetAABBGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
-				const VertexBufferView* pVBs, const GeometryFlag* pGeometryFlags = nullptr);
-			static void SetOMMGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
-				const GeometryBuffer& triGeometries, const OMMLinkage* pOmmLinkages,
-				const GeometryFlag* pGeometryFlags = nullptr);
+			static void SetGeometries(GeometryBuffer& geometries, uint32_t numGeometries, GeometryDesc* pGeometries);
 
 			static size_t AlignTransform(size_t byteSize);
 			static size_t AlignAABB(size_t byteSize);

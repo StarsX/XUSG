@@ -59,34 +59,52 @@ void Util::DescriptorTable_DX12::SetSamplers(uint32_t start, uint32_t num, const
 
 DescriptorTable Util::DescriptorTable_DX12::CreateCbvSrvUavTable(DescriptorTableLib* pDescriptorTableLib, const XUSG::DescriptorTable& table)
 {
-	return dynamic_cast<DescriptorTableLib_DX12*>(pDescriptorTableLib)->CreateCbvSrvUavTable(this, table);
+	const auto p = dynamic_cast<DescriptorTableLib_DX12*>(pDescriptorTableLib);
+	assert(p);
+
+	return p->CreateCbvSrvUavTable(this, table);
 }
 
 DescriptorTable Util::DescriptorTable_DX12::GetCbvSrvUavTable(DescriptorTableLib* pDescriptorTableLib, const XUSG::DescriptorTable& table)
 {
-	return dynamic_cast<DescriptorTableLib_DX12*>(pDescriptorTableLib)->GetCbvSrvUavTable(this, table);
+	const auto p = dynamic_cast<DescriptorTableLib_DX12*>(pDescriptorTableLib);
+	assert(p);
+
+	return p->GetCbvSrvUavTable(this, table);
 }
 
 DescriptorTable Util::DescriptorTable_DX12::CreateSamplerTable(DescriptorTableLib* pDescriptorTableLib, const XUSG::DescriptorTable& table)
 {
-	return dynamic_cast<DescriptorTableLib_DX12*>(pDescriptorTableLib)->CreateSamplerTable(this, table);
+	const auto p = dynamic_cast<DescriptorTableLib_DX12*>(pDescriptorTableLib);
+	assert(p);
+
+	return p->CreateSamplerTable(this, table);
 }
 
 DescriptorTable Util::DescriptorTable_DX12::GetSamplerTable(DescriptorTableLib* pDescriptorTableLib, const XUSG::DescriptorTable& table)
 {
-	return dynamic_cast<DescriptorTableLib_DX12*>(pDescriptorTableLib)->GetSamplerTable(this, table);
+	const auto p = dynamic_cast<DescriptorTableLib_DX12*>(pDescriptorTableLib);
+	assert(p);
+
+	return p->GetSamplerTable(this, table);
 }
 
 Framebuffer Util::DescriptorTable_DX12::CreateFramebuffer(DescriptorTableLib* pDescriptorTableLib,
 	const Descriptor* pDsv, const Framebuffer* pFramebuffer)
 {
-	return dynamic_cast<DescriptorTableLib_DX12*>(pDescriptorTableLib)->CreateFramebuffer(this, pDsv, pFramebuffer);
+	const auto p = dynamic_cast<DescriptorTableLib_DX12*>(pDescriptorTableLib);
+	assert(p);
+
+	return p->CreateFramebuffer(this, pDsv, pFramebuffer);
 }
 
 Framebuffer Util::DescriptorTable_DX12::GetFramebuffer(DescriptorTableLib* pDescriptorTableLib,
 	const Descriptor* pDsv, const Framebuffer* pFramebuffer)
 {
-	return dynamic_cast<DescriptorTableLib_DX12*>(pDescriptorTableLib)->GetFramebuffer(this, pDsv, pFramebuffer);
+	const auto p = dynamic_cast<DescriptorTableLib_DX12*>(pDescriptorTableLib);
+	assert(p);
+
+	return p->GetFramebuffer(this, pDsv, pFramebuffer);
 }
 
 const string& Util::DescriptorTable_DX12::GetKey() const

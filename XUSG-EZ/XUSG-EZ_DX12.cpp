@@ -834,7 +834,7 @@ const PipelineLayout& EZ::CommandList_DX12::GetGraphicsPipelineLayout() const
 	return m_pipelineLayouts[GRAPHICS];
 }
 
-const XUSG::PipelineLayout& EZ::CommandList_DX12::GetComputePipelineLayout() const
+const PipelineLayout& EZ::CommandList_DX12::GetComputePipelineLayout() const
 {
 	return m_pipelineLayouts[COMPUTE];
 }
@@ -847,6 +847,14 @@ uint32_t EZ::CommandList_DX12::GetGraphicsConstantParamIndex(Shader::Stage stage
 uint32_t EZ::CommandList_DX12::GetComputeConstantParamIndex() const
 {
 	return m_computeConstantParamIndex;
+}
+
+CommandList* EZ::CommandList_DX12::AsCommandList()
+{
+	const auto pCommandList = dynamic_cast<XUSG::CommandList*>(this);
+	assert(pCommandList);
+
+	return pCommandList;
 }
 
 bool EZ::CommandList_DX12::init(XUSG::CommandList* pCommandList, uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize)

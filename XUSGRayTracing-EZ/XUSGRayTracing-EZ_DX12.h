@@ -47,14 +47,14 @@ namespace XUSG
 					const GeometryBuffer& ommArrayDescs, BuildFlag flags = BuildFlag::PREFER_FAST_TRACE);
 				bool AllocateAccelerationStructure(AccelerationStructure* pAccelerationStructure, size_t byteWidth = 0);
 
-				void SetTriangleGeometries(GeometryBuffer& geometries, uint32_t numGeometries, Format vertexFormat,
-					XUSG::EZ::VertexBufferView* pVBs, XUSG::EZ::IndexBufferView* pIBs = nullptr,
-					const GeometryFlag* pGeometryFlags = nullptr, const ResourceView* pTransforms = nullptr);
-				void SetAABBGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
-					XUSG::EZ::VertexBufferView* pVBs, const GeometryFlag* pGeometryFlags = nullptr);
-				void SetOMMGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
-					const GeometryBuffer& triGeometries, const BottomLevelAS::OMMLinkage* pOmmLinkages,
-					const GeometryFlag* pGeometryFlags = nullptr);
+				void SetTriangleGeometry(BottomLevelAS::GeometryDesc& geometry, Format vertexFormat,
+					const XUSG::EZ::VertexBufferView& vbv, const XUSG::EZ::IndexBufferView* pIbv = nullptr,
+					GeometryFlag flags = GeometryFlag::FULL_OPAQUE, const ResourceView* pTransform = nullptr);
+				void SetAABBGeometry(BottomLevelAS::GeometryDesc& geometry, const XUSG::EZ::VertexBufferView& vbv,
+					GeometryFlag flags = GeometryFlag::NONE);
+				void SetOMMGeometry(BottomLevelAS::GeometryDesc& geometry, const BottomLevelAS::TriangleGeometry* pTriangles,
+					const BottomLevelAS::OMMLinkage* pOmmLinkage, Buffer* pOpacityMicromapIndexBuffer,
+					GeometryFlag flags = GeometryFlag::NONE);
 				void SetOmmArray(GeometryBuffer& ommArrayDescs, uint32_t numOpacityMicromaps,
 					const OpacityMicromapArray::Desc* pOmmArrayDescs);
 				void SetBLASDestination(BottomLevelAS* pBLAS, const Buffer::sptr destBuffer,

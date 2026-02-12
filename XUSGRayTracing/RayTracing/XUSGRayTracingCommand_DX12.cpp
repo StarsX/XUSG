@@ -27,7 +27,10 @@ RayTracing::CommandList_DX12::~CommandList_DX12()
 
 RayTracing::CommandList_DX12::CommandList_DX12(XUSG::CommandList* pCommandList, const RayTracing::Device* pDevice)
 {
-	m_commandList = dynamic_cast<XUSG::CommandList_DX12*>(pCommandList)->GetGraphicsCommandList();
+	const auto p = dynamic_cast<XUSG::CommandList_DX12*>(pCommandList);
+	assert(p);
+
+	m_commandList = p->GetGraphicsCommandList();
 	m_pDevice = pDevice;
 	CreateInterface();
 }
@@ -37,6 +40,8 @@ bool RayTracing::CommandList_DX12::CreateInterface()
 	if (!Ultimate::CommandList_DX12::CreateInterface()) m_commandListU = nullptr;
 
 	m_pDeviceRT = dynamic_cast<const RayTracing::Device*>(m_pDevice);
+	assert(m_pDeviceRT);
+
 	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(m_pDeviceRT->GetRTHandle());
 	XUSG_N_RETURN(pDxDevice, false);
 

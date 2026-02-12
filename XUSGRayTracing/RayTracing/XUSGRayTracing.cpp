@@ -64,26 +64,56 @@ size_t AccelerationStructure::Align(size_t byteSize, API api)
 	return AccelerationStructure_DX12::Align(byteSize);
 }
 
-void BottomLevelAS::SetTriangleGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
-	Format vertexFormat, const VertexBufferView* pVBs, const IndexBufferView* pIBs,
-	const GeometryFlag* pGeometryFlags, const ResourceView* pTransforms, API api)
+void BottomLevelAS::SetTriangleGeometry(TriangleGeometry& triangles, Format vertexFormat, const VertexBufferView& vbv,
+	const IndexBufferView* pIbv, GeometryFlag flags, const ResourceView* pTransform)
 {
-	BottomLevelAS_DX12::SetTriangleGeometries(geometries, numGeometries,
-		vertexFormat, pVBs, pIBs, pGeometryFlags, pTransforms);
+	auto strideIB = 0u;
+	if (pIbv)
+	{
+		assert(pIbv->Format == Format::R32_UINT || pIbv->Format == Format::R16_UINT);
+		strideIB = pIbv->Format == Format::R32_UINT ? sizeof(uint32_t) : sizeof(uint16_t);
+	}
+
+	triangles.Transform = pTransform ? pTransform->pResource->GetVirtualAddress() + pTransform->Offset : 0;
+	triangles.IndexFormat = pIbv ? pIbv->Format : Format::UNKNOWN;
+	triangles.VertexFormat = vertexFormat;
+	triangles.IndexCount = pIbv ? pIbv->SizeInBytes / strideIB : 0;
+	triangles.VertexCount = vbv.SizeInBytes / vbv.StrideInBytes;
+	triangles.IndexBuffer = pIbv ? pIbv->BufferLocation : 0;
+	triangles.VertexBufferStart = vbv.BufferLocation;
+	triangles.VertexBufferStride = vbv.StrideInBytes;
 }
 
-void BottomLevelAS::SetAABBGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
-	const VertexBufferView* pVBs, const GeometryFlag* pGeometryFlags, API api)
+void BottomLevelAS::SetTriangleGeometry(GeometryDesc& geometry, Format vertexFormat, const VertexBufferView& vbv,
+	const IndexBufferView* pIbv, GeometryFlag flags, const ResourceView* pTransform)
 {
-	BottomLevelAS_DX12::SetAABBGeometries(geometries, numGeometries, pVBs, pGeometryFlags);
+	geometry.Type = GeometryType::TRIANGLES;
+	geometry.Flags = flags;
+	SetTriangleGeometry(geometry.Triangles, vertexFormat, vbv, pIbv, flags, pTransform);
 }
 
-void BottomLevelAS::SetOMMGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
-	const GeometryBuffer& triGeometries, const OMMLinkage* pOmmLinkages,
-	const GeometryFlag* pGeometryFlags, API api)
+void BottomLevelAS::SetAABBGeometry(GeometryDesc& geometry, const VertexBufferView& vbv, GeometryFlag flags)
 {
-	BottomLevelAS_DX12::SetOMMGeometries(geometries, numGeometries,
-		triGeometries, pOmmLinkages, pGeometryFlags);
+	geometry.Type = GeometryType::PROCEDURAL_PRIMITIVE_AABBS;
+	geometry.Flags = flags;
+	geometry.AABBs.AABBCount = vbv.SizeInBytes / vbv.StrideInBytes;
+	geometry.AABBs.AABBsStart = vbv.BufferLocation;
+	geometry.AABBs.AABBsStride = vbv.StrideInBytes;
+}
+
+void BottomLevelAS::SetOMMGeometry(GeometryDesc& geometry, const TriangleGeometry* pTriangles,
+	const OMMLinkage* pOmmLinkage, GeometryFlag flags)
+{
+	geometry.Type = GeometryType::OMM_TRIANGLES;
+	geometry.Flags = flags;
+	geometry.OmmTriangles.pTriangles = pTriangles ? pTriangles : nullptr;
+	geometry.OmmTriangles.pOmmLinkage = pOmmLinkage ? pOmmLinkage : nullptr;
+}
+
+void BottomLevelAS::SetGeometries(GeometryBuffer& geometries,
+	uint32_t numGeometries, GeometryDesc* pGeometries, API api)
+{
+	BottomLevelAS_DX12::SetGeometries(geometries, numGeometries, pGeometries);
 }
 
 size_t BottomLevelAS::AlignTransform(size_t byteSize, API api)
@@ -116,21 +146,15 @@ BottomLevelAS::sptr BottomLevelAS::MakeShared(API api)
 	return make_shared<BottomLevelAS_DX12>();
 }
 
-void TopLevelAS::SetInstances(const Device* pDevice, Buffer* pInstances, uint32_t numInstances,
-	const BottomLevelAS* const* ppBottomLevelASs, const float* const* transforms,
-	MemoryFlag memoryFlags, const wchar_t* instanceName, API api)
+void TopLevelAS::SetInstance(InstanceDesc& instanceDesc, const BottomLevelAS* pBottomLevelAS, const float* transform,
+	InstanceFlag flags, uint32_t instanceID, uint8_t instanceMask, uint32_t instanceContributionToHitGroupIndex)
 {
-	assert(numInstances == 0 || (ppBottomLevelASs && transforms));
-
-	vector<InstanceDesc> instanceDescs(numInstances);
-	for (auto i = 0u; i < numInstances; ++i)
-	{
-		instanceDescs[i].pTransform = transforms[i];
-		instanceDescs[i].InstanceMask = 1;
-		instanceDescs[i].pBottomLevelAS = ppBottomLevelASs[i];
-	}
-
-	SetInstances(pDevice, pInstances, numInstances, instanceDescs.data(), memoryFlags, instanceName, api);
+	instanceDesc.pTransform = transform;
+	instanceDesc.InstanceID = instanceID;
+	instanceDesc.InstanceMask = instanceMask;
+	instanceDesc.InstanceContributionToHitGroupIndex = instanceContributionToHitGroupIndex;
+	instanceDesc.Flags = static_cast<uint8_t>(flags);
+	instanceDesc.pBottomLevelAS = pBottomLevelAS;
 }
 
 void TopLevelAS::SetInstances(const Device* pDevice, Buffer* pInstances, uint32_t numInstances,

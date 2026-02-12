@@ -20,6 +20,8 @@
 #define FLOAT HALF
 #endif
 
+#define FOR_EACH(n, N, statement) for (INT n = 0; n < N; ++n) { statement; }
+
 #ifdef _SLANG_
 
 #define __SHADER_TARGET_MINOR 9
@@ -41,42 +43,96 @@
 #define DATA_TYPE_UINT8 CoopVecComponentType::UnsignedInt8                 // ComponentType::U8
 #define DATA_TYPE_SINT8 CoopVecComponentType::UnsignedInt8                 // ComponentType::I8
 #define DATA_TYPE_FLOAT8_E4M3 CoopVecComponentType::FloatE4M3              // ComponentType::F8_E4M3
-                                                                           // (1 sign, 4 exp, 3 mantissa bits)
+																		   // (1 sign, 4 exp, 3 mantissa bits)
 #define DATA_TYPE_FLOAT8_E5M2 CoopVecComponentType::FloatE5M2              // ComponentType::F8_E5M2
-	                                                                       // (1 sign, 5 exp, 2 mantissa bits)
+																		   // (1 sign, 5 exp, 2 mantissa bits)
 
 #define MATRIX_LAYOUT_ROW_MAJOR CoopVecMatrixLayout::RowMajor
 #define MATRIX_LAYOUT_COLUMN_MAJOR CoopVecMatrixLayout::ColumnMajor
 #define MATRIX_LAYOUT_MUL_OPTIMAL CoopVecMatrixLayout::InferencingOptimal
 #define MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL CoopVecMatrixLayout::TrainingOptimal
 
-vector<T, M> matVecMulAdd<T : __BuiltinArithmeticType, INT M, CoopVecComponentType inputDataType, CoopVecComponentType matrixDataType,
-	CoopVecComponentType biasDataType, CoopVecMatrixLayout matrixLayout, bool transpose, U : __BuiltinArithmeticType, INT K>(
+vector<T, M> matVecMulAdd<T : __BuiltinArithmeticType, INT M, CoopVecComponentType inputDataType,
+	CoopVecComponentType matrixDataType, CoopVecComponentType biasDataType,
+	CoopVecMatrixLayout matrixLayout, bool transpose, uint matrixStride,
+	U : __BuiltinArithmeticType, INT K>(
 	vector<U, K> input,
 	ByteAddressBuffer matrixBuffer,
 	int matrixOffset,
 	ByteAddressBuffer biasBuffer,
 	int biasOffset,
-	uint matrixStride,
 	uint gi : SV_GroupIndex)
 {
 	return coopVecMatMulAdd<T, M>(input, inputDataType, matrixBuffer, matrixOffset, matrixDataType,
 		biasBuffer, biasOffset, biasDataType, matrixLayout, transpose, matrixStride);
 }
 
-void vectorCopyFrom<INT N, T : __BuiltinArithmeticType, U : __BuiltinArithmeticType>(out CoopVec<T, N> y, CoopVec<U, N> x)
+vector<T, N> vectorCopyFrom<T : __BuiltinArithmeticType, U : __BuiltinArithmeticType, INT N>(vector<U, N> x)
 {
+	vector<T, N> y;
 	y.copyFrom(x);
+
+	return y;
 }
 
-vector<T, N> max<INT N, T : __BuiltinFloatingPointType>(vector<T, N> x, T y)
+vector<T, N> vectorFill<T : __BuiltinFloatingPointType, INT N>(T x)
+{
+	vector<T, N> y;
+	y.fill(x);
+
+	return y;
+}
+
+vector<T, N> max<T : __BuiltinFloatingPointType, INT N>(vector<T, N> x, T y)
 {
 	return max(x, vector<T, N>(y));
 }
 
-vector<T, N> min<INT N, T : __BuiltinFloatingPointType>(vector<T, N> x, T y)
+vector<T, N> min<T : __BuiltinFloatingPointType, INT N>(vector<T, N> x, T y)
 {
 	return min(x, vector<T, N>(y));
+}
+
+vector<T, N> max<T : __BuiltinFloatingPointType, INT N>(T x, vector<T, N> y)
+{
+	return max(vector<T, N>(x), y);
+}
+
+vector<T, N> min<T : __BuiltinFloatingPointType, INT N>(T x, vector<T, N> y)
+{
+	return min(vector<T, N>(x), y);
+}
+
+vector<T, N> abs<T : __BuiltinFloatingPointType, INT N>(vector<T, N> x)
+{
+	FOR_EACH(n, N, x[n] = abs(x[n]))
+
+	return x;
+}
+
+vector<T, N> negate<T : __BuiltinFloatingPointType, INT N>(vector<T, N> x)
+{
+	return x.neg();
+}
+
+vector<T, N> rcp<T : __BuiltinFloatingPointType, INT N>(vector<T, N> x)
+{
+	return vector<T, N>(T(1.0)) / x;
+}
+
+vector<T, N> clamp<T : __BuiltinFloatingPointType, INT N>(vector<T, N> x, vector<T, N> a, T b)
+{
+	return clamp(x, a, vector<T, N>(b));
+}
+
+vector<T, N> clamp<T : __BuiltinFloatingPointType, INT N>(vector<T, N> x, T a, vector<T, N> b)
+{
+	return clamp(x, vector<T, N>(a), b);
+}
+
+vector<T, N> clamp<T : __BuiltinFloatingPointType, INT N>(vector<T, N> x, T a, T b)
+{
+	return clamp(x, vector<T, N>(a), vector<T, N>(b));
 }
 
 #else
@@ -107,9 +163,9 @@ enum DataType : uint
 	DATA_TYPE_UINT8 = 2,           // ComponentType::U8
 	DATA_TYPE_SINT8 = 5,           // ComponentType::I8
 	DATA_TYPE_FLOAT8_E4M3 = 10,    // ComponentType::F8_E4M3
-	                               // (1 sign, 4 exp, 3 mantissa bits)
+								   // (1 sign, 4 exp, 3 mantissa bits)
 	DATA_TYPE_FLOAT8_E5M2 = 11,    // ComponentType::F8_E5M2
-	                               // (1 sign, 5 exp, 2 mantissa bits)
+								   // (1 sign, 5 exp, 2 mantissa bits)
 };
 
 enum MatrixLayout : uint
@@ -123,38 +179,11 @@ enum MatrixLayout : uint
 #endif
 
 #ifdef _SM_69_
-#define Vector			vector
-#elif defined(_COOP_VEC_)
-#define Vector			CoopVector
-#define writeToIndex	WriteToIndex
-#define fill			Fill
-#define add				Add
-#define sub				Subtract
-#define mul				Multiply
-#define div				Divide
+#define Vector vector
 #else
-#define Vector(...) static Vector ctor(__VA_ARGS__)
-
 template<typename T, INT N>
 struct Vector
 {
-	template<typename U>
-	Vector(Vector<U, N> x)
-	{
-		Vector<T, N> y;
-		for (INT n = 0; n < N; ++n) y.Data[n] = T(x.Data[n]);
-	
-		return y;
-	}
-
-	Vector(T t)
-	{
-		Vector<T, N> y;
-		for (INT n = 0; n < N; ++n) y.Data[n] = t;
-
-		return y;
-	}
-
 	T operator [](int index)
 	{
 		return Data[index];
@@ -165,47 +194,41 @@ struct Vector
 		Data[index] = value;
 	}
 
-	void fill(T t)
+	void fill(T x)
 	{
-		for (INT n = 0; n < N; ++n) Data[n] = t;
+		FOR_EACH(n, N, Data[n] = x)
 	}
 
-	Vector<T, N> operator +(Vector<T, N> x)
-	{
-		for (INT n = 0; n < N; ++n) x.Data[n] += Data[n];
+#define DEFINE_OPERATOR(op, xType, yType, x, y, n, statement) yType operator op(xType x) { yType y; FOR_EACH(n, N, statement) return y; }
+#define VEC_T_N Vector<T, N>
+	DEFINE_OPERATOR(+, VEC_T_N, VEC_T_N, x, y, n, y.Data[n] = Data[n] + x[n])
+	DEFINE_OPERATOR(-, VEC_T_N, VEC_T_N, x, y, n, y.Data[n] = Data[n] - x[n])
+	DEFINE_OPERATOR(*, VEC_T_N, VEC_T_N, x, y, n, y.Data[n] = Data[n] * x[n])
+	DEFINE_OPERATOR(/, VEC_T_N, VEC_T_N, x, y, n, y.Data[n] = Data[n] / x[n])
 
-		return x;
-	}
+	DEFINE_OPERATOR(+, T, VEC_T_N, x, y, n, y.Data[n] = Data[n] + x)
+	DEFINE_OPERATOR(-, T, VEC_T_N, x, y, n, y.Data[n] = Data[n] - x)
+	DEFINE_OPERATOR(*, T, VEC_T_N, x, y, n, y.Data[n] = Data[n] * x)
+	DEFINE_OPERATOR(/, T, VEC_T_N, x, y, n, y.Data[n] = Data[n] / x)
 
-	Vector<T, N> operator -(Vector<T, N> x)
-	{
-		for (INT n = 0; n < N; ++n) x.Data[n] = Data[n] - x.Data[n];
+#define VEC_B_N Vector<bool, N>
+	DEFINE_OPERATOR(>, VEC_T_N, VEC_B_N, x, y, n, y.Data[n] = Data[n] > x[n])
+	DEFINE_OPERATOR(>=, VEC_T_N, VEC_B_N, x, y, n, y.Data[n] = Data[n] >= x[n])
+	DEFINE_OPERATOR(<, VEC_T_N, VEC_B_N, x, y, n, y.Data[n] = Data[n] < x[n])
+	DEFINE_OPERATOR(<=, VEC_T_N, VEC_B_N, x, y, n, y.Data[n] = Data[n] <= x[n])
 
-		return x;
-	}
-
-	Vector<T, N> operator *(Vector<T, N> x)
-	{
-		for (INT n = 0; n < N; ++n) x.Data[n] *= Data[n];
-
-		return x;
-	}
-
-	Vector<T, N> operator /(Vector<T, N> x)
-	{
-		for (INT n = 0; n < N; ++n) x.Data[n] = Data[n] / x.Data[n];
-
-		return x;
-	}
+	DEFINE_OPERATOR(>, T, VEC_B_N, x, y, n, y.Data[n] = Data[n] > x)
+	DEFINE_OPERATOR(>=, T, VEC_B_N, x, y, n, y.Data[n] = Data[n] >= x)
+	DEFINE_OPERATOR(<, T, VEC_B_N, x, y, n, y.Data[n] = Data[n] < x)
+	DEFINE_OPERATOR(<=, T, VEC_B_N, x, y, n, y.Data[n] = Data[n] <= x)
+#undef VEC_B_N
+#undef VEC_T_N
 
 	T Data[N];
 };
-
-#undef Vector
-#define Vector(...) Vector::ctor(__VA_ARGS__)
 #endif
 
-#if __SHADER_TARGET_MINOR == 8 && !defined(_COOP_VEC_)
+#if __SHADER_TARGET_MINOR == 8
 
 #define WM_M 16
 #define WM_N 16
@@ -259,14 +282,14 @@ void GetTensor(out Vector<T, M> y, uint offsetOut, uint offsetIn, uint laneMask,
 			y.Data[offsetOut + m] = T(g_matrixC[WAVE_MATRIX_C_SIZE * waveId + (offsetIn + WM_M * n + m)]);
 }
 
-template<typename T, INT M, DataType inputDataType, DataType matrixDataType, DataType biasDataType, MatrixLayout matrixLayout, bool transpose, typename U, INT K>
+template<typename T, INT M, DataType inputDataType, DataType matrixDataType, DataType biasDataType,
+	MatrixLayout matrixLayout, bool transpose, uint matrixStride, typename U, INT K>
 Vector<T, M> matVecMulAdd(
 	Vector<U, K> input,
 	ByteAddressBuffer matrixBuffer,
 	int matrixOffset,
 	ByteAddressBuffer biasBuffer,
 	int biasOffset,
-	uint matrixStride,
 	uint gi : SV_GroupIndex)
 {
 	Vector<T, M> output;
@@ -392,14 +415,14 @@ Vector<T, M> matVecMulAdd(
 
 #else
 
-template<typename T, INT M, DataType inputDataType, DataType matrixDataType, DataType biasDataType, MatrixLayout matrixLayout, bool transpose, typename U, INT K>
+template<typename T, INT M, DataType inputDataType, DataType matrixDataType, DataType biasDataType,
+	MatrixLayout matrixLayout, bool transpose, uint matrixStride, typename U, INT K>
 Vector<T, M> matVecMulAdd(
 	Vector<U, K> input,
 	ByteAddressBuffer matrixBuffer,
 	int matrixOffset,
 	ByteAddressBuffer biasBuffer,
 	int biasOffset,
-	uint matrixStride,
 	uint gi : SV_GroupIndex)
 {
 #ifdef _SM_69_
@@ -408,15 +431,7 @@ Vector<T, M> matVecMulAdd(
 
 	return MulAdd<T>(mRef, MakeInterpretedVector<inputDataType>(input), bRef);
 #else
-	Vector<T, M> output;
-
-#ifdef _COOP_VEC_
-	output.MatMulAdd(input, inputDataType,
-		matrixBuffer, matrixOffset, matrixDataType,
-		biasBuffer, biasOffset, biasDataType,
-		M, K, matrixLayout, transpose, matrixStride);
-#else
-	output = biasBuffer.Load< Vector<T, M> >(biasOffset);
+	Vector<T, M> output = biasBuffer.Load< Vector<T, M> >(biasOffset);
 
 	for (uint m = 0; m < M; ++m)
 	{
@@ -434,7 +449,6 @@ Vector<T, M> matVecMulAdd(
 			output.Data[m] += U(matrixBuffer.Load<T>(c + sizeof(T) * k)) * input.Data[k];
 #endif
 	}
-#endif
 
 	return output;
 #endif
@@ -449,66 +463,190 @@ Vector<T, M> matVecMulAdd(
 template<INT N, typename T>
 vector<T, N> vectorLoad(ByteAddressBuffer buffer, int byteOffset16ByteAligned)
 {
-#if defined(_COOP_VEC_) && !defined(_SM_69_)
-	vector<T, N> output;
-	output.Load(buffer, byteOffset16ByteAligned, 0);
-
-	return output;
-#else
 	return buffer.Load< vector<T, N> >(byteOffset16ByteAligned);
-#endif
 }
 
-template<INT N, typename T, typename U>
-void vectorCopyFrom(out vector<T, N> y, vector<U, N> x)
+template<typename T, typename U, INT N>
+vector<T, N> vectorCopyFrom(vector<U, N> x)
 {
-#if defined(_COOP_VEC_) && !defined(_SM_69_)
-	y.CopyFrom(x);
+	return vector<T, N>(x);
+}
+
+template<typename T, INT N>
+vector<T, N> vectorFill(T x)
+{
+#ifdef _SM_69_
+	return x;
 #else
-	y = vector<T, N>(x);
+	vector<T, N> y;
+	y.fill(x);
+
+	return y;
 #endif
 }
 
-template<INT N, typename T>
+#ifndef _SM_69_
+template<typename T, INT N>
 vector<T, N> max(vector<T, N> y, T x)
 {
-#ifdef _COOP_VEC_
-	y.ScalarMax(x);
-#else
-	for (INT n = 0; n < N; ++n) y.Data[n] = max(x, y.Data[n]);
-#endif
+	FOR_EACH(n, N, y.Data[n] = max(x, y[n]))
+
+	return y;
+}
+
+template<typename T, INT N>
+vector<T, N> max(T x, vector<T, N> y)
+{
+	FOR_EACH(n, N, y.Data[n] = max(x, y[n]))
+
+	return y;
+}
+
+template<typename T, INT N>
+vector<T, N> min(vector<T, N> y, T x)
+{
+	FOR_EACH(n, N, y.Data[n] = min(x, y[n]))
+
+	return y;
+}
+
+template<typename T, INT N>
+vector<T, N> min(T x, vector<T, N> y)
+{
+	FOR_EACH(n, N, y.Data[n] = min(x, y[n]))
+
+	return y;
+}
+
+template<typename T, INT N>
+vector<T, N> abs(vector<T, N> x)
+{
+	FOR_EACH(n, N, x.Data[n] = abs(x[n]))
+
+	return x;
+}
+
+template<typename T, INT N>
+vector<T, N> rcp(vector<T, N> x)
+{
+	FOR_EACH(n, N, x.Data[n] = 1.0 / x[n])
+
+	return x;
+}
+
+template<typename T, INT N>
+vector<T, N> exp(vector<T, N> x)
+{
+	FOR_EACH(n, N, x.Data[n] = exp(x[n]))
+
+	return x;
+}
+
+template<typename T, INT N>
+vector<T, N> log(vector<T, N> x)
+{
+	FOR_EACH(n, N, x.Data[n] = log(x[n]))
+
+	return x;
+}
+
+template<typename T, INT N>
+vector<T, N> tanh(vector<T, N> x)
+{
+	FOR_EACH(n, N, x.Data[n] = tanh(x[n]))
+
+	return x;
+}
+
+template<typename T, INT N>
+vector<T, N> clamp(vector<T, N> x, vector<T, N> a, vector<T, N> b)
+{
+	FOR_EACH(n, N, x.Data[n] = clamp(x[n], a[n], b[n]))
+
+	return x;
+}
+
+template<typename T, INT N>
+vector<T, N> clamp(vector<T, N> x, vector<T, N> a, T b)
+{
+	FOR_EACH(n, N, x.Data[n] = clamp(x[n], a[n], b))
+
+	return x;
+}
+
+template<typename T, INT N>
+vector<T, N> clamp(vector<T, N> x, T a, vector<T, N> b)
+{
+	FOR_EACH(n, N, x.Data[n] = clamp(x[n], a, b[n]))
+
+	return x;
+}
+
+template<typename T, INT N>
+vector<T, N> clamp(vector<T, N> x, T a, T b)
+{
+	FOR_EACH(n, N, x.Data[n] = clamp(x[n], a, b))
+
+	return x;
+}
+
+template<typename T, INT N>
+vector<T, N> select(vector<bool, N> c, vector<T, N> x, vector<T, N> y)
+{
+	FOR_EACH(n, N, y.Data[n] = c[n] ? x[n] : y[n])
 
 	return y;
 }
 
 template<INT N, typename T>
-vector<T, N> min(vector<T, N> y, T x)
+vector<T, N> select(vector<bool, N> c, vector<T, N> y, T x)
 {
-#ifdef _COOP_VEC_
-	y.ScalarMin(x);
-#else
-	for (INT n = 0; n < N; ++n) y.Data[n] = min(x, y.Data[n]);
-#endif
+	FOR_EACH(n, N, y.Data[n] = c[n] ? y[n] : x)
 
 	return y;
 }
 
+template<typename T, INT N>
+vector<T, N> select(vector<bool, N> c, T x, vector<T, N> y)
+{
+	FOR_EACH(n, N, y.Data[n] = c[n] ? x : y[n])
+
+	return y;
+}
+
+template<typename T, INT N>
+vector<bool, N> and(vector<bool, N> x, vector<bool, N> y)
+{
+	FOR_EACH(n, N, y.Data[n] = x[n] && y[n])
+
+	return y;
+}
+
+template<INT N>
+vector<bool, N> or(vector<bool, N> x, vector<bool, N> y)
+{
+	FOR_EACH(n, N, y.Data[n] = x[n] || y[n])
+
+	return y;
+}
 #endif
 
-#if defined(_COOP_VEC_) && !defined(_SM_69_)
-#define vectorReadFromIndex(vec, index) vec.ReadFromIndex(index)
+template<typename T, INT N>
+vector<T, N> negate(vector<T, N> x)
+{
+#ifdef _SM_69_
+	x = -x;
 #else
-#define vectorReadFromIndex(vec, index) vec[index]
+	FOR_EACH(n, N, x.Data[n] = -x[n])
+#endif
+
+	return x;
+}
+
 #endif
 
 #if defined(_SM_69_) || defined(_SLANG_)
 #define vectorWriteToIndex(vec, index, value) vec[index] = value
 #else
 #define vectorWriteToIndex(vec, index, value) vec.writeToIndex(index, value)
-#endif
-
-#if defined(_SM_69_)
-#define vectorFill(vec, value) vec = value
-#else
-#define vectorFill(vec, value) vec.fill(value)
 #endif

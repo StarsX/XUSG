@@ -394,7 +394,9 @@ Util::PipelineLayout::sptr Util::PipelineLayout::MakeShared(API api)
 Util::PipelineLayout::uptr Util::PipelineLayout::CloneUnique(const PipelineLayout* pSrc, API api)
 {
 	auto dst = make_unique<PipelineLayout_DX12>();
-	*dst = *dynamic_cast<const PipelineLayout_DX12*>(pSrc);
+	const auto p = dynamic_cast<const PipelineLayout_DX12*>(pSrc);
+	assert(p);
+	*dst = *p;
 
 	return dst;
 }
@@ -402,8 +404,10 @@ Util::PipelineLayout::uptr Util::PipelineLayout::CloneUnique(const PipelineLayou
 Util::PipelineLayout::sptr Util::PipelineLayout::CloneShared(const PipelineLayout* pSrc, API api)
 {
 	auto dst = make_shared<PipelineLayout_DX12>();
-	*dst = *dynamic_cast<const PipelineLayout_DX12*>(pSrc);
-	
+	const auto p = dynamic_cast<const PipelineLayout_DX12*>(pSrc);
+	assert(p);
+	*dst = *p;
+
 	return dst;
 }
 

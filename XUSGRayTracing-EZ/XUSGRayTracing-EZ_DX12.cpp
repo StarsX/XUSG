@@ -165,101 +165,80 @@ bool EZ::CommandList_DXR::AllocateAccelerationStructure(AccelerationStructure* p
 	return pAccelerationStructure->Allocate(m_pDeviceRT, m_descriptorTableLib.get(), byteWidth);
 }
 
-void EZ::CommandList_DXR::SetTriangleGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
-	Format vertexFormat, XUSG::EZ::VertexBufferView* pVBs, XUSG::EZ::IndexBufferView* pIBs,
-	const GeometryFlag* pGeometryFlags, const ResourceView* pTransforms)
+void EZ::CommandList_DXR::SetTriangleGeometry(BottomLevelAS::GeometryDesc& geometry, Format vertexFormat,
+	const XUSG::EZ::VertexBufferView& vbv, const XUSG::EZ::IndexBufferView* pIbv, GeometryFlag flags,
+	const ResourceView* pTransform)
 {
-	vector<VertexBufferView> vbvs(numGeometries);
-	vector<IndexBufferView> ibvs;
-
 	// Set barriers if the vertex buffers or index buffers are not at the read states
 	const auto startIdx = m_barriers.size();
-	m_barriers.resize(startIdx + numGeometries * 2);
+	m_barriers.resize(startIdx + 2);
 	auto numBarriers = 0u;
-	for (auto i = 0u; i < numGeometries; ++i)
-	{
-		const auto& vb = pVBs[i];
-		const auto pBarrier = &m_barriers[startIdx];
-		if (vb.pResource->GetResourceState() == ResourceState::COMMON)
-			vb.pResource->SetBarrier(pBarrier, ResourceState::COPY_DEST, numBarriers);
-		numBarriers = vb.pResource->SetBarrier(pBarrier, vb.DstState, numBarriers);
-		vbvs[i] = *vb.pView;
-	}
 
-	if (pIBs)
+	const auto pBarrier = &m_barriers[startIdx];
+	assert(vbv.pResource);
+	if (vbv.pResource->GetResourceState() == ResourceState::COMMON)
+		vbv.pResource->SetBarrier(pBarrier, ResourceState::COPY_DEST, numBarriers);
+	numBarriers = vbv.pResource->SetBarrier(pBarrier, vbv.DstState, numBarriers);
+
+	if (pIbv)
 	{
-		ibvs.resize(numGeometries);
-		for (auto i = 0u; i < numGeometries; ++i)
-		{
-			const auto& ib = pIBs[i];
-			const auto pBarrier = &m_barriers[startIdx];
-			if (ib.pResource->GetResourceState() == ResourceState::COMMON)
-				ib.pResource->SetBarrier(pBarrier, ResourceState::COPY_DEST, numBarriers);
-			numBarriers = ib.pResource->SetBarrier(pBarrier, ib.DstState, numBarriers);
-			ibvs[i] = *ib.pView;
-		}
+		const auto pBarrier = &m_barriers[startIdx];
+		if (pIbv->pResource->GetResourceState() == ResourceState::COMMON)
+			pIbv->pResource->SetBarrier(pBarrier, ResourceState::COPY_DEST, numBarriers);
+		numBarriers = pIbv->pResource->SetBarrier(pBarrier, pIbv->DstState, numBarriers);
 	}
 
 	// Shrink the size of barrier list
-	if (numBarriers < numGeometries * 2) m_barriers.resize(startIdx + numBarriers);
+	if (numBarriers < 2) m_barriers.resize(startIdx + numBarriers);
 
-	// Set geometries
-	BottomLevelAS::SetTriangleGeometries(geometries, numGeometries, vertexFormat,
-		vbvs.data(), pIBs ? ibvs.data() : nullptr, pGeometryFlags, pTransforms);
+	// Set geometry
+	assert(vbv.pView);
+	BottomLevelAS::SetTriangleGeometry(geometry, vertexFormat, *vbv.pView, pIbv ? pIbv->pView : nullptr, flags, pTransform);
 }
 
-void EZ::CommandList_DXR::SetAABBGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
-	XUSG::EZ::VertexBufferView* pVBs, const GeometryFlag* pGeometryFlags)
+void EZ::CommandList_DXR::SetAABBGeometry(BottomLevelAS::GeometryDesc& geometry, const XUSG::EZ::VertexBufferView& vbv, GeometryFlag flags)
 {
-	vector<VertexBufferView> vbvs(numGeometries);
-
 	// Set barriers if the vertex buffers or index buffers are not at the read states
 	const auto startIdx = m_barriers.size();
-	m_barriers.resize(startIdx + numGeometries);
+	m_barriers.resize(startIdx + 1);
 	auto numBarriers = 0u;
-	for (auto i = 0u; i < numGeometries; ++i)
-	{
-		const auto& vb = pVBs[i];
-		const auto pBarrier = &m_barriers[startIdx];
-		if (vb.pResource->GetResourceState() == ResourceState::COMMON)
-			vb.pResource->SetBarrier(pBarrier, ResourceState::COPY_DEST, numBarriers);
-		numBarriers = vb.pResource->SetBarrier(pBarrier, vb.DstState, numBarriers);
-		vbvs[i] = *vb.pView;
-	}
+
+	const auto pBarrier = &m_barriers[startIdx];
+	assert(vbv.pResource);
+	if (vbv.pResource->GetResourceState() == ResourceState::COMMON)
+		vbv.pResource->SetBarrier(pBarrier, ResourceState::COPY_DEST, numBarriers);
+	numBarriers = vbv.pResource->SetBarrier(pBarrier, vbv.DstState, numBarriers);
 
 	// Shrink the size of barrier list
-	if (numBarriers < numGeometries) m_barriers.resize(startIdx + numBarriers);
+	if (numBarriers < 1) m_barriers.resize(startIdx + numBarriers);
 
-	// Set geometries
-	BottomLevelAS::SetAABBGeometries(geometries, numGeometries, vbvs.data(), pGeometryFlags);
+	// Set geometry
+	assert(vbv.pView);
+	BottomLevelAS::SetAABBGeometry(geometry, *vbv.pView, flags);
 }
 
-void EZ::CommandList_DXR::SetOMMGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
-	const GeometryBuffer& triGeometries, const BottomLevelAS::OMMLinkage* pOmmLinkages,
-	const GeometryFlag* pGeometryFlags)
+void EZ::CommandList_DXR::SetOMMGeometry(BottomLevelAS::GeometryDesc& geometry, const BottomLevelAS::TriangleGeometry* pTriangles,
+	const BottomLevelAS::OMMLinkage* pOmmLinkage, Buffer* pOpacityMicromapIndexBuffer, GeometryFlag flags)
 {
-	if (pOmmLinkages)
+	if (pOmmLinkage)
 	{
 		// Set barriers if the OMM linkage buffers are not at the read states
 		const auto startIdx = m_barriers.size();
-		m_barriers.resize(startIdx + numGeometries);
+		m_barriers.resize(startIdx + 1);
 		auto numBarriers = 0u;
 
-		for (auto i = 0u; i < numGeometries; ++i)
-		{
-			const auto& pIB = pOmmLinkages[i].pOpacityMicromapIndexBuffer;
-			const auto pBarrier = &m_barriers[startIdx];
-			if (pIB->GetResourceState() == ResourceState::COMMON)
-				pIB->SetBarrier(pBarrier, ResourceState::COPY_DEST, numBarriers);
-			numBarriers = pIB->SetBarrier(pBarrier, ResourceState::NON_PIXEL_SHADER_RESOURCE, numBarriers);
-		}
+		const auto pBarrier = &m_barriers[startIdx];
+		assert(pOpacityMicromapIndexBuffer);
+		if (pOpacityMicromapIndexBuffer->GetResourceState() == ResourceState::COMMON)
+			pOpacityMicromapIndexBuffer->SetBarrier(pBarrier, ResourceState::COPY_DEST, numBarriers);
+		numBarriers = pOpacityMicromapIndexBuffer->SetBarrier(pBarrier, ResourceState::NON_PIXEL_SHADER_RESOURCE, numBarriers);
 
 		// Shrink the size of barrier list
-		if (numBarriers < numGeometries) m_barriers.resize(startIdx + numBarriers);
+		if (numBarriers < 1) m_barriers.resize(startIdx + numBarriers);
 	}
 
-	// Set geometries
-	BottomLevelAS::SetOMMGeometries(geometries, numGeometries, triGeometries, pOmmLinkages, pGeometryFlags);
+	// Set geometry
+	BottomLevelAS::SetOMMGeometry(geometry, pTriangles, pOmmLinkage, flags);
 }
 
 void EZ::CommandList_DXR::SetOmmArray(GeometryBuffer& ommArrayDescs, uint32_t numOpacityMicromaps,
@@ -276,6 +255,7 @@ void EZ::CommandList_DXR::SetOmmArray(GeometryBuffer& ommArrayDescs, uint32_t nu
 		{
 			const auto& pInput = pOmmArrayDescs[i].pInputBuffer;
 			const auto pBarrier = &m_barriers[startIdx];
+			assert(pInput);
 			if (pInput->GetResourceState() == ResourceState::COMMON)
 				pInput->SetBarrier(pBarrier, ResourceState::COPY_DEST, numBarriers);
 			numBarriers = pInput->SetBarrier(pBarrier, ResourceState::NON_PIXEL_SHADER_RESOURCE, numBarriers);
@@ -285,6 +265,7 @@ void EZ::CommandList_DXR::SetOmmArray(GeometryBuffer& ommArrayDescs, uint32_t nu
 		{
 			const auto& pPerOmmDescs = pOmmArrayDescs[i].pPerOmmDescs;
 			const auto pBarrier = &m_barriers[startIdx];
+			assert(pPerOmmDescs);
 			if (pPerOmmDescs->GetResourceState() != ResourceState::COMMON &&
 				pPerOmmDescs->GetResourceState() != ResourceState::GENERIC_READ_RESOURCE)
 				numBarriers = pPerOmmDescs->SetBarrier(pBarrier, ResourceState::NON_PIXEL_SHADER_RESOURCE, numBarriers);

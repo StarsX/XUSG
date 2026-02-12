@@ -222,7 +222,7 @@ namespace XUSG
 			void* GetDeviceHandle() const { return XUSG::CommandList_DX12::GetDeviceHandle(); }
 
 			const Device* GetDevice() const { return XUSG::CommandList_DX12::GetDevice(); }
-			XUSG::CommandList* AsCommandList() { return dynamic_cast<XUSG::CommandList*>(this); }
+			XUSG::CommandList* AsCommandList();
 
 		protected:
 			enum PipelineLayoutIndex

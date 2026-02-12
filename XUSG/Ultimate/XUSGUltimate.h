@@ -6,7 +6,11 @@
 
 #include "Core/XUSG.h"
 
-#define XUSG_MAKE_COARSE_SHADING_RATE(x,y) ((x) << 2 | (y))
+#define XUSG_MAKE_COARSE_SHADING_RATE(x,y)			((x) << 2 | (y))
+
+#define XUSG_LINEAR_ALGEBRA_MATRIX_ALIGNMENT		128
+#define XUSG_LINEAR_ALGEBRA_MATRIX_STRIDE_ALIGNMENT	16
+#define XUSG_LINEAR_ALGEBRA_BIAS_ALIGNMENT			64
 
 namespace XUSG
 {
@@ -155,6 +159,30 @@ namespace XUSG
 
 		XUSG_DEF_ENUM_FLAG_OPERATORS(WorkGraphFlag);
 
+		enum class LinearAlgebraMatrixLayout : uint8_t
+		{
+			ROW_MAJOR,
+			COLUMN_MAJOR,
+			MUL_OPTIMAL,
+			OUTER_PRODUCT_OPTIMAL
+		};
+
+		enum class LinearAlgebraDataType : uint8_t
+		{
+			SINT16,
+			UINT16,
+			SINT32,
+			UINT32,
+			FLOAT16,
+			FLOAT32,
+			SINT8_T4_PACKED,
+			UINT8_T4_PACKED,
+			UINT8,
+			SINT8,
+			FLOAT_E4M3,
+			FLOAT_E5M2
+		};
+
 		struct ResourceBarrier
 		{
 			BarrierSync SyncBefore;
@@ -225,6 +253,27 @@ namespace XUSG
 			uint64_t NodeInputByteStride;
 		};
 
+		struct LinearAlgebraMatrixInfo 
+		{
+			uint32_t Size;
+			LinearAlgebraMatrixLayout Layout;
+			uint32_t Stride;
+			uint16_t NumRows;
+			uint16_t NumColumns;
+			LinearAlgebraDataType DataType;
+		};
+
+		struct LinearAlgebraMatrixConversionInfo
+		{
+			LinearAlgebraMatrixInfo DstInfo;
+			uint32_t SrcSize;
+			LinearAlgebraDataType SrcDataType;
+			LinearAlgebraMatrixLayout SrcLayout;
+			uint32_t SrcStride;
+			uint64_t Dst;
+			uint64_t Src;
+		};
+
 		//--------------------------------------------------------------------------------------
 		// Command list
 		//--------------------------------------------------------------------------------------
@@ -261,6 +310,8 @@ namespace XUSG
 				uint64_t localRootArgTableByteStride = 0) = 0;
 			virtual void DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride = 0) = 0;
 			virtual void DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes = false) = 0;
+
+			virtual void ConvertLinearAlgebraMatrix(const LinearAlgebraMatrixConversionInfo* pConversions, uint32_t numConversions) = 0;
 
 			using uptr = std::unique_ptr<CommandList>;
 			using sptr = std::shared_ptr<CommandList>;
@@ -457,6 +508,11 @@ namespace XUSG
 			uint16_t firstArraySlice = 0, uint16_t numArraySlices = 0, uint8_t firstPlane = 0, uint8_t numPlanes = 0,
 			BarrierFlag flags = BarrierFlag::NONE, ResourceState srcState = ResourceState::AUTO,
 			TextureBarrierFlag textureFlags = TextureBarrierFlag::NONE, uint32_t threadIdx = 0);
+
+		XUSG_INTERFACE void GetLinearAlgebraMatrixInfo(const Device* pDevice, LinearAlgebraMatrixInfo& matrixInfo, API api = API::DIRECTX_12);
+		XUSG_INTERFACE void SetLinearAlgebraMatrixConversionInfo(LinearAlgebraMatrixConversionInfo& conversion,
+			uint64_t dst, uint64_t src, LinearAlgebraDataType srcDataType, LinearAlgebraMatrixLayout srcLayout,
+			uint32_t srcSize = 0, uint32_t srcStride = 0);
 
 		XUSG_INTERFACE void MapBarrierState(BarrierSync& barrierSync, BarrierAccess& barrierAccess, ResourceState resourceState);
 		XUSG_INTERFACE void MapBarrierState(BarrierSync& barrierSync, BarrierAccess& barrierAccess,

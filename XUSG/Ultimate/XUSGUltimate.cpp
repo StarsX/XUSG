@@ -163,6 +163,46 @@ uint32_t Ultimate::SetBarrier(ResourceBarrier* pTextureBarriers, Texture* pTextu
 	return numBarriers;
 }
 
+void Ultimate::GetLinearAlgebraMatrixInfo(const Device* pDevice, LinearAlgebraMatrixInfo& matrixInfo, API api)
+{
+	return GetDX12LinearAlgebraMatrixInfo(pDevice, matrixInfo);
+}
+
+void Ultimate::SetLinearAlgebraMatrixConversionInfo(LinearAlgebraMatrixConversionInfo& conversion,
+	uint64_t dst, uint64_t src, LinearAlgebraDataType srcDataType, LinearAlgebraMatrixLayout srcLayout,
+	uint32_t srcSize, uint32_t srcStride)
+{
+	conversion.Dst = dst;
+	conversion.Src = src;
+	conversion.SrcDataType = srcDataType;
+	conversion.SrcLayout = srcLayout;
+
+	uint8_t elementSize = 0;
+	if (srcSize == 0 || srcStride == 0)
+	{
+		switch (srcDataType)
+		{
+		case LinearAlgebraDataType::SINT16:
+		case LinearAlgebraDataType::UINT16:
+		case LinearAlgebraDataType::FLOAT16:
+			elementSize = sizeof(uint16_t);
+			break;
+		case LinearAlgebraDataType::SINT32:
+		case LinearAlgebraDataType::UINT32:
+		case LinearAlgebraDataType::FLOAT32:
+			elementSize = sizeof(uint32_t);
+			break;
+		default:
+			elementSize = sizeof(uint8_t);
+		}
+	}
+
+	conversion.SrcSize = srcSize ? srcSize : elementSize * conversion.DstInfo.NumRows * conversion.DstInfo.NumColumns;
+	conversion.SrcStride = srcStride ? srcStride :
+		(srcLayout == LinearAlgebraMatrixLayout::ROW_MAJOR ? elementSize * conversion.DstInfo.NumColumns :
+			(srcLayout == LinearAlgebraMatrixLayout::COLUMN_MAJOR ? elementSize * conversion.DstInfo.NumRows : 0));
+}
+
 void Ultimate::MapBarrierState(BarrierSync& barrierSync, BarrierAccess& barrierAccess, ResourceState resourceState)
 {
 	switch (resourceState)
