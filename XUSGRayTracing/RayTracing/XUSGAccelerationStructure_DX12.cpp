@@ -309,8 +309,8 @@ void BottomLevelAS_DX12::SetGeometries(GeometryBuffer& geometries, uint32_t numG
 			geometryDesc.AABBs.AABBCount = geometry.AABBs.AABBCount;
 			geometryDesc.AABBs.AABBs.StartAddress = geometry.AABBs.AABBsStart;
 			geometryDesc.AABBs.AABBs.StrideInBytes = geometry.AABBs.AABBsStride;
+			break;
 		case GeometryType::OMM_TRIANGLES:
-		{
 			geometryDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_OMM_TRIANGLES;
 
 			if (geometry.OmmTriangles.pTriangles)
@@ -328,7 +328,6 @@ void BottomLevelAS_DX12::SetGeometries(GeometryBuffer& geometries, uint32_t numG
 			geometryDesc.OmmTriangles.pTriangles = pGeometries[i].OmmTriangles.pTriangles ? pTriangles++ : nullptr;
 			geometryDesc.OmmTriangles.pOmmLinkage = pGeometries[i].OmmTriangles.pOmmLinkage ? pOmmLinkage++ : nullptr;
 			break;
-		}
 		default:
 			assert(!"Unsupported geometry type.");
 		}
