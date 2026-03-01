@@ -110,5 +110,7 @@ namespace XUSG
 
 		std::unordered_map<std::string, com_ptr<ID3D12RootSignature>> m_rootSignatures;
 		std::unordered_map<std::string, DescriptorTableLayout> m_descriptorTableLayouts;
+
+		std::mutex m_mtx;
 	};
 }

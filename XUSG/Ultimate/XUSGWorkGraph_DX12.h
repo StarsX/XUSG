@@ -101,7 +101,7 @@ namespace XUSG
 		protected:
 			void serialize();
 
-			Pipeline setStateObject(const com_ptr<ID3D12StateObject>& stateObject);
+			Pipeline setWorkGraphProperties();
 
 			KeyHeader* m_pKeyHeader;
 			std::string m_key;
@@ -147,18 +147,19 @@ namespace XUSG
 
 			void GetMemoryRequirements(const Pipeline& stateObject, uint32_t workGraphIndex, MemoryRequirements* pMemoryReq) const;
 
-			com_ptr<ID3D12StateObject> CreateStateObject(const std::string& key, const wchar_t* name);
-			com_ptr<ID3D12StateObject> GetStateObject(const std::string& key, const wchar_t* name);
-
 			static D3D12_NODE_ID GetDX12NodeID(const NodeID& nodeID);
 
 		protected:
+			com_ptr<ID3D12StateObject> createStateObject(const std::string& key, const wchar_t* name);
+			com_ptr<ID3D12StateObject> getStateObject(const std::string& key, const wchar_t* name);
+
 			static com_ptr<ID3D12WorkGraphProperties> getWorkGraphProperties(const Pipeline& stateObject);
 
 			com_ptr<ID3D12Device> m_device;
 
 			std::unordered_map<std::string, com_ptr<ID3D12StateObject>> m_stateObjects;
 
+			std::mutex m_mtx;
 		};
 	}
 }

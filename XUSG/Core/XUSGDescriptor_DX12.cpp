@@ -236,6 +236,8 @@ void DescriptorTableLib_DX12::SetName(const wchar_t* name)
 
 void DescriptorTableLib_DX12::ResetDescriptorHeap(DescriptorHeapType type, uint8_t index)
 {
+	lock_guard<mutex> lock(m_mtx);
+
 	//if (index < m_descriptorHeaps[type].size()) m_descriptorHeaps[type][index].Reset();
 	if (index < m_descriptorCounts[type].size()) m_descriptorCounts[type][index] = 0;
 	
@@ -255,6 +257,8 @@ void DescriptorTableLib_DX12::ResetDescriptorHeap(DescriptorHeapType type, uint8
 
 bool DescriptorTableLib_DX12::AllocateDescriptorHeap(DescriptorHeapType type, uint32_t numDescriptors, uint8_t index)
 {
+	lock_guard<mutex> lock(m_mtx);
+
 	checkDescriptorHeapTypeStorage(type, index);
 
 	return allocateDescriptorHeap(type, numDescriptors, index);
@@ -262,51 +266,69 @@ bool DescriptorTableLib_DX12::AllocateDescriptorHeap(DescriptorHeapType type, ui
 
 DescriptorTable DescriptorTableLib_DX12::CreateCbvSrvUavTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table)
 {
+	lock_guard<mutex> lock(m_mtx);
+
 	return createCbvSrvUavTable(pUtil->GetKey(), table);
 }
 
 DescriptorTable DescriptorTableLib_DX12::GetCbvSrvUavTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table)
 {
+	lock_guard<mutex> lock(m_mtx);
+
 	return getCbvSrvUavTable(pUtil->GetKey(), table);
 }
 
 DescriptorTable DescriptorTableLib_DX12::CreateSamplerTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table)
 {
+	lock_guard<mutex> lock(m_mtx);
+
 	return createSamplerTable(pUtil->GetKey(), table);
 }
 
 DescriptorTable DescriptorTableLib_DX12::GetSamplerTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table)
 {
+	lock_guard<mutex> lock(m_mtx);
+
 	return getSamplerTable(pUtil->GetKey(), table);
 }
 
 Framebuffer DescriptorTableLib_DX12::CreateFramebuffer(const Util::DescriptorTable* pUtil,
 	const Descriptor* pDsv, const Framebuffer* pFramebuffer)
 {
+	lock_guard<mutex> lock(m_mtx);
+
 	return createFramebuffer(pUtil->GetKey(), pDsv, pFramebuffer);
 }
 
 Framebuffer DescriptorTableLib_DX12::GetFramebuffer(const Util::DescriptorTable* pUtil,
 	const Descriptor* pDsv, const Framebuffer* pFramebuffer)
 {
+	lock_guard<mutex> lock(m_mtx);
+
 	return getFramebuffer(pUtil->GetKey(), pDsv, pFramebuffer);
 }
 
-DescriptorHeap DescriptorTableLib_DX12::GetDescriptorHeap(DescriptorHeapType type, uint8_t index) const
+DescriptorHeap DescriptorTableLib_DX12::GetDescriptorHeap(DescriptorHeapType type, uint8_t index)
 {
+	lock_guard<mutex> lock(m_mtx);
+
 	return m_descriptorHeaps[type][index].get();
 }
 
 const Sampler* DescriptorTableLib_DX12::GetSampler(SamplerPreset preset)
 {
+	lock_guard<mutex> lock(m_mtx);
+
 	if (m_samplers[preset] == nullptr)
 		m_samplers[preset] = make_unique<Sampler>(m_pfnSamplers[preset]());
 
 	return m_samplers[preset].get();
 }
 
-uint32_t DescriptorTableLib_DX12::GetDescriptorStride(DescriptorHeapType type) const
+uint32_t DescriptorTableLib_DX12::GetDescriptorStride(DescriptorHeapType type)
 {
+	lock_guard<mutex> lock(m_mtx);
+
 	return m_descriptorStrides[type];
 }
 
@@ -487,7 +509,7 @@ DescriptorTable DescriptorTableLib_DX12::getCbvSrvUavTable(const string& key, De
 		const auto tableIter = cbvSrvUavTables.find(key);
 
 		// Create one, if it does not exist
-		if (tableIter == cbvSrvUavTables.end() && reallocateCbvSrvUavHeap(key))
+		if (tableIter == cbvSrvUavTables.cend() && reallocateCbvSrvUavHeap(key))
 		{
 			if (table)
 			{
@@ -590,7 +612,7 @@ DescriptorTable DescriptorTableLib_DX12::getSamplerTable(const string& key, Desc
 		const auto tableIter = samplerTables.find(key);
 
 		// Create one, if it does not exist
-		if (tableIter == samplerTables.end() && reallocateSamplerHeap(key))
+		if (tableIter == samplerTables.cend() && reallocateSamplerHeap(key))
 		{
 			if (table)
 			{
@@ -674,7 +696,7 @@ Framebuffer DescriptorTableLib_DX12::getFramebuffer(const string& key,
 		const auto tableIter = rtvTables.find(key);
 
 		// Create one, if it does not exist
-		if (tableIter == rtvTables.end() && reallocateRtvHeap(key))
+		if (tableIter == rtvTables.cend() && reallocateRtvHeap(key))
 		{
 			if (pFramebuffer && pFramebuffer->RenderTargetViews)
 			{

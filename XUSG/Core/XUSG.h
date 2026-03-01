@@ -2327,11 +2327,11 @@ namespace XUSG
 		virtual Framebuffer GetFramebuffer(const Util::DescriptorTable* pUtil,
 			const Descriptor* pDsv = nullptr, const Framebuffer* pFramebuffer = nullptr) = 0;
 
-		virtual DescriptorHeap GetDescriptorHeap(DescriptorHeapType type, uint8_t index = 0) const = 0;
+		virtual DescriptorHeap GetDescriptorHeap(DescriptorHeapType type, uint8_t index = 0) = 0;
 
 		virtual const Sampler* GetSampler(SamplerPreset preset) = 0;
 
-		virtual uint32_t GetDescriptorStride(DescriptorHeapType type) const = 0;
+		virtual uint32_t GetDescriptorStride(DescriptorHeapType type) = 0;
 
 		static Sampler SamplerPointWrap();
 		static Sampler SamplerPointMirror();
@@ -2415,8 +2415,8 @@ namespace XUSG
 
 		virtual Blob CreateShader(Shader::Stage stage, uint32_t index, const wchar_t* fileName) = 0;
 		virtual Blob CreateShader(Shader::Stage stage, uint32_t index, const void* pData, size_t size) = 0;
-		virtual Blob GetShader(Shader::Stage stage, uint32_t index) const = 0;
-		virtual Reflector::sptr GetReflector(Shader::Stage stage, uint32_t index) const = 0;
+		virtual Blob GetShader(Shader::Stage stage, uint32_t index) = 0;
+		virtual Reflector::sptr GetReflector(Shader::Stage stage, uint32_t index) = 0;
 
 		using uptr = std::unique_ptr<ShaderLib>;
 		using sptr = std::shared_ptr<ShaderLib>;
@@ -2740,7 +2740,7 @@ namespace XUSG
 			virtual void SetPipeline(const State* pState, const Pipeline& pipeline) = 0;
 
 			virtual void SetInputLayout(uint32_t index, const InputElement* pElements, uint32_t numElements) = 0;
-			virtual const InputLayout* GetInputLayout(uint32_t index) const = 0;
+			virtual const InputLayout* GetInputLayout(uint32_t index) = 0;
 			virtual const InputLayout* CreateInputLayout(const InputElement* pElements, uint32_t numElements) = 0;
 
 			virtual Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr) = 0;

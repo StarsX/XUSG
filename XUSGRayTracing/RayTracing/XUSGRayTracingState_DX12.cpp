@@ -221,6 +221,8 @@ void PipelineLib_DX12::SetPipeline(State* pState, const Pipeline& pipeline)
 	const auto p = dynamic_cast<State_DX12*>(pState);
 	assert(p);
 
+	lock_guard<mutex> lock(m_mtx);
+
 	m_stateObjects[p->GetKey()] = static_cast<ID3D12RaytracingFallbackStateObject*>(pipeline);
 }
 
@@ -229,6 +231,8 @@ Pipeline PipelineLib_DX12::CreatePipeline(State* pState, const wchar_t* name)
 	const auto p = dynamic_cast<State_DX12*>(pState);
 	assert(p);
 
+	lock_guard<mutex> lock(m_mtx);
+
 	return createStateObject(p->GetKey(), name).get();
 }
 
@@ -236,6 +240,8 @@ Pipeline PipelineLib_DX12::GetPipeline(State* pState, const wchar_t* name)
 {
 	const auto p = dynamic_cast<State_DX12*>(pState);
 	assert(p);
+
+	lock_guard<mutex> lock(m_mtx);
 
 	return getStateObject(p->GetKey(), name).get();
 }

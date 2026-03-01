@@ -116,6 +116,8 @@ namespace XUSG
 			com_ptr<ID3D12RaytracingFallbackDevice> m_device;
 
 			std::unordered_map<std::string, com_ptr<ID3D12RaytracingFallbackStateObject>> m_stateObjects;
+
+			std::mutex m_mtx;
 		};
 	}
 }

@@ -112,18 +112,16 @@ void State_DX12::OverrideMaxDispatchGrid(const wchar_t* shaderName, uint32_t x, 
 
 Pipeline State_DX12::CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name)
 {
-	const auto pDX12PipelineLib = static_cast<PipelineLib_DX12*>(pPipelineLib);
-	const auto pipeline = pDX12PipelineLib->CreateStateObject(GetKey(), name);
+	m_pipeline = pPipelineLib->CreatePipeline(this, name);
 
-	return setStateObject(pipeline);
+	return setWorkGraphProperties();
 }
 
 Pipeline State_DX12::GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name)
 {
-	const auto pDX12PipelineLib = static_cast<PipelineLib_DX12*>(pPipelineLib);
-	const auto pipeline = pDX12PipelineLib->GetStateObject(GetKey(), name);
+	m_pipeline = pPipelineLib->GetPipeline(this, name);
 
-	return setStateObject(pipeline);
+	return setWorkGraphProperties();
 }
 
 const string& State_DX12::GetKey()
@@ -289,10 +287,10 @@ void State_DX12::serialize()
 	m_isSerialized = true;
 }
 
-Pipeline State_DX12::setStateObject(const com_ptr<ID3D12StateObject>& stateObject)
+Pipeline State_DX12::setWorkGraphProperties()
 {
-	m_pipeline = stateObject.get();
-	V_RETURN(stateObject->QueryInterface(IID_PPV_ARGS(&m_properties)), cerr, m_pipeline);
+	const auto pStateObject = static_cast<ID3D12StateObject*>(m_pipeline);
+	V_RETURN(pStateObject->QueryInterface(IID_PPV_ARGS(&m_properties)), cerr, m_pipeline);
 	assert(m_properties);
 
 	return m_pipeline;
@@ -327,6 +325,8 @@ void PipelineLib_DX12::SetPipeline(State* pState, const Pipeline& pipeline)
 	const auto p = dynamic_cast<State_DX12*>(pState);
 	assert(p);
 
+	lock_guard<mutex> lock(m_mtx);
+
 	m_stateObjects[p->GetKey()] = static_cast<ID3D12StateObject*>(pipeline);
 }
 
@@ -335,7 +335,9 @@ Pipeline PipelineLib_DX12::CreatePipeline(State* pState, const wchar_t* name)
 	const auto p = dynamic_cast<State_DX12*>(pState);
 	assert(p);
 
-	return CreateStateObject(p->GetKey(), name).get();
+	lock_guard<mutex> lock(m_mtx);
+
+	return createStateObject(p->GetKey(), name).get();
 }
 
 Pipeline PipelineLib_DX12::GetPipeline(State* pState, const wchar_t* name)
@@ -343,7 +345,9 @@ Pipeline PipelineLib_DX12::GetPipeline(State* pState, const wchar_t* name)
 	const auto p = dynamic_cast<State_DX12*>(pState);
 	assert(p);
 
-	return GetStateObject(p->GetKey(), name).get();
+	lock_guard<mutex> lock(m_mtx);
+
+	return getStateObject(p->GetKey(), name).get();
 }
 
 const wchar_t* PipelineLib_DX12::GetProgramName(const Pipeline& stateObject, uint32_t workGraphIndex) const
@@ -434,7 +438,12 @@ void PipelineLib_DX12::GetMemoryRequirements(const Pipeline& stateObject, uint32
 	pMemoryReq->SizeGranularityInBytes = memoryReq.SizeGranularityInBytes;
 }
 
-com_ptr<ID3D12StateObject> PipelineLib_DX12::CreateStateObject(const string& key, const wchar_t* name)
+D3D12_NODE_ID PipelineLib_DX12::GetDX12NodeID(const NodeID& nodeID)
+{
+	return { nodeID.Name, nodeID.ArrayIndex };
+}
+
+com_ptr<ID3D12StateObject> PipelineLib_DX12::createStateObject(const string& key, const wchar_t* name)
 {
 	// Get header
 	const auto& keyHeader = reinterpret_cast<const State_DX12::KeyHeader&>(key[0]);
@@ -552,19 +561,14 @@ com_ptr<ID3D12StateObject> PipelineLib_DX12::CreateStateObject(const string& key
 	return stateObject;
 }
 
-com_ptr<ID3D12StateObject> PipelineLib_DX12::GetStateObject(const string& key, const wchar_t* name)
+com_ptr<ID3D12StateObject> PipelineLib_DX12::getStateObject(const string& key, const wchar_t* name)
 {
 	const auto pStateObject = m_stateObjects.find(key);
 
 	// Create one, if it does not exist
-	if (pStateObject == m_stateObjects.end()) return CreateStateObject(key, name);
+	if (pStateObject == m_stateObjects.cend()) return createStateObject(key, name);
 
 	return pStateObject->second;
-}
-
-D3D12_NODE_ID PipelineLib_DX12::GetDX12NodeID(const NodeID& nodeID)
-{
-	return { nodeID.Name, nodeID.ArrayIndex };
 }
 
 com_ptr<ID3D12WorkGraphProperties> PipelineLib_DX12::getWorkGraphProperties(const Pipeline& stateObject)

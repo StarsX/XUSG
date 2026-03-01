@@ -78,11 +78,11 @@ namespace XUSG
 		Framebuffer GetFramebuffer(const Util::DescriptorTable* pUtil,
 			const Descriptor* pDsv = nullptr, const Framebuffer* pFramebuffer = nullptr);
 
-		DescriptorHeap GetDescriptorHeap(DescriptorHeapType type, uint8_t index = 0) const;
+		DescriptorHeap GetDescriptorHeap(DescriptorHeapType type, uint8_t index = 0);
 
 		const Sampler* GetSampler(SamplerPreset preset);
 
-		uint32_t GetDescriptorStride(DescriptorHeapType type) const;
+		uint32_t GetDescriptorStride(DescriptorHeapType type);
 
 	protected:
 		void checkDescriptorHeapTypeStorage(DescriptorHeapType type, uint8_t index);
@@ -117,5 +117,7 @@ namespace XUSG
 		std::function<Sampler()> m_pfnSamplers[NUM_SAMPLER_PRESET];
 
 		std::wstring m_name;
+
+		std::mutex m_mtx;
 	};
 }

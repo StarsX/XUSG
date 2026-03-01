@@ -185,6 +185,8 @@ void PipelineLayoutLib_DX12::SetDevice(const Device* pDevice)
 
 void PipelineLayoutLib_DX12::SetPipelineLayout(const string& key, const PipelineLayout& pipelineLayout)
 {
+	lock_guard<mutex> lock(m_mtx);
+
 	m_rootSignatures[key] = pipelineLayout;
 }
 
@@ -284,6 +286,8 @@ PipelineLayout PipelineLayoutLib_DX12::CreatePipelineLayout(Util::PipelineLayout
 	auto& pipelineLayoutKey = pUtil->GetPipelineLayoutKey(this);
 	reinterpret_cast<uint16_t&>(pipelineLayoutKey[0]) = static_cast<uint16_t>(flags);
 
+	lock_guard<mutex> lock(m_mtx);
+
 	return createPipelineLayout(pipelineLayoutKey, name, nodeMask);
 }
 
@@ -292,6 +296,8 @@ PipelineLayout PipelineLayoutLib_DX12::GetPipelineLayout(Util::PipelineLayout* p
 {
 	auto& pipelineLayoutKey = pUtil->GetPipelineLayoutKey(this);
 	reinterpret_cast<uint16_t&>(pipelineLayoutKey[0]) = static_cast<uint16_t>(flags);
+
+	lock_guard<mutex> lock(m_mtx);
 
 	return getPipelineLayout(pipelineLayoutKey, name, create, nodeMask);
 }
@@ -302,6 +308,8 @@ PipelineLayout PipelineLayoutLib_DX12::CreateRootSignature(const Blob& blobSigna
 	string key(sizeof(blobSignature), 0);
 	memcpy(&key[0], blobSignature, sizeof(blobSignature));
 
+	lock_guard<mutex> lock(m_mtx);
+
 	return createRootSignature(key, blobSignature, name, nodeMask);
 }
 
@@ -311,6 +319,8 @@ PipelineLayout PipelineLayoutLib_DX12::GetRootSignature(const Blob& blobSignatur
 	string key(sizeof(blobSignature), 0);
 	memcpy(&key[0], blobSignature, sizeof(blobSignature));
 
+	lock_guard<mutex> lock(m_mtx);
+
 	return getRootSignature(key, blobSignature, name, create, nodeMask);
 }
 
@@ -318,12 +328,16 @@ DescriptorTableLayout PipelineLayoutLib_DX12::CreateDescriptorTableLayout(uint32
 {
 	const auto& keys = pUtil->GetDescriptorTableLayoutKeys();
 
+	lock_guard<mutex> lock(m_mtx);
+
 	return keys.size() > index ? createDescriptorTableLayout(keys[index]) : nullptr;
 }
 
 DescriptorTableLayout PipelineLayoutLib_DX12::GetDescriptorTableLayout(uint32_t index, const Util::PipelineLayout* pUtil)
 {
 	const auto& keys = pUtil->GetDescriptorTableLayoutKeys();
+
+	lock_guard<mutex> lock(m_mtx);
 
 	return keys.size() > index ? getDescriptorTableLayout(keys[index]) : nullptr;
 }
@@ -384,6 +398,7 @@ PipelineLayout PipelineLayoutLib_DX12::createRootSignature(const string& key,
 	V_RETURN(m_device->CreateRootSignature(nodeMask, pBlob->GetBufferPointer(),
 		pBlob->GetBufferSize(), IID_PPV_ARGS(&rootSignature)), cerr, nullptr);
 	if (name) rootSignature->SetName(name);
+
 	m_rootSignatures[key] = rootSignature;
 
 	return rootSignature.get();
@@ -394,7 +409,7 @@ PipelineLayout PipelineLayoutLib_DX12::getPipelineLayout(const string& key, cons
 	const auto layoutIter = m_rootSignatures.find(key);
 
 	// Create one, if it does not exist
-	if (layoutIter == m_rootSignatures.end())
+	if (layoutIter == m_rootSignatures.cend())
 	{
 		if (create) return createPipelineLayout(key, name, nodeMask);
 		else return nullptr;
@@ -409,7 +424,7 @@ PipelineLayout PipelineLayoutLib_DX12::getRootSignature(const string& key, const
 	const auto layoutIter = m_rootSignatures.find(key);
 
 	// Create one, if it does not exist
-	if (layoutIter == m_rootSignatures.end())
+	if (layoutIter == m_rootSignatures.cend())
 	{
 		if (create) return createRootSignature(key, blobSignature, name, nodeMask);
 		else return nullptr;
@@ -433,7 +448,7 @@ DescriptorTableLayout PipelineLayoutLib_DX12::getDescriptorTableLayout(const str
 	const auto layoutPtrIter = m_descriptorTableLayouts.find(key);
 
 	// Create one, if it does not exist
-	if (layoutPtrIter == m_descriptorTableLayouts.end()) return createDescriptorTableLayout(key);
+	if (layoutPtrIter == m_descriptorTableLayouts.cend()) return createDescriptorTableLayout(key);
 
 	return layoutPtrIter->second;
 }

@@ -415,6 +415,8 @@ void PipelineLib_DX12::SetPipeline(const State* pState, const Pipeline& pipeline
 	const auto p = dynamic_cast<const State_DX12*>(pState);
 	assert(p);
 
+	lock_guard<mutex> lock(m_mtx);
+
 	m_stateObjects[p->GetKey()] = static_cast<ID3D12StateObject*>(pipeline);
 }
 
@@ -423,7 +425,7 @@ void PipelineLib_DX12::SetInputLayout(uint32_t index, const InputElement* pEleme
 	m_inputLayoutLib.SetLayout(index, pElements, numElements);
 }
 
-const InputLayout* PipelineLib_DX12::GetInputLayout(uint32_t index) const
+const InputLayout* PipelineLib_DX12::GetInputLayout(uint32_t index)
 {
 	return m_inputLayoutLib.GetLayout(index);
 }
@@ -438,6 +440,8 @@ Pipeline PipelineLib_DX12::CreatePipeline(const State* pState, const wchar_t* na
 	const auto p = dynamic_cast<const State_DX12*>(pState);
 	assert(p);
 
+	lock_guard<mutex> lock(m_mtx);
+
 	return createStateObject(p->GetKey(), name).get();
 }
 
@@ -445,6 +449,8 @@ Pipeline PipelineLib_DX12::GetPipeline(const State* pState, const wchar_t* name)
 {
 	const auto p = dynamic_cast<const State_DX12*>(pState);
 	assert(p);
+
+	lock_guard<mutex> lock(m_mtx);
 
 	return getStateObject(p->GetKey(), name).get();
 }
@@ -456,6 +462,8 @@ ProgramIdentifier PipelineLib_DX12::GetProgramIdentifier(const Pipeline& stateOb
 
 const Generic::Blend* PipelineLib_DX12::GetBlend(BlendPreset preset, uint8_t numColorRTs)
 {
+	lock_guard<mutex> lock(m_mtx);
+
 	if (m_blends[preset] == nullptr)
 		m_blends[preset] = make_unique<Blend>(m_pfnBlends[preset](numColorRTs));
 
@@ -464,6 +472,8 @@ const Generic::Blend* PipelineLib_DX12::GetBlend(BlendPreset preset, uint8_t num
 
 const Generic::Rasterizer* PipelineLib_DX12::GetRasterizer(RasterizerPreset preset)
 {
+	lock_guard<mutex> lock(m_mtx);
+
 	if (m_rasterizers[preset] == nullptr)
 		m_rasterizers[preset] = make_unique<Rasterizer>(m_pfnRasterizers[preset]());
 
@@ -472,6 +482,8 @@ const Generic::Rasterizer* PipelineLib_DX12::GetRasterizer(RasterizerPreset pres
 
 const Generic::DepthStencil* PipelineLib_DX12::GetDepthStencil(DepthStencilPreset preset)
 {
+	lock_guard<mutex> lock(m_mtx);
+
 	if (m_depthStencils[preset] == nullptr)
 		m_depthStencils[preset] = make_unique<DepthStencil>(m_pfnDepthStencils[preset]());
 
@@ -723,7 +735,7 @@ com_ptr<ID3D12StateObject> PipelineLib_DX12::getStateObject(const string& key, c
 	const auto pStateObject = m_stateObjects.find(key);
 
 	// Create one, if it does not exist
-	if (pStateObject == m_stateObjects.end()) return createStateObject(key, name);
+	if (pStateObject == m_stateObjects.cend()) return createStateObject(key, name);
 
 	return pStateObject->second;
 }

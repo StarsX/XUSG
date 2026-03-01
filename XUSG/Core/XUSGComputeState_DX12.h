@@ -73,6 +73,8 @@ namespace XUSG
 			com_ptr<ID3D12Device> m_device;
 
 			std::unordered_map<std::string, com_ptr<ID3D12PipelineState>> m_pipelines;
+
+			std::mutex m_mtx;
 		};
 	}
 }

@@ -121,6 +121,8 @@ void PipelineLib_DX12::SetPipeline(const State* pState, const Pipeline& pipeline
 	const auto p = dynamic_cast<const State_DX12*>(pState);
 	assert(p);
 
+	lock_guard<mutex> lock(m_mtx);
+
 	m_pipelines[p->GetKey()] = pipeline;
 }
 
@@ -129,6 +131,8 @@ Pipeline PipelineLib_DX12::CreatePipeline(const State* pState, const wchar_t* na
 	const auto p = dynamic_cast<const State_DX12*>(pState);
 	assert(p);
 
+	lock_guard<mutex> lock(m_mtx);
+
 	return createPipeline(p->GetKey(), name);
 }
 
@@ -136,6 +140,8 @@ Pipeline PipelineLib_DX12::GetPipeline(const State* pState, const wchar_t* name)
 {
 	const auto p = dynamic_cast<const State_DX12*>(pState);
 	assert(p);
+
+	lock_guard<mutex> lock(m_mtx);
 
 	return getPipeline(p->GetKey(), name);
 }
@@ -149,6 +155,7 @@ Pipeline PipelineLib_DX12::createPipeline(const string& key, const wchar_t* name
 	// Create pipeline
 	com_ptr<ID3D12PipelineState> pipeline;
 	V_RETURN(m_device->CreateComputePipelineState(&desc, IID_PPV_ARGS(&pipeline)), cerr, nullptr);
+
 	if (name) pipeline->SetName(name);
 	m_pipelines[key] = pipeline;
 
@@ -160,7 +167,7 @@ Pipeline PipelineLib_DX12::getPipeline(const string& key, const wchar_t* name)
 	const auto pPipeline = m_pipelines.find(key);
 
 	// Create one, if it does not exist
-	if (pPipeline == m_pipelines.end()) return createPipeline(key, name);
+	if (pPipeline == m_pipelines.cend()) return createPipeline(key, name);
 
 	return pPipeline->second.get();
 }

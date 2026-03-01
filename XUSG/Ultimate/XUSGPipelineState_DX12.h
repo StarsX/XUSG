@@ -118,7 +118,7 @@ namespace XUSG
 			void SetPipeline(const State* pState, const Pipeline& pipeline);
 
 			void SetInputLayout(uint32_t index, const InputElement* pElements, uint32_t numElements);
-			const InputLayout* GetInputLayout(uint32_t index) const;
+			const InputLayout* GetInputLayout(uint32_t index);
 			const InputLayout* CreateInputLayout(const InputElement* pElements, uint32_t numElements);
 
 			Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr);
@@ -149,6 +149,8 @@ namespace XUSG
 			std::function<Graphics::Blend(uint8_t)>	m_pfnBlends[Graphics::NUM_BLEND_PRESET];
 			std::function<Graphics::Rasterizer()>	m_pfnRasterizers[Graphics::NUM_RS_PRESET];
 			std::function<Graphics::DepthStencil()>	m_pfnDepthStencils[Graphics::NUM_DS_PRESET];
+
+			std::mutex m_mtx;
 		};
 	}
 }

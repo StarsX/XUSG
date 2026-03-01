@@ -433,7 +433,7 @@ namespace XUSG
 			virtual void SetPipeline(const State* pState, const Pipeline& pipeline) = 0;
 
 			virtual void SetInputLayout(uint32_t index, const InputElement* pElements, uint32_t numElements) = 0;
-			virtual const InputLayout* GetInputLayout(uint32_t index) const = 0;
+			virtual const InputLayout* GetInputLayout(uint32_t index) = 0;
 			virtual const InputLayout* CreateInputLayout(const InputElement* pElements, uint32_t numElements) = 0;
 
 			virtual Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr) = 0;
@@ -741,7 +741,7 @@ namespace XUSG
 			virtual void SetPipeline(const State* pState, const Pipeline& pipeline) = 0;
 
 			virtual void SetInputLayout(uint32_t index, const InputElement* pElements, uint32_t numElements) = 0;
-			virtual const InputLayout* GetInputLayout(uint32_t index) const = 0;
+			virtual const InputLayout* GetInputLayout(uint32_t index) = 0;
 			virtual const InputLayout* CreateInputLayout(const InputElement* pElements, uint32_t numElements) = 0;
 
 			virtual Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr) = 0;

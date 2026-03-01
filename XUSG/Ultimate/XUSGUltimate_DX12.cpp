@@ -550,7 +550,7 @@ XUSG::PipelineLayout PipelineLayoutLib_DX12::getRootSignatureFromLibSubobject(co
 	const auto layoutIter = m_rootSignatures.find(key);
 
 	// Create one, if it does not exist
-	if (layoutIter == m_rootSignatures.end())
+	if (layoutIter == m_rootSignatures.cend())
 	{
 		if (create) return createRootSignatureFromLibSubobject(key, blobLib, name, nodeMask);
 		else return nullptr;
