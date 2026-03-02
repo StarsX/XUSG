@@ -47,6 +47,7 @@
 #include <unordered_set>
 #endif
 #include <functional>
+#include <mutex>
 #include <wrl.h>
 #include <shellapi.h>
 

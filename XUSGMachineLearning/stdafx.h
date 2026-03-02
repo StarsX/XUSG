@@ -46,6 +46,7 @@
 #include <unordered_map>
 #endif
 #include <functional>
+#include <mutex>
 #include <wrl.h>
 #include <shellapi.h>
 
