@@ -287,9 +287,14 @@ void EZ::CommandList_DX12::OMSetRenderTargets(uint32_t numRenderTargets,
 		m_graphicsState->OMSetDSVFormat(dynamic_cast<Texture*>(pDepthStencilView->pResource)->GetFormat());
 		m_meshShaderState->OMSetDSVFormat(dynamic_cast<Texture*>(pDepthStencilView->pResource)->GetFormat());
 	}
-	else m_graphicsState->OMSetDSVFormat(Format::UNKNOWN);
+	else
+	{
+		m_graphicsState->OMSetDSVFormat(Format::UNKNOWN);
+		m_meshShaderState->OMSetDSVFormat(Format::UNKNOWN);
+	}
 
 	m_graphicsState->OMSetNumRenderTargets(numRenderTargets);
+	m_meshShaderState->OMSetNumRenderTargets(numRenderTargets);
 
 	Descriptor pRTVs[D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT];
 	for (auto i = 0u; i < numRenderTargets; ++i)
