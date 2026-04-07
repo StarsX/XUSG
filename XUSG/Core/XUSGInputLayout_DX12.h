@@ -14,14 +14,14 @@ namespace XUSG
 		InputLayoutLib_DX12();
 		virtual ~InputLayoutLib_DX12();
 
-		void SetLayout(uint32_t index, const InputElement* pElements, uint32_t numElements);
+		void SetLayout(uint32_t index, uint32_t numElements, const InputElement* pElements);
 
-		const InputLayout* CreateLayout(const InputElement* pElements, uint32_t numElements);
+		const InputLayout* CreateLayout(uint32_t numElements, const InputElement* pElements);
 
 		const InputLayout* GetLayout(uint32_t index);
 
 	protected:
-		void setLayout(uint32_t index, const InputElement* pElements, uint32_t numElements);
+		void setLayout(uint32_t index, uint32_t numElements, const InputElement* pElements);
 
 		const InputLayout* getLayout(uint32_t index) const;
 

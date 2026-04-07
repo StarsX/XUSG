@@ -17,19 +17,19 @@ InputLayoutLib_DX12::~InputLayoutLib_DX12()
 {
 }
 
-void InputLayoutLib_DX12::SetLayout(uint32_t index, const InputElement* pElements, uint32_t numElements)
+void InputLayoutLib_DX12::SetLayout(uint32_t index, uint32_t numElements, const InputElement* pElements)
 {
 	lock_guard<mutex> lock(m_mtx);
 
-	setLayout(index, pElements, numElements);
+	setLayout(index, numElements, pElements);
 }
 
-const InputLayout* InputLayoutLib_DX12::CreateLayout(const InputElement* pElements, uint32_t numElements)
+const InputLayout* InputLayoutLib_DX12::CreateLayout(uint32_t numElements, const InputElement* pElements)
 {
 	lock_guard<mutex> lock(m_mtx);
 
 	const auto index = static_cast<uint32_t>(m_layouts.size());
-	setLayout(index, pElements, numElements);
+	setLayout(index, numElements, pElements);
 
 	return getLayout(index);
 }
@@ -41,7 +41,7 @@ const InputLayout* InputLayoutLib_DX12::GetLayout(uint32_t index)
 	return getLayout(index);
 }
 
-void InputLayoutLib_DX12::setLayout(uint32_t index, const InputElement* pElements, uint32_t numElements)
+void InputLayoutLib_DX12::setLayout(uint32_t index, uint32_t numElements, const InputElement* pElements)
 {
 	if (index >= m_layouts.size())
 		m_layouts.resize(index + 1);

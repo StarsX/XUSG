@@ -695,12 +695,15 @@ static bool CreateTexture(CommandList* pCommandList, const DDS_HEADER* header,
 			twidth, theight, tdepth, skipMip, initData.data()))
 		{
 			bool success;
+			const auto resourceFlags = (memoryFlags & MemoryFlag::SHARED) == MemoryFlag::SHARED ?
+				ResourceFlag::ALLOW_RENDER_TARGET : ResourceFlag::NONE;
+
 			const auto texture3D = dynamic_pointer_cast<Texture3D, ShaderResource>(texture);
 			if (texture3D) // Texture3D can be a Texture2D, so it goes first.
 			{
 				const auto fmt = forceSRGB ? MakeSRGB(format) : format;
 				success = texture3D->Create(pDevice, twidth, theight, tdepth, fmt,
-					ResourceFlag::NONE, mipCount - skipMip, memoryFlags, name);
+					resourceFlags, mipCount - skipMip, memoryFlags, name);
 				if (success) success = texture3D->Upload(pCommandList, pUploader, initData.data(),
 					subresourceCount, state);
 			}
@@ -708,7 +711,7 @@ static bool CreateTexture(CommandList* pCommandList, const DDS_HEADER* header,
 			{
 				const auto fmt = forceSRGB ? MakeSRGB(format) : format;
 				success = texture->Create(pDevice, twidth, theight, fmt, arraySize,
-					ResourceFlag::NONE, mipCount - skipMip, 1, isCubeMap, memoryFlags, name);
+					resourceFlags, mipCount - skipMip, 1, isCubeMap, memoryFlags, name);
 				if (success) success = texture->Upload(pCommandList, pUploader, initData.data(),
 					subresourceCount, state);
 			}
@@ -728,7 +731,7 @@ static bool CreateTexture(CommandList* pCommandList, const DDS_HEADER* header,
 						const auto fmt = forceSRGB ? MakeSRGB(format) : format;
 						texture = Texture3D::MakeShared(api);
 						success = texture3D->Create(pDevice, width, height, depth, fmt,
-							ResourceFlag::NONE, mipCount, memoryFlags, name);
+							resourceFlags, mipCount, memoryFlags, name);
 						if (success) success = texture3D->Upload(pCommandList, pUploader, initData.data(),
 							subresourceCount, state);
 					}
@@ -737,7 +740,7 @@ static bool CreateTexture(CommandList* pCommandList, const DDS_HEADER* header,
 						const auto fmt = forceSRGB ? MakeSRGB(format) : format;
 						texture = Texture::MakeShared(api);
 						success = texture->Create(pDevice, width, height, fmt, arraySize,
-							ResourceFlag::NONE, mipCount, 1, isCubeMap, memoryFlags, name);
+							resourceFlags, mipCount, 1, isCubeMap, memoryFlags, name);
 						if (success) success = texture->Upload(pCommandList, pUploader, initData.data(),
 							subresourceCount, state);
 					}

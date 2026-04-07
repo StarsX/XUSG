@@ -2690,7 +2690,7 @@ namespace XUSG
 
 			virtual void OMSetNumRenderTargets(uint8_t n) = 0;
 			virtual void OMSetRTVFormat(uint8_t i, Format format) = 0;
-			virtual void OMSetRTVFormats(const Format* formats, uint8_t n) = 0;
+			virtual void OMSetRTVFormats(uint8_t n, const Format* formats) = 0;
 			virtual void OMSetDSVFormat(Format format) = 0;
 			virtual void OMSetSample(uint8_t count, uint8_t quality = 0) = 0;
 
@@ -2739,9 +2739,9 @@ namespace XUSG
 			virtual void SetDevice(const Device* pDevice) = 0;
 			virtual void SetPipeline(const State* pState, const Pipeline& pipeline) = 0;
 
-			virtual void SetInputLayout(uint32_t index, const InputElement* pElements, uint32_t numElements) = 0;
+			virtual void SetInputLayout(uint32_t index, uint32_t numElements, const InputElement* pElements) = 0;
 			virtual const InputLayout* GetInputLayout(uint32_t index) = 0;
-			virtual const InputLayout* CreateInputLayout(const InputElement* pElements, uint32_t numElements) = 0;
+			virtual const InputLayout* CreateInputLayout(uint32_t numElements, const InputElement* pElements) = 0;
 
 			virtual Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr) = 0;
 			virtual Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr) = 0;

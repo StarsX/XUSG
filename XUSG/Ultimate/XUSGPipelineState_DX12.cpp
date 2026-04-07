@@ -116,7 +116,7 @@ void State_DX12::OMSetRTVFormat(uint8_t i, Format format)
 	m_pKey->RTVFormats[i] = format;
 }
 
-void State_DX12::OMSetRTVFormats(const Format* formats, uint8_t n)
+void State_DX12::OMSetRTVFormats(uint8_t n, const Format* formats)
 {
 	OMSetNumRenderTargets(n);
 
@@ -149,7 +149,7 @@ void State_DX12::SetViewInstance(uint8_t i, const ViewInstance& viewInstance)
 	m_pKey->ViewInstances[i] = viewInstance;
 }
 
-void State_DX12::SetViewInstances(const ViewInstance* viewInstances, uint8_t n, ViewInstanceFlag flags)
+void State_DX12::SetViewInstances(uint8_t n, const ViewInstance* viewInstances, ViewInstanceFlag flags)
 {
 	SetNumViewInstances(n, flags);
 
@@ -393,9 +393,9 @@ void PipelineLib_DX12::SetPipeline(const State* pState, const Pipeline& pipeline
 	m_pipelines[p->GetKey()] = pipeline;
 }
 
-void PipelineLib_DX12::SetInputLayout(uint32_t index, const InputElement* pElements, uint32_t numElements)
+void PipelineLib_DX12::SetInputLayout(uint32_t index, uint32_t numElements, const InputElement* pElements)
 {
-	m_inputLayoutLib.SetLayout(index, pElements, numElements);
+	m_inputLayoutLib.SetLayout(index, numElements, pElements);
 }
 
 const InputLayout* PipelineLib_DX12::GetInputLayout(uint32_t index)
@@ -403,9 +403,9 @@ const InputLayout* PipelineLib_DX12::GetInputLayout(uint32_t index)
 	return m_inputLayoutLib.GetLayout(index);
 }
 
-const InputLayout* PipelineLib_DX12::CreateInputLayout(const InputElement* pElements, uint32_t numElements)
+const InputLayout* PipelineLib_DX12::CreateInputLayout(uint32_t numElements, const InputElement* pElements)
 {
-	return m_inputLayoutLib.CreateLayout(pElements, numElements);
+	return m_inputLayoutLib.CreateLayout(numElements, pElements);
 }
 
 Pipeline PipelineLib_DX12::CreatePipeline(const State* pState, const wchar_t* name)

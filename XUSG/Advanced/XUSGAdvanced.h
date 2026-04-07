@@ -464,7 +464,7 @@ namespace XUSG
 			const DescriptorTableLib::sptr& descriptorTableLib,
 			const std::shared_ptr<std::vector<SDKMesh>>& linkedMeshes = nullptr,
 			const std::shared_ptr<std::vector<MeshLink>>& meshLinks = nullptr,
-			const Format* rtvFormats = nullptr, uint32_t numRTVs = 0,
+			uint32_t numRTVs = 0, const Format* rtvFormats = nullptr,
 			Format dsvFormat = Format::UNKNOWN, Format shadowFormat = Format::UNKNOWN,
 			bool twoSidedAll = false, bool useZEqual = true) = 0;
 		virtual bool CreateDescriptorTables() = 0;
@@ -520,7 +520,7 @@ namespace XUSG
 			const PipelineLayoutLib::sptr& pipelineLayoutLib,
 			const DescriptorTableLib::sptr& descriptorTableLib,
 			std::vector<Resource::uptr>& uploaders,
-			const Format* rtvFormats = nullptr, uint32_t numRTVs = 0,
+			uint32_t numRTVs = 0, const Format* rtvFormats = nullptr,
 			Format dsvFormat = Format::UNKNOWN, Format shadowFormat = Format::UNKNOWN,
 			bool twoSidedAll = false, bool useZEqual = true) = 0;
 		virtual bool CreateDescriptorTables() = 0;
@@ -604,9 +604,8 @@ namespace XUSG
 		virtual void SetViewport(const CommandList* pCommandList, uint8_t i) = 0;
 		virtual void GetShadowMatrices(DirectX::XMMATRIX* pShadows) const = 0;
 
-		virtual const DepthStencil::uptr& GetShadowMap() const = 0;
+		virtual DepthStencil* GetShadowMap() const = 0;
 		virtual const DescriptorTable& GetShadowDescriptorTable() const = 0;
-		virtual const Framebuffer& GetFramebuffer() const = 0;
 		virtual DirectX::FXMMATRIX GetShadowMatrix(uint8_t i) const = 0;
 		virtual DirectX::FXMMATRIX GetShadowViewMatrix() const = 0;
 
@@ -669,8 +668,8 @@ namespace XUSG
 		virtual void Update(uint8_t frameIndex, DirectX::FXMMATRIX* pViewProj, DirectX::FXMMATRIX* pWorld = nullptr) = 0;
 		virtual void SetGlobalCBVTables(DescriptorTable cbvImmutable, DescriptorTable cbvPerFrameTable) = 0;
 		virtual void RenderSky(const CommandList* pCommandList) = 0;
-		virtual void RenderWater(CommandList* pCommandList, const Framebuffer& framebuffer,
-			uint32_t& numBarriers, ResourceBarrier* pBarriers) = 0;
+		virtual void RenderWater(CommandList* pCommandList, uint8_t numRTVs, const Descriptor* pRTVs,
+			const Descriptor& dsv, uint32_t& numBarriers, ResourceBarrier* pBarriers) = 0;
 
 		virtual Descriptor GetSkySRV() const = 0;
 		virtual DescriptorTable GetSHCoeffSRVTable(CommandList* pCommandList) = 0;
@@ -756,8 +755,8 @@ namespace XUSG
 		virtual void SetViewProjMatrix(DirectX::CXMMATRIX view, DirectX::CXMMATRIX proj, bool enableJitter) = 0;
 		virtual void SetEyePoint(DirectX::CXMVECTOR eyePt) = 0;
 		virtual void SetFocusAndDistance(DirectX::CXMVECTOR focus_dist) = 0;
-		virtual void SetRenderTarget(const RenderTarget::sptr& sceneColor, const DepthStencil::sptr& sceneDepth,
-			const RenderTarget::sptr& sceneShade, bool createFramebuffer = true) = 0;
+		virtual void SetRenderTargets(const RenderTarget::sptr& sceneColor,
+			const DepthStencil::sptr& sceneDepth, const RenderTarget::sptr& sceneShade) = 0;
 		virtual void SetViewport(const Viewport& viewport, const RectRange& scissorRect) = 0;
 
 		virtual DirectX::FXMVECTOR GetFocusAndDistance() const = 0;
@@ -784,7 +783,7 @@ namespace XUSG
 		{
 			ANTIALIAS,
 			POST_EFFECTS,
-			RESAMPLE_LUM,
+			BLIT_LOG_LUM,
 			LUM_ADAPT,
 			TONE_MAP,
 			UNSHARP,
@@ -804,16 +803,16 @@ namespace XUSG
 		virtual bool ChangeWindowSize(const Device* pDevice, const Texture* pReference) = 0;
 
 		virtual void Update(const DescriptorTable& cbvImmutable, const DescriptorTable& cbvPerFrameTable,
-			float timeStep) = 0;
+			uint8_t frameIndex, float timeStep) = 0;
 		virtual void Render(CommandList* pCommandList, RenderTarget* pDst, Texture* pSrc,
 			const DescriptorTable& srvTable, bool clearRT = false) = 0;
 		virtual void ScreenRender(const CommandList* pCommandList, PipelineIndex pipelineIndex,
 			const DescriptorTable& srvTable, bool hasImmutableCB, bool hasPerFrameCB) = 0;
 		virtual void LumAdaption(const CommandList* pCommandList, const DescriptorTable& uavSrvTable) = 0;
-		virtual void Antialias(CommandList* pCommandList, RenderTarget** ppDsts, Texture** ppSrcs,
-			const DescriptorTable& srvTable, uint8_t numRTVs, uint8_t numSRVs) = 0;
-		virtual void Unsharp(const CommandList* pCommandList, const Descriptor* pRTVs,
-			const DescriptorTable& srvTable, uint8_t numRTVs = 1) = 0;
+		virtual void Antialias(CommandList* pCommandList, uint8_t numRTVs, RenderTarget** ppDsts,
+			uint8_t numSRVs, Texture** ppSrcs, const DescriptorTable& srvTable) = 0;
+		virtual void Unsharp(const CommandList* pCommandList, uint8_t numRTVs,
+			const Descriptor* pRTVs, const DescriptorTable& srvTable) = 0;
 
 		virtual DescriptorTable CreateTAASrvTable(const Descriptor& srvCurrent, const Descriptor& srvPrevious,
 			const Descriptor& srvVelocity, const Descriptor& srvShadeAmt, const Descriptor& srvMeta) = 0;
