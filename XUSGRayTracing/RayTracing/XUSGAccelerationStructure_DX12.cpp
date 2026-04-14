@@ -290,8 +290,10 @@ void BottomLevelAS_DX12::SetGeometries(GeometryBuffer& geometries, uint32_t numG
 	bufferSize += ommTriGeometriesSize;
 
 	geometries.resize(bufferSize);
-	auto pTriangles = reinterpret_cast<D3D12_RAYTRACING_GEOMETRY_TRIANGLES_DESC*>(&geometries[geometriesSize]);
-	auto pOmmLinkage = reinterpret_cast<D3D12_RAYTRACING_GEOMETRY_OMM_LINKAGE_DESC*>(&geometries[geometriesSize + ommTriGeometriesSize]);
+	const auto ommLinkageOffset = geometriesSize + ommTriGeometriesSize;
+	auto pTriangles = geometriesSize < bufferSize ? reinterpret_cast<D3D12_RAYTRACING_GEOMETRY_TRIANGLES_DESC*>(&geometries[geometriesSize]) : nullptr;
+	auto pOmmLinkage = ommLinkageOffset < bufferSize ?
+		reinterpret_cast<D3D12_RAYTRACING_GEOMETRY_OMM_LINKAGE_DESC*>(&geometries[ommLinkageOffset]) : nullptr;
 	for (auto i = 0u; i < numGeometries; ++i)
 	{
 		const auto& geometry = pGeometries[i];
