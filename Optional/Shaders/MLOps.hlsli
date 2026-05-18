@@ -4,33 +4,16 @@
 
 #include "CoopVec.hlsli"
 
-#ifndef FLOAT_T
-#define FLOAT_T T
-#endif
-
-#define MATRIX_LAYOUT_VALUE_ROW_MAJOR				0
-#define MATRIX_LAYOUT_VALUE_COLUMN_MAJOR			1
-#define MATRIX_LAYOUT_VALUE_MUL_OPTIMAL				2
-#define MATRIX_LAYOUT_VALUE_OUTER_PRODUCT_OPTIMAL	3
-
-#ifndef MATRIX_LAYOUT_VALUE
-#define MATRIX_LAYOUT_VALUE MATRIX_LAYOUT_VALUE_MUL_OPTIMAL
-#endif
-
-#if MATRIX_LAYOUT_VALUE == MATRIX_LAYOUT_VALUE_ROW_MAJOR
-#define MATRIX_LAYOUT MATRIX_LAYOUT_ROW_MAJOR
-#elif MATRIX_LAYOUT_VALUE == MATRIX_LAYOUT_VALUE_COLUMN_MAJOR
-#define MATRIX_LAYOUT MATRIX_LAYOUT_COLUMN_MAJOR
-#elif MATRIX_LAYOUT_VALUE == MATRIX_LAYOUT_VALUE_MUL_OPTIMAL
-#define MATRIX_LAYOUT MATRIX_LAYOUT_MUL_OPTIMAL
-#elif MATRIX_LAYOUT_VALUE == MATRIX_LAYOUT_VALUE_OUTER_PRODUCT_OPTIMAL
-#define MATRIX_LAYOUT MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL
-#else
-#error Invalid MATRIX_LAYOUT_VALUE
-#endif
-
 #ifndef PI
 #define PI 3.1415926535897
+#endif
+
+#ifndef DATA_TYPE
+#define DATA_TYPE ComponentType::F16
+#endif
+
+#ifndef MATRIX_LAYOUT
+#define MATRIX_LAYOUT MatrixLayoutEnum::MulOptimal
 #endif
 
 #define VEC_T_M vector<T, M>
@@ -55,7 +38,7 @@ TEMPLATE_FUNC(VEC_T_N, ELU, INT N, FLOAT_TYPE_NAME(T))(VEC_T_N x, T alpha = T(1.
 {
 	const VEC_T_N t = (exp(x) - S2V(T, N, 1.0)) * S2V(T, N, alpha);
 
-#ifdef _SM_69_
+#ifdef _SM_6_9_
 	return select(x > 0.0, x, t);
 #else
 	PROCESS_VEC(y, n, N, x[n] > T(0.0) ? x[n] : t[n]);
@@ -64,7 +47,7 @@ TEMPLATE_FUNC(VEC_T_N, ELU, INT N, FLOAT_TYPE_NAME(T))(VEC_T_N x, T alpha = T(1.
 
 TEMPLATE_FUNC(VEC_T_N, Hardshrink, INT N, FLOAT_TYPE_NAME(T))(VEC_T_N x, T lambd = T(0.5))
 {
-#ifdef _SM_69_
+#ifdef _SM_6_9_
 	return select(or(x > lambd, x < -lambd), x, 0.0);
 #else
 	PROCESS_VEC(y, n, N, x[n] > lambd || x[n] < -lambd ? x[n] : T(0.0));
@@ -75,7 +58,7 @@ TEMPLATE_FUNC(VEC_T_N, Hardsigmoid, INT N, FLOAT_TYPE_NAME(T))(VEC_T_N x)
 {
 	const VEC_T_N t = x * RCP(6.0) + S2V(T, N, 0.5);
 
-#ifdef _SM_69_
+#ifdef _SM_6_9_
 	return select(x <= -3.0, 0.0, select(x >= 3.0, 1.0, x / 6.0 + 0.5));
 #else
 	PROCESS_VEC(y, n, N, x[n] <= T(-3.0) ? T(0.0) : (x[n] >= T(3.0) ? T(1.0) : t[n]));
@@ -91,7 +74,7 @@ TEMPLATE_FUNC(VEC_T_N, Hardswish, INT N, FLOAT_TYPE_NAME(T))(VEC_T_N x)
 {
 	const VEC_T_N t = x * (x + S2V(T, N, 3.0)) * RCP(6.0);
 
-#ifdef _SM_69_
+#ifdef _SM_6_9_
 	return select(x <= -3.0, 0.0, select(x >= 3.0, x, t));
 #else
 	PROCESS_VEC(y, n, N, x[n] <= T(-3.0) ? T(0.0) : (x[n] >= T(3.0) ? x[n] : t[n]));
@@ -102,7 +85,7 @@ TEMPLATE_FUNC(VEC_T_N, LeakyReLU, INT N, FLOAT_TYPE_NAME(T))(VEC_T_N x, T negati
 {
 	const VEC_T_N t = x * negativeSlope;
 
-#ifdef _SM_69_
+#ifdef _SM_6_9_
 	return select(x > 0.0, x, t);
 #else
 	PROCESS_VEC(y, n, N, x[n] > T(0.0) ? x[n] : t[n]);
@@ -111,10 +94,10 @@ TEMPLATE_FUNC(VEC_T_N, LeakyReLU, INT N, FLOAT_TYPE_NAME(T))(VEC_T_N x, T negati
 
 TEMPLATE_FUNC(VEC_T_N, PReLU, INT N, FLOAT_TYPE_NAME(T))(VEC_T_N x, ByteAddressBuffer paramBuffer, int offset)
 {
-	const vector<T, N> a = vectorLoad<N, FLOAT_T>(paramBuffer, offset);
+	const vector<T, N> a = vectorLoad<N, T>(paramBuffer, offset);
 	const vector<T, N> t = x * a;
 
-#ifdef _SM_69_
+#ifdef _SM_6_9_
 	return select(x >= 0.0, x, t);
 #else
 	PROCESS_VEC(y, n, N, x[n] >= T(0.0) ? x[n] : t[n]);
@@ -136,7 +119,7 @@ TEMPLATE_FUNC(VEC_T_N, RReLU, INT N, FLOAT_TYPE_NAME(T))(VEC_T_N x, T lower = T(
 	const T a = (lower + upper) * T(0.5);
 	const VEC_T_N t = x * a;
 
-#ifdef _SM_69_
+#ifdef _SM_6_9_
 	return select(x >= 0.0, x, t);
 #else
 	PROCESS_VEC(y, n, N, x[n] >= T(0.0) ? x[n] : t[n]);
@@ -181,7 +164,7 @@ TEMPLATE_FUNC(VEC_T_N, Softplus, INT N, FLOAT_TYPE_NAME(T))(VEC_T_N x, T beta = 
 	const VEC_T_N bx = x * beta;
 	const VEC_T_N t = log(exp(bx) + S2V(T, N, 1.0)) * rcp(beta);
 
-#ifdef _SM_69_
+#ifdef _SM_6_9_
 	return select(bx > threshold, x, t);
 #else
 	PROCESS_VEC(y, n, N, bx[n] > threshold ? x[n] : t[n]);
@@ -198,7 +181,7 @@ TEMPLATE_FUNC(VEC_T_N, Softshrink, INT N, FLOAT_TYPE_NAME(T))(VEC_T_N x, T lambd
 	const VEC_T_N t1 = x - S2V(T, N, lambd);
 	const VEC_T_N t2 = x + S2V(T, N, lambd);
 
-#ifdef _SM_69_
+#ifdef _SM_6_9_
 	return select(x > lambd, t1, select(x < -lambd, t2, 0.0));
 #else
 	PROCESS_VEC(y, n, N, x[n] > lambd ? t1[n] : (x[n] < -lambd ? t2[n] : T(0.0)));
@@ -219,7 +202,7 @@ TEMPLATE_FUNC(VEC_T_N, Tanhshrink, INT N, FLOAT_TYPE_NAME(T))(VEC_T_N x)
 
 TEMPLATE_FUNC(VEC_T_N, Threshold, INT N, FLOAT_TYPE_NAME(T))(VEC_T_N x, T threshold, T value)
 {
-#ifdef _SM_69_
+#ifdef _SM_6_9_
 	return select(x > threshold, x, value);
 #else
 	PROCESS_VEC(y, n, N, x[n] > threshold ? x[n] : value);
@@ -280,7 +263,7 @@ TEMPLATE_FUNC(VEC_T_N, Norm1d, INT N, FLOAT_TYPE_NAME(T))(VEC_T_N x, ByteAddress
 	const VEC_T_N gamma = vectorLoad<N, T>(paramBuffer, g);
 	const VEC_T_N beta = vectorLoad<N, T>(paramBuffer, b);
 
-#if defined(_SM_69_) || defined(_SLANG_)
+#if defined(_SM_6_9_) || defined(_SLANG_)
 	VEC_T_N rsigma;
 	for (INT n = 0; n < N; ++n) vectorWriteToIndex(rsigma, n, rsqrt(var[n] + eps));
 	//const VEC_T_N rsigma = rsqrt(var + eps);
@@ -301,25 +284,34 @@ TEMPLATE_FUNC(VEC_T_N, Norm1d, INT N, FLOAT_TYPE_NAME(T))(VEC_T_N x, ByteAddress
 #endif
 }
 
-TEMPLATE_FUNC(VEC_T_M, Linear, INT M, INT K, FLOAT_TYPE_NAME(T))(VEC_T_K x, ByteAddressBuffer matrixBiasBuffer,
-	int matrixOffset, int biasOffset, uint GI : SV_GroupIndex)
+TEMPLATE_FUNC(VEC_T_M, Linear, INT M, ComponentEnum dataType = DATA_TYPE,
+	MatrixLayoutEnum matrixLayout = MATRIX_LAYOUT, INT K, FLOAT_TYPE_NAME(T))
+	(VEC_T_K x, ByteAddressBuffer matrixBiasBuffer, int matrixOffset, int biasOffset, uint GI : SV_GroupIndex)
 {
-#ifdef _SM_69_
-	const uint matrixStride = MATRIX_LAYOUT == MATRIX_LAYOUT_ROW_MAJOR ? ALIGN(sizeof(FLOAT_T) * K, 16) :
-		(MATRIX_LAYOUT == MATRIX_LAYOUT_COLUMN_MAJOR ? ALIGN(sizeof(FLOAT_T) * M, 16) : 0);
+#define inputDataType dataType
+#define matrixDataType ((dataType == ComponentEnum::PackedS8x32 || dataType == ComponentEnum::PackedU8x32) ? ComponentEnum::I8 : dataType)
+#define biasDataType ((dataType == ComponentEnum::F8_E4M3FN || dataType == ComponentEnum::F8_E5M2) ? \
+		ComponentEnum::F16 : (matrixDataType == ComponentEnum::I8 ? ComponentEnum::I32 : dataType))
+
+	const uint matrixElementSize = (matrixDataType == ComponentEnum::F8_E4M3FN || matrixDataType == ComponentEnum::F8_E5M2 ||
+		matrixDataType == ComponentEnum::I8 || matrixDataType == ComponentEnum::U8) ? 1 :
+		(matrixDataType == ComponentEnum::F16 ? sizeof(float16_t) : sizeof(T));
+
+#ifdef _SM_6_9_
+	const uint matrixStride = matrixLayout == MatrixLayoutEnum::RowMajor ? ALIGN(matrixElementSize * K, 16) :
+		(matrixLayout == MatrixLayoutEnum::ColMajor ? ALIGN(matrixElementSize * M, 16) : 0);
 #else
-	const uint matrixStride = MATRIX_LAYOUT == MATRIX_LAYOUT_ROW_MAJOR ? sizeof(FLOAT_T) * K :
-		(MATRIX_LAYOUT == MATRIX_LAYOUT_COLUMN_MAJOR ? sizeof(FLOAT_T) * M : 0);
+	const uint matrixStride = matrixLayout == MatrixLayoutEnum::RowMajor ? sizeof(matrixElementSize) * K :
+		(matrixLayout == MatrixLayoutEnum::ColMajor ? sizeof(matrixElementSize) * M : 0);
 #endif
 
-	const vector<FLOAT_T, M> y = matVecMulAdd<FLOAT_T, M, DATA_TYPE_FLOAT16, DATA_TYPE_FLOAT16, DATA_TYPE_FLOAT16, MATRIX_LAYOUT, false, matrixStride>(
+	return matVecMulAdd<T, M, inputDataType, matrixDataType, biasDataType, matrixLayout, false>(
 		x,                // input vector
 		matrixBiasBuffer, // input matrix
 		matrixOffset,     // matrix offset in byte
 		matrixBiasBuffer, // input bias
 		biasOffset,       // bias offset in byte
+		matrixStride,     // matrix stride in byte
 		GI                // group index
 	);
-
-	return vectorCopyFrom<T>(y);
 }

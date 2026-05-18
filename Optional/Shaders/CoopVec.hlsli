@@ -8,17 +8,11 @@
 #define GROUP_SIZE WAVE_SIZE
 #endif
 
-#ifndef MLOP_MAKE_HALF
-#define MLOP_MAKE_HALF(N) float16_t##N
+#ifndef ACC_T
+#define ACC_T float16_t
 #endif
 
-#ifndef HALF
-#define HALF MLOP_MAKE_HALF()
-#endif
-
-#ifndef FLOAT
-#define FLOAT HALF
-#endif
+#define dot2add(a, b, acc) (dot(a, b) + float(acc))
 
 #define FOR_EACH(n, N, statement) for (INT n = 0; n < N; ++n) { statement; }
 
@@ -32,39 +26,53 @@
 #define vectorLoad	coopVecLoad
 #define vector		CoopVec
 
-#define DATA_TYPE_SINT16 CoopVecComponentType::SignedInt16                 // ComponentType::I16
-#define DATA_TYPE_UINT16 CoopVecComponentType::UnsignedInt16               // ComponentType::U16
-#define DATA_TYPE_SINT32 CoopVecComponentType::SignedInt32                 // ComponentType::I32
-#define DATA_TYPE_UINT32 CoopVecComponentType::UnsignedInt32               // ComponentType::U32
-#define DATA_TYPE_FLOAT16 CoopVecComponentType::Float16                    // ComponentType::F16
-#define DATA_TYPE_FLOAT32 CoopVecComponentType::Float32                    // ComponentType::F32
-#define DATA_TYPE_SINT8_T4_PACKED CoopVecComponentType::SignedInt8Packed   // ComponentType::PackedS8x32
-#define DATA_TYPE_UINT8_T4_PACKED CoopVecComponentType::UnsignedInt8Packed // ComponentType::PackedU8x32
-#define DATA_TYPE_UINT8 CoopVecComponentType::UnsignedInt8                 // ComponentType::U8
-#define DATA_TYPE_SINT8 CoopVecComponentType::UnsignedInt8                 // ComponentType::I8
-#define DATA_TYPE_FLOAT8_E4M3 CoopVecComponentType::FloatE4M3              // ComponentType::F8_E4M3
-																		   // (1 sign, 4 exp, 3 mantissa bits)
-#define DATA_TYPE_FLOAT8_E5M2 CoopVecComponentType::FloatE5M2              // ComponentType::F8_E5M2
-																		   // (1 sign, 5 exp, 2 mantissa bits)
+enum class ComponentType
+{
+	I16 = CoopVecComponentType::SignedInt16,
+	U16 = CoopVecComponentType::UnsignedInt16,
+	I32 = CoopVecComponentType::SignedInt32,
+	U32 = CoopVecComponentType::UnsignedInt32,
+	I64 = CoopVecComponentType::SignedInt64,
+	U64 = CoopVecComponentType::UnsignedInt64,
+	F16 = CoopVecComponentType::Float16,
+	F32 = CoopVecComponentType::Float32,
+	F64 = CoopVecComponentType::Float64,
+	PackedS8x32 = CoopVecComponentType::SignedInt8Packed,
+	PackedU8x32 = CoopVecComponentType::UnsignedInt8Packed,
+	I8 = CoopVecComponentType::SignedInt8,
+	U8 = CoopVecComponentType::UnsignedInt8,
+	F8_E4M3FN = CoopVecComponentType::FloatE4M3,
+	F8_E5M2 = CoopVecComponentType::FloatE5M2
+};
+typedef ComponentType ComponentEnum;
 
-#define MATRIX_LAYOUT_ROW_MAJOR CoopVecMatrixLayout::RowMajor
-#define MATRIX_LAYOUT_COLUMN_MAJOR CoopVecMatrixLayout::ColumnMajor
-#define MATRIX_LAYOUT_MUL_OPTIMAL CoopVecMatrixLayout::InferencingOptimal
-#define MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL CoopVecMatrixLayout::TrainingOptimal
+enum class MatrixLayout
+{
+	RowMajor = CoopVecMatrixLayout::RowMajor,
+	ColMajor = CoopVecMatrixLayout::ColumnMajor,
+	MulOptimal = CoopVecMatrixLayout::InferencingOptimal,
+	MulOptimalTranspose = CoopVecMatrixLayout::InferencingOptimal,
+	OuterProductOptimal = CoopVecMatrixLayout::TrainingOptimal,
+	OuterProductOptimalTranspose = CoopVecMatrixLayout::TrainingOptimal
+};
+typedef MatrixLayout MatrixLayoutEnum;
 
-vector<T, M> matVecMulAdd<T : __BuiltinArithmeticType, INT M, CoopVecComponentType inputDataType,
-	CoopVecComponentType matrixDataType, CoopVecComponentType biasDataType,
-	CoopVecMatrixLayout matrixLayout, bool transpose, uint matrixStride,
-	U : __BuiltinArithmeticType, INT K>(
+vector<T, M> matVecMulAdd<T : __BuiltinArithmeticType, INT M, ComponentEnum inputDataType,
+	ComponentEnum matrixDataType, ComponentEnum biasDataType, MatrixLayoutEnum matrixLayout,
+	bool transpose, INT K, U : __BuiltinArithmeticType>(
 	vector<U, K> input,
 	ByteAddressBuffer matrixBuffer,
 	int matrixOffset,
 	ByteAddressBuffer biasBuffer,
 	int biasOffset,
+	constexpr uint matrixStride,
 	uint gi : SV_GroupIndex)
 {
-	return coopVecMatMulAdd<T, M>(input, inputDataType, matrixBuffer, matrixOffset, matrixDataType,
-		biasBuffer, biasOffset, biasDataType, matrixLayout, transpose, matrixStride);
+	if (inputDataType == ComponentEnum::PackedS8x32 || inputDataType == ComponentEnum::PackedU8x32)
+		return coopVecMatMulAddPacked<T, M>(input, (CoopVecComponentType)inputDataType, sizeof(U) * K, matrixBuffer, matrixOffset, (CoopVecComponentType)matrixDataType,
+			biasBuffer, biasOffset, (CoopVecComponentType)biasDataType, (CoopVecMatrixLayout)matrixLayout, transpose, matrixStride);
+	else return coopVecMatMulAdd<T, M>(input, (CoopVecComponentType)inputDataType, matrixBuffer, matrixOffset, (CoopVecComponentType)matrixDataType,
+			biasBuffer, biasOffset, (CoopVecComponentType)biasDataType, (CoopVecMatrixLayout)matrixLayout, transpose, matrixStride);
 }
 
 vector<T, N> vectorCopyFrom<T : __BuiltinArithmeticType, U : __BuiltinArithmeticType, INT N>(vector<U, N> x)
@@ -137,48 +145,91 @@ vector<T, N> clamp<T : __BuiltinFloatingPointType, INT N>(vector<T, N> x, T a, T
 
 #else
 
-#include "linalg.h"
+#include <dx/linalg.h>
 
 #define FLOAT_TYPE_NAME(T) typename T
 #define TEMPLATE_FUNC(retType, func, ...) template<__VA_ARGS__> retType func
 
 #if ((__SHADER_TARGET_MAJOR > 6) || (__SHADER_TARGET_MAJOR == 6 && __SHADER_TARGET_MINOR >= 9)) && (__HLSL_VERSION >= 2021)
-#define _SM_69_
-#define INT int
+
+using namespace dx;
 using namespace dx::linalg;
+
+#define INT int
+#define _SM_6_9_
+
+#if __SHADER_TARGET_MINOR >= 10
+#define _SM_6_10_
+#else
+struct MatrixLayout
+{
+	enum MatrixLayoutEnum
+	{
+		RowMajor = MATRIX_LAYOUT_ROW_MAJOR,
+		ColMajor = MATRIX_LAYOUT_COLUMN_MAJOR,
+		MulOptimal = MATRIX_LAYOUT_MUL_OPTIMAL,
+		MulOptimalTranspose = MATRIX_LAYOUT_MUL_OPTIMAL,
+		OuterProductOptimal = MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL,
+		OuterProductOptimalTranspose = MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL
+	};
+};
+using MatrixLayoutEnum = ::MatrixLayout::MatrixLayoutEnum;
+#endif
+
 #else
 
 #define INT uint
 
-enum DataType : uint
+struct MatrixLayout
 {
-	DATA_TYPE_SINT16 = 6,          // ComponentType::I16
-	DATA_TYPE_UINT16 = 3,          // ComponentType::U16
-	DATA_TYPE_SINT32 = 7,          // ComponentType::I32
-	DATA_TYPE_UINT32 = 4,          // ComponentType::U32
-	DATA_TYPE_FLOAT16 = 0,         // ComponentType::F16
-	DATA_TYPE_FLOAT32 = 1,         // ComponentType::F32
-	DATA_TYPE_SINT8_T4_PACKED = 8, // ComponentType::PackedS8x32
-	DATA_TYPE_UINT8_T4_PACKED = 9, // ComponentType::PackedU8x32
-	DATA_TYPE_UINT8 = 2,           // ComponentType::U8
-	DATA_TYPE_SINT8 = 5,           // ComponentType::I8
-	DATA_TYPE_FLOAT8_E4M3 = 10,    // ComponentType::F8_E4M3
-								   // (1 sign, 4 exp, 3 mantissa bits)
-	DATA_TYPE_FLOAT8_E5M2 = 11,    // ComponentType::F8_E5M2
-								   // (1 sign, 5 exp, 2 mantissa bits)
+	enum MatrixLayoutEnum
+	{
+		RowMajor = 0,
+		ColMajor = 1,
+		MulOptimal = 2,
+		MulOptimalTranspose = 3,
+		OuterProductOptimal = 4,
+		OuterProductOptimalTranspose = 5
+	};
 };
-
-enum MatrixLayout : uint
-{
-	MATRIX_LAYOUT_ROW_MAJOR = 0,
-	MATRIX_LAYOUT_COLUMN_MAJOR = 1,
-	MATRIX_LAYOUT_MUL_OPTIMAL = 2,
-	MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL = 3
-};
+using MatrixLayoutEnum = MatrixLayout::MatrixLayoutEnum;
 
 #endif
 
-#ifdef _SM_69_
+#ifndef _SM_6_10_
+struct ComponentType
+{
+	enum ComponentEnum
+	{
+		//Invalid = 0,
+		//I1 = 1,
+		I16 = 2,
+		U16 = 3,
+		I32 = 4,
+		U32 = 5,
+		I64 = 6,
+		U64 = 7,
+		F16 = 8,
+		F32 = 9,
+		F64 = 10,
+		//SNormF16 = 11,
+		//UNormF16 = 12,
+		//SNormF32 = 13,
+		//UNormF32 = 14,
+		//SNormF64 = 15,
+		//UNormF64 = 16,
+		PackedS8x32 = 17,
+		PackedU8x32 = 18,
+		I8 = 19,
+		U8 = 20,
+		F8_E4M3FN = 21,
+		F8_E5M2 = 22
+	};
+};
+using ComponentEnum = ComponentType::ComponentEnum;
+#endif
+
+#ifdef _SM_6_9_
 #define Vector vector
 #else
 template<typename T, INT N>
@@ -240,9 +291,16 @@ struct Vector
 #define WAVE_MATRIX_C_SIZE (WM_M * N)
 #define WAVE_MATRIX_A_SIZE (WM_M * WM_K_MAX)
 
-groupshared HALF g_tensor[WAVE_TENSOR_SIZE * NUM_GROUP_WAVES];
-groupshared FLOAT g_matrixC[WAVE_MATRIX_C_SIZE * NUM_GROUP_WAVES];
-groupshared HALF g_matrixA[WAVE_MATRIX_A_SIZE * NUM_GROUP_WAVES];
+groupshared float16_t g_tensorf[WAVE_TENSOR_SIZE * NUM_GROUP_WAVES];
+groupshared ACC_T g_matrixCf[WAVE_MATRIX_C_SIZE * NUM_GROUP_WAVES];
+groupshared float16_t g_matrixAf[WAVE_MATRIX_A_SIZE * NUM_GROUP_WAVES];
+
+groupshared int8_t4_packed g_tensori[WAVE_TENSOR_SIZE * NUM_GROUP_WAVES];
+groupshared int g_matrixCi[WAVE_MATRIX_C_SIZE * NUM_GROUP_WAVES];
+//groupshared int8_t4_packed g_matrixAi[WAVE_MATRIX_A_SIZE * NUM_GROUP_WAVES];
+
+groupshared uint8_t4_packed g_tensoru[WAVE_TENSOR_SIZE * NUM_GROUP_WAVES];
+//groupshared uint8_t4_packed g_matrixAu[WAVE_MATRIX_A_SIZE * NUM_GROUP_WAVES];
 
 template<typename T, bool transpose, typename U>
 void LoadMatrix(inout WaveMatrixLeft<U, WM_M, WM_N> A, ByteAddressBuffer matrixBuffer, uint offset, uint pitch, uint waveId)
@@ -255,109 +313,66 @@ void LoadMatrix(inout WaveMatrixLeft<U, WM_M, WM_N> A, ByteAddressBuffer matrixB
 	if (WM_K == 16)
 	{
 		const Vector<T, 8> v = matrixBuffer.Load< Vector<T, 8> >(p + sizeof(T) * b);
-		for (uint k = 0; k < WM_K / 2; ++k) g_matrixA[WAVE_MATRIX_A_SIZE * waveId + (WM_K * (m % WM_M) + b + k)] = U(v[k]);
+		for (uint k = 0; k < WM_K / 2; ++k) g_matrixAf[WAVE_MATRIX_A_SIZE * waveId + (WM_K * (m % WM_M) + b + k)] = U(v[k]);
 	}
 	else if (WM_K == 32)
 	{
 		const Vector<T, 16> v = matrixBuffer.Load< Vector<T, 16> >(p + sizeof(T) * b);
-		for (uint k = 0; k < WM_K / 2; ++k) g_matrixA[WAVE_MATRIX_A_SIZE * waveId + (WM_K * (m % WM_M) + b + k)] = U(v[k]);
+		for (uint k = 0; k < WM_K / 2; ++k) g_matrixAf[WAVE_MATRIX_A_SIZE * waveId + (WM_K * (m % WM_M) + b + k)] = U(v[k]);
 	}
 	else for (uint k = 0; k < WM_K / 2; ++k)
 	{
 		const T a = matrixBuffer.Load<T>(p + sizeof(T) * (b + k));
-		g_matrixA[WAVE_MATRIX_A_SIZE * waveId + (WM_K * (m % WM_M) + b + k)] = U(a);
+		g_matrixAf[WAVE_MATRIX_A_SIZE * waveId + (WM_K * (m % WM_M) + b + k)] = U(a);
 	}
 
 	GroupMemoryBarrierWithGroupSync();
 
-	A.Load(g_matrixA, WAVE_MATRIX_A_SIZE * waveId, WM_K, transpose);
+	A.Load(g_matrixAf, WAVE_MATRIX_A_SIZE * waveId, WM_K, transpose);
 }
 
-template<typename T, INT M>
+template<ComponentEnum dataType, typename T, INT M>
 void GetTensor(out Vector<T, M> y, uint offsetOut, uint offsetIn, uint laneMask, uint waveId)
 {
 	const uint n = WaveGetLaneIndex();
 	for (uint m = 0; m < WM_M; ++m)
+	{
 		if ((1u << n) & laneMask)
-			y.Data[offsetOut + m] = T(g_matrixC[WAVE_MATRIX_C_SIZE * waveId + (offsetIn + WM_M * n + m)]);
+		{
+			if (dataType == ComponentEnum::I32) y.Data[offsetOut + m] = T(g_matrixCi[WAVE_MATRIX_C_SIZE * waveId + (offsetIn + WM_M * n + m)]);
+			else y.Data[offsetOut + m] = T(g_matrixCf[WAVE_MATRIX_C_SIZE * waveId + (offsetIn + WM_M * n + m)]);
+		}
+	}
+		
 }
 
-template<typename T, INT M, DataType inputDataType, DataType matrixDataType, DataType biasDataType,
-	MatrixLayout matrixLayout, bool transpose, uint matrixStride, typename U, INT K>
+template<typename T, INT M, ComponentEnum inputDataType, ComponentEnum matrixDataType, ComponentEnum biasDataType,
+	MatrixLayoutEnum matrixLayout, bool transpose, typename U, INT K>
 Vector<T, M> matVecMulAdd(
 	Vector<U, K> input,
 	ByteAddressBuffer matrixBuffer,
 	int matrixOffset,
 	ByteAddressBuffer biasBuffer,
 	int biasOffset,
+	uint matrixStride,
 	uint gi : SV_GroupIndex)
 {
 	Vector<T, M> output;
 
 	WaveMatrixLeft<U, WM_M, WM_N> A;
-	WaveMatrixRight<U, WM_M, WM_N> X0, X1;
 	WaveMatrixLeftColAcc<T, WM_M, WM_N> B;
-	WaveMatrixAccumulator<T, WM_M, WM_N> C0, C1;
+
+	const bool isInputInteger8 = inputDataType == ComponentEnum::I8 || inputDataType == ComponentEnum::U8;
+	const uint vecElementSize = isInputInteger8 ? 1 : sizeof(U);
+	const uint kStep = isInputInteger8 ? 4 : 1;
 
 	const uint waveId = WaveReadLaneAt(gi / WaveGetLaneCount(), 0);
 	const uint n = WaveGetLaneIndex();
 	const uint WM_K = A.MatrixDepth();
-	const uint c = sizeof(T) * min(WM_M, M); // Aligned column offset
-	const uint s = sizeof(T) * min(WM_K, K); // Aligned stride
 
-#if 0
-	output = biasBuffer.Load< Vector<T, M> >(biasOffset);
+	const uint c = vecElementSize * min(WM_M, M); // Aligned column offset
+	const uint s = vecElementSize * min(WM_K, K); // Aligned stride
 
-	// Waterfall loop for varying offset values in a wave without branching
-	for (uint laneMask, exec = WaveActiveBallot(true).x; exec; exec &= ~laneMask) // Remove the lanes same to the first lane
-	{
-		// mOffset: offset of the matrix data in the buffer
-		const int mOffset = WaveReadLaneAt(matrixOffset, firstbitlow(exec));
-		laneMask = WaveActiveBallot(mOffset == matrixOffset).x;
-
-		//[unroll]
-		for (uint k = 0; k < K; k += WM_K)
-		{
-			// Store x into group-shared memory
-			for (uint i = 0; i < WM_K; ++i)
-				g_tensor[WAVE_TENSOR_SIZE * waveId + (WM_K * n + i)] = input.Data[k + i];
-			GroupMemoryBarrierWithGroupSync();
-
-			// Load x from group-shared memory
-			X0.Load(g_tensor, WAVE_TENSOR_SIZE * waveId, WM_K, !transpose);
-			X1.Load(g_tensor, WAVE_TENSOR_SIZE * waveId + WM_M * WM_K, WM_K, !transpose);
-
-			//[unroll]
-			for (uint m = 0; m < M; m += WM_M)
-			{
-				// Store y into group-shared memory
-				for (uint i = 0; i < WM_M && m + i < M; ++i)
-					g_matrixC[WAVE_MATRIX_C_SIZE * waveId + (WM_M * n + i)] = output.Data[m + i];
-				GroupMemoryBarrierWithGroupSync();
-
-				// Load y from group-shared memory
-				C0.Load(g_matrixC, WAVE_MATRIX_C_SIZE * waveId, WM_M, !transpose);
-				C1.Load(g_matrixC, WAVE_MATRIX_C_SIZE * waveId + WM_M * WM_N, WM_M, !transpose);
-
-				// Row offset
-				const uint r = mOffset + sizeof(T) * m * K;
-#if defined(_LOAD_FP16_)
-				//A.Load(matrixBuffer, r + c * k, s, transpose);
-				LoadMatrix<T, transpose>(A, matrixBuffer, r + c * k, s, waveId);
-#else
-				LoadMatrix<T, false>(A, matrixBuffer, r + sizeof(T) * k, sizeof(T) * K, waveId);
-#endif
-
-				C0.MultiplyAccumulate(A, X0);
-				C1.MultiplyAccumulate(A, X1);
-
-				C0.Store(g_matrixC, WAVE_MATRIX_C_SIZE * waveId, WM_M, !transpose);
-				C1.Store(g_matrixC, WAVE_MATRIX_C_SIZE * waveId + WM_M * WM_N, WM_M, !transpose);
-				GetTensor(output, m, 0, laneMask, waveId);
-			}
-		}
-	}
-#else
 	// Waterfall loop for varying offset values in a wave without branching
 	for (uint laneMask, exec = WaveActiveBallot(true).x; exec; exec &= ~laneMask) // Remove the lanes same to the first lane
 	{
@@ -371,42 +386,105 @@ Vector<T, M> matVecMulAdd(
 		for (uint m = 0; m < M; m += WM_M)
 		{
 			B.Load(biasBuffer, bOffset + sizeof(T) * m, sizeof(T));
-			C0.Fill(0.0);
-			C0.Add(B);
-			C1.Fill(0.0);
-			C1.Add(B);
 
 			// Row offset
-			const uint r = mOffset + sizeof(T) * m * K;
+			const uint r = mOffset + vecElementSize * m * K;
 
-			//[unroll]
-			for (uint k = 0; k < K; k += WM_K)
+			if (biasDataType == ComponentEnum::I32)
 			{
-				// Store x into group-shared memory
-				for (uint i = 0; i < WM_K; ++i)
-					g_tensor[WAVE_TENSOR_SIZE * waveId + (WM_K * n + i)] = input.Data[k + i];
-				GroupMemoryBarrierWithGroupSync();
+				WaveMatrixAccumulator<int, WM_M, WM_N> C0, C1;
+				C0.Fill(0);
+				C0.Add(B);
+				C1.Fill(0);
+				C1.Add(C0);
 
-#if defined(_LOAD_FP16_)
-				//A.Load(matrixBuffer, r + c * k, s, transpose);
-				LoadMatrix<T, transpose>(A, matrixBuffer, r + c * k, s, waveId);
+				//[unroll]
+				for (uint k = 0; k < K; k += kStep * WM_K)
+				{
+					// Store x into group-shared memory
+					if (matrixDataType == ComponentEnum::U8)
+					{
+						for (uint i = 0; i < WM_K; ++i)
+						{
+							g_tensoru[WAVE_TENSOR_SIZE * waveId + (WM_K * n + i)] = isInputInteger8 ?
+								pack_clamp_u8(int4(input.Data[k + i], input.Data[k + kStep * i + 1],
+								input.Data[k + kStep * i + 2], input.Data[k + kStep * i + 3])) :
+								uint8_t4_packed(input.Data[k + i]);
+						}
+					}
+					else
+					{
+						for (uint i = 0; i < WM_K; ++i)
+						{
+							g_tensori[WAVE_TENSOR_SIZE * waveId + (WM_K * n + i)] = isInputInteger8 ?
+								pack_clamp_s8(int4(input.Data[k + i], input.Data[k + kStep * i + 1],
+								input.Data[k + kStep * i + 2], input.Data[k + kStep * i + 3])) :
+								int8_t4_packed(input.Data[k + i]);
+						}
+					}
+
+					GroupMemoryBarrierWithGroupSync();
+					A.Load(matrixBuffer, r + c * k, s, transpose);
+
+					// Load x from group-shared memory and perform WMMA
+					if (matrixDataType == ComponentEnum::U8)
+					{
+						WaveMatrixRight<uint8_t4_packed, WM_M, WM_N> X;
+						X.Load(g_tensoru, WAVE_TENSOR_SIZE * waveId, WM_K, !transpose);
+						C0.MultiplyAccumulate(A, X);
+						X.Load(g_tensoru, WAVE_TENSOR_SIZE * waveId + WM_M * WM_K, WM_K, !transpose);
+						C1.MultiplyAccumulate(A, X);
+					}
+					else
+					{
+						WaveMatrixRight<int8_t4_packed, WM_M, WM_N> X;
+						X.Load(g_tensori, WAVE_TENSOR_SIZE * waveId, WM_K, !transpose);
+						C0.MultiplyAccumulate(A, X);
+						X.Load(g_tensori, WAVE_TENSOR_SIZE * waveId + WM_M * WM_K, WM_K, !transpose);
+						C1.MultiplyAccumulate(A, X);
+					}
+				}
+
+				C0.Store(g_matrixCi, WAVE_MATRIX_C_SIZE * waveId, WM_M, !transpose);
+				C1.Store(g_matrixCi, WAVE_MATRIX_C_SIZE * waveId + WM_M * WM_N, WM_M, !transpose);
+				GetTensor<biasDataType>(output, m, 0, laneMask, waveId);
+			}
+			else
+			{
+				WaveMatrixAccumulator<ACC_T, WM_M, WM_N> C0, C1;
+				C0.Fill(0.0);
+				C0.Add(B);
+				C1.Fill(0.0);
+				C1.Add(C0);
+
+				//[unroll]
+				for (uint k = 0; k < K; k += WM_K)
+				{
+					// Store x into group-shared memory
+					for (uint i = 0; i < WM_K; ++i)
+						g_tensorf[WAVE_TENSOR_SIZE * waveId + (WM_K * n + i)] = input.Data[k + i];
+
+#if 1
+					LoadMatrix<U, transpose>(A, matrixBuffer, r + c * k, s, waveId);
 #else
-				LoadMatrix<T, false>(A, matrixBuffer, r + sizeof(T) * k, sizeof(T) * K, waveId);
+					GroupMemoryBarrierWithGroupSync();
+					A.Load(matrixBuffer, r + c * k, s, transpose);
 #endif
 
-				// Load x from group-shared memory
-				X0.Load(g_tensor, WAVE_TENSOR_SIZE * waveId, WM_K, !transpose);
-				C0.MultiplyAccumulate(A, X0);
-				X1.Load(g_tensor, WAVE_TENSOR_SIZE * waveId + WM_M * WM_K, WM_K, !transpose);
-				C1.MultiplyAccumulate(A, X1);
-			}
+					// Load x from group-shared memory
+					WaveMatrixRight<U, WM_M, WM_N> X;
+					X.Load(g_tensorf, WAVE_TENSOR_SIZE * waveId, WM_K, !transpose);
+					C0.MultiplyAccumulate(A, X);
+					X.Load(g_tensorf, WAVE_TENSOR_SIZE * waveId + WM_M * WM_K, WM_K, !transpose);
+					C1.MultiplyAccumulate(A, X);
+				}
 
-			C0.Store(g_matrixC, WAVE_MATRIX_C_SIZE * waveId, WM_M, !transpose);
-			C1.Store(g_matrixC, WAVE_MATRIX_C_SIZE * waveId + WM_M * WM_N, WM_M, !transpose);
-			GetTensor(output, m, 0, laneMask, waveId);
+				C0.Store(g_matrixCf, WAVE_MATRIX_C_SIZE * waveId, WM_M, !transpose);
+				C1.Store(g_matrixCf, WAVE_MATRIX_C_SIZE * waveId + WM_M * WM_N, WM_M, !transpose);
+				GetTensor<biasDataType>(output, m, 0, laneMask, waveId);
+			}
 		}
 	}
-#endif
 
 	return output;
 }
@@ -415,39 +493,76 @@ Vector<T, M> matVecMulAdd(
 
 #else
 
-template<typename T, INT M, DataType inputDataType, DataType matrixDataType, DataType biasDataType,
-	MatrixLayout matrixLayout, bool transpose, uint matrixStride, typename U, INT K>
+template<typename T, INT M, ComponentEnum inputDataType, ComponentEnum matrixDataType, ComponentEnum biasDataType,
+	MatrixLayoutEnum matrixLayout, bool transpose, INT K, typename U>
 Vector<T, M> matVecMulAdd(
 	Vector<U, K> input,
 	ByteAddressBuffer matrixBuffer,
-	int matrixOffset,
+	uint matrixOffset,
 	ByteAddressBuffer biasBuffer,
-	int biasOffset,
+	uint biasOffset,
+	uint matrixStride,
 	uint gi : SV_GroupIndex)
 {
-#ifdef _SM_69_
-	const MatrixRef<matrixDataType, M, K, matrixLayout, transpose> mRef = { matrixBuffer, matrixOffset, matrixStride };
-	const VectorRef<biasDataType> bRef = { biasBuffer, biasOffset };
+#ifdef _SM_6_10_
+	using MatrixA = Matrix<matrixDataType, M, K, transpose ? MatrixUse::B : MatrixUse::A, MatrixScope::Thread>;
+	const MatrixA mA = MatrixA::template Load<matrixLayout>(matrixBuffer, matrixOffset, matrixStride);
+	const VectorRef<biasDataType, M> b = { biasBuffer, biasOffset };
 
-	return MulAdd<T>(mRef, MakeInterpretedVector<inputDataType>(input), bRef);
+	return MultiplyAdd<T>(mA, MakeInterpretedVector<inputDataType>(input), b);
+#elif defined(_SM_6_9_)
+	const MatrixRef<(DataType)matrixDataType, M, K, (linalg::MatrixLayout)matrixLayout, transpose> mA = { matrixBuffer, matrixOffset, matrixStride };
+	const VectorRef<(DataType)biasDataType> b = { biasBuffer, biasOffset };
+
+	return MulAdd<T>(mA, MakeInterpretedVector<(DataType)inputDataType>(input), b);
 #else
 	Vector<T, M> output = biasBuffer.Load< Vector<T, M> >(biasOffset);
 
+	const bool isInputInteger8 = inputDataType == ComponentEnum::I8 || inputDataType == ComponentEnum::U8;
+	const uint vecElementSize = isInputInteger8 ? 1 : sizeof(U);
+
+	uint kStep;
+	if (matrixDataType == ComponentEnum::F16) kStep = 2; // FP16
+	else if (isInputInteger8) kStep = 4;                 // I8/U8
+	else kStep = 1;                                      // PackedS8x32/U32/Others
+
 	for (uint m = 0; m < M; ++m)
 	{
-		const uint c = matrixOffset + sizeof(T) * K * m;
+		const uint c = matrixOffset + vecElementSize * K * m;
 
-#if defined(_LOAD_FP16_)
-		for (uint k = 0; k < K; k += 2)
+		for (uint k = 0; k < K; k += kStep)
 		{
-			const vector<U, 2> p = vector<U, 2>(input.Data[k], input.Data[k + 1]);
-			const vector<U, 2> a = vector<U, 2>(matrixBuffer.Load< vector<T, 2> >(c + sizeof(T) * k));
-			output.Data[m] = T(dot2add(a, p, output.Data[m]));
+			switch (matrixDataType)
+			{
+			case ComponentEnum::F16:
+			{
+				const vector<U, 2> a = matrixBuffer.Load< vector<U, 2> >(c + vecElementSize * k);
+				const vector<U, 2> x = vector<U, 2>(input.Data[k], input.Data[k + 1]);
+				output.Data[m] = T(dot2add(a, x, output.Data[m]));
+				break;
+			}
+			case ComponentEnum::I8:
+			{
+				const int8_t4_packed a = matrixBuffer.Load<int8_t4_packed>(c + vecElementSize * k);
+				const int8_t4_packed x = isInputInteger8 ?
+					pack_clamp_s8(int4(input.Data[k], input.Data[k + 1], input.Data[k + 2], input.Data[k + 3])) :
+					int8_t4_packed(input.Data[k]);
+				output.Data[m] = T(dot4add_i8packed(a, x, output.Data[m]));
+				break;
+			}
+			case ComponentEnum::U8:
+			{
+				const uint8_t4_packed a = matrixBuffer.Load<uint8_t4_packed>(c + vecElementSize * k);
+				const uint8_t4_packed x = isInputInteger8 ?
+					pack_clamp_u8(int4(input.Data[k], input.Data[k + 1], input.Data[k + 2], input.Data[k + 3])) :
+					uint8_t4_packed(input.Data[k]);
+				output.Data[m] = T(dot4add_u8packed(a, x, output.Data[m]));
+				break;
+			}
+			default:
+				output.Data[m] += matrixBuffer.Load<U>(c + vecElementSize * k) * input.Data[k];
+			}
 		}
-#else
-		for (uint k = 0; k < K; ++k)
-			output.Data[m] += U(matrixBuffer.Load<T>(c + sizeof(T) * k)) * input.Data[k];
-#endif
 	}
 
 	return output;
@@ -456,7 +571,7 @@ Vector<T, M> matVecMulAdd(
 
 #endif
 
-#ifndef _SM_69_
+#ifndef _SM_6_9_
 #define vector Vector
 #endif
 
@@ -475,7 +590,7 @@ vector<T, N> vectorCopyFrom(vector<U, N> x)
 template<typename T, INT N>
 vector<T, N> vectorFill(T x)
 {
-#ifdef _SM_69_
+#ifdef _SM_6_9_
 	return x;
 #else
 	vector<T, N> y;
@@ -485,7 +600,7 @@ vector<T, N> vectorFill(T x)
 #endif
 }
 
-#ifndef _SM_69_
+#ifndef _SM_6_9_
 template<typename T, INT N>
 vector<T, N> max(vector<T, N> y, T x)
 {
@@ -634,7 +749,7 @@ vector<bool, N> or(vector<bool, N> x, vector<bool, N> y)
 template<typename T, INT N>
 vector<T, N> negate(vector<T, N> x)
 {
-#ifdef _SM_69_
+#ifdef _SM_6_9_
 	x = -x;
 #else
 	FOR_EACH(n, N, x.Data[n] = -x[n])
@@ -645,7 +760,7 @@ vector<T, N> negate(vector<T, N> x)
 
 #endif
 
-#if defined(_SM_69_) || defined(_SLANG_)
+#if defined(_SM_6_9_) || defined(_SLANG_)
 #define vectorWriteToIndex(vec, index, value) vec[index] = value
 #else
 #define vectorWriteToIndex(vec, index, value) vec.writeToIndex(index, value)
