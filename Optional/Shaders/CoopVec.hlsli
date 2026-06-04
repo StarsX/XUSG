@@ -25,6 +25,7 @@
 
 #define vectorLoad	coopVecLoad
 #define vector		CoopVec
+#define MATRIX_LAYOUT_TRANSPOSE_FLAG 0x80
 
 enum class ComponentType
 {
@@ -51,15 +52,14 @@ enum class MatrixLayout
 	RowMajor = CoopVecMatrixLayout::RowMajor,
 	ColMajor = CoopVecMatrixLayout::ColumnMajor,
 	MulOptimal = CoopVecMatrixLayout::InferencingOptimal,
-	MulOptimalTranspose = CoopVecMatrixLayout::InferencingOptimal,
 	OuterProductOptimal = CoopVecMatrixLayout::TrainingOptimal,
-	OuterProductOptimalTranspose = CoopVecMatrixLayout::TrainingOptimal
+	MulOptimalTranspose = CoopVecMatrixLayout::InferencingOptimal | MATRIX_LAYOUT_TRANSPOSE_FLAG,
+	OuterProductOptimalTranspose = CoopVecMatrixLayout::TrainingOptimal | MATRIX_LAYOUT_TRANSPOSE_FLAG
 };
 typedef MatrixLayout MatrixLayoutEnum;
 
-vector<T, M> matVecMulAdd<T : __BuiltinArithmeticType, INT M, ComponentEnum inputDataType,
-	ComponentEnum matrixDataType, ComponentEnum biasDataType, MatrixLayoutEnum matrixLayout,
-	bool transpose, INT K, U : __BuiltinArithmeticType>(
+vector<T, M> matVecMulAdd<T : __BuiltinArithmeticType, INT M, ComponentEnum inputDataType, ComponentEnum matrixDataType,
+	ComponentEnum biasDataType, MatrixLayoutEnum matrixLayout, INT K, U : __BuiltinArithmeticType>(
 	vector<U, K> input,
 	ByteAddressBuffer matrixBuffer,
 	int matrixOffset,
@@ -68,11 +68,13 @@ vector<T, M> matVecMulAdd<T : __BuiltinArithmeticType, INT M, ComponentEnum inpu
 	constexpr uint matrixStride,
 	uint gi : SV_GroupIndex)
 {
+	const CoopVecMatrixLayout matLayout = (CoopVecMatrixLayout)(matrixLayout & (~MATRIX_LAYOUT_TRANSPOSE_FLAG));
+	const bool transpose = (matrixLayout & MATRIX_LAYOUT_TRANSPOSE_FLAG) != 0;
 	if (inputDataType == ComponentEnum::PackedS8x32 || inputDataType == ComponentEnum::PackedU8x32)
 		return coopVecMatMulAddPacked<T, M>(input, (CoopVecComponentType)inputDataType, sizeof(U) * K, matrixBuffer, matrixOffset, (CoopVecComponentType)matrixDataType,
-			biasBuffer, biasOffset, (CoopVecComponentType)biasDataType, (CoopVecMatrixLayout)matrixLayout, transpose, matrixStride);
+			biasBuffer, biasOffset, (CoopVecComponentType)biasDataType, matLayout, transpose, matrixStride);
 	else return coopVecMatMulAdd<T, M>(input, (CoopVecComponentType)inputDataType, matrixBuffer, matrixOffset, (CoopVecComponentType)matrixDataType,
-			biasBuffer, biasOffset, (CoopVecComponentType)biasDataType, (CoopVecMatrixLayout)matrixLayout, transpose, matrixStride);
+			biasBuffer, biasOffset, (CoopVecComponentType)biasDataType, matLayout, transpose, matrixStride);
 }
 
 vector<T, N> vectorCopyFrom<T : __BuiltinArithmeticType, U : __BuiltinArithmeticType, INT N>(vector<U, N> x)
@@ -161,6 +163,7 @@ using namespace dx::linalg;
 #if __SHADER_TARGET_MINOR >= 10
 #define _SM_6_10_
 #else
+#define MATRIX_LAYOUT_TRANSPOSE_FLAG 0x80
 struct MatrixLayout
 {
 	enum MatrixLayoutEnum
@@ -168,9 +171,9 @@ struct MatrixLayout
 		RowMajor = MATRIX_LAYOUT_ROW_MAJOR,
 		ColMajor = MATRIX_LAYOUT_COLUMN_MAJOR,
 		MulOptimal = MATRIX_LAYOUT_MUL_OPTIMAL,
-		MulOptimalTranspose = MATRIX_LAYOUT_MUL_OPTIMAL,
 		OuterProductOptimal = MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL,
-		OuterProductOptimalTranspose = MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL
+		MulOptimalTranspose = MATRIX_LAYOUT_MUL_OPTIMAL | MATRIX_LAYOUT_TRANSPOSE_FLAG,
+		OuterProductOptimalTranspose = MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL | MATRIX_LAYOUT_TRANSPOSE_FLAG
 	};
 };
 using MatrixLayoutEnum = ::MatrixLayout::MatrixLayoutEnum;
@@ -347,7 +350,7 @@ void GetTensor(out Vector<T, M> y, uint offsetOut, uint offsetIn, uint laneMask,
 }
 
 template<typename T, INT M, ComponentEnum inputDataType, ComponentEnum matrixDataType, ComponentEnum biasDataType,
-	MatrixLayoutEnum matrixLayout, bool transpose, typename U, INT K>
+	MatrixLayoutEnum matrixLayout, typename U, INT K>
 Vector<T, M> matVecMulAdd(
 	Vector<U, K> input,
 	ByteAddressBuffer matrixBuffer,
@@ -362,6 +365,7 @@ Vector<T, M> matVecMulAdd(
 	WaveMatrixLeft<U, WM_M, WM_N> A;
 	WaveMatrixLeftColAcc<T, WM_M, WM_N> B;
 
+	const bool transpose = matrixLayout == MatrixLayoutEnum::MulOptimalTranspose;
 	const bool isInputInteger8 = inputDataType == ComponentEnum::I8 || inputDataType == ComponentEnum::U8;
 	const uint vecElementSize = isInputInteger8 ? 1 : sizeof(U);
 	const uint kStep = isInputInteger8 ? 4 : 1;
@@ -494,7 +498,7 @@ Vector<T, M> matVecMulAdd(
 #else
 
 template<typename T, INT M, ComponentEnum inputDataType, ComponentEnum matrixDataType, ComponentEnum biasDataType,
-	MatrixLayoutEnum matrixLayout, bool transpose, INT K, typename U>
+	MatrixLayoutEnum matrixLayout, INT K, typename U>
 Vector<T, M> matVecMulAdd(
 	Vector<U, K> input,
 	ByteAddressBuffer matrixBuffer,
@@ -505,13 +509,15 @@ Vector<T, M> matVecMulAdd(
 	uint gi : SV_GroupIndex)
 {
 #ifdef _SM_6_10_
-	using MatrixA = Matrix<matrixDataType, M, K, transpose ? MatrixUse::B : MatrixUse::A, MatrixScope::Thread>;
+	using MatrixA = Matrix<matrixDataType, M, K, MatrixUse::A, MatrixScope::Thread>;
 	const MatrixA mA = MatrixA::template Load<matrixLayout>(matrixBuffer, matrixOffset, matrixStride);
 	const VectorRef<biasDataType, M> b = { biasBuffer, biasOffset };
 
 	return MultiplyAdd<T>(mA, MakeInterpretedVector<inputDataType>(input), b);
 #elif defined(_SM_6_9_)
-	const MatrixRef<(DataType)matrixDataType, M, K, (linalg::MatrixLayout)matrixLayout, transpose> mA = { matrixBuffer, matrixOffset, matrixStride };
+	const linalg::MatrixLayout matLayout = (linalg::MatrixLayout)(matrixLayout & (~MATRIX_LAYOUT_TRANSPOSE_FLAG));
+	const bool transpose = (matrixLayout & MATRIX_LAYOUT_TRANSPOSE_FLAG);
+	const MatrixRef<(DataType)matrixDataType, M, K, matLayout, transpose> mA = { matrixBuffer, matrixOffset, matrixStride };
 	const VectorRef<(DataType)biasDataType> b = { biasBuffer, biasOffset };
 
 	return MulAdd<T>(mA, MakeInterpretedVector<(DataType)inputDataType>(input), b);

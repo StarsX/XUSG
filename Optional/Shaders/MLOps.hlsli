@@ -289,7 +289,11 @@ TEMPLATE_FUNC(VEC_T_M, Linear, INT M, ComponentEnum dataType = DATA_TYPE,
 	(VEC_T_K x, ByteAddressBuffer matrixBiasBuffer, int matrixOffset, int biasOffset, uint GI : SV_GroupIndex)
 {
 #define inputDataType dataType
+#ifdef _SM_6_10_
+#define matrixDataType dataType
+#else
 #define matrixDataType ((dataType == ComponentEnum::PackedS8x32 || dataType == ComponentEnum::PackedU8x32) ? ComponentEnum::I8 : dataType)
+#endif
 #define biasDataType ((dataType == ComponentEnum::F8_E4M3FN || dataType == ComponentEnum::F8_E5M2) ? \
 		ComponentEnum::F16 : (matrixDataType == ComponentEnum::I8 ? ComponentEnum::I32 : dataType))
 
@@ -305,7 +309,7 @@ TEMPLATE_FUNC(VEC_T_M, Linear, INT M, ComponentEnum dataType = DATA_TYPE,
 		(matrixLayout == MatrixLayoutEnum::ColMajor ? sizeof(matrixElementSize) * M : 0);
 #endif
 
-	return matVecMulAdd<T, M, inputDataType, matrixDataType, biasDataType, matrixLayout, false>(
+	return matVecMulAdd<T, M, inputDataType, matrixDataType, biasDataType, matrixLayout>(
 		x,                // input vector
 		matrixBiasBuffer, // input matrix
 		matrixOffset,     // matrix offset in byte
