@@ -57,7 +57,7 @@ namespace XUSG
 			void createAgilityInterface();
 
 			com_ptr<ID3D12GraphicsCommandList6>		m_commandListU;
-			com_ptr<ID3D12GraphicsCommandList10>	m_commandListA;
+			com_ptr<ID3D12GraphicsCommandList11>	m_commandListA;
 
 			std::vector<D3D12_BARRIER_GROUP>		m_barrierGroups;
 			std::vector<D3D12_GLOBAL_BARRIER>		m_globalBarriers;

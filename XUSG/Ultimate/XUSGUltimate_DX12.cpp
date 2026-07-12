@@ -453,6 +453,19 @@ static D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_DEST_INFO GetDX12LinearAlgebraConv
 	return destInfo;
 }
 
+MIDL_INTERFACE("536d9bb6-9eee-4c75-86e8-e29e29e08ed3")
+ID3D12GraphicsCommandListPreview0 : public ID3D12GraphicsCommandList10
+{
+public:
+	virtual void STDMETHODCALLTYPE SetWorkGraphMaximumGPUInputRecords(
+		_In_  UINT MaxRecords,
+		_In_  UINT MaxNodeInputs) = 0;
+
+	virtual void STDMETHODCALLTYPE ConvertLinearAlgebraMatrix(
+		_In_  const D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_INFO* pDesc,
+		_In_  UINT DescCount) = 0;
+};
+
 void CommandList_DX12::ConvertLinearAlgebraMatrix(const LinearAlgebraMatrixConversionInfo* pConversions, uint32_t numConversions)
 {
 	assert(pConversions);
@@ -472,10 +485,18 @@ void CommandList_DX12::ConvertLinearAlgebraMatrix(const LinearAlgebraMatrixConve
 	}
 
 	com_ptr<ID3D12GraphicsCommandListPreview> commandList = nullptr;
-	const auto hr = m_commandList->QueryInterface(IID_PPV_ARGS(&commandList));
-	if (FAILED(hr)) OutputDebugString(L"Couldn't get DirectX preview interface for the command list.\n");
+	auto hr = m_commandList->QueryInterface(IID_PPV_ARGS(&commandList));
 
-	commandList->ConvertLinearAlgebraMatrix(m_matrixConversions.data(), numConversions);
+	if (FAILED(hr) || !commandList)
+	{
+		com_ptr<ID3D12GraphicsCommandListPreview0> commandList = nullptr;
+		hr = m_commandList->QueryInterface(IID_PPV_ARGS(&commandList));
+
+		if (FAILED(hr)) OutputDebugString(L"Couldn't get DirectX preview interface for the command list.\n");
+
+		commandList->ConvertLinearAlgebraMatrix(m_matrixConversions.data(), numConversions);
+	}
+	else commandList->ConvertLinearAlgebraMatrix(m_matrixConversions.data(), numConversions);
 }
 
 XUSG::com_ptr<ID3D12GraphicsCommandList6>& CommandList_DX12::GetGraphicsCommandList()
@@ -774,15 +795,32 @@ XUSG::ProgramIdentifier XUSG::Ultimate::GetDX12ProgramIdentifier(const XUSG::Pip
 	return identifier;
 }
 
+MIDL_INTERFACE("55ea41d3-6bf5-4332-bbf9-905e6b4e2930")
+ID3D12DevicePreview0 : public IUnknown
+{
+public:
+	virtual void STDMETHODCALLTYPE GetLinearAlgebraMatrixConversionDestinationInfo(
+		_Inout_  D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_DEST_INFO * pDesc) = 0;
+};
+
 void XUSG::Ultimate::GetDX12LinearAlgebraMatrixInfo(const Device* pDevice, LinearAlgebraMatrixInfo& matrixInfo)
 {
 	auto destInfo = GetDX12LinearAlgebraConversionDestInfo(matrixInfo);
 
 	com_ptr<ID3D12DevicePreview> device = nullptr;
-	const auto hr = static_cast<ID3D12Device*>(pDevice->GetHandle())->QueryInterface(IID_PPV_ARGS(&device));
-	if (FAILED(hr)) OutputDebugString(L"Couldn't get DirectX preview interface for the device.\n");
+	auto hr = static_cast<ID3D12Device*>(pDevice->GetHandle())->QueryInterface(IID_PPV_ARGS(&device));
 
-	device->GetLinearAlgebraMatrixConversionDestinationInfo(&destInfo);
+	if (FAILED(hr) || !device)
+	{
+		com_ptr<ID3D12DevicePreview0> device = nullptr;
+		hr = static_cast<ID3D12Device*>(pDevice->GetHandle())->QueryInterface(IID_PPV_ARGS(&device));
+
+		if (FAILED(hr)) OutputDebugString(L"Couldn't get DirectX preview interface for the device.\n");
+
+		device->GetLinearAlgebraMatrixConversionDestinationInfo(&destInfo);
+	}
+	else device->GetLinearAlgebraMatrixConversionDestinationInfo(&destInfo);
+
 	matrixInfo.Size = destInfo.DestSize;
 }
 
@@ -1040,12 +1078,10 @@ D3D12_LINEAR_ALGEBRA_DATATYPE XUSG::Ultimate::GetDX12LinearAlgebraDataType(Linea
 		D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32,
 		D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16,
 		D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32,
-		D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8_T4_PACKED,
-		D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8_T4_PACKED,
 		D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8,
 		D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8,
-		D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3,
-		D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2
+		D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT8_E4M3FN,
+		D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT8_E5M2
 	};
 
 	return dataTypes[static_cast<uint32_t>(dataType)];

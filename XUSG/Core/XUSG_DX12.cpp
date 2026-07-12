@@ -352,7 +352,7 @@ void XUSG::GetDX12BlobData(const Blob& blob, const void** ppData, size_t* pSize)
 Blob XUSG::GetDX12PipelineCache(Pipeline pipeline)
 {
 	com_ptr<ID3DBlob> blob;
-	V_RETURN(static_cast<ID3D12PipelineState*>(pipeline)->GetCachedBlob(&blob), cerr, nullptr);
+	V_RETURN(static_cast<ID3D12PipelineState*>(pipeline)->GetCachedBlob(blob.put()), cerr, nullptr);
 
 	return blob.get();
 }

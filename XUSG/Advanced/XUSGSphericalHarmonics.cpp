@@ -39,8 +39,10 @@ SphericalHarmonics_Impl::SphericalHarmonics_Impl(API api) :
 	m_pipelines(),
 	m_uavTables(),
 	m_srvTables(),
+	m_numSHTexels(SH_TEX_SIZE * SH_TEX_SIZE * CubeMapFaceCount),
 	m_baseCSIndex(0),
-	m_descriptorHeapIndex(0)
+	m_descriptorHeapIndex(0),
+	m_shBufferPingPong(0)
 {
 }
 
@@ -102,12 +104,12 @@ void SphericalHarmonics_Impl::Transform(CommandList* pCommandList, Resource* pRa
 
 StructuredBuffer::sptr SphericalHarmonics_Impl::GetSHCoefficients() const
 {
-	return m_coeffSH[m_shBufferParity];
+	return m_coeffSH[m_shBufferPingPong];
 }
 
 const DescriptorTable& SphericalHarmonics_Impl::GetSHCoeffSRVTable() const
 {
-	return m_srvTables[UAV_SRV_SH + m_shBufferParity];
+	return m_srvTables[UAV_SRV_SH + m_shBufferPingPong];
 }
 
 bool SphericalHarmonics_Impl::createPipelineLayouts()
@@ -326,7 +328,7 @@ void SphericalHarmonics_Impl::shSum(CommandList* pCommandList, uint8_t order)
 {
 	assert(order <= SH_MAX_ORDER);
 	ResourceBarrier barriers[4];
-	m_shBufferParity = 0;
+	m_shBufferPingPong = 0;
 
 	// Set pipeline layout and pipeline
 	pCommandList->SetComputePipelineLayout(m_pipelineLayouts[SH_SUM]);
@@ -337,8 +339,8 @@ void SphericalHarmonics_Impl::shSum(CommandList* pCommandList, uint8_t order)
 	for (auto n = XUSG_DIV_UP(m_numSHTexels, SH_GROUP_SIZE); n > 1; n = XUSG_DIV_UP(n, SH_GROUP_SIZE))
 	{
 		// Set barriers
-		const auto& src = m_shBufferParity;
-		const uint8_t dst = !m_shBufferParity;
+		const auto& src = m_shBufferPingPong;
+		const uint8_t dst = m_shBufferPingPong ? 0 : 1;
 		auto numBarriers = m_coeffSH[dst]->SetBarrier(barriers, ResourceState::UNORDERED_ACCESS,
 			0, XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::NONE, srcState);
 		numBarriers = m_weightSH[dst]->SetBarrier(barriers, ResourceState::UNORDERED_ACCESS,
@@ -354,7 +356,7 @@ void SphericalHarmonics_Impl::shSum(CommandList* pCommandList, uint8_t order)
 
 		// Dispatch
 		pCommandList->Dispatch(XUSG_DIV_UP(n, SH_GROUP_SIZE), order * order, 1);
-		m_shBufferParity = !m_shBufferParity;
+		m_shBufferPingPong = dst;
 		srcState = ResourceState::AUTO;
 	}
 }
@@ -365,8 +367,8 @@ void SphericalHarmonics_Impl::shNormalize(CommandList* pCommandList, uint8_t ord
 
 	// Set barriers
 	ResourceBarrier barriers[3];
-	const auto& src = m_shBufferParity;
-	const uint8_t dst = !m_shBufferParity;
+	const auto& src = m_shBufferPingPong;
+	const uint8_t dst = m_shBufferPingPong ? 0 : 1;
 	auto numBarriers = m_coeffSH[dst]->SetBarrier(barriers, ResourceState::UNORDERED_ACCESS);
 	numBarriers = m_coeffSH[src]->SetBarrier(barriers, ResourceState::NON_PIXEL_SHADER_RESOURCE, numBarriers);
 	numBarriers = m_weightSH[src]->SetBarrier(barriers, ResourceState::NON_PIXEL_SHADER_RESOURCE, numBarriers);
@@ -383,5 +385,5 @@ void SphericalHarmonics_Impl::shNormalize(CommandList* pCommandList, uint8_t ord
 	// Dispatch
 	const auto numElements = order * order;
 	pCommandList->Dispatch(XUSG_DIV_UP(numElements, SH_GROUP_SIZE), 1, 1);
-	m_shBufferParity = !m_shBufferParity;
+	m_shBufferPingPong = dst;
 }

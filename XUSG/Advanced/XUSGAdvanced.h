@@ -761,7 +761,7 @@ namespace XUSG
 
 		virtual DirectX::FXMVECTOR GetFocusAndDistance() const = 0;
 		virtual const DescriptorTable& GetCBVTable(uint8_t i) const = 0;
-		virtual const RenderTarget* GetGBuffer(uint8_t i) const = 0;
+		virtual RenderTarget* GetGBuffer(uint8_t i) const = 0;
 
 		virtual std::vector<Character::uptr>& GetCharacters() = 0;
 		virtual std::vector<StaticModel::sptr>& GetStaticModels() = 0;

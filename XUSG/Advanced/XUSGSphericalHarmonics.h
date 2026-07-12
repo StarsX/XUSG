@@ -83,6 +83,6 @@ namespace XUSG
 		uint32_t	m_numSHTexels;
 		uint8_t		m_baseCSIndex;
 		uint8_t		m_descriptorHeapIndex;
-		uint8_t		m_shBufferParity;
+		uint8_t		m_shBufferPingPong;
 	};
 }

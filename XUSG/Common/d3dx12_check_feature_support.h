@@ -248,6 +248,9 @@ public: // Function declaration
     UINT Max1DDispatchMeshSize() const noexcept;
 #endif
 
+    // D3D12_OPTIONS_PREVIEW
+    BOOL UAVOfDepthStencilSupported() const noexcept;
+    BOOL D32S8Interleaved() const noexcept;
 
 private: // Private structs and helpers declaration
     struct ProtectedResourceSessionTypesLocal : D3D12_FEATURE_DATA_PROTECTED_RESOURCE_SESSION_TYPES
@@ -341,6 +344,7 @@ private: // Member data
 #if defined(D3D12_SDK_VERSION) && (D3D12_SDK_VERSION >= 619)
     D3D12_FEATURE_DATA_D3D12_OPTIONS22 m_dOptions22;
 #endif
+
 #if defined(D3D12_SDK_VERSION) && (D3D12_SDK_VERSION >= 617)
     D3D12_FEATURE_DATA_TIGHT_ALIGNMENT m_dTightAlignment;
 #endif
@@ -442,6 +446,7 @@ inline CD3DX12FeatureSupport::CD3DX12FeatureSupport() noexcept
 #if defined (D3D12_SDK_VERSION) && (D3D12_SDK_VERSION >= 619)
 , m_dOptions22{}
 #endif
+
 #if defined(D3D12_SDK_VERSION) && (D3D12_SDK_VERSION >= 617)
 , m_dTightAlignment{}
 #endif
@@ -627,7 +632,6 @@ inline HRESULT CD3DX12FeatureSupport::Init(ID3D12Device* pDevice)
         m_dOptions22 = {};
     }
 #endif
-
 
     if (FAILED(m_pDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS_PREVIEW, &m_dOptionsPreview, sizeof(m_dOptionsPreview))))
     {
@@ -1034,8 +1038,11 @@ FEATURE_SUPPORT_GET(UINT, m_dOptions22, Max1DDispatchSize);
 FEATURE_SUPPORT_GET(UINT, m_dOptions22, Max1DDispatchMeshSize);
 #endif
 
+// D3D12_OPTIONS_PREVIEW
+FEATURE_SUPPORT_GET(BOOL, m_dOptionsPreview, UAVOfDepthStencilSupported);
+FEATURE_SUPPORT_GET(BOOL, m_dOptionsPreview, D32S8Interleaved);
 
-// Helper function to decide the highest shader model supported by the system
+// Helper function to decide the highest shader modelsupported by the system
 // Stores the result in m_dShaderModel
 // Must be updated whenever a new shader model is added to the d3d12.h header
 inline HRESULT CD3DX12FeatureSupport::QueryHighestShaderModel()

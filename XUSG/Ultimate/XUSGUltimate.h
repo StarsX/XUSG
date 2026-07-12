@@ -175,12 +175,10 @@ namespace XUSG
 			UINT32,
 			FLOAT16,
 			FLOAT32,
-			SINT8_T4_PACKED,
-			UINT8_T4_PACKED,
 			UINT8,
 			SINT8,
-			FLOAT_E4M3,
-			FLOAT_E5M2
+			FLOAT8_E4M3FN,
+			FLOAT8_E5M2
 		};
 
 		struct ResourceBarrier
