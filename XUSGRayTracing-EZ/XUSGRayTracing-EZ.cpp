@@ -15,14 +15,12 @@ using namespace std;
 using namespace XUSG::RayTracing;
 using namespace XUSG::RayTracing::EZ;
 
-XUSG::EZ::ResourceView EZ::GetSRV(TopLevelAS* pTLAS)
+XUSG::EZ::ResourceView EZ::GetSRV(const TopLevelAS* pTLAS)
 {
 	XUSG::EZ::ResourceView resourceView;
-	resourceView.pResource = nullptr;
 	resourceView.View = pTLAS->GetSRV();
 	resourceView.Subresources = {};
 	resourceView.DstState = XUSG::ResourceState::RAYTRACING_ACCELERATION_STRUCTURE;
-	resourceView.pCounter = nullptr;
 
 	return resourceView;
 }

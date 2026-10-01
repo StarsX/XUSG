@@ -13,7 +13,7 @@ namespace XUSG
 	{
 		namespace EZ
 		{
-			XUSG_INTERFACE XUSG::EZ::ResourceView GetSRV(TopLevelAS* pTLAS);
+			XUSG_INTERFACE XUSG::EZ::ResourceView GetSRV(const TopLevelAS* pTLAS);
 
 			//--------------------------------------------------------------------------------------
 			// RayTracing command list

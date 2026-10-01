@@ -284,8 +284,9 @@ void EZ::CommandList_DX12::OMSetRenderTargets(uint32_t numRenderTargets,
 	if (pDepthStencilView)
 	{
 		setBarriers(1, pDepthStencilView);
-		m_graphicsState->OMSetDSVFormat(dynamic_cast<Texture*>(pDepthStencilView->pResource)->GetFormat());
-		m_meshShaderState->OMSetDSVFormat(dynamic_cast<Texture*>(pDepthStencilView->pResource)->GetFormat());
+		const auto format = dynamic_cast<const Texture*>(pDepthStencilView->View->pResource)->GetFormat();
+		m_graphicsState->OMSetDSVFormat(format);
+		m_meshShaderState->OMSetDSVFormat(format);
 	}
 	else
 	{
@@ -300,8 +301,9 @@ void EZ::CommandList_DX12::OMSetRenderTargets(uint32_t numRenderTargets,
 	for (auto i = 0u; i < numRenderTargets; ++i)
 	{
 		pRTVs[i] = pRenderTargetViews[i].View;
-		m_graphicsState->OMSetRTVFormat(i, dynamic_cast<Texture*>(pRenderTargetViews[i].pResource)->GetFormat());
-		m_meshShaderState->OMSetRTVFormat(i, dynamic_cast<Texture*>(pRenderTargetViews[i].pResource)->GetFormat());
+		const auto format = dynamic_cast<const Texture*>(pRTVs[i]->pResource)->GetFormat();
+		m_graphicsState->OMSetRTVFormat(i, format);
+		m_meshShaderState->OMSetRTVFormat(i, format);
 	}
 
 	for (auto i = numRenderTargets; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)

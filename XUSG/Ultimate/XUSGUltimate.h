@@ -462,34 +462,32 @@ namespace XUSG
 
 			using Resource::Create;
 			// Create a texture with auto SRVs and UAVs
-			virtual bool Create(const Device* pDevice, const Texture* pTarget, Format format,
-				uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
-				ResourceFlag resourceFlags = ResourceFlag::NONE, bool isCubeMap = false,
-				MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
+			virtual bool Create(const Device* pDevice, Texture* pTarget, Format format, uint32_t mipRegionWidth,
+				uint32_t mipRegionHeight, uint32_t mipRegionDepth, ResourceFlag resourceFlags = ResourceFlag::NONE,
+				bool isCubeMap = false, MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 				uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 				TextureLayout textureLayout = TextureLayout::UNKNOWN,
 				uint32_t maxThreads = 1) = 0;
-			virtual bool Create(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, const Texture* pTarget,
+			virtual bool Create(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, Texture* pTarget,
 				Format format, uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
 				ResourceFlag resourceFlags = ResourceFlag::NONE, bool isCubeMap = false,
 				const wchar_t* name = nullptr, uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 				TextureLayout textureLayout = TextureLayout::UNKNOWN,
 				uint32_t maxThreads = 1) = 0;
-			virtual bool CreateResource(const Device* pDevice, const Texture* pTarget, Format format,
-				uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
-				ResourceFlag resourceFlags = ResourceFlag::NONE, bool isCubeMap = false,
-				MemoryFlag memoryFlags = MemoryFlag::NONE,
+			virtual bool CreateResource(const Device* pDevice, Texture* pTarget, Format format, uint32_t mipRegionWidth,
+				uint32_t mipRegionHeight, uint32_t mipRegionDepth, ResourceFlag resourceFlags = ResourceFlag::NONE,
+				bool isCubeMap = false, MemoryFlag memoryFlags = MemoryFlag::NONE,
 				ResourceState initialResourceState = ResourceState::COMMON,
 				TextureLayout textureLayout = TextureLayout::UNKNOWN,
 				uint32_t maxThreads = 1) = 0;
-			virtual bool CreateResource(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset,
-				const Texture* pTarget, Format format, uint32_t mipRegionWidth, uint32_t mipRegionHeight,
-				uint32_t mipRegionDepth, ResourceFlag resourceFlags = ResourceFlag::NONE, bool isCubeMap = false,
+			virtual bool CreateResource(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, Texture* pTarget,
+				Format format, uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
+				ResourceFlag resourceFlags = ResourceFlag::NONE, bool isCubeMap = false,
 				ResourceState initialResourceState = ResourceState::COMMON,
 				TextureLayout textureLayout = TextureLayout::UNKNOWN,
 				uint32_t maxThreads = 1) = 0;
 
-			virtual Descriptor CreateUAV(const Descriptor& uavHeapStart, uint32_t descriptorIdx, const Resource* pTarget) = 0;
+			virtual Descriptor CreateUAV(Resource* pTarget) = 0;
 
 			using uptr = std::unique_ptr<SamplerFeedBack>;
 			using sptr = std::shared_ptr<SamplerFeedBack>;

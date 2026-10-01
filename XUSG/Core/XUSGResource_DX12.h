@@ -8,6 +8,18 @@
 
 namespace XUSG
 {
+	struct ResourceView : DescriptorHeader
+	{
+		union
+		{
+			D3D12_CONSTANT_BUFFER_VIEW_DESC CbvDesc;
+			D3D12_SHADER_RESOURCE_VIEW_DESC SrvDesc;
+			D3D12_UNORDERED_ACCESS_VIEW_DESC UavDesc;
+			D3D12_RENDER_TARGET_VIEW_DESC RtvDesc;
+			D3D12_DEPTH_STENCIL_VIEW_DESC DsvDesc;
+		};
+	};
+
 	//--------------------------------------------------------------------------------------
 	// Heap
 	//--------------------------------------------------------------------------------------
@@ -57,9 +69,6 @@ namespace XUSG
 		bool WriteToSubresource(uint32_t dstSubresource, const void* pSrcData, uint32_t srcRowPitch,
 			uint32_t srcDepthPitch, const BoxRange* pDstBox = nullptr);
 
-		Descriptor AllocateCbvSrvUavHeap(const Device* pDevice, uint32_t numDescriptors);
-		Descriptor SetCbvSrvUavHeap(const Resource* pResourceWithDescriptorHeap);
-
 		uint32_t SetBarrier(ResourceBarrier* pBarriers, ResourceState dstState,
 			uint32_t numBarriers = 0, uint32_t subresource = XUSG_BARRIER_ALL_SUBRESOURCES,
 			BarrierFlag flags = BarrierFlag::NONE, ResourceState srcState = ResourceState::AUTO,
@@ -85,8 +94,6 @@ namespace XUSG
 
 		com_ptr<ID3D12Resource>& GetResource();
 
-		const com_ptr<ID3D12DescriptorHeap>& GetCbvSrvUavHeap(std::shared_ptr<uint32_t>& cbvSrvUavIdx) const;
-
 	protected:
 		bool initialize(const Device* pDevice);
 
@@ -94,9 +101,7 @@ namespace XUSG
 		com_ptr<ID3D12Resource>	m_resource;
 		std::vector<std::vector<ResourceState>> m_states;
 
-		com_ptr<ID3D12DescriptorHeap> m_cbvSrvUavHeap;
-
-		std::shared_ptr<uint32_t> m_cbvSrvUavIdx;
+		std::vector<std::shared_ptr<ResourceView>> m_resourceViews;
 
 		void* m_pDataBegin;
 
@@ -133,8 +138,7 @@ namespace XUSG
 			const void* pData, size_t byteSize, ResourceState srcState = ResourceState::COMMON,
 			ResourceState dstState = ResourceState::COMMON);
 
-		Descriptor CreateCBV(const Descriptor& cbvHeapStart, uint32_t descriptorIdx,
-			uint32_t byteSize, size_t byteOffset = 0);
+		Descriptor CreateCBV(uint32_t byteSize, size_t byteOffset = 0);
 
 		void* Map(uint32_t cbvIndex = 0, uintptr_t readBegin = 0, uintptr_t readEnd = 0);
 		void* Map(const Range* pReadRange, uint32_t cbvIndex = 0);
@@ -227,13 +231,11 @@ namespace XUSG
 			uint32_t numSubresources = 1, uint32_t firstSubresource = 0, size_t offset = 0,
 			ResourceState dstState = ResourceState::COMMON, uint32_t threadIdx = 0);
 
-		Descriptor CreateSRV(const Descriptor& srvHeapStart, uint32_t descriptorIdx, uint16_t arraySize,
-			uint16_t firstArraySlice = 0, Format format = Format::UNKNOWN, uint8_t numMips = 1,
-			uint8_t mostDetailedMip = 0, bool multisamples = false, bool isCubeMap = false,
+		Descriptor CreateSRV(uint16_t arraySize, uint16_t firstArraySlice = 0, Format format = Format::UNKNOWN,
+			uint8_t numMips = 1, uint8_t mostDetailedMip = 0, bool multisamples = false, bool isCubeMap = false,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING, uint8_t plane = 0);
-		Descriptor CreateUAV(const Descriptor& uavHeapStart, uint32_t descriptorIdx, uint16_t arraySize,
-			uint16_t firstArraySlice = 0, Format format = Format::UNKNOWN, uint8_t mipLevel = 0,
-			uint8_t plane = 0);
+		Descriptor CreateUAV(uint16_t arraySize, uint16_t firstArraySlice = 0, Format format = Format::UNKNOWN,
+			uint8_t mipLevel = 0, uint8_t plane = 0);
 
 		using ShaderResource_DX12::SetBarrier;
 		uint32_t SetBarrier(ResourceBarrier* pBarriers, uint8_t mipLevel, ResourceState dstState,
@@ -347,11 +349,8 @@ namespace XUSG
 			const float* pClearColor = nullptr, TextureLayout textureLayout = TextureLayout::UNKNOWN,
 			uint8_t numCastableFormats = 0, const Format* pCastableFormats = nullptr, uint32_t maxThreads = 1);
 
-		Descriptor AllocateRtvHeap(const Device* pDevice, uint32_t numDescriptors);
-		Descriptor SetRtvHeap(const RenderTarget* pResourceWithDescriptorHeap);
-		Descriptor CreateRTV(const Descriptor& rtvHeapStart, uint32_t descriptorIdx, uint16_t arraySize,
-			uint16_t firstArraySlice = 0, Format format = Format::UNKNOWN, uint8_t mipLevel = 0,
-			bool multisamples = false);
+		Descriptor CreateRTV(uint16_t arraySize, uint16_t firstArraySlice, Format format = Format::UNKNOWN,
+			uint8_t mipLevel = 0, bool multisamples = false);
 
 		using Texture_DX12::Blit;
 		void Blit(const CommandList* pCommandList, const DescriptorTable& srcSrvTable,
@@ -374,8 +373,6 @@ namespace XUSG
 
 		const Descriptor& GetRTV(uint16_t slice = 0, uint8_t mipLevel = 0) const;
 
-		const com_ptr<ID3D12DescriptorHeap>& GetRtvHeap(std::shared_ptr<uint32_t>& rtvIdx) const;
-
 	protected:
 		bool create(const Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize,
 			Format format, uint8_t& numMips, uint8_t sampleCount, ResourceFlag resourceFlags,
@@ -386,10 +383,6 @@ namespace XUSG
 			uint16_t arraySize, Format format, uint8_t& numMips, uint8_t sampleCount, ResourceFlag resourceFlags,
 			const float* pClearColor, bool isCubeMap, const wchar_t* name, uint16_t srvComponentMapping,
 			TextureLayout textureLayout, uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads);
-
-		com_ptr<ID3D12DescriptorHeap> m_rtvHeap;
-
-		std::shared_ptr<uint32_t> m_rtvIdx;
 
 		std::vector<std::vector<Descriptor>> m_rtvs;
 	};
@@ -447,16 +440,11 @@ namespace XUSG
 			float clearDepth = 1.0f, uint8_t clearStencil = 0, TextureLayout textureLayout = TextureLayout::UNKNOWN,
 			uint32_t maxThreads = 1);
 
-		Descriptor AllocateDsvHeap(const Device* pDevice, uint32_t numDescriptors);
-		Descriptor SetDsvHeap(const DepthStencil* pResourceWithDescriptorHeap);
-		Descriptor CreateDSV(const Descriptor& dsvHeapStart, uint32_t descriptorIdx, uint16_t arraySize,
-			uint16_t firstArraySlice = 0, Format format = Format::UNKNOWN, uint8_t mipLevel = 0,
-			bool multisamples = false, bool readOnlyDepth = false, bool readOnlyStencil = false);
+		Descriptor CreateDSV(uint16_t arraySize, uint16_t firstArraySlice = 0, Format format = Format::UNKNOWN,
+			uint8_t mipLevel = 0, bool multisamples = false, bool readOnlyDepth = false, bool readOnlyStencil = false);
 
 		const Descriptor& GetDSV(uint16_t slice = 0, uint8_t mipLevel = 0, bool readOnly = false) const;
 		const Descriptor& GetSRV(uint8_t firstLevel = 0, bool singleLevel = false, bool stencil = false) const;
-
-		const com_ptr<ID3D12DescriptorHeap>& GetDsvHeap(std::shared_ptr<uint32_t>& dsvIdx) const;
 
 	protected:
 		bool create(const Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize, uint8_t& numMips,
@@ -472,10 +460,6 @@ namespace XUSG
 
 		void mapFormat(Format& format);
 		void separateFormat(Format& format, Format& formatDepth, Format& formatStencil);
-
-		com_ptr<ID3D12DescriptorHeap> m_dsvHeap;
-
-		std::shared_ptr<uint32_t> m_dsvIdx;
 
 		std::vector<std::vector<Descriptor>> m_dsvs;
 		std::vector<std::vector<Descriptor>> m_readOnlyDsvs;
@@ -520,11 +504,9 @@ namespace XUSG
 			uint8_t numCastableFormats = 0, const Format* pCastableFormats = nullptr,
 			uint32_t maxThreads = 1);
 
-		Descriptor CreateSRV(const Descriptor& srvHeapStart, uint32_t descriptorIdx,
-			Format format = Format::UNKNOWN, uint8_t numMips = 1, uint8_t mostDetailedMip = 0,
+		Descriptor CreateSRV(Format format = Format::UNKNOWN, uint8_t numMips = 1, uint8_t mostDetailedMip = 0,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING);
-		Descriptor CreateUAV(const Descriptor& uavHeapStart, uint32_t descriptorIdx, uint16_t wSize,
-			uint16_t firstWSlice = 0, Format format = Format::UNKNOWN, uint8_t mipLevel = 0);
+		Descriptor CreateUAV(uint16_t wSize, uint16_t firstWSlice = 0, Format format = Format::UNKNOWN, uint8_t mipLevel = 0);
 
 		uint32_t CalculateSubresource(uint8_t mipLevel) const;
 		uint16_t GetDepth() const;
@@ -572,11 +554,10 @@ namespace XUSG
 		bool ReadBack(CommandList* pCommandList, Buffer* pReadBuffer, size_t size = 0, size_t dstOffset = 0,
 			size_t srcOffset = 0, ResourceState dstState = ResourceState::COMMON, uint32_t threadIdx = 0);
 
-		Descriptor CreateSRV(const Descriptor& srvHeapStart, uint32_t descriptorIdx,
-			uint32_t numElements, uint32_t byteStride, Format format, uintptr_t firstElement = 0,
-			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING);
-		Descriptor CreateUAV(const Descriptor& uavHeapStart, uint32_t descriptorIdx, uint32_t numElements,
-			uint32_t byteStride, Format format, uintptr_t firstElement = 0, size_t counterByteOffset = 0);
+		Descriptor CreateSRV(uint32_t numElements, uint32_t byteStride, Format format,
+			uintptr_t firstElement = 0, uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING);
+		Descriptor CreateUAV(uint32_t numElements, uint32_t byteStride, Format format,
+			uintptr_t firstElement = 0, size_t counterByteOffset = 0);
 
 		const Descriptor& GetUAV(uint32_t index = 0) const;
 

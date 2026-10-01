@@ -211,15 +211,13 @@ void EZ::CommandList_DX12::CopyBufferRegion(Resource* pDstBuffer, uint64_t dstOf
 	XUSG::CommandList_DX12::CopyBufferRegion(pDstBuffer, dstOffset, pSrcBuffer, srcOffset, numBytes);
 }
 
-void EZ::CommandList_DX12::CopyTextureRegion(const TextureCopyLocation& dst, uint32_t dstX,
-	uint32_t dstY, uint32_t dstZ, const TextureCopyLocation& src, const BoxRange* pSrcBox)
+void EZ::CommandList_DX12::CopyTextureRegion(TextureCopyLocation& dst, uint32_t dstX, uint32_t dstY, uint32_t dstZ,
+	TextureCopyLocation& src, const BoxRange* pSrcBox)
 {
 	// Generate barriers for each resource
 	ResourceBarrier barriers[2];
-	auto numBarriers = const_cast<Resource*>(dst.pResource)->SetBarrier(
-		barriers, ResourceState::COPY_DEST, 0, dst.SubresourceIndex);
-	numBarriers = const_cast<Resource*>(src.pResource)->SetBarrier(
-		barriers, ResourceState::COPY_SOURCE, numBarriers, src.SubresourceIndex);
+	auto numBarriers = dst.pResource->SetBarrier(barriers, ResourceState::COPY_DEST, 0, dst.SubresourceIndex);
+	numBarriers = src.pResource->SetBarrier(barriers, ResourceState::COPY_SOURCE, numBarriers, src.SubresourceIndex);
 	XUSG::CommandList_DX12::Barrier(numBarriers, barriers);
 
 	XUSG::CommandList_DX12::CopyTextureRegion(dst, dstX, dstY, dstZ, src, pSrcBox);
@@ -433,7 +431,7 @@ void EZ::CommandList_DX12::SetResources(Shader::Stage stage, DescriptorType desc
 		{
 			for (auto i = 0u; i < numResources; ++i)
 			{
-				if (pResourceViews[i].pResource == args.pResource)
+				if (pResourceViews[i].View->pResource == args.DepthStencilView->pResource)
 				{
 					needClearDSVs = true;
 					break;
@@ -446,7 +444,7 @@ void EZ::CommandList_DX12::SetResources(Shader::Stage stage, DescriptorType desc
 		{
 			for (auto i = 0u; i < numResources; ++i)
 			{
-				if (pResourceViews[i].pResource == args.pResource)
+				if (pResourceViews[i].View->pResource == args.RenderTargetView->pResource)
 				{
 					needClearRTVs = true;
 					break;
@@ -560,14 +558,14 @@ void EZ::CommandList_DX12::IASetVertexBuffers(uint32_t startSlot, uint32_t numVi
 {
 	vector<XUSG::VertexBufferView> views(numViews);
 
-	// Set barriers if the index buffers is not at the read states
+	// Set barriers if the vertex buffers is not at the read states
 	const auto startIdx = m_barriers.size();
 	m_barriers.resize(startIdx + numViews);
 	auto numBarriers = 0u;
 	for (auto i = 0u; i < numViews; ++i)
 	{
 		auto& view = pViews[i];
-		const auto numBarriers = view.pResource->SetBarrier(&m_barriers[startIdx], view.DstState);
+		numBarriers = view.pResource->SetBarrier(&m_barriers[startIdx], view.DstState, numBarriers);
 		views[i] = *view.pView;
 	}
 
@@ -577,18 +575,18 @@ void EZ::CommandList_DX12::IASetVertexBuffers(uint32_t startSlot, uint32_t numVi
 	XUSG::CommandList_DX12::IASetVertexBuffers(startSlot, numViews, views.data());
 }
 
-void EZ::CommandList_DX12::SOSetTargets(uint32_t startSlot, uint32_t numViews, const StreamOutBufferView* pViews, Resource* const* ppResources)
+void EZ::CommandList_DX12::SOSetTargets(uint32_t startSlot, uint32_t numViews,
+	const StreamOutBufferView* pViews, Resource* const* ppResources)
 {
-	vector<ResourceView> resourceViews(numViews);
+	// Set barriers if the stream-out buffers is not at the stream-out states
+	const auto startIdx = m_barriers.size();
+	m_barriers.resize(startIdx + numViews);
+	auto numBarriers = 0u;
 	for (auto i = 0u; i < numViews; ++i)
-	{
-		auto& resourceView = resourceViews[i];
-		resourceView.pResource = ppResources[i];
-		resourceView.Subresources = { XUSG_BARRIER_ALL_SUBRESOURCES };
-		resourceView.DstState = ResourceState::STREAM_OUT;
-	}
+		numBarriers = ppResources[i]->SetBarrier(&m_barriers[startIdx], ResourceState::STREAM_OUT, numBarriers);
 
-	setBarriers(numViews, resourceViews.data());
+	// Shrink the size of barrier list
+	if (numBarriers < numViews) m_barriers.resize(startIdx + numBarriers);
 
 	XUSG::CommandList_DX12::SOSetTargets(startSlot, numViews, pViews);
 }
@@ -603,7 +601,8 @@ void EZ::CommandList_DX12::OMSetRenderTargets(uint32_t numRenderTargets,
 	if (pDepthStencilView)
 	{
 		setBarriers(1, pDepthStencilView);
-		m_graphicsState->OMSetDSVFormat(dynamic_cast<Texture*>(pDepthStencilView->pResource)->GetFormat());
+		const auto pTexture = dynamic_cast<const Texture*>(pDepthStencilView->View->pResource);
+		m_graphicsState->OMSetDSVFormat(pTexture ? pTexture->GetFormat() : Format::UNKNOWN);
 	}
 	else m_graphicsState->OMSetDSVFormat(Format::UNKNOWN);
 
@@ -613,7 +612,8 @@ void EZ::CommandList_DX12::OMSetRenderTargets(uint32_t numRenderTargets,
 	for (auto i = 0u; i < numRenderTargets; ++i)
 	{
 		pRTVs[i] = pRenderTargetViews[i].View;
-		m_graphicsState->OMSetRTVFormat(i, dynamic_cast<Texture*>(pRenderTargetViews[i].pResource)->GetFormat());
+		const auto pTexture = dynamic_cast<const Texture*>(pRenderTargetViews[i].View->pResource);
+		m_graphicsState->OMSetRTVFormat(i, pTexture ? pTexture->GetFormat() : Format::UNKNOWN);
 	}
 
 	for (auto i = numRenderTargets; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
@@ -629,7 +629,7 @@ void EZ::CommandList_DX12::ClearDepthStencilView(const ResourceView& depthStenci
 	float depth, uint8_t stencil, uint32_t numRects, const RectRange* pRects)
 {
 	setBarriers(1, &depthStencilView);
-	m_clearDSVs.emplace_back(ClearDSV{ depthStencilView.pResource, depthStencilView.View, clearFlags, depth, stencil });
+	m_clearDSVs.emplace_back(ClearDSV{ depthStencilView.View, clearFlags, depth, stencil });
 
 	auto& clearView = m_clearDSVs.back();
 	clearView.Rects.resize(numRects);
@@ -640,8 +640,7 @@ void EZ::CommandList_DX12::ClearRenderTargetView(const ResourceView& renderTarge
 	const float colorRGBA[4], uint32_t numRects, const RectRange* pRects)
 {
 	setBarriers(1, &renderTargetView);
-	m_clearRTVs.emplace_back(ClearRTV{ renderTargetView.pResource, renderTargetView.View,
-		colorRGBA[0], colorRGBA[1], colorRGBA[2], colorRGBA[3] });
+	m_clearRTVs.emplace_back(ClearRTV{ renderTargetView.View, colorRGBA[0], colorRGBA[1], colorRGBA[2], colorRGBA[3] });
 
 	auto& clearView = m_clearRTVs.back();
 	clearView.Rects.resize(numRects);
@@ -1237,11 +1236,11 @@ void EZ::CommandList_DX12::clearUAVs()
 {
 	for (const auto& args : m_clearUAVsUint)
 		XUSG::CommandList_DX12::ClearUnorderedAccessViewUint(args.UAVTable, args.pUAV->View,
-			args.pUAV->pResource, args.Values, static_cast<uint32_t>(args.Rects.size()), args.Rects.data());
+			args.Values, static_cast<uint32_t>(args.Rects.size()), args.Rects.data());
 
 	for (const auto& args : m_clearUAVsFloat)
 		XUSG::CommandList_DX12::ClearUnorderedAccessViewFloat(args.UAVTable, args.pUAV->View,
-			args.pUAV->pResource, args.Values, static_cast<uint32_t>(args.Rects.size()), args.Rects.data());
+			args.Values, static_cast<uint32_t>(args.Rects.size()), args.Rects.data());
 
 	// Set barrier and barrier command
 	if (!m_clearUAVs.empty())
@@ -1263,7 +1262,7 @@ void EZ::CommandList_DX12::setBarriers(uint32_t numResources, const ResourceView
 	for (auto i = 0u; i < numResources; ++i)
 	{
 		numBarriersEst += static_cast<uint32_t>(pResourceViews[i].Subresources.size());
-		numBarriersEst = pResourceViews[i].pCounter ? numBarriersEst + 1 : numBarriersEst;
+		numBarriersEst = pResourceViews[i].View->pCounterResource ? numBarriersEst + 1 : numBarriersEst;
 	}
 
 	if (numBarriersEst > 0)
@@ -1283,15 +1282,16 @@ void EZ::CommandList_DX12::setBarriers(uint32_t numResources, const ResourceView
 uint32_t EZ::CommandList_DX12::generateBarriers(ResourceBarrier* pBarriers,
 	const ResourceView& resrouceView, uint32_t numBarriers, BarrierFlag flags)
 {
-	assert(resrouceView.pResource || resrouceView.Subresources.empty());
+	assert(resrouceView.View->pResource || resrouceView.Subresources.empty());
 	for (const auto& subresource : resrouceView.Subresources)
-		numBarriers = resrouceView.pResource->SetBarrier(pBarriers, resrouceView.DstState, numBarriers, subresource, flags);
+		numBarriers = resrouceView.View->pResource->SetBarrier(pBarriers,
+			resrouceView.DstState, numBarriers, subresource, flags);
 
-	if (resrouceView.pCounter)
+	if (resrouceView.View->pCounterResource)
 	{
 		assert(resrouceView.DstState == ResourceState::UNORDERED_ACCESS);
-		numBarriers = resrouceView.pCounter->SetBarrier(pBarriers, ResourceState::UNORDERED_ACCESS,
-			numBarriers, XUSG_BARRIER_ALL_SUBRESOURCES, flags);
+		numBarriers = resrouceView.View->pCounterResource->SetBarrier(pBarriers,
+			ResourceState::UNORDERED_ACCESS, numBarriers, XUSG_BARRIER_ALL_SUBRESOURCES, flags);
 	}
 
 	return numBarriers;

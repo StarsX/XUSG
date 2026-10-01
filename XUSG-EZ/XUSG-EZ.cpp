@@ -18,63 +18,53 @@ void EZ::CalcSubresources(vector<uint32_t>& subresources, const Texture* pResour
 		subresources[i] = pResource->CalculateSubresource(mipSlice, i, planeSlice);
 }
 
-ResourceView EZ::GetCBV(ConstantBuffer* pResource, uint32_t index)
+ResourceView EZ::GetCBV(const ConstantBuffer* pResource, uint32_t index)
 {
 	ResourceView resourceView;
-	resourceView.pResource = pResource;
 	resourceView.View = pResource->GetCBV(index);
 	resourceView.DstState = ResourceState::GENERIC_READ_RESOURCE;
-	resourceView.pCounter = nullptr;
 
 	return resourceView;
 }
 
-ResourceView EZ::GetSRV(Buffer* pResource, uint32_t index, ResourceState dstState)
+ResourceView EZ::GetSRV(const Buffer* pResource, uint32_t index, ResourceState dstState)
 {
 	ResourceView resourceView;
-	resourceView.pResource = pResource;
 	resourceView.View = pResource->GetSRV(index);
 	resourceView.Subresources = { XUSG_BARRIER_ALL_SUBRESOURCES };
 	resourceView.DstState = pResource->GetResourceState() == ResourceState::GENERIC_READ_RESOURCE ?
 		ResourceState::GENERIC_READ_RESOURCE : dstState;
-	resourceView.pCounter = nullptr;
 
 	return resourceView;
 }
 
-ResourceView EZ::GetSRV(VertexBuffer* pResource, uint32_t index, ResourceState dstState)
+ResourceView EZ::GetSRV(const VertexBuffer* pResource, uint32_t index, ResourceState dstState)
 {
 	ResourceView resourceView;
-	resourceView.pResource = pResource;
 	resourceView.View = pResource->GetSRV(index);
 	resourceView.Subresources = { XUSG_BARRIER_ALL_SUBRESOURCES };
 	resourceView.DstState = pResource->GetResourceState() == ResourceState::GENERIC_READ_RESOURCE ?
 		ResourceState::GENERIC_READ_RESOURCE : dstState;
-	resourceView.pCounter = nullptr;
 
 	return resourceView;
 }
 
-ResourceView EZ::GetSRV(IndexBuffer* pResource, uint32_t index, ResourceState dstState)
+ResourceView EZ::GetSRV(const IndexBuffer* pResource, uint32_t index, ResourceState dstState)
 {
 	ResourceView resourceView;
-	resourceView.pResource = pResource;
 	resourceView.View = pResource->GetSRV(index);
 	resourceView.Subresources = { XUSG_BARRIER_ALL_SUBRESOURCES };
 	resourceView.DstState = pResource->GetResourceState() == ResourceState::GENERIC_READ_RESOURCE ?
 		ResourceState::GENERIC_READ_RESOURCE : dstState;
-	resourceView.pCounter = nullptr;
 
 	return resourceView;
 }
 
-ResourceView EZ::GetSRV(Texture* pResource, uint8_t firstLevel, bool singleLevel, ResourceState dstState)
+ResourceView EZ::GetSRV(const Texture* pResource, uint8_t firstLevel, bool singleLevel, ResourceState dstState)
 {
 	ResourceView resourceView;
-	resourceView.pResource = pResource;
 	resourceView.View = pResource->GetSRV(firstLevel, singleLevel);
 	resourceView.DstState = dstState;
-	resourceView.pCounter = nullptr;
 
 	if (singleLevel) CalcSubresources(resourceView.Subresources, pResource, firstLevel);
 	else
@@ -92,13 +82,11 @@ ResourceView EZ::GetSRV(Texture* pResource, uint8_t firstLevel, bool singleLevel
 	return resourceView;
 }
 
-ResourceView EZ::GetSRV(Texture3D* pResource, uint8_t firstLevel, bool singleLevel, ResourceState dstState)
+ResourceView EZ::GetSRV(const Texture3D* pResource, uint8_t firstLevel, bool singleLevel, ResourceState dstState)
 {
 	ResourceView resourceView;
-	resourceView.pResource = pResource;
 	resourceView.View = pResource->GetSRV(firstLevel, singleLevel);
 	resourceView.DstState = dstState;
-	resourceView.pCounter = nullptr;
 
 	if (singleLevel) resourceView.Subresources = { pResource->CalculateSubresource(firstLevel) };
 	else
@@ -114,63 +102,53 @@ ResourceView EZ::GetSRV(Texture3D* pResource, uint8_t firstLevel, bool singleLev
 	return resourceView;
 }
 
-ResourceView EZ::GetUAV(Buffer* pResource, uint32_t index)
+ResourceView EZ::GetUAV(const Buffer* pResource, uint32_t index)
 {
 	ResourceView resourceView;
-	resourceView.pResource = pResource;
 	resourceView.View = pResource->GetUAV(index);
 	resourceView.Subresources = { XUSG_BARRIER_ALL_SUBRESOURCES };
 	resourceView.DstState = ResourceState::UNORDERED_ACCESS;
-	resourceView.pCounter = pResource->GetCounter().get();
 
 	return resourceView;
 }
 
-ResourceView EZ::GetUAV(Texture* pResource, uint8_t level, Format format)
+ResourceView EZ::GetUAV(const Texture* pResource, uint8_t level, Format format)
 {
 	ResourceView resourceView;
-	resourceView.pResource = pResource;
 	resourceView.View = pResource->GetUAV(level, format);
 	resourceView.DstState = ResourceState::UNORDERED_ACCESS;
-	resourceView.pCounter = nullptr;
 	CalcSubresources(resourceView.Subresources, pResource, level);
 
 	return resourceView;
 }
 
-ResourceView EZ::GetUAV(Texture3D* pResource, uint8_t level, Format format)
+ResourceView EZ::GetUAV(const Texture3D* pResource, uint8_t level, Format format)
 {
 	ResourceView resourceView;
-	resourceView.pResource = pResource;
 	resourceView.View = pResource->GetUAV(level, format);
 	resourceView.Subresources = { pResource->CalculateSubresource(level) };
 	resourceView.DstState = ResourceState::UNORDERED_ACCESS;
-	resourceView.pCounter = nullptr;
 
 	return resourceView;
 }
 
-ResourceView EZ::GetUAV(TypedBuffer* pResource, uint32_t index, Format format)
+ResourceView EZ::GetUAV(const TypedBuffer* pResource, uint32_t index, Format format)
 {
 	ResourceView resourceView;
-	resourceView.pResource = pResource;
 	resourceView.View = pResource->GetUAV(index, format);
 	resourceView.Subresources = { XUSG_BARRIER_ALL_SUBRESOURCES };
 	resourceView.DstState = ResourceState::UNORDERED_ACCESS;
-	resourceView.pCounter = pResource->GetCounter().get();
 
 	return resourceView;
 }
 
-ResourceView EZ::GetRTV(RenderTarget* pResource, uint16_t slice, uint8_t mipLevel)
+ResourceView EZ::GetRTV(const RenderTarget* pResource, uint16_t slice, uint8_t mipLevel)
 {
 	const bool isArray = slice == UINT16_MAX;
 
 	ResourceView resourceView;
-	resourceView.pResource = pResource;
 	resourceView.View = pResource->GetRTV(isArray ? 0 : slice, mipLevel);
 	resourceView.DstState = ResourceState::RENDER_TARGET;
-	resourceView.pCounter = nullptr;
 
 	if (isArray) CalcSubresources(resourceView.Subresources, pResource, mipLevel);
 	else resourceView.Subresources = { pResource->CalculateSubresource(mipLevel, slice) };
@@ -178,15 +156,13 @@ ResourceView EZ::GetRTV(RenderTarget* pResource, uint16_t slice, uint8_t mipLeve
 	return resourceView;
 }
 
-ResourceView EZ::GetDSV(DepthStencil* pResource, uint16_t slice, uint8_t mipLevel)
+ResourceView EZ::GetDSV(const DepthStencil* pResource, uint16_t slice, uint8_t mipLevel)
 {
 	const bool isArray = slice == UINT16_MAX;
 
 	ResourceView resourceView;
-	resourceView.pResource = pResource;
 	resourceView.View = pResource->GetDSV(isArray ? 0 : slice, mipLevel);
 	resourceView.DstState = ResourceState::DEPTH_WRITE;
-	resourceView.pCounter = nullptr;
 
 	if (isArray) CalcSubresources(resourceView.Subresources, pResource, mipLevel);
 	else resourceView.Subresources = { pResource->CalculateSubresource(mipLevel, slice) };
@@ -194,16 +170,14 @@ ResourceView EZ::GetDSV(DepthStencil* pResource, uint16_t slice, uint8_t mipLeve
 	return resourceView;
 }
 
-ResourceView EZ::GetReadOnlyDSV(DepthStencil* pResource, uint16_t slice, uint8_t mipLevel, ResourceState dstSrvState)
+ResourceView EZ::GetReadOnlyDSV(const DepthStencil* pResource, uint16_t slice, uint8_t mipLevel, ResourceState dstSrvState)
 {
 	const bool isArray = slice == UINT16_MAX;
 
 	ResourceView resourceView;
-	resourceView.pResource = pResource;
 	resourceView.View = pResource->GetDSV(isArray ? 0 : slice, mipLevel, true);
 	resourceView.DstState = ResourceState::DEPTH_READ;
 	resourceView.DstState |= pResource->GetSRV() ? dstSrvState : resourceView.DstState;
-	resourceView.pCounter = nullptr;
 
 	if (isArray) CalcSubresources(resourceView.Subresources, pResource, mipLevel);
 	else resourceView.Subresources = { pResource->CalculateSubresource(mipLevel, slice) };
@@ -211,14 +185,12 @@ ResourceView EZ::GetReadOnlyDSV(DepthStencil* pResource, uint16_t slice, uint8_t
 	return resourceView;
 }
 
-ResourceView EZ::GetStencilSRV(DepthStencil* pResource, ResourceState dstState)
+ResourceView EZ::GetStencilSRV(const DepthStencil* pResource, ResourceState dstState)
 {
 	ResourceView resourceView;
-	resourceView.pResource = pResource;
 	resourceView.View = pResource->GetSRV(0, true, true);
 	resourceView.Subresources = { XUSG_BARRIER_ALL_SUBRESOURCES };
 	resourceView.DstState = dstState;
-	resourceView.pCounter = nullptr;
 
 	return resourceView;
 }

@@ -91,9 +91,8 @@ namespace XUSG
 				uint64_t countBufferOffset = 0);
 			void CopyBufferRegion(Resource* pDstBuffer, uint64_t dstOffset,
 				Resource* pSrcBuffer, uint64_t srcOffset, uint64_t numBytes);
-			void CopyTextureRegion(const TextureCopyLocation& dst,
-				uint32_t dstX, uint32_t dstY, uint32_t dstZ,
-				const TextureCopyLocation& src, const BoxRange* pSrcBox = nullptr);
+			void CopyTextureRegion(TextureCopyLocation& dst, uint32_t dstX, uint32_t dstY, uint32_t dstZ,
+				TextureCopyLocation& src, const BoxRange* pSrcBox = nullptr);
 			void CopyResource(Resource* pDstResource, Resource* pSrcResource);
 			void CopyTiles(Resource* pTiledResource, const TiledResourceCoord* pTileRegionStartCoord,
 				const TileRegionSize& tileRegionSize, const Resource* pBuffer, uint64_t bufferStartOffsetInBytes,
@@ -245,7 +244,6 @@ namespace XUSG
 
 			struct ClearDSV
 			{
-				const Resource* pResource;
 				Descriptor DepthStencilView;
 				ClearFlag ClearFlags;
 				float Depth;
@@ -255,7 +253,6 @@ namespace XUSG
 
 			struct ClearRTV
 			{
-				const Resource* pResource;
 				Descriptor RenderTargetView;
 				float ColorRGBA[4];
 				std::vector<RectRange> Rects;

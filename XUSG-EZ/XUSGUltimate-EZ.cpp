@@ -13,10 +13,9 @@ using namespace std;
 using namespace XUSG::Ultimate;
 using namespace XUSG::Ultimate::EZ;
 
-XUSG::EZ::ResourceView XUSG::Ultimate::EZ::GetUAV(SamplerFeedBack* pResource)
+XUSG::EZ::ResourceView XUSG::Ultimate::EZ::GetUAV(const SamplerFeedBack* pResource)
 {
 	XUSG::EZ::ResourceView resourceView;
-	resourceView.pResource = pResource;
 	resourceView.View = pResource->GetUAV();
 	resourceView.Subresources = { XUSG_BARRIER_ALL_SUBRESOURCES };
 	resourceView.DstState = ResourceState::UNORDERED_ACCESS;

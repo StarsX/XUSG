@@ -108,24 +108,20 @@ namespace XUSG
 		void IASetIndexBuffer(const IndexBufferView& view) const;
 		void IASetVertexBuffers(uint32_t startSlot, uint32_t numViews, const VertexBufferView* pViews) const;
 		void SOSetTargets(uint32_t startSlot, uint32_t numViews, const StreamOutBufferView* pViews) const;
-		void OMSetFramebuffer(const Framebuffer& framebuffer) const;
-		void OMSetRenderTargets(
-			uint32_t numRenderTargetDescriptors,
-			const Descriptor* pRenderTargetViews,
-			const Descriptor* pDepthStencilView = nullptr,
-			bool rtsSingleHandleToDescriptorRange = false) const;
-		void ClearDepthStencilView(const Framebuffer& framebuffer, ClearFlag clearFlags,
-			float depth, uint8_t stencil = 0, uint32_t numRects = 0, const RectRange * pRects = nullptr);
+		void OMSetRenderTargets(uint32_t numRenderTargetDescriptors, const Descriptor* pRenderTargetViews,
+			const Descriptor* pDepthStencilView = nullptr) const;
+		void ClearDepthStencilView(ClearFlag clearFlags, float depth, uint8_t stencil = 0,
+			uint32_t numRects = 0, const RectRange* pRects = nullptr);
 		void ClearDepthStencilView(const Descriptor& depthStencilView, ClearFlag clearFlags,
 			float depth, uint8_t stencil = 0, uint32_t numRects = 0, const RectRange* pRects = nullptr);
+		void ClearRenderTargetView(const float colorRGBA[4], uint8_t renderTargetViewIndex,
+			uint32_t numRects = 0, const RectRange* pRects = nullptr);
 		void ClearRenderTargetView(const Descriptor& renderTargetView, const float colorRGBA[4],
 			uint32_t numRects = 0, const RectRange* pRects = nullptr);
-		void ClearUnorderedAccessViewUint(const DescriptorTable& descriptorTable,
-			const Descriptor& descriptor, const Resource* pResource, const uint32_t values[4],
-			uint32_t numRects = 0, const RectRange* pRects = nullptr);
-		void ClearUnorderedAccessViewFloat(const DescriptorTable& descriptorTable,
-			const Descriptor& descriptor, const Resource* pResource, const float values[4],
-			uint32_t numRects = 0, const RectRange* pRects = nullptr);
+		void ClearUnorderedAccessViewUint(const DescriptorTable& descriptorTable, const Descriptor& descriptor,
+			const uint32_t values[4], uint32_t numRects = 0, const RectRange* pRects = nullptr);
+		void ClearUnorderedAccessViewFloat(const DescriptorTable& descriptorTable, const Descriptor& descriptor,
+			const float values[4], uint32_t numRects = 0, const RectRange* pRects = nullptr);
 		void DiscardResource(const Resource* pResource, uint32_t numRects, const RectRange* pRects,
 			uint32_t firstSubresource, uint32_t numSubresources);
 		void BeginQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const;
@@ -151,13 +147,18 @@ namespace XUSG
 
 	protected:
 		com_ptr<ID3D12GraphicsCommandList>	m_commandList;
+		com_ptr<ID3D12DescriptorHeap>		m_rtvHeap;
+		com_ptr<ID3D12DescriptorHeap>		m_dsvHeap;
+		com_ptr<ID3D12DescriptorHeap>		m_uavHeap;
 
 		const Device*						m_pDevice;
 
 		std::vector<D3D12_RESOURCE_BARRIER>	m_barriers;
 		std::vector<D3D12_RECT>				m_rects;
 
-		uint64_t							m_descriptorHeapStarts[NUM_SHADER_VISIBLE_DESCRIPTOR_HEAP];
+		uint64_t							m_descriptorHeapStarts[NUM_DESCRIPTOR_HEAP];
+		uint32_t							m_rtvStride;
+		uint32_t							m_dsvStride;
 	};
 
 	class CommandQueue_DX12 :

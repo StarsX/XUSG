@@ -13,7 +13,7 @@ namespace XUSG
 	{
 		namespace EZ
 		{
-			XUSG_INTERFACE XUSG::EZ::ResourceView GetUAV(SamplerFeedBack* pResource);
+			XUSG_INTERFACE XUSG::EZ::ResourceView GetUAV(const SamplerFeedBack* pResource);
 
 			//--------------------------------------------------------------------------------------
 			// Ultimate command list

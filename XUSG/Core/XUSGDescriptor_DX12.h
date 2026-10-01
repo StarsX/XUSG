@@ -34,11 +34,6 @@ namespace XUSG
 			XUSG::DescriptorTable GetSamplerTable(DescriptorTableLib* pDescriptorTableLib,
 				const XUSG::DescriptorTable& table = XUSG_NULL);
 
-			Framebuffer CreateFramebuffer(DescriptorTableLib* pDescriptorTableLib,
-				const Descriptor* pDsv = nullptr, const Framebuffer* pFramebuffer = nullptr);
-			Framebuffer GetFramebuffer(DescriptorTableLib* pDescriptorTableLib,
-				const Descriptor* pDsv = nullptr, const Framebuffer* pFramebuffer = nullptr);
-
 			const std::string& GetKey() const;
 
 			uint32_t CreateCbvSrvUavTableIndex(DescriptorTableLib* pDescriptorTableLib, XUSG::DescriptorTable table = XUSG_NULL);
@@ -73,11 +68,6 @@ namespace XUSG
 		DescriptorTable CreateSamplerTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table = XUSG_NULL);
 		DescriptorTable GetSamplerTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table = XUSG_NULL);
 
-		Framebuffer CreateFramebuffer(const Util::DescriptorTable* pUtil,
-			const Descriptor* pDsv = nullptr, const Framebuffer* pFramebuffer = nullptr);
-		Framebuffer GetFramebuffer(const Util::DescriptorTable* pUtil,
-			const Descriptor* pDsv = nullptr, const Framebuffer* pFramebuffer = nullptr);
-
 		DescriptorHeap GetDescriptorHeap(DescriptorHeapType type, uint8_t index = 0);
 
 		const Sampler* GetSampler(SamplerPreset preset);
@@ -90,7 +80,6 @@ namespace XUSG
 		bool allocateDescriptorHeap(DescriptorHeapType type, uint32_t numDescriptors, uint8_t index);
 		bool reallocateCbvSrvUavHeap(const std::string& key);
 		bool reallocateSamplerHeap(const std::string& key);
-		bool reallocateRtvHeap(const std::string& key);
 
 		DescriptorTable createCbvSrvUavTable(const std::string& key, DescriptorTable table);
 		DescriptorTable getCbvSrvUavTable(const std::string& key, DescriptorTable table);
@@ -98,16 +87,12 @@ namespace XUSG
 		DescriptorTable createSamplerTable(const std::string& key, DescriptorTable table);
 		DescriptorTable getSamplerTable(const std::string& key, DescriptorTable table);
 
-		Framebuffer createFramebuffer(const std::string& key, const Descriptor *pDsv, const Framebuffer* pFramebuffer);
-		Framebuffer getFramebuffer(const std::string& key, const Descriptor* pDsv, const Framebuffer* pFramebuffer);
-
 		uint32_t calculateGrowth(uint32_t newSize, DescriptorHeapType type, uint8_t index) const;
 
 		com_ptr<ID3D12Device> m_device;
 
 		std::vector<std::unordered_map<std::string, DescriptorTable>> m_cbvSrvUavTables;
 		std::vector<std::unordered_map<std::string, DescriptorTable>> m_samplerTables;
-		std::vector<std::unordered_map<std::string, std::shared_ptr<Descriptor>>> m_rtvTables;
 
 		std::vector<com_ptr<ID3D12DescriptorHeap>> m_descriptorHeaps[NUM_DESCRIPTOR_HEAP];
 		std::vector<uint32_t> m_descriptorCounts[NUM_DESCRIPTOR_HEAP];

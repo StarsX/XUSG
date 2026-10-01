@@ -13,11 +13,9 @@ namespace XUSG
 		// Resource views
 		struct ResourceView
 		{
-			Resource* pResource;
 			Descriptor View;
 			std::vector<uint32_t> Subresources;
 			ResourceState DstState;
-			Resource* pCounter;
 		};
 
 		struct VertexBufferView
@@ -37,26 +35,26 @@ namespace XUSG
 		XUSG_INTERFACE void CalcSubresources(std::vector<uint32_t>& subresources, const Texture* pResource, uint8_t mipSlice, uint8_t planeSlice = 0);
 
 		// Resource view generation helpers coupled for XUSG resources
-		XUSG_INTERFACE ResourceView GetCBV(ConstantBuffer* pResource, uint32_t index = 0);
-		XUSG_INTERFACE ResourceView GetSRV(Buffer* pResource, uint32_t index = 0,
+		XUSG_INTERFACE ResourceView GetCBV(const ConstantBuffer* pResource, uint32_t index = 0);
+		XUSG_INTERFACE ResourceView GetSRV(const Buffer* pResource, uint32_t index = 0,
 			ResourceState dstState = ResourceState::ALL_SHADER_RESOURCE);
-		XUSG_INTERFACE ResourceView GetSRV(VertexBuffer* pResource, uint32_t index = 0,
+		XUSG_INTERFACE ResourceView GetSRV(const VertexBuffer* pResource, uint32_t index = 0,
 			ResourceState dstState = ResourceState::ALL_SHADER_RESOURCE | ResourceState::VERTEX_AND_CONSTANT_BUFFER);
-		XUSG_INTERFACE ResourceView GetSRV(IndexBuffer* pResource, uint32_t index = 0,
+		XUSG_INTERFACE ResourceView GetSRV(const IndexBuffer* pResource, uint32_t index = 0,
 			ResourceState dstState = ResourceState::ALL_SHADER_RESOURCE | ResourceState::INDEX_BUFFER);
-		XUSG_INTERFACE ResourceView GetSRV(Texture* pResource, uint8_t firstLevel = 0,
+		XUSG_INTERFACE ResourceView GetSRV(const Texture* pResource, uint8_t firstLevel = 0,
 			bool singleLevel = false, ResourceState dstState = ResourceState::ALL_SHADER_RESOURCE);
-		XUSG_INTERFACE ResourceView GetSRV(Texture3D* pResource, uint8_t firstLevel = 0,
+		XUSG_INTERFACE ResourceView GetSRV(const Texture3D* pResource, uint8_t firstLevel = 0,
 			bool singleLevel = false, ResourceState dstState = ResourceState::ALL_SHADER_RESOURCE);
-		XUSG_INTERFACE ResourceView GetUAV(Buffer* pResource, uint32_t index = 0);
-		XUSG_INTERFACE ResourceView GetUAV(Texture* pResource, uint8_t level = 0, Format format = Format::UNKNOWN);
-		XUSG_INTERFACE ResourceView GetUAV(Texture3D* pResource, uint8_t level = 0, Format format = Format::UNKNOWN);
-		XUSG_INTERFACE ResourceView GetUAV(TypedBuffer* pResource, uint32_t index = 0, Format format = Format::UNKNOWN);
-		XUSG_INTERFACE ResourceView GetRTV(RenderTarget* pResource, uint16_t slice = 0, uint8_t mipLevel = 0); // slice = UINT16_MAX for array RTV
-		XUSG_INTERFACE ResourceView GetDSV(DepthStencil* pResource, uint16_t slice = 0, uint8_t mipLevel = 0); // slice = UINT16_MAX for array DSV
-		XUSG_INTERFACE ResourceView GetReadOnlyDSV(DepthStencil* pResource, uint16_t slice = 0,
+		XUSG_INTERFACE ResourceView GetUAV(const Buffer* pResource, uint32_t index = 0);
+		XUSG_INTERFACE ResourceView GetUAV(const Texture* pResource, uint8_t level = 0, Format format = Format::UNKNOWN);
+		XUSG_INTERFACE ResourceView GetUAV(const Texture3D* pResource, uint8_t level = 0, Format format = Format::UNKNOWN);
+		XUSG_INTERFACE ResourceView GetUAV(const TypedBuffer* pResource, uint32_t index = 0, Format format = Format::UNKNOWN);
+		XUSG_INTERFACE ResourceView GetRTV(const RenderTarget* pResource, uint16_t slice = 0, uint8_t mipLevel = 0); // slice = UINT16_MAX for array RTV
+		XUSG_INTERFACE ResourceView GetDSV(const DepthStencil* pResource, uint16_t slice = 0, uint8_t mipLevel = 0); // slice = UINT16_MAX for array DSV
+		XUSG_INTERFACE ResourceView GetReadOnlyDSV(const DepthStencil* pResource, uint16_t slice = 0,
 			uint8_t mipLevel = 0, ResourceState dstSrvState = ResourceState::ALL_SHADER_RESOURCE);
-		XUSG_INTERFACE ResourceView GetStencilSRV(DepthStencil* pResource,
+		XUSG_INTERFACE ResourceView GetStencilSRV(const DepthStencil* pResource,
 			ResourceState dstSrvState = ResourceState::ALL_SHADER_RESOURCE);
 
 		XUSG_INTERFACE VertexBufferView GetVBV(VertexBuffer* pResource, uint32_t index = 0,
@@ -135,9 +133,8 @@ namespace XUSG
 				uint64_t countBufferOffset = 0) = 0;
 			virtual void CopyBufferRegion(Resource* pDstBuffer, uint64_t dstOffset,
 				Resource* pSrcBuffer, uint64_t srcOffset, uint64_t numBytes) = 0;
-			virtual void CopyTextureRegion(const TextureCopyLocation& dst,
-				uint32_t dstX, uint32_t dstY, uint32_t dstZ,
-				const TextureCopyLocation& src, const BoxRange* pSrcBox = nullptr) = 0;
+			virtual void CopyTextureRegion(TextureCopyLocation& dst, uint32_t dstX, uint32_t dstY, uint32_t dstZ,
+				TextureCopyLocation& src, const BoxRange* pSrcBox = nullptr) = 0;
 			virtual void CopyResource(Resource* pDstResource, Resource* pSrcResource) = 0;
 			virtual void CopyTiles(Resource* pTiledResource, const TiledResourceCoord* pTileRegionStartCoord,
 				const TileRegionSize& tileRegionSize, const Resource* pBuffer, uint64_t bufferStartOffsetInBytes,

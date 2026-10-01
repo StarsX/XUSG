@@ -320,6 +320,16 @@ namespace XUSG
 		TILE_STANDARD_SWIZZLE
 	};
 
+	enum class ResourceViewType : uint8_t
+	{
+		CBV,
+		SRV,
+		UAV,
+		RTV,
+		DSV,
+		SAMPLER_FEEDBACK
+	};
+
 	enum class DescriptorType : uint8_t
 	{
 		SRV,
@@ -707,10 +717,8 @@ namespace XUSG
 	{
 		CBV_SRV_UAV_HEAP,
 		SAMPLER_HEAP,
-		RTV_HEAP,
 
-		NUM_DESCRIPTOR_HEAP,
-		NUM_SHADER_VISIBLE_DESCRIPTOR_HEAP = SAMPLER_HEAP + 1
+		NUM_DESCRIPTOR_HEAP
 	};
 
 	enum class SamplerFilter : uint8_t
@@ -1048,13 +1056,13 @@ namespace XUSG
 	struct TextureCopyLocation
 	{
 		TextureCopyLocation() = default;
-		TextureCopyLocation(const Resource* pRes, uint32_t sub)
+		TextureCopyLocation(Resource* pRes, uint32_t sub)
 		{
 			pResource = pRes;
 			SubresourceIndex = sub;
 		}
 
-		const Resource* pResource;
+		Resource* pResource;
 		uint32_t SubresourceIndex;
 	};
 
@@ -1119,14 +1127,19 @@ namespace XUSG
 		uint32_t OffsetInDescriptors;
 	};
 
-	using Descriptor = uintptr_t;
-	using DescriptorTable = uint64_t;
-	struct Framebuffer
+	struct DescriptorHeader
 	{
-		uint32_t NumRenderTargetDescriptors;
-		std::shared_ptr<Descriptor> RenderTargetViews;
-		Descriptor DepthStencilView;
+		ResourceViewType Type;
+		Resource* pResource;
+		union
+		{
+			Resource* pCounterResource;
+			Resource* pSamplerFeedbackTarget;
+		};
 	};
+
+	using Descriptor = const DescriptorHeader*;
+	using DescriptorTable = uint64_t;
 
 	// Input layouts related
 	struct InputElement
@@ -1383,24 +1396,23 @@ namespace XUSG
 		virtual void IASetIndexBuffer(const IndexBufferView& view) const = 0;
 		virtual void IASetVertexBuffers(uint32_t startSlot, uint32_t numViews, const VertexBufferView* pViews) const = 0;
 		virtual void SOSetTargets(uint32_t startSlot, uint32_t numViews, const StreamOutBufferView* pViews) const = 0;
-		virtual void OMSetFramebuffer(const Framebuffer& framebuffer) const = 0;
-		virtual void OMSetRenderTargets(
-			uint32_t numRenderTargetDescriptors,
-			const Descriptor* pRenderTargetViews,
-			const Descriptor* pDepthStencilView = nullptr,
-			bool rtsSingleHandleToDescriptorRange = false) const = 0;
-		virtual void ClearDepthStencilView(const Framebuffer& framebuffer, ClearFlag clearFlags,
-			float depth, uint8_t stencil = 0, uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
+		virtual void OMSetRenderTargets(uint32_t numRenderTargetDescriptors, const Descriptor* pRenderTargetViews,
+			const Descriptor* pDepthStencilView = nullptr) const = 0;
+		// Clear the currently bound DSV
+		virtual void ClearDepthStencilView(ClearFlag clearFlags, float depth, uint8_t stencil = 0,
+			uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
+		// Set depthStencilView = nullptr to clear the currently bound DSV
 		virtual void ClearDepthStencilView(const Descriptor& depthStencilView, ClearFlag clearFlags,
 			float depth, uint8_t stencil = 0, uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
+		// Clear the currently bound RTV, renderTargetViewIndex is the currently bound index
+		virtual void ClearRenderTargetView(const float colorRGBA[4], uint8_t renderTargetViewIndex,
+			uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
 		virtual void ClearRenderTargetView(const Descriptor& renderTargetView, const float colorRGBA[4],
 			uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
-		virtual void ClearUnorderedAccessViewUint(const DescriptorTable& descriptorTable,
-			const Descriptor& descriptor, const Resource* pResource, const uint32_t values[4],
-			uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
-		virtual void ClearUnorderedAccessViewFloat(const DescriptorTable& descriptorTable,
-			const Descriptor& descriptor, const Resource* pResource, const float values[4],
-			uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
+		virtual void ClearUnorderedAccessViewUint(const DescriptorTable& descriptorTable, const Descriptor& descriptor,
+			const uint32_t values[4], uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
+		virtual void ClearUnorderedAccessViewFloat(const DescriptorTable& descriptorTable, const Descriptor& descriptor,
+			const float values[4], uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
 		virtual void DiscardResource(const Resource*pResource, uint32_t numRects, const RectRange* pRects,
 			uint32_t firstSubresource, uint32_t numSubresources) = 0;
 		virtual void BeginQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const = 0;
@@ -1566,9 +1578,6 @@ namespace XUSG
 		virtual bool WriteToSubresource(uint32_t dstSubresource, const void* pSrcData, uint32_t srcRowPitch,
 			uint32_t srcDepthPitch, const BoxRange* pDstBox = nullptr) = 0;
 
-		virtual Descriptor AllocateCbvSrvUavHeap(const Device* pDevice, uint32_t numDescriptors) = 0;
-		virtual Descriptor SetCbvSrvUavHeap(const Resource* pResourceWithDescriptorHeap) = 0;
-
 		virtual uint32_t SetBarrier(ResourceBarrier* pBarriers, ResourceState dstState,
 			uint32_t numBarriers = 0, uint32_t subresource = XUSG_BARRIER_ALL_SUBRESOURCES,
 			BarrierFlag flags = BarrierFlag::NONE, ResourceState srcState = ResourceState::AUTO,
@@ -1630,8 +1639,7 @@ namespace XUSG
 			const void* pData, size_t byteSize, ResourceState srcState = ResourceState::COMMON,
 			ResourceState dstState = ResourceState::COMMON) = 0;
 
-		virtual Descriptor CreateCBV(const Descriptor& cbvHeapStart, uint32_t descriptorIdx,
-			uint32_t byteSize, size_t byteOffset = 0) = 0;
+		virtual Descriptor CreateCBV(uint32_t byteSize, size_t byteOffset = 0) = 0;
 
 		virtual void* Map(uint32_t cbvIndex = 0, uintptr_t readBegin = 0, uintptr_t readEnd = 0) = 0;
 		virtual void* Map(const Range* pReadRange, uint32_t cbvIndex = 0) = 0;
@@ -1726,13 +1734,11 @@ namespace XUSG
 			uint32_t numSubresources = 1, uint32_t firstSubresource = 0, size_t offset = 0,
 			ResourceState dstState = ResourceState::COMMON, uint32_t threadIdx = 0) = 0;
 
-		virtual Descriptor CreateSRV(const Descriptor& srvHeapStart, uint32_t descriptorIdx, uint16_t arraySize,
-			uint16_t firstArraySlice = 0, Format format = Format::UNKNOWN, uint8_t numMips = 1,
-			uint8_t mostDetailedMip = 0, bool multisamples = false, bool isCubeMap = false,
+		virtual Descriptor CreateSRV(uint16_t arraySize, uint16_t firstArraySlice = 0, Format format = Format::UNKNOWN,
+			uint8_t numMips = 1, uint8_t mostDetailedMip = 0, bool multisamples = false, bool isCubeMap = false,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING, uint8_t plane = 0) = 0;
-		virtual Descriptor CreateUAV(const Descriptor& uavHeapStart, uint32_t descriptorIdx, uint16_t arraySize,
-			uint16_t firstArraySlice = 0, Format format = Format::UNKNOWN, uint8_t mipLevel = 0,
-			uint8_t plane = 0) = 0;
+		virtual Descriptor CreateUAV(uint16_t arraySize, uint16_t firstArraySlice = 0, Format format = Format::UNKNOWN,
+			uint8_t mipLevel = 0, uint8_t plane = 0) = 0;
 
 		using ShaderResource::SetBarrier;
 		virtual uint32_t SetBarrier(ResourceBarrier* pBarriers, uint8_t mipLevel, ResourceState dstState,
@@ -1848,11 +1854,8 @@ namespace XUSG
 			const float* pClearColor = nullptr, TextureLayout textureLayout = TextureLayout::UNKNOWN,
 			uint8_t numCastableFormats = 0, const Format* pCastableFormats = nullptr, uint32_t maxThreads = 1) = 0;
 
-		virtual Descriptor AllocateRtvHeap(const Device* pDevice, uint32_t numDescriptors) = 0;
-		virtual Descriptor SetRtvHeap(const RenderTarget* pResourceWithDescriptorHeap) = 0;
-		virtual Descriptor CreateRTV(const Descriptor& rtvHeapStart, uint32_t descriptorIdx, uint16_t arraySize,
-			uint16_t firstArraySlice = 0, Format format = Format::UNKNOWN, uint8_t mipLevel = 0,
-			bool multisamples = false) = 0;
+		virtual Descriptor CreateRTV(uint16_t arraySize, uint16_t firstArraySlice = 0,
+			Format format = Format::UNKNOWN, uint8_t mipLevel = 0, bool multisamples = false) = 0;
 
 		using Texture::Blit;
 		virtual void Blit(const CommandList* pCommandList, const DescriptorTable& srcSrvTable,
@@ -1942,11 +1945,8 @@ namespace XUSG
 			float clearDepth = 1.0f, uint8_t clearStencil = 0, TextureLayout textureLayout = TextureLayout::UNKNOWN,
 			uint32_t maxThreads = 1) = 0;
 
-		virtual Descriptor AllocateDsvHeap(const Device* pDevice, uint32_t numDescriptors) = 0;
-		virtual Descriptor SetDsvHeap(const DepthStencil* pResourceWithDescriptorHeap) = 0;
-		virtual Descriptor CreateDSV(const Descriptor& dsvHeapStart, uint32_t descriptorIdx, uint16_t arraySize,
-			uint16_t firstArraySlice = 0, Format format = Format::UNKNOWN, uint8_t mipLevel = 0,
-			bool multisamples = false, bool readOnlyDepth = false, bool readOnlyStencil = false) = 0;
+		virtual Descriptor CreateDSV(uint16_t arraySize, uint16_t firstArraySlice = 0, Format format = Format::UNKNOWN,
+			uint8_t mipLevel = 0, bool multisamples = false, bool readOnlyDepth = false, bool readOnlyStencil = false) = 0;
 
 		virtual const Descriptor& GetDSV(uint16_t slice = 0, uint8_t mipLevel = 0, bool readOnly = false) const = 0;
 		virtual const Descriptor& GetSRV(uint8_t firstLevel = 0, bool singleLevel = false, bool stencil = false) const = 0;
@@ -2001,11 +2001,10 @@ namespace XUSG
 			uint8_t numCastableFormats = 0, const Format* pCastableFormats = nullptr,
 			uint32_t maxThreads = 1) = 0;
 
-		virtual Descriptor CreateSRV(const Descriptor& srvHeapStart, uint32_t descriptorIdx,
-			Format format = Format::UNKNOWN, uint8_t numMips = 1, uint8_t mostDetailedMip = 0,
+		virtual Descriptor CreateSRV(Format format = Format::UNKNOWN, uint8_t numMips = 1, uint8_t mostDetailedMip = 0,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING) = 0;
-		virtual Descriptor CreateUAV(const Descriptor& uavHeapStart, uint32_t descriptorIdx, uint16_t wSize,
-			uint16_t firstWSlice = 0, Format format = Format::UNKNOWN, uint8_t mipLevel = 0) = 0;
+		virtual Descriptor CreateUAV(uint16_t wSize, uint16_t firstWSlice = 0,
+			Format format = Format::UNKNOWN, uint8_t mipLevel = 0) = 0;
 
 		virtual uint32_t CalculateSubresource(uint8_t mipLevel) const = 0;
 		virtual uint16_t GetDepth() const = 0;
@@ -2059,11 +2058,10 @@ namespace XUSG
 		virtual bool ReadBack(CommandList* pCommandList, Buffer* pReadBuffer, size_t size = 0, size_t dstOffset = 0,
 			size_t srcOffset = 0, ResourceState dstState = ResourceState::COMMON, uint32_t threadIdx = 0) = 0;
 
-		virtual Descriptor CreateSRV(const Descriptor& srvHeapStart, uint32_t descriptorIdx,
-			uint32_t numElements, uint32_t byteStride, Format format, size_t firstElement = 0,
+		virtual Descriptor CreateSRV(uint32_t numElements, uint32_t byteStride, Format format, size_t firstElement = 0,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING) = 0;
-		virtual Descriptor CreateUAV(const Descriptor& uavHeapStart, uint32_t descriptorIdx, uint32_t numElements,
-			uint32_t byteStride, Format format, size_t firstElement = 0, size_t counterByteOffset = 0) = 0;
+		virtual Descriptor CreateUAV(uint32_t numElements, uint32_t byteStride, Format format,
+			size_t firstElement = 0, size_t counterByteOffset = 0) = 0;
 
 		virtual const Descriptor& GetUAV(uint32_t index = 0) const = 0;
 
@@ -2281,11 +2279,6 @@ namespace XUSG
 			virtual XUSG::DescriptorTable GetSamplerTable(DescriptorTableLib* pDescriptorTableLib,
 				const XUSG::DescriptorTable& table = XUSG_NULL) = 0;
 
-			virtual Framebuffer CreateFramebuffer(DescriptorTableLib* pDescriptorTableLib,
-				const Descriptor* pDsv = nullptr, const Framebuffer* pFramebuffer = nullptr) = 0;
-			virtual Framebuffer GetFramebuffer(DescriptorTableLib* pDescriptorTableLib,
-				const Descriptor* pDsv = nullptr, const Framebuffer* pFramebuffer = nullptr) = 0;
-
 			virtual const std::string& GetKey() const = 0;
 
 			virtual uint32_t CreateCbvSrvUavTableIndex(DescriptorTableLib* pDescriptorTableLib, XUSG::DescriptorTable table = XUSG_NULL) = 0;
@@ -2321,11 +2314,6 @@ namespace XUSG
 
 		virtual DescriptorTable CreateSamplerTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table = XUSG_NULL) = 0;
 		virtual DescriptorTable GetSamplerTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table = XUSG_NULL) = 0;
-
-		virtual Framebuffer CreateFramebuffer(const Util::DescriptorTable* pUtil,
-			const Descriptor* pDsv = nullptr, const Framebuffer* pFramebuffer = nullptr) = 0;
-		virtual Framebuffer GetFramebuffer(const Util::DescriptorTable* pUtil,
-			const Descriptor* pDsv = nullptr, const Framebuffer* pFramebuffer = nullptr) = 0;
 
 		virtual DescriptorHeap GetDescriptorHeap(DescriptorHeapType type, uint8_t index = 0) = 0;
 

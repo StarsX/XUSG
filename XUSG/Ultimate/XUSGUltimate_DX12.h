@@ -106,35 +106,33 @@ namespace XUSG
 			~SamplerFeedBack_DX12();
 
 			using Resource_DX12::Create;
-			bool Create(const Device* pDevice, const Texture* pTarget, Format format,
-				uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
-				ResourceFlag resourceFlags = ResourceFlag::NONE, bool isCubeMap = false,
-				MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
+			bool Create(const Device* pDevice, Texture* pTarget, Format format, uint32_t mipRegionWidth,
+				uint32_t mipRegionHeight, uint32_t mipRegionDepth, ResourceFlag resourceFlags = ResourceFlag::NONE,
+				bool isCubeMap = false, MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 				uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 				TextureLayout textureLayout = TextureLayout::UNKNOWN,
 				uint32_t maxThreads = 1);
-			bool Create(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, const Texture* pTarget,
+			bool Create(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, Texture* pTarget,
 				Format format, uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
 				ResourceFlag resourceFlags = ResourceFlag::NONE, bool isCubeMap = false,
 				const wchar_t* name = nullptr, uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 				TextureLayout textureLayout = TextureLayout::UNKNOWN,
 				uint32_t maxThreads = 1);
-			bool CreateResource(const Device* pDevice, const Texture* pTarget, Format format,
-				uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
+			bool CreateResource(const Device* pDevice, Texture* pTarget, Format format, uint32_t mipRegionWidth,
+				uint32_t mipRegionHeight, uint32_t mipRegionDepth, ResourceFlag resourceFlags = ResourceFlag::NONE,
+				bool isCubeMap = false, MemoryFlag memoryFlags = MemoryFlag::NONE,
+				ResourceState initialResourceState = ResourceState::COMMON,
+				TextureLayout textureLayout = TextureLayout::UNKNOWN,
+				uint32_t maxThreads = 1);
+			bool CreateResource(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, Texture* pTarget,
+				Format format, uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
 				ResourceFlag resourceFlags = ResourceFlag::NONE, bool isCubeMap = false,
-				MemoryFlag memoryFlags = MemoryFlag::NONE,
 				ResourceState initialResourceState = ResourceState::COMMON,
 				TextureLayout textureLayout = TextureLayout::UNKNOWN,
 				uint32_t maxThreads = 1);
-			bool CreateResource(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset,
-				const Texture* pTarget, Format format, uint32_t mipRegionWidth, uint32_t mipRegionHeight,
-				uint32_t mipRegionDepth, ResourceFlag resourceFlags = ResourceFlag::NONE, bool isCubeMap = false,
-				ResourceState initialResourceState = ResourceState::COMMON,
-				TextureLayout textureLayout = TextureLayout::UNKNOWN,
-				uint32_t maxThreads = 1);
-			//bool CreateUAV(const Resource* pTarget);
+			//bool CreateUAV(Resource* pTarget);
 
-			Descriptor CreateUAV(const Descriptor& uavHeapStart, uint32_t descriptorIdx, const Resource* pTarget);
+			Descriptor CreateUAV(Resource* pTarget);
 		};
 
 		ProgramIdentifier GetDX12ProgramIdentifier(const Pipeline& stateObject, const wchar_t* programName);

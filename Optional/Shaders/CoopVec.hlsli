@@ -147,12 +147,12 @@ vector<T, N> clamp<T : __BuiltinFloatingPointType, INT N>(vector<T, N> x, T a, T
 
 #else
 
-#include <dx/linalg.h>
-
 #define FLOAT_TYPE_NAME(T) typename T
 #define TEMPLATE_FUNC(retType, func, ...) template<__VA_ARGS__> retType func
 
 #if ((__SHADER_TARGET_MAJOR > 6) || (__SHADER_TARGET_MAJOR == 6 && __SHADER_TARGET_MINOR >= 9)) && (__HLSL_VERSION >= 2021)
+
+#include <dx/linalg.h>
 
 using namespace dx;
 using namespace dx::linalg;
@@ -335,7 +335,7 @@ void LoadMatrix(inout WaveMatrixLeft<U, WM_M, WM_N> A, ByteAddressBuffer matrixB
 }
 
 template<ComponentEnum dataType, typename T, INT M>
-void GetTensor(out Vector<T, M> y, uint offsetOut, uint offsetIn, uint laneMask, uint waveId)
+void GetVector(out Vector<T, M> y, uint offsetOut, uint offsetIn, uint laneMask, uint waveId)
 {
 	const uint n = WaveGetLaneIndex();
 	for (uint m = 0; m < WM_M; ++m)
@@ -346,7 +346,6 @@ void GetTensor(out Vector<T, M> y, uint offsetOut, uint offsetIn, uint laneMask,
 			else y.Data[offsetOut + m] = T(g_matrixCf[WAVE_MATRIX_C_SIZE * waveId + (offsetIn + WM_M * n + m)]);
 		}
 	}
-		
 }
 
 template<typename T, INT M, ComponentEnum inputDataType, ComponentEnum matrixDataType, ComponentEnum biasDataType,
@@ -451,7 +450,7 @@ Vector<T, M> matVecMulAdd(
 
 				C0.Store(g_matrixCi, WAVE_MATRIX_C_SIZE * waveId, WM_M, !transpose);
 				C1.Store(g_matrixCi, WAVE_MATRIX_C_SIZE * waveId + WM_M * WM_N, WM_M, !transpose);
-				GetTensor<biasDataType>(output, m, 0, laneMask, waveId);
+				GetVector<biasDataType>(output, m, 0, laneMask, waveId);
 			}
 			else
 			{
@@ -485,7 +484,7 @@ Vector<T, M> matVecMulAdd(
 
 				C0.Store(g_matrixCf, WAVE_MATRIX_C_SIZE * waveId, WM_M, !transpose);
 				C1.Store(g_matrixCf, WAVE_MATRIX_C_SIZE * waveId + WM_M * WM_N, WM_M, !transpose);
-				GetTensor<biasDataType>(output, m, 0, laneMask, waveId);
+				GetVector<biasDataType>(output, m, 0, laneMask, waveId);
 			}
 		}
 	}
@@ -496,6 +495,203 @@ Vector<T, M> matVecMulAdd(
 #undef N
 
 #else
+
+#if defined(_SM_6_10_) && defined(COOPVEC_SM610_WMMA_GROUP_SHARED)
+#define WM_M 16
+#define WM_N 16
+#define WM_K 16
+#define N WAVE_SIZE
+#define NUM_GROUP_WAVES (GROUP_SIZE / WAVE_SIZE)
+
+#if COOPVEC_SM610_WMMA_GROUP_SHARED
+#define WAVE_MATRIX_B_SIZE (WM_K * N)
+groupshared float16_t g_matrixBf[WAVE_MATRIX_B_SIZE * NUM_GROUP_WAVES];
+groupshared int g_matrixBi[WAVE_MATRIX_B_SIZE * NUM_GROUP_WAVES];
+groupshared uint g_matrixBu[WAVE_MATRIX_B_SIZE * NUM_GROUP_WAVES];
+#endif
+
+#define WAVE_MATRIX_C_SIZE (WM_M * N)
+groupshared ACC_T g_matrixCf[WAVE_MATRIX_C_SIZE * NUM_GROUP_WAVES];
+groupshared int g_matrixCi[WAVE_MATRIX_C_SIZE * NUM_GROUP_WAVES];
+
+template<ComponentEnum dataType, typename T, INT K>
+void SetVectorToWaveMatrices(out Matrix<dataType, WM_K, WM_N, MatrixUse::B, MatrixScope::Wave> X[(K + WM_K - 1) / WM_K][(N + WM_N - 1) / WM_N], Vector<T, K> x, uint waveId)
+{
+#if COOPVEC_SM610_WMMA_GROUP_SHARED
+	const uint lane = WaveGetLaneIndex();
+	const uint nBlock = lane / WM_N;
+	const uint col = lane % WM_N;
+
+	for (uint k = 0; WM_K * k < K; ++k)
+	{
+		if (dataType == ComponentEnum::U8 || dataType == ComponentEnum::I8)
+		{
+			const uint start = WAVE_MATRIX_B_SIZE * waveId + (WM_K * WM_N / 4) * nBlock;
+			if (col < WM_N / 4)
+			{
+				for (uint row = 0; row < WM_K; ++row)
+				{
+					const uint j = WM_K * k + row;
+					const uint srcLane = WM_N * nBlock + 4 * col;
+					if (dataType == ComponentEnum::U8)
+						g_matrixBu[start + (WM_N / 4) * row + col] = uint(pack_clamp_u8(int4(
+							j < K ? WaveReadLaneAt(x[j], srcLane) : T(0),
+							j < K ? WaveReadLaneAt(x[j], srcLane + 1) : T(0),
+							j < K ? WaveReadLaneAt(x[j], srcLane + 2) : T(0),
+							j < K ? WaveReadLaneAt(x[j], srcLane + 3) : T(0))));
+					else g_matrixBi[start + (WM_N / 4) * row + col] = int(pack_clamp_s8(int4(
+						j < K ? WaveReadLaneAt(x[j], srcLane) : T(0),
+						j < K ? WaveReadLaneAt(x[j], srcLane + 1) : T(0),
+						j < K ? WaveReadLaneAt(x[j], srcLane + 2) : T(0),
+						j < K ? WaveReadLaneAt(x[j], srcLane + 3) : T(0))));
+				}
+			}
+		}
+		else
+		{
+			const uint start = WAVE_MATRIX_B_SIZE * waveId + WM_K * WM_N * nBlock;
+			for (uint row = 0; row < WM_K; ++row)
+			{
+				const uint j = WM_K * k + row;
+				g_matrixBf[start + WM_N * row + col] = j < K ? x[j] : T(0);
+			}
+		}
+		GroupMemoryBarrierWithGroupSync();
+
+		[unroll]
+		for (uint n = 0; WM_N * n < N; ++n)
+		{
+			switch (dataType)
+			{
+			case ComponentEnum::U8:
+				X[k][n] = Matrix<dataType, WM_K, WM_N, MatrixUse::B, MatrixScope::Wave>::Load(
+					g_matrixBu, WAVE_MATRIX_B_SIZE * waveId + (WM_K * WM_N / 4) * n, WM_N / 4, MatrixLayout::RowMajor);
+			case ComponentEnum::I8:
+				X[k][n] = Matrix<dataType, WM_K, WM_N, MatrixUse::B, MatrixScope::Wave>::Load(
+					g_matrixBi, WAVE_MATRIX_B_SIZE * waveId + (WM_K * WM_N / 4) * n, WM_N / 4, MatrixLayout::RowMajor);
+			default:
+				X[k][n] = Matrix<dataType, WM_K, WM_N, MatrixUse::B, MatrixScope::Wave>::Load(
+					g_matrixBf, WAVE_MATRIX_B_SIZE * waveId + WM_K * WM_N * n, WM_N, MatrixLayout::RowMajor);
+			}
+		}
+		GroupMemoryBarrierWithGroupSync();
+	}
+#else
+	const uint len = X[0][0].Length();
+	for (uint i = 0; i < len; ++i)
+	{
+		uint2 coordX;
+		const uint2 coord = X[0][0].GetCoordinate(i);
+		coordX.x = WaveReadLaneAt(coord.x, 0);
+		const uint exec = WaveActiveBallot(coordX.x != coord.x).x;
+		coordX.y = WaveReadLaneAt(coord.x, firstbitlow(exec));
+
+		[unroll]
+		for (uint n = 0; WM_N * n < N; ++n)
+		{
+			const uint srcLane = WM_N * n + coord.y;
+			for (uint k = 0; WM_K * k < K; ++k)
+			{
+				const uint2 j = WM_K * k + coordX;
+				const T value0 = WaveReadLaneAt(j.x < K ? x[j.x] : 0.0, srcLane);
+				const T value1 = WaveReadLaneAt(j.y < K ? x[j.y] : 0.0, srcLane);
+				X[k][n].Set(i, coord.x == coordX.x ? value0 : value1);
+			}
+		}
+	}
+#endif
+}
+
+template<ComponentEnum dataType, typename T, INT M>
+void LoadVectorToWaveMatrices(out Matrix<dataType, WM_M, WM_N, MatrixUse::Accumulator, MatrixScope::Wave> B[(M + WM_M - 1) / WM_M][(N + WM_N - 1) / WM_N], ByteAddressBuffer buffer, uint offset, uint waveId)
+{
+	const uint elementSize = dataType == ComponentEnum::I32 ? sizeof(int) : sizeof(T);
+#if COOPVEC_SM610_WMMA_GROUP_SHARED
+	const uint lane = WaveGetLaneIndex();
+	const uint nBlock = lane / WM_N;
+	const uint col = lane % WM_N;
+
+	for (uint m = 0; WM_M * m < M; ++m)
+	{
+		const uint start = WAVE_MATRIX_C_SIZE * waveId + WM_M * WM_N * nBlock;
+		for (uint row = 0; row < WM_M; ++row)
+		{
+			const uint j = WM_M * m + row;
+			if (dataType == ComponentEnum::I32)
+				g_matrixCi[start + WM_N * row + col] = j < M ? buffer.Load<int>(offset + elementSize * j) : 0;
+			else g_matrixCf[start + WM_N * row + col] = j < M ? buffer.Load<T>(offset + elementSize * j) : T(0);
+		}
+		GroupMemoryBarrierWithGroupSync();
+
+		[unroll]
+		for (uint n = 0; WM_N * n < N; ++n)
+		{
+			if (dataType == ComponentEnum::I32)
+				B[m][n] = Matrix<dataType, WM_M, WM_N, MatrixUse::Accumulator, MatrixScope::Wave>::Load(
+					g_matrixCi, WAVE_MATRIX_C_SIZE * waveId + WM_M * WM_N * n, WM_N, MatrixLayout::RowMajor);
+			else B[m][n] = Matrix<dataType, WM_M, WM_N, MatrixUse::Accumulator, MatrixScope::Wave>::Load(
+				g_matrixCf, WAVE_MATRIX_C_SIZE * waveId + WM_M * WM_N * n, WM_N, MatrixLayout::RowMajor);
+		}
+		GroupMemoryBarrierWithGroupSync();
+	}
+#else
+	const uint len = B[0][0].Length();
+	for (uint i = 0; i < len; ++i)
+	{
+		const uint2 coord = B[0][0].GetCoordinate(i);
+
+		[unroll]
+		for (uint n = 0; WM_N * n < N; ++n)
+		{
+			const uint srcOffset = WaveReadLaneAt(offset, WM_N * n + coord.y);
+			for (uint m = 0; WM_M * m < M; ++m)
+			{
+				const uint j = WM_M * m + coord.x;
+				if (dataType == ComponentEnum::I32)
+				{
+					const int value = j < M ? buffer.Load<int>(srcOffset + elementSize * j) : 0;
+					B[m][n].Set(i, T(value));
+				}
+				else
+				{
+					const T value = j < M ? buffer.Load<T>(srcOffset + elementSize * j) : T(0);
+					B[m][n].Set(i, value);
+				}
+			}
+		}
+	}
+#endif
+}
+
+template<ComponentEnum dataType, typename T, INT M>
+void GetVectorFromWaveMatrices(inout Vector<T, M> y, Matrix<dataType, WM_M, WM_N, MatrixUse::Accumulator, MatrixScope::Wave> Y[(N + WM_N - 1) / WM_N], uint m, uint laneMask, uint waveId)
+{
+	const uint n = WaveGetLaneIndex();
+	const uint col = n % WM_N;
+	const uint nBlock = n / WM_N;
+	const uint start = WAVE_MATRIX_C_SIZE * waveId + WM_M * WM_N * nBlock;
+
+	[unroll]
+	for (uint i = 0; WM_N * i < N; ++i)
+	{
+		if (dataType == ComponentEnum::I32)
+			Y[i].Store(g_matrixCi, WAVE_MATRIX_C_SIZE * waveId + WM_M * WM_N * i, WM_N, MatrixLayout::RowMajor);
+		else Y[i].Store(g_matrixCf, WAVE_MATRIX_C_SIZE * waveId + WM_M * WM_N * i, WM_N, MatrixLayout::RowMajor);
+	}
+	GroupMemoryBarrierWithGroupSync();
+
+	if ((1u << n) & laneMask)
+	{
+		for (uint row = 0; row < WM_M && WM_M * m + row < M; ++row)
+		{
+			if (dataType == ComponentEnum::I32)
+				y[WM_M * m + row] = T(g_matrixCi[start + WM_N * row + col]);
+			else y[WM_M * m + row] = T(g_matrixCf[start + WM_N * row + col]);
+		}
+	}
+	GroupMemoryBarrierWithGroupSync();
+}
+#endif
 
 template<typename T, INT M, ComponentEnum inputDataType, ComponentEnum matrixDataType, ComponentEnum biasDataType,
 	MatrixLayoutEnum matrixLayout, INT K, typename U>
@@ -508,19 +704,76 @@ Vector<T, M> matVecMulAdd(
 	uint matrixStride,
 	uint gi : SV_GroupIndex)
 {
-#ifdef _SM_6_10_
+#if defined(_SM_6_10_) && defined(COOPVEC_SM610_WMMA_GROUP_SHARED)
+	using MatrixA = Matrix<matrixDataType, WM_M, WM_K, MatrixUse::A, MatrixScope::Wave>;
+	using MatrixB = Matrix<inputDataType, WM_K, WM_N, MatrixUse::B, MatrixScope::Wave>;
+	using MatrixC = Matrix<biasDataType, WM_M, WM_N, MatrixUse::Accumulator, MatrixScope::Wave>;
+
+	Vector<T, M> output;
+	MatrixB X[(K + WM_K - 1) / WM_K][(N + WM_N - 1) / WM_N];
+	MatrixC B[(M + WM_M - 1) / WM_K][(N + WM_N - 1) / WM_N];
+	MatrixC Y[(N + WM_N - 1) / WM_N];
+
+	const uint waveId = WaveReadLaneAt(gi / WaveGetLaneCount(), 0);
+	SetVectorToWaveMatrices(X, input, waveId);
+	LoadVectorToWaveMatrices<biasDataType, T, M>(B, biasBuffer, biasOffset, waveId);
+
+	const bool transpose = matrixLayout == MatrixLayoutEnum::MulOptimalTranspose;
+	const bool isInputInteger8 = inputDataType == ComponentEnum::I8 || inputDataType == ComponentEnum::U8;
+	const uint vecElementSize = isInputInteger8 ? 1 : sizeof(U);
+
+	const uint c = vecElementSize * min(WM_M, M); // Aligned column offset
+	const uint s = vecElementSize * min(WM_K, K); // Aligned stride
+
+	// Waterfall loop for varying offset values in a wave without branching
+	for (uint laneMask, exec = WaveActiveBallot(true).x; exec; exec &= ~laneMask) // Remove the lanes same to the first lane
+	{
+		// mOffset: offset of the matrix data in the buffer
+		const int mOffset = WaveReadLaneAt(matrixOffset, firstbitlow(exec));
+		laneMask = WaveActiveBallot(mOffset == matrixOffset).x;
+
+		//[unroll]
+		for (uint m = 0; WM_M * m < M; ++m)
+		{
+			[unroll]
+			for (uint n = 0; WM_N * n < N; ++n) Y[n] = B[m][n];
+
+			// Row offset
+			const uint r = mOffset + vecElementSize * WM_M * m * K;
+
+			//[unroll]
+			for (uint k = 0; WM_K * k < K; ++k)
+			{
+				const MatrixA A = MatrixA::Load(matrixBuffer, r + c * WM_K * k, s,
+					transpose ? MatrixLayout::ColMajor : MatrixLayout::RowMajor);
+				[unroll] for (uint n = 0; WM_N * n < N; ++n) Y[n].MultiplyAccumulate(A, X[k][n]);
+			}
+
+			GetVectorFromWaveMatrices(output, Y, m, laneMask, waveId);
+		}
+	}
+
+	return output;
+#undef N
+#if COOPVEC_SM610_WMMA_GROUP_SHARED
+#undef WAVE_MATRIX_C_SIZE
+#undef WAVE_MATRIX_B_SIZE
+#undef NUM_GROUP_WAVES
+#endif
+
+#elif defined(_SM_6_10_)
 	using MatrixA = Matrix<matrixDataType, M, K, MatrixUse::A, MatrixScope::Thread>;
-	const MatrixA mA = MatrixA::template Load<matrixLayout>(matrixBuffer, matrixOffset, matrixStride);
+	const MatrixA A = MatrixA::template Load<matrixLayout>(matrixBuffer, matrixOffset, matrixStride);
 	const VectorRef<biasDataType, M> b = { biasBuffer, biasOffset };
 
-	return MultiplyAdd<T>(mA, MakeInterpretedVector<inputDataType>(input), b);
+	return MultiplyAdd<T>(A, MakeInterpretedVector<inputDataType>(input), b);
 #elif defined(_SM_6_9_)
 	const linalg::MatrixLayout matLayout = (linalg::MatrixLayout)(matrixLayout & (~MATRIX_LAYOUT_TRANSPOSE_FLAG));
 	const bool transpose = (matrixLayout & MATRIX_LAYOUT_TRANSPOSE_FLAG);
-	const MatrixRef<(DataType)matrixDataType, M, K, matLayout, transpose> mA = { matrixBuffer, matrixOffset, matrixStride };
+	const MatrixRef<(DataType)matrixDataType, M, K, matLayout, transpose> A = { matrixBuffer, matrixOffset, matrixStride };
 	const VectorRef<(DataType)biasDataType> b = { biasBuffer, biasOffset };
 
-	return MulAdd<T>(mA, MakeInterpretedVector<(DataType)inputDataType>(input), b);
+	return MulAdd<T>(A, MakeInterpretedVector<(DataType)inputDataType>(input), b);
 #else
 	Vector<T, M> output = biasBuffer.Load< Vector<T, M> >(biasOffset);
 

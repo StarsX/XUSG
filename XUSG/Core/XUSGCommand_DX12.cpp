@@ -69,7 +69,8 @@ const Device* CommandAllocator_DX12::GetDevice() const
 
 CommandList_DX12::CommandList_DX12() :
 	m_pDevice(nullptr),
-	m_descriptorHeapStarts()
+	m_descriptorHeapStarts(),
+	m_rtvStride(0)
 {
 }
 
@@ -89,6 +90,27 @@ bool CommandList_DX12::Create(const Device* pDevice, uint32_t nodeMask, CommandL
 	if (name) m_commandList->SetName(name);
 
 	m_pDevice = pDevice;
+	m_rtvStride = pDxDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	m_dsvStride = pDxDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+
+	D3D12_DESCRIPTOR_HEAP_DESC desc = {};
+	desc.NumDescriptors = D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT + 1; // Extra one for clear
+	desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+	m_rtvHeap = nullptr;
+	V_RETURN(pDxDevice->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&m_rtvHeap)), cerr, false);
+	if (name) m_rtvHeap->SetName((wstring(name) + L".RtvHeap").c_str());
+
+	desc.NumDescriptors = 2; // Extra one for clear
+	desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+	m_dsvHeap = nullptr;
+	V_RETURN(pDxDevice->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&m_dsvHeap)), cerr, false);
+	if (name) m_dsvHeap->SetName((wstring(name) + L".DsvHeap").c_str());
+
+	desc.NumDescriptors = 1;
+	desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	m_uavHeap = nullptr;
+	V_RETURN(pDxDevice->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&m_uavHeap)), cerr, false);
+	if (name) m_uavHeap->SetName((wstring(name) + L".UavHeap").c_str());
 
 	return true;
 }
@@ -482,48 +504,63 @@ void CommandList_DX12::SOSetTargets(uint32_t startSlot, uint32_t numViews, const
 	m_commandList->SOSetTargets(startSlot, numViews, pViews ? views : nullptr);
 }
 
-void CommandList_DX12::OMSetFramebuffer(const Framebuffer& framebuffer) const
-{
-	assert(framebuffer.NumRenderTargetDescriptors < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT);
-	D3D12_CPU_DESCRIPTOR_HANDLE renderTargetViews[D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT];
-	for (uint8_t i = 0; i < framebuffer.NumRenderTargetDescriptors; ++i)
-		renderTargetViews[i].ptr = *framebuffer.RenderTargetViews;
-
-	const D3D12_CPU_DESCRIPTOR_HANDLE depthStencilView = { framebuffer.DepthStencilView };
-
-	m_commandList->OMSetRenderTargets(framebuffer.NumRenderTargetDescriptors, renderTargetViews,
-		TRUE, framebuffer.DepthStencilView ? &depthStencilView : nullptr);
-}
-
-void CommandList_DX12::OMSetRenderTargets(uint32_t numRenderTargetDescriptors, const Descriptor* pRenderTargetViews,
-	const Descriptor* pDepthStencilView, bool rtsSingleHandleToDescriptorRange) const
+void CommandList_DX12::OMSetRenderTargets(uint32_t numRenderTargetDescriptors,
+	const Descriptor* pRenderTargetViews, const Descriptor* pDepthStencilView) const
 {
 	assert(numRenderTargetDescriptors == 0 || pRenderTargetViews);
 	assert(numRenderTargetDescriptors < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT);
 
-	D3D12_CPU_DESCRIPTOR_HANDLE renderTargetViews[D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT];
-	for (uint8_t i = 0; i < numRenderTargetDescriptors; ++i)
-		renderTargetViews[i].ptr = pRenderTargetViews[i];
+	const auto pDxDevice = static_cast<ID3D12Device*>(m_pDevice->GetHandle());
 
-	CD3DX12_CPU_DESCRIPTOR_HANDLE depthStencilView(D3D12_DEFAULT);
-	depthStencilView.ptr = pDepthStencilView ? *pDepthStencilView : depthStencilView.ptr;
+	const auto rtvHeapStart = m_rtvHeap->GetCPUDescriptorHandleForHeapStart();
+	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(rtvHeapStart);
+	for (uint8_t i = 0; i < numRenderTargetDescriptors; ++i)
+	{
+		assert(pRenderTargetViews[i]);
+		const auto& pRtv = static_cast<const ResourceView*>(pRenderTargetViews[i]);
+		assert(pRtv->Type == ResourceViewType::RTV);
+		const auto pDxResource = pRtv->pResource ? static_cast<ID3D12Resource*>(pRtv->pResource->GetHandle()) : nullptr;
+		pDxDevice->CreateRenderTargetView(pDxResource, pRtv->RtvDesc.ViewDimension ? &pRtv->RtvDesc : nullptr, rtvHandle);
+		rtvHandle.Offset(m_rtvStride);
+	}
+
+	const auto dsvHeapStart = m_dsvHeap->GetCPUDescriptorHandleForHeapStart();
+	if (pDepthStencilView)
+	{
+		const auto& pDsv = static_cast<const ResourceView*>(*pDepthStencilView);
+		assert(pDsv->Type == ResourceViewType::DSV);
+		const auto pDxResource = pDsv->pResource ? static_cast<ID3D12Resource*>(pDsv->pResource->GetHandle()) : nullptr;
+		pDxDevice->CreateDepthStencilView(pDxResource, &pDsv->DsvDesc, dsvHeapStart);
+	}
 
 	m_commandList->OMSetRenderTargets(numRenderTargetDescriptors, pRenderTargetViews ?
-		renderTargetViews : nullptr, rtsSingleHandleToDescriptorRange,
-		pDepthStencilView ? &depthStencilView : nullptr);
+		&rtvHeapStart : nullptr, true, pDepthStencilView ? &dsvHeapStart : nullptr);
 }
 
-void CommandList_DX12::ClearDepthStencilView(const Framebuffer& framebuffer, ClearFlag clearFlags, float depth,
+void CommandList_DX12::ClearDepthStencilView(ClearFlag clearFlags, float depth,
 	uint8_t stencil, uint32_t numRects, const RectRange* pRects)
 {
-	ClearDepthStencilView(framebuffer.DepthStencilView, clearFlags, depth, stencil, numRects, pRects);
+	ClearDepthStencilView(nullptr, clearFlags, depth, stencil, numRects, pRects);
 }
 
 void CommandList_DX12::ClearDepthStencilView(const Descriptor& depthStencilView, ClearFlag clearFlags, float depth,
 	uint8_t stencil, uint32_t numRects, const RectRange* pRects)
 {
-	assert(numRects == 0 || pRects);
+	const auto pDxDevice = static_cast<ID3D12Device*>(m_pDevice->GetHandle());
 
+	CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle;
+	if (depthStencilView)
+	{
+		dsvHandle.InitOffsetted(m_dsvHeap->GetCPUDescriptorHandleForHeapStart(), m_dsvStride);
+		const auto& pDsv = static_cast<const ResourceView*>(depthStencilView);
+		assert(pDsv->Type == ResourceViewType::DSV);
+		assert(pDsv->pResource);
+		const auto pDxResource = static_cast<ID3D12Resource*>(pDsv->pResource->GetHandle());
+		pDxDevice->CreateDepthStencilView(pDxResource, &pDsv->DsvDesc, dsvHandle);
+	}
+	else dsvHandle = m_dsvHeap->GetCPUDescriptorHandleForHeapStart();
+
+	assert(numRects == 0 || pRects);
 	if (m_rects.size() < numRects) m_rects.resize(numRects);
 	for (auto i = 0u; i < numRects; ++i)
 	{
@@ -533,34 +570,60 @@ void CommandList_DX12::ClearDepthStencilView(const Descriptor& depthStencilView,
 		m_rects[i].bottom = pRects[i].Bottom;
 	}
 
-	m_commandList->ClearDepthStencilView({ depthStencilView }, GetDX12ClearFlags(clearFlags),
+	m_commandList->ClearDepthStencilView(dsvHandle, GetDX12ClearFlags(clearFlags),
 		depth, stencil, numRects, pRects ? m_rects.data() : nullptr);
+}
+
+void CommandList_DX12::ClearRenderTargetView(const float colorRGBA[4], uint8_t renderTargetViewIndex,
+	uint32_t numRects, const RectRange* pRects)
+{
+	const CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart(),
+		renderTargetViewIndex, m_rtvStride);
+
+	assert(numRects == 0 || pRects);
+	if (m_rects.size() < numRects) m_rects.resize(numRects);
+	for (auto i = 0u; i < numRects; ++i)
+	{
+		m_rects[i].left = pRects[i].Left;
+		m_rects[i].top = pRects[i].Top;
+		m_rects[i].right = pRects[i].Right;
+		m_rects[i].bottom = pRects[i].Bottom;
+	}
+
+	m_commandList->ClearRenderTargetView(rtvHandle, colorRGBA, numRects, pRects ? m_rects.data() : nullptr);
 }
 
 void CommandList_DX12::ClearRenderTargetView(const Descriptor& renderTargetView, const float colorRGBA[4],
 	uint32_t numRects, const RectRange* pRects)
 {
-	assert(numRects == 0 || pRects);
+	const auto pDxDevice = static_cast<ID3D12Device*>(m_pDevice->GetHandle());
 
-	if (m_rects.size() < numRects) m_rects.resize(numRects);
-	for (auto i = 0u; i < numRects; ++i)
-	{
-		m_rects[i].left = pRects[i].Left;
-		m_rects[i].top = pRects[i].Top;
-		m_rects[i].right = pRects[i].Right;
-		m_rects[i].bottom = pRects[i].Bottom;
-	}
+	const CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart(),
+		D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT, m_rtvStride);
+	assert(renderTargetView);
+	const auto& pRtv = static_cast<const ResourceView*>(renderTargetView);
+	assert(pRtv->Type == ResourceViewType::RTV);
+	assert(pRtv->pResource);
+	const auto pDxResource = static_cast<ID3D12Resource*>(pRtv->pResource->GetHandle());
+	pDxDevice->CreateRenderTargetView(pDxResource, pRtv->RtvDesc.ViewDimension ? &pRtv->RtvDesc : nullptr, rtvHandle);
 
-	m_commandList->ClearRenderTargetView({ renderTargetView }, colorRGBA,
-		numRects, pRects ? m_rects.data() : nullptr);
+	ClearRenderTargetView(colorRGBA, D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT, numRects, pRects);
 }
 
 void CommandList_DX12::ClearUnorderedAccessViewUint(const DescriptorTable& descriptorTable, const Descriptor& descriptor,
-	const Resource* pResource, const uint32_t values[4], uint32_t numRects, const RectRange* pRects)
+	const uint32_t values[4], uint32_t numRects, const RectRange* pRects)
 {
-	assert(pResource);
-	assert(numRects == 0 || pRects);
+	const auto pDxDevice = static_cast<ID3D12Device*>(m_pDevice->GetHandle());
 
+	const CD3DX12_CPU_DESCRIPTOR_HANDLE uavHandle(m_uavHeap->GetCPUDescriptorHandleForHeapStart());
+	assert(descriptor);
+	const auto& pUav = static_cast<const ResourceView*>(descriptor);
+	assert(pUav->Type == ResourceViewType::UAV);
+	assert(pUav->pResource);
+	const auto pDxResource = static_cast<ID3D12Resource*>(pUav->pResource->GetHandle());
+	pDxDevice->CreateUnorderedAccessView(pDxResource, nullptr, &pUav->UavDesc, uavHandle);
+
+	assert(numRects == 0 || pRects);
 	if (m_rects.size() < numRects) m_rects.resize(numRects);
 	for (auto i = 0u; i < numRects; ++i)
 	{
@@ -573,17 +636,24 @@ void CommandList_DX12::ClearUnorderedAccessViewUint(const DescriptorTable& descr
 	const auto& tableProperty = reinterpret_cast<const DescriptorTableProperty&>(descriptorTable);
 	assert(tableProperty.HeapType == 0 || tableProperty.HeapType == 1);
 	const auto baseDescriptor = m_descriptorHeapStarts[tableProperty.HeapType] + tableProperty.Offset;
-	m_commandList->ClearUnorderedAccessViewUint({ baseDescriptor }, { descriptor },
-		static_cast<ID3D12Resource*>(pResource->GetHandle()), values,
-		numRects, numRects ? m_rects.data() : nullptr);
+	m_commandList->ClearUnorderedAccessViewUint({ baseDescriptor }, uavHandle, pDxResource,
+		values, numRects, numRects ? m_rects.data() : nullptr);
 }
 
 void CommandList_DX12::ClearUnorderedAccessViewFloat(const DescriptorTable& descriptorTable, const Descriptor& descriptor,
-	const Resource* pResource, const float values[4], uint32_t numRects, const RectRange* pRects)
+	const float values[4], uint32_t numRects, const RectRange* pRects)
 {
-	assert(pResource);
-	assert(numRects == 0 || pRects);
+	const auto pDxDevice = static_cast<ID3D12Device*>(m_pDevice->GetHandle());
 
+	const CD3DX12_CPU_DESCRIPTOR_HANDLE uavHandle(m_uavHeap->GetCPUDescriptorHandleForHeapStart());
+	assert(descriptor);
+	const auto& pUav = static_cast<const ResourceView*>(descriptor);
+	assert(pUav->Type == ResourceViewType::UAV);
+	assert(pUav->pResource);
+	const auto pDxResource = static_cast<ID3D12Resource*>(pUav->pResource->GetHandle());
+	pDxDevice->CreateUnorderedAccessView(pDxResource, nullptr, &pUav->UavDesc, uavHandle);
+
+	assert(numRects == 0 || pRects);
 	if (m_rects.size() < numRects) m_rects.resize(numRects);
 	for (auto i = 0u; i < numRects; ++i)
 	{
@@ -596,9 +666,8 @@ void CommandList_DX12::ClearUnorderedAccessViewFloat(const DescriptorTable& desc
 	const auto& tableProperty = reinterpret_cast<const DescriptorTableProperty&>(descriptorTable);
 	assert(tableProperty.HeapType == 0 || tableProperty.HeapType == 1);
 	const auto baseDescriptor = m_descriptorHeapStarts[tableProperty.HeapType] + tableProperty.Offset;
-	m_commandList->ClearUnorderedAccessViewFloat({ baseDescriptor }, { descriptor },
-		static_cast<ID3D12Resource*>(pResource->GetHandle()), values,
-		numRects, numRects ? m_rects.data() : nullptr);
+	m_commandList->ClearUnorderedAccessViewFloat({ baseDescriptor }, uavHandle, pDxResource,
+		values, numRects, numRects ? m_rects.data() : nullptr);
 }
 
 void CommandList_DX12::DiscardResource(const Resource* pResource, uint32_t numRects, const RectRange* pRects,
