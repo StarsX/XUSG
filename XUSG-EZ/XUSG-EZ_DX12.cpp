@@ -3,6 +3,7 @@
 //--------------------------------------------------------------------------------------
 
 #include "Core/XUSGCommand_DX12.h"
+#include "Core/XUSG_DX12.h"
 #include "XUSG-EZ_DX12.h"
 
 #include "CSBlit2D.h"
@@ -860,6 +861,38 @@ bool EZ::CommandList_DX12::init(XUSG::CommandList* pCommandList, uint32_t sample
 {
 	m_pDevice = pCommandList->GetDevice();
 	m_commandList = dynamic_cast<XUSG::CommandList_DX12*>(pCommandList)->GetGraphicsCommandList();
+
+	const auto pDxDevice = static_cast<ID3D12Device*>(m_pDevice->GetHandle());
+	m_rtvStride = pDxDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	m_dsvStride = pDxDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+
+	wstring name = L"";
+	uint32_t nameLength = 0;
+	m_commandList->GetPrivateData(WKPDID_D3DDebugObjectName, &nameLength, nullptr);
+	if (nameLength)
+	{
+		name.resize((nameLength - 1) / sizeof(wchar_t)); // Exclude null terminator
+		m_commandList->GetPrivateData(WKPDID_D3DDebugObjectName, &nameLength, &name[0]);
+	}
+
+	D3D12_DESCRIPTOR_HEAP_DESC desc = {};
+	desc.NumDescriptors = D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT + 1; // Extra one for clear
+	desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+	m_rtvHeap = nullptr;
+	V_RETURN(pDxDevice->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&m_rtvHeap)), cerr, false);
+	if (!name.empty()) m_rtvHeap->SetName((name + L"_EZ.RtvHeap").c_str());
+
+	desc.NumDescriptors = 2; // Extra one for clear
+	desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+	m_dsvHeap = nullptr;
+	V_RETURN(pDxDevice->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&m_dsvHeap)), cerr, false);
+	if (!name.empty()) m_dsvHeap->SetName((name + L"_EZ.DsvHeap").c_str());
+
+	desc.NumDescriptors = 1;
+	desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	m_uavHeap = nullptr;
+	V_RETURN(pDxDevice->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&m_uavHeap)), cerr, false);
+	if (!name.empty()) m_uavHeap->SetName((name + L"_EZ.UavHeap").c_str());
 
 	m_graphicsPipelineLib = Graphics::PipelineLib::MakeUnique(m_pDevice, API::DIRECTX_12);
 	m_computePipelineLib = Compute::PipelineLib::MakeUnique(m_pDevice, API::DIRECTX_12);
