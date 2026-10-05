@@ -474,8 +474,13 @@ void CommandList_DX12::IASetIndexBuffer(const IndexBufferView& view) const
 
 void CommandList_DX12::IASetVertexBuffers(uint32_t startSlot, uint32_t numViews, const VertexBufferView* pViews) const
 {
-	assert(numViews == 0 || pViews);
 	assert(numViews <= D3D12_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT);
+	if (!pViews)
+	{
+		m_commandList->IASetVertexBuffers(startSlot, numViews, nullptr);
+
+		return;
+	}
 
 	D3D12_VERTEX_BUFFER_VIEW views[D3D12_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT];
 	for (uint8_t i = 0; i < numViews; ++i)
@@ -485,7 +490,7 @@ void CommandList_DX12::IASetVertexBuffers(uint32_t startSlot, uint32_t numViews,
 		views[i].StrideInBytes = pViews[i].StrideInBytes;
 	}
 
-	m_commandList->IASetVertexBuffers(startSlot, numViews, pViews ? views : nullptr);
+	m_commandList->IASetVertexBuffers(startSlot, numViews, views);
 }
 
 void CommandList_DX12::SOSetTargets(uint32_t startSlot, uint32_t numViews, const StreamOutBufferView* pViews) const
@@ -670,7 +675,7 @@ void CommandList_DX12::ClearUnorderedAccessViewFloat(const DescriptorTable& desc
 		values, numRects, numRects ? m_rects.data() : nullptr);
 }
 
-void CommandList_DX12::DiscardResource(const Resource* pResource, uint32_t numRects, const RectRange* pRects,
+void CommandList_DX12::DiscardResource(Resource* pResource, uint32_t numRects, const RectRange* pRects,
 	uint32_t firstSubresource, uint32_t numSubresources)
 {
 	assert(pResource);
@@ -769,6 +774,21 @@ const Device* CommandList_DX12::GetDevice() const
 com_ptr<ID3D12GraphicsCommandList>& CommandList_DX12::GetGraphicsCommandList()
 {
 	return m_commandList;
+}
+
+com_ptr<ID3D12DescriptorHeap>& CommandList_DX12::GetRtvHeap()
+{
+	return m_rtvHeap;
+}
+
+com_ptr<ID3D12DescriptorHeap>& CommandList_DX12::GetDsvHeap()
+{
+	return m_dsvHeap;
+}
+
+com_ptr<ID3D12DescriptorHeap>& CommandList_DX12::GetUavHeap()
+{
+	return m_uavHeap;
 }
 
 //--------------------------------------------------------------------------------------

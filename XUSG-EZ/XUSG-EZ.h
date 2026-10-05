@@ -191,7 +191,7 @@ namespace XUSG
 				uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
 			virtual void ClearUnorderedAccessViewFloat(const ResourceView& unorderedAccessView, const float values[4],
 				uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
-			virtual void DiscardResource(const Resource* pResource, uint32_t numRects, const RectRange* pRects,
+			virtual void DiscardResource(Resource* pResource, uint32_t numRects, const RectRange* pRects,
 				uint32_t firstSubresource, uint32_t numSubresources) = 0;
 			virtual void BeginQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const = 0;
 			virtual void EndQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const = 0;

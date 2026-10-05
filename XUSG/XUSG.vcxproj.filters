@@ -76,7 +76,7 @@
     <ClInclude Include="Core\XUSGGraphicsState_DX12.h">
       <Filter>Core\Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Core\XUSGInputLayout_DX12.h">
+    <ClInclude Include="Core\XUSGInputLayout.h">
       <Filter>Core\Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Core\XUSGPipelineLayout_DX12.h">
@@ -192,7 +192,7 @@
     <ClCompile Include="Core\XUSGGraphicsState_DX12.cpp">
       <Filter>Core\Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Core\XUSGInputLayout_DX12.cpp">
+    <ClCompile Include="Core\XUSGInputLayout.cpp">
       <Filter>Core\Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Core\XUSGPipelineLayout_DX12.cpp">

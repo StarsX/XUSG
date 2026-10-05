@@ -189,7 +189,7 @@ namespace XUSG
 			BarrierAccess AccessAfter;
 			BarrierLayout LayoutBefore;
 			BarrierLayout LayoutAfter;
-			const Resource* pResource;
+			Resource* pResource;
 			union
 			{
 				struct

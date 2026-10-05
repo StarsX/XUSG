@@ -8,14 +8,6 @@
 
 namespace XUSG
 {
-	struct StaticSampler
-	{
-		uint32_t Binding;
-		uint32_t Space;
-		const Sampler* pSampler;
-		uint8_t Stage;
-	};
-
 	namespace Util
 	{
 		class PipelineLayout_DX12 :

@@ -10,87 +10,124 @@
 #include "XUSGPipelineState_DX12.h"
 #include "XUSGWorkGraph_DX12.h"
 #include "XUSGGenericState_DX12.h"
+#include "Core/XUSGCommand_VK.h"
+#include "Core/XUSGPipelineLayout_VK.h"
+#include "XUSGUltimate_VK.h"
+#include "XUSGPipelineState_VK.h"
+#include "XUSGGenericState_VK.h"
 
 using namespace std;
 using namespace XUSG;
 
 Ultimate::CommandList::uptr Ultimate::CommandList::MakeUnique(API api)
 {
+	if (api == API::VULKAN) return make_unique<CommandList_VK>();
+
 	return make_unique<CommandList_DX12>();
 }
 
 Ultimate::CommandList::sptr Ultimate::CommandList::MakeShared(API api)
 {
+	if (api == API::VULKAN) return make_shared<CommandList_VK>();
+
 	return make_shared<CommandList_DX12>();
 }
 
 Ultimate::CommandList::uptr Ultimate::CommandList::MakeUnique(XUSG::CommandList& commandList, API api)
 {
+	if (api == API::VULKAN) return make_unique<CommandList_VK>(commandList);
+
 	return make_unique<CommandList_DX12>(commandList);
 }
 
 Ultimate::CommandList::sptr Ultimate::CommandList::MakeShared(XUSG::CommandList& commandList, API api)
 {
+	if (api == API::VULKAN) return make_shared<CommandList_VK>(commandList);
+
 	return make_shared<CommandList_DX12>(commandList);
 }
 
 Ultimate::PipelineLayoutLib::uptr Ultimate::PipelineLayoutLib::MakeUnique(API api)
 {
+	if (api == API::VULKAN) return make_unique<PipelineLayoutLib_VK>();
+
 	return make_unique<PipelineLayoutLib_DX12>();
 }
 
 Ultimate::PipelineLayoutLib::sptr Ultimate::PipelineLayoutLib::MakeShared(API api)
 {
+	if (api == API::VULKAN) return make_shared<PipelineLayoutLib_VK>();
+
 	return make_shared<PipelineLayoutLib_DX12>();
 }
 
 Ultimate::PipelineLayoutLib::uptr Ultimate::PipelineLayoutLib::MakeUnique(const Device* pDevice, API api)
 {
+	if (api == API::VULKAN) return make_unique<PipelineLayoutLib_VK>(pDevice);
+
 	return make_unique<PipelineLayoutLib_DX12>(pDevice);
 }
 
 Ultimate::PipelineLayoutLib::sptr Ultimate::PipelineLayoutLib::MakeShared(const Device* pDevice, API api)
 {
+	if (api == API::VULKAN) return make_shared<PipelineLayoutLib_VK>(pDevice);
+
 	return make_shared<PipelineLayoutLib_DX12>(pDevice);
 }
 
 Ultimate::State::uptr Ultimate::State::MakeUnique(API api)
 {
+	if (api == API::VULKAN) return make_unique<State_VK>();
+
 	return make_unique<State_DX12>();
 }
 
 Ultimate::State::sptr Ultimate::State::MakeShared(API api)
 {
+	if (api == API::VULKAN) return make_shared<State_VK>();
+
 	return make_shared<State_DX12>();
 }
 
 Ultimate::PipelineLib::uptr Ultimate::PipelineLib::MakeUnique(API api)
 {
+	if (api == API::VULKAN) return make_unique<PipelineLib_VK>();
+
 	return make_unique<PipelineLib_DX12>();
 }
 
 Ultimate::PipelineLib::sptr Ultimate::PipelineLib::MakeShared(API api)
 {
+	if (api == API::VULKAN) return make_shared<PipelineLib_VK>();
+
 	return make_shared<PipelineLib_DX12>();
 }
 
 Ultimate::PipelineLib::uptr Ultimate::PipelineLib::MakeUnique(const Device* pDevice, API api)
 {
+	if (api == API::VULKAN) return make_unique<PipelineLib_VK>(pDevice);
+
 	return make_unique<PipelineLib_DX12>(pDevice);
 }
 
 Ultimate::PipelineLib::sptr Ultimate::PipelineLib::MakeShared(const Device* pDevice, API api)
 {
+	if (api == API::VULKAN) return make_shared<PipelineLib_VK>(pDevice);
+
 	return make_shared<PipelineLib_DX12>(pDevice);
 }
 
 Ultimate::SamplerFeedBack::uptr Ultimate::SamplerFeedBack::MakeUnique(API api)
 {
+	if (api == API::VULKAN) return make_unique<SamplerFeedBack_VK>();
+
 	return make_unique<SamplerFeedBack_DX12>();
 }
 
 Ultimate::SamplerFeedBack::sptr Ultimate::SamplerFeedBack::MakeShared(API api)
 {
+	if (api == API::VULKAN) return make_shared<SamplerFeedBack_VK>();
+
 	return make_shared<SamplerFeedBack_DX12>();
 }
 
@@ -165,6 +202,13 @@ uint32_t Ultimate::SetBarrier(ResourceBarrier* pTextureBarriers, Texture* pTextu
 
 void Ultimate::GetLinearAlgebraMatrixInfo(const Device* pDevice, LinearAlgebraMatrixInfo& matrixInfo, API api)
 {
+	if (api == API::VULKAN)
+	{
+		assert(!"GetLinearAlgebraMatrixInfo is not implemented on Vulkan");
+
+		return;
+	}
+
 	return GetDX12LinearAlgebraMatrixInfo(pDevice, matrixInfo);
 }
 
@@ -563,60 +607,84 @@ Ultimate::BarrierAccess Ultimate::GetBarrierAccess(ResourceState resourceState)
 
 WorkGraph::State::uptr WorkGraph::State::MakeUnique(API api)
 {
+	assert(api != API::VULKAN && "Work graph is not implemented on Vulkan");
+
 	return make_unique<State_DX12>();
 }
 
 WorkGraph::State::sptr WorkGraph::State::MakeShared(API api)
 {
+	assert(api != API::VULKAN && "Work graph is not implemented on Vulkan");
+
 	return make_shared<State_DX12>();
 }
 
 WorkGraph::PipelineLib::uptr WorkGraph::PipelineLib::MakeUnique(API api)
 {
+	assert(api != API::VULKAN && "Work graph is not implemented on Vulkan");
+
 	return make_unique<PipelineLib_DX12>();
 }
 
 WorkGraph::PipelineLib::sptr WorkGraph::PipelineLib::MakeShared(API api)
 {
+	assert(api != API::VULKAN && "Work graph is not implemented on Vulkan");
+
 	return make_shared<PipelineLib_DX12>();
 }
 
 WorkGraph::PipelineLib::uptr WorkGraph::PipelineLib::MakeUnique(const Device* pDevice, API api)
 {
+	assert(api != API::VULKAN && "Work graph is not implemented on Vulkan");
+
 	return make_unique<PipelineLib_DX12>(pDevice);
 }
 
 WorkGraph::PipelineLib::sptr WorkGraph::PipelineLib::MakeShared(const Device* pDevice, API api)
 {
+	assert(api != API::VULKAN && "Work graph is not implemented on Vulkan");
+
 	return make_shared<PipelineLib_DX12>(pDevice);
 }
 
 Generic::State::uptr Generic::State::MakeUnique(API api)
 {
+	if (api == API::VULKAN) return make_unique<State_VK>();
+
 	return make_unique<State_DX12>();
 }
 
 Generic::State::sptr Generic::State::MakeShared(API api)
 {
+	if (api == API::VULKAN) return make_shared<State_VK>();
+
 	return make_shared<State_DX12>();
 }
 
 Generic::PipelineLib::uptr Generic::PipelineLib::MakeUnique(API api)
 {
+	if (api == API::VULKAN) return make_unique<PipelineLib_VK>();
+
 	return make_unique<PipelineLib_DX12>();
 }
 
 Generic::PipelineLib::sptr Generic::PipelineLib::MakeShared(API api)
 {
+	if (api == API::VULKAN) return make_shared<PipelineLib_VK>();
+
 	return make_shared<PipelineLib_DX12>();
 }
 
 Generic::PipelineLib::uptr Generic::PipelineLib::MakeUnique(const Device* pDevice, API api)
 {
+	if (api == API::VULKAN) return make_unique<PipelineLib_VK>(pDevice);
+
 	return make_unique<PipelineLib_DX12>(pDevice);
 }
 
 Generic::PipelineLib::sptr Generic::PipelineLib::MakeShared(const Device* pDevice, API api)
 {
+	if (api == API::VULKAN) return make_shared<PipelineLib_VK>(pDevice);
+
 	return make_shared<PipelineLib_DX12>(pDevice);
 }

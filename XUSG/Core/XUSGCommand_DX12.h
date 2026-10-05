@@ -122,7 +122,7 @@ namespace XUSG
 			const uint32_t values[4], uint32_t numRects = 0, const RectRange* pRects = nullptr);
 		void ClearUnorderedAccessViewFloat(const DescriptorTable& descriptorTable, const Descriptor& descriptor,
 			const float values[4], uint32_t numRects = 0, const RectRange* pRects = nullptr);
-		void DiscardResource(const Resource* pResource, uint32_t numRects, const RectRange* pRects,
+		void DiscardResource(Resource* pResource, uint32_t numRects, const RectRange* pRects,
 			uint32_t firstSubresource, uint32_t numSubresources);
 		void BeginQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const;
 		void EndQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const;
@@ -144,6 +144,10 @@ namespace XUSG
 		const Device* GetDevice() const;
 
 		com_ptr<ID3D12GraphicsCommandList>& GetGraphicsCommandList();
+
+		com_ptr<ID3D12DescriptorHeap>& GetRtvHeap();
+		com_ptr<ID3D12DescriptorHeap>& GetDsvHeap();
+		com_ptr<ID3D12DescriptorHeap>& GetUavHeap();
 
 	protected:
 		com_ptr<ID3D12GraphicsCommandList>	m_commandList;

@@ -5,7 +5,7 @@
 #pragma once
 
 #include "XUSG.h"
-#include "XUSGInputLayout_DX12.h"
+#include "XUSGInputLayout.h"
 
 namespace XUSG
 {
@@ -127,7 +127,7 @@ namespace XUSG
 
 			com_ptr<ID3D12Device> m_device;
 
-			InputLayoutLib_DX12 m_inputLayoutLib;
+			InputLayoutLib_Impl m_inputLayoutLib;
 
 			std::unordered_map<std::string, com_ptr<ID3D12PipelineState>> m_pipelines;
 			std::unique_ptr<Blend>			m_blends[NUM_BLEND_PRESET];

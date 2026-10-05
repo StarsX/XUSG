@@ -153,7 +153,7 @@ namespace XUSG
 				uint32_t numRects = 0, const RectRange* pRects = nullptr);
 			void ClearUnorderedAccessViewFloat(const ResourceView& unorderedAccessView, const float values[4],
 				uint32_t numRects = 0, const RectRange* pRects = nullptr);
-			void DiscardResource(const Resource* pResource, uint32_t numRects, const RectRange* pRects,
+			void DiscardResource(Resource* pResource, uint32_t numRects, const RectRange* pRects,
 				uint32_t firstSubresource, uint32_t numSubresources)
 			{
 				XUSG::CommandList_DX12::DiscardResource(pResource, numRects,

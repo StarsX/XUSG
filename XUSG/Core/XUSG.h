@@ -74,9 +74,12 @@ namespace XUSG
 #endif
 
 	// Enumerations
+	// Mapping tables index these by dense enumerator value or single-bit flag position.
+	// Do not reorder or renumber them; the asserts in the enum translation code lock that order.
 	enum class API
 	{
-		DIRECTX_12
+		DIRECTX_12,
+		VULKAN
 	};
 
 	enum class Format : uint8_t
@@ -890,7 +893,7 @@ namespace XUSG
 
 	struct ResourceBarrier
 	{
-		const Resource* pResource;
+		Resource* pResource;
 		ResourceState StateBefore;
 		ResourceState StateAfter;
 		uint32_t Subresource;
@@ -946,6 +949,14 @@ namespace XUSG
 		float MinLOD;
 		float MaxLOD;
 		SamplerFlag Flags;
+	};
+
+	struct StaticSampler
+	{
+		uint32_t Binding;
+		uint32_t Space;
+		const Sampler* pSampler;
+		uint8_t Stage;
 	};
 
 	// Pipeline state related
@@ -1140,6 +1151,13 @@ namespace XUSG
 
 	using Descriptor = const DescriptorHeader*;
 	using DescriptorTable = uint64_t;
+
+	struct DescriptorTableProperty
+	{
+		int32_t Offset;
+		uint16_t HeapType;
+		uint16_t IsInitialized;
+	};
 
 	// Input layouts related
 	struct InputElement
@@ -1369,6 +1387,9 @@ namespace XUSG
 		virtual void Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers) = 0;
 		virtual void ExecuteBundle(const CommandList* pCommandList) const = 0;
 		virtual void SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps) = 0;
+		// Graphics and compute share one root-parameter binding state.
+		// Do not switch sides after setting only part of the bindings.
+		// A switch invalidates the bindings already set; set that side again before the next draw or dispatch.
 		virtual void SetComputePipelineLayout(const PipelineLayout& pipelineLayout) const = 0;
 		virtual void SetGraphicsPipelineLayout(const PipelineLayout& pipelineLayout) const = 0;
 		virtual void SetComputeDescriptorTable(uint32_t index, const DescriptorTable& descriptorTable) const = 0;
@@ -1413,7 +1434,10 @@ namespace XUSG
 			const uint32_t values[4], uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
 		virtual void ClearUnorderedAccessViewFloat(const DescriptorTable& descriptorTable, const Descriptor& descriptor,
 			const float values[4], uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
-		virtual void DiscardResource(const Resource*pResource, uint32_t numRects, const RectRange* pRects,
+		// Vulkan marks discarded image subresources. The next image barrier uses an undefined
+		// old layout, and the next render-target or depth load uses DONT_CARE.
+		// Rectangle discards and buffer discards are not supported on Vulkan.
+		virtual void DiscardResource(Resource* pResource, uint32_t numRects, const RectRange* pRects,
 			uint32_t firstSubresource, uint32_t numSubresources) = 0;
 		virtual void BeginQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const = 0;
 		virtual void EndQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const = 0;

@@ -2,29 +2,28 @@
 // Copyright (c) XU, Tianchen. All rights reserved.
 //--------------------------------------------------------------------------------------
 
-#include "XUSGInputLayout_DX12.h"
-#include "XUSGEnum_DX12.h"
+#include "XUSGInputLayout.h"
 
 using namespace std;
 using namespace XUSG;
 
-InputLayoutLib_DX12::InputLayoutLib_DX12() :
+InputLayoutLib_Impl::InputLayoutLib_Impl() :
 	m_layouts(0)
 {
 }
 
-InputLayoutLib_DX12::~InputLayoutLib_DX12()
+InputLayoutLib_Impl::~InputLayoutLib_Impl()
 {
 }
 
-void InputLayoutLib_DX12::SetLayout(uint32_t index, uint32_t numElements, const InputElement* pElements)
+void InputLayoutLib_Impl::SetLayout(uint32_t index, uint32_t numElements, const InputElement* pElements)
 {
 	lock_guard<mutex> lock(m_mtx);
 
 	setLayout(index, numElements, pElements);
 }
 
-const InputLayout* InputLayoutLib_DX12::CreateLayout(uint32_t numElements, const InputElement* pElements)
+const InputLayout* InputLayoutLib_Impl::CreateLayout(uint32_t numElements, const InputElement* pElements)
 {
 	lock_guard<mutex> lock(m_mtx);
 
@@ -34,14 +33,14 @@ const InputLayout* InputLayoutLib_DX12::CreateLayout(uint32_t numElements, const
 	return getLayout(index);
 }
 
-const InputLayout* InputLayoutLib_DX12::GetLayout(uint32_t index)
+const InputLayout* InputLayoutLib_Impl::GetLayout(uint32_t index)
 {
 	lock_guard<mutex> lock(m_mtx);
 
 	return getLayout(index);
 }
 
-void InputLayoutLib_DX12::setLayout(uint32_t index, uint32_t numElements, const InputElement* pElements)
+void InputLayoutLib_Impl::setLayout(uint32_t index, uint32_t numElements, const InputElement* pElements)
 {
 	if (index >= m_layouts.size())
 		m_layouts.resize(index + 1);
@@ -53,7 +52,7 @@ void InputLayoutLib_DX12::setLayout(uint32_t index, uint32_t numElements, const 
 		layout[i] = pElements[i];
 }
 
-const InputLayout* InputLayoutLib_DX12::getLayout(uint32_t index) const
+const InputLayout* InputLayoutLib_Impl::getLayout(uint32_t index) const
 {
 	return index < m_layouts.size() ? &m_layouts[index] : nullptr;
 }
