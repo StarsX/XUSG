@@ -9,6 +9,7 @@
 namespace XUSG
 {
 	VkFormat GetVKFormat(Format format);
+	VkFormat GetVKFormat(const Device_VK* pDevice, Format format);
 	Format GetFormatFromVK(VkFormat format);
 
 	VkImageType GetVKImageType(ResourceDimension dimension);

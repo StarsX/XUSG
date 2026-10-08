@@ -37,6 +37,21 @@ static const float	XUSG_FOVAngleY = XUSG_PIDIV4;
 static const float	XUSG_zNear = 1.0f;
 static const float	XUSG_zFar = 1000.0f;
 
+// Vulkan descriptor sets. DX12 keeps every view type in space 0.
+// These set numbers are the [[vk::binding]] set argument.
+#define XUSG_VK_SPACE_CBV		0
+#define XUSG_VK_SPACE_SRV		1
+#define XUSG_VK_SPACE_UAV		2
+#define XUSG_VK_SPACE_SAMPLER	3
+
+// FXC shader model 5.0 does not accept vk:: attributes.
+// SPIR-V keeps min16 at fp32 for now. Half changes the shading result.
+#if defined(XUSG_SPIRV)
+#define XUSG_VK_BINDING(b, s) [[vk::binding(b, s)]]
+#else
+#define XUSG_VK_BINDING(b, s)
+#endif
+
 #endif
 
 #if !(defined(HLSL_VERSION) || defined(__HLSL_VERSION))
@@ -45,6 +60,12 @@ static const float	XUSG_zFar = 1000.0f;
 
 namespace XUSG
 {
+	// DX12 spaces are 0. Vulkan spaces match XUSG_VK_SPACE_* in the shader.
+	XUSG_INTERFACE uint32_t GetCBVSpace();
+	XUSG_INTERFACE uint32_t GetSRVSpace();
+	XUSG_INTERFACE uint32_t GetUAVSpace();
+	XUSG_INTERFACE uint32_t GetSamplerSpace();
+
 	//--------------------------------------------------------------------------------------
 	// DDS loader
 	//--------------------------------------------------------------------------------------
@@ -68,12 +89,12 @@ namespace XUSG
 			bool CreateTextureFromMemory(CommandList* pCommandList, const uint8_t* ddsData,
 				size_t ddsDataSize, size_t maxsize, bool forceSRGB, Texture::sptr& texture, Resource* pUploader,
 				AlphaMode* alphaMode = nullptr, ResourceState state = ResourceState::COMMON,
-				MemoryFlag memoryFlags = MemoryFlag::NONE, API api = API::DIRECTX_12);
+				MemoryFlag memoryFlags = MemoryFlag::NONE);
 
 			bool CreateTextureFromFile(CommandList* pCommandList, const wchar_t* fileName,
 				size_t maxsize, bool forceSRGB, Texture::sptr& texture, Resource* pUploader,
 				AlphaMode* alphaMode = nullptr, ResourceState state = ResourceState::COMMON,
-				MemoryFlag memoryFlags = MemoryFlag::NONE, API api = API::DIRECTX_12);
+				MemoryFlag memoryFlags = MemoryFlag::NONE);
 
 			static size_t BitsPerPixel(Format fmt);
 		};
@@ -251,9 +272,9 @@ namespace XUSG
 
 		virtual ~SDKMesh() {};
 
-		virtual bool Create(const Device* pDevice, const wchar_t* fileName,
+		virtual bool Create(Device* pDevice, const wchar_t* fileName,
 			const TextureLib& textureLib, bool isStaticMesh = false) = 0;
-		virtual bool Create(const Device* pDevice, uint8_t* pData, const TextureLib& textureLib,
+		virtual bool Create(Device* pDevice, uint8_t* pData, const TextureLib& textureLib,
 			size_t dataBytes, bool isStaticMesh = false, bool copyStatic = false) = 0;
 		virtual bool LoadAnimation(const wchar_t* fileName) = 0;
 		virtual void Destroy() = 0;
@@ -323,8 +344,8 @@ namespace XUSG
 		using uptr = std::unique_ptr<SDKMesh>;
 		using sptr = std::shared_ptr<SDKMesh>;
 
-		static uptr MakeUnique(API api = API::DIRECTX_12);
-		static sptr MakeShared(API api = API::DIRECTX_12);
+		static uptr MakeUnique();
+		static sptr MakeShared();
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -388,7 +409,7 @@ namespace XUSG
 		//Model(const wchar_t* name);
 		virtual ~Model() {};
 
-		virtual bool Init(const Device* pDevice, const InputLayout* pInputLayout,
+		virtual bool Init(Device* pDevice, const InputLayout* pInputLayout,
 			const SDKMesh::sptr& mesh, const ShaderLib::sptr& shaderLib,
 			const Graphics::PipelineLib::sptr& pipelineLib,
 			const PipelineLayoutLib::sptr& pipelineLayoutLib,
@@ -401,28 +422,28 @@ namespace XUSG
 #if XUSG_TEMPORAL_AA
 		virtual void SetTemporalBias(const DirectX::XMFLOAT2& temporalBias) = 0;
 #endif
-		virtual void SetPipelineLayout(const CommandList* pCommandList, PipelineLayoutIndex layout) = 0;
-		virtual void SetPipeline(const CommandList* pCommandList, PipelineIndex pipeline) = 0;
-		virtual void SetPipeline(const CommandList* pCommandList, SubsetFlags subsetFlag, PipelineLayoutIndex layout) = 0;
+		virtual void SetPipelineLayout(const CommandList* pCommandList, PipelineLayoutIndex layout) const = 0;
+		virtual void SetPipeline(const CommandList* pCommandList, PipelineIndex pipeline) const = 0;
+		virtual void SetPipeline(const CommandList* pCommandList, SubsetFlags subsetFlag, PipelineLayoutIndex layout) const = 0;
 		virtual void Render(const CommandList* pCommandList, SubsetFlags subsetFlags, uint8_t matrixTableIndex,
 			PipelineLayoutIndex layout = NUM_PIPELINE_LAYOUT, const DescriptorTable* pCbvPerFrameTable = nullptr,
-			uint32_t numInstances = 1) = 0;
+			uint32_t numInstances = 1) const = 0;
 
 		virtual bool IsTwoSidedAll() const = 0;
 
 		Model* AsModel();
 
 		static const InputLayout* CreateInputLayout(Graphics::PipelineLib* pPipelineLib);
-		static std::shared_ptr<SDKMesh> LoadSDKMesh(const Device* pDevice, const std::wstring& meshFileName,
-			const TextureLib& textureLib, bool isStaticMesh, API api);
+		static std::shared_ptr<SDKMesh> LoadSDKMesh(Device* pDevice, const std::wstring& meshFileName,
+			const TextureLib& textureLib, bool isStaticMesh);
 
 		static constexpr uint8_t GetFrameCount() { return FrameCount; }
 
 		using uptr = std::unique_ptr<Model>;
 		using sptr = std::shared_ptr<Model>;
 
-		static uptr MakeUnique(const wchar_t* name, API api);
-		static sptr MakeShared(const wchar_t* name, API api);
+		static uptr MakeUnique(const wchar_t* name);
+		static sptr MakeShared(const wchar_t* name);
 
 	protected:
 		static const uint8_t FrameCount = XUSG_FRAME_COUNT;
@@ -453,10 +474,10 @@ namespace XUSG
 			uint32_t		BoneIndex;
 		};
 
-		//Character(const wchar_t* name = nullptr, API api = API::DIRECTX_12);
+		//Character(const wchar_t* name = nullptr);
 		virtual ~Character() {};
 
-		virtual bool Init(const Device* pDevice, const InputLayout* pInputLayout,
+		virtual bool Init(Device* pDevice, const InputLayout* pInputLayout,
 			const SDKMesh::sptr& mesh, const ShaderLib::sptr& shaderLib,
 			const Graphics::PipelineLib::sptr& graphicsPipelineLib,
 			const Compute::PipelineLib::sptr& computePipelineLib,
@@ -473,26 +494,26 @@ namespace XUSG
 		virtual void Update(uint8_t frameIndex, double time) = 0;
 		virtual void Update(uint8_t frameIndex, double time, DirectX::FXMMATRIX* pWorld, bool isTemporal = true) = 0;
 		virtual void SetMatrices(DirectX::FXMMATRIX* pWorld = nullptr, bool isTemporal = true) = 0;
-		virtual void SetSkinningPipeline(const CommandList* pCommandList) = 0;
-		virtual void Skinning(CommandList* pCommandList, uint32_t& numBarriers,
-			ResourceBarrier* pBarriers, bool reset = false) = 0;
+		virtual void SetSkinningPipeline(const CommandList* pCommandList) const = 0;
+		virtual void Skinning(const CommandList* pCommandList, uint32_t& numBarriers,
+			ResourceBarrier* pBarriers, bool reset = false) const = 0;
 		virtual void RenderTransformed(const CommandList* pCommandList, PipelineLayoutIndex layout,
 			SubsetFlags subsetMask = SUBSET_FULL, const DescriptorTable* pCbvPerFrameTable = nullptr,
-			uint32_t numInstances = 1) = 0;
+			uint32_t numInstances = 1) const = 0;
 
 		virtual const DirectX::XMFLOAT4& GetPosition() const = 0;
 		virtual DirectX::FXMMATRIX GetWorldMatrix() const = 0;
 
-		static SDKMesh::sptr LoadSDKMesh(const Device* pDevice, const std::wstring& meshFileName,
+		static SDKMesh::sptr LoadSDKMesh(Device* pDevice, const std::wstring& meshFileName,
 			const std::wstring& animFileName, const TextureLib& textureLib,
 			const std::shared_ptr<std::vector<MeshLink>>& meshLinks = nullptr,
-			std::vector<SDKMesh::sptr>* pLinkedMeshes = nullptr, API api = API::DIRECTX_12);
+			std::vector<SDKMesh::sptr>* pLinkedMeshes = nullptr);
 
 		using uptr = std::unique_ptr<Character>;
 		using sptr = std::shared_ptr<Character>;
 
-		static uptr MakeUnique(const wchar_t* name = nullptr, API api = API::DIRECTX_12);
-		static sptr MakeShared(const wchar_t* name = nullptr, API api = API::DIRECTX_12);
+		static uptr MakeUnique(const wchar_t* name = nullptr);
+		static sptr MakeShared(const wchar_t* name = nullptr);
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -528,18 +549,18 @@ namespace XUSG
 		virtual void Update(uint8_t frameIndex, DirectX::FXMMATRIX* pWorld = nullptr, bool isTemporal = true) = 0;
 		virtual void Render(const CommandList* pCommandList, uint32_t mesh, PipelineLayoutIndex layout,
 			SubsetFlags subsetMask = SUBSET_FULL, const DescriptorTable* pCbvPerFrameTable = nullptr,
-			uint32_t numInstances = 1) = 0;
+			uint32_t numInstances = 1) const = 0;
 
 		virtual const SDKMesh::sptr& GetMesh() const = 0;
 
-		static SDKMesh::sptr LoadSDKMesh(const Device* pDevice, const std::wstring& meshFileName,
-			const TextureLib& textureLib, API api = API::DIRECTX_12);
+		static SDKMesh::sptr LoadSDKMesh(Device* pDevice, const std::wstring& meshFileName,
+			const TextureLib& textureLib);
 
 		using uptr = std::unique_ptr<StaticModel>;
 		using sptr = std::shared_ptr<StaticModel>;
 
-		static uptr MakeUnique(const wchar_t* name = nullptr, API api = API::DIRECTX_12);
-		static sptr MakeShared(const wchar_t* name = nullptr, API api = API::DIRECTX_12);
+		static uptr MakeUnique(const wchar_t* name = nullptr);
+		static sptr MakeShared(const wchar_t* name = nullptr);
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -591,7 +612,7 @@ namespace XUSG
 		virtual ~Shadow() {};
 
 		// This runs when the application is initialized.
-		virtual bool Init(const Device* pDevice, float sceneMapSize, float shadowMapSize,
+		virtual bool Init(Device* pDevice, float sceneMapSize, float shadowMapSize,
 			const DescriptorTableLib::sptr& descriptorTableLib,
 			Format format = Format::D24_UNORM_S8_UINT,
 			uint8_t numCasLevels = XUSG_NUM_CASCADE) = 0;
@@ -601,7 +622,7 @@ namespace XUSG
 		virtual void Update(uint8_t frameIndex, const DirectX::XMFLOAT4X4& view,
 			const DirectX::XMFLOAT4X4& proj, const DirectX::XMFLOAT4& lightPt) = 0;
 
-		virtual void SetViewport(const CommandList* pCommandList, uint8_t i) = 0;
+		virtual void SetViewport(const CommandList* pCommandList, uint8_t i) const = 0;
 		virtual void GetShadowMatrices(DirectX::XMMATRIX* pShadows) const = 0;
 
 		virtual DepthStencil* GetShadowMap() const = 0;
@@ -612,8 +633,8 @@ namespace XUSG
 		using uptr = std::unique_ptr<Shadow>;
 		using sptr = std::shared_ptr<Shadow>;
 
-		static uptr MakeUnique(API api = API::DIRECTX_12);
-		static sptr MakeShared(API api = API::DIRECTX_12);
+		static uptr MakeUnique();
+		static sptr MakeShared();
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -625,13 +646,13 @@ namespace XUSG
 		//SphericalHarmonics();
 		virtual ~SphericalHarmonics() {}
 
-		virtual bool Init(const Device* pDevice, const ShaderLib::sptr& shaderLib,
+		virtual bool Init(Device* pDevice, const ShaderLib::sptr& shaderLib,
 			const Compute::PipelineLib::sptr& computePipelineLib,
 			const PipelineLayoutLib::sptr& pipelineLayoutLib,
 			const DescriptorTableLib::sptr& descriptorTableLib,
 			uint8_t baseCSIndex, uint8_t descriptorHeapIndex = 0) = 0;
 
-		virtual void Transform(CommandList* pCommandList, Resource* pRadiance,
+		virtual void Transform(const CommandList* pCommandList, Resource* pRadiance,
 			const DescriptorTable& srvTable, uint8_t order = 3) = 0;
 
 		virtual StructuredBuffer::sptr GetSHCoefficients() const = 0;
@@ -641,8 +662,8 @@ namespace XUSG
 		using uptr = std::unique_ptr<SphericalHarmonics>;
 		using sptr = std::shared_ptr<SphericalHarmonics>;
 
-		static uptr MakeUnique(API api = API::DIRECTX_12);
-		static sptr MakeShared(API api = API::DIRECTX_12);
+		static uptr MakeUnique();
+		static sptr MakeShared();
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -662,23 +683,23 @@ namespace XUSG
 			const std::wstring& skyTexture, std::vector<Resource::uptr>& uploaders,
 			bool renderWater, Format rtvFormat = Format::R11G11B10_FLOAT,
 			Format dsvFormat = Format::D24_UNORM_S8_UINT) = 0;
-		virtual bool CreateResources(const Device* pDevice, const ShaderResource::sptr& sceneColor,
+		virtual bool CreateResources(Device* pDevice, const ShaderResource::sptr& sceneColor,
 			const DepthStencil* pDepth, bool renderWater) = 0;
 
 		virtual void Update(uint8_t frameIndex, DirectX::FXMMATRIX* pViewProj, DirectX::FXMMATRIX* pWorld = nullptr) = 0;
 		virtual void SetGlobalCBVTables(DescriptorTable cbvImmutable, DescriptorTable cbvPerFrameTable) = 0;
-		virtual void RenderSky(const CommandList* pCommandList) = 0;
-		virtual void RenderWater(CommandList* pCommandList, uint8_t numRTVs, const Descriptor* pRTVs,
+		virtual void RenderSky(const CommandList* pCommandList) const = 0;
+		virtual void RenderWater(const CommandList* pCommandList, uint8_t numRTVs, const Descriptor* pRTVs,
 			const Descriptor& dsv, uint32_t& numBarriers, ResourceBarrier* pBarriers) = 0;
 
 		virtual Descriptor GetSkySRV() const = 0;
-		virtual DescriptorTable GetSHCoeffSRVTable(CommandList* pCommandList) = 0;
+		virtual DescriptorTable GetSHCoeffSRVTable(const CommandList* pCommandList) = 0;
 
 		using uptr = std::unique_ptr<Nature>;
 		using sptr = std::shared_ptr<Nature>;
 
-		static uptr MakeUnique(API api = API::DIRECTX_12);
-		static sptr MakeShared(API api = API::DIRECTX_12);
+		static uptr MakeUnique();
+		static sptr MakeShared();
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -739,18 +760,18 @@ namespace XUSG
 		virtual void Update(uint8_t frameIndex, double time, float timeStep) = 0;
 		virtual void Update(uint8_t frameIndex, double time, float timeStep, DirectX::CXMMATRIX view,
 			DirectX::CXMMATRIX proj, DirectX::CXMVECTOR eyePt, bool enableJitter = true) = 0;
-		virtual void Render(CommandList* pCommandList) = 0;
-		virtual void SkinCharacters(CommandList* pCommandList, uint32_t& numBarriers,
+		virtual void Render(const CommandList* pCommandList) = 0;
+		virtual void SkinCharacters(const CommandList* pCommandList, uint32_t& numBarriers,
 			ResourceBarrier* pBarriers, bool reset = false) = 0;
-		virtual void RenderDepth(CommandList* pCommandList, uint32_t& numBarriers,
+		virtual void RenderDepth(const CommandList* pCommandList, uint32_t& numBarriers,
 			ResourceBarrier* pBarriers, BarrierFlag barrierFlag) = 0;
-		virtual void RenderShadowMap(CommandList* pCommandList, uint32_t& numBarriers,
+		virtual void RenderShadowMap(const CommandList* pCommandList, uint32_t& numBarriers,
 			ResourceBarrier* pBarriers, BarrierFlag barrierFlag) = 0;
-		virtual void RenderGBuffersOpaque(CommandList* pCommandList, uint32_t& numBarriers,
+		virtual void RenderGBuffersOpaque(const CommandList* pCommandList, uint32_t& numBarriers,
 			ResourceBarrier* pBarriers, const BarrierFlag barrierFlags[NUM_GB_FIXED]) = 0;
-		virtual void RenderGBuffersAlpha(CommandList* pCommandList, uint32_t& numBarriers,
+		virtual void RenderGBuffersAlpha(const CommandList* pCommandList, uint32_t& numBarriers,
 			ResourceBarrier* pBarriers, const BarrierFlag barrierFlags[NUM_GB_RTV]) = 0;
-		virtual void RenderGBuffers(CommandList* pCommandList, uint32_t& numBarriers,
+		virtual void RenderGBuffers(const CommandList* pCommandList, uint32_t& numBarriers,
 			ResourceBarrier* pBarriers, const BarrierFlag barrierFlags[NUM_GB_RTV]) = 0;
 		virtual void SetViewProjMatrix(DirectX::CXMMATRIX view, DirectX::CXMMATRIX proj, bool enableJitter) = 0;
 		virtual void SetEyePoint(DirectX::CXMVECTOR eyePt) = 0;
@@ -769,8 +790,8 @@ namespace XUSG
 		using uptr = std::unique_ptr<Scene>;
 		using sptr = std::shared_ptr<Scene>;
 
-		static uptr MakeUnique(API api = API::DIRECTX_12);
-		static sptr MakeShared(API api = API::DIRECTX_12);
+		static uptr MakeUnique();
+		static sptr MakeShared();
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -794,25 +815,25 @@ namespace XUSG
 		//Postprocess();
 		virtual ~Postprocess() {};
 
-		virtual bool Init(const Device* pDevice, const ShaderLib::sptr& shaderLib,
+		virtual bool Init(Device* pDevice, const ShaderLib::sptr& shaderLib,
 			const Graphics::PipelineLib::sptr& graphicsPipelineLib,
 			const Compute::PipelineLib::sptr& computePipelineLib,
 			const PipelineLayoutLib::sptr& pipelineLayoutLib,
 			const DescriptorTableLib::sptr& descriptorTableLib,
 			Format hdrFormat, Format ldrFormat) = 0;
-		virtual bool ChangeWindowSize(const Device* pDevice, const Texture* pReference) = 0;
+		virtual bool ChangeWindowSize(Device* pDevice, const Texture* pReference) = 0;
 
 		virtual void Update(const DescriptorTable& cbvImmutable, const DescriptorTable& cbvPerFrameTable,
 			uint8_t frameIndex, float timeStep) = 0;
-		virtual void Render(CommandList* pCommandList, RenderTarget* pDst, Texture* pSrc,
-			const DescriptorTable& srvTable, bool clearRT = false) = 0;
+		virtual void Render(const CommandList* pCommandList, RenderTarget* pDst, Texture* pSrc,
+			const DescriptorTable& srvTable, bool clearRT = false) const = 0;
 		virtual void ScreenRender(const CommandList* pCommandList, PipelineIndex pipelineIndex,
-			const DescriptorTable& srvTable, bool hasImmutableCB, bool hasPerFrameCB) = 0;
-		virtual void LumAdaption(const CommandList* pCommandList, const DescriptorTable& uavSrvTable) = 0;
-		virtual void Antialias(CommandList* pCommandList, uint8_t numRTVs, RenderTarget** ppDsts,
-			uint8_t numSRVs, Texture** ppSrcs, const DescriptorTable& srvTable) = 0;
+			const DescriptorTable& srvTable, bool hasImmutableCB, bool hasPerFrameCB) const = 0;
+		virtual void LumAdaption(const CommandList* pCommandList, const DescriptorTable& uavSrvTable) const = 0;
+		virtual void Antialias(const CommandList* pCommandList, uint8_t numRTVs, RenderTarget** ppDsts,
+			uint8_t numSRVs, Texture** ppSrcs, const DescriptorTable& srvTable) const = 0;
 		virtual void Unsharp(const CommandList* pCommandList, uint8_t numRTVs,
-			const Descriptor* pRTVs, const DescriptorTable& srvTable) = 0;
+			const Descriptor* pRTVs, const DescriptorTable& srvTable) const = 0;
 
 		virtual DescriptorTable CreateTAASrvTable(const Descriptor& srvCurrent, const Descriptor& srvPrevious,
 			const Descriptor& srvVelocity, const Descriptor& srvShadeAmt, const Descriptor& srvMeta) = 0;
@@ -820,8 +841,8 @@ namespace XUSG
 		using uptr = std::unique_ptr<Postprocess>;
 		using sptr = std::shared_ptr<Postprocess>;
 
-		static uptr MakeUnique(API api = API::DIRECTX_12);
-		static sptr MakeShared(API api = API::DIRECTX_12);
+		static uptr MakeUnique();
+		static sptr MakeShared();
 	};
 
 	//--------------------------------------------------------------------------------------

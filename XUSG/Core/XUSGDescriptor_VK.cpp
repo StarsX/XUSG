@@ -273,13 +273,11 @@ uint32_t Util::DescriptorTable_VK::GetDescriptorTableIndex(DescriptorTableLib* p
 {
 	if (!m_key.empty() && table)
 	{
-		const auto& index = m_key[0];
-		const auto descriptorHeap = static_cast<DescriptorHeap_VK*>(pDescriptorTableLib->GetDescriptorHeap(type, index));
-		const auto descriptorStride = pDescriptorTableLib->GetDescriptorStride(type);
-		const auto& tableProperty = reinterpret_cast<const DescriptorTableProperty&>(table);
-		(void)descriptorHeap;
+		(void)pDescriptorTableLib;
+		(void)type;
+		const auto& tableProperty = reinterpret_cast<const DescriptorTableProperty_VK&>(table);
 
-		return descriptorStride ? static_cast<uint32_t>(tableProperty.Offset / descriptorStride) : UINT32_MAX;
+		return tableProperty.DescriptorIndex;
 	}
 
 	return UINT32_MAX;
@@ -337,7 +335,7 @@ DescriptorTableLib_VK::DescriptorTableLib_VK() :
 	m_pfnSamplers[SamplerPreset::MAX_ANISOTROPIC_BORDER] = SamplerMaxAnisotropicBorder;
 }
 
-DescriptorTableLib_VK::DescriptorTableLib_VK(const Device* pDevice, const wchar_t* name) :
+DescriptorTableLib_VK::DescriptorTableLib_VK(Device* pDevice, const wchar_t* name) :
 	DescriptorTableLib_VK()
 {
 	SetDevice(pDevice);
@@ -348,9 +346,9 @@ DescriptorTableLib_VK::~DescriptorTableLib_VK()
 {
 }
 
-void DescriptorTableLib_VK::SetDevice(const Device* pDevice)
+void DescriptorTableLib_VK::SetDevice(Device* pDevice)
 {
-	m_pDevice = dynamic_cast<const Device_VK*>(pDevice);
+	m_pDevice = pDevice ? static_cast<Device_VK*>(pDevice->GetHandle()) : nullptr;
 	assert(m_pDevice);
 	m_device = m_pDevice->GetDevice();
 	m_descriptorStrides[CBV_SRV_UAV_HEAP] = m_pDevice->GetResourceDescriptorStride();
@@ -416,7 +414,7 @@ DescriptorTable DescriptorTableLib_VK::GetSamplerTable(const Util::DescriptorTab
 	return getSamplerTable(pUtil->GetKey(), table);
 }
 
-DescriptorHeap DescriptorTableLib_VK::GetDescriptorHeap(DescriptorHeapType type, uint8_t index)
+DescriptorHeap DescriptorTableLib_VK::GetDescriptorHeap(DescriptorHeapType type, uint8_t index) const
 {
 	lock_guard<mutex> lock(m_mtx);
 
@@ -431,7 +429,7 @@ const Sampler* DescriptorTableLib_VK::GetSampler(SamplerPreset preset)
 	return m_samplers[preset].get();
 }
 
-uint32_t DescriptorTableLib_VK::GetDescriptorStride(DescriptorHeapType type)
+uint32_t DescriptorTableLib_VK::GetDescriptorStride(DescriptorHeapType type) const
 {
 	lock_guard<mutex> lock(m_mtx);
 
@@ -534,19 +532,20 @@ DescriptorTable DescriptorTableLib_VK::createCbvSrvUavTable(const string& key, D
 		const auto descriptorStride = m_descriptorStrides[CBV_SRV_UAV_HEAP];
 		assert(descriptorHeap);
 
-		auto& tableProperty = reinterpret_cast<DescriptorTableProperty&>(table);
+		auto& tableProperty = reinterpret_cast<DescriptorTableProperty_VK&>(table);
 		if (tableProperty.IsInitialized)
 			assert(tableProperty.HeapType == CBV_SRV_UAV_HEAP);
 		else
 		{
 			auto& descriptorCount = m_descriptorCounts[CBV_SRV_UAV_HEAP][index];
-			tableProperty.Offset = static_cast<int32_t>(descriptorStride * descriptorCount);
+			tableProperty.DescriptorIndex = descriptorCount;
 			tableProperty.HeapType = CBV_SRV_UAV_HEAP;
 			tableProperty.IsInitialized = 1;
 			descriptorCount += numDescriptors;
 		}
 
-		auto dst = static_cast<uint8_t*>(descriptorHeap->GetMapped()) + descriptorHeap->GetReservedSize() + tableProperty.Offset;
+		auto dst = static_cast<uint8_t*>(descriptorHeap->GetMapped()) + descriptorHeap->GetReservedSize() +
+			static_cast<size_t>(tableProperty.DescriptorIndex) * descriptorStride;
 		for (auto i = 0u; i < numDescriptors; ++i)
 		{
 			const auto pView = static_cast<const ResourceView_VK*>(pDescriptors[i]);
@@ -609,19 +608,20 @@ DescriptorTable DescriptorTableLib_VK::createSamplerTable(const string& key, Des
 		const auto descriptorStride = m_descriptorStrides[SAMPLER_HEAP];
 		assert(descriptorHeap);
 
-		auto& tableProperty = reinterpret_cast<DescriptorTableProperty&>(table);
+		auto& tableProperty = reinterpret_cast<DescriptorTableProperty_VK&>(table);
 		if (tableProperty.IsInitialized)
 			assert(tableProperty.HeapType == SAMPLER_HEAP);
 		else
 		{
 			auto& descriptorCount = m_descriptorCounts[SAMPLER_HEAP][index];
-			tableProperty.Offset = static_cast<int32_t>(descriptorStride * descriptorCount);
+			tableProperty.DescriptorIndex = descriptorCount;
 			tableProperty.HeapType = SAMPLER_HEAP;
 			tableProperty.IsInitialized = 1;
 			descriptorCount += numDescriptors;
 		}
 
-		auto dst = static_cast<uint8_t*>(descriptorHeap->GetMapped()) + descriptorHeap->GetReservedSize() + tableProperty.Offset;
+		auto dst = static_cast<uint8_t*>(descriptorHeap->GetMapped()) + descriptorHeap->GetReservedSize() +
+			static_cast<size_t>(tableProperty.DescriptorIndex) * descriptorStride;
 		for (auto i = 0u; i < numDescriptors; ++i)
 		{
 			memset(dst, 0, descriptorStride);
@@ -692,6 +692,8 @@ uint32_t DescriptorTableLib_VK::calculateGrowth(uint32_t newSize, DescriptorHeap
 
 bool DescriptorTableLib_VK::writeNullResource(void* pDescriptor) const
 {
+	assert(m_pDevice->HasNullDescriptor());
+	if (!m_pDevice->HasNullDescriptor()) return false;
 	const auto& props = m_pDevice->GetDescriptorHeapProperties();
 	const auto useImage = props.imageDescriptorSize >= props.bufferDescriptorSize;
 	VkResourceDescriptorInfoEXT info = {};

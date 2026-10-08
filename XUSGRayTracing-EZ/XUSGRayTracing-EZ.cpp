@@ -25,24 +25,36 @@ XUSG::EZ::ResourceView EZ::GetSRV(const TopLevelAS* pTLAS)
 	return resourceView;
 }
 
-EZ::CommandList::uptr EZ::CommandList::MakeUnique(API api)
+EZ::CommandList::uptr EZ::CommandList::MakeUnique()
 {
+	XUSG::Device::LockApi();
+	assert(XUSG::Device::GetApi() != API::VULKAN && "RayTracing EZ is not implemented on Vulkan");
+
 	return make_unique<CommandList_DXR>();
 }
 
-EZ::CommandList::sptr EZ::CommandList::MakeShared(API api)
+EZ::CommandList::sptr EZ::CommandList::MakeShared()
 {
+	XUSG::Device::LockApi();
+	assert(XUSG::Device::GetApi() != API::VULKAN && "RayTracing EZ is not implemented on Vulkan");
+
 	return make_shared<CommandList_DXR>();
 }
 
 EZ::CommandList::uptr EZ::CommandList::MakeUnique(RayTracing::CommandList* pCommandList,
-	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize, API api)
+	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize)
 {
+	XUSG::Device::LockApi();
+	assert(XUSG::Device::GetApi() != API::VULKAN && "RayTracing EZ is not implemented on Vulkan");
+
 	return make_unique<CommandList_DXR>(pCommandList, samplerHeapSize, cbvSrvUavHeapSize);
 }
 
 EZ::CommandList::sptr EZ::CommandList::MakeShared(RayTracing::CommandList* pCommandList,
-	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize, API api)
+	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize)
 {
+	XUSG::Device::LockApi();
+	assert(XUSG::Device::GetApi() != API::VULKAN && "RayTracing EZ is not implemented on Vulkan");
+
 	return make_shared<CommandList_DXR>(pCommandList, samplerHeapSize, cbvSrvUavHeapSize);
 }

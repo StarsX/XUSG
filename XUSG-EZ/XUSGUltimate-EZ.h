@@ -42,7 +42,7 @@ namespace XUSG
 					const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE) = 0;
-				virtual bool Create(const Device* pDevice, void* pHandle,
+				virtual bool Create(Device* pDevice, void* pHandle,
 					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
@@ -78,7 +78,7 @@ namespace XUSG
 				virtual void MSSetGraphicsShader(Shader::Stage stage, const Blob& shader) = 0;
 				virtual void SetGraphicsNodeMask(uint32_t nodeMask) = 0;
 				virtual void DispatchMesh(uint32_t ThreadGroupCountX, uint32_t ThreadGroupCountY, uint32_t ThreadGroupCountZ) = 0;
-				virtual void DispatchMeshIndirect(const CommandLayout* pCommandlayout,
+				virtual void DispatchMeshIndirect(CommandLayout* pCommandlayout,
 					uint32_t maxCommandCount,
 					Resource* pArgumentBuffer,
 					uint64_t argumentBufferOffset = 0,
@@ -114,8 +114,8 @@ namespace XUSG
 
 				virtual Ultimate::CommandList* AsUltimateCommandList() = 0;
 
-				static uptr MakeUnique(API api = API::DIRECTX_12);
-				static sptr MakeShared(API api = API::DIRECTX_12);
+				static uptr MakeUnique();
+				static sptr MakeShared();
 				static uptr MakeUnique(Ultimate::CommandList* pCommandList,
 					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
@@ -128,8 +128,7 @@ namespace XUSG
 					const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
-					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE,
-					API api = API::DIRECTX_12);
+					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
 				static sptr MakeShared(Ultimate::CommandList* pCommandList,
 					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
@@ -142,8 +141,7 @@ namespace XUSG
 					const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
-					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE,
-					API api = API::DIRECTX_12);
+					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
 			};
 		}
 	}

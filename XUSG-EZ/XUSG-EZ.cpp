@@ -217,13 +217,19 @@ EZ::IndexBufferView EZ::GetIBV(IndexBuffer* pResource, uint32_t index, ResourceS
 	return resourceView;
 }
 
-EZ::CommandList::uptr EZ::CommandList::MakeUnique(API api)
+EZ::CommandList::uptr EZ::CommandList::MakeUnique()
 {
+	Device::LockApi();
+	assert(Device::GetApi() != API::VULKAN && "EZ is not implemented on Vulkan");
+
 	return make_unique<EZ::CommandList_DX12>();
 }
 
-EZ::CommandList::sptr EZ::CommandList::MakeShared(API api)
+EZ::CommandList::sptr EZ::CommandList::MakeShared()
 {
+	Device::LockApi();
+	assert(Device::GetApi() != API::VULKAN && "EZ is not implemented on Vulkan");
+
 	return make_shared<EZ::CommandList_DX12>();
 }
 
@@ -239,8 +245,11 @@ EZ::CommandList::uptr EZ::CommandList::MakeUnique(XUSG::CommandList* pCommandLis
 	const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE],
 	const uint32_t constantSlots[Shader::Stage::NUM_STAGE],
 	const uint32_t constantSpaces[Shader::Stage::NUM_STAGE],
-	uint32_t slotExt, uint32_t spaceExt, API api)
+	uint32_t slotExt, uint32_t spaceExt)
 {
+	Device::LockApi();
+	assert(Device::GetApi() != API::VULKAN && "EZ is not implemented on Vulkan");
+
 	return make_unique<EZ::CommandList_DX12>(pCommandList, samplerHeapSize, cbvSrvUavHeapSize,
 		maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
 		maxCbvSpaces, maxSrvSpaces, maxUavSpaces, max32BitConstants,
@@ -259,8 +268,11 @@ EZ::CommandList::sptr EZ::CommandList::MakeShared(XUSG::CommandList* pCommandLis
 	const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE],
 	const uint32_t constantSlots[Shader::Stage::NUM_STAGE],
 	const uint32_t constantSpaces[Shader::Stage::NUM_STAGE],
-	uint32_t slotExt, uint32_t spaceExt, API api)
+	uint32_t slotExt, uint32_t spaceExt)
 {
+	Device::LockApi();
+	assert(Device::GetApi() != API::VULKAN && "EZ is not implemented on Vulkan");
+
 	return make_shared<EZ::CommandList_DX12>(pCommandList, samplerHeapSize, cbvSrvUavHeapSize,
 		maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
 		maxCbvSpaces, maxSrvSpaces, maxUavSpaces, max32BitConstants,

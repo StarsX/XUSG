@@ -44,7 +44,7 @@ namespace XUSG
 				const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
-			bool Create(const Device* pDevice, void* pHandle,
+			bool Create(Device* pDevice, void* pHandle,
 				uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 				const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
@@ -59,7 +59,7 @@ namespace XUSG
 				uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE,
 				const wchar_t* name = nullptr);
 			bool Close(RenderTarget* pBackBuffer = nullptr);
-			bool Reset(const CommandAllocator* pAllocator, const Pipeline& initialState);
+			bool Reset(CommandAllocator* pAllocator, const Pipeline& initialState);
 
 			void ClearState(const Pipeline& initialState) const { XUSG::CommandList_DX12::ClearState(initialState); }
 			void Draw(
@@ -73,7 +73,7 @@ namespace XUSG
 				uint32_t startIndexLocation,
 				int32_t baseVertexLocation,
 				uint32_t startInstanceLocation);
-			void DrawIndirect(const CommandLayout* pCommandlayout,
+			void DrawIndirect(CommandLayout* pCommandlayout,
 				uint32_t maxCommandCount,
 				Resource* pArgumentBuffer,
 				uint64_t argumentBufferOffset = 0,
@@ -83,7 +83,7 @@ namespace XUSG
 				uint32_t threadGroupCountX,
 				uint32_t threadGroupCountY,
 				uint32_t threadGroupCountZ);
-			void DispatchIndirect(const CommandLayout* pCommandlayout,
+			void DispatchIndirect(CommandLayout* pCommandlayout,
 				uint32_t maxCommandCount,
 				Resource* pArgumentBuffer,
 				uint64_t argumentBufferOffset = 0,
@@ -95,7 +95,7 @@ namespace XUSG
 				TextureCopyLocation& src, const BoxRange* pSrcBox = nullptr);
 			void CopyResource(Resource* pDstResource, Resource* pSrcResource);
 			void CopyTiles(Resource* pTiledResource, const TiledResourceCoord* pTileRegionStartCoord,
-				const TileRegionSize& tileRegionSize, const Resource* pBuffer, uint64_t bufferStartOffsetInBytes,
+				const TileRegionSize& tileRegionSize, Resource* pBuffer, uint64_t bufferStartOffsetInBytes,
 				TileCopyFlag flags = TileCopyFlag::NONE);
 			void ResolveSubresource(Resource* pDstResource, uint32_t dstSubresource,
 				Resource* pSrcResource, uint32_t srcSubresource, Format format);
@@ -126,7 +126,7 @@ namespace XUSG
 			void SetComputeNodeMask(uint32_t nodeMask);
 			void SetGraphicsPipelineState(const Pipeline& pipelineState, const Graphics::State* pState = nullptr);
 			void SetComputePipelineState(const Pipeline& pipelineState, const Compute::State* pState = nullptr);
-			void ExecuteBundle(const XUSG::CommandList* pCommandList) const { XUSG::CommandList_DX12::ExecuteBundle(pCommandList); }
+			void ExecuteBundle(XUSG::CommandList* pCommandList) const { XUSG::CommandList_DX12::ExecuteBundle(pCommandList); }
 			void SetSamplers(Shader::Stage stage, uint32_t startBinding, uint32_t numSamplers, const Sampler* const* ppSamplers);
 			void SetSamplerStates(Shader::Stage stage, uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerPresets);
 			void SetResources(Shader::Stage stage, DescriptorType descriptorType, uint32_t startBinding,
@@ -171,13 +171,13 @@ namespace XUSG
 			}
 
 			void ResolveQueryData(const QueryHeap& queryHeap, QueryType type, uint32_t startIndex,
-				uint32_t numQueries, const Resource* pDstBuffer, uint64_t alignedDstBufferOffset) const
+				uint32_t numQueries, Resource* pDstBuffer, uint64_t alignedDstBufferOffset) const
 			{
 				XUSG::CommandList_DX12::ResolveQueryData(queryHeap, type, startIndex,
 					numQueries, pDstBuffer, alignedDstBufferOffset);
 			}
 
-			void SetPredication(const Resource* pBuffer, uint64_t alignedBufferOffset, bool opEqualZero) const
+			void SetPredication(Resource* pBuffer, uint64_t alignedBufferOffset, bool opEqualZero) const
 			{
 				XUSG::CommandList_DX12::SetPredication(pBuffer, alignedBufferOffset, opEqualZero);
 			}
@@ -217,10 +217,10 @@ namespace XUSG
 			uint32_t GetGraphicsConstantParamIndex(Shader::Stage stage) const;
 			uint32_t GetComputeConstantParamIndex() const;
 
-			void* GetHandle() const { return XUSG::CommandList_DX12::GetHandle(); }
+			void* GetHandle() { return XUSG::CommandList_DX12::GetHandle(); }
 			void* GetDeviceHandle() const { return XUSG::CommandList_DX12::GetDeviceHandle(); }
 
-			const Device* GetDevice() const { return XUSG::CommandList_DX12::GetDevice(); }
+			Device* GetDevice() const { return XUSG::CommandList_DX12::GetDevice(); }
 			XUSG::CommandList* AsCommandList();
 
 		protected:

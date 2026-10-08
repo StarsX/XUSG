@@ -102,14 +102,14 @@ namespace XUSG
 		{
 		public:
 			PipelineLib_DX12();
-			PipelineLib_DX12(const Device* pDevice);
+			PipelineLib_DX12(Device* pDevice);
 			virtual ~PipelineLib_DX12();
 
-			void SetDevice(const Device* pDevice);
+			void SetDevice(Device* pDevice);
 			void SetPipeline(const State* pState, const Pipeline& pipeline);
 
 			void SetInputLayout(uint32_t index, uint32_t numElements, const InputElement* pElements);
-			const InputLayout* GetInputLayout(uint32_t index);
+			const InputLayout* GetInputLayout(uint32_t index) const;
 			const InputLayout* CreateInputLayout(uint32_t numElements, const InputElement* pElements);
 
 			Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr);

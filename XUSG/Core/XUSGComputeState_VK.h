@@ -48,10 +48,10 @@ namespace XUSG
 		{
 		public:
 			PipelineLib_VK();
-			PipelineLib_VK(const Device* pDevice);
+			PipelineLib_VK(Device* pDevice);
 			virtual ~PipelineLib_VK();
 
-			void SetDevice(const Device* pDevice);
+			void SetDevice(Device* pDevice);
 			void SetPipeline(const State* pState, const Pipeline& pipeline);
 
 			Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr);
@@ -61,7 +61,7 @@ namespace XUSG
 			Pipeline createPipeline(const std::string& key, const wchar_t* name);
 			Pipeline getPipeline(const std::string& key, const wchar_t* name);
 
-			const Device_VK* m_pDevice;
+			Device_VK* m_pDevice;
 			VkDevice m_device;
 
 			std::unordered_map<std::string, Pipeline_VK*> m_pipelines;

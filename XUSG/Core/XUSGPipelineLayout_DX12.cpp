@@ -167,7 +167,7 @@ PipelineLayoutLib_DX12::PipelineLayoutLib_DX12() :
 {
 }
 
-PipelineLayoutLib_DX12::PipelineLayoutLib_DX12(const Device* pDevice) :
+PipelineLayoutLib_DX12::PipelineLayoutLib_DX12(Device* pDevice) :
 	PipelineLayoutLib()
 {
 	SetDevice(pDevice);
@@ -177,7 +177,7 @@ PipelineLayoutLib_DX12::~PipelineLayoutLib_DX12()
 {
 }
 
-void PipelineLayoutLib_DX12::SetDevice(const Device* pDevice)
+void PipelineLayoutLib_DX12::SetDevice(Device* pDevice)
 {
 	m_device = pDevice->GetHandle();
 	assert(m_device);

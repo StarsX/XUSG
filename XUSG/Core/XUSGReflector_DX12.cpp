@@ -195,7 +195,8 @@ static DxcCreateInstanceProc GetDxcCreateInstanceProc(const wchar_t* module)
 }
 
 Reflector_DX12::Reflector_DX12() :
-	m_shaderReflection(nullptr)
+	m_shaderReflection(nullptr),
+	m_isDxil(false)
 {
 }
 
@@ -205,9 +206,15 @@ Reflector_DX12::~Reflector_DX12()
 
 bool Reflector_DX12::SetShader(const Blob& shader)
 {
+	m_shaderReflection = nullptr;
+	m_libraryReflection = nullptr;
+	m_isDxil = false;
+
 	const auto pShader = static_cast<ID3DBlob*>(shader);
 	if (IsDxil(pShader->GetBufferPointer(), pShader->GetBufferSize()))
 	{
+		m_isDxil = true;
+
 		auto DxcCreateInstance = GetDxcCreateInstanceProc(L"dxcompiler.dll");
 		if (!DxcCreateInstance) return false;
 
@@ -274,34 +281,43 @@ bool Reflector_DX12::IsValid() const
 	return m_shaderReflection || m_libraryReflection;
 }
 
-uint32_t Reflector_DX12::GetResourceBindingPointByName(const char* name, uint32_t defaultVal) const
+static bool GetResourceBindingDescByName(ID3D12ShaderReflection* pShaderReflection,
+	ID3D12LibraryReflection* pLibraryReflection, const char* name, D3D12_SHADER_INPUT_BIND_DESC& desc)
+{
+	if (pShaderReflection)
+		return SUCCEEDED(pShaderReflection->GetResourceBindingDescByName(name, &desc));
+
+	D3D12_LIBRARY_DESC libDesc;
+	if (FAILED(pLibraryReflection->GetDesc(&libDesc))) return false;
+
+	for (auto i = 0u; i < libDesc.FunctionCount; ++i)
+	{
+		const auto funcReflection = pLibraryReflection->GetFunctionByIndex(i);
+		if (SUCCEEDED(funcReflection->GetResourceBindingDescByName(name, &desc)))
+			return true;
+	}
+
+	return false;
+}
+
+uint32_t Reflector_DX12::GetResourceBindingPointByName(const char* name) const
 {
 	D3D12_SHADER_INPUT_BIND_DESC desc;
 
 	assert(IsValid());
-	if (m_shaderReflection)
-	{
-		const auto hr = m_shaderReflection->GetResourceBindingDescByName(name, &desc);
+	if (!GetResourceBindingDescByName(m_shaderReflection.get(), m_libraryReflection.get(), name, desc))
+		return UINT32_MAX;
 
-		return SUCCEEDED(hr) ? desc.BindPoint : defaultVal;
-	}
-	else
-	{
-		D3D12_LIBRARY_DESC libDesc;
-		auto bindPoint = defaultVal;
+	return desc.BindPoint;
+}
 
-		const auto hr = m_libraryReflection->GetDesc(&libDesc);
-		for (auto i = 0u; i < libDesc.FunctionCount; ++i)
-		{
-			const auto funcReflection = m_libraryReflection->GetFunctionByIndex(i);
-			const auto hr = funcReflection->GetResourceBindingDescByName(name, &desc);
-			if (SUCCEEDED(hr))
-			{
-				bindPoint = desc.BindPoint;
-				break;
-			}
-		}
+uint32_t Reflector_DX12::GetResourceSpaceByName(const char* name, uint32_t defaultVal) const
+{
+	D3D12_SHADER_INPUT_BIND_DESC desc;
 
-		return bindPoint;
-	}
+	assert(IsValid());
+	if (!GetResourceBindingDescByName(m_shaderReflection.get(), m_libraryReflection.get(), name, desc))
+		return defaultVal;
+
+	return m_isDxil ? desc.Space : 0;
 }

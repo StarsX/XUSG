@@ -17,7 +17,7 @@ namespace XUSG
 			AccelerationStructure_DX12();
 			virtual ~AccelerationStructure_DX12();
 
-			void SetDestination(const Device* pDevice, const Buffer::sptr destBuffer, uintptr_t byteOffsett,
+			void SetDestination(Device* pDevice, const Buffer::sptr destBuffer, uintptr_t byteOffsett,
 				uint32_t uavIndex, DescriptorTableLib* pDescriptorTableLib);
 
 			uint32_t SetBarrier(ResourceBarrier* pBarriers, uint32_t numBarriers = 0);
@@ -34,7 +34,7 @@ namespace XUSG
 			uint64_t GetVirtualAddress() const;
 			uint64_t GetResourcePointer() const;
 
-			static bool AllocateDestBuffer(const Device* pDevice, Buffer* pDestBuffer, size_t byteWidth,
+			static bool AllocateDestBuffer(Device* pDevice, Buffer* pDestBuffer, size_t byteWidth,
 				uint32_t numSRVs = 1, const uintptr_t* firstSrvElements = nullptr,
 				uint32_t numUAVs = 1, const uintptr_t* firstUavElements = nullptr,
 				MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
@@ -43,8 +43,8 @@ namespace XUSG
 			static size_t Align(size_t byteSize);
 
 		protected:
-			bool prebuild(const Device* pDevice);
-			bool allocate(const Device* pDevice, size_t byteWidth, DescriptorTableLib* pDescriptorTableLib,
+			bool prebuild(Device* pDevice);
+			bool allocate(Device* pDevice, size_t byteWidth, DescriptorTableLib* pDescriptorTableLib,
 				uint32_t numSRVs, MemoryFlag memoryFlags, const wchar_t* name, uint32_t maxThreads);
 
 			D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC m_buildDesc;
@@ -67,9 +67,9 @@ namespace XUSG
 			BottomLevelAS_DX12();
 			virtual ~BottomLevelAS_DX12();
 
-			bool Prebuild(const Device* pDevice, uint32_t numGeometries, const GeometryBuffer& geometries,
+			bool Prebuild(Device* pDevice, uint32_t numGeometries, const GeometryBuffer& geometries,
 				BuildFlag flags = BuildFlag::PREFER_FAST_TRACE);
-			bool Allocate(const Device* pDevice, DescriptorTableLib* pDescriptorTableLib, size_t byteWidth = 0,
+			bool Allocate(Device* pDevice, DescriptorTableLib* pDescriptorTableLib, size_t byteWidth = 0,
 				MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr, uint32_t maxThreads = 1);
 
 			void Build(CommandList* pCommandList, const Resource* pScratch,
@@ -90,11 +90,11 @@ namespace XUSG
 			TopLevelAS_DX12();
 			virtual ~TopLevelAS_DX12();
 
-			bool Prebuild(const Device* pDevice, uint32_t numInstances, BuildFlag flags = BuildFlag::PREFER_FAST_TRACE);
-			bool Allocate(const Device* pDevice, DescriptorTableLib* pDescriptorTableLib, size_t byteWidth = 0,
+			bool Prebuild(Device* pDevice, uint32_t numInstances, BuildFlag flags = BuildFlag::PREFER_FAST_TRACE);
+			bool Allocate(Device* pDevice, DescriptorTableLib* pDescriptorTableLib, size_t byteWidth = 0,
 				MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr, uint32_t maxThreads = 1);
 
-			void SetDestination(const Device* pDevice, const Buffer::sptr destBuffer, uintptr_t byteOffset,
+			void SetDestination(Device* pDevice, const Buffer::sptr destBuffer, uintptr_t byteOffset,
 				uint32_t uavIndex, uint32_t srvIndex, DescriptorTableLib* pDescriptorTableLib);
 			void Build(CommandList* pCommandList, const Resource* pScratch,
 				const Resource* pInstanceDescs, const DescriptorHeap& descriptorHeap,
@@ -103,7 +103,7 @@ namespace XUSG
 
 			const Descriptor& GetSRV() const;
 
-			static void SetInstances(const Device* pDevice, Buffer* pInstances, uint32_t numInstances,
+			static void SetInstances(Device* pDevice, Buffer* pInstances, uint32_t numInstances,
 				const InstanceDesc* pInstanceDescs, MemoryFlag memoryFlags = MemoryFlag::NONE,
 				const wchar_t* instanceName = nullptr);
 
@@ -121,18 +121,18 @@ namespace XUSG
 			OpacityMicromapArray_DX12();
 			virtual ~OpacityMicromapArray_DX12();
 
-			bool Prebuild(const Device* pDevice, uint32_t numOpacityMicromaps, const GeometryBuffer& ommArrayDescs,
+			bool Prebuild(Device* pDevice, uint32_t numOpacityMicromaps, const GeometryBuffer& ommArrayDescs,
 				BuildFlag flags = BuildFlag::PREFER_FAST_TRACE);
-			bool Allocate(const Device* pDevice, DescriptorTableLib* pDescriptorTableLib = nullptr, size_t byteWidth = 0,
+			bool Allocate(Device* pDevice, DescriptorTableLib* pDescriptorTableLib = nullptr, size_t byteWidth = 0,
 				MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr, uint32_t maxThreads = 1);
 
-			void SetDestination(const Device* pDevice, const Buffer::sptr destBuffer, uintptr_t byteOffset);
+			void SetDestination(Device* pDevice, const Buffer::sptr destBuffer, uintptr_t byteOffset);
 			void Build(CommandList* pCommandList, const Resource* pScratch,
 				const OpacityMicromapArray* pSource = nullptr, uint8_t numPostbuildInfoDescs = 0,
 				const PostbuildInfoType* pPostbuildInfoTypes = nullptr);
 
 			static void SetOmmArray(GeometryBuffer& ommArrayDescs, uint32_t numOmmArrays, const Desc* pOmmArrayDescs);
-			static void SetOmmDescs(const Device* pDevice, Buffer* pOmmDescsBuffer, uint32_t numOmmDescs,
+			static void SetOmmDescs(Device* pDevice, Buffer* pOmmDescsBuffer, uint32_t numOmmDescs,
 				const OpacityMicromapDesc* pOmmDescs, MemoryFlag memoryFlags = MemoryFlag::NONE,
 				const wchar_t* ommName = nullptr);
 

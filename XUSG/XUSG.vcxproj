@@ -41,24 +41,43 @@
     <ClInclude Include="Common\dxgiformat.h" />
     <ClInclude Include="Core\XUSG.h" />
     <ClInclude Include="Core\XUSGCommand_DX12.h" />
+    <ClInclude Include="Core\XUSGCommand_VK.h" />
     <ClInclude Include="Core\XUSGComputeState_DX12.h" />
+    <ClInclude Include="Core\XUSGComputeState_VK.h" />
     <ClInclude Include="Core\XUSGDescriptor_DX12.h" />
+    <ClInclude Include="Core\XUSGDescriptor_VK.h" />
     <ClInclude Include="Core\XUSGEnum_DX12.h" />
+    <ClInclude Include="Core\XUSGEnum_VK.h" />
     <ClInclude Include="Core\XUSGGraphicsState_DX12.h" />
+    <ClInclude Include="Core\XUSGGraphicsState_VK.h" />
     <ClInclude Include="Core\XUSGInputLayout.h" />
     <ClInclude Include="Core\XUSGPipelineLayout_DX12.h" />
+    <ClInclude Include="Core\XUSGPipelineLayout_VK.h" />
     <ClInclude Include="Core\XUSGReflector_DX12.h" />
+    <ClInclude Include="Core\XUSGReflector_VK.h" />
     <ClInclude Include="Core\XUSGResource_DX12.h" />
+    <ClInclude Include="Core\XUSGResource_VK.h" />
     <ClInclude Include="Core\XUSGShader_DX12.h" />
+    <ClInclude Include="Core\XUSGShader_VK.h" />
     <ClInclude Include="Core\XUSG_DX12.h" />
+    <ClInclude Include="Core\XUSG_VK.h" />
     <ClInclude Include="stdafx.h" />
+    <ClInclude Include="Ultimate\XUSGGenericState_VK.h" />
     <ClInclude Include="Ultimate\XUSGPipelineState_DX12.h" />
     <ClInclude Include="Ultimate\XUSGGenericState_DX12.h" />
+    <ClInclude Include="Ultimate\XUSGPipelineState_VK.h" />
     <ClInclude Include="Ultimate\XUSGUltimate.h" />
     <ClInclude Include="Ultimate\XUSGUltimate_DX12.h" />
+    <ClInclude Include="Ultimate\XUSGUltimate_VK.h" />
     <ClInclude Include="Ultimate\XUSGWorkGraph_DX12.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Advanced\XUSGDescriptorSpace.cpp">
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">stdafx.h;Core/XUSG.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdafx.h;Core/XUSG.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h;Core/XUSG.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdafx.h;Core/XUSG.h</ForcedIncludeFiles>
+    </ClCompile>
     <ClCompile Include="Advanced\XUSGDDSLoader.cpp">
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">stdafx.h;Core/XUSG.h</ForcedIncludeFiles>
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdafx.h;Core/XUSG.h</ForcedIncludeFiles>
@@ -579,6 +598,16 @@
     </FxCompile>
     <PostBuildEvent />
   </ItemDefinitionGroup>
+  <Target Name="CompileSpirv" BeforeTargets="ClCompile" DependsOnTargets="FxCompile">
+    <ItemGroup>
+      <SpirvShader Include="@(FxCompile)">
+        <Profile Condition="'%(ShaderType)' == 'Vertex'">vs_6_2</Profile>
+        <Profile Condition="'%(ShaderType)' == 'Pixel'">ps_6_2</Profile>
+        <Profile Condition="'%(ShaderType)' == 'Compute'">cs_6_2</Profile>
+      </SpirvShader>
+    </ItemGroup>
+    <Exec Command="&quot;$(VULKAN_SDK)\Bin\dxc.exe&quot; -spirv -T %(SpirvShader.Profile) -E main -fspv-target-env=vulkan1.1 -Zpc -fvk-use-dx-layout -fvk-use-dx-position-w -enable-16bit-types -D XUSG_SPIRV=1 -I &quot;$(ProjectDir)Shaders&quot; -I &quot;$(ProjectDir)Advanced&quot; -Fh &quot;$(OutDir)%(SpirvShader.Filename)Spv.h&quot; -Vn %(SpirvShader.Filename)Spv &quot;%(SpirvShader.FullPath)&quot;" />
+  </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

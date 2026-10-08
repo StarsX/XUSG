@@ -61,10 +61,10 @@ namespace XUSG
 	{
 	public:
 		PipelineLayoutLib_DX12();
-		PipelineLayoutLib_DX12(const Device* pDevice);
+		PipelineLayoutLib_DX12(Device* pDevice);
 		virtual ~PipelineLayoutLib_DX12();
 
-		void SetDevice(const Device* pDevice);
+		void SetDevice(Device* pDevice);
 		void SetPipelineLayout(const std::string& key, const PipelineLayout& pipelineLayout);
 		void GetRootParameter(CD3DX12_ROOT_PARAMETER1& rootParam,
 			std::vector<CD3DX12_DESCRIPTOR_RANGE1>& descriptorRanges,

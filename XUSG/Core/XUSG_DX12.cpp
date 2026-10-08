@@ -31,7 +31,7 @@ bool Device_DX12::GetCommandAllocator(CommandAllocator* pCommandAllocator,
 }
 
 bool Device_DX12::GetCommandList(CommandList* pCommandList, uint32_t nodeMask, CommandListType type,
-	const CommandAllocator* pCommandAllocator, const Pipeline& pipeline, const wchar_t* name)
+	CommandAllocator* pCommandAllocator, const Pipeline& pipeline, const wchar_t* name)
 {
 	return pCommandList->Create(this, nodeMask, type, pCommandAllocator, pipeline, name);
 }
@@ -79,7 +79,7 @@ void Device_DX12::Create(void* pHandle, const wchar_t* name)
 	if (name) m_device->SetName(name);
 }
 
-void* Device_DX12::GetHandle() const
+void* Device_DX12::GetHandle()
 {
 	return m_device.get();
 }
@@ -94,7 +94,7 @@ Fence_DX12::~Fence_DX12()
 {
 }
 
-bool Fence_DX12::Create(const Device* pDevice, uint64_t initialValue, FenceFlag flags, const wchar_t* name)
+bool Fence_DX12::Create(Device* pDevice, uint64_t initialValue, FenceFlag flags, const wchar_t* name)
 {
 	const auto pDxDevice = static_cast<ID3D12Device*>(pDevice->GetHandle());
 
@@ -130,7 +130,7 @@ void Fence_DX12::Create(void* pHandle, const wchar_t* name)
 	if (name) m_fence->SetName(name);
 }
 
-void* Fence_DX12::GetHandle() const
+void* Fence_DX12::GetHandle()
 {
 	return m_fence.get();
 }
@@ -145,7 +145,7 @@ CommandLayout_DX12::~CommandLayout_DX12()
 {
 }
 
-bool CommandLayout_DX12::Create(const Device* pDevice, uint32_t byteStride, uint32_t numArguments,
+bool CommandLayout_DX12::Create(Device* pDevice, uint32_t byteStride, uint32_t numArguments,
 	const IndirectArgument* pArguments, const PipelineLayout& pipelineLayout, uint32_t nodeMask,
 	const wchar_t* name)
 {
@@ -204,7 +204,7 @@ void CommandLayout_DX12::Create(void* pHandle, const wchar_t* name)
 	if (name) m_commandSignature->SetName(name);
 }
 
-void* CommandLayout_DX12::GetHandle() const
+void* CommandLayout_DX12::GetHandle()
 {
 	return m_commandSignature.get();
 }
@@ -337,7 +337,7 @@ void SwapChain_DX12::Create(void* pHandle)
 	m_swapChain = pHandle;
 }
 
-void* SwapChain_DX12::GetHandle() const
+void* SwapChain_DX12::GetHandle()
 {
 	return m_swapChain.get();
 }

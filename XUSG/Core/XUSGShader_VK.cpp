@@ -102,14 +102,14 @@ Blob ShaderLib_VK::CreateShader(Shader::Stage stage, uint32_t index, const void*
 	return shader.get();
 }
 
-Blob ShaderLib_VK::GetShader(Shader::Stage stage, uint32_t index)
+Blob ShaderLib_VK::GetShader(Shader::Stage stage, uint32_t index) const
 {
 	lock_guard<mutex> lock(m_mtx);
 
 	return index < m_shaders[stage].size() && m_shaders[stage][index] ? m_shaders[stage][index].get() : nullptr;
 }
 
-Reflector::sptr ShaderLib_VK::GetReflector(Shader::Stage stage, uint32_t index)
+Reflector::sptr ShaderLib_VK::GetReflector(Shader::Stage stage, uint32_t index) const
 {
 	lock_guard<mutex> lock(m_mtx);
 

@@ -30,7 +30,7 @@ AccelerationStructure_DX12::~AccelerationStructure_DX12()
 {
 }
 
-void AccelerationStructure_DX12::SetDestination(const Device* pDevice, const Buffer::sptr destBuffer,
+void AccelerationStructure_DX12::SetDestination(Device* pDevice, const Buffer::sptr destBuffer,
 	uintptr_t byteOffset, uint32_t uavIndex, DescriptorTableLib* pDescriptorTableLib)
 {
 	m_resource = destBuffer;
@@ -41,7 +41,7 @@ void AccelerationStructure_DX12::SetDestination(const Device* pDevice, const Buf
 		uint32_t descriptorIndex;
 		if (destBuffer->GetResourceState() != ResourceState::RAYTRACING_ACCELERATION_STRUCTURE)
 		{
-			const auto descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
+			const auto descriptorTable = Util::DescriptorTable::MakeUnique();
 			descriptorTable->SetDescriptors(0, 1, &destBuffer->GetUAV(uavIndex));
 			descriptorIndex = descriptorTable->GetCbvSrvUavTableIndex(pDescriptorTableLib);
 			g_numUAVs = (max)(descriptorIndex + 1, g_numUAVs);
@@ -111,7 +111,7 @@ uint64_t AccelerationStructure_DX12::GetResourcePointer() const
 	return m_pointer.GpuVA;
 }
 
-bool AccelerationStructure_DX12::AllocateDestBuffer(const Device* pDevice, Buffer* pResource, size_t byteWidth,
+bool AccelerationStructure_DX12::AllocateDestBuffer(Device* pDevice, Buffer* pResource, size_t byteWidth,
 	uint32_t numSRVs, const uintptr_t* firstSrvElements, uint32_t numUAVs, const uintptr_t* firstUavElements,
 	MemoryFlag memoryFlags, const wchar_t* name, uint32_t maxThreads)
 {
@@ -135,7 +135,7 @@ size_t AccelerationStructure_DX12::Align(size_t byteSize)
 	return XUSG::Align(byteSize, D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT);
 }
 
-bool AccelerationStructure_DX12::prebuild(const Device* pDevice)
+bool AccelerationStructure_DX12::prebuild(Device* pDevice)
 {
 	const auto& inputs = m_buildDesc.Inputs;
 	assert(pDevice->GetHandle());
@@ -151,11 +151,11 @@ bool AccelerationStructure_DX12::prebuild(const Device* pDevice)
 	return m_prebuildInfo.ResultDataMaxByteSize;
 }
 
-bool AccelerationStructure_DX12::allocate(const Device* pDevice, size_t byteWidth,
+bool AccelerationStructure_DX12::allocate(Device* pDevice, size_t byteWidth,
 	DescriptorTableLib* pDescriptorTableLib, uint32_t numSRVs, MemoryFlag memoryFlags,
 	const wchar_t* name, uint32_t maxThreads)
 {
-	m_resource = Buffer::MakeShared(API::DIRECTX_12);
+	m_resource = Buffer::MakeShared();
 	byteWidth = byteWidth ? byteWidth : GetResultDataMaxByteSize(false);
 	XUSG_N_RETURN(AllocateDestBuffer(pDevice, m_resource.get(), byteWidth, numSRVs,
 		nullptr, 1, nullptr, memoryFlags, name, maxThreads), false);
@@ -166,7 +166,7 @@ bool AccelerationStructure_DX12::allocate(const Device* pDevice, size_t byteWidt
 		uint32_t descriptorIndex;
 		if (m_resource->GetResourceState() != ResourceState::RAYTRACING_ACCELERATION_STRUCTURE)
 		{
-			const auto descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
+			const auto descriptorTable = Util::DescriptorTable::MakeUnique();
 			descriptorTable->SetDescriptors(0, 1, &m_resource->GetUAV());
 			descriptorIndex = descriptorTable->GetCbvSrvUavTableIndex(pDescriptorTableLib);
 			g_numUAVs = (max)(descriptorIndex + 1, g_numUAVs);
@@ -195,7 +195,7 @@ BottomLevelAS_DX12::~BottomLevelAS_DX12()
 {
 }
 
-bool BottomLevelAS_DX12::Prebuild(const Device* pDevice, uint32_t numGeometries,
+bool BottomLevelAS_DX12::Prebuild(Device* pDevice, uint32_t numGeometries,
 	const GeometryBuffer& geometries, BuildFlag flags)
 {
 	m_buildDesc = {};
@@ -210,7 +210,7 @@ bool BottomLevelAS_DX12::Prebuild(const Device* pDevice, uint32_t numGeometries,
 	return prebuild(pDevice);
 }
 
-bool BottomLevelAS_DX12::Allocate(const Device* pDevice, DescriptorTableLib* pDescriptorTableLib,
+bool BottomLevelAS_DX12::Allocate(Device* pDevice, DescriptorTableLib* pDescriptorTableLib,
 	size_t byteWidth, MemoryFlag memoryFlags, const wchar_t* name, uint32_t maxThreads)
 {
 	return allocate(pDevice, byteWidth, pDescriptorTableLib, 0, memoryFlags, name, maxThreads);
@@ -360,7 +360,7 @@ TopLevelAS_DX12::~TopLevelAS_DX12()
 {
 }
 
-bool TopLevelAS_DX12::Prebuild(const Device* pDevice, uint32_t numInstances, BuildFlag flags)
+bool TopLevelAS_DX12::Prebuild(Device* pDevice, uint32_t numInstances, BuildFlag flags)
 {
 	m_buildDesc = {};
 	auto& inputs = m_buildDesc.Inputs;
@@ -373,7 +373,7 @@ bool TopLevelAS_DX12::Prebuild(const Device* pDevice, uint32_t numInstances, Bui
 	return prebuild(pDevice);
 }
 
-bool TopLevelAS_DX12::Allocate(const Device* pDevice, DescriptorTableLib* pDescriptorTableLib,
+bool TopLevelAS_DX12::Allocate(Device* pDevice, DescriptorTableLib* pDescriptorTableLib,
 	size_t byteWidth, MemoryFlag memoryFlags, const wchar_t* name, uint32_t maxThreads)
 {
 	m_srvIndex = 0;
@@ -381,7 +381,7 @@ bool TopLevelAS_DX12::Allocate(const Device* pDevice, DescriptorTableLib* pDescr
 	return allocate(pDevice, byteWidth, pDescriptorTableLib, 1, memoryFlags, name, maxThreads);
 }
 
-void TopLevelAS_DX12::SetDestination(const Device* pDevice, const Buffer::sptr destBuffer, uintptr_t byteOffset,
+void TopLevelAS_DX12::SetDestination(Device* pDevice, const Buffer::sptr destBuffer, uintptr_t byteOffset,
 	uint32_t uavIndex, uint32_t srvIndex, DescriptorTableLib* pDescriptorTableLib)
 {
 	m_srvIndex = srvIndex;
@@ -438,7 +438,7 @@ const Descriptor& TopLevelAS_DX12::GetSRV() const
 	return m_resource->GetSRV(m_srvIndex);
 }
 
-void TopLevelAS_DX12::SetInstances(const Device* pDevice, Buffer* pInstances, uint32_t numInstances,
+void TopLevelAS_DX12::SetInstances(Device* pDevice, Buffer* pInstances, uint32_t numInstances,
 	const InstanceDesc* pInstanceDescs, MemoryFlag memoryFlags, const wchar_t* instanceName)
 {
 	assert(numInstances == 0 || pInstanceDescs);
@@ -496,7 +496,7 @@ OpacityMicromapArray_DX12::~OpacityMicromapArray_DX12()
 {
 }
 
-bool OpacityMicromapArray_DX12::Prebuild(const Device* pDevice, uint32_t numOpacityMicromaps,
+bool OpacityMicromapArray_DX12::Prebuild(Device* pDevice, uint32_t numOpacityMicromaps,
 	const GeometryBuffer& ommArrayDescs, BuildFlag flags)
 {
 	m_buildDesc = {};
@@ -511,13 +511,13 @@ bool OpacityMicromapArray_DX12::Prebuild(const Device* pDevice, uint32_t numOpac
 	return prebuild(pDevice);
 }
 
-bool OpacityMicromapArray_DX12::Allocate(const Device* pDevice, DescriptorTableLib* pDescriptorTableLib,
+bool OpacityMicromapArray_DX12::Allocate(Device* pDevice, DescriptorTableLib* pDescriptorTableLib,
 	size_t byteWidth, MemoryFlag memoryFlags, const wchar_t* name, uint32_t maxThreads)
 {
 	return allocate(pDevice, byteWidth, pDescriptorTableLib, 0, memoryFlags, name, maxThreads);
 }
 
-void OpacityMicromapArray_DX12::SetDestination(const Device* pDevice, const Buffer::sptr destBuffer, uintptr_t byteOffset)
+void OpacityMicromapArray_DX12::SetDestination(Device* pDevice, const Buffer::sptr destBuffer, uintptr_t byteOffset)
 {
 	AccelerationStructure_DX12::SetDestination(pDevice, destBuffer, byteOffset, 0, nullptr);
 }
@@ -593,7 +593,7 @@ void OpacityMicromapArray_DX12::SetOmmArray(GeometryBuffer& ommArrayDescs, uint3
 	}
 }
 
-void OpacityMicromapArray_DX12::SetOmmDescs(const Device* pDevice, Buffer* pOmmDescsBuffer, uint32_t numOmmDescs,
+void OpacityMicromapArray_DX12::SetOmmDescs(Device* pDevice, Buffer* pOmmDescsBuffer, uint32_t numOmmDescs,
 	const OpacityMicromapDesc* pOmmDescs, MemoryFlag memoryFlags, const wchar_t* ommName)
 {
 	assert(numOmmDescs == 0 || pOmmDescs);

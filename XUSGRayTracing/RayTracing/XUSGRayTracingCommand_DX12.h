@@ -16,7 +16,7 @@ namespace XUSG
 		{
 		public:
 			CommandList_DX12();
-			CommandList_DX12(XUSG::CommandList* pCommandList, const Device* pDevice);
+			CommandList_DX12(XUSG::CommandList* pCommandList, Device* pDevice);
 			virtual ~CommandList_DX12();
 
 			bool CreateInterface();
@@ -38,12 +38,12 @@ namespace XUSG
 				const ShaderTable* pRayGen, const ShaderTable* pHitGroup, const ShaderTable* pMiss,
 				const ShaderTable* pCallable = nullptr) const;
 
-			const Device* GetRTDevice() const;
+			Device* GetRTDevice() const;
 
 		protected:
 			com_ptr<ID3D12RaytracingFallbackCommandList> m_commandListRT;
 
-			const Device* m_pDeviceRT;
+			Device* m_pDeviceRT;
 		};
 
 		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_TYPE GetDXRAccelerationStructurePostbuildInfoType(PostbuildInfoType type);

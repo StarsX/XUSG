@@ -3,7 +3,7 @@
 //--------------------------------------------------------------------------------------
 
 #ifndef T
-#define T StructuredBuffer<float3>
+#define T StructuredBuffer<float4>
 #endif
 
 #ifndef SH_COEFFS
@@ -25,13 +25,13 @@ float4 EvaluateSHIrradiance(T SH_COEFFS, float3 norm)
 	const float z = norm.z;
 
 	const float3 irradiance = max(0.0,
-		(c1 * (x * x - y * y)) * shCoeffs[8]											// c1 * L22.(x^2 - y^2)
-		+ (c3 * (3.0 * z * z - 1.0)) * shCoeffs[6]										// c3 * L20.(3z^2 - 1)
-		+ c4 * shCoeffs[0]																// c4 * L00 
-		+ 2.0 * c1 * (shCoeffs[4] * x * y + shCoeffs[7] * x * z + shCoeffs[5] * y * z)	// 2c1(L2-2.xy + L21.xz + L2-1.yz)
-		+ 2.0 * c2 * (shCoeffs[3] * x + shCoeffs[1] * y + shCoeffs[2] * z));			// 2c2(L11.x + L1-1.y + L10.z)
+		(c1 * (x * x - y * y)) * shCoeffs[8].xyz													// c1 * L22.(x^2 - y^2)
+		+ (c3 * (3.0 * z * z - 1.0)) * shCoeffs[6].xyz												// c3 * L20.(3z^2 - 1)
+		+ c4 * shCoeffs[0].xyz																		// c4 * L00 
+		+ 2.0 * c1 * (shCoeffs[4].xyz * x * y + shCoeffs[7].xyz * x * z + shCoeffs[5].xyz * y * z)	// 2c1(L2-2.xy + L21.xz + L2-1.yz)
+		+ 2.0 * c2 * (shCoeffs[3].xyz * x + shCoeffs[1].xyz * y + shCoeffs[2].xyz * z));			// 2c2(L11.x + L1-1.y + L10.z)
 
-	const float avgLum = dot(shCoeffs[0], float3(0.25, 0.5, 0.25));
+	const float avgLum = dot(shCoeffs[0].xyz, float3(0.25, 0.5, 0.25));
 
 	return float4(irradiance, avgLum);
 }
@@ -51,13 +51,13 @@ float4 EvaluateHairSHIrradiance(T SH_COEFFS, float3 tan)
 	const float z = tan.z;
 
 	const float3 irradiance = max(0.0,
-		(c1 * (x * x - y * y)) * shCoeffs[8]											// c1 * L22.(x^2 - y^2)
-		+ (c3 * (3.0 * z * z - 1.0)) * shCoeffs[6]										// c3 * L20.(3z^2 - 1)
-		+ c4 * shCoeffs[0]																// c4 * L00 
-		+ 2.0 * c1 * (shCoeffs[4] * x * y + shCoeffs[7] * x * z + shCoeffs[5] * y * z)	// 2c1(L2-2.xy + L21.xz + L2-1.yz)
-		+ 2.0 * c2 * (shCoeffs[3] * x + shCoeffs[1] * y + shCoeffs[2] * z));			// 2c2(L11.x + L1-1.y + L10.z)
+		(c1 * (x * x - y * y)) * shCoeffs[8].xyz													// c1 * L22.(x^2 - y^2)
+		+ (c3 * (3.0 * z * z - 1.0)) * shCoeffs[6].xyz												// c3 * L20.(3z^2 - 1)
+		+ c4 * shCoeffs[0].xyz																		// c4 * L00 
+		+ 2.0 * c1 * (shCoeffs[4].xyz * x * y + shCoeffs[7].xyz * x * z + shCoeffs[5].xyz * y * z)	// 2c1(L2-2.xy + L21.xz + L2-1.yz)
+		+ 2.0 * c2 * (shCoeffs[3].xyz * x + shCoeffs[1].xyz * y + shCoeffs[2].xyz * z));			// 2c2(L11.x + L1-1.y + L10.z)
 
-	const float avgLum = dot(shCoeffs[0], float3(0.25, 0.5, 0.25));
+	const float avgLum = dot(shCoeffs[0].xyz, float3(0.25, 0.5, 0.25));
 
 	return float4(irradiance, avgLum);
 }

@@ -62,7 +62,7 @@ bool CommandList_DX12::CreateInterface()
 	return true;
 }
 
-void CommandList_DX12::Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups)
+void CommandList_DX12::Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups) const
 {
 	if (numBarrierGroups)
 	{
@@ -198,7 +198,7 @@ void CommandList_DX12::Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrier
 
 void CommandList_DX12::Barrier(uint32_t numBufferBarriers, ResourceBarrier* pBufferBarriers,
 	uint32_t numTextureBarriers, ResourceBarrier* pTextureBarriers,
-	uint32_t numGlobalBarriers, ResourceBarrier* pGlobalBarriers)
+	uint32_t numGlobalBarriers, ResourceBarrier* pGlobalBarriers) const
 {
 	m_barrierGroups.clear();
 
@@ -314,8 +314,8 @@ void CommandList_DX12::SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t nu
 	m_commandListU->SetSamplePositions(numSamplesPerPixel, numPixels, pPositions ? positions : nullptr);
 }
 
-void CommandList_DX12::ResolveSubresourceRegion(const Resource* pDstResource, uint32_t dstSubresource, uint32_t dstX, uint32_t dstY,
-	const Resource* pSrcResource, uint32_t srcSubresource, const RectRange& srcRect, Format format, ResolveMode resolveMode) const
+void CommandList_DX12::ResolveSubresourceRegion(Resource* pDstResource, uint32_t dstSubresource, uint32_t dstX, uint32_t dstY,
+	Resource* pSrcResource, uint32_t srcSubresource, const RectRange& srcRect, Format format, ResolveMode resolveMode) const
 {
 	assert(pDstResource);
 	assert(pSrcResource);
@@ -337,7 +337,7 @@ void CommandList_DX12::RSSetShadingRate(ShadingRate baseShadingRate, const Shadi
 	m_commandListU->RSSetShadingRate(D3D12_SHADING_RATE(baseShadingRate), pCombiners ? combiners : nullptr);
 }
 
-void CommandList_DX12::RSSetShadingRateImage(const Resource* pShadingRateImage)  const
+void CommandList_DX12::RSSetShadingRateImage(Resource* pShadingRateImage)  const
 {
 	m_commandListU->RSSetShadingRateImage(pShadingRateImage ?
 		static_cast<ID3D12Resource*>(pShadingRateImage->GetHandle()) : nullptr);
@@ -348,14 +348,14 @@ void CommandList_DX12::DispatchMesh(uint32_t threadGroupCountX, uint32_t threadG
 	m_commandListU->DispatchMesh(threadGroupCountX, threadGroupCountY, threadGroupCountZ);
 }
 
-void CommandList_DX12::SetStateObject(const Pipeline& stateObject)
+void CommandList_DX12::SetStateObject(const Pipeline& stateObject) const
 {
 	m_commandListU->SetPipelineState1(static_cast<ID3D12StateObject*>(stateObject));
 }
 
 void CommandList_DX12::SetProgram(ProgramType type, ProgramIdentifier identifier, WorkGraphFlag flags,
 	uint64_t backingMemoryAddress, uint64_t backingMemoryByteSize, uint64_t localRootArgTableAddress,
-	uint64_t localRootArgTableByteSize, uint64_t localRootArgTableByteStride)
+	uint64_t localRootArgTableByteSize, uint64_t localRootArgTableByteStride) const
 {
 	D3D12_SET_PROGRAM_DESC desc = {};
 
@@ -394,7 +394,7 @@ void CommandList_DX12::SetProgram(ProgramType type, ProgramIdentifier identifier
 	m_commandListA->SetProgram(&desc);
 }
 
-void CommandList_DX12::DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride)
+void CommandList_DX12::DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride) const
 {
 	const auto populateNodeInput = [](D3D12_NODE_CPU_INPUT& nodeInput, const NodeCPUInput& nodeCPUInput)
 	{
@@ -425,7 +425,7 @@ void CommandList_DX12::DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput*
 	m_commandListA->DispatchGraph(&desc);
 }
 
-void CommandList_DX12::DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes)
+void CommandList_DX12::DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes) const
 {
 	D3D12_DISPATCH_GRAPH_DESC desc = {};
 	if (isMultiNodes)
@@ -469,7 +469,7 @@ public:
 		_In_  UINT DescCount) = 0;
 };
 
-void CommandList_DX12::ConvertLinearAlgebraMatrix(const LinearAlgebraMatrixConversionInfo* pConversions, uint32_t numConversions)
+void CommandList_DX12::ConvertLinearAlgebraMatrix(const LinearAlgebraMatrixConversionInfo* pConversions, uint32_t numConversions) const
 {
 	assert(pConversions);
 	m_matrixConversions.resize(numConversions);
@@ -507,7 +507,7 @@ XUSG::com_ptr<ID3D12GraphicsCommandList6>& CommandList_DX12::GetGraphicsCommandL
 	return m_commandListU;
 }
 
-void CommandList_DX12::createAgilityInterface()
+void CommandList_DX12::createAgilityInterface() const
 {
 	if (m_commandListA == nullptr)
 	{
@@ -526,7 +526,7 @@ PipelineLayoutLib_DX12::PipelineLayoutLib_DX12() :
 {
 }
 
-PipelineLayoutLib_DX12::PipelineLayoutLib_DX12(const Device* pDevice) :
+PipelineLayoutLib_DX12::PipelineLayoutLib_DX12(Device* pDevice) :
 	XUSG::PipelineLayoutLib_DX12(pDevice)
 {
 }
@@ -596,7 +596,7 @@ SamplerFeedBack_DX12::~SamplerFeedBack_DX12()
 {
 }
 
-bool SamplerFeedBack_DX12::Create(const Device* pDevice, Texture* pTarget, Format format,
+bool SamplerFeedBack_DX12::Create(Device* pDevice, Texture* pTarget, Format format,
 	uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
 	ResourceFlag resourceFlags, bool isCubeMap, MemoryFlag memoryFlags, const wchar_t* name,
 	uint16_t srvComponentMapping, TextureLayout textureLayout, uint32_t maxThreads)
@@ -636,7 +636,7 @@ bool SamplerFeedBack_DX12::Create(const Device* pDevice, Texture* pTarget, Forma
 	return true;
 }
 
-bool SamplerFeedBack_DX12::Create(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset,
+bool SamplerFeedBack_DX12::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset,
 	Texture* pTarget, Format format, uint32_t mipRegionWidth, uint32_t mipRegionHeight,
 	uint32_t mipRegionDepth, ResourceFlag resourceFlags, bool isCubeMap, const wchar_t* name,
 	uint16_t srvComponentMapping, TextureLayout textureLayout, uint32_t maxThreads)
@@ -676,7 +676,7 @@ bool SamplerFeedBack_DX12::Create(const Device* pDevice, const Heap* pHeap, uint
 	return true;
 }
 
-bool SamplerFeedBack_DX12::CreateResource(const Device* pDevice, Texture* pTarget, Format format, uint32_t mipRegionWidth,
+bool SamplerFeedBack_DX12::CreateResource(Device* pDevice, Texture* pTarget, Format format, uint32_t mipRegionWidth,
 	uint32_t mipRegionHeight, uint32_t mipRegionDepth, ResourceFlag resourceFlags, bool isCubeMap, MemoryFlag memoryFlags,
 	ResourceState initialResourceState, TextureLayout textureLayout, uint32_t maxThreads)
 {
@@ -711,7 +711,7 @@ bool SamplerFeedBack_DX12::CreateResource(const Device* pDevice, Texture* pTarge
 	return true;
 }
 
-bool SamplerFeedBack_DX12::CreateResource(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, Texture* pTarget,
+bool SamplerFeedBack_DX12::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset, Texture* pTarget,
 	Format format, uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth, ResourceFlag resourceFlags,
 	bool isCubeMap, ResourceState initialResourceState, TextureLayout textureLayout, uint32_t maxThreads)
 {
@@ -788,7 +788,7 @@ public:
 		_Inout_  D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_DEST_INFO * pDesc) = 0;
 };
 
-void XUSG::Ultimate::GetDX12LinearAlgebraMatrixInfo(const Device* pDevice, LinearAlgebraMatrixInfo& matrixInfo)
+void XUSG::Ultimate::GetDX12LinearAlgebraMatrixInfo(Device* pDevice, LinearAlgebraMatrixInfo& matrixInfo)
 {
 	auto destInfo = GetDX12LinearAlgebraConversionDestInfo(matrixInfo);
 

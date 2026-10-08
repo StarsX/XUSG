@@ -91,7 +91,7 @@ bool EZ::CommandList_DX12::Create(Ultimate::CommandList* pCommandList,
 	return true;
 }
 
-bool EZ::CommandList_DX12::Create(const Device* pDevice, void* pHandle,
+bool EZ::CommandList_DX12::Create(Device* pDevice, void* pHandle,
 	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 	const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
@@ -263,7 +263,7 @@ void EZ::CommandList_DX12::DispatchMesh(uint32_t ThreadGroupCountX, uint32_t Thr
 	Ultimate::CommandList_DX12::DispatchMesh(ThreadGroupCountX, ThreadGroupCountY, ThreadGroupCountZ);
 }
 
-void EZ::CommandList_DX12::DispatchMeshIndirect(const CommandLayout* pCommandlayout, uint32_t maxCommandCount,
+void EZ::CommandList_DX12::DispatchMeshIndirect(CommandLayout* pCommandlayout, uint32_t maxCommandCount,
 	Resource* pArgumentBuffer, uint64_t argumentBufferOffset, Resource* pCountBuffer, uint64_t countBufferOffset)
 {
 	preexecuteIndirect(pArgumentBuffer, pCountBuffer);
@@ -458,11 +458,11 @@ bool EZ::CommandList_DX12::init(Ultimate::CommandList* pCommandList, uint32_t sa
 
 	if (m_commandListU)
 	{
-		m_meshShaderPipelineLib = PipelineLib::MakeUnique(m_pDevice, API::DIRECTX_12);
-		m_meshShaderState = State::MakeUnique(API::DIRECTX_12);
+		m_meshShaderPipelineLib = PipelineLib::MakeUnique(m_pDevice);
+		m_meshShaderState = State::MakeUnique();
 
-		m_workGraphPipelineLib = WorkGraph::PipelineLib::MakeUnique(m_pDevice, API::DIRECTX_12);
-		m_workGraphState = WorkGraph::State::MakeUnique(API::DIRECTX_12);
+		m_workGraphPipelineLib = WorkGraph::PipelineLib::MakeUnique(m_pDevice);
+		m_workGraphState = WorkGraph::State::MakeUnique();
 	}
 
 	return true;
@@ -483,7 +483,7 @@ bool EZ::CommandList_DX12::createMeshShaderPipelineLayouts(
 {
 	// Create common mesh-shader pipeline layout
 	auto paramIndex = 0u;
-	const auto pipelineLayout = Util::PipelineLayout::MakeUnique(API::DIRECTX_12);
+	const auto pipelineLayout = Util::PipelineLayout::MakeUnique();
 
 	for (uint8_t i = 0; i < NUM_STAGE; ++i)
 	{
@@ -778,7 +778,7 @@ void EZ::CommandList_DX12::getWorkGraphPipeline()
 
 			// Different from other types of state objects, m_workGraphState cannot be reused
 			// for the next different pipeline, so we need to remake it
-			m_workGraphState = WorkGraph::State::MakeUnique(API::DIRECTX_12);
+			m_workGraphState = WorkGraph::State::MakeUnique();
 			m_isWGStateDirty = false;
 		}
 	}

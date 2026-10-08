@@ -17,10 +17,12 @@ namespace XUSG
 
 		bool SetShader(const Blob& shader);
 		bool IsValid() const;
-		uint32_t GetResourceBindingPointByName(const char* name, uint32_t defaultVal = UINT32_MAX) const;
+		uint32_t GetResourceBindingPointByName(const char* name) const;
+		uint32_t GetResourceSpaceByName(const char* name, uint32_t defaultVal = UINT32_MAX) const;
 
 	protected:
 		com_ptr<ID3D12ShaderReflection> m_shaderReflection;
 		com_ptr<ID3D12LibraryReflection> m_libraryReflection;
+		bool m_isDxil;
 	};
 }

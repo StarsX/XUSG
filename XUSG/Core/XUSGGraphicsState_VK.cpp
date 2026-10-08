@@ -248,7 +248,7 @@ PipelineLib_VK::PipelineLib_VK() :
 	InitGraphicsPresets(m_pfnBlends, m_pfnRasterizers, m_pfnDepthStencils);
 }
 
-PipelineLib_VK::PipelineLib_VK(const Device* pDevice) :
+PipelineLib_VK::PipelineLib_VK(Device* pDevice) :
 	PipelineLib_VK()
 {
 	SetDevice(pDevice);
@@ -259,9 +259,9 @@ PipelineLib_VK::~PipelineLib_VK()
 	for (auto& pipeline : m_pipelines) ReleaseVKPipeline(m_device, pipeline.second);
 }
 
-void PipelineLib_VK::SetDevice(const Device* pDevice)
+void PipelineLib_VK::SetDevice(Device* pDevice)
 {
-	m_pDevice = dynamic_cast<const Device_VK*>(pDevice);
+	m_pDevice = pDevice ? static_cast<Device_VK*>(pDevice->GetHandle()) : nullptr;
 	assert(m_pDevice);
 	m_device = m_pDevice->GetDevice();
 }
@@ -284,7 +284,7 @@ void PipelineLib_VK::SetInputLayout(uint32_t index, uint32_t numElements, const 
 	m_inputLayoutLib.SetLayout(index, numElements, pElements);
 }
 
-const InputLayout* PipelineLib_VK::GetInputLayout(uint32_t index)
+const InputLayout* PipelineLib_VK::GetInputLayout(uint32_t index) const
 {
 	return m_inputLayoutLib.GetLayout(index);
 }
@@ -445,6 +445,46 @@ namespace
 
 		return patchCount;
 	}
+
+	uint32_t SpirvXfbBufferCount(const Blob& blob)
+	{
+		const void* pData = nullptr;
+		size_t size = 0;
+		GetVKBlobData(blob, &pData, &size);
+		if (!pData || size < 20 || size % 4) return 0;
+
+		const auto words = static_cast<const uint32_t*>(pData);
+		const auto count = size / sizeof(uint32_t);
+		if (words[0] != 0x07230203) return 0;
+
+		constexpr uint32_t OpExecutionMode = 16;
+		constexpr uint32_t OpDecorate = 71;
+		constexpr uint32_t OpMemberDecorate = 72;
+		constexpr uint32_t ExecutionModeXfb = 29;
+		constexpr uint32_t DecorationXfbBuffer = 35;
+
+		auto hasXfb = false;
+		auto buffers = 0u;
+		for (auto i = 5u; i < count;)
+		{
+			const auto wordCount = words[i] >> 16;
+			const auto opcode = words[i] & 0xffff;
+			if (!wordCount || i + wordCount > count) break;
+
+			if (opcode == OpExecutionMode && wordCount >= 3 && words[i + 2] == ExecutionModeXfb)
+				hasXfb = true;
+			else if (opcode == OpDecorate && wordCount >= 4 && words[i + 2] == DecorationXfbBuffer)
+				buffers = (max)(buffers, words[i + 3] + 1);
+			else if (opcode == OpMemberDecorate && wordCount >= 5 && words[i + 3] == DecorationXfbBuffer)
+				buffers = (max)(buffers, words[i + 4] + 1);
+
+			i += wordCount;
+		}
+
+		if (!hasXfb) return 0;
+
+		return buffers ? buffers : 1u;
+	}
 }
 
 void XUSG::InitGraphicsPresets(function<Graphics::Blend(uint8_t)>* pBlends,
@@ -559,6 +599,7 @@ Pipeline_VK* XUSG::CreateVKGraphicsPipeline(const Device_VK* pDevice, const Grap
 		++stageCount;
 	}
 
+	// Input layout
 	vector<VkVertexInputBindingDescription> bindings;
 	vector<VkVertexInputAttributeDescription> attributes;
 	vector<VkVertexInputBindingDivisorDescription> divisors;
@@ -629,7 +670,11 @@ Pipeline_VK* XUSG::CreateVKGraphicsPipeline(const Device_VK* pDevice, const Grap
 	divisorState.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_DIVISOR_STATE_CREATE_INFO;
 	divisorState.vertexBindingDivisorCount = static_cast<uint32_t>(divisors.size());
 	divisorState.pVertexBindingDivisors = divisors.empty() ? nullptr : divisors.data();
-	if (!divisors.empty()) vertex.pNext = &divisorState;
+	if (!divisors.empty())
+	{
+		assert(pDevice->HasVertexAttributeDivisor());
+		if (pDevice->HasVertexAttributeDivisor()) vertex.pNext = &divisorState;
+	}
 
 	VkPipelineInputAssemblyStateCreateInfo assembly = {};
 	assembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -651,6 +696,7 @@ Pipeline_VK* XUSG::CreateVKGraphicsPipeline(const Device_VK* pDevice, const Grap
 	viewport.viewportCount = 1;
 	viewport.scissorCount = 1;
 
+	// Blend state
 	const auto blendDesc = desc.pBlend ? *desc.pBlend : Graphics::PipelineLib::DefaultOpaque(desc.NumRenderTargets);
 	VkPipelineColorBlendAttachmentState attachments[8] = {};
 	for (auto i = 0u; i < 8u; ++i)
@@ -672,6 +718,7 @@ Pipeline_VK* XUSG::CreateVKGraphicsPipeline(const Device_VK* pDevice, const Grap
 	blend.attachmentCount = desc.NumRenderTargets;
 	blend.pAttachments = attachments;
 
+	// Rasterizer state
 	const auto rasterizer = desc.pRasterizer ? *desc.pRasterizer : Graphics::PipelineLib::CullBack();
 	VkPipelineRasterizationStateCreateInfo raster = {};
 	raster.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
@@ -689,15 +736,33 @@ Pipeline_VK* XUSG::CreateVKGraphicsPipeline(const Device_VK* pDevice, const Grap
 	conservative.conservativeRasterizationMode = VK_CONSERVATIVE_RASTERIZATION_MODE_OVERESTIMATE_EXT;
 	if (rasterizer.ConservativeRaster)
 	{
-		assert(pDevice->HasConservativeRasterization() && "Conservative raster requires VK_EXT_conservative_rasterization");
-		raster.pNext = &conservative;
+		assert(pDevice->HasConservativeRasterization());
+		if (pDevice->HasConservativeRasterization()) raster.pNext = &conservative;
 	}
+
+	const auto sampleCount = desc.SampleCount ? desc.SampleCount : 1u;
+	VkSampleLocationEXT standardLocations[16];
+	for (auto i = 0u; i < sampleCount && i < 16u; ++i)
+	{
+		standardLocations[i].x = 0.5f;
+		standardLocations[i].y = 0.5f;
+	}
+	VkPipelineSampleLocationsStateCreateInfoEXT sampleLocations = {};
+	sampleLocations.sType = VK_STRUCTURE_TYPE_PIPELINE_SAMPLE_LOCATIONS_STATE_CREATE_INFO_EXT;
+	sampleLocations.sampleLocationsEnable = VK_FALSE;
+	sampleLocations.sampleLocationsInfo.sType = VK_STRUCTURE_TYPE_SAMPLE_LOCATIONS_INFO_EXT;
+	sampleLocations.sampleLocationsInfo.sampleLocationsPerPixel = static_cast<VkSampleCountFlagBits>(sampleCount);
+	sampleLocations.sampleLocationsInfo.sampleLocationGridSize = { 1, 1 };
+	sampleLocations.sampleLocationsInfo.sampleLocationsCount = sampleCount;
+	sampleLocations.sampleLocationsInfo.pSampleLocations = standardLocations;
 
 	VkPipelineMultisampleStateCreateInfo multisample = {};
 	multisample.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-	multisample.rasterizationSamples = static_cast<VkSampleCountFlagBits>(desc.SampleCount ? desc.SampleCount : 1);
+	multisample.pNext = pDevice->HasSampleLocations() ? &sampleLocations : nullptr;
+	multisample.rasterizationSamples = static_cast<VkSampleCountFlagBits>(sampleCount);
 	multisample.alphaToCoverageEnable = blendDesc.AlphaToCoverageEnable;
 
+	// Depth-stencil state
 	const auto depthStencilDesc = desc.pDepthStencil ? *desc.pDepthStencil : Graphics::PipelineLib::DepthStencilNone();
 	VkPipelineDepthStencilStateCreateInfo depth = {};
 	depth.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
@@ -719,7 +784,7 @@ Pipeline_VK* XUSG::CreateVKGraphicsPipeline(const Device_VK* pDevice, const Grap
 	depth.back.compareMask = depthStencilDesc.BackFace.StencilReadMask;
 	depth.back.writeMask = depthStencilDesc.BackFace.StencilWriteMask;
 
-	VkDynamicState dynamics[6] =
+	VkDynamicState dynamics[8] =
 	{
 		VK_DYNAMIC_STATE_VIEWPORT,
 		VK_DYNAMIC_STATE_SCISSOR,
@@ -729,6 +794,11 @@ Pipeline_VK* XUSG::CreateVKGraphicsPipeline(const Device_VK* pDevice, const Grap
 	};
 	auto dynamicCount = 5u;
 	if (pDevice->GetBindVertexBuffers2()) dynamics[dynamicCount++] = VK_DYNAMIC_STATE_VERTEX_INPUT_BINDING_STRIDE;
+	if (pDevice->HasSampleLocations())
+	{
+		dynamics[dynamicCount++] = VK_DYNAMIC_STATE_SAMPLE_LOCATIONS_EXT;
+		dynamics[dynamicCount++] = VK_DYNAMIC_STATE_SAMPLE_LOCATIONS_ENABLE_EXT;
+	}
 	VkPipelineDynamicStateCreateInfo dynamic = {};
 	dynamic.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
 	dynamic.dynamicStateCount = dynamicCount;
@@ -740,7 +810,7 @@ Pipeline_VK* XUSG::CreateVKGraphicsPipeline(const Device_VK* pDevice, const Grap
 	rendering.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
 	rendering.colorAttachmentCount = desc.NumRenderTargets;
 	rendering.pColorAttachmentFormats = desc.NumRenderTargets ? colorFormats : nullptr;
-	rendering.depthAttachmentFormat = GetVKFormat(desc.DSVFormat);
+	rendering.depthAttachmentFormat = GetVKFormat(pDevice, desc.DSVFormat);
 	rendering.stencilAttachmentFormat = IsDepthStencilFormat(desc.DSVFormat) &&
 		desc.DSVFormat != Format::D32_FLOAT && desc.DSVFormat != Format::D16_UNORM ?
 		rendering.depthAttachmentFormat : VK_FORMAT_UNDEFINED;
@@ -777,10 +847,24 @@ Pipeline_VK* XUSG::CreateVKGraphicsPipeline(const Device_VK* pDevice, const Grap
 		return nullptr;
 	}
 
+	auto xfbBuffers = 0u;
+	if (desc.pShaders)
+	{
+		const Shader::Stage lastStage[] = { Shader::MS, Shader::GS, Shader::DS, Shader::VS };
+		for (const auto stage : lastStage)
+		{
+			if (static_cast<uint32_t>(stage) >= desc.ShaderCount || !desc.pShaders[stage]) continue;
+			xfbBuffers = SpirvXfbBufferCount(desc.pShaders[stage]);
+			break;
+		}
+	}
+	if (xfbBuffers > 4) xfbBuffers = 4;
+
 	auto pipeline = new Pipeline_VK();
 	pipeline->Handle = handle;
 	pipeline->BindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 	pipeline->Refs = 1;
+	pipeline->XfbBuffers = xfbBuffers;
 	pDevice->SetDebugName(VK_OBJECT_TYPE_PIPELINE, reinterpret_cast<uint64_t>(handle), desc.Name);
 
 	return pipeline;

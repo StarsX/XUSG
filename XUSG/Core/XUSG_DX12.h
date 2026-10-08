@@ -34,7 +34,7 @@ namespace XUSG
 		bool GetCommandAllocator(CommandAllocator* pCommandAllocator,
 			CommandListType type, const wchar_t* name = nullptr);
 		bool GetCommandList(CommandList* pCommandList, uint32_t nodeMask, CommandListType type,
-			const CommandAllocator* pCommandAllocator, const Pipeline& pipeline,
+			CommandAllocator* pCommandAllocator, const Pipeline& pipeline,
 			const wchar_t* name = nullptr);
 		bool GetFence(Fence* pFence, uint64_t initialValue, FenceFlag flags,
 			const wchar_t* name = nullptr);
@@ -46,7 +46,7 @@ namespace XUSG
 
 		void Create(void* pHandle, const wchar_t* name = nullptr);
 
-		void* GetHandle() const;
+		void* GetHandle();
 
 	protected:
 		com_ptr<ID3D12Device> m_device;
@@ -59,7 +59,7 @@ namespace XUSG
 		Fence_DX12();
 		virtual ~Fence_DX12();
 
-		bool Create(const Device* pDevice, uint64_t initialValue,
+		bool Create(Device* pDevice, uint64_t initialValue,
 			FenceFlag flags, const wchar_t* name = nullptr);
 		bool SetEventOnCompletion(uint64_t value, void* hEvent);
 		bool Signal(uint64_t value);
@@ -68,7 +68,7 @@ namespace XUSG
 
 		void Create(void* pHandle, const wchar_t* name = nullptr);
 
-		void* GetHandle() const;
+		void* GetHandle();
 
 	protected:
 		com_ptr<ID3D12Fence> m_fence;
@@ -81,13 +81,13 @@ namespace XUSG
 		CommandLayout_DX12();
 		virtual ~CommandLayout_DX12();
 
-		bool Create(const Device* pDevice, uint32_t byteStride, uint32_t numArguments,
+		bool Create(Device* pDevice, uint32_t byteStride, uint32_t numArguments,
 			const IndirectArgument* pArguments, const PipelineLayout& pipelineLayout = nullptr,
 			uint32_t nodeMask = 0, const wchar_t* name = nullptr);
 
 		void Create(void* pHandle, const wchar_t* name = nullptr);
 
-		void* GetHandle() const;
+		void* GetHandle();
 
 	protected:
 		com_ptr<ID3D12CommandSignature> m_commandSignature;
@@ -116,7 +116,7 @@ namespace XUSG
 
 		void Create(void* pHandle);
 
-		void* GetHandle() const;
+		void* GetHandle();
 
 	protected:
 		com_ptr<IDXGISwapChain3> m_swapChain;

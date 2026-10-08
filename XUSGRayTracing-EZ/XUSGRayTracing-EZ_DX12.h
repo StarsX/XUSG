@@ -23,7 +23,7 @@ namespace XUSG
 				virtual ~CommandList_DXR();
 
 				bool Create(RayTracing::CommandList* pCommandList, uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize);
-				bool Create(const RayTracing::Device* pDevice, void* pHandle, uint32_t samplerHeapSize,
+				bool Create(RayTracing::Device* pDevice, void* pHandle, uint32_t samplerHeapSize,
 					uint32_t cbvSrvUavHeapSize, const wchar_t* name = nullptr);
 				bool CreatePipelineLayouts(
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
@@ -38,7 +38,7 @@ namespace XUSG
 					const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					uint32_t maxTLASSrvs = 0, uint32_t spaceTLAS = 0,
 					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
-				bool Reset(const CommandAllocator* pAllocator, const Pipeline& initialState);
+				bool Reset(CommandAllocator* pAllocator, const Pipeline& initialState);
 				bool PrebuildBLAS(BottomLevelAS* pBLAS, uint32_t numGeometries, const GeometryBuffer& geometries,
 					BuildFlag flags = BuildFlag::PREFER_FAST_TRACE);
 				bool PrebuildTLAS(TopLevelAS* pTLAS, uint32_t numInstances,
@@ -81,7 +81,7 @@ namespace XUSG
 				void RTSetPipelineState(const Pipeline& pipelineState, RayTracing::State* pState = nullptr);
 				void DispatchRays(uint32_t width, uint32_t height, uint32_t depth, const wchar_t* rayGenShaderName,
 					const wchar_t* const* pMissShaderNames, uint32_t numMissShaders);
-				void DispatchRaysIndirect(const CommandLayout* pCommandlayout,
+				void DispatchRaysIndirect(CommandLayout* pCommandlayout,
 					uint32_t maxCommandCount,
 					const wchar_t* rayGenShaderName,
 					const wchar_t* const* pMissShaderNames,
@@ -93,7 +93,7 @@ namespace XUSG
 
 				size_t GetDispatchRaysArgReservedOffset() const { return sizeof(DX12DispatchRaysDescHeader); }
 
-				const Device* GetRTDevice() const { return RayTracing::CommandList_DX12::GetRTDevice(); }
+				Device* GetRTDevice() const { return RayTracing::CommandList_DX12::GetRTDevice(); }
 				RayTracing::CommandList* AsRTCommandList() { return dynamic_cast<RayTracing::CommandList*>(this); }
 
 			protected:

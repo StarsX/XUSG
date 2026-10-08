@@ -100,10 +100,10 @@ namespace XUSG
 		{
 		public:
 			PipelineLib_DX12();
-			PipelineLib_DX12(const Device* pDevice);
+			PipelineLib_DX12(Device* pDevice);
 			virtual ~PipelineLib_DX12();
 
-			void SetDevice(const Device* pDevice);
+			void SetDevice(Device* pDevice);
 			void SetPipeline(State* pState, const Pipeline& pipeline);
 
 			Pipeline CreatePipeline(State* pState, const wchar_t* name = nullptr);

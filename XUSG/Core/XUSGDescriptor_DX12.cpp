@@ -131,7 +131,7 @@ uint32_t Util::DescriptorTable_DX12::GetDescriptorTableIndex(DescriptorTableLib*
 		const auto& index = m_key[0];
 		const auto& descriptorHeap = static_cast<ID3D12DescriptorHeap*>(pDescriptorTableLib->GetDescriptorHeap(type, index));
 		const auto& descriptorStride = pDescriptorTableLib->GetDescriptorStride(type);
-		const auto& tableProperty = reinterpret_cast<const DescriptorTableProperty&>(table);
+		const auto& tableProperty = reinterpret_cast<const DescriptorTableProperty_DX12&>(table);
 
 		return static_cast<uint32_t>(tableProperty.Offset / descriptorStride);
 	}
@@ -190,7 +190,7 @@ DescriptorTableLib_DX12::DescriptorTableLib_DX12() :
 	m_pfnSamplers[SamplerPreset::MAX_ANISOTROPIC_BORDER] = SamplerMaxAnisotropicBorder;
 }
 
-DescriptorTableLib_DX12::DescriptorTableLib_DX12(const Device* pDevice, const wchar_t* name) :
+DescriptorTableLib_DX12::DescriptorTableLib_DX12(Device* pDevice, const wchar_t* name) :
 	DescriptorTableLib_DX12()
 {
 	SetDevice(pDevice);
@@ -201,7 +201,7 @@ DescriptorTableLib_DX12::~DescriptorTableLib_DX12()
 {
 }
 
-void DescriptorTableLib_DX12::SetDevice(const Device* pDevice)
+void DescriptorTableLib_DX12::SetDevice(Device* pDevice)
 {
 	m_device = pDevice->GetHandle();
 
@@ -270,7 +270,7 @@ DescriptorTable DescriptorTableLib_DX12::GetSamplerTable(const Util::DescriptorT
 	return getSamplerTable(pUtil->GetKey(), table);
 }
 
-DescriptorHeap DescriptorTableLib_DX12::GetDescriptorHeap(DescriptorHeapType type, uint8_t index)
+DescriptorHeap DescriptorTableLib_DX12::GetDescriptorHeap(DescriptorHeapType type, uint8_t index) const
 {
 	lock_guard<mutex> lock(m_mtx);
 
@@ -287,7 +287,7 @@ const Sampler* DescriptorTableLib_DX12::GetSampler(SamplerPreset preset)
 	return m_samplers[preset].get();
 }
 
-uint32_t DescriptorTableLib_DX12::GetDescriptorStride(DescriptorHeapType type)
+uint32_t DescriptorTableLib_DX12::GetDescriptorStride(DescriptorHeapType type) const
 {
 	lock_guard<mutex> lock(m_mtx);
 
@@ -403,7 +403,7 @@ DescriptorTable DescriptorTableLib_DX12::createCbvSrvUavTable(const string& key,
 		const auto& descriptorStride = m_descriptorStrides[CBV_SRV_UAV_HEAP];
 		CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandle(descriptorHeap->GetCPUDescriptorHandleForHeapStart());
 
-		auto& tableProperty = reinterpret_cast<DescriptorTableProperty&>(table);
+		auto& tableProperty = reinterpret_cast<DescriptorTableProperty_DX12&>(table);
 		if (tableProperty.IsInitialized)
 		{
 			assert(tableProperty.HeapType == CBV_SRV_UAV_HEAP);
@@ -518,7 +518,7 @@ DescriptorTable DescriptorTableLib_DX12::createSamplerTable(const string& key, D
 		const auto& descriptorStride = m_descriptorStrides[SAMPLER_HEAP];
 		CD3DX12_CPU_DESCRIPTOR_HANDLE dst(descriptorHeap->GetCPUDescriptorHandleForHeapStart());
 
-		auto& tableProperty = reinterpret_cast<DescriptorTableProperty&>(table);
+		auto& tableProperty = reinterpret_cast<DescriptorTableProperty_DX12&>(table);
 		if (tableProperty.IsInitialized)
 		{
 			assert(tableProperty.HeapType == SAMPLER_HEAP);

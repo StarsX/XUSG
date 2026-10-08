@@ -13,15 +13,11 @@ using namespace XUSG;
 namespace
 {
 	constexpr uint32_t MaxViewportAndScissorCount = 16;
+	constexpr uint32_t MaxVertexBufferSlotCount = 32;
 
 	Resource_VK* AsResource(Resource* pResource)
 	{
-		return dynamic_cast<Resource_VK*>(pResource);
-	}
-
-	const Resource_VK* AsResource(const Resource* pResource)
-	{
-		return dynamic_cast<const Resource_VK*>(pResource);
+		return pResource ? static_cast<Resource_VK*>(pResource->GetHandle()) : nullptr;
 	}
 
 	void DecodeSubresource(const Resource_VK* pResource, uint32_t subresource, uint32_t& mip, uint32_t& layer, uint32_t& depth)
@@ -58,17 +54,64 @@ namespace
 		return extent;
 	}
 
-	string Label(const void* pData, uint32_t size)
+	const char* DebugLabel(const void* pData, uint32_t size, char* stack, uint32_t capacity)
 	{
-		if (!pData || !size) return {};
+		if (!pData || !size || capacity < 2) return "";
 
-		return string(static_cast<const char*>(pData), static_cast<const char*>(pData) + size);
+		const auto text = static_cast<const char*>(pData);
+		if (text[size - 1] == '\0') return text;
+
+		const auto count = (min)(size, capacity - 1);
+		memcpy(stack, text, count);
+		stack[count] = '\0';
+
+		return stack;
 	}
 
-	template <typename T>
-	void Grow(vector<T>& values, uint32_t count)
+	bool RangeOverlaps(uint32_t baseA, uint32_t countA, uint32_t baseB, uint32_t countB)
 	{
-		if (values.size() < count) values.resize(count);
+		const auto endA = countA == VK_REMAINING_MIP_LEVELS ? UINT32_MAX : baseA + countA;
+		const auto endB = countB == VK_REMAINING_MIP_LEVELS ? UINT32_MAX : baseB + countB;
+
+		return baseA <= baseB ? endA > baseB : endB > baseA;
+	}
+
+	bool ImageBarrierOverlaps(const VkImageMemoryBarrier2& a, const VkImageMemoryBarrier2& b)
+	{
+		if (a.image != b.image) return false;
+		if ((a.subresourceRange.aspectMask & b.subresourceRange.aspectMask) == 0) return false;
+
+		const auto& left = a.subresourceRange;
+		const auto& right = b.subresourceRange;
+
+		return RangeOverlaps(left.baseMipLevel, left.levelCount, right.baseMipLevel, right.levelCount) &&
+			RangeOverlaps(left.baseArrayLayer, left.layerCount, right.baseArrayLayer, right.layerCount);
+	}
+
+	void AddGlobalBarrier(VkMemoryBarrier2& memory, VkPipelineStageFlags2 srcStage, VkAccessFlags2 srcAccess,
+		VkPipelineStageFlags2 dstStage, VkAccessFlags2 dstAccess)
+	{
+		memory.srcStageMask |= srcStage;
+		memory.srcAccessMask |= srcAccess;
+		memory.dstStageMask |= dstStage;
+		memory.dstAccessMask |= dstAccess;
+	}
+
+	void LegacyStages(VkPipelineStageFlags2 srcStage, VkPipelineStageFlags2 dstStage,
+		VkPipelineStageFlags& source, VkPipelineStageFlags& dest)
+	{
+		source = srcStage ? static_cast<VkPipelineStageFlags>(srcStage) : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		dest = dstStage ? static_cast<VkPipelineStageFlags>(dstStage) : VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+	}
+
+	bool IsStreamOutQuery(QueryType type)
+	{
+		return type >= QueryType::SO_STATISTICS_STREAM0 && type <= QueryType::SO_STATISTICS_STREAM3;
+	}
+
+	uint32_t StreamOutIndex(QueryType type)
+	{
+		return static_cast<uint32_t>(type) - static_cast<uint32_t>(QueryType::SO_STATISTICS_STREAM0);
 	}
 }
 
@@ -85,10 +128,10 @@ CommandAllocator_VK::~CommandAllocator_VK()
 	if (m_pool) vkDestroyCommandPool(m_device, m_pool, nullptr);
 }
 
-bool CommandAllocator_VK::Create(const Device* pDevice, CommandListType type, const wchar_t* name)
+bool CommandAllocator_VK::Create(Device* pDevice, CommandListType type, const wchar_t* name)
 {
 	assert(type != CommandListType::VIDEO_DECODE && type != CommandListType::VIDEO_PROCESS && type != CommandListType::VIDEO_ENCODE);
-	const auto pDeviceVK = dynamic_cast<const Device_VK*>(pDevice);
+	const auto pDeviceVK = pDevice ? static_cast<const Device_VK*>(pDevice->GetHandle()) : nullptr;
 	assert(pDeviceVK);
 	m_pDevice = pDevice;
 	m_device = pDeviceVK->GetDevice();
@@ -118,9 +161,9 @@ void CommandAllocator_VK::Create(void* pHandle, const wchar_t* name)
 	(void)name;
 }
 
-void* CommandAllocator_VK::GetHandle() const
+void* CommandAllocator_VK::GetHandle()
 {
-	return m_pool;
+	return this;
 }
 
 void* CommandAllocator_VK::GetDeviceHandle() const
@@ -128,7 +171,7 @@ void* CommandAllocator_VK::GetDeviceHandle() const
 	return m_device;
 }
 
-const Device* CommandAllocator_VK::GetDevice() const
+Device* CommandAllocator_VK::GetDevice() const
 {
 	return m_pDevice;
 }
@@ -157,6 +200,7 @@ CommandList_VK::CommandList_VK() :
 	m_endRendering(nullptr),
 	m_setPrimitiveTopology(nullptr),
 	m_bindVertexBuffers2(nullptr),
+	m_bindIndexBuffer2(nullptr),
 	m_beginLabel(nullptr),
 	m_endLabel(nullptr),
 	m_insertLabel(nullptr),
@@ -167,6 +211,7 @@ CommandList_VK::CommandList_VK() :
 	m_renderingBegun(false),
 	m_hasDepth(false),
 	m_colorCount(0),
+	m_colors(),
 	m_renderWidth(1),
 	m_renderHeight(1),
 	m_graphicsLayout(nullptr),
@@ -177,24 +222,42 @@ CommandList_VK::CommandList_VK() :
 	m_preprocessBuffer(VK_NULL_HANDLE),
 	m_preprocessMemory(VK_NULL_HANDLE),
 	m_preprocessAddress(0),
-	m_preprocessSize(0)
+	m_preprocessSize(0),
+	m_preprocessLayout(VK_NULL_HANDLE),
+	m_preprocessPipeline(VK_NULL_HANDLE),
+	m_preprocessSequences(0),
+	m_preprocessRequired(0),
+	m_soBuffers{},
+	m_soOffsets{},
+	m_soSizes{},
+	m_soCounters{},
+	m_soCounterOffsets{},
+	m_xfbActive(0),
+	m_nullXfb(VK_NULL_HANDLE),
+	m_nullXfbMemory(VK_NULL_HANDLE)
 {
 	m_depth = {};
 }
 
 CommandList_VK::~CommandList_VK()
 {
-	if (m_ownsCommandBuffer && m_commandBuffer) vkFreeCommandBuffers(m_device, m_pool, 1, &m_commandBuffer);
+	if (m_ownsCommandBuffer)
+	{
+		for (const auto& entry : m_poolBuffers)
+			if (entry.Buffer) vkFreeCommandBuffers(m_device, entry.Pool, 1, &entry.Buffer);
+	}
 	if (m_preprocessBuffer) vkDestroyBuffer(m_device, m_preprocessBuffer, nullptr);
 	if (m_preprocessMemory) vkFreeMemory(m_device, m_preprocessMemory, nullptr);
+	if (m_nullXfb) vkDestroyBuffer(m_device, m_nullXfb, nullptr);
+	if (m_nullXfbMemory) vkFreeMemory(m_device, m_nullXfbMemory, nullptr);
 }
 
-bool CommandList_VK::Create(const Device* pDevice, uint32_t nodeMask, CommandListType type,
-	const CommandAllocator* pAllocator, const Pipeline& pipeline, const wchar_t* name)
+bool CommandList_VK::Create(Device* pDevice, uint32_t nodeMask, CommandListType type,
+	CommandAllocator* pAllocator, const Pipeline& pipeline, const wchar_t* name)
 {
 	(void)nodeMask;
 	assert(type != CommandListType::VIDEO_DECODE && type != CommandListType::VIDEO_PROCESS && type != CommandListType::VIDEO_ENCODE);
-	m_pDeviceVK = dynamic_cast<const Device_VK*>(pDevice);
+	m_pDeviceVK = pDevice ? static_cast<const Device_VK*>(pDevice->GetHandle()) : nullptr;
 	assert(m_pDeviceVK);
 	m_pDevice = pDevice;
 	m_device = m_pDeviceVK->GetDevice();
@@ -203,6 +266,7 @@ bool CommandList_VK::Create(const Device* pDevice, uint32_t nodeMask, CommandLis
 	m_endRendering = m_pDeviceVK->GetEndRendering();
 	m_setPrimitiveTopology = m_pDeviceVK->GetSetPrimitiveTopology();
 	m_bindVertexBuffers2 = m_pDeviceVK->GetBindVertexBuffers2();
+	m_bindIndexBuffer2 = reinterpret_cast<PFN_vkCmdBindIndexBuffer2>(vkGetDeviceProcAddr(m_device, "vkCmdBindIndexBuffer2KHR"));
 	if (m_pDeviceVK->HasDebugUtils())
 	{
 		const auto instance = m_pDeviceVK->GetInstance();
@@ -211,9 +275,14 @@ bool CommandList_VK::Create(const Device* pDevice, uint32_t nodeMask, CommandLis
 		m_insertLabel = reinterpret_cast<PFN_vkCmdInsertDebugUtilsLabelEXT>(vkGetInstanceProcAddr(instance, "vkCmdInsertDebugUtilsLabelEXT"));
 	}
 
-	const auto allocator = dynamic_cast<const CommandAllocator_VK*>(pAllocator);
+	const auto allocator = pAllocator ? static_cast<const CommandAllocator_VK*>(pAllocator->GetHandle()) : nullptr;
 	assert(allocator);
-	if (m_ownsCommandBuffer && m_commandBuffer) vkFreeCommandBuffers(m_device, m_pool, 1, &m_commandBuffer);
+	if (m_ownsCommandBuffer)
+	{
+		for (const auto& entry : m_poolBuffers)
+			if (entry.Buffer) vkFreeCommandBuffers(m_device, entry.Pool, 1, &entry.Buffer);
+		m_poolBuffers.clear();
+	}
 	m_pool = allocator->GetPool();
 
 	VkCommandBufferAllocateInfo info = {};
@@ -223,11 +292,12 @@ bool CommandList_VK::Create(const Device* pDevice, uint32_t nodeMask, CommandLis
 	info.commandBufferCount = 1;
 	XUSG_VK_CHECK(vkAllocateCommandBuffers(m_device, &info, &m_commandBuffer), cerr, false);
 	m_ownsCommandBuffer = true;
+	m_poolBuffers.push_back({ m_pool, m_commandBuffer });
 	m_pDeviceVK->SetDebugName(VK_OBJECT_TYPE_COMMAND_BUFFER, reinterpret_cast<uint64_t>(m_commandBuffer), name);
 
 	VkCommandBufferBeginInfo begin = {};
 	begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	if (type == CommandListType::BUNDLE) begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+	begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 	XUSG_VK_CHECK(vkBeginCommandBuffer(m_commandBuffer, &begin), cerr, false);
 	resetState();
 	if (pipeline) SetPipelineState(pipeline);
@@ -238,20 +308,43 @@ bool CommandList_VK::Create(const Device* pDevice, uint32_t nodeMask, CommandLis
 bool CommandList_VK::Close() const
 {
 	endRendering();
+	flushDeferredClears();
+	endPredication();
 	XUSG_VK_CHECK(vkEndCommandBuffer(m_commandBuffer), cerr, false);
 
 	return true;
 }
 
-bool CommandList_VK::Reset(const CommandAllocator* pAllocator, const Pipeline& initialState) const
+bool CommandList_VK::Reset(CommandAllocator* pAllocator, const Pipeline& initialState) const
 {
-	(void)pAllocator;
 	endRendering();
+	m_deferredClears.clear();
+	endPredication();
+	const auto allocator = pAllocator ? static_cast<const CommandAllocator_VK*>(pAllocator->GetHandle()) : nullptr;
+	if (allocator && allocator->GetPool() && allocator->GetPool() != m_pool)
+	{
+		const auto pool = allocator->GetPool();
+		VkCommandBuffer buffer = VK_NULL_HANDLE;
+		for (const auto& entry : m_poolBuffers)
+			if (entry.Pool == pool) buffer = entry.Buffer;
+		if (!buffer)
+		{
+			VkCommandBufferAllocateInfo info = {};
+			info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+			info.commandPool = pool;
+			info.level = m_type == CommandListType::BUNDLE ? VK_COMMAND_BUFFER_LEVEL_SECONDARY : VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+			info.commandBufferCount = 1;
+			XUSG_VK_CHECK(vkAllocateCommandBuffers(m_device, &info, &buffer), cerr, false);
+			m_poolBuffers.push_back({ pool, buffer });
+		}
+		m_pool = pool;
+		m_commandBuffer = buffer;
+	}
 	XUSG_VK_CHECK(vkResetCommandBuffer(m_commandBuffer, 0), cerr, false);
 
 	VkCommandBufferBeginInfo begin = {};
 	begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	if (m_type == CommandListType::BUNDLE) begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+	begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 	XUSG_VK_CHECK(vkBeginCommandBuffer(m_commandBuffer, &begin), cerr, false);
 	resetState();
 	if (initialState) SetPipelineState(initialState);
@@ -262,6 +355,7 @@ bool CommandList_VK::Reset(const CommandAllocator* pAllocator, const Pipeline& i
 void CommandList_VK::ClearState(const Pipeline& initialState) const
 {
 	endRendering();
+	flushDeferredClears();
 	resetState();
 	if (initialState) SetPipelineState(initialState);
 }
@@ -269,29 +363,28 @@ void CommandList_VK::ClearState(const Pipeline& initialState) const
 void CommandList_VK::Draw(uint32_t vertexCountPerInstance, uint32_t instanceCount,
 	uint32_t startVertexLocation, uint32_t startInstanceLocation) const
 {
-	beginDraw();
+	assert(m_type != CommandListType::DIRECT || m_renderingBegun);
 	vkCmdDraw(m_commandBuffer, vertexCountPerInstance, instanceCount, startVertexLocation, startInstanceLocation);
 }
 
 void CommandList_VK::DrawIndexed(uint32_t indexCountPerInstance, uint32_t instanceCount,
 	uint32_t startIndexLocation, int32_t baseVertexLocation, uint32_t startInstanceLocation) const
 {
-	beginDraw();
+	assert(m_type != CommandListType::DIRECT || m_renderingBegun);
 	vkCmdDrawIndexed(m_commandBuffer, indexCountPerInstance, instanceCount,
 		startIndexLocation, baseVertexLocation, startInstanceLocation);
 }
 
 void CommandList_VK::Dispatch(uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ) const
 {
-	endRendering();
-	beginPredication();
+	recordOutside();
 	vkCmdDispatch(m_commandBuffer, threadGroupCountX, threadGroupCountY, threadGroupCountZ);
 }
 
-void CommandList_VK::CopyBufferRegion(const Resource* pDstBuffer, uint64_t dstOffset,
-	const Resource* pSrcBuffer, uint64_t srcOffset, uint64_t numBytes) const
+void CommandList_VK::CopyBufferRegion(Resource* pDstBuffer, uint64_t dstOffset,
+	Resource* pSrcBuffer, uint64_t srcOffset, uint64_t numBytes) const
 {
-	endRendering();
+	recordOutside();
 	assert(pDstBuffer);
 	assert(pSrcBuffer);
 	VkBufferCopy region = {};
@@ -304,7 +397,7 @@ void CommandList_VK::CopyBufferRegion(const Resource* pDstBuffer, uint64_t dstOf
 void CommandList_VK::CopyTextureRegion(const TextureCopyLocation& dst, uint32_t dstX, uint32_t dstY, uint32_t dstZ,
 	const TextureCopyLocation& src, const BoxRange* pSrcBox) const
 {
-	endRendering();
+	recordOutside();
 	assert(dst.pResource);
 	assert(src.pResource);
 	const auto pDst = AsResource(dst.pResource);
@@ -378,9 +471,9 @@ void CommandList_VK::CopyTextureRegion(const TextureCopyLocation& dst, uint32_t 
 	}
 }
 
-void CommandList_VK::CopyResource(const Resource* pDstResource, const Resource* pSrcResource) const
+void CommandList_VK::CopyResource(Resource* pDstResource, Resource* pSrcResource) const
 {
-	endRendering();
+	recordOutside();
 	assert(pDstResource);
 	assert(pSrcResource);
 	const auto pDst = AsResource(pDstResource);
@@ -389,7 +482,7 @@ void CommandList_VK::CopyResource(const Resource* pDstResource, const Resource* 
 	{
 		const auto mips = (max)(pSrc->GetMipLevels(), 1u);
 		const auto layers = pSrc->Is3D() ? 1u : (max)(pSrc->GetDepthOrArray(), 1u);
-		Grow(m_imageCopies, mips);
+		if (m_imageCopies.size() < mips) m_imageCopies.resize(mips);
 		for (auto mip = 0u; mip < mips; ++mip)
 		{
 			uint32_t mipLevel = 0, layer = 0, depth = 1;
@@ -413,23 +506,86 @@ void CommandList_VK::CopyResource(const Resource* pDstResource, const Resource* 
 	}
 }
 
-void CommandList_VK::CopyTiles(const Resource* pTiledResource, const TiledResourceCoord* pTileRegionStartCoord,
-	const TileRegionSize& tileRegionSize, const Resource* pBuffer, uint64_t bufferStartOffsetInBytes,
+void CommandList_VK::CopyTiles(Resource* pTiledResource, const TiledResourceCoord* pTileRegionStartCoord,
+	const TileRegionSize& tileRegionSize, Resource* pBuffer, uint64_t bufferStartByteOffset,
 	TileCopyFlag flags) const
 {
-	assert(!"CopyTiles is not implemented on Vulkan");
-	(void)pTiledResource;
-	(void)pTileRegionStartCoord;
-	(void)tileRegionSize;
-	(void)pBuffer;
-	(void)bufferStartOffsetInBytes;
-	(void)flags;
+	recordOutside();
+	assert(pTiledResource);
+	assert(pTileRegionStartCoord);
+	assert(pBuffer);
+	const auto tiled = AsResource(pTiledResource);
+	const auto buffer = AsResource(pBuffer);
+	assert(tiled && tiled->IsSparse());
+	assert(buffer && buffer->GetBuffer());
+	if (!tiled || !buffer || !tiled->IsSparse() || !buffer->GetBuffer() || !tileRegionSize.NumTiles) return;
+	if (tiled->GetSampleCount() > 1)
+	{
+		assert(!"CopyTiles does not support multisample tiled resources");
+		return;
+	}
+
+	const auto toImage = (flags & TileCopyFlag::LINEAR_BUFFER_TO_SWIZZLED_TILED_RESOURCE) ==
+		TileCopyFlag::LINEAR_BUFFER_TO_SWIZZLED_TILED_RESOURCE;
+	const auto toBuffer = (flags & TileCopyFlag::SWIZZLED_TILED_RESOURCE_TO_LINEAR_BUFFER) ==
+		TileCopyFlag::SWIZZLED_TILED_RESOURCE_TO_LINEAR_BUFFER;
+	assert(!(toImage && toBuffer));
+	if (toImage && toBuffer) return;
+
+	if (!tiled->IsImage())
+	{
+		assert(!tileRegionSize.UseBox);
+		VkDeviceSize tiledOffset = 0;
+		VkDeviceSize size = 0;
+		if (!tiled->BufferTileCopy(pTileRegionStartCoord->X, tileRegionSize.NumTiles, tiledOffset, size))
+		{
+			assert(!"CopyTiles buffer range is outside the tiled resource");
+			return;
+		}
+
+		VkBufferCopy region = {};
+		region.size = size;
+		if (toImage)
+		{
+			region.srcOffset = bufferStartByteOffset;
+			region.dstOffset = tiledOffset;
+			vkCmdCopyBuffer(m_commandBuffer, buffer->GetBuffer(), tiled->GetBuffer(), 1, &region);
+		}
+		else
+		{
+			region.srcOffset = tiledOffset;
+			region.dstOffset = bufferStartByteOffset;
+			vkCmdCopyBuffer(m_commandBuffer, tiled->GetBuffer(), buffer->GetBuffer(), 1, &region);
+		}
+
+		return;
+	}
+
+	if (m_tileCopies.size() < tileRegionSize.NumTiles) m_tileCopies.resize(tileRegionSize.NumTiles);
+	for (auto i = 0u; i < tileRegionSize.NumTiles; ++i)
+	{
+		if (tiled->ImageTileCopy(*pTileRegionStartCoord, tileRegionSize, i, bufferStartByteOffset, m_tileCopies[i])) continue;
+
+		assert(!"CopyTiles packed mip tail is not a linear image copy");
+		return;
+	}
+
+	if (toImage)
+	{
+		vkCmdCopyBufferToImage(m_commandBuffer, buffer->GetBuffer(), tiled->GetImage(),
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, tileRegionSize.NumTiles, m_tileCopies.data());
+	}
+	else
+	{
+		vkCmdCopyImageToBuffer(m_commandBuffer, tiled->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			buffer->GetBuffer(), tileRegionSize.NumTiles, m_tileCopies.data());
+	}
 }
 
-void CommandList_VK::ResolveSubresource(const Resource* pDstResource, uint32_t dstSubresource,
-	const Resource* pSrcResource, uint32_t srcSubresource, Format format) const
+void CommandList_VK::ResolveSubresource(Resource* pDstResource, uint32_t dstSubresource,
+	Resource* pSrcResource, uint32_t srcSubresource, Format format) const
 {
-	endRendering();
+	recordOutside();
 	assert(pDstResource);
 	assert(pSrcResource);
 	const auto pDst = AsResource(pDstResource);
@@ -467,10 +623,12 @@ void CommandList_VK::RSSetViewports(uint32_t numViewports, const Viewport* pView
 	VkViewport viewports[MaxViewportAndScissorCount];
 	for (uint8_t i = 0; i < numViewports; ++i)
 	{
+		// SPIR-V is compiled with HLSL clip space (Y up). A negative viewport
+		// height maps that onto the framebuffer without flipping every shader.
 		viewports[i].x = pViewports[i].TopLeftX;
-		viewports[i].y = pViewports[i].TopLeftY;
+		viewports[i].y = pViewports[i].TopLeftY + pViewports[i].Height;
 		viewports[i].width = pViewports[i].Width;
-		viewports[i].height = pViewports[i].Height;
+		viewports[i].height = -pViewports[i].Height;
 		viewports[i].minDepth = pViewports[i].MinDepth;
 		viewports[i].maxDepth = pViewports[i].MaxDepth;
 		m_renderWidth = (max)(m_renderWidth, static_cast<uint32_t>(pViewports[i].TopLeftX + pViewports[i].Width));
@@ -509,19 +667,186 @@ void CommandList_VK::OMSetStencilRef(uint32_t stencilRef) const
 
 void CommandList_VK::SetPipelineState(const Pipeline& pipelineState) const
 {
-	m_pipeline = static_cast<const Pipeline_VK*>(pipelineState);
+	const auto next = static_cast<const Pipeline_VK*>(pipelineState);
+	if (m_pipeline == next)
+	{
+		if (!m_xfbActive && next && next->Handle)
+			vkCmdBindPipeline(m_commandBuffer, next->BindPoint, next->Handle);
+
+		return;
+	}
+
+	const auto resumePredication = m_predicationActive && m_renderingBegun &&
+		(m_xfbActive || (next && next->XfbBuffers));
+	if (m_xfbActive)
+	{
+		endPredication();
+		endTransformFeedback();
+	}
+	else if (resumePredication) endPredication();
+
+	m_pipeline = next;
 	if (m_pipeline && m_pipeline->Handle)
 		vkCmdBindPipeline(m_commandBuffer, m_pipeline->BindPoint, m_pipeline->Handle);
+	if (m_renderingBegun) beginTransformFeedback();
+	if (resumePredication) beginPredication();
 }
 
-void CommandList_VK::Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers)
+void CommandList_VK::submitBarrierBatch(VkMemoryBarrier2& memory, vector<VkImageMemoryBarrier2>& images) const
+{
+	if (!memory.srcStageMask && !memory.dstStageMask && images.empty()) return;
+
+	VkDependencyInfo dependency = {};
+	dependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+	if (memory.srcStageMask || memory.dstStageMask)
+	{
+		dependency.memoryBarrierCount = 1;
+		dependency.pMemoryBarriers = &memory;
+	}
+	dependency.imageMemoryBarrierCount = static_cast<uint32_t>(images.size());
+	dependency.pImageMemoryBarriers = images.empty() ? nullptr : images.data();
+	pipelineBarrier(dependency);
+	memory.srcStageMask = 0;
+	memory.srcAccessMask = 0;
+	memory.dstStageMask = 0;
+	memory.dstAccessMask = 0;
+	images.clear();
+}
+
+void CommandList_VK::pipelineBarrier(const VkDependencyInfo& dependency) const
+{
+	const auto memoryCount = dependency.memoryBarrierCount;
+	const auto bufferCount = dependency.bufferMemoryBarrierCount;
+	const auto imageCount = dependency.imageMemoryBarrierCount;
+	if (!memoryCount && !bufferCount && !imageCount) return;
+	if (m_pDeviceVK && m_pDeviceVK->HasSynchronization2())
+	{
+		vkCmdPipelineBarrier2(m_commandBuffer, &dependency);
+
+		return;
+	}
+
+	m_legacySrcStages.clear();
+	m_legacyDstStages.clear();
+	for (auto i = 0u; i < memoryCount; ++i)
+	{
+		VkPipelineStageFlags source = 0;
+		VkPipelineStageFlags dest = 0;
+		LegacyStages(dependency.pMemoryBarriers[i].srcStageMask, dependency.pMemoryBarriers[i].dstStageMask, source, dest);
+		auto found = false;
+		for (auto group = 0u; group < m_legacySrcStages.size(); ++group)
+			found = found || (m_legacySrcStages[group] == source && m_legacyDstStages[group] == dest);
+		if (found) continue;
+		m_legacySrcStages.push_back(source);
+		m_legacyDstStages.push_back(dest);
+	}
+	for (auto i = 0u; i < bufferCount; ++i)
+	{
+		VkPipelineStageFlags source = 0;
+		VkPipelineStageFlags dest = 0;
+		LegacyStages(dependency.pBufferMemoryBarriers[i].srcStageMask, dependency.pBufferMemoryBarriers[i].dstStageMask, source, dest);
+		auto found = false;
+		for (auto group = 0u; group < m_legacySrcStages.size(); ++group)
+			found = found || (m_legacySrcStages[group] == source && m_legacyDstStages[group] == dest);
+		if (found) continue;
+		m_legacySrcStages.push_back(source);
+		m_legacyDstStages.push_back(dest);
+	}
+	for (auto i = 0u; i < imageCount; ++i)
+	{
+		VkPipelineStageFlags source = 0;
+		VkPipelineStageFlags dest = 0;
+		LegacyStages(dependency.pImageMemoryBarriers[i].srcStageMask, dependency.pImageMemoryBarriers[i].dstStageMask, source, dest);
+		auto found = false;
+		for (auto group = 0u; group < m_legacySrcStages.size(); ++group)
+			found = found || (m_legacySrcStages[group] == source && m_legacyDstStages[group] == dest);
+		if (found) continue;
+		m_legacySrcStages.push_back(source);
+		m_legacyDstStages.push_back(dest);
+	}
+
+	for (auto group = 0u; group < m_legacySrcStages.size(); ++group)
+	{
+		const auto source = m_legacySrcStages[group];
+		const auto dest = m_legacyDstStages[group];
+		m_legacyMemories.clear();
+		m_legacyBuffers.clear();
+		m_legacyImages.clear();
+		for (auto i = 0u; i < memoryCount; ++i)
+		{
+			const auto& barrier = dependency.pMemoryBarriers[i];
+			VkPipelineStageFlags barrierSource = 0;
+			VkPipelineStageFlags barrierDest = 0;
+			LegacyStages(barrier.srcStageMask, barrier.dstStageMask, barrierSource, barrierDest);
+			if (barrierSource != source || barrierDest != dest) continue;
+
+			VkMemoryBarrier memory = {};
+			memory.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+			memory.srcAccessMask = static_cast<VkAccessFlags>(barrier.srcAccessMask);
+			memory.dstAccessMask = static_cast<VkAccessFlags>(barrier.dstAccessMask);
+			m_legacyMemories.push_back(memory);
+		}
+		for (auto i = 0u; i < bufferCount; ++i)
+		{
+			const auto& barrier = dependency.pBufferMemoryBarriers[i];
+			VkPipelineStageFlags barrierSource = 0;
+			VkPipelineStageFlags barrierDest = 0;
+			LegacyStages(barrier.srcStageMask, barrier.dstStageMask, barrierSource, barrierDest);
+			if (barrierSource != source || barrierDest != dest) continue;
+
+			VkBufferMemoryBarrier buffer = {};
+			buffer.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+			buffer.srcAccessMask = static_cast<VkAccessFlags>(barrier.srcAccessMask);
+			buffer.dstAccessMask = static_cast<VkAccessFlags>(barrier.dstAccessMask);
+			buffer.srcQueueFamilyIndex = barrier.srcQueueFamilyIndex;
+			buffer.dstQueueFamilyIndex = barrier.dstQueueFamilyIndex;
+			buffer.buffer = barrier.buffer;
+			buffer.offset = barrier.offset;
+			buffer.size = barrier.size;
+			m_legacyBuffers.push_back(buffer);
+		}
+		for (auto i = 0u; i < imageCount; ++i)
+		{
+			const auto& barrier = dependency.pImageMemoryBarriers[i];
+			VkPipelineStageFlags barrierSource = 0;
+			VkPipelineStageFlags barrierDest = 0;
+			LegacyStages(barrier.srcStageMask, barrier.dstStageMask, barrierSource, barrierDest);
+			if (barrierSource != source || barrierDest != dest) continue;
+
+			VkImageMemoryBarrier image = {};
+			image.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+			image.srcAccessMask = static_cast<VkAccessFlags>(barrier.srcAccessMask);
+			image.dstAccessMask = static_cast<VkAccessFlags>(barrier.dstAccessMask);
+			image.oldLayout = barrier.oldLayout;
+			image.newLayout = barrier.newLayout;
+			image.srcQueueFamilyIndex = barrier.srcQueueFamilyIndex;
+			image.dstQueueFamilyIndex = barrier.dstQueueFamilyIndex;
+			image.image = barrier.image;
+			image.subresourceRange = barrier.subresourceRange;
+			m_legacyImages.push_back(image);
+		}
+
+		vkCmdPipelineBarrier(m_commandBuffer, source, dest, 0,
+			static_cast<uint32_t>(m_legacyMemories.size()), m_legacyMemories.empty() ? nullptr : m_legacyMemories.data(),
+			static_cast<uint32_t>(m_legacyBuffers.size()), m_legacyBuffers.empty() ? nullptr : m_legacyBuffers.data(),
+			static_cast<uint32_t>(m_legacyImages.size()), m_legacyImages.empty() ? nullptr : m_legacyImages.data());
+	}
+}
+
+void CommandList_VK::Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers) const
 {
 	if (!numBarriers) return;
 
 	endRendering();
+	flushDeferredClears();
+	endPredication();
 	assert(pBarriers);
-	m_globals.clear();
-	m_buffers.clear();
+
+	// Buffer, UAV and aliasing barriers share one memory barrier. Image layout
+	// transitions stay on the image. Vulkan applies every barrier in one call
+	// at once, so an overlapping layout change has to be submitted first.
+	VkMemoryBarrier2 memory = {};
+	memory.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
 	m_images.clear();
 	for (auto i = 0u; i < numBarriers; ++i)
 	{
@@ -529,99 +854,102 @@ void CommandList_VK::Barrier(uint32_t numBarriers, const ResourceBarrier* pBarri
 		if ((barrier.Flags & BarrierFlag::BEGIN_ONLY) == BarrierFlag::BEGIN_ONLY) continue;
 
 		const auto same = barrier.StateBefore == barrier.StateAfter;
-		if (!barrier.pResource)
+		const auto uav = same ? barrier.StateAfter == ResourceState::UNORDERED_ACCESS :
+			!barrier.pResource && barrier.StateBefore == ResourceState::UNORDERED_ACCESS;
+		if (uav)
 		{
-			VkMemoryBarrier2 global = {};
-			global.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
-			global.srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
-			global.dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
-			global.srcAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT;
-			global.dstAccessMask = global.srcAccessMask;
-			m_globals.push_back(global);
+			const auto stage = GetVKStage(ResourceState::UNORDERED_ACCESS);
+			const auto access = GetVKAccess(ResourceState::UNORDERED_ACCESS);
+			AddGlobalBarrier(memory, stage, access, stage, access);
+			continue;
+		}
+		if (same || !barrier.pResource)
+		{
+			const auto after = barrier.pResourceAfter ? AsResource(barrier.pResourceAfter) : nullptr;
+			const auto dstAccess = after && after->IsImage() ? VK_ACCESS_2_NONE :
+				VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT;
+			AddGlobalBarrier(memory, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_ACCESS_2_MEMORY_WRITE_BIT,
+				VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, dstAccess);
 			continue;
 		}
 
 		const auto pResource = AsResource(barrier.pResource);
-		if (same && barrier.StateAfter != ResourceState::UNORDERED_ACCESS && barrier.pResourceAfter)
+		auto srcStage = GetVKStage(barrier.StateBefore);
+		auto dstStage = GetVKStage(barrier.StateAfter);
+		auto srcAccess = GetVKAccess(barrier.StateBefore);
+		auto dstAccess = GetVKAccess(barrier.StateAfter);
+		// PRESENT aliases COMMON. Narrow WSI transitions so the GPU is not
+		// stalled on ALL_COMMANDS / MEMORY_* for every presentable barrier.
+		if (pResource->IsPresentable() && barrier.StateBefore == ResourceState::COMMON)
 		{
-			VkMemoryBarrier2 global = {};
-			global.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
-			global.srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
-			global.dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
-			global.srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT;
-			global.dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT;
-			m_globals.push_back(global);
+			srcStage = VK_PIPELINE_STAGE_2_NONE;
+			srcAccess = VK_ACCESS_2_NONE;
+		}
+		if (pResource->IsPresentable() && barrier.StateAfter == ResourceState::COMMON)
+		{
+			dstStage = VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT;
+			dstAccess = VK_ACCESS_2_NONE;
+		}
+		if (!pResource->IsImage())
+		{
+			AddGlobalBarrier(memory, srcStage, srcAccess, dstStage, dstAccess);
 			continue;
 		}
 
-		const auto srcStage = GetVKStage(barrier.StateBefore);
-		const auto dstStage = GetVKStage(barrier.StateAfter);
-		const auto srcAccess = GetVKAccess(barrier.StateBefore);
-		const auto dstAccess = GetVKAccess(barrier.StateAfter);
-		if (pResource->IsImage())
+		VkImageMemoryBarrier2 image = {};
+		image.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+		image.srcStageMask = srcStage;
+		image.srcAccessMask = srcAccess;
+		image.dstStageMask = dstStage;
+		image.dstAccessMask = dstAccess;
+		image.oldLayout = pResource->ImageLayout(barrier.StateBefore);
+		image.newLayout = pResource->ImageLayout(barrier.StateAfter);
+		image.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		image.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		image.image = pResource->GetImage();
+		image.subresourceRange.aspectMask = GetVKImageAspect(GetFormatFromVK(pResource->GetVkFormat()));
+		if (barrier.Subresource == XUSG_BARRIER_ALL_SUBRESOURCES)
 		{
-			VkImageMemoryBarrier2 image = {};
-			image.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
-			image.srcStageMask = srcStage;
-			image.srcAccessMask = srcAccess;
-			image.dstStageMask = dstStage;
-			image.dstAccessMask = dstAccess;
-			image.oldLayout = GetVKImageLayout(barrier.StateBefore);
-			image.newLayout = GetVKImageLayout(barrier.StateAfter);
-			image.image = pResource->GetImage();
-			image.subresourceRange.aspectMask = GetVKImageAspect(GetFormatFromVK(pResource->GetVkFormat()));
-			if (barrier.Subresource == XUSG_BARRIER_ALL_SUBRESOURCES)
-			{
-				image.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
-				image.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
-			}
-			else
-			{
-				uint32_t mip = 0, layer = 0, depth = 1;
-				DecodeSubresource(pResource, barrier.Subresource, mip, layer, depth);
-				image.subresourceRange.baseMipLevel = mip;
-				image.subresourceRange.levelCount = 1;
-				image.subresourceRange.baseArrayLayer = layer;
-				image.subresourceRange.layerCount = 1;
-			}
-			pResource->AppendImageBarrier(image, m_images);
+			image.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
+			image.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
 		}
 		else
 		{
-			VkBufferMemoryBarrier2 buffer = {};
-			buffer.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
-			buffer.srcStageMask = srcStage;
-			buffer.srcAccessMask = srcAccess;
-			buffer.dstStageMask = dstStage;
-			buffer.dstAccessMask = dstAccess;
-			buffer.buffer = pResource->GetBuffer();
-			buffer.size = VK_WHOLE_SIZE;
-			m_buffers.push_back(buffer);
+			uint32_t mip = 0, layer = 0, depth = 1;
+			DecodeSubresource(pResource, barrier.Subresource, mip, layer, depth);
+			image.subresourceRange.baseMipLevel = mip;
+			image.subresourceRange.levelCount = 1;
+			image.subresourceRange.baseArrayLayer = layer;
+			image.subresourceRange.layerCount = 1;
 		}
+		if (image.oldLayout != image.newLayout)
+		{
+			for (const auto& queued : m_images)
+			{
+				if (ImageBarrierOverlaps(image, queued) && queued.oldLayout != queued.newLayout)
+				{
+					submitBarrierBatch(memory, m_images);
+					break;
+				}
+			}
+		}
+		pResource->AppendImageBarrier(image, m_images);
 	}
 
-	if (m_globals.empty() && m_buffers.empty() && m_images.empty()) return;
-
-	VkDependencyInfo dependency = {};
-	dependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-	dependency.memoryBarrierCount = static_cast<uint32_t>(m_globals.size());
-	dependency.pMemoryBarriers = m_globals.empty() ? nullptr : m_globals.data();
-	dependency.bufferMemoryBarrierCount = static_cast<uint32_t>(m_buffers.size());
-	dependency.pBufferMemoryBarriers = m_buffers.empty() ? nullptr : m_buffers.data();
-	dependency.imageMemoryBarrierCount = static_cast<uint32_t>(m_images.size());
-	dependency.pImageMemoryBarriers = m_images.empty() ? nullptr : m_images.data();
-	vkCmdPipelineBarrier2(m_commandBuffer, &dependency);
+	submitBarrierBatch(memory, m_images);
 }
 
-void CommandList_VK::ExecuteBundle(const CommandList* pCommandList) const
+void CommandList_VK::ExecuteBundle(CommandList* pCommandList) const
 {
 	endRendering();
+	flushDeferredClears();
+	endPredication();
 	assert(pCommandList);
-	const auto buffer = static_cast<VkCommandBuffer>(pCommandList->GetHandle());
+	const auto buffer = static_cast<const CommandList_VK*>(pCommandList->GetHandle())->GetCommandBuffer();
 	vkCmdExecuteCommands(m_commandBuffer, 1, &buffer);
 }
 
-void CommandList_VK::SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps)
+void CommandList_VK::SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps) const
 {
 	assert(numDescriptorHeaps == 0 || pDescriptorHeaps);
 	for (auto i = 0u; i < numDescriptorHeaps; ++i)
@@ -640,21 +968,18 @@ void CommandList_VK::SetGraphicsPipelineLayout(const PipelineLayout& pipelineLay
 
 void CommandList_VK::SetComputeDescriptorTable(uint32_t index, const DescriptorTable& descriptorTable) const
 {
-	const auto& table = reinterpret_cast<const DescriptorTableProperty&>(descriptorTable);
-	const auto stride = table.HeapType == SAMPLER_HEAP ? m_pDeviceVK->GetSamplerDescriptorStride() : m_pDeviceVK->GetResourceDescriptorStride();
-	setDescriptorTable(m_computeLayout, index, stride ? static_cast<uint32_t>(table.Offset / stride) : 0);
+	const auto& table = reinterpret_cast<const DescriptorTableProperty_VK&>(descriptorTable);
+	setDescriptorTable(m_computeLayout, index, table.DescriptorIndex);
 }
 
 void CommandList_VK::SetGraphicsDescriptorTable(uint32_t index, const DescriptorTable& descriptorTable) const
 {
-	const auto& table = reinterpret_cast<const DescriptorTableProperty&>(descriptorTable);
-	const auto stride = table.HeapType == SAMPLER_HEAP ? m_pDeviceVK->GetSamplerDescriptorStride() : m_pDeviceVK->GetResourceDescriptorStride();
-	setDescriptorTable(m_graphicsLayout, index, stride ? static_cast<uint32_t>(table.Offset / stride) : 0);
+	const auto& table = reinterpret_cast<const DescriptorTableProperty_VK&>(descriptorTable);
+	setDescriptorTable(m_graphicsLayout, index, table.DescriptorIndex);
 }
 
 void CommandList_VK::SetComputeDescriptorTable(uint32_t index, const DescriptorHeap& descriptorHeap, int32_t offset) const
 {
-	bindHeap(descriptorHeap);
 	const auto heap = static_cast<const DescriptorHeap_VK*>(descriptorHeap);
 	const auto stride = heap ? heap->GetStride() : 1u;
 	setDescriptorTable(m_computeLayout, index, static_cast<uint32_t>(offset / stride));
@@ -662,7 +987,6 @@ void CommandList_VK::SetComputeDescriptorTable(uint32_t index, const DescriptorH
 
 void CommandList_VK::SetGraphicsDescriptorTable(uint32_t index, const DescriptorHeap& descriptorHeap, int32_t offset) const
 {
-	bindHeap(descriptorHeap);
 	const auto heap = static_cast<const DescriptorHeap_VK*>(descriptorHeap);
 	const auto stride = heap ? heap->GetStride() : 1u;
 	setDescriptorTable(m_graphicsLayout, index, static_cast<uint32_t>(offset / stride));
@@ -758,56 +1082,113 @@ void CommandList_VK::SetGraphicsRootUnorderedAccessView(uint32_t index, uint64_t
 
 void CommandList_VK::IASetIndexBuffer(const IndexBufferView& view) const
 {
-	BufferNative native = {};
-	assert(FindBuffer(view.BufferLocation, native));
-	const VkDeviceSize offset = view.BufferLocation - native.Address;
-	vkCmdBindIndexBuffer(m_commandBuffer, native.Buffer, offset, GetVKIndexType(view.Format));
+	const auto resource = AsResource(view.pResource);
+	assert(resource && resource->GetBuffer());
+	if (!resource) return;
+	const auto size = view.ByteSize ? static_cast<VkDeviceSize>(view.ByteSize) : VK_WHOLE_SIZE;
+	if (m_bindIndexBuffer2)
+		m_bindIndexBuffer2(m_commandBuffer, resource->GetBuffer(), view.ByteOffset, size, GetVKIndexType(view.Format));
+	else vkCmdBindIndexBuffer(m_commandBuffer, resource->GetBuffer(), view.ByteOffset, GetVKIndexType(view.Format));
 }
 
 void CommandList_VK::IASetVertexBuffers(uint32_t startSlot, uint32_t numViews, const VertexBufferView* pViews) const
 {
+	assert(numViews <= MaxVertexBufferSlotCount);
+	if (!numViews) return;
+
+	VkBuffer buffers[MaxVertexBufferSlotCount];
+	VkDeviceSize offsets[MaxVertexBufferSlotCount];
+	VkDeviceSize sizes[MaxVertexBufferSlotCount];
+	VkDeviceSize strides[MaxVertexBufferSlotCount];
 	if (!pViews)
 	{
-		const VkBuffer buffer = VK_NULL_HANDLE;
-		const VkDeviceSize zero = 0;
 		for (auto i = 0u; i < numViews; ++i)
 		{
-			if (m_bindVertexBuffers2)
-				m_bindVertexBuffers2(m_commandBuffer, startSlot + i, 1, &buffer, &zero, &zero, &zero);
-			else vkCmdBindVertexBuffers(m_commandBuffer, startSlot + i, 1, &buffer, &zero);
+			buffers[i] = VK_NULL_HANDLE;
+			offsets[i] = 0;
+			sizes[i] = 0;
+			strides[i] = 0;
 		}
-
-		return;
 	}
-
-	for (auto i = 0u; i < numViews; ++i)
+	else
 	{
-		BufferNative native = {};
-		assert(FindBuffer(pViews[i].BufferLocation, native));
-		const VkDeviceSize offset = pViews[i].BufferLocation - native.Address;
-		if (m_bindVertexBuffers2)
+		for (auto i = 0u; i < numViews; ++i)
 		{
-			const VkDeviceSize size = pViews[i].SizeInBytes;
-			const VkDeviceSize stride = pViews[i].StrideInBytes;
-			m_bindVertexBuffers2(m_commandBuffer, startSlot + i, 1, &native.Buffer, &offset, &size, &stride);
+			const auto& view = pViews[i];
+			const auto resource = AsResource(view.pResource);
+			assert(resource && resource->GetBuffer());
+			if (!resource) return;
+			buffers[i] = resource->GetBuffer();
+			offsets[i] = view.ByteOffset;
+			sizes[i] = view.ByteSize;
+			strides[i] = view.ByteStride;
 		}
-		else vkCmdBindVertexBuffers(m_commandBuffer, startSlot + i, 1, &native.Buffer, &offset);
 	}
+
+	if (m_bindVertexBuffers2)
+		m_bindVertexBuffers2(m_commandBuffer, startSlot, numViews, buffers, offsets, sizes, strides);
+	else vkCmdBindVertexBuffers(m_commandBuffer, startSlot, numViews, buffers, offsets);
 }
 
 void CommandList_VK::SOSetTargets(uint32_t startSlot, uint32_t numViews, const StreamOutBufferView* pViews) const
 {
-	assert(!"SOSetTargets is not implemented on Vulkan");
-	(void)startSlot;
-	(void)numViews;
-	(void)pViews;
+	assert(numViews == 0 || pViews);
+	assert(startSlot <= MaxStreamOutCount && startSlot + numViews <= MaxStreamOutCount);
+	assert(m_pDeviceVK && m_pDeviceVK->HasTransformFeedback());
+	if (!m_pDeviceVK || !m_pDeviceVK->HasTransformFeedback()) return;
+
+	const auto resumePredication = m_xfbActive && m_predicationActive;
+	if (m_xfbActive)
+	{
+		endPredication();
+		endTransformFeedback();
+	}
+
+	for (auto i = 0u; i < numViews; ++i)
+	{
+		const auto slot = startSlot + i;
+		const auto& view = pViews[i];
+		const auto resource = AsResource(view.pResource);
+		if (!resource || !view.ByteSize)
+		{
+			m_soBuffers[slot] = VK_NULL_HANDLE;
+			m_soOffsets[slot] = 0;
+			m_soSizes[slot] = 0;
+			m_soCounters[slot] = VK_NULL_HANDLE;
+			m_soCounterOffsets[slot] = 0;
+			continue;
+		}
+
+		assert(resource->GetBuffer());
+		assert((view.ByteOffset & 3) == 0);
+		const auto counter = AsResource(view.pBufferFilledSize);
+		assert(counter && counter->GetBuffer());
+		assert((view.BufferFilledSizeByteOffset & 3) == 0);
+		if (!resource->GetBuffer() || !counter || !counter->GetBuffer())
+		{
+			m_soBuffers[slot] = VK_NULL_HANDLE;
+			m_soOffsets[slot] = 0;
+			m_soSizes[slot] = 0;
+			m_soCounters[slot] = VK_NULL_HANDLE;
+			m_soCounterOffsets[slot] = 0;
+			continue;
+		}
+		m_soBuffers[slot] = resource->GetBuffer();
+		m_soOffsets[slot] = view.ByteOffset;
+		m_soSizes[slot] = view.ByteSize;
+		m_soCounters[slot] = counter ? counter->GetBuffer() : VK_NULL_HANDLE;
+		m_soCounterOffsets[slot] = view.BufferFilledSizeByteOffset;
+	}
+
+	if (m_renderingBegun) beginTransformFeedback();
+	if (resumePredication) beginPredication();
 }
 
 void CommandList_VK::OMSetRenderTargets(uint32_t numRenderTargetDescriptors,
 	const Descriptor* pRenderTargetViews, const Descriptor* pDepthStencilView) const
 {
 	endRendering();
-	assert(numRenderTargetDescriptors <= 8);
+	assert(numRenderTargetDescriptors <= MaxRenderTargetCount);
 	assert(numRenderTargetDescriptors == 0 || pRenderTargetViews);
 	m_colorCount = numRenderTargetDescriptors;
 	m_hasDepth = false;
@@ -815,50 +1196,35 @@ void CommandList_VK::OMSetRenderTargets(uint32_t numRenderTargetDescriptors,
 	{
 		const auto pView = static_cast<const ResourceView_VK*>(pRenderTargetViews[i]);
 		assert(pView && pView->Type == ResourceViewType::RTV);
-		const auto pResource = AsResource(pView->pResource);
-		auto& color = m_colors[i];
-		color.View = pView->ImageView;
-		color.Format = pView->ViewInfo.format;
-		color.Layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		setAttachmentRange(color, pView, pResource);
-		const auto mip = pView->ViewInfo.subresourceRange.baseMipLevel;
-		color.Width = pResource ? static_cast<uint32_t>((max)(pResource->GetWidth() >> mip, 1ull)) : 1u;
-		color.Height = pResource ? (max)(pResource->GetHeight() >> mip, 1u) : 1u;
-		m_renderWidth = (max)(m_renderWidth, color.Width);
-		m_renderHeight = (max)(m_renderHeight, color.Height);
+		loadAttachment(m_colors[i], pView);
+		m_renderWidth = (max)(m_renderWidth, m_colors[i].Width);
+		m_renderHeight = (max)(m_renderHeight, m_colors[i].Height);
 	}
 
 	if (pDepthStencilView && *pDepthStencilView)
 	{
 		const auto pView = static_cast<const ResourceView_VK*>(*pDepthStencilView);
 		assert(pView->Type == ResourceViewType::DSV);
-		const auto pResource = AsResource(pView->pResource);
 		m_hasDepth = true;
-		m_depth.View = pView->ImageView;
-		m_depth.Format = pView->ViewInfo.format;
-		m_depth.Layout = pView->Layout ? pView->Layout : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-		setAttachmentRange(m_depth, pView, pResource);
-		const auto mip = pView->ViewInfo.subresourceRange.baseMipLevel;
-		m_depth.Width = pResource ? static_cast<uint32_t>((max)(pResource->GetWidth() >> mip, 1ull)) : 1u;
-		m_depth.Height = pResource ? (max)(pResource->GetHeight() >> mip, 1u) : 1u;
+		loadAttachment(m_depth, pView);
 		m_renderWidth = (max)(m_renderWidth, m_depth.Width);
 		m_renderHeight = (max)(m_renderHeight, m_depth.Height);
 	}
 
-	if (numRenderTargetDescriptors || m_hasDepth) beginRendering();
+	if (m_type == CommandListType::DIRECT) beginRendering();
 }
 
 void CommandList_VK::ClearDepthStencilView(ClearFlag clearFlags, float depth, uint8_t stencil,
-	uint32_t numRects, const RectRange* pRects)
+	uint32_t numRects, const RectRange* pRects) const
 {
 	if (!m_hasDepth) return;
 
-	if (!m_renderingBegun) beginRendering();
+	assert(m_renderingBegun);
 	clearDepth(m_depth, clearFlags, depth, stencil, numRects, pRects);
 }
 
 void CommandList_VK::ClearDepthStencilView(const Descriptor& depthStencilView, ClearFlag clearFlags, float depth,
-	uint8_t stencil, uint32_t numRects, const RectRange* pRects)
+	uint8_t stencil, uint32_t numRects, const RectRange* pRects) const
 {
 	if (!depthStencilView)
 	{
@@ -868,58 +1234,54 @@ void CommandList_VK::ClearDepthStencilView(const Descriptor& depthStencilView, C
 	}
 
 	const auto pView = static_cast<const ResourceView_VK*>(depthStencilView);
-	if (m_hasDepth && pView->ImageView == m_depth.View)
+	if (m_hasDepth && pView->Target.Rendering.imageView == m_depth.Rendering.imageView)
 	{
 		ClearDepthStencilView(clearFlags, depth, stencil, numRects, pRects);
 
 		return;
 	}
 
-	endRendering();
 	RenderAttachment attachment = {};
-	attachment.View = pView->ImageView;
-	attachment.Format = pView->ViewInfo.format;
-	attachment.Layout = pView->Layout ? pView->Layout : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-	const auto pResource = AsResource(pView->pResource);
-	setAttachmentRange(attachment, pView, pResource);
-	const auto mip = pView->ViewInfo.subresourceRange.baseMipLevel;
-	attachment.Width = pResource ? static_cast<uint32_t>((max)(pResource->GetWidth() >> mip, 1ull)) : 1u;
-	attachment.Height = pResource ? (max)(pResource->GetHeight() >> mip, 1u) : 1u;
+	loadAttachment(attachment, pView);
 
-	RenderAttachment savedColors[8];
-	const auto savedCount = m_colorCount;
-	for (auto i = 0u; i < savedCount; ++i) savedColors[i] = m_colors[i];
-	const auto savedDepth = m_depth;
-	const auto savedHasDepth = m_hasDepth;
-	m_colorCount = 0;
-	m_depth = attachment;
-	m_hasDepth = true;
-	beginRendering();
-	clearDepth(attachment, clearFlags, depth, stencil, numRects, pRects);
+	const auto image = attachment.Resource ? attachment.Resource->GetImage() : VK_NULL_HANDLE;
+	if (!numRects && !imageBound(image))
+	{
+		DeferredClear clear = {};
+		clear.Attachment = attachment;
+		clear.Depth = true;
+		clear.Flags = clearFlags;
+		clear.DepthValue = depth;
+		clear.Stencil = stencil;
+		m_deferredClears.push_back(clear);
+
+		return;
+	}
+
+	const auto resumePass = m_renderingBegun;
 	endRendering();
-	m_colorCount = savedCount;
-	for (auto i = 0u; i < savedCount; ++i) m_colors[i] = savedColors[i];
-	m_depth = savedDepth;
-	m_hasDepth = savedHasDepth;
+	beginPredication();
+	clearOutside(attachment, true, clearFlags, depth, stencil, nullptr, numRects, pRects);
+	if (resumePass) beginRendering();
 }
 
 void CommandList_VK::ClearRenderTargetView(const float colorRGBA[4], uint8_t renderTargetViewIndex,
-	uint32_t numRects, const RectRange* pRects)
+	uint32_t numRects, const RectRange* pRects) const
 {
 	if (renderTargetViewIndex >= m_colorCount) return;
 
-	if (!m_renderingBegun) beginRendering();
+	assert(m_renderingBegun);
 	clearColor(renderTargetViewIndex, colorRGBA, numRects, pRects);
 }
 
 void CommandList_VK::ClearRenderTargetView(const Descriptor& renderTargetView, const float colorRGBA[4],
-	uint32_t numRects, const RectRange* pRects)
+	uint32_t numRects, const RectRange* pRects) const
 {
 	assert(renderTargetView);
 	const auto pView = static_cast<const ResourceView_VK*>(renderTargetView);
 	for (auto i = 0u; i < m_colorCount; ++i)
 	{
-		if (m_colors[i].View == pView->ImageView)
+		if (m_colors[i].Rendering.imageView == pView->Target.Rendering.imageView)
 		{
 			ClearRenderTargetView(colorRGBA, static_cast<uint8_t>(i), numRects, pRects);
 
@@ -927,36 +1289,30 @@ void CommandList_VK::ClearRenderTargetView(const Descriptor& renderTargetView, c
 		}
 	}
 
-	endRendering();
 	RenderAttachment attachment = {};
-	attachment.View = pView->ImageView;
-	attachment.Format = pView->ViewInfo.format;
-	attachment.Layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	const auto pResource = AsResource(pView->pResource);
-	setAttachmentRange(attachment, pView, pResource);
-	const auto mip = pView->ViewInfo.subresourceRange.baseMipLevel;
-	attachment.Width = pResource ? static_cast<uint32_t>((max)(pResource->GetWidth() >> mip, 1ull)) : 1u;
-	attachment.Height = pResource ? (max)(pResource->GetHeight() >> mip, 1u) : 1u;
+	loadAttachment(attachment, pView);
 
-	RenderAttachment savedColors[8];
-	const auto savedCount = m_colorCount;
-	for (auto i = 0u; i < savedCount; ++i) savedColors[i] = m_colors[i];
-	const auto savedDepth = m_depth;
-	const auto savedHasDepth = m_hasDepth;
-	m_colorCount = 1;
-	m_colors[0] = attachment;
-	m_hasDepth = false;
-	beginRendering();
-	clearColor(0, colorRGBA, numRects, pRects);
+	const auto image = attachment.Resource ? attachment.Resource->GetImage() : VK_NULL_HANDLE;
+	if (!numRects && !imageBound(image))
+	{
+		DeferredClear clear = {};
+		clear.Attachment = attachment;
+		clear.Depth = false;
+		memcpy(clear.Color, colorRGBA, sizeof(float) * 4);
+		m_deferredClears.push_back(clear);
+
+		return;
+	}
+
+	const auto resumePass = m_renderingBegun;
 	endRendering();
-	m_colorCount = savedCount;
-	for (auto i = 0u; i < savedCount; ++i) m_colors[i] = savedColors[i];
-	m_depth = savedDepth;
-	m_hasDepth = savedHasDepth;
+	beginPredication();
+	clearOutside(attachment, false, ClearFlag::NONE, 0.0f, 0, colorRGBA, numRects, pRects);
+	if (resumePass) beginRendering();
 }
 
 void CommandList_VK::ClearUnorderedAccessViewUint(const DescriptorTable& descriptorTable, const Descriptor& descriptor,
-	const uint32_t values[4], uint32_t numRects, const RectRange* pRects)
+	const uint32_t values[4], uint32_t numRects, const RectRange* pRects) const
 {
 	(void)descriptorTable;
 	(void)pRects;
@@ -966,7 +1322,7 @@ void CommandList_VK::ClearUnorderedAccessViewUint(const DescriptorTable& descrip
 }
 
 void CommandList_VK::ClearUnorderedAccessViewFloat(const DescriptorTable& descriptorTable, const Descriptor& descriptor,
-	const float values[4], uint32_t numRects, const RectRange* pRects)
+	const float values[4], uint32_t numRects, const RectRange* pRects) const
 {
 	(void)descriptorTable;
 	(void)pRects;
@@ -975,16 +1331,32 @@ void CommandList_VK::ClearUnorderedAccessViewFloat(const DescriptorTable& descri
 	clearUnorderedAccessView(descriptor, color, numRects);
 }
 
-void CommandList_VK::setAttachmentRange(RenderAttachment& attachment, const ResourceView_VK* pView, Resource_VK* pResource) const
+void CommandList_VK::loadAttachment(RenderAttachment& attachment, const ResourceView_VK* pView) const
 {
-	attachment.Resource = pResource;
-	attachment.BaseMip = pView->ViewInfo.subresourceRange.baseMipLevel;
-	attachment.MipCount = pView->ViewInfo.subresourceRange.levelCount ? pView->ViewInfo.subresourceRange.levelCount : 1u;
-	attachment.BaseLayer = pView->ViewInfo.subresourceRange.baseArrayLayer;
-	attachment.Layers = (max)(pView->ViewInfo.subresourceRange.layerCount, 1u);
+	const auto& target = pView->Target;
+	attachment.Rendering = target.Rendering;
+	attachment.Resource = AsResource(pView->pResource);
+	attachment.Width = target.Width;
+	attachment.Height = target.Height;
+	attachment.BaseMip = target.BaseMip;
+	attachment.MipCount = target.MipCount;
+	attachment.BaseLayer = target.BaseLayer;
+	attachment.Layers = target.Layers;
+	attachment.Subresource = target.Subresource;
+	attachment.SingleSubresource = target.SingleSubresource;
+	attachment.HasStencil = target.HasStencil;
 }
 
-void CommandList_VK::submitClearBarrier(Resource_VK* pResource, uint32_t regionCount, bool toCopy)
+VkAttachmentLoadOp CommandList_VK::attachmentLoadOp(const RenderAttachment& attachment) const
+{
+	const auto resource = attachment.Resource;
+	if (!resource || !resource->HasPendingDiscard()) return attachment.Rendering.loadOp;
+
+	return attachment.SingleSubresource ? resource->ConsumeDiscardLoadOp(attachment.Subresource) :
+		resource->ConsumeDiscardLoadOp(attachment.BaseMip, attachment.MipCount, attachment.BaseLayer, attachment.Layers);
+}
+
+void CommandList_VK::submitClearBarrier(Resource_VK* pResource, uint32_t regionCount, bool toCopy) const
 {
 	m_buffers.clear();
 	m_images.clear();
@@ -1004,9 +1376,9 @@ void CommandList_VK::submitClearBarrier(Resource_VK* pResource, uint32_t regionC
 			image.srcAccessMask = GetVKAccess(src);
 			image.dstStageMask = GetVKStage(dst);
 			image.dstAccessMask = GetVKAccess(dst);
-			image.oldLayout = undefined ? VK_IMAGE_LAYOUT_UNDEFINED : GetVKImageLayout(src);
+			image.oldLayout = undefined ? VK_IMAGE_LAYOUT_UNDEFINED : pResource->ImageLayout(src);
 			if (undefined) image.srcAccessMask = VK_ACCESS_2_NONE;
-			image.newLayout = GetVKImageLayout(dst);
+			image.newLayout = pResource->ImageLayout(dst);
 			image.image = pResource->GetImage();
 			image.subresourceRange.aspectMask = GetVKImageAspect(GetFormatFromVK(pResource->GetVkFormat()));
 			uint32_t mip = 0, layer = 0, depth = 1;
@@ -1039,25 +1411,25 @@ void CommandList_VK::submitClearBarrier(Resource_VK* pResource, uint32_t regionC
 	dependency.pBufferMemoryBarriers = m_buffers.empty() ? nullptr : m_buffers.data();
 	dependency.imageMemoryBarrierCount = static_cast<uint32_t>(m_images.size());
 	dependency.pImageMemoryBarriers = m_images.empty() ? nullptr : m_images.data();
-	vkCmdPipelineBarrier2(m_commandBuffer, &dependency);
+	pipelineBarrier(dependency);
 }
 
-void CommandList_VK::clearUnorderedAccessView(const Descriptor& descriptor, const VkClearColorValue& color, uint32_t numRects)
+void CommandList_VK::clearUnorderedAccessView(const Descriptor& descriptor, const VkClearColorValue& color, uint32_t numRects) const
 {
-	endRendering();
+	recordOutside();
 	assert(numRects == 0 && "ClearUnorderedAccessView rects are not implemented on Vulkan");
 	assert(descriptor);
 	const auto pView = static_cast<const ResourceView_VK*>(descriptor);
 	assert(pView->Type == ResourceViewType::UAV);
-	auto pResource = dynamic_cast<Resource_VK*>(pView->pResource);
+	auto pResource = AsResource(pView->pResource);
 	assert(pResource);
 
 	auto regionCount = 1u;
-	Grow(m_clearRegions, 1);
+	if (m_clearRegions.empty()) m_clearRegions.resize(1);
 	if (!pView->IsImage) m_clearRegions[0] = { 0, ResourceState::COMMON };
 	else if (pResource->Is3D())
 	{
-		Grow(m_clearRegions, 1);
+		if (m_clearRegions.empty()) m_clearRegions.resize(1);
 		m_clearRegions[0] = { pView->ViewInfo.subresourceRange.baseMipLevel, ResourceState::COMMON };
 	}
 	else
@@ -1067,7 +1439,7 @@ void CommandList_VK::clearUnorderedAccessView(const Descriptor& descriptor, cons
 		const auto levels = range.levelCount ? range.levelCount : 1u;
 		const auto layers = range.layerCount ? range.layerCount : 1u;
 		regionCount = levels * layers;
-		Grow(m_clearRegions, regionCount);
+		if (m_clearRegions.size() < regionCount) m_clearRegions.resize(regionCount);
 		auto index = 0u;
 		for (auto layer = 0u; layer < layers; ++layer)
 			for (auto level = 0u; level < levels; ++level)
@@ -1075,8 +1447,90 @@ void CommandList_VK::clearUnorderedAccessView(const Descriptor& descriptor, cons
 	}
 
 	for (auto i = 0u; i < regionCount; ++i)
-	{
 		m_clearRegions[i].State = pResource->GetResourceState(m_clearRegions[i].Subresource);
+	auto sameState = true;
+	for (auto i = 1u; i < regionCount; ++i)
+		sameState = sameState && m_clearRegions[i].State == m_clearRegions[0].State;
+
+	const auto state = m_clearRegions[0].State;
+	const auto layout = pView->IsImage ? pResource->ImageLayout(state) : VK_IMAGE_LAYOUT_UNDEFINED;
+	const auto clearInPlace = sameState && (!pView->IsImage || layout == VK_IMAGE_LAYOUT_GENERAL ||
+		layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	if (clearInPlace)
+	{
+		const auto srcStage = GetVKStage(state);
+		const auto srcAccess = GetVKAccess(state);
+		VkDependencyInfo dependency = {};
+		dependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+		VkImageMemoryBarrier2 image = {};
+		VkBufferMemoryBarrier2 buffer = {};
+		if (pView->IsImage)
+		{
+			auto range = pView->ViewInfo.subresourceRange;
+			if (!range.levelCount) range.levelCount = 1;
+			if (!range.layerCount) range.layerCount = 1;
+			image.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+			image.srcStageMask = srcStage;
+			image.srcAccessMask = srcAccess;
+			image.dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+			image.dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+			image.oldLayout = layout;
+			image.newLayout = layout;
+			image.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			image.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			image.image = pResource->GetImage();
+			image.subresourceRange = range;
+			dependency.imageMemoryBarrierCount = 1;
+			dependency.pImageMemoryBarriers = &image;
+			pipelineBarrier(dependency);
+			vkCmdClearColorImage(m_commandBuffer, pResource->GetImage(), layout, &color, 1, &range);
+			image.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+			image.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+			image.dstStageMask = srcStage;
+			image.dstAccessMask = srcAccess;
+			pipelineBarrier(dependency);
+		}
+		else
+		{
+			const auto base = pResource->GetVirtualAddress();
+			assert(pView->Address >= base);
+			const auto offset = pView->Address - base;
+			buffer.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
+			buffer.srcStageMask = srcStage;
+			buffer.srcAccessMask = srcAccess;
+			buffer.dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+			buffer.dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+			buffer.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			buffer.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			buffer.buffer = pResource->GetBuffer();
+			buffer.offset = offset;
+			buffer.size = pView->Range;
+			dependency.bufferMemoryBarrierCount = 1;
+			dependency.pBufferMemoryBarriers = &buffer;
+			pipelineBarrier(dependency);
+			const auto stride = pView->Stride ? pView->Stride : 4u;
+			assert(pView->Range && (offset % 4) == 0 && (pView->Range % 4) == 0 && (stride % 4) == 0);
+			assert(offset + pView->Range <= pResource->GetByteSize());
+			if (pView->IsTexelBuffer)
+				assert((pView->ViewInfo.format == VK_FORMAT_R32_UINT || pView->ViewInfo.format == VK_FORMAT_R32_SINT ||
+					pView->ViewInfo.format == VK_FORMAT_R32_SFLOAT) &&
+					"ClearUnorderedAccessView typed buffer format is not implemented on Vulkan");
+			const auto components = (min)(stride / 4, 4u);
+			for (auto i = 1u; i < components; ++i)
+				assert(color.uint32[i] == color.uint32[0] && "ClearUnorderedAccessView buffer pattern is wider than 4 bytes");
+			vkCmdFillBuffer(m_commandBuffer, pResource->GetBuffer(), offset, pView->Range, color.uint32[0]);
+			buffer.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+			buffer.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+			buffer.dstStageMask = srcStage;
+			buffer.dstAccessMask = srcAccess;
+			pipelineBarrier(dependency);
+		}
+
+		return;
+	}
+
+	for (auto i = 0u; i < regionCount; ++i)
+	{
 		ResourceBarrier barrier;
 		pResource->SetBarrier(&barrier, ResourceState::COPY_DEST, 0, m_clearRegions[i].Subresource);
 	}
@@ -1116,21 +1570,42 @@ void CommandList_VK::clearUnorderedAccessView(const Descriptor& descriptor, cons
 }
 
 void CommandList_VK::DiscardResource(Resource* pResource, uint32_t numRects, const RectRange* pRects,
-	uint32_t firstSubresource, uint32_t numSubresources)
+	uint32_t firstSubresource, uint32_t numSubresources) const
 {
-	endRendering();
 	assert(pResource);
 	assert(numRects == 0 && "DiscardResource rectangles are not supported on Vulkan");
 	(void)pRects;
-	auto resource = dynamic_cast<Resource_VK*>(pResource);
+	auto resource = AsResource(pResource);
 	assert(resource);
 	assert(resource->IsImage() && "DiscardResource buffers are not supported on Vulkan");
 	resource->Discard(firstSubresource, numSubresources);
+	if (!imageBound(resource->GetImage())) return;
+
+	endRendering();
+	beginRendering();
 }
 
 void CommandList_VK::BeginQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const
 {
 	if (type == QueryType::TIMESTAMP) return;
+
+	if (IsStreamOutQuery(type))
+	{
+		assert(m_pDeviceVK && m_pDeviceVK->HasTransformFeedback());
+		const auto stream = StreamOutIndex(type);
+		if (stream && !m_pDeviceVK->HasGeometryStreams())
+		{
+			assert(m_pDeviceVK->HasGeometryStreams());
+
+			return;
+		}
+		const auto begin = m_pDeviceVK->GetExtProcs().BeginQueryIndexed;
+		assert(begin);
+		if (!begin) return;
+		begin(m_commandBuffer, static_cast<VkQueryPool>(queryHeap), index, 0, stream);
+
+		return;
+	}
 
 	const auto flags = type == QueryType::OCCLUSION ? VK_QUERY_CONTROL_PRECISE_BIT : 0u;
 	vkCmdBeginQuery(m_commandBuffer, static_cast<VkQueryPool>(queryHeap), index, flags);
@@ -1145,32 +1620,45 @@ void CommandList_VK::EndQuery(const QueryHeap& queryHeap, QueryType type, uint32
 		return;
 	}
 
+	if (IsStreamOutQuery(type))
+	{
+		const auto end = m_pDeviceVK->GetExtProcs().EndQueryIndexed;
+		assert(end);
+		if (!end) return;
+		end(m_commandBuffer, static_cast<VkQueryPool>(queryHeap), index, StreamOutIndex(type));
+
+		return;
+	}
+
 	vkCmdEndQuery(m_commandBuffer, static_cast<VkQueryPool>(queryHeap), index);
 }
 
 void CommandList_VK::ResolveQueryData(const QueryHeap& queryHeap, QueryType type, uint32_t startIndex,
-	uint32_t numQueries, const Resource* pDstBuffer, uint64_t alignedDstBufferOffset) const
+	uint32_t numQueries, Resource* pDstBuffer, uint64_t alignedDstBufferOffset) const
 {
-	(void)type;
 	assert(pDstBuffer);
+	recordOutside();
+	const auto stride = IsStreamOutQuery(type) ? sizeof(uint64_t) * 2 : sizeof(uint64_t);
 	vkCmdCopyQueryPoolResults(m_commandBuffer, static_cast<VkQueryPool>(queryHeap), startIndex, numQueries,
-		AsResource(pDstBuffer)->GetBuffer(), alignedDstBufferOffset, sizeof(uint64_t),
+		AsResource(pDstBuffer)->GetBuffer(), alignedDstBufferOffset, stride,
 		VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
 }
 
-void CommandList_VK::SetPredication(const Resource* pBuffer, uint64_t alignedBufferOffset, bool opEqualZero) const
+void CommandList_VK::SetPredication(Resource* pBuffer, uint64_t alignedBufferOffset, bool opEqualZero) const
 {
 	endPredication();
 	m_predicateBuffer = VK_NULL_HANDLE;
 	if (!pBuffer) return;
 
-	assert(m_pDeviceVK->HasConditionalRendering() && "SetPredication requires VK_EXT_conditional_rendering");
+	assert(m_pDeviceVK && m_pDeviceVK->HasConditionalRendering());
+	if (!m_pDeviceVK || !m_pDeviceVK->HasConditionalRendering()) return;
 	assert((alignedBufferOffset % 4) == 0);
 	const auto buffer = AsResource(pBuffer);
 	assert(buffer && buffer->GetBuffer());
 	m_predicateBuffer = buffer->GetBuffer();
 	m_predicateOffset = alignedBufferOffset;
 	m_predicateEqualZero = opEqualZero;
+	beginPredication();
 }
 
 void CommandList_VK::SetMarker(uint32_t metaData, const void* pData, uint32_t size) const
@@ -1178,10 +1666,10 @@ void CommandList_VK::SetMarker(uint32_t metaData, const void* pData, uint32_t si
 	(void)metaData;
 	if (!m_insertLabel) return;
 
-	const auto text = Label(pData, size);
+	char stack[256];
 	VkDebugUtilsLabelEXT label = {};
 	label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
-	label.pLabelName = text.c_str();
+	label.pLabelName = DebugLabel(pData, size, stack, static_cast<uint32_t>(sizeof(stack)));
 	m_insertLabel(m_commandBuffer, &label);
 }
 
@@ -1190,38 +1678,93 @@ void CommandList_VK::BeginEvent(uint32_t metaData, const void* pData, uint32_t s
 	(void)metaData;
 	if (!m_beginLabel) return;
 
-	const auto text = Label(pData, size);
+	char stack[256];
 	VkDebugUtilsLabelEXT label = {};
 	label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
-	label.pLabelName = text.c_str();
+	label.pLabelName = DebugLabel(pData, size, stack, static_cast<uint32_t>(sizeof(stack)));
 	m_beginLabel(m_commandBuffer, &label);
 }
 
-void CommandList_VK::EndEvent()
+void CommandList_VK::EndEvent() const
 {
 	if (m_endLabel) m_endLabel(m_commandBuffer);
 }
 
-void CommandList_VK::ExecuteIndirect(const CommandLayout* pCommandlayout, uint32_t maxCommandCount,
-	const Resource* pArgumentBuffer, uint64_t argumentBufferOffset, const Resource* pCountBuffer, uint64_t countBufferOffset)
+void CommandList_VK::ExecuteIndirect(CommandLayout* pCommandlayout, uint32_t maxCommandCount,
+	Resource* pArgumentBuffer, uint64_t argumentBufferOffset,
+	Resource* pCountBuffer, uint64_t countBufferOffset) const
 {
+	assert(m_pDeviceVK);
 	assert(pCommandlayout);
 	assert(pArgumentBuffer);
-	const auto layout = dynamic_cast<const CommandLayout_VK*>(pCommandlayout);
+	if (!m_pDeviceVK) return;
+	const auto layout = static_cast<const CommandLayout_VK*>(pCommandlayout->GetHandle());
 	assert(layout);
-	if (layout->IsDispatch()) endRendering();
-	else beginDraw();
-	beginPredication();
+	if (!layout->IsTraceRaysOnly())
+	{
+		assert(m_pDeviceVK->HasDeviceGeneratedCommands());
+		if (!m_pDeviceVK->HasDeviceGeneratedCommands()) return;
+	}
+	if (!maxCommandCount) return;
+	if (layout->IsDispatch() || layout->IsTraceRays()) recordOutside();
+	else assert(m_type != CommandListType::DIRECT || m_renderingBegun);
 
 	const auto argument = AsResource(pArgumentBuffer);
-	VkGeneratedCommandsMemoryRequirementsInfoEXT requirementsInfo = {};
-	requirementsInfo.sType = VK_STRUCTURE_TYPE_GENERATED_COMMANDS_MEMORY_REQUIREMENTS_INFO_EXT;
-	requirementsInfo.indirectCommandsLayout = layout->GetLayout();
-	requirementsInfo.maxSequenceCount = maxCommandCount;
-	VkMemoryRequirements2 requirements = {};
-	requirements.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2;
-	m_pDeviceVK->GetExtProcs().GetGeneratedCommandsMemoryRequirements(m_device, &requirementsInfo, &requirements);
-	ensurePreprocess(requirements.memoryRequirements.size);
+	if (layout->IsTraceRays())
+	{
+		assert(m_pDeviceVK->HasRayTracingPipelineTraceRaysIndirect2());
+		assert(m_pipeline && m_pipeline->BindPoint == VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR);
+		if (!m_pDeviceVK->HasRayTracingPipelineTraceRaysIndirect2() || !m_pipeline ||
+			m_pipeline->BindPoint != VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR)
+			return;
+
+		// vkd3d-proton emits one vkCmdTraceRaysIndirect2KHR when the signature has no state changes.
+		// Repeat it for MaxCommandCount. A count buffer still needs the DGC sequence count.
+		if (layout->IsTraceRaysOnly() && !pCountBuffer)
+		{
+			const auto trace = m_pDeviceVK->GetExtProcs().TraceRaysIndirect2;
+			assert(trace);
+			if (!trace) return;
+			auto address = argument->GetVirtualAddress(static_cast<int>(argumentBufferOffset));
+			const auto stride = static_cast<VkDeviceAddress>((max)(layout->GetByteStride(), 1u));
+			for (auto i = 0u; i < maxCommandCount; ++i)
+			{
+				trace(m_commandBuffer, address);
+				address += stride;
+			}
+
+			return;
+		}
+
+		if (!layout->GetLayout())
+		{
+			assert(!"Indirect ray dispatch with a count buffer needs device generated command ray stages");
+			return;
+		}
+	}
+	const auto pipeline = m_pipeline ? m_pipeline->Handle : VK_NULL_HANDLE;
+	const auto commandsLayout = layout->GetLayout();
+	auto bytes = m_preprocessRequired;
+	if (m_preprocessLayout != commandsLayout || m_preprocessPipeline != pipeline || m_preprocessSequences != maxCommandCount)
+	{
+		VkGeneratedCommandsPipelineInfoEXT pipelineInfo = {};
+		pipelineInfo.sType = VK_STRUCTURE_TYPE_GENERATED_COMMANDS_PIPELINE_INFO_EXT;
+		pipelineInfo.pipeline = pipeline;
+		VkGeneratedCommandsMemoryRequirementsInfoEXT requirementsInfo = {};
+		requirementsInfo.sType = VK_STRUCTURE_TYPE_GENERATED_COMMANDS_MEMORY_REQUIREMENTS_INFO_EXT;
+		requirementsInfo.pNext = pipeline ? &pipelineInfo : nullptr;
+		requirementsInfo.indirectCommandsLayout = commandsLayout;
+		requirementsInfo.maxSequenceCount = maxCommandCount;
+		VkMemoryRequirements2 requirements = {};
+		requirements.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2;
+		m_pDeviceVK->GetExtProcs().GetGeneratedCommandsMemoryRequirements(m_device, &requirementsInfo, &requirements);
+		m_preprocessLayout = commandsLayout;
+		m_preprocessPipeline = pipeline;
+		m_preprocessSequences = maxCommandCount;
+		m_preprocessRequired = requirements.memoryRequirements.size;
+		bytes = m_preprocessRequired;
+	}
+	if (bytes) ensurePreprocess(bytes);
 
 	VkGeneratedCommandsPipelineInfoEXT pipelineInfo = {};
 	pipelineInfo.sType = VK_STRUCTURE_TYPE_GENERATED_COMMANDS_PIPELINE_INFO_EXT;
@@ -1234,8 +1777,8 @@ void CommandList_VK::ExecuteIndirect(const CommandLayout* pCommandlayout, uint32
 	info.indirectCommandsLayout = layout->GetLayout();
 	info.indirectAddress = argument->GetVirtualAddress(static_cast<int>(argumentBufferOffset));
 	info.indirectAddressSize = static_cast<VkDeviceSize>(maxCommandCount) * (max)(layout->GetByteStride(), 1u);
-	info.preprocessAddress = m_preprocessAddress;
-	info.preprocessSize = m_preprocessSize;
+	info.preprocessAddress = bytes ? m_preprocessAddress : 0;
+	info.preprocessSize = bytes ? m_preprocessSize : 0;
 	info.maxSequenceCount = maxCommandCount;
 	if (pCountBuffer) info.sequenceCountAddress = pCountBuffer->GetVirtualAddress(static_cast<int>(countBufferOffset));
 	info.maxDrawCount = maxCommandCount;
@@ -1256,6 +1799,8 @@ void CommandList_VK::Attach(const CommandList_VK& source)
 	if (m_ownsCommandBuffer && m_commandBuffer) vkFreeCommandBuffers(m_device, m_pool, 1, &m_commandBuffer);
 	if (m_preprocessBuffer) vkDestroyBuffer(m_device, m_preprocessBuffer, nullptr);
 	if (m_preprocessMemory) vkFreeMemory(m_device, m_preprocessMemory, nullptr);
+	if (m_nullXfb) vkDestroyBuffer(m_device, m_nullXfb, nullptr);
+	if (m_nullXfbMemory) vkFreeMemory(m_device, m_nullXfbMemory, nullptr);
 
 	m_device = source.m_device;
 	m_pool = VK_NULL_HANDLE;
@@ -1275,11 +1820,26 @@ void CommandList_VK::Attach(const CommandList_VK& source)
 	m_preprocessMemory = VK_NULL_HANDLE;
 	m_preprocessAddress = 0;
 	m_preprocessSize = 0;
+	m_preprocessLayout = VK_NULL_HANDLE;
+	m_preprocessPipeline = VK_NULL_HANDLE;
+	m_preprocessSequences = 0;
+	m_preprocessRequired = 0;
+	m_xfbActive = 0;
+	m_nullXfb = VK_NULL_HANDLE;
+	m_nullXfbMemory = VK_NULL_HANDLE;
+	for (auto i = 0u; i < MaxStreamOutCount; ++i)
+	{
+		m_soBuffers[i] = VK_NULL_HANDLE;
+		m_soOffsets[i] = 0;
+		m_soSizes[i] = 0;
+		m_soCounters[i] = VK_NULL_HANDLE;
+		m_soCounterOffsets[i] = 0;
+	}
 }
 
-void* CommandList_VK::GetHandle() const
+void* CommandList_VK::GetHandle()
 {
-	return m_commandBuffer;
+	return this;
 }
 
 void* CommandList_VK::GetDeviceHandle() const
@@ -1287,7 +1847,7 @@ void* CommandList_VK::GetDeviceHandle() const
 	return m_device;
 }
 
-const Device* CommandList_VK::GetDevice() const
+Device* CommandList_VK::GetDevice() const
 {
 	return m_pDevice;
 }
@@ -1297,10 +1857,10 @@ VkCommandBuffer CommandList_VK::GetCommandBuffer() const
 	return m_commandBuffer;
 }
 
-void CommandList_VK::CopyBufferToImage(const Resource* pDst, uint32_t dstSubresource, const Resource* pSrc,
+void CommandList_VK::CopyBufferToImage(Resource* pDst, uint32_t dstSubresource, Resource* pSrc,
 	uint64_t srcOffset, uint32_t bufferRowLength, uint32_t bufferImageHeight) const
 {
-	endRendering();
+	recordOutside();
 	const auto pDstResource = AsResource(pDst);
 	const auto pSrcResource = AsResource(pSrc);
 	uint32_t mip = 0, layer = 0, depth = 1;
@@ -1319,10 +1879,10 @@ void CommandList_VK::CopyBufferToImage(const Resource* pDst, uint32_t dstSubreso
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 }
 
-void CommandList_VK::CopyImageToBuffer(const Resource* pSrc, uint32_t mipLevel, uint32_t arrayLayer, const Resource* pDst,
+void CommandList_VK::CopyImageToBuffer(Resource* pSrc, uint32_t mipLevel, uint32_t arrayLayer, Resource* pDst,
 	uint64_t dstOffset, uint32_t bufferRowLength, uint32_t bufferImageHeight, VkImageAspectFlags aspect) const
 {
-	endRendering();
+	recordOutside();
 	const auto pSrcResource = AsResource(pSrc);
 	const auto pDstResource = AsResource(pDst);
 	const auto depth = pSrcResource->Is3D() ? (max)(pSrcResource->GetDepthOrArray() >> mipLevel, 1u) : 1u;
@@ -1382,16 +1942,124 @@ void CommandList_VK::resetState() const
 	m_samplerHeap = nullptr;
 	m_renderWidth = 1;
 	m_renderHeight = 1;
+	m_deferredClears.clear();
+	m_xfbActive = 0;
+	for (auto i = 0u; i < MaxStreamOutCount; ++i)
+	{
+		m_soBuffers[i] = VK_NULL_HANDLE;
+		m_soOffsets[i] = 0;
+		m_soSizes[i] = 0;
+		m_soCounters[i] = VK_NULL_HANDLE;
+		m_soCounterOffsets[i] = 0;
+	}
+	if ((m_type == CommandListType::DIRECT || m_type == CommandListType::BUNDLE) &&
+		m_pDeviceVK && m_pDeviceVK->HasSampleLocations())
+		m_pDeviceVK->GetExtProcs().SetSampleLocationsEnable(m_commandBuffer, VK_FALSE);
 }
 
 void CommandList_VK::endRendering() const
 {
-	endPredication();
 	if (!m_renderingBegun) return;
 
+	// Conditional rendering must sit entirely inside or entirely outside the pass.
+	// Leave it off here. The next draw or copy turns it back on, so a barrier or
+	// render-target rebind does not open an extra predication segment.
+	endPredication();
+	endTransformFeedback();
 	assert(m_endRendering);
 	m_endRendering(m_commandBuffer);
 	m_renderingBegun = false;
+}
+
+void CommandList_VK::recordOutside() const
+{
+	endRendering();
+	flushDeferredClears();
+	beginPredication();
+}
+
+bool CommandList_VK::imageBound(VkImage image) const
+{
+	if (!m_renderingBegun || !image) return false;
+
+	for (auto i = 0u; i < m_colorCount; ++i)
+		if (m_colors[i].Resource && m_colors[i].Resource->GetImage() == image) return true;
+
+	return m_hasDepth && m_depth.Resource && m_depth.Resource->GetImage() == image;
+}
+
+void CommandList_VK::clearOutside(const RenderAttachment& attachment, bool depth, ClearFlag flags, float depthValue,
+	uint8_t stencil, const float color[4], uint32_t numRects, const RectRange* pRects) const
+{
+	assert(!m_renderingBegun);
+	const auto restart = m_predicationActive;
+	endPredication();
+
+	VkRenderingAttachmentInfo renderingAttachment = attachment.Rendering;
+	renderingAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+	renderingAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+
+	VkRenderingInfo info = {};
+	info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+	info.renderArea.extent = { attachment.Width ? attachment.Width : 1u, attachment.Height ? attachment.Height : 1u };
+	info.layerCount = attachment.Layers ? attachment.Layers : 1u;
+	if (!depth)
+	{
+		info.colorAttachmentCount = 1;
+		info.pColorAttachments = &renderingAttachment;
+	}
+	else
+	{
+		info.pDepthAttachment = (flags & ClearFlag::DEPTH) != ClearFlag::NONE ? &renderingAttachment : nullptr;
+		info.pStencilAttachment = attachment.HasStencil && (flags & ClearFlag::STENCIL) != ClearFlag::NONE ? &renderingAttachment : nullptr;
+	}
+
+	assert(m_beginRendering && m_endRendering);
+	m_beginRendering(m_commandBuffer, &info);
+	if (restart) beginPredication();
+	if (depth) clearDepth(attachment, flags, depthValue, stencil, numRects, pRects);
+	else
+	{
+		VkClearAttachment clear = {};
+		clear.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		if (color) memcpy(clear.clearValue.color.float32, color, sizeof(float) * 4);
+		const auto rectCount = numRects ? numRects : 1u;
+		if (m_clearRects.size() < rectCount) m_clearRects.resize(rectCount);
+		if (!numRects)
+		{
+			m_clearRects[0].rect.offset = {};
+			m_clearRects[0].rect.extent = { attachment.Width, attachment.Height };
+			m_clearRects[0].baseArrayLayer = 0;
+			m_clearRects[0].layerCount = attachment.Layers ? attachment.Layers : 1u;
+		}
+		else
+		{
+			for (auto i = 0u; i < numRects; ++i)
+			{
+				m_clearRects[i].rect.offset = { static_cast<int32_t>(pRects[i].Left), static_cast<int32_t>(pRects[i].Top) };
+				m_clearRects[i].rect.extent.width = static_cast<uint32_t>(pRects[i].Right - pRects[i].Left);
+				m_clearRects[i].rect.extent.height = static_cast<uint32_t>(pRects[i].Bottom - pRects[i].Top);
+				m_clearRects[i].baseArrayLayer = 0;
+				m_clearRects[i].layerCount = attachment.Layers ? attachment.Layers : 1u;
+			}
+		}
+		vkCmdClearAttachments(m_commandBuffer, 1, &clear, rectCount, m_clearRects.data());
+	}
+	if (restart) endPredication();
+	m_endRendering(m_commandBuffer);
+	if (restart) beginPredication();
+}
+
+void CommandList_VK::flushDeferredClears() const
+{
+	if (m_deferredClears.empty() || m_renderingBegun) return;
+
+	const auto clears = m_deferredClears;
+	m_deferredClears.clear();
+	beginPredication();
+	for (const auto& clear : clears)
+		clearOutside(clear.Attachment, clear.Depth, clear.Flags, clear.DepthValue, clear.Stencil, clear.Color, 0, nullptr);
+	endPredication();
 }
 
 const void* CommandList_VK::renderingPNext() const
@@ -1399,31 +2067,160 @@ const void* CommandList_VK::renderingPNext() const
 	return nullptr;
 }
 
+void CommandList_VK::beginTransformFeedback() const
+{
+	if (m_xfbActive || !m_renderingBegun || !m_pipeline || !m_pipeline->XfbBuffers) return;
+	assert(m_pDeviceVK && m_pDeviceVK->HasTransformFeedback());
+	if (!m_pDeviceVK || !m_pDeviceVK->HasTransformFeedback()) return;
+
+	const auto count = (min)(m_pipeline->XfbBuffers, MaxStreamOutCount);
+	VkBuffer buffers[MaxStreamOutCount];
+	VkDeviceSize offsets[MaxStreamOutCount];
+	VkDeviceSize sizes[MaxStreamOutCount];
+	for (auto i = 0u; i < count; ++i)
+	{
+		if (m_soBuffers[i])
+		{
+			buffers[i] = m_soBuffers[i];
+			offsets[i] = m_soOffsets[i];
+			sizes[i] = m_soSizes[i];
+		}
+		else
+		{
+			if (!ensureNullTransformFeedback()) return;
+			buffers[i] = m_nullXfb;
+			offsets[i] = 0;
+			sizes[i] = 4;
+		}
+	}
+
+	const auto& ext = m_pDeviceVK->GetExtProcs();
+	ext.BindTransformFeedbackBuffers(m_commandBuffer, 0, count, buffers, offsets, sizes);
+	ext.BeginTransformFeedback(m_commandBuffer, 0, count, m_soCounters, m_soCounterOffsets);
+	m_xfbActive = count;
+}
+
+void CommandList_VK::endTransformFeedback() const
+{
+	if (!m_xfbActive) return;
+
+	const auto count = m_xfbActive;
+	m_xfbActive = 0;
+	const auto& ext = m_pDeviceVK->GetExtProcs();
+	ext.EndTransformFeedback(m_commandBuffer, 0, count, m_soCounters, m_soCounterOffsets);
+
+	VkMemoryBarrier2 barrier = {};
+	barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
+	barrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFORM_FEEDBACK_BIT_EXT;
+	barrier.srcAccessMask = VK_ACCESS_2_TRANSFORM_FEEDBACK_COUNTER_WRITE_BIT_EXT;
+	barrier.dstStageMask = VK_PIPELINE_STAGE_2_TRANSFORM_FEEDBACK_BIT_EXT;
+	barrier.dstAccessMask = VK_ACCESS_2_TRANSFORM_FEEDBACK_COUNTER_READ_BIT_EXT;
+	VkDependencyInfo dependency = {};
+	dependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+	dependency.memoryBarrierCount = 1;
+	dependency.pMemoryBarriers = &barrier;
+	pipelineBarrier(dependency);
+}
+
+bool CommandList_VK::ensureNullTransformFeedback() const
+{
+	if (m_nullXfb) return true;
+
+	VkBufferCreateInfo info = {};
+	info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	info.size = 4;
+	info.usage = VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT;
+	m_nullXfb = VK_NULL_HANDLE;
+	const auto created = vkCreateBuffer(m_device, &info, nullptr, &m_nullXfb);
+	if (created < 0)
+	{
+		cerr << "VkResult " << created << endl;
+		m_nullXfb = VK_NULL_HANDLE;
+		assert(created >= 0);
+
+		return false;
+	}
+
+	VkMemoryRequirements requirements = {};
+	vkGetBufferMemoryRequirements(m_device, m_nullXfb, &requirements);
+	auto memoryType = m_pDeviceVK->FindMemoryType(requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	if (memoryType == UINT32_MAX)
+		memoryType = m_pDeviceVK->FindMemoryType(requirements.memoryTypeBits, 0);
+	if (memoryType == UINT32_MAX)
+	{
+		vkDestroyBuffer(m_device, m_nullXfb, nullptr);
+		m_nullXfb = VK_NULL_HANDLE;
+		assert(!"No memory type for a null transform-feedback buffer");
+
+		return false;
+	}
+
+	VkMemoryAllocateInfo alloc = {};
+	alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	alloc.allocationSize = requirements.size;
+	alloc.memoryTypeIndex = memoryType;
+	const auto allocated = vkAllocateMemory(m_device, &alloc, nullptr, &m_nullXfbMemory);
+	if (allocated < 0)
+	{
+		cerr << "VkResult " << allocated << endl;
+		vkDestroyBuffer(m_device, m_nullXfb, nullptr);
+		m_nullXfb = VK_NULL_HANDLE;
+		assert(allocated >= 0);
+
+		return false;
+	}
+
+	const auto bound = vkBindBufferMemory(m_device, m_nullXfb, m_nullXfbMemory, 0);
+	if (bound < 0)
+	{
+		cerr << "VkResult " << bound << endl;
+		vkDestroyBuffer(m_device, m_nullXfb, nullptr);
+		vkFreeMemory(m_device, m_nullXfbMemory, nullptr);
+		m_nullXfb = VK_NULL_HANDLE;
+		m_nullXfbMemory = VK_NULL_HANDLE;
+		assert(bound >= 0);
+
+		return false;
+	}
+
+	return true;
+}
+
 void CommandList_VK::beginRendering() const
 {
 	if (m_renderingBegun) return;
 
+	DeferredClear matched[MaxRenderTargetCount + 1];
+	auto matchedCount = 0u;
+	auto pending = 0u;
+	for (auto i = 0u; i < m_deferredClears.size(); ++i)
+	{
+		const auto& clear = m_deferredClears[i];
+		auto hit = false;
+		if (!clear.Depth)
+		{
+			for (auto color = 0u; color < m_colorCount; ++color)
+				hit = hit || m_colors[color].Rendering.imageView == clear.Attachment.Rendering.imageView;
+		}
+		else hit = m_hasDepth && m_depth.Rendering.imageView == clear.Attachment.Rendering.imageView;
+
+		if (hit && matchedCount < MaxRenderTargetCount + 1) matched[matchedCount++] = clear;
+		else m_deferredClears[pending++] = clear;
+	}
+	m_deferredClears.resize(pending);
+	flushDeferredClears();
+
 	endPredication();
 
-	VkRenderingAttachmentInfo colors[8];
+	VkRenderingAttachmentInfo colors[MaxRenderTargetCount];
 	for (auto i = 0u; i < m_colorCount; ++i)
 	{
-		colors[i] = {};
-		colors[i].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-		colors[i].imageView = m_colors[i].View;
-		colors[i].imageLayout = m_colors[i].Layout;
-		colors[i].loadOp = m_colors[i].Resource ? m_colors[i].Resource->ConsumeDiscardLoadOp(
-			m_colors[i].BaseMip, m_colors[i].MipCount, m_colors[i].BaseLayer, m_colors[i].Layers) : VK_ATTACHMENT_LOAD_OP_LOAD;
-		colors[i].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		colors[i] = m_colors[i].Rendering;
+		colors[i].loadOp = attachmentLoadOp(m_colors[i]);
 	}
 
-	VkRenderingAttachmentInfo depth = {};
-	depth.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-	depth.imageView = m_depth.View;
-	depth.imageLayout = m_depth.Layout;
-	depth.loadOp = m_hasDepth && m_depth.Resource ? m_depth.Resource->ConsumeDiscardLoadOp(
-		m_depth.BaseMip, m_depth.MipCount, m_depth.BaseLayer, m_depth.Layers) : VK_ATTACHMENT_LOAD_OP_LOAD;
-	depth.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	VkRenderingAttachmentInfo depth = m_depth.Rendering;
+	depth.loadOp = m_hasDepth ? attachmentLoadOp(m_depth) : VK_ATTACHMENT_LOAD_OP_LOAD;
 
 	auto width = m_renderWidth;
 	auto height = m_renderHeight;
@@ -1447,20 +2244,25 @@ void CommandList_VK::beginRendering() const
 	info.layerCount = layers ? layers : 1u;
 	info.colorAttachmentCount = m_colorCount;
 	info.pColorAttachments = m_colorCount ? colors : nullptr;
-	const auto stencil = m_hasDepth && (m_depth.Format == VK_FORMAT_D24_UNORM_S8_UINT ||
-		m_depth.Format == VK_FORMAT_D32_SFLOAT_S8_UINT || m_depth.Format == VK_FORMAT_D16_UNORM_S8_UINT);
 	info.pNext = renderingPNext();
 	info.pDepthAttachment = m_hasDepth ? &depth : nullptr;
-	info.pStencilAttachment = stencil ? &depth : nullptr;
+	info.pStencilAttachment = m_hasDepth && m_depth.HasStencil ? &depth : nullptr;
 	assert(m_beginRendering);
 	m_beginRendering(m_commandBuffer, &info);
 	m_renderingBegun = true;
-}
-
-void CommandList_VK::beginDraw() const
-{
-	if (m_type == CommandListType::DIRECT && !m_renderingBegun) beginRendering();
+	beginTransformFeedback();
 	beginPredication();
+	for (auto i = 0u; i < matchedCount; ++i)
+	{
+		if (matched[i].Depth)
+			clearDepth(m_depth, matched[i].Flags, matched[i].DepthValue, matched[i].Stencil, 0, nullptr);
+		else
+		{
+			for (auto color = 0u; color < m_colorCount; ++color)
+				if (m_colors[color].Rendering.imageView == matched[i].Attachment.Rendering.imageView)
+					clearColor(color, matched[i].Color, 0, nullptr);
+		}
+	}
 }
 
 void CommandList_VK::bindHeap(DescriptorHeap heap) const
@@ -1523,6 +2325,7 @@ bool CommandList_VK::ensurePreprocess(VkDeviceSize size) const
 {
 	if (!size || (m_preprocessBuffer && m_preprocessSize >= size)) return true;
 
+	const auto allocate = m_preprocessSize ? (max)(size, m_preprocessSize * 2) : size;
 	if (m_preprocessBuffer) vkDestroyBuffer(m_device, m_preprocessBuffer, nullptr);
 	if (m_preprocessMemory) vkFreeMemory(m_device, m_preprocessMemory, nullptr);
 	m_preprocessBuffer = VK_NULL_HANDLE;
@@ -1535,7 +2338,7 @@ bool CommandList_VK::ensurePreprocess(VkDeviceSize size) const
 	VkBufferCreateInfo info = {};
 	info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	info.pNext = &usage;
-	info.size = size;
+	info.size = allocate;
 	XUSG_VK_CHECK(vkCreateBuffer(m_device, &info, nullptr, &m_preprocessBuffer), cerr, false);
 
 	VkMemoryRequirements requirements = {};
@@ -1555,7 +2358,7 @@ bool CommandList_VK::ensurePreprocess(VkDeviceSize size) const
 	address.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
 	address.buffer = m_preprocessBuffer;
 	m_preprocessAddress = vkGetBufferDeviceAddress(m_device, &address);
-	m_preprocessSize = size;
+	m_preprocessSize = allocate;
 
 	return true;
 }
@@ -1568,7 +2371,7 @@ void CommandList_VK::clearColor(uint32_t attachment, const float color[4], uint3
 	memcpy(clear.clearValue.color.float32, color, sizeof(float) * 4);
 
 	const auto rectCount = numRects ? numRects : 1u;
-	Grow(m_clearRects, rectCount);
+	if (m_clearRects.size() < rectCount) m_clearRects.resize(rectCount);
 	if (!numRects)
 	{
 		m_clearRects[0].rect.offset = {};
@@ -1602,7 +2405,7 @@ void CommandList_VK::clearDepth(const RenderAttachment& attachment, ClearFlag cl
 	if (!clear.aspectMask) return;
 
 	const auto rectCount = numRects ? numRects : 1u;
-	Grow(m_clearRects, rectCount);
+	if (m_clearRects.size() < rectCount) m_clearRects.resize(rectCount);
 	if (!numRects)
 	{
 		m_clearRects[0].rect.offset = {};
@@ -1634,7 +2437,9 @@ CommandQueue_VK::CommandQueue_VK() :
 	m_family(0),
 	m_queueIndex(0),
 	m_registered(false),
-	m_ownsSlot(false)
+	m_ownsSlot(false),
+	m_sparseQueue(false),
+	m_sparseWaited(0)
 {
 }
 
@@ -1643,23 +2448,23 @@ CommandQueue_VK::~CommandQueue_VK()
 	if (m_registered) UnregisterQueue(m_queue);
 	if (m_ownsSlot)
 	{
-		const auto device = dynamic_cast<const Device_VK*>(m_pDevice);
+		const auto device = m_pDevice ? static_cast<const Device_VK*>(m_pDevice->GetHandle()) : nullptr;
 		if (device) device->ReleaseQueue(m_family, m_queueIndex);
 	}
 }
 
-bool CommandQueue_VK::Create(const Device* pDevice, CommandListType type, CommandQueueFlag flags,
+bool CommandQueue_VK::Create(Device* pDevice, CommandListType type, CommandQueueFlag flags,
 	int32_t priority, uint32_t nodeMask, const wchar_t* name)
 {
 	assert(type != CommandListType::VIDEO_DECODE && type != CommandListType::VIDEO_PROCESS && type != CommandListType::VIDEO_ENCODE);
 	(void)flags;
 	(void)priority;
 	(void)nodeMask;
-	const auto pDeviceVK = dynamic_cast<const Device_VK*>(pDevice);
+	const auto pDeviceVK = pDevice ? static_cast<const Device_VK*>(pDevice->GetHandle()) : nullptr;
 	assert(pDeviceVK);
 	if (m_ownsSlot)
 	{
-		const auto previous = dynamic_cast<const Device_VK*>(m_pDevice);
+		const auto previous = m_pDevice ? static_cast<const Device_VK*>(m_pDevice->GetHandle()) : nullptr;
 		if (previous) previous->ReleaseQueue(m_family, m_queueIndex);
 		m_ownsSlot = false;
 	}
@@ -1670,6 +2475,16 @@ bool CommandQueue_VK::Create(const Device* pDevice, CommandListType type, Comman
 	XUSG_N_RETURN(pDeviceVK->AcquireQueue(type, m_family, m_queueIndex), false);
 	m_ownsSlot = true;
 	vkGetDeviceQueue(m_device, m_family, m_queueIndex, &m_queue);
+	m_sparseQueue = false;
+	m_sparseWaited = 0;
+	uint32_t familyCount = 0;
+	vkGetPhysicalDeviceQueueFamilyProperties(pDeviceVK->GetPhysicalDevice(), &familyCount, nullptr);
+	if (m_family < familyCount)
+	{
+		vector<VkQueueFamilyProperties> families(familyCount);
+		vkGetPhysicalDeviceQueueFamilyProperties(pDeviceVK->GetPhysicalDevice(), &familyCount, families.data());
+		m_sparseQueue = (families[m_family].queueFlags & VK_QUEUE_SPARSE_BINDING_BIT) != 0;
+	}
 
 	QueueNative native = {};
 	native.Queue = m_queue;
@@ -1678,6 +2493,7 @@ bool CommandQueue_VK::Create(const Device* pDevice, CommandListType type, Comman
 	native.Instance = pDeviceVK->GetInstance();
 	native.Family = m_family;
 	native.ApiVersion = pDeviceVK->GetApiVersion();
+	native.Synchronization2 = pDeviceVK->HasSynchronization2();
 	RegisterQueue(native);
 	m_registered = true;
 	pDeviceVK->SetDebugName(VK_OBJECT_TYPE_QUEUE, reinterpret_cast<uint64_t>(m_queue), name);
@@ -1685,37 +2501,44 @@ bool CommandQueue_VK::Create(const Device* pDevice, CommandListType type, Comman
 	return true;
 }
 
-bool CommandQueue_VK::SubmitCommandLists(uint32_t numCommandLists, const CommandList* const* ppCommandLists,
-	const Semaphore* pWaits, uint32_t numWaits, const Semaphore* pSignals, uint32_t numSignals)
+bool CommandQueue_VK::SubmitCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists,
+	const Semaphore* pWaits, uint32_t numWaits, const Semaphore* pSignals, uint32_t numSignals) const
 {
 	return submit(numCommandLists, ppCommandLists, pWaits, numWaits, pSignals, numSignals);
 }
 
-bool CommandQueue_VK::SubmitCommandList(const CommandList* pCommandList,
-	const Semaphore* pWaits, uint32_t numWaits, const Semaphore* pSignals, uint32_t numSignals)
+bool CommandQueue_VK::SubmitCommandList(CommandList* pCommandList,
+	const Semaphore* pWaits, uint32_t numWaits, const Semaphore* pSignals, uint32_t numSignals) const
 {
 	return submit(1, &pCommandList, pWaits, numWaits, pSignals, numSignals);
 }
 
-bool CommandQueue_VK::Wait(const Fence* pFence, uint64_t value)
+bool CommandQueue_VK::Wait(Fence* pFence, uint64_t value) const
 {
 	assert(pFence);
-	VkSemaphoreSubmitInfo wait = {};
-	wait.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
-	wait.semaphore = static_cast<VkSemaphore>(pFence->GetHandle());
-	wait.value = value;
-	wait.stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+	VkSemaphoreSubmitInfo waits[2] = {};
+	waits[0].sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+	waits[0].semaphore = static_cast<VkSemaphore>(pFence->GetHandle());
+	waits[0].value = value;
+	waits[0].stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+	auto waitCount = 1u;
+	if (consumeSparseWait(waits[1])) ++waitCount;
 
 	VkSubmitInfo2 info = {};
 	info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
-	info.waitSemaphoreInfoCount = 1;
-	info.pWaitSemaphoreInfos = &wait;
-	XUSG_VK_CHECK(vkQueueSubmit2(m_queue, 1, &info, VK_NULL_HANDLE), cerr, false);
+	info.waitSemaphoreInfoCount = waitCount;
+	info.pWaitSemaphoreInfos = waits;
+	VkSemaphore waitSemaphores[2];
+	VkPipelineStageFlags waitStages[2];
+	uint64_t waitValues[2];
+	const auto pDeviceVK = static_cast<const Device_VK*>(m_pDevice->GetHandle());
+	XUSG_N_RETURN(pDeviceVK->SubmitQueue(m_queue, info, VK_NULL_HANDLE,
+		waitSemaphores, waitStages, waitValues, nullptr, nullptr, nullptr), false);
 
 	return true;
 }
 
-bool CommandQueue_VK::Signal(const Fence* pFence, uint64_t value)
+bool CommandQueue_VK::Signal(Fence* pFence, uint64_t value) const
 {
 	assert(pFence);
 	VkSemaphoreSubmitInfo signal = {};
@@ -1723,62 +2546,77 @@ bool CommandQueue_VK::Signal(const Fence* pFence, uint64_t value)
 	signal.semaphore = static_cast<VkSemaphore>(pFence->GetHandle());
 	signal.value = value;
 	signal.stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+	VkSemaphoreSubmitInfo sparseWait = {};
+	const auto waited = consumeSparseWait(sparseWait);
 
 	VkSubmitInfo2 info = {};
 	info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
+	info.waitSemaphoreInfoCount = waited ? 1u : 0u;
+	info.pWaitSemaphoreInfos = waited ? &sparseWait : nullptr;
 	info.signalSemaphoreInfoCount = 1;
 	info.pSignalSemaphoreInfos = &signal;
-	XUSG_VK_CHECK(vkQueueSubmit2(m_queue, 1, &info, VK_NULL_HANDLE), cerr, false);
+	VkSemaphore waitSemaphores[1];
+	VkPipelineStageFlags waitStages[1];
+	uint64_t waitValues[1];
+	VkSemaphore signalSemaphores[1];
+	uint64_t signalValues[1];
+	const auto pDeviceVK = static_cast<const Device_VK*>(m_pDevice->GetHandle());
+	XUSG_N_RETURN(pDeviceVK->SubmitQueue(m_queue, info, VK_NULL_HANDLE,
+		waitSemaphores, waitStages, waitValues, nullptr, signalSemaphores, signalValues), false);
 
 	return true;
 }
 
-void CommandQueue_VK::ExecuteCommandLists(uint32_t numCommandLists, const CommandList* const* ppCommandLists)
+void CommandQueue_VK::ExecuteCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists) const
 {
 	submit(numCommandLists, ppCommandLists, nullptr, 0, nullptr, 0);
 }
 
-void CommandQueue_VK::ExecuteCommandList(const CommandList* pCommandList)
+void CommandQueue_VK::ExecuteCommandList(CommandList* pCommandList) const
 {
 	submit(1, &pCommandList, nullptr, 0, nullptr, 0);
 }
 
-void CommandQueue_VK::UpdateTileMappings(const Resource* pResource, uint32_t numResourceRegions,
+void CommandQueue_VK::UpdateTileMappings(Resource* pResource, uint32_t numResourceRegions,
 	const TiledResourceCoord* pResourceRegionStartCoords, const TileRegionSize* pResourceRegionSizes,
-	const Heap* pHeap, uint32_t numHeapRanges, const TileRangeFlag* pHeapRangeFlags,
-	const uint32_t* pHeapRangeStartOffsets, const uint32_t* pHeapRangeTileCounts, TileMappingFlag flags)
+	Heap* pHeap, uint32_t numHeapRanges, const TileRangeFlag* pHeapRangeFlags,
+	const uint32_t* pHeapRangeStartOffsets, const uint32_t* pHeapRangeTileCounts, TileMappingFlag flags) const
 {
-	assert(!"UpdateTileMappings is not implemented on Vulkan");
-	(void)pResource;
-	(void)numResourceRegions;
-	(void)pResourceRegionStartCoords;
-	(void)pResourceRegionSizes;
-	(void)pHeap;
-	(void)numHeapRanges;
-	(void)pHeapRangeFlags;
-	(void)pHeapRangeStartOffsets;
-	(void)pHeapRangeTileCounts;
 	(void)flags;
+	assert(pResource);
+	assert(!numResourceRegions || pResourceRegionStartCoords);
+	assert(!numResourceRegions || pResourceRegionSizes);
+	assert(!numHeapRanges || pHeapRangeFlags);
+	const auto resource = AsResource(pResource);
+	const auto queue = sparseQueue();
+	if (!resource || !queue) return;
+
+	resource->BindTileMappings(queue, numResourceRegions, pResourceRegionStartCoords, pResourceRegionSizes,
+		pHeap, numHeapRanges, pHeapRangeFlags, pHeapRangeStartOffsets, pHeapRangeTileCounts);
 }
 
-void CommandQueue_VK::CopyTileMappings(const Resource* pDstResource, const TiledResourceCoord* pDstRegionStartCoord,
-	const Resource* pSrcResource, const TiledResourceCoord* pSrcRegionStartCoordinate,
+void CommandQueue_VK::CopyTileMappings(Resource* pDstResource, const TiledResourceCoord* pDstRegionStartCoord,
+	Resource* pSrcResource, const TiledResourceCoord* pSrcRegionStartCoordinate,
 	const TileRegionSize& regionSize, TileMappingFlag flags) const
 {
-	assert(!"CopyTileMappings is not implemented on Vulkan");
-	(void)pDstResource;
-	(void)pDstRegionStartCoord;
-	(void)pSrcResource;
-	(void)pSrcRegionStartCoordinate;
-	(void)regionSize;
 	(void)flags;
+	assert(pDstResource);
+	assert(pDstRegionStartCoord);
+	assert(pSrcResource);
+	assert(pSrcRegionStartCoordinate);
+	const auto dst = AsResource(pDstResource);
+	const auto src = AsResource(pSrcResource);
+	const auto queue = sparseQueue();
+	if (!dst || !src || !queue) return;
+
+	dst->CopyBoundTiles(queue, *pDstRegionStartCoord, src, *pSrcRegionStartCoordinate, regionSize);
 }
 
 void CommandQueue_VK::Create(void* pHandle, const wchar_t* name)
 {
 	if (m_ownsSlot)
 	{
-		const auto device = dynamic_cast<const Device_VK*>(m_pDevice);
+		const auto device = m_pDevice ? static_cast<const Device_VK*>(m_pDevice->GetHandle()) : nullptr;
 		if (device) device->ReleaseQueue(m_family, m_queueIndex);
 		m_ownsSlot = false;
 	}
@@ -1788,7 +2626,7 @@ void CommandQueue_VK::Create(void* pHandle, const wchar_t* name)
 	(void)name;
 }
 
-void* CommandQueue_VK::GetHandle() const
+void* CommandQueue_VK::GetHandle()
 {
 	return m_queue;
 }
@@ -1798,51 +2636,105 @@ void* CommandQueue_VK::GetDeviceHandle() const
 	return m_device;
 }
 
-const Device* CommandQueue_VK::GetDevice() const
+Device* CommandQueue_VK::GetDevice() const
 {
 	return m_pDevice;
 }
 
-bool CommandQueue_VK::submit(uint32_t numCommandLists, const CommandList* const* ppCommandLists,
-	const Semaphore* pWaits, uint32_t numWaits, const Semaphore* pSignals, uint32_t numSignals)
+bool CommandQueue_VK::consumeSparseWait(VkSemaphoreSubmitInfo& wait) const
 {
-	Grow(m_commandInfos, numCommandLists);
+	const auto device = m_pDevice ? static_cast<const Device_VK*>(m_pDevice->GetHandle()) : nullptr;
+	if (!device) return false;
+
+	VkSemaphore semaphore = VK_NULL_HANDLE;
+	uint64_t value = 0;
+	device->ReadSparseTimeline(semaphore, value);
+	if (!semaphore || value <= m_sparseWaited) return false;
+
+	wait = {};
+	wait.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+	wait.semaphore = semaphore;
+	wait.value = value;
+	wait.stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+	m_sparseWaited = value;
+
+	return true;
+}
+
+VkQueue CommandQueue_VK::sparseQueue() const
+{
+	if (m_sparseQueue) return m_queue;
+
+	const auto device = m_pDevice ? static_cast<const Device_VK*>(m_pDevice->GetHandle()) : nullptr;
+	VkQueue queue = VK_NULL_HANDLE;
+	if (device && device->GetSparseQueue(queue)) return queue;
+
+	assert(!"No queue supports sparse binding");
+
+	return VK_NULL_HANDLE;
+}
+
+bool CommandQueue_VK::submit(uint32_t numCommandLists, CommandList* const* ppCommandLists,
+	const Semaphore* pWaits, uint32_t numWaits, const Semaphore* pSignals, uint32_t numSignals) const
+{
+	if (m_commandInfos.size() < numCommandLists) m_commandInfos.resize(numCommandLists);
 	for (auto i = 0u; i < numCommandLists; ++i)
 	{
 		m_commandInfos[i] = {};
 		m_commandInfos[i].sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
-		m_commandInfos[i].commandBuffer = static_cast<VkCommandBuffer>(ppCommandLists[i]->GetHandle());
+		m_commandInfos[i].commandBuffer = static_cast<const CommandList_VK*>(ppCommandLists[i]->GetHandle())->GetCommandBuffer();
 	}
 
-	Grow(m_waitInfos, numWaits);
+	if (m_waitInfos.size() < numWaits) m_waitInfos.resize(numWaits);
 	for (auto i = 0u; i < numWaits; ++i)
 	{
 		m_waitInfos[i] = {};
 		m_waitInfos[i].sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+		assert(pWaits[i].Fence);
 		m_waitInfos[i].semaphore = static_cast<VkSemaphore>(pWaits[i].Fence->GetHandle());
 		m_waitInfos[i].value = pWaits[i].Value;
 		m_waitInfos[i].stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
 	}
 	VkSemaphore acquireSemaphore = VK_NULL_HANDLE;
-	if (TakeQueueAcquireWait(m_queue, acquireSemaphore))
+	VkFence acquireFence = VK_NULL_HANDLE;
+	VkSemaphore presentSignal = VK_NULL_HANDLE;
+	if (TakeQueueAcquireWait(m_queue, acquireSemaphore, acquireFence, presentSignal))
 	{
 		VkSemaphoreSubmitInfo wait = {};
 		wait.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
 		wait.semaphore = acquireSemaphore;
-		wait.stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
-		Grow(m_waitInfos, numWaits + 1);
+		wait.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_2_COPY_BIT;
+		if (m_waitInfos.size() < numWaits + 1) m_waitInfos.resize(numWaits + 1);
 		m_waitInfos[numWaits] = wait;
 		++numWaits;
 	}
+	VkSemaphoreSubmitInfo sparseWait = {};
+	if (consumeSparseWait(sparseWait))
+	{
+		if (m_waitInfos.size() < numWaits + 1) m_waitInfos.resize(numWaits + 1);
+		m_waitInfos[numWaits] = sparseWait;
+		++numWaits;
+	}
 
-	Grow(m_signalInfos, numSignals);
+	if (m_signalInfos.size() < numSignals) m_signalInfos.resize(numSignals);
 	for (auto i = 0u; i < numSignals; ++i)
 	{
 		m_signalInfos[i] = {};
 		m_signalInfos[i].sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+		assert(pSignals[i].Fence);
 		m_signalInfos[i].semaphore = static_cast<VkSemaphore>(pSignals[i].Fence->GetHandle());
 		m_signalInfos[i].value = pSignals[i].Value;
 		m_signalInfos[i].stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+	}
+	if (presentSignal)
+	{
+		VkSemaphoreSubmitInfo signal = {};
+		signal.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+		signal.semaphore = presentSignal;
+		signal.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_2_COPY_BIT;
+		if (m_signalInfos.size() < numSignals + 1) m_signalInfos.resize(numSignals + 1);
+		m_signalInfos[numSignals] = signal;
+		++numSignals;
 	}
 
 	VkSubmitInfo2 info = {};
@@ -1853,7 +2745,17 @@ bool CommandQueue_VK::submit(uint32_t numCommandLists, const CommandList* const*
 	info.pCommandBufferInfos = numCommandLists ? m_commandInfos.data() : nullptr;
 	info.signalSemaphoreInfoCount = numSignals;
 	info.pSignalSemaphoreInfos = numSignals ? m_signalInfos.data() : nullptr;
-	XUSG_VK_CHECK(vkQueueSubmit2(m_queue, 1, &info, VK_NULL_HANDLE), cerr, false);
+	if (m_waitSemaphores.size() < numWaits) m_waitSemaphores.resize(numWaits);
+	if (m_waitStages.size() < numWaits) m_waitStages.resize(numWaits);
+	if (m_waitValues.size() < numWaits) m_waitValues.resize(numWaits);
+	if (m_submitBuffers.size() < numCommandLists) m_submitBuffers.resize(numCommandLists);
+	if (m_signalSemaphores.size() < numSignals) m_signalSemaphores.resize(numSignals);
+	if (m_signalValues.size() < numSignals) m_signalValues.resize(numSignals);
+	const auto pDeviceVK = static_cast<const Device_VK*>(m_pDevice->GetHandle());
+	XUSG_N_RETURN(pDeviceVK->SubmitQueue(m_queue, info, acquireFence,
+		numWaits ? m_waitSemaphores.data() : nullptr, numWaits ? m_waitStages.data() : nullptr,
+		numWaits ? m_waitValues.data() : nullptr, numCommandLists ? m_submitBuffers.data() : nullptr,
+		numSignals ? m_signalSemaphores.data() : nullptr, numSignals ? m_signalValues.data() : nullptr), false);
 
 	return true;
 }

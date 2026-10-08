@@ -144,8 +144,8 @@ namespace XUSG
 			using uptr = std::unique_ptr<Device>;
 			using sptr = std::shared_ptr<Device>;
 
-			static uptr MakeUnique(API api = API::DIRECTX_12);
-			static sptr MakeShared(API api = API::DIRECTX_12);
+			static uptr MakeUnique();
+			static sptr MakeShared();
 		};
 
 		//--------------------------------------------------------------------------------------
@@ -160,10 +160,10 @@ namespace XUSG
 			virtual ~AccelerationStructure() {}
 
 			// Auto allocate a buffer with byteWidth = GetResultDataMaxByteSize() when setting byteWidth = 0
-			virtual bool Allocate(const Device* pDevice, DescriptorTableLib* pDescriptorTableLib, size_t byteWidth = 0,
+			virtual bool Allocate(Device* pDevice, DescriptorTableLib* pDescriptorTableLib, size_t byteWidth = 0,
 				MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr, uint32_t maxThreads = 1) = 0;
 
-			virtual void SetDestination(const Device* pDevice, const Buffer::sptr destBuffer,
+			virtual void SetDestination(Device* pDevice, const Buffer::sptr destBuffer,
 				uintptr_t byteOffset, uint32_t uavIndex, DescriptorTableLib* pDescriptorTableLib) = 0;
 
 			virtual uint32_t SetBarrier(ResourceBarrier* pBarriers, uint32_t numBarriers = 0) = 0;
@@ -180,21 +180,21 @@ namespace XUSG
 			virtual uint64_t GetVirtualAddress() const = 0;
 			virtual uint64_t GetResourcePointer() const = 0;
 
-			static bool AllocateDestBuffer(const Device* pDevice, Buffer* pDestBuffer, size_t byteWidth,
+			static bool AllocateDestBuffer(Device* pDevice, Buffer* pDestBuffer, size_t byteWidth,
 				uint32_t numSRVs = 1, const uintptr_t* firstSrvElements = nullptr,
 				uint32_t numUAVs = 1, const uintptr_t* firstUavElements = nullptr,
 				MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
-				uint32_t maxThreads = 1, API api = API::DIRECTX_12);
-			static bool AllocateUAVBuffer(const Device* pDevice, Buffer* pBuffer, size_t byteWidth,
+				uint32_t maxThreads = 1);
+			static bool AllocateUAVBuffer(Device* pDevice, Buffer* pBuffer, size_t byteWidth,
 				ResourceState dstState = ResourceState::COMMON, MemoryFlag memoryFlags = MemoryFlag::NONE,
 				const wchar_t* name = nullptr,
 				uint32_t maxThreads = 1);
-			static bool AllocateUploadBuffer(const Device* pDevice, Buffer* pBuffer, size_t byteWidth,
+			static bool AllocateUploadBuffer(Device* pDevice, Buffer* pBuffer, size_t byteWidth,
 				void* pData, MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr);
 
 			static uint32_t SetBarrier(ResourceBarrier* pBarriers, Resource* pResource, uint32_t numBarriers = 0);
 
-			static size_t Align(size_t byteSize, API api = API::DIRECTX_12);
+			static size_t Align(size_t byteSize);
 		};
 
 		//--------------------------------------------------------------------------------------
@@ -256,7 +256,7 @@ namespace XUSG
 			//BottomLevelAS();
 			virtual ~BottomLevelAS() {}
 
-			virtual bool Prebuild(const Device* pDevice, uint32_t numGeometries, const GeometryBuffer& geometries,
+			virtual bool Prebuild(Device* pDevice, uint32_t numGeometries, const GeometryBuffer& geometries,
 				BuildFlag flags = BuildFlag::PREFER_FAST_TRACE) = 0;
 
 			virtual void Build(CommandList* pCommandList, const Resource* pScratch,
@@ -274,16 +274,16 @@ namespace XUSG
 			static void SetOMMGeometry(GeometryDesc& geometry, const TriangleGeometry* pTriangles,
 				const OMMLinkage* pOmmLinkage, GeometryFlag flags = GeometryFlag::NONE);
 			static void SetGeometries(GeometryBuffer& geometries, uint32_t numGeometries,
-				GeometryDesc* pGeometries, API api = API::DIRECTX_12);
+				GeometryDesc* pGeometries);
 
-			static size_t AlignTransform(size_t byteSize, API api = API::DIRECTX_12);
-			static size_t AlignAABB(size_t byteSize, API api = API::DIRECTX_12);
+			static size_t AlignTransform(size_t byteSize);
+			static size_t AlignAABB(size_t byteSize);
 
 			using uptr = std::unique_ptr<BottomLevelAS>;
 			using sptr = std::shared_ptr<BottomLevelAS>;
 
-			static uptr MakeUnique(API api = API::DIRECTX_12);
-			static sptr MakeShared(API api = API::DIRECTX_12);
+			static uptr MakeUnique();
+			static sptr MakeShared();
 		};
 
 		//--------------------------------------------------------------------------------------
@@ -306,10 +306,10 @@ namespace XUSG
 			//TopLevelAS();
 			virtual ~TopLevelAS() {}
 
-			virtual bool Prebuild(const Device* pDevice, uint32_t numInstances,
+			virtual bool Prebuild(Device* pDevice, uint32_t numInstances,
 				BuildFlag flags = BuildFlag::PREFER_FAST_TRACE) = 0;
 
-			virtual void SetDestination(const Device* pDevice, const Buffer::sptr destBuffer, uintptr_t byteOffset,
+			virtual void SetDestination(Device* pDevice, const Buffer::sptr destBuffer, uintptr_t byteOffset,
 				uint32_t uavIndex, uint32_t srvIndex, DescriptorTableLib* pDescriptorTableLib) = 0;
 			virtual void Build(CommandList* pCommandList, const Resource* pScratch,
 				const Resource* pInstanceDescs, const DescriptorHeap& descriptorHeap,
@@ -321,17 +321,17 @@ namespace XUSG
 			static void SetInstance(InstanceDesc& instanceDesc, const BottomLevelAS* pBottomLevelAS,
 				const float* transform, InstanceFlag flags = InstanceFlag::NONE, uint32_t instanceID = 0,
 				uint8_t instanceMask = 1, uint32_t instanceContributionToHitGroupIndex = 0);
-			static void SetInstances(const Device* pDevice, Buffer* pInstances, uint32_t numInstances,
+			static void SetInstances(Device* pDevice, Buffer* pInstances, uint32_t numInstances,
 				const InstanceDesc* pInstanceDescs, MemoryFlag memoryFlags = MemoryFlag::NONE,
-				const wchar_t* instanceName = nullptr, API api = API::DIRECTX_12);
+				const wchar_t* instanceName = nullptr);
 
-			static size_t AlignInstanceDesc(size_t byteSize, API api = API::DIRECTX_12);
+			static size_t AlignInstanceDesc(size_t byteSize);
 
 			using uptr = std::unique_ptr<TopLevelAS>;
 			using sptr = std::shared_ptr<TopLevelAS>;
 
-			static uptr MakeUnique(API api = API::DIRECTX_12);
-			static sptr MakeShared(API api = API::DIRECTX_12);
+			static uptr MakeUnique();
+			static sptr MakeShared();
 		};
 
 		//--------------------------------------------------------------------------------------
@@ -355,28 +355,28 @@ namespace XUSG
 			//OpacityMicromapArray();
 			virtual ~OpacityMicromapArray() {}
 
-			virtual bool Prebuild(const Device* pDevice, uint32_t numOpacityMicromaps, const GeometryBuffer& ommArrayDescs,
+			virtual bool Prebuild(Device* pDevice, uint32_t numOpacityMicromaps, const GeometryBuffer& ommArrayDescs,
 				BuildFlag flags = BuildFlag::PREFER_FAST_TRACE) = 0;
 
-			virtual void SetDestination(const Device* pDevice, const Buffer::sptr destBuffer, uintptr_t byteOffset) = 0;
+			virtual void SetDestination(Device* pDevice, const Buffer::sptr destBuffer, uintptr_t byteOffset) = 0;
 			virtual void Build(CommandList* pCommandList, const Resource* pScratch,
 				const OpacityMicromapArray* pSource = nullptr, uint8_t numPostbuildInfoDescs = 0,
 				const PostbuildInfoType* pPostbuildInfoTypes = nullptr) = 0;
 
 			static void SetOmmArray(GeometryBuffer& ommArrayDescs, uint32_t numOpacityMicromaps,
-				const Desc* pOmmArrayDescs, API api = API::DIRECTX_12);
-			static void SetOmmDescs(const Device* pDevice, Buffer* pOmmDescsBuffer, uint32_t numOmmDescs,
+				const Desc* pOmmArrayDescs);
+			static void SetOmmDescs(Device* pDevice, Buffer* pOmmDescsBuffer, uint32_t numOmmDescs,
 				const OpacityMicromapDesc* pOmmDescs, MemoryFlag memoryFlags = MemoryFlag::NONE,
-				const wchar_t* ommName = nullptr, API api = API::DIRECTX_12);
+				const wchar_t* ommName = nullptr);
 
-			static size_t AlignOmmInput(size_t byteSize, API api = API::DIRECTX_12);
-			static size_t AlignOmmDesc(size_t byteSize, API api = API::DIRECTX_12);
+			static size_t AlignOmmInput(size_t byteSize);
+			static size_t AlignOmmDesc(size_t byteSize);
 
 			using uptr = std::unique_ptr<OpacityMicromapArray>;
 			using sptr = std::shared_ptr<OpacityMicromapArray>;
 
-			static uptr MakeUnique(API api = API::DIRECTX_12);
-			static sptr MakeShared(API api = API::DIRECTX_12);
+			static uptr MakeUnique();
+			static sptr MakeShared();
 		};
 
 		//--------------------------------------------------------------------------------------
@@ -387,31 +387,29 @@ namespace XUSG
 		public:
 			//ShaderRecord(const void* pShaderIdentifier, uint32_t shaderIdentifierSize,
 				//const void* pLocalDescriptorArgs = nullptr, uint32_t localDescriptorArgSize = 0);
-			//ShaderRecord(const Device* pDevice, const Pipeline& pipeline, const wchar_t* shaderName,
+			//ShaderRecord(Device* pDevice, const Pipeline& pipeline, const wchar_t* shaderName,
 				//const void* pLocalDescriptorArgs = nullptr, uint32_t localDescriptorArgSize = 0);
 			virtual ~ShaderRecord() {}
 
 			virtual void CopyTo(void* dest) const = 0;
 
-			static const void* GetShaderIdentifier(const Pipeline& pipeline, const wchar_t* shaderName, API api = API::DIRECTX_12);
+			static const void* GetShaderIdentifier(const Pipeline& pipeline, const wchar_t* shaderName);
 
-			static uint32_t GetShaderIdentifierSize(const Device* pDevice, API api = API::DIRECTX_12);
+			static uint32_t GetShaderIdentifierSize(Device* pDevice);
 
 			using uptr = std::unique_ptr<ShaderRecord>;
 			using sptr = std::shared_ptr<ShaderRecord>;
 
 			static uptr MakeUnique(void* pShaderIdentifier, uint32_t shaderIdentifierSize, const void* pLocalDescriptorArgs = nullptr,
-				uint32_t localDescriptorArgSize = 0, API api = API::DIRECTX_12);
+				uint32_t localDescriptorArgSize = 0);
 			static sptr MakeShared(void* pShaderIdentifier, uint32_t shaderIdentifierSize, const void* pLocalDescriptorArgs = nullptr,
-				uint32_t localDescriptorArgSize = 0, API api = API::DIRECTX_12);
-			static uptr MakeUnique(const Device* pDevice, const Pipeline& pipeline, const wchar_t* shaderName,
-				const void* pLocalDescriptorArgs = nullptr, uint32_t localDescriptorArgSize = 0,
-				API api = API::DIRECTX_12); // shader - shader name for DX12
-			static sptr MakeShared(const Device* pDevice, const Pipeline& pipeline, const wchar_t* shaderName,
-				const void* pLocalDescriptorArgs = nullptr, uint32_t localDescriptorArgSize = 0,
-				API api = API::DIRECTX_12); // shader - shader name for DX12
+				uint32_t localDescriptorArgSize = 0);
+			static uptr MakeUnique(Device* pDevice, const Pipeline& pipeline, const wchar_t* shaderName,
+				const void* pLocalDescriptorArgs = nullptr, uint32_t localDescriptorArgSize = 0); // shader - shader name for DX12
+			static sptr MakeShared(Device* pDevice, const Pipeline& pipeline, const wchar_t* shaderName,
+				const void* pLocalDescriptorArgs = nullptr, uint32_t localDescriptorArgSize = 0); // shader - shader name for DX12
 
-			static size_t Align(uint32_t byteSize, API api = API::DIRECTX_12);
+			static size_t Align(uint32_t byteSize);
 		};
 
 		//--------------------------------------------------------------------------------------
@@ -423,7 +421,7 @@ namespace XUSG
 			//ShaderTable();
 			virtual ~ShaderTable() {}
 
-			virtual bool Create(const XUSG::Device* pDevice, uint32_t numShaderRecords, uint32_t shaderRecordSize,
+			virtual bool Create(XUSG::Device* pDevice, uint32_t numShaderRecords, uint32_t shaderRecordSize,
 				MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr) = 0;
 
 			virtual void Create(Buffer::sptr resource, uint32_t shaderRecordSize, uintptr_t byteOffset) = 0;
@@ -437,10 +435,10 @@ namespace XUSG
 			using uptr = std::unique_ptr<ShaderTable>;
 			using sptr = std::shared_ptr<ShaderTable>;
 
-			static uptr MakeUnique(API api = API::DIRECTX_12);
-			static sptr MakeShared(API api = API::DIRECTX_12);
+			static uptr MakeUnique();
+			static sptr MakeShared();
 
-			static size_t Align(size_t byteSize, API api = API::DIRECTX_12);
+			static size_t Align(size_t byteSize);
 		};
 
 		//--------------------------------------------------------------------------------------
@@ -472,15 +470,15 @@ namespace XUSG
 				const ShaderTable* pRayGen, const ShaderTable* pHitGroup, const ShaderTable* pMiss,
 				const ShaderTable* pCallable = nullptr) const = 0;
 
-			virtual const Device* GetRTDevice() const = 0;
+			virtual Device* GetRTDevice() const = 0;
 
 			using uptr = std::unique_ptr<CommandList>;
 			using sptr = std::shared_ptr<CommandList>;
 
-			static uptr MakeUnique(API api = API::DIRECTX_12);
-			static sptr MakeShared(API api = API::DIRECTX_12);
-			static uptr MakeUnique(XUSG::CommandList* pCommandList, const RayTracing::Device* pDevice, API api = API::DIRECTX_12);
-			static sptr MakeShared(XUSG::CommandList* pCommandList, const RayTracing::Device* pDevice, API api = API::DIRECTX_12);
+			static uptr MakeUnique();
+			static sptr MakeShared();
+			static uptr MakeUnique(XUSG::CommandList* pCommandList, RayTracing::Device* pDevice);
+			static sptr MakeShared(XUSG::CommandList* pCommandList, RayTracing::Device* pDevice);
 		};
 
 		//--------------------------------------------------------------------------------------
@@ -493,16 +491,16 @@ namespace XUSG
 			//PipelineLayout();
 			virtual ~PipelineLayout() {}
 
-			virtual XUSG::PipelineLayout CreatePipelineLayout(const Device* pDevice, PipelineLayoutLib* pPipelineLayoutLib,
+			virtual XUSG::PipelineLayout CreatePipelineLayout(Device* pDevice, PipelineLayoutLib* pPipelineLayoutLib,
 				PipelineLayoutFlag flags, const wchar_t* name = nullptr) = 0;
-			virtual XUSG::PipelineLayout GetPipelineLayout(const Device* pDevice, PipelineLayoutLib* pPipelineLayoutLib,
+			virtual XUSG::PipelineLayout GetPipelineLayout(Device* pDevice, PipelineLayoutLib* pPipelineLayoutLib,
 				PipelineLayoutFlag flags, const wchar_t* name = nullptr) = 0;
 
 			using uptr = std::unique_ptr<PipelineLayout>;
 			using sptr = std::shared_ptr<PipelineLayout>;
 
-			static uptr MakeUnique(API api = API::DIRECTX_12);
-			static sptr MakeShared(API api = API::DIRECTX_12);
+			static uptr MakeUnique();
+			static sptr MakeShared();
 		};
 
 		//--------------------------------------------------------------------------------------
@@ -537,18 +535,18 @@ namespace XUSG
 			using uptr = std::unique_ptr<State>;
 			using sptr = std::shared_ptr<State>;
 
-			static uptr MakeUnique(API api = API::DIRECTX_12);
-			static sptr MakeShared(API api = API::DIRECTX_12);
+			static uptr MakeUnique();
+			static sptr MakeShared();
 		};
 
 		class XUSG_INTERFACE PipelineLib
 		{
 		public:
 			//PipelineLib();
-			//PipelineLib(const Device* pDevice);
+			//PipelineLib(Device* pDevice);
 			virtual ~PipelineLib() {}
 
-			virtual void SetDevice(const Device* pDevice) = 0;
+			virtual void SetDevice(Device* pDevice) = 0;
 			virtual void SetPipeline(State* pState, const Pipeline& pipeline) = 0;
 
 			virtual Pipeline CreatePipeline(State* pState, const wchar_t* name = nullptr) = 0;
@@ -557,10 +555,10 @@ namespace XUSG
 			using uptr = std::unique_ptr<PipelineLib>;
 			using sptr = std::shared_ptr<PipelineLib>;
 
-			static uptr MakeUnique(API api = API::DIRECTX_12);
-			static sptr MakeShared(API api = API::DIRECTX_12);
-			static uptr MakeUnique(const Device* pDevice, API api = API::DIRECTX_12);
-			static sptr MakeShared(const Device* pDevice, API api = API::DIRECTX_12);
+			static uptr MakeUnique();
+			static sptr MakeShared();
+			static uptr MakeUnique(Device* pDevice);
+			static sptr MakeShared(Device* pDevice);
 		};
 	}
 }

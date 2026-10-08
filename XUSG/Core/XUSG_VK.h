@@ -65,6 +65,7 @@ namespace XUSG
 		VkPipelineBindPoint BindPoint;
 		Blob_VK Cache;
 		uint32_t Refs;
+		uint32_t XfbBuffers;
 	};
 
 	void RetainVKPipeline(Pipeline_VK* pPipeline);
@@ -78,25 +79,15 @@ namespace XUSG
 		VkInstance Instance;
 		uint32_t Family;
 		uint32_t ApiVersion;
+		bool Synchronization2;
 	};
 
 	void RegisterQueue(const QueueNative& queue);
 	void UnregisterQueue(VkQueue queue);
 	bool FindQueue(VkQueue queue, QueueNative& native);
-	void SetQueueAcquireWait(VkQueue queue, VkSemaphore semaphore);
-	bool TakeQueueAcquireWait(VkQueue queue, VkSemaphore& semaphore);
+	void SetQueueAcquireWait(VkQueue queue, VkSemaphore wait, VkFence fence, VkSemaphore presentSignal);
+	bool TakeQueueAcquireWait(VkQueue queue, VkSemaphore& wait, VkFence& fence, VkSemaphore& presentSignal);
 	void ClearQueueAcquireWait(VkQueue queue);
-
-	struct BufferNative
-	{
-		VkBuffer Buffer;
-		VkDeviceAddress Address;
-		VkDeviceSize Size;
-	};
-
-	void RegisterBuffer(const BufferNative& buffer);
-	void UnregisterBuffer(VkBuffer buffer);
-	bool FindBuffer(VkDeviceAddress address, BufferNative& native);
 
 	class Device_VK :
 		public virtual Device
@@ -111,7 +102,7 @@ namespace XUSG
 		bool GetCommandAllocator(CommandAllocator* pCommandAllocator,
 			CommandListType type, const wchar_t* name = nullptr);
 		bool GetCommandList(CommandList* pCommandList, uint32_t nodeMask, CommandListType type,
-			const CommandAllocator* pCommandAllocator, const Pipeline& pipeline,
+			CommandAllocator* pCommandAllocator, const Pipeline& pipeline,
 			const wchar_t* name = nullptr);
 		bool GetFence(Fence* pFence, uint64_t initialValue, FenceFlag flags,
 			const wchar_t* name = nullptr);
@@ -121,7 +112,7 @@ namespace XUSG
 
 		void Create(void* pHandle, const wchar_t* name = nullptr);
 
-		void* GetHandle() const;
+		void* GetHandle();
 
 		VkInstance GetInstance() const;
 		VkPhysicalDevice GetPhysicalDevice() const;
@@ -154,20 +145,192 @@ namespace XUSG
 			PFN_vkGetGeneratedCommandsMemoryRequirementsEXT GetGeneratedCommandsMemoryRequirements;
 			PFN_vkCmdPreprocessGeneratedCommandsEXT PreprocessGeneratedCommands;
 			PFN_vkCmdExecuteGeneratedCommandsEXT ExecuteGeneratedCommands;
+			PFN_vkCmdTraceRaysIndirect2KHR TraceRaysIndirect2;
 			PFN_vkWriteSamplerDescriptorsEXT WriteSamplerDescriptors;
 			PFN_vkWriteResourceDescriptorsEXT WriteResourceDescriptors;
 			PFN_vkCmdBeginConditionalRenderingEXT BeginConditionalRendering;
 			PFN_vkCmdEndConditionalRenderingEXT EndConditionalRendering;
+			PFN_vkCmdBindTransformFeedbackBuffersEXT BindTransformFeedbackBuffers;
+			PFN_vkCmdBeginTransformFeedbackEXT BeginTransformFeedback;
+			PFN_vkCmdEndTransformFeedbackEXT EndTransformFeedback;
+			PFN_vkCmdBeginQueryIndexedEXT BeginQueryIndexed;
+			PFN_vkCmdEndQueryIndexedEXT EndQueryIndexed;
+			PFN_vkCmdSetSampleLocationsEXT SetSampleLocations;
+			PFN_vkCmdSetSampleLocationsEnableEXT SetSampleLocationsEnable;
+			PFN_vkGetPhysicalDeviceMultisamplePropertiesEXT GetMultisampleProperties;
 		};
 
 		const ExtProcs& GetExtProcs() const;
 
 		bool HasDebugUtils() const;
 		bool HasCustomBorderColor() const;
+		bool HasVertexAttributeDivisor() const;
+		bool HasShaderUntypedPointers() const;
+		bool HasNullDescriptor() const;
+		bool HasDeviceGeneratedCommands() const;
+		bool HasMaintenance5() const;
+		bool HasSynchronization2() const;
+		bool HasDepthStencilResolve() const;
+		VkResolveModeFlags SupportedDepthResolveModes() const;
+		VkResolveModeFlags SupportedStencilResolveModes() const;
+		bool IndependentDepthStencilResolveNone() const;
+		bool IndependentDepthStencilResolve() const;
+		bool HasShaderInt64() const;
+		bool HasShaderInt8() const;
+		bool HasStorageBuffer8BitAccess() const;
+		bool HasUniformAndStorageBuffer8BitAccess() const;
+		bool HasStoragePushConstant8() const;
+		bool HasStorageBuffer16BitAccess() const;
+		bool HasUniformAndStorageBuffer16BitAccess() const;
+		bool HasStoragePushConstant16() const;
+		bool HasStorageInputOutput16() const;
+		bool HasShaderDrawParameters() const;
+		bool HasShaderSubgroupExtendedTypes() const;
+		bool HasShaderBufferInt64Atomics() const;
+		bool HasShaderSharedInt64Atomics() const;
+		bool HasShaderImageInt64Atomics() const;
+		bool HasSparseImageInt64Atomics() const;
+		bool HasSubgroupSizeControl() const;
+		bool HasComputeFullSubgroups() const;
+		bool HasShaderIntegerDotProduct() const;
+		bool HasShaderDemoteToHelperInvocation() const;
+		bool HasShaderSubgroupRotate() const;
+		bool HasShaderSubgroupRotateClustered() const;
+		bool HasShaderFloatControls2() const;
+		bool HasShaderSubgroupPartitioned() const;
+		bool HasShaderQuadControl() const;
+		bool HasShaderSubgroupUniformControlFlow() const;
+		bool HasShaderMaximalReconvergence() const;
+		bool HasComputeDerivativeGroupQuads() const;
+		bool HasComputeDerivativeGroupLinear() const;
+		bool HasFragmentShaderBarycentric() const;
+		bool HasShaderSubgroupBallot() const;
+		bool HasShaderSubgroupVote() const;
+		bool HasShaderUniformBufferArrayDynamicIndexing() const;
+		bool HasShaderSampledImageArrayDynamicIndexing() const;
+		bool HasShaderStorageBufferArrayDynamicIndexing() const;
+		bool HasShaderStorageImageArrayDynamicIndexing() const;
+		bool HasShaderInputAttachmentArrayDynamicIndexing() const;
+		bool HasShaderUniformTexelBufferArrayDynamicIndexing() const;
+		bool HasShaderStorageTexelBufferArrayDynamicIndexing() const;
+		bool HasShaderUniformBufferArrayNonUniformIndexing() const;
+		bool HasShaderSampledImageArrayNonUniformIndexing() const;
+		bool HasShaderStorageBufferArrayNonUniformIndexing() const;
+		bool HasShaderStorageImageArrayNonUniformIndexing() const;
+		bool HasShaderInputAttachmentArrayNonUniformIndexing() const;
+		bool HasShaderUniformTexelBufferArrayNonUniformIndexing() const;
+		bool HasShaderStorageTexelBufferArrayNonUniformIndexing() const;
+		bool HasShaderInt16() const;
+		bool HasShaderFloat64() const;
+		bool HasShaderStorageImageReadWithoutFormat() const;
+		bool HasShaderStorageImageExtendedFormats() const;
+		bool HasShaderStorageImageMultisample() const;
+		bool HasImageFormatList() const;
+		bool HasShaderClipDistance() const;
+		bool HasShaderCullDistance() const;
+		bool HasVertexPipelineStoresAndAtomics() const;
+		bool HasSampleRateShading() const;
+		bool HasImageCubeArray() const;
+		bool HasTextureCompressionBC() const;
+		bool HasDrawIndirectFirstInstance() const;
+		bool HasScalarBlockLayout() const;
+		bool HasRuntimeDescriptorArray() const;
+		bool HasDescriptorBindingPartiallyBound() const;
+		bool HasShaderOutputViewportIndex() const;
+		bool HasShaderOutputLayer() const;
+		bool HasSubgroupBroadcastDynamicId() const;
+		bool HasShaderBufferFloat32Atomics() const;
+		bool HasShaderBufferFloat32AtomicAdd() const;
+		bool HasShaderBufferFloat64Atomics() const;
+		bool HasShaderBufferFloat64AtomicAdd() const;
+		bool HasShaderSharedFloat32Atomics() const;
+		bool HasShaderSharedFloat32AtomicAdd() const;
+		bool HasShaderSharedFloat64Atomics() const;
+		bool HasShaderSharedFloat64AtomicAdd() const;
+		bool HasShaderImageFloat32Atomics() const;
+		bool HasShaderImageFloat32AtomicAdd() const;
+		bool HasSparseImageFloat32Atomics() const;
+		bool HasSparseImageFloat32AtomicAdd() const;
+		bool HasShaderBufferFloat16Atomics() const;
+		bool HasShaderBufferFloat16AtomicAdd() const;
+		bool HasShaderBufferFloat16AtomicMinMax() const;
+		bool HasShaderBufferFloat32AtomicMinMax() const;
+		bool HasShaderBufferFloat64AtomicMinMax() const;
+		bool HasShaderSharedFloat16Atomics() const;
+		bool HasShaderSharedFloat16AtomicAdd() const;
+		bool HasShaderSharedFloat16AtomicMinMax() const;
+		bool HasShaderSharedFloat32AtomicMinMax() const;
+		bool HasShaderSharedFloat64AtomicMinMax() const;
+		bool HasShaderImageFloat32AtomicMinMax() const;
+		bool HasSparseImageFloat32AtomicMinMax() const;
+		bool HasShaderSubgroupClock() const;
+		bool HasShaderDeviceClock() const;
+		bool HasHlslFunctionality1() const;
+		bool HasDeferredHostOperations() const;
+		bool HasPipelineLibrary() const;
+		bool HasSpirv14() const;
+		bool HasShaderFloatControls() const;
+		bool HasAccelerationStructure() const;
+		bool HasAccelerationStructureCaptureReplay() const;
+		bool HasAccelerationStructureIndirectBuild() const;
+		bool HasAccelerationStructureHostCommands() const;
+		bool HasRayTracingPipeline() const;
+		bool HasRayTracingPipelineShaderGroupHandleCaptureReplay() const;
+		bool HasRayTracingPipelineShaderGroupHandleCaptureReplayMixed() const;
+		bool HasRayTracingPipelineTraceRaysIndirect() const;
+		bool HasRayTraversalPrimitiveCulling() const;
+		bool HasRayQuery() const;
+		bool HasRayTracingMaintenance1() const;
+		bool HasRayTracingPipelineTraceRaysIndirect2() const;
+		bool HasRayTracingPositionFetch() const;
+		bool HasMicromap() const;
+		bool HasMicromapCaptureReplay() const;
+		bool HasMicromapHostCommands() const;
+		bool HasRayTracingInvocationReorder() const;
+		bool HasPipelineLibraryGroupHandles() const;
+		bool HasCooperativeMatrix() const;
+		bool HasCooperativeMatrixRobustBufferAccess() const;
+		bool HasShaderBFloat16Type() const;
+		bool HasShaderBFloat16DotProduct() const;
+		bool HasShaderBFloat16CooperativeMatrix() const;
+		bool HasShaderFloat8() const;
+		bool HasShaderFloat8CooperativeMatrix() const;
+		bool HasWorkgroupMemoryExplicitLayout() const;
+		bool HasWorkgroupMemoryExplicitLayoutScalarBlockLayout() const;
+		bool HasWorkgroupMemoryExplicitLayout8BitAccess() const;
+		bool HasWorkgroupMemoryExplicitLayout16BitAccess() const;
+		bool HasLongVector() const;
+		uint32_t MaxLongVectorComponents() const;
+		bool HasCooperativeMatrixProperties2() const;
+		bool HasCooperativeMatrixReductions() const;
+		bool HasCooperativeMatrixConversions() const;
+		bool HasCooperativeMatrixPerElementOperations() const;
+		bool HasCooperativeMatrixGetCoordinate() const;
+		uint32_t SubgroupSize() const;
+		VkShaderStageFlags SubgroupStages() const;
+		VkSubgroupFeatureFlags SubgroupOperations() const;
+		bool SubgroupQuadOperationsInAllStages() const;
 		bool HasMeshShader() const;
 		bool HasFragmentShadingRate() const;
 		bool HasConditionalRendering() const;
+		bool HasTransformFeedback() const;
+		bool HasGeometryStreams() const;
+		bool HasSampleLocations() const;
+		bool VariableSampleLocations() const;
+		bool SampleLocationGrid(uint32_t sampleCount, uint32_t& width, uint32_t& height) const;
+		void SampleLocationRange(float& minimum, float& maximum, uint32_t& subPixelBits) const;
 		bool HasConservativeRasterization() const;
+		bool HasSparseBinding() const;
+		bool SupportsSparseBuffer() const;
+		bool SupportsSparseImage(bool is3D, uint32_t sampleCount) const;
+		bool SupportsSparseAliased() const;
+		bool GetSparseQueue(VkQueue& queue) const;
+		bool QueueSparseBind(VkQueue queue, VkBindSparseInfo bind) const;
+		bool SubmitQueue(VkQueue queue, const VkSubmitInfo2& info, VkFence fence,
+			VkSemaphore* pWaitSemaphores, VkPipelineStageFlags* pWaitStages, uint64_t* pWaitValues,
+			VkCommandBuffer* pCommandBuffers, VkSemaphore* pSignalSemaphores, uint64_t* pSignalValues) const;
+		void ReadSparseTimeline(VkSemaphore& semaphore, uint64_t& value) const;
+		bool EmulatesD24S8() const;
 
 		uint32_t FindMemoryType(uint32_t typeBits, VkMemoryPropertyFlags properties) const;
 		void SetDebugName(VkObjectType type, uint64_t handle, const wchar_t* name) const;
@@ -189,11 +352,175 @@ namespace XUSG
 
 		bool				m_debugUtils;
 		bool				m_customBorderColor;
+		bool				m_vertexAttributeDivisor;
+		bool				m_shaderUntypedPointers;
+		bool				m_nullDescriptor;
+		bool				m_deviceGeneratedCommands;
+		bool				m_maintenance5;
+		bool				m_synchronization2;
+		bool				m_depthStencilResolve;
+		bool				m_independentResolveNone;
+		bool				m_independentResolve;
+		VkResolveModeFlags	m_depthResolveModes;
+		VkResolveModeFlags	m_stencilResolveModes;
+		bool				m_shaderInt64;
+		bool				m_shaderInt8;
+		bool				m_storageBuffer8BitAccess;
+		bool				m_uniformAndStorageBuffer8BitAccess;
+		bool				m_storagePushConstant8;
+		bool				m_storageBuffer16BitAccess;
+		bool				m_uniformAndStorageBuffer16BitAccess;
+		bool				m_storagePushConstant16;
+		bool				m_storageInputOutput16;
+		bool				m_shaderDrawParameters;
+		bool				m_shaderSubgroupExtendedTypes;
+		bool				m_shaderBufferInt64Atomics;
+		bool				m_shaderSharedInt64Atomics;
+		bool				m_shaderImageInt64Atomics;
+		bool				m_sparseImageInt64Atomics;
+		bool				m_subgroupSizeControl;
+		bool				m_computeFullSubgroups;
+		bool				m_shaderIntegerDotProduct;
+		bool				m_shaderDemoteToHelperInvocation;
+		bool				m_shaderSubgroupRotate;
+		bool				m_shaderSubgroupRotateClustered;
+		bool				m_shaderFloatControls2;
+		bool				m_shaderSubgroupPartitioned;
+		bool				m_shaderQuadControl;
+		bool				m_shaderSubgroupUniformControlFlow;
+		bool				m_shaderMaximalReconvergence;
+		bool				m_computeDerivativeGroupQuads;
+		bool				m_computeDerivativeGroupLinear;
+		bool				m_fragmentShaderBarycentric;
+		bool				m_shaderSubgroupBallot;
+		bool				m_shaderSubgroupVote;
+		bool				m_shaderUniformBufferArrayDynamicIndexing;
+		bool				m_shaderSampledImageArrayDynamicIndexing;
+		bool				m_shaderStorageBufferArrayDynamicIndexing;
+		bool				m_shaderStorageImageArrayDynamicIndexing;
+		bool				m_shaderInputAttachmentArrayDynamicIndexing;
+		bool				m_shaderUniformTexelBufferArrayDynamicIndexing;
+		bool				m_shaderStorageTexelBufferArrayDynamicIndexing;
+		bool				m_shaderUniformBufferArrayNonUniformIndexing;
+		bool				m_shaderSampledImageArrayNonUniformIndexing;
+		bool				m_shaderStorageBufferArrayNonUniformIndexing;
+		bool				m_shaderStorageImageArrayNonUniformIndexing;
+		bool				m_shaderInputAttachmentArrayNonUniformIndexing;
+		bool				m_shaderUniformTexelBufferArrayNonUniformIndexing;
+		bool				m_shaderStorageTexelBufferArrayNonUniformIndexing;
+		bool				m_shaderInt16;
+		bool				m_shaderFloat64;
+		bool				m_shaderStorageImageReadWithoutFormat;
+		bool				m_shaderStorageImageExtendedFormats;
+		bool				m_shaderStorageImageMultisample;
+		bool				m_imageFormatList;
+		bool				m_shaderClipDistance;
+		bool				m_shaderCullDistance;
+		bool				m_vertexPipelineStoresAndAtomics;
+		bool				m_sampleRateShading;
+		bool				m_imageCubeArray;
+		bool				m_textureCompressionBC;
+		bool				m_drawIndirectFirstInstance;
+		bool				m_scalarBlockLayout;
+		bool				m_runtimeDescriptorArray;
+		bool				m_descriptorBindingPartiallyBound;
+		bool				m_shaderOutputViewportIndex;
+		bool				m_shaderOutputLayer;
+		bool				m_subgroupBroadcastDynamicId;
+		bool				m_shaderBufferFloat32Atomics;
+		bool				m_shaderBufferFloat32AtomicAdd;
+		bool				m_shaderBufferFloat64Atomics;
+		bool				m_shaderBufferFloat64AtomicAdd;
+		bool				m_shaderSharedFloat32Atomics;
+		bool				m_shaderSharedFloat32AtomicAdd;
+		bool				m_shaderSharedFloat64Atomics;
+		bool				m_shaderSharedFloat64AtomicAdd;
+		bool				m_shaderImageFloat32Atomics;
+		bool				m_shaderImageFloat32AtomicAdd;
+		bool				m_sparseImageFloat32Atomics;
+		bool				m_sparseImageFloat32AtomicAdd;
+		bool				m_shaderBufferFloat16Atomics;
+		bool				m_shaderBufferFloat16AtomicAdd;
+		bool				m_shaderBufferFloat16AtomicMinMax;
+		bool				m_shaderBufferFloat32AtomicMinMax;
+		bool				m_shaderBufferFloat64AtomicMinMax;
+		bool				m_shaderSharedFloat16Atomics;
+		bool				m_shaderSharedFloat16AtomicAdd;
+		bool				m_shaderSharedFloat16AtomicMinMax;
+		bool				m_shaderSharedFloat32AtomicMinMax;
+		bool				m_shaderSharedFloat64AtomicMinMax;
+		bool				m_shaderImageFloat32AtomicMinMax;
+		bool				m_sparseImageFloat32AtomicMinMax;
+		bool				m_shaderSubgroupClock;
+		bool				m_shaderDeviceClock;
+		bool				m_hlslFunctionality1;
+		bool				m_deferredHostOperations;
+		bool				m_pipelineLibrary;
+		bool				m_spirv14;
+		bool				m_shaderFloatControls;
+		bool				m_accelerationStructure;
+		bool				m_accelerationStructureCaptureReplay;
+		bool				m_accelerationStructureIndirectBuild;
+		bool				m_accelerationStructureHostCommands;
+		bool				m_rayTracingPipeline;
+		bool				m_rayTracingPipelineShaderGroupHandleCaptureReplay;
+		bool				m_rayTracingPipelineShaderGroupHandleCaptureReplayMixed;
+		bool				m_rayTracingPipelineTraceRaysIndirect;
+		bool				m_rayTraversalPrimitiveCulling;
+		bool				m_rayQuery;
+		bool				m_rayTracingMaintenance1;
+		bool				m_rayTracingPipelineTraceRaysIndirect2;
+		bool				m_rayTracingPositionFetch;
+		bool				m_micromap;
+		bool				m_micromapCaptureReplay;
+		bool				m_micromapHostCommands;
+		bool				m_rayTracingInvocationReorder;
+		bool				m_pipelineLibraryGroupHandles;
+		bool				m_cooperativeMatrix;
+		bool				m_cooperativeMatrixRobustBufferAccess;
+		bool				m_shaderBFloat16Type;
+		bool				m_shaderBFloat16DotProduct;
+		bool				m_shaderBFloat16CooperativeMatrix;
+		bool				m_shaderFloat8;
+		bool				m_shaderFloat8CooperativeMatrix;
+		bool				m_workgroupMemoryExplicitLayout;
+		bool				m_workgroupMemoryExplicitLayoutScalarBlockLayout;
+		bool				m_workgroupMemoryExplicitLayout8BitAccess;
+		bool				m_workgroupMemoryExplicitLayout16BitAccess;
+		bool				m_longVector;
+		uint32_t			m_maxLongVectorComponents;
+		bool				m_cooperativeMatrixProperties2;
+		bool				m_cooperativeMatrixReductions;
+		bool				m_cooperativeMatrixConversions;
+		bool				m_cooperativeMatrixPerElementOperations;
+		bool				m_cooperativeMatrixGetCoordinate;
+		uint32_t			m_subgroupSize;
+		VkShaderStageFlags	m_subgroupStages;
+		VkSubgroupFeatureFlags m_subgroupOperations;
+		bool				m_subgroupQuadOperationsInAllStages;
 		bool				m_meshShader;
 		bool				m_fragmentShadingRate;
 		bool				m_conditionalRendering;
+		bool				m_transformFeedback;
+		bool				m_geometryStreams;
+		bool				m_sampleLocations;
+		bool				m_variableSampleLocations;
+		float				m_sampleLocationRange[2];
+		uint32_t			m_sampleLocationSubPixelBits;
+		VkSampleCountFlags	m_sampleLocationCounts;
+		VkExtent2D			m_sampleLocationGrids[5];
 		bool				m_conservativeRaster;
+		bool				m_emulateD24S8;
 		bool				m_ownsInstance;
+		bool				m_sparseBinding;
+		bool				m_sparseResidencyBuffer;
+		bool				m_sparseResidencyImage2D;
+		bool				m_sparseResidencyImage3D;
+		bool				m_sparseResidency2Samples;
+		bool				m_sparseResidency4Samples;
+		bool				m_sparseResidency8Samples;
+		bool				m_sparseResidency16Samples;
+		bool				m_sparseResidencyAliased;
 
 		VkPhysicalDeviceDescriptorHeapPropertiesEXT				m_heapProps;
 		VkPhysicalDeviceDeviceGeneratedCommandsPropertiesEXT	m_dgcProps;
@@ -216,6 +543,8 @@ namespace XUSG
 		uint32_t			m_typePool[3];
 		uint32_t			m_sharingFamilies[3];
 		uint32_t			m_sharingCount;
+		mutable VkSemaphore	m_sparseTimeline;
+		mutable uint64_t	m_sparseValue;
 		mutable std::mutex	m_queueMutex;
 	};
 
@@ -226,7 +555,7 @@ namespace XUSG
 		Fence_VK();
 		virtual ~Fence_VK();
 
-		bool Create(const Device* pDevice, uint64_t initialValue,
+		bool Create(Device* pDevice, uint64_t initialValue,
 			FenceFlag flags, const wchar_t* name = nullptr);
 		bool SetEventOnCompletion(uint64_t value, void* hEvent);
 		bool Signal(uint64_t value);
@@ -235,14 +564,14 @@ namespace XUSG
 
 		void Create(void* pHandle, const wchar_t* name = nullptr);
 
-		void* GetHandle() const;
+		void* GetHandle();
 
 		VkSemaphore GetSemaphore() const;
 
 	protected:
 		VkDevice		m_device;
 		VkSemaphore		m_semaphore;
-		const Device*	m_pDevice;
+		Device*	m_pDevice;
 	};
 
 	class CommandLayout_VK :
@@ -252,26 +581,30 @@ namespace XUSG
 		CommandLayout_VK();
 		virtual ~CommandLayout_VK();
 
-		bool Create(const Device* pDevice, uint32_t byteStride, uint32_t numArguments,
+		bool Create(Device* pDevice, uint32_t byteStride, uint32_t numArguments,
 			const IndirectArgument* pArguments, const PipelineLayout& pipelineLayout = nullptr,
 			uint32_t nodeMask = 0, const wchar_t* name = nullptr);
 
 		void Create(void* pHandle, const wchar_t* name = nullptr);
 
-		void* GetHandle() const;
+		void* GetHandle();
 
 		VkIndirectCommandsLayoutEXT GetLayout() const;
 		VkShaderStageFlags GetShaderStages() const;
 		uint32_t GetByteStride() const;
 		bool IsDispatch() const;
+		bool IsTraceRays() const;
+		bool IsTraceRaysOnly() const;
 
 	protected:
 		VkDevice						m_device;
-		const Device_VK*				m_pDevice;
+		Device_VK*				m_pDevice;
 		VkIndirectCommandsLayoutEXT		m_layout;
 		VkShaderStageFlags				m_stages;
 		uint32_t						m_stride;
 		bool							m_isDispatch;
+		bool							m_traceRays;
+		bool							m_traceRaysOnly;
 
 		std::vector<VkIndirectCommandsLayoutTokenEXT>			m_tokens;
 		std::vector<VkIndirectCommandsVertexBufferTokenEXT>		m_vertexTokens;
@@ -302,7 +635,7 @@ namespace XUSG
 
 		void Create(void* pHandle);
 
-		void* GetHandle() const;
+		void* GetHandle();
 
 		VkImage GetImage(uint8_t buffer) const;
 		VkFormat GetVkFormat() const;
@@ -328,14 +661,25 @@ namespace XUSG
 		mutable uint32_t	m_imageIndex;
 		bool				m_allowTearing;
 		mutable bool		m_acquired;
+		bool				m_synchronization2;
 
-		VkSemaphore			m_acquireSemaphore;
+		struct AcquireSlot
+		{
+			VkSemaphore Semaphore;
+			VkFence Fence;
+			bool Submitted;
+		};
+
+		mutable std::vector<AcquireSlot> m_acquireSlots;
+		mutable uint32_t	m_acquireSlot;
 		std::vector<VkSemaphore> m_renderSemaphores;
 
 		std::vector<VkImage> m_images;
 	};
 
 	void GetVKBlobData(const Blob& blob, const void** ppData, size_t* pSize);
+	bool FindVKRootSignaturePayload(const void* pData, size_t size, const wchar_t* name,
+		const void** ppPayload, size_t* pPayloadSize);
 	Blob GetVKPipelineCache(Pipeline pipeline);
 
 	std::string WideToUtf8(const wchar_t* name);

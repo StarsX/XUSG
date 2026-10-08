@@ -33,7 +33,7 @@ const InputLayout* InputLayoutLib_Impl::CreateLayout(uint32_t numElements, const
 	return getLayout(index);
 }
 
-const InputLayout* InputLayoutLib_Impl::GetLayout(uint32_t index)
+const InputLayout* InputLayoutLib_Impl::GetLayout(uint32_t index) const
 {
 	lock_guard<mutex> lock(m_mtx);
 

@@ -102,7 +102,7 @@ bool EZ::CommandList_DX12::Create(XUSG::CommandList* pCommandList,
 	return true;
 }
 
-bool EZ::CommandList_DX12::Create(const Device* pDevice, void* pHandle,
+bool EZ::CommandList_DX12::Create(Device* pDevice, void* pHandle,
 	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 	const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
@@ -137,7 +137,7 @@ bool EZ::CommandList_DX12::Close(RenderTarget* pBackBuffer)
 	return XUSG::CommandList_DX12::Close();
 }
 
-bool EZ::CommandList_DX12::Reset(const CommandAllocator* pAllocator, const Pipeline& initialState)
+bool EZ::CommandList_DX12::Reset(CommandAllocator* pAllocator, const Pipeline& initialState)
 {
 	XUSG_N_RETURN(XUSG::CommandList_DX12::Reset(pAllocator, initialState), false);
 
@@ -174,7 +174,7 @@ void EZ::CommandList_DX12::DrawIndexed(uint32_t indexCountPerInstance, uint32_t 
 	XUSG::CommandList_DX12::DrawIndexed(indexCountPerInstance, instanceCount, startIndexLocation, baseVertexLocation, startInstanceLocation);
 }
 
-void EZ::CommandList_DX12::DrawIndirect(const CommandLayout* pCommandlayout, uint32_t maxCommandCount,
+void EZ::CommandList_DX12::DrawIndirect(CommandLayout* pCommandlayout, uint32_t maxCommandCount,
 	Resource* pArgumentBuffer, uint64_t argumentBufferOffset, Resource* pCountBuffer, uint64_t countBufferOffset)
 {
 	preexecuteIndirect(pArgumentBuffer, pCountBuffer);
@@ -190,7 +190,7 @@ void EZ::CommandList_DX12::Dispatch(uint32_t threadGroupCountX, uint32_t threadG
 	XUSG::CommandList_DX12::Dispatch(threadGroupCountX, threadGroupCountY, threadGroupCountZ);
 }
 
-void EZ::CommandList_DX12::DispatchIndirect(const CommandLayout* pCommandlayout, uint32_t maxCommandCount,
+void EZ::CommandList_DX12::DispatchIndirect(CommandLayout* pCommandlayout, uint32_t maxCommandCount,
 	Resource* pArgumentBuffer, uint64_t argumentBufferOffset, Resource* pCountBuffer, uint64_t countBufferOffset)
 {
 	preexecuteIndirect(pArgumentBuffer, pCountBuffer);
@@ -236,7 +236,7 @@ void EZ::CommandList_DX12::CopyResource(Resource* pDstResource, Resource* pSrcRe
 }
 
 void EZ::CommandList_DX12::CopyTiles(Resource* pTiledResource, const TiledResourceCoord* pTileRegionStartCoord,
-	const TileRegionSize& tileRegionSize, const Resource* pBuffer, uint64_t bufferStartOffsetInBytes, TileCopyFlag flags)
+	const TileRegionSize& tileRegionSize, Resource* pBuffer, uint64_t bufferStartOffsetInBytes, TileCopyFlag flags)
 {
 	ResourceBarrier barrier;
 	const auto numBarriers = pTiledResource->SetBarrier(&barrier, ResourceState::COPY_DEST);
@@ -410,14 +410,14 @@ void EZ::CommandList_DX12::SetComputePipelineState(const Pipeline& pipelineState
 void EZ::CommandList_DX12::SetSamplers(Shader::Stage stage, uint32_t startBinding, uint32_t numSamplers, const Sampler* const* ppSamplers)
 {
 	auto& descriptorTable = m_samplerTables[stage];
-	if (!descriptorTable) descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
+	if (!descriptorTable) descriptorTable = Util::DescriptorTable::MakeUnique();
 	descriptorTable->SetSamplers(startBinding, numSamplers, ppSamplers);
 }
 
 void EZ::CommandList_DX12::SetSamplerStates(Shader::Stage stage, uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerPresets)
 {
 	auto& descriptorTable = m_samplerTables[stage];
-	if (!descriptorTable) descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
+	if (!descriptorTable) descriptorTable = Util::DescriptorTable::MakeUnique();
 	descriptorTable->SetSamplers(startBinding, numSamplers, pSamplerPresets, m_descriptorTableLib.get());
 }
 
@@ -470,7 +470,7 @@ void EZ::CommandList_DX12::SetResources(Shader::Stage stage, DescriptorType desc
 	auto& descriptorTable = descriptorTables[space];
 
 	// Set descriptors to the descriptor table
-	if (!descriptorTable) descriptorTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
+	if (!descriptorTable) descriptorTable = Util::DescriptorTable::MakeUnique();
 	if (m_descriptors.size() < numResources) m_descriptors.resize(numResources);
 	for (auto i = 0u; i < numResources; ++i) m_descriptors[i] = pResourceViews[i].View;
 	descriptorTable->SetDescriptors(startBinding, numResources, m_descriptors.data());
@@ -653,7 +653,7 @@ void EZ::CommandList_DX12::ClearUnorderedAccessViewUint(const ResourceView& unor
 {
 	setBarriers(1, &unorderedAccessView);
 
-	const auto uavTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
+	const auto uavTable = Util::DescriptorTable::MakeUnique();
 	uavTable->SetDescriptors(0, 1, &unorderedAccessView.View);
 	const auto descriptorTable = uavTable->GetCbvSrvUavTable(m_descriptorTableLib.get());
 
@@ -671,7 +671,7 @@ void EZ::CommandList_DX12::ClearUnorderedAccessViewFloat(const ResourceView& uno
 {
 	setBarriers(1, &unorderedAccessView);
 
-	const auto uavTable = Util::DescriptorTable::MakeUnique(API::DIRECTX_12);
+	const auto uavTable = Util::DescriptorTable::MakeUnique();
 	uavTable->SetDescriptors(0, 1, &unorderedAccessView.View);
 	const auto descriptorTable = uavTable->GetCbvSrvUavTable(m_descriptorTableLib.get());
 
@@ -894,12 +894,12 @@ bool EZ::CommandList_DX12::init(XUSG::CommandList* pCommandList, uint32_t sample
 	V_RETURN(pDxDevice->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&m_uavHeap)), cerr, false);
 	if (!name.empty()) m_uavHeap->SetName((name + L"_EZ.UavHeap").c_str());
 
-	m_graphicsPipelineLib = Graphics::PipelineLib::MakeUnique(m_pDevice, API::DIRECTX_12);
-	m_computePipelineLib = Compute::PipelineLib::MakeUnique(m_pDevice, API::DIRECTX_12);
-	m_pipelineLayoutLib = PipelineLayoutLib::MakeUnique(m_pDevice, API::DIRECTX_12);
-	m_descriptorTableLib = DescriptorTableLib::MakeUnique(m_pDevice, L"EZDescriptorTableLib", API::DIRECTX_12);
-	m_graphicsState = Graphics::State::MakeUnique(API::DIRECTX_12);
-	m_computeState = Compute::State::MakeUnique(API::DIRECTX_12);
+	m_graphicsPipelineLib = Graphics::PipelineLib::MakeUnique(m_pDevice);
+	m_computePipelineLib = Compute::PipelineLib::MakeUnique(m_pDevice);
+	m_pipelineLayoutLib = PipelineLayoutLib::MakeUnique(m_pDevice);
+	m_descriptorTableLib = DescriptorTableLib::MakeUnique(m_pDevice, L"EZDescriptorTableLib");
+	m_graphicsState = Graphics::State::MakeUnique();
+	m_computeState = Compute::State::MakeUnique();
 
 	// Create internal shaders
 	XUSG_N_RETURN(createShaders(), false);
@@ -926,7 +926,7 @@ bool EZ::CommandList_DX12::createGraphicsPipelineLayouts(
 {
 	// Create common graphics pipeline layout
 	auto paramIndex = 0u;
-	const auto pipelineLayout = Util::PipelineLayout::MakeUnique(API::DIRECTX_12);
+	const auto pipelineLayout = Util::PipelineLayout::MakeUnique();
 
 	// Handle all samplers to take up the first N root params with fixed param indices 
 	for (uint8_t i = 0; i < Shader::Stage::NUM_GRAPHICS; ++i)
@@ -1023,7 +1023,7 @@ bool EZ::CommandList_DX12::createComputePipelineLayouts(uint32_t maxSamplers,
 {
 	// Create common compute pipeline layout
 	auto paramIndex = 0u;
-	const auto pipelineLayout = Util::PipelineLayout::MakeUnique(API::DIRECTX_12);
+	const auto pipelineLayout = Util::PipelineLayout::MakeUnique();
 	const auto maxSpaces = (max)(maxCbvSpaces, (max)(maxSrvSpaces, maxUavSpaces));
 
 	auto& descriptorTables = m_cbvSrvUavTables[Shader::Stage::CS];

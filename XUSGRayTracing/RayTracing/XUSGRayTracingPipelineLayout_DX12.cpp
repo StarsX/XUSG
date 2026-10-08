@@ -22,7 +22,7 @@ RayTracing::PipelineLayout_DX12::~PipelineLayout_DX12()
 {
 }
 
-XUSG::PipelineLayout RayTracing::PipelineLayout_DX12::CreatePipelineLayout(const Device* pDevice,
+XUSG::PipelineLayout RayTracing::PipelineLayout_DX12::CreatePipelineLayout(Device* pDevice,
 	PipelineLayoutLib* pPipelineLayoutLib, PipelineLayoutFlag flags, const wchar_t* name)
 {
 	const auto pLayoutLib = dynamic_cast<PipelineLayoutLib_DX12*>(pPipelineLayoutLib);
@@ -93,7 +93,7 @@ XUSG::PipelineLayout RayTracing::PipelineLayout_DX12::CreatePipelineLayout(const
 	return rootSignature.get();
 }
 
-XUSG::PipelineLayout RayTracing::PipelineLayout_DX12::GetPipelineLayout(const Device* pDevice,
+XUSG::PipelineLayout RayTracing::PipelineLayout_DX12::GetPipelineLayout(Device* pDevice,
 	PipelineLayoutLib* pPipelineLayoutLib, PipelineLayoutFlag flags, const wchar_t* name)
 {
 	auto layout = pPipelineLayoutLib->GetPipelineLayout(this, flags, name, false);

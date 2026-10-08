@@ -25,7 +25,7 @@ RayTracing::CommandList_DX12::~CommandList_DX12()
 {
 }
 
-RayTracing::CommandList_DX12::CommandList_DX12(XUSG::CommandList* pCommandList, const RayTracing::Device* pDevice)
+RayTracing::CommandList_DX12::CommandList_DX12(XUSG::CommandList* pCommandList, RayTracing::Device* pDevice)
 {
 	const auto p = dynamic_cast<XUSG::CommandList_DX12*>(pCommandList);
 	assert(p);
@@ -39,7 +39,7 @@ bool RayTracing::CommandList_DX12::CreateInterface()
 {
 	if (!Ultimate::CommandList_DX12::CreateInterface()) m_commandListU = nullptr;
 
-	m_pDeviceRT = dynamic_cast<const RayTracing::Device*>(m_pDevice);
+	m_pDeviceRT = dynamic_cast<RayTracing::Device*>(m_pDevice);
 	assert(m_pDeviceRT);
 
 	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(m_pDeviceRT->GetRTHandle());
@@ -157,7 +157,7 @@ void RayTracing::CommandList_DX12::DispatchRays(uint32_t width, uint32_t height,
 	m_commandListRT->DispatchRays(&dispatchDesc);
 }
 
-const RayTracing::Device* RayTracing::CommandList_DX12::GetRTDevice() const
+RayTracing::Device* RayTracing::CommandList_DX12::GetRTDevice() const
 {
 	return m_pDeviceRT;
 }

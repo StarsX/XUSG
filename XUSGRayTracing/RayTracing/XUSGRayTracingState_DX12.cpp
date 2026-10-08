@@ -200,7 +200,7 @@ PipelineLib_DX12::PipelineLib_DX12() :
 {
 }
 
-PipelineLib_DX12::PipelineLib_DX12(const RayTracing::Device* pDevice) :
+PipelineLib_DX12::PipelineLib_DX12(RayTracing::Device* pDevice) :
 	PipelineLib()
 {
 	SetDevice(pDevice);
@@ -210,7 +210,7 @@ PipelineLib_DX12::~PipelineLib_DX12()
 {
 }
 
-void PipelineLib_DX12::SetDevice(const RayTracing::Device* pDevice)
+void PipelineLib_DX12::SetDevice(RayTracing::Device* pDevice)
 {
 	m_device = static_cast<ID3D12RaytracingFallbackDevice*>(pDevice->GetRTHandle());
 	assert(m_device);

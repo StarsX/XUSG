@@ -86,7 +86,7 @@ namespace XUSG
 				const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE) = 0;
-			virtual bool Create(const Device* pDevice, void* pHandle,
+			virtual bool Create(Device* pDevice, void* pHandle,
 				uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 				const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
@@ -101,7 +101,7 @@ namespace XUSG
 				uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE,
 				const wchar_t* name = nullptr) = 0;
 			virtual bool Close(RenderTarget* pBackBuffer = nullptr) = 0;
-			virtual bool Reset(const CommandAllocator* pAllocator, const Pipeline& initialState) = 0;
+			virtual bool Reset(CommandAllocator* pAllocator, const Pipeline& initialState) = 0;
 
 			virtual void ClearState(const Pipeline& initialState) const = 0;
 			virtual void Draw(
@@ -115,7 +115,7 @@ namespace XUSG
 				uint32_t startIndexLocation,
 				int32_t baseVertexLocation,
 				uint32_t startInstanceLocation) = 0;
-			virtual void DrawIndirect(const CommandLayout* pCommandlayout,
+			virtual void DrawIndirect(CommandLayout* pCommandlayout,
 				uint32_t maxCommandCount,
 				Resource* pArgumentBuffer,
 				uint64_t argumentBufferOffset = 0,
@@ -125,7 +125,7 @@ namespace XUSG
 				uint32_t threadGroupCountX,
 				uint32_t threadGroupCountY,
 				uint32_t threadGroupCountZ) = 0;
-			virtual void DispatchIndirect(const CommandLayout* pCommandlayout,
+			virtual void DispatchIndirect(CommandLayout* pCommandlayout,
 				uint32_t maxCommandCount,
 				Resource* pArgumentBuffer,
 				uint64_t argumentBufferOffset = 0,
@@ -137,7 +137,7 @@ namespace XUSG
 				TextureCopyLocation& src, const BoxRange* pSrcBox = nullptr) = 0;
 			virtual void CopyResource(Resource* pDstResource, Resource* pSrcResource) = 0;
 			virtual void CopyTiles(Resource* pTiledResource, const TiledResourceCoord* pTileRegionStartCoord,
-				const TileRegionSize& tileRegionSize, const Resource* pBuffer, uint64_t bufferStartOffsetInBytes,
+				const TileRegionSize& tileRegionSize, Resource* pBuffer, uint64_t bufferStartOffsetInBytes,
 				TileCopyFlag flags = TileCopyFlag::NONE) = 0;
 			virtual void ResolveSubresource(Resource* pDstResource, uint32_t dstSubresource,
 				Resource* pSrcResource, uint32_t srcSubresource, Format format) = 0;
@@ -161,7 +161,7 @@ namespace XUSG
 			virtual void SetComputeNodeMask(uint32_t nodeMask) = 0;
 			virtual void SetGraphicsPipelineState(const Pipeline& pipelineState, const Graphics::State* pState = nullptr) = 0;
 			virtual void SetComputePipelineState(const Pipeline& pipelineState, const Compute::State* pState = nullptr) = 0;
-			virtual void ExecuteBundle(const XUSG::CommandList* pCommandList) const = 0;
+			virtual void ExecuteBundle(XUSG::CommandList* pCommandList) const = 0;
 			virtual void SetSamplers(Shader::Stage stage, uint32_t startBinding,
 				uint32_t numSamplers, const Sampler* const* pSamplers) = 0;
 			virtual void SetSamplerStates(Shader::Stage stage, uint32_t startBinding,
@@ -196,8 +196,8 @@ namespace XUSG
 			virtual void BeginQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const = 0;
 			virtual void EndQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const = 0;
 			virtual void ResolveQueryData(const QueryHeap& queryHeap, QueryType type, uint32_t startIndex,
-				uint32_t numQueries, const Resource* pDstBuffer, uint64_t alignedDstBufferOffset) const = 0;
-			virtual void SetPredication(const Resource* pBuffer, uint64_t alignedBufferOffset, bool opEqualZero) const = 0;
+				uint32_t numQueries, Resource* pDstBuffer, uint64_t alignedDstBufferOffset) const = 0;
+			virtual void SetPredication(Resource* pBuffer, uint64_t alignedBufferOffset, bool opEqualZero) const = 0;
 			virtual void SetMarker(uint32_t metaData, const void* pData, uint32_t size) const = 0;
 			virtual void BeginEvent(uint32_t metaData, const void* pData, uint32_t size) const = 0;
 			virtual void EndEvent() = 0;
@@ -224,17 +224,17 @@ namespace XUSG
 			virtual uint32_t GetGraphicsConstantParamIndex(Shader::Stage stage) const = 0;
 			virtual uint32_t GetComputeConstantParamIndex() const = 0;
 
-			virtual void* GetHandle() const = 0;
+			virtual void* GetHandle() = 0;
 			virtual void* GetDeviceHandle() const = 0;
 
-			virtual const Device* GetDevice() const = 0;
+			virtual Device* GetDevice() const = 0;
 			virtual XUSG::CommandList* AsCommandList() = 0;
 
 			using uptr = std::unique_ptr<CommandList>;
 			using sptr = std::shared_ptr<CommandList>;
 
-			static uptr MakeUnique(API api = API::DIRECTX_12);
-			static sptr MakeShared(API api = API::DIRECTX_12);
+			static uptr MakeUnique();
+			static sptr MakeShared();
 			static uptr MakeUnique(XUSG::CommandList* pCommandList,
 				uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 				const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
@@ -247,8 +247,7 @@ namespace XUSG
 				const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
-				uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE,
-				API api = API::DIRECTX_12);
+				uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
 			static sptr MakeShared(XUSG::CommandList* pCommandList,
 				uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 				const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
@@ -261,8 +260,7 @@ namespace XUSG
 				const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
-				uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE,
-				API api = API::DIRECTX_12);
+				uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
 		};
 	}
 }

@@ -59,6 +59,72 @@ namespace
 		return (max)(GetVKFormatBits(format), 8u) / 8u;
 	}
 
+	constexpr VkDeviceSize TileBytes = 65536;
+
+	void StandardTileTexels(Format format, bool is3D, uint32_t sampleCount, uint32_t& width, uint32_t& height, uint32_t& depth)
+	{
+		const auto bits = (max)(GetVKFormatBits(format), 8u);
+		const auto compressed = IsCompressedFormat(format);
+		const auto block = compressed ? 4u : 1u;
+		const auto bytes = compressed ? (bits <= 4 ? 8u : 16u) : bits / 8u;
+		width = 128;
+		height = 128;
+		depth = 1;
+
+		if (is3D)
+		{
+			struct Shape3D { uint32_t Bytes; uint32_t W; uint32_t H; uint32_t D; };
+			const Shape3D shapes[] =
+			{
+				{ 1, 64, 32, 32 },
+				{ 2, 32, 32, 32 },
+				{ 4, 32, 32, 16 },
+				{ 8, 32, 16, 16 },
+				{ 16, 16, 16, 16 }
+			};
+			for (const auto& shape : shapes)
+			{
+				if (shape.Bytes != bytes) continue;
+
+				width = shape.W * block;
+				height = shape.H * block;
+				depth = shape.D;
+
+				return;
+			}
+
+			return;
+		}
+
+		struct Shape2D { uint32_t Bytes; uint32_t Samples; uint32_t W; uint32_t H; };
+		const Shape2D shapes[] =
+		{
+			{ 1, 1, 256, 256 }, { 1, 2, 128, 128 }, { 1, 4, 128, 256 }, { 1, 8, 64, 128 }, { 1, 16, 64, 64 },
+			{ 2, 1, 256, 128 }, { 2, 2, 128, 128 }, { 2, 4, 128, 64 }, { 2, 8, 64, 64 }, { 2, 16, 64, 32 },
+			{ 4, 1, 128, 128 }, { 4, 2, 64, 128 }, { 4, 4, 64, 64 }, { 4, 8, 32, 64 }, { 4, 16, 32, 32 },
+			{ 8, 1, 128, 64 }, { 8, 2, 64, 64 }, { 8, 4, 64, 32 }, { 8, 8, 32, 32 }, { 8, 16, 32, 16 },
+			{ 16, 1, 64, 64 }, { 16, 2, 32, 64 }, { 16, 4, 32, 32 }, { 16, 8, 16, 32 }, { 16, 16, 16, 16 }
+		};
+		const auto samples = sampleCount ? sampleCount : 1u;
+		for (const auto& shape : shapes)
+		{
+			if (shape.Bytes != bytes || shape.Samples != samples) continue;
+
+			width = shape.W * block;
+			height = shape.H * block;
+			depth = 1;
+
+			return;
+		}
+	}
+
+	uint64_t MipByteSize(Format format, uint32_t width, uint32_t height, uint32_t depth)
+	{
+		const auto block = IsCompressedFormat(format) ? 4u : 1u;
+
+		return static_cast<uint64_t>(XUSG_DIV_UP(width, block)) * XUSG_DIV_UP(height, block) * depth * CopyTexelBytes(format);
+	}
+
 	VkImageAspectFlags ImageViewAspect(Format format, uint8_t plane)
 	{
 		if (!IsDepthStencilFormat(format)) return VK_IMAGE_ASPECT_COLOR_BIT;
@@ -126,6 +192,10 @@ namespace
 	}
 }
 
+//--------------------------------------------------------------------------------------
+// Resource heap
+//--------------------------------------------------------------------------------------
+
 Heap_VK::Heap_VK() :
 	m_device(VK_NULL_HANDLE),
 	m_memory(VK_NULL_HANDLE),
@@ -142,11 +212,11 @@ Heap_VK::~Heap_VK()
 	if (m_memory) vkFreeMemory(m_device, m_memory, nullptr);
 }
 
-bool Heap_VK::Create(const Device* pDevice, uint64_t byteSize, MemoryType memoryType,
+bool Heap_VK::Create(Device* pDevice, uint64_t byteSize, MemoryType memoryType,
 	MemoryFlag memoryFlags, uint64_t alignment, const wchar_t* name)
 {
 	(void)memoryFlags;
-	m_pDevice = dynamic_cast<const Device_VK*>(pDevice);
+	m_pDevice = pDevice ? static_cast<Device_VK*>(pDevice->GetHandle()) : nullptr;
 	assert(m_pDevice);
 	m_device = m_pDevice->GetDevice();
 	m_size = byteSize;
@@ -198,9 +268,9 @@ void Heap_VK::SetName(const wchar_t* name)
 	if (name) m_name = name;
 }
 
-void* Heap_VK::GetHandle() const
+void* Heap_VK::GetHandle()
 {
-	return m_memory;
+	return this;
 }
 
 VkDeviceMemory Heap_VK::GetMemory() const
@@ -213,6 +283,8 @@ uint32_t Heap_VK::GetMemoryType() const
 	return m_memoryTypeIndex;
 }
 
+//--------------------------------------------------------------------------------------
+// Resource base
 //--------------------------------------------------------------------------------------
 
 Resource_VK::Resource_VK() :
@@ -229,25 +301,41 @@ Resource_VK::Resource_VK() :
 	m_ownsBuffer(false),
 	m_ownsMemory(false),
 	m_hasPromotion(false),
+	m_presentable(false),
 	m_byteSize(0),
 	m_width(0),
 	m_height(1),
 	m_depthOrArray(1),
 	m_mipLevels(1),
 	m_sampleCount(1),
-	m_vkFormat(VK_FORMAT_UNDEFINED)
+	m_vkFormat(VK_FORMAT_UNDEFINED),
+	m_pendingLayout(0),
+	m_discardCount(0),
+	m_sparse(false),
+	m_hasSparseInfo(false),
+	m_resourceFormat(Format::UNKNOWN),
+	m_metadata(VK_NULL_HANDLE),
+	m_sparseTypeBits(0),
+	m_sparseInfo{},
+	m_tilingReady(false),
+	m_totalTiles(0),
+	m_singleMipTail(false),
+	m_packed{},
+	m_tileShape{}
 {
 }
 
 Resource_VK::~Resource_VK()
 {
 	for (auto& view : m_resourceViews)
-		if (view && view->ImageView) vkDestroyImageView(m_device, view->ImageView, nullptr);
+		if (view && (view->Type == ResourceViewType::RTV || view->Type == ResourceViewType::DSV) &&
+			view->Target.Rendering.imageView)
+			vkDestroyImageView(m_device, view->Target.Rendering.imageView, nullptr);
 
 	if (m_pDataBegin) vkUnmapMemory(m_device, m_memory);
-	if (m_buffer) UnregisterBuffer(m_buffer);
 	if (m_ownsImage && m_image) vkDestroyImage(m_device, m_image, nullptr);
 	if (m_ownsBuffer && m_buffer) vkDestroyBuffer(m_device, m_buffer, nullptr);
+	releaseSparseMetadata();
 	if (m_ownsMemory && m_memory) vkFreeMemory(m_device, m_memory, nullptr);
 }
 
@@ -350,13 +438,690 @@ void Resource_VK::GetTiling(uint32_t* pTotalNumTiles, PackedMipInfo* pPackedMipI
 	TileShape* pStandardTileShapeForNonPackedMips, uint32_t* pNumSubresourceTilings,
 	uint32_t firstSubresourceTiling, SubresourceTiling* pSubresourceTilingsForNonPackedMips) const
 {
-	assert(!"GetTiling is not implemented on Vulkan");
-	(void)firstSubresourceTiling;
-	if (pTotalNumTiles) *pTotalNumTiles = 0;
-	if (pPackedMipInfo) *pPackedMipInfo = {};
-	if (pStandardTileShapeForNonPackedMips) *pStandardTileShapeForNonPackedMips = {};
-	if (pNumSubresourceTilings) *pNumSubresourceTilings = 0;
-	if (pSubresourceTilingsForNonPackedMips) *pSubresourceTilingsForNonPackedMips = {};
+	ensureTiling();
+	if (pTotalNumTiles) *pTotalNumTiles = m_totalTiles;
+	if (pPackedMipInfo) *pPackedMipInfo = m_packed;
+	if (pStandardTileShapeForNonPackedMips) *pStandardTileShapeForNonPackedMips = m_tileShape;
+
+	const auto count = static_cast<uint32_t>(m_nonPacked.size());
+	if (!pSubresourceTilingsForNonPackedMips)
+	{
+		if (pNumSubresourceTilings) *pNumSubresourceTilings = count;
+
+		return;
+	}
+
+	if (firstSubresourceTiling >= count)
+	{
+		*pSubresourceTilingsForNonPackedMips = {};
+		if (pNumSubresourceTilings) *pNumSubresourceTilings = 0;
+
+		return;
+	}
+
+	const auto& item = m_subresources[m_nonPacked[firstSubresourceTiling]];
+	pSubresourceTilingsForNonPackedMips->WidthInTiles = item.WidthInTiles;
+	pSubresourceTilingsForNonPackedMips->HeightInTiles = static_cast<uint16_t>(item.HeightInTiles);
+	pSubresourceTilingsForNonPackedMips->DepthInTiles = static_cast<uint16_t>(item.DepthInTiles);
+	pSubresourceTilingsForNonPackedMips->StartTileIndexInOverallResource = item.StartTile;
+	if (pNumSubresourceTilings) *pNumSubresourceTilings = 1;
+}
+
+bool Resource_VK::IsSparse() const
+{
+	return m_sparse;
+}
+
+bool Resource_VK::ImageTileCopy(const TiledResourceCoord& coord, const TileRegionSize& region, uint32_t index,
+	VkDeviceSize bufferOffset, VkBufferImageCopy& copy) const
+{
+	uint32_t tile = 0;
+	if (!tileIndex(coord, region, index, tile) || tile >= m_tiles.size()) return false;
+
+	const auto& info = m_tiles[tile];
+	if (info.Opaque) return false;
+
+	copy = {};
+	copy.bufferOffset = bufferOffset + TileBytes * index;
+	copy.bufferRowLength = m_tileShape.WidthInTexels;
+	copy.bufferImageHeight = m_tileShape.HeightInTexels;
+	copy.imageSubresource.aspectMask = info.Subresource.aspectMask;
+	copy.imageSubresource.mipLevel = info.Subresource.mipLevel;
+	copy.imageSubresource.baseArrayLayer = info.Subresource.arrayLayer;
+	copy.imageSubresource.layerCount = 1;
+	copy.imageOffset = info.Offset;
+	copy.imageExtent = info.Extent;
+
+	return copy.imageExtent.width && copy.imageExtent.height && copy.imageExtent.depth;
+}
+
+bool Resource_VK::BufferTileCopy(uint32_t startTile, uint32_t numTiles, VkDeviceSize& offset, VkDeviceSize& size) const
+{
+	ensureTiling();
+	if (!numTiles || m_tiles.empty() || startTile >= m_tiles.size()) return false;
+	if (startTile + numTiles > m_tiles.size()) return false;
+
+	const auto& first = m_tiles[startTile];
+	const auto& last = m_tiles[startTile + numTiles - 1];
+	offset = first.ResourceOffset;
+	size = last.ResourceOffset + last.Size - first.ResourceOffset;
+
+	return size > 0;
+}
+
+void Resource_VK::BindTileMappings(VkQueue queue, uint32_t numResourceRegions,
+	const TiledResourceCoord* pResourceRegionStartCoords, const TileRegionSize* pResourceRegionSizes,
+	Heap* pHeap, uint32_t numHeapRanges, const TileRangeFlag* pHeapRangeFlags,
+	const uint32_t* pHeapRangeStartOffsets, const uint32_t* pHeapRangeTileCounts)
+{
+	ensureTiling();
+	assert(m_sparse);
+	if (!m_sparse || !m_totalTiles || !numHeapRanges) return;
+	assert(pHeapRangeFlags);
+	if (!pHeapRangeFlags) return;
+
+	const auto heap = pHeap ? static_cast<const Heap_VK*>(pHeap->GetHandle()) : nullptr;
+	TiledResourceCoord whole = {};
+	TileRegionSize wholeRegion = {};
+	wholeRegion.NumTiles = m_totalTiles;
+	if (!numResourceRegions)
+	{
+		numResourceRegions = 1;
+		pResourceRegionStartCoords = &whole;
+		pResourceRegionSizes = &wholeRegion;
+	}
+
+	auto regionTile = 0u;
+	auto regionIndex = 0u;
+	auto rangeTile = 0u;
+	auto rangeIndex = 0u;
+	auto rangeCount = ~0u;
+	auto rangeOffset = 0u;
+	auto rangeFlags = TileRangeFlag::NONE;
+	vector<SparseTileBind> binds;
+	while (regionIndex < numResourceRegions && rangeIndex < numHeapRanges)
+	{
+		if (!rangeTile)
+		{
+			rangeFlags = pHeapRangeFlags[rangeIndex];
+			rangeCount = pHeapRangeTileCounts ? pHeapRangeTileCounts[rangeIndex] : ~0u;
+			rangeOffset = pHeapRangeStartOffsets ? pHeapRangeStartOffsets[rangeIndex] : 0u;
+			if (!pHeapRangeTileCounts && numHeapRanges != 1)
+			{
+				assert(!"pHeapRangeTileCounts is null");
+				return;
+			}
+		}
+
+		const auto coord = pResourceRegionStartCoords ? pResourceRegionStartCoords[regionIndex] : whole;
+		TileRegionSize fallback = {};
+		fallback.NumTiles = pResourceRegionStartCoords ? 1u : m_totalTiles;
+		const auto region = pResourceRegionSizes ? pResourceRegionSizes[regionIndex] : fallback;
+		if (!rangeCount)
+		{
+			++rangeIndex;
+			rangeTile = 0;
+			continue;
+		}
+		if (!region.NumTiles)
+		{
+			++regionIndex;
+			regionTile = 0;
+			continue;
+		}
+
+		const auto skip = (rangeFlags & TileRangeFlag::SKIP) == TileRangeFlag::SKIP;
+		const auto nullRange = (rangeFlags & TileRangeFlag::NULL_RANGE) == TileRangeFlag::NULL_RANGE;
+		const auto reuse = (rangeFlags & TileRangeFlag::REUSE_SINGLE_TILE) == TileRangeFlag::REUSE_SINGLE_TILE;
+		if (!skip)
+		{
+			uint32_t tile = 0;
+			if (tileIndex(coord, region, regionTile, tile))
+			{
+				SparseTileBind bind = {};
+				bind.Tile = tile;
+				if (!nullRange)
+				{
+					assert(heap);
+					if (!heap) return;
+					if (reuse)
+					{
+						assert(m_pDevice && m_pDevice->SupportsSparseAliased());
+						if (!m_pDevice || !m_pDevice->SupportsSparseAliased()) return;
+					}
+
+					const auto tileOffset = static_cast<VkDeviceSize>(reuse ? rangeOffset : rangeOffset + rangeTile) * TileBytes;
+					if (heap->GetSize() && tileOffset + TileBytes > heap->GetSize())
+					{
+						assert(!"Tile heap offset is outside the heap");
+						return;
+					}
+					if (m_sparseTypeBits && (m_sparseTypeBits & (1u << heap->GetMemoryType())) == 0)
+					{
+						assert(!"Tile heap memory type is incompatible with the sparse resource");
+						return;
+					}
+
+					bind.Memory = heap->GetMemory();
+					bind.Offset = tileOffset;
+				}
+				binds.push_back(bind);
+			}
+			else assert(!"Tile coordinate is outside the resource");
+		}
+
+		if (++rangeTile == rangeCount)
+		{
+			++rangeIndex;
+			rangeTile = 0;
+		}
+		if (++regionTile == region.NumTiles)
+		{
+			++regionIndex;
+			regionTile = 0;
+		}
+	}
+
+	bindTiles(queue, binds);
+}
+
+void Resource_VK::CopyBoundTiles(VkQueue queue, const TiledResourceCoord& dstCoord, const Resource_VK* pSrc,
+	const TiledResourceCoord& srcCoord, const TileRegionSize& region)
+{
+	assert(pSrc);
+	assert(m_sparse && pSrc->m_sparse);
+	if (!pSrc || !m_sparse || !pSrc->m_sparse) return;
+
+	vector<SparseTileBind> binds;
+	binds.reserve(region.NumTiles);
+	for (auto i = 0u; i < region.NumTiles; ++i)
+	{
+		uint32_t dstTile = 0;
+		uint32_t srcTile = 0;
+		if (!tileIndex(dstCoord, region, i, dstTile) || !pSrc->tileIndex(srcCoord, region, i, srcTile) ||
+			srcTile >= pSrc->m_tiles.size())
+		{
+			assert(!"CopyTileMappings coordinate is outside the resource");
+			return;
+		}
+
+		SparseTileBind bind = {};
+		bind.Tile = dstTile;
+		bind.Memory = pSrc->m_tiles[srcTile].Memory;
+		bind.Offset = pSrc->m_tiles[srcTile].MemoryOffset;
+		binds.push_back(bind);
+	}
+
+	bindTiles(queue, binds);
+}
+
+void Resource_VK::releaseSparseMetadata()
+{
+	if (m_metadata && m_device) vkFreeMemory(m_device, m_metadata, nullptr);
+	m_metadata = VK_NULL_HANDLE;
+}
+
+bool Resource_VK::finishSparseImage()
+{
+	uint32_t count = 0;
+	vkGetImageSparseMemoryRequirements(m_device, m_image, &count, nullptr);
+	assert(count);
+	if (!count) return false;
+
+	vector<VkSparseImageMemoryRequirements> requirements(count);
+	vkGetImageSparseMemoryRequirements(m_device, m_image, &count, requirements.data());
+
+	VkMemoryRequirements memory = {};
+	vkGetImageMemoryRequirements(m_device, m_image, &memory);
+	m_sparseTypeBits = memory.memoryTypeBits;
+
+	vector<VkSparseMemoryBind> metadataBinds;
+	VkDeviceSize metadataSize = 0;
+	m_hasSparseInfo = false;
+	for (const auto& requirement : requirements)
+	{
+		const auto aspect = requirement.formatProperties.aspectMask;
+		const auto layers = (requirement.formatProperties.flags & VK_SPARSE_IMAGE_FORMAT_SINGLE_MIPTAIL_BIT) || m_is3D ?
+			1u : m_depthOrArray;
+		if ((aspect & VK_IMAGE_ASPECT_METADATA_BIT) != 0)
+		{
+			for (auto layer = 0u; layer < layers; ++layer)
+			{
+				if (!requirement.imageMipTailSize) continue;
+
+				VkSparseMemoryBind bind = {};
+				bind.resourceOffset = requirement.imageMipTailOffset + requirement.imageMipTailStride * layer;
+				bind.size = requirement.imageMipTailSize;
+				bind.memoryOffset = metadataSize;
+				bind.flags = VK_SPARSE_MEMORY_BIND_METADATA_BIT;
+				metadataBinds.push_back(bind);
+				metadataSize += requirement.imageMipTailSize;
+			}
+			continue;
+		}
+
+		const auto prefer = (aspect & (VK_IMAGE_ASPECT_COLOR_BIT | VK_IMAGE_ASPECT_DEPTH_BIT)) != 0;
+		if (!m_hasSparseInfo || prefer)
+		{
+			m_sparseInfo = requirement;
+			m_hasSparseInfo = true;
+		}
+	}
+	assert(m_hasSparseInfo);
+	if (!m_hasSparseInfo) return false;
+
+	if (metadataSize)
+	{
+		auto typeIndex = m_pDevice->FindMemoryType(memory.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		if (typeIndex == UINT32_MAX) typeIndex = m_pDevice->FindMemoryType(memory.memoryTypeBits, 0);
+		assert(typeIndex != UINT32_MAX);
+		if (typeIndex == UINT32_MAX) return false;
+
+		VkMemoryAllocateInfo alloc = {};
+		alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		alloc.allocationSize = metadataSize;
+		alloc.memoryTypeIndex = typeIndex;
+		XUSG_VK_CHECK(vkAllocateMemory(m_device, &alloc, nullptr, &m_metadata), cerr, false);
+		for (auto& bind : metadataBinds) bind.memory = m_metadata;
+
+		VkQueue queue = VK_NULL_HANDLE;
+		assert(m_pDevice->GetSparseQueue(queue));
+		if (!m_pDevice->GetSparseQueue(queue)) return false;
+
+		VkSparseImageOpaqueMemoryBindInfo opaque = {};
+		opaque.image = m_image;
+		opaque.bindCount = static_cast<uint32_t>(metadataBinds.size());
+		opaque.pBinds = metadataBinds.data();
+		VkBindSparseInfo info = {};
+		info.sType = VK_STRUCTURE_TYPE_BIND_SPARSE_INFO;
+		info.imageOpaqueBindCount = 1;
+		info.pImageOpaqueBinds = &opaque;
+		if (!m_pDevice->QueueSparseBind(queue, info)) return false;
+	}
+
+	return true;
+}
+
+void Resource_VK::ensureTiling() const
+{
+	if (m_tilingReady) return;
+
+	m_tilingReady = true;
+	m_totalTiles = 0;
+	m_singleMipTail = false;
+	m_packed = {};
+	m_tileShape = {};
+	m_subresources.clear();
+	m_nonPacked.clear();
+	m_tiles.clear();
+
+	auto mipDims = [&](uint32_t mip, uint32_t& width, uint32_t& height, uint32_t& depth)
+	{
+		width = static_cast<uint32_t>((max)(m_width >> mip, 1ull));
+		height = (max)(m_height >> mip, 1u);
+		depth = m_is3D ? (max)(m_depthOrArray >> mip, 1u) : 1u;
+	};
+
+	if (!m_isImage)
+	{
+		const auto bytes = m_byteSize ? m_byteSize : m_width;
+		m_totalTiles = static_cast<uint32_t>(XUSG_DIV_UP(bytes, TileBytes));
+		m_tileShape.WidthInTexels = static_cast<uint32_t>(TileBytes);
+		m_tileShape.HeightInTexels = 1;
+		m_tileShape.DepthInTexels = 1;
+		TileSubresource subresource = {};
+		subresource.WidthInTiles = m_totalTiles;
+		subresource.HeightInTiles = 1;
+		subresource.DepthInTiles = 1;
+		m_subresources.push_back(subresource);
+		m_nonPacked.push_back(0);
+		if (!m_sparse) return;
+
+		m_tiles.resize(m_totalTiles);
+		for (auto i = 0u; i < m_totalTiles; ++i)
+		{
+			m_tiles[i] = {};
+			m_tiles[i].Opaque = true;
+			m_tiles[i].ResourceOffset = TileBytes * i;
+			m_tiles[i].Size = TileBytes;
+		}
+
+		return;
+	}
+
+	const auto layers = m_is3D ? 1u : (max)(m_depthOrArray, 1u);
+	uint32_t tileW = 1;
+	uint32_t tileH = 1;
+	uint32_t tileD = 1;
+	uint32_t standardMips = m_mipLevels;
+	uint32_t packedTiles = 0;
+	if (m_sparse && m_hasSparseInfo)
+	{
+		const auto granularity = m_sparseInfo.formatProperties.imageGranularity;
+		tileW = granularity.width ? granularity.width : 1u;
+		tileH = granularity.height ? granularity.height : 1u;
+		tileD = granularity.depth ? granularity.depth : 1u;
+		standardMips = m_sparseInfo.imageMipTailSize ? (min)(m_mipLevels, m_sparseInfo.imageMipTailFirstLod) : m_mipLevels;
+		const auto tailTiles = m_sparseInfo.imageMipTailSize ?
+			static_cast<uint32_t>(XUSG_DIV_UP(m_sparseInfo.imageMipTailSize, TileBytes)) : 0u;
+		m_singleMipTail = (m_sparseInfo.formatProperties.flags & VK_SPARSE_IMAGE_FORMAT_SINGLE_MIPTAIL_BIT) != 0;
+		if (standardMips < m_mipLevels)
+			packedTiles = m_singleMipTail || m_is3D ? tailTiles : tailTiles * layers;
+	}
+	else
+	{
+		StandardTileTexels(m_resourceFormat, m_is3D, m_sampleCount, tileW, tileH, tileD);
+		for (auto mip = 0u; mip < m_mipLevels; ++mip)
+		{
+			uint32_t width = 1;
+			uint32_t height = 1;
+			uint32_t depth = 1;
+			mipDims(mip, width, height, depth);
+			if (width < tileW || height < tileH || depth < tileD)
+			{
+				standardMips = mip;
+				break;
+			}
+		}
+		uint64_t bytes = 0;
+		for (auto mip = standardMips; mip < m_mipLevels; ++mip)
+		{
+			uint32_t width = 1;
+			uint32_t height = 1;
+			uint32_t depth = 1;
+			mipDims(mip, width, height, depth);
+			bytes += MipByteSize(m_resourceFormat, width, height, depth);
+		}
+		if (!m_is3D) bytes *= layers;
+		packedTiles = static_cast<uint32_t>(XUSG_DIV_UP(bytes, TileBytes));
+	}
+
+	m_tileShape.WidthInTexels = tileW;
+	m_tileShape.HeightInTexels = tileH;
+	m_tileShape.DepthInTexels = tileD;
+	m_subresources.assign(static_cast<size_t>(layers) * m_mipLevels, {});
+	auto cursor = 0u;
+	for (auto layer = 0u; layer < layers; ++layer)
+	{
+		for (auto mip = 0u; mip < m_mipLevels; ++mip)
+		{
+			const auto subresource = mip + layer * m_mipLevels;
+			auto& item = m_subresources[subresource];
+			if (mip >= standardMips)
+			{
+				item.Packed = true;
+				item.StartTile = UINT32_MAX;
+				continue;
+			}
+
+			uint32_t width = 1;
+			uint32_t height = 1;
+			uint32_t depth = 1;
+			mipDims(mip, width, height, depth);
+			item.WidthInTiles = XUSG_DIV_UP(width, tileW);
+			item.HeightInTiles = XUSG_DIV_UP(height, tileH);
+			item.DepthInTiles = XUSG_DIV_UP(depth, tileD);
+			item.StartTile = cursor;
+			cursor += item.WidthInTiles * item.HeightInTiles * item.DepthInTiles;
+			m_nonPacked.push_back(subresource);
+		}
+	}
+
+	m_packed.NumStandardMips = static_cast<uint8_t>((min)(standardMips, 255u));
+	m_packed.NumPackedMips = static_cast<uint8_t>((min)(m_mipLevels - standardMips, 255u));
+	m_packed.NumTilesForPackedMips = packedTiles;
+	m_packed.StartTileIndexInOverallResource = packedTiles ? cursor : 0u;
+	m_totalTiles = cursor + packedTiles;
+	if (!m_sparse) return;
+
+	m_tiles.resize(m_totalTiles);
+	auto subresource = 0u;
+	auto tileX = 0;
+	auto tileY = 0;
+	auto tileZ = 0;
+	for (auto i = 0u; i < m_totalTiles; ++i)
+	{
+		auto& tile = m_tiles[i];
+		tile = {};
+		if (m_packed.NumPackedMips && i >= m_packed.StartTileIndexInOverallResource)
+		{
+			auto packedIndex = i - m_packed.StartTileIndexInOverallResource;
+			auto layer = 0u;
+			if (m_hasSparseInfo && !m_singleMipTail && !m_is3D)
+			{
+				const auto perLayer = (max)(static_cast<uint32_t>(XUSG_DIV_UP(m_sparseInfo.imageMipTailSize, TileBytes)), 1u);
+				layer = packedIndex / perLayer;
+				packedIndex %= perLayer;
+			}
+			const auto byteOffset = TileBytes * packedIndex;
+			tile.Opaque = true;
+			if (m_hasSparseInfo)
+			{
+				tile.ResourceOffset = m_sparseInfo.imageMipTailOffset + m_sparseInfo.imageMipTailStride * layer + byteOffset;
+				tile.Size = byteOffset < m_sparseInfo.imageMipTailSize ?
+					(min)(TileBytes, m_sparseInfo.imageMipTailSize - byteOffset) : TileBytes;
+			}
+			else
+			{
+				tile.ResourceOffset = byteOffset;
+				tile.Size = TileBytes;
+			}
+			continue;
+		}
+
+		while (subresource < m_subresources.size() && m_subresources[subresource].Packed) ++subresource;
+		if (subresource >= m_subresources.size()) break;
+
+		const auto& item = m_subresources[subresource];
+		const auto mip = m_mipLevels ? subresource % m_mipLevels : 0u;
+		const auto layer = m_mipLevels ? subresource / m_mipLevels : 0u;
+		uint32_t width = 1;
+		uint32_t height = 1;
+		uint32_t depth = 1;
+		mipDims(mip, width, height, depth);
+		tile.SubresourceIndex = subresource;
+		tile.Subresource.aspectMask = m_hasSparseInfo ? m_sparseInfo.formatProperties.aspectMask : VK_IMAGE_ASPECT_COLOR_BIT;
+		tile.Subresource.mipLevel = mip;
+		tile.Subresource.arrayLayer = m_is3D ? 0u : layer;
+		tile.Offset.x = tileX * static_cast<int32_t>(tileW);
+		tile.Offset.y = tileY * static_cast<int32_t>(tileH);
+		tile.Offset.z = tileZ * static_cast<int32_t>(tileD);
+		tile.Extent.width = (min)(tileW, width - static_cast<uint32_t>(tile.Offset.x));
+		tile.Extent.height = (min)(tileH, height - static_cast<uint32_t>(tile.Offset.y));
+		tile.Extent.depth = (min)(tileD, depth - static_cast<uint32_t>(tile.Offset.z));
+		tile.Size = TileBytes;
+
+		if (++tileX == static_cast<int32_t>(item.WidthInTiles))
+		{
+			tileX = 0;
+			if (++tileY == static_cast<int32_t>(item.HeightInTiles))
+			{
+				tileY = 0;
+				if (++tileZ == static_cast<int32_t>(item.DepthInTiles))
+				{
+					tileZ = 0;
+					++subresource;
+				}
+			}
+		}
+	}
+}
+
+bool Resource_VK::tileIndex(const TiledResourceCoord& coord, const TileRegionSize& region, uint32_t indexInRegion,
+	uint32_t& tile) const
+{
+	ensureTiling();
+	if (coord.Subresource >= m_subresources.size()) return false;
+
+	const auto& subresource = m_subresources[coord.Subresource];
+	if (!region.UseBox)
+	{
+		const auto base = subresource.Packed ? m_packed.StartTileIndexInOverallResource + coord.X :
+			subresource.StartTile + coord.X + subresource.WidthInTiles * (coord.Y + subresource.HeightInTiles * coord.Z);
+		tile = base + indexInRegion;
+
+		return tile < m_totalTiles;
+	}
+
+	if (subresource.Packed || !region.Width || !region.Height || !region.Depth) return false;
+
+	const auto slice = static_cast<uint64_t>(region.Width) * region.Height;
+	const auto x = coord.X + indexInRegion % region.Width;
+	const auto y = coord.Y + (indexInRegion / region.Width) % region.Height;
+	const auto z = coord.Z + static_cast<uint32_t>(indexInRegion / slice);
+	if (x >= subresource.WidthInTiles || y >= subresource.HeightInTiles || z >= subresource.DepthInTiles) return false;
+
+	tile = subresource.StartTile + x + subresource.WidthInTiles * (y + subresource.HeightInTiles * z);
+
+	return tile < m_totalTiles;
+}
+
+void Resource_VK::bindTiles(VkQueue queue, const vector<SparseTileBind>& binds)
+{
+	if (binds.empty()) return;
+
+	ensureTiling();
+	vector<uint32_t> slot(m_totalTiles, UINT32_MAX);
+	vector<SparseTileBind> unique;
+	unique.reserve(binds.size());
+	for (const auto& bind : binds)
+	{
+		if (bind.Tile >= m_totalTiles)
+		{
+			assert(!"Sparse tile index is outside the resource");
+			continue;
+		}
+		if (slot[bind.Tile] == UINT32_MAX)
+		{
+			slot[bind.Tile] = static_cast<uint32_t>(unique.size());
+			unique.push_back(bind);
+		}
+		else unique[slot[bind.Tile]] = bind;
+	}
+
+	vector<SparseTileBind> ordered;
+	ordered.reserve(unique.size());
+	for (auto tile = 0u; tile < m_totalTiles; ++tile)
+		if (slot[tile] != UINT32_MAX) ordered.push_back(unique[slot[tile]]);
+	if (ordered.empty()) return;
+
+	vector<VkSparseMemoryBind> bufferBinds;
+	vector<VkSparseImageMemoryBind> imageBinds;
+	vector<VkSparseMemoryBind> opaqueBinds;
+	auto emit = [&](uint32_t begin, uint32_t end)
+	{
+		const auto& first = ordered[begin];
+		const auto& firstTile = m_tiles[first.Tile];
+		const auto& lastTile = m_tiles[ordered[end - 1].Tile];
+		if (!m_isImage || firstTile.Opaque)
+		{
+			VkSparseMemoryBind memory = {};
+			memory.resourceOffset = firstTile.ResourceOffset;
+			memory.size = lastTile.ResourceOffset + lastTile.Size - firstTile.ResourceOffset;
+			memory.memory = first.Memory;
+			memory.memoryOffset = first.Offset;
+			if (m_isImage) opaqueBinds.push_back(memory);
+			else bufferBinds.push_back(memory);
+
+			return;
+		}
+
+		auto index = begin;
+		while (index < end)
+		{
+			const auto& tile = m_tiles[ordered[index].Tile];
+			const auto& subresource = m_subresources[tile.SubresourceIndex];
+			const auto subTiles = subresource.WidthInTiles * subresource.HeightInTiles * subresource.DepthInTiles;
+			auto covers = subTiles && ordered[index].Tile == subresource.StartTile && end - index >= subTiles;
+			if (covers)
+			{
+				for (auto t = 0u; t < subTiles; ++t)
+					if (ordered[index + t].Tile != subresource.StartTile + t) covers = false;
+			}
+			if (covers)
+			{
+				const auto& last = m_tiles[ordered[index + subTiles - 1].Tile];
+				VkSparseImageMemoryBind image = {};
+				image.subresource = tile.Subresource;
+				image.offset = tile.Offset;
+				image.extent.width = static_cast<uint32_t>(last.Offset.x) + last.Extent.width;
+				image.extent.height = static_cast<uint32_t>(last.Offset.y) + last.Extent.height;
+				image.extent.depth = static_cast<uint32_t>(last.Offset.z) + last.Extent.depth;
+				image.memory = ordered[index].Memory;
+				image.memoryOffset = ordered[index].Offset;
+				imageBinds.push_back(image);
+				index += subTiles;
+			}
+			else
+			{
+				VkSparseImageMemoryBind image = {};
+				image.subresource = tile.Subresource;
+				image.offset = tile.Offset;
+				image.extent = tile.Extent;
+				image.memory = ordered[index].Memory;
+				image.memoryOffset = ordered[index].Offset;
+				imageBinds.push_back(image);
+				++index;
+			}
+		}
+	};
+
+	auto run = 0u;
+	for (auto i = 1u; i <= ordered.size(); ++i)
+	{
+		auto split = i == ordered.size();
+		if (!split)
+		{
+			const auto& previous = ordered[i - 1];
+			const auto& next = ordered[i];
+			const auto contiguous = next.Tile == previous.Tile + 1 && next.Memory == previous.Memory &&
+				m_tiles[next.Tile].Opaque == m_tiles[previous.Tile].Opaque &&
+				(next.Memory == VK_NULL_HANDLE || next.Offset == previous.Offset + TileBytes);
+			split = !contiguous;
+		}
+		if (!split) continue;
+
+		emit(run, i);
+		run = i;
+	}
+
+	VkSparseBufferMemoryBindInfo bufferInfo = {};
+	bufferInfo.buffer = m_buffer;
+	bufferInfo.bindCount = static_cast<uint32_t>(bufferBinds.size());
+	bufferInfo.pBinds = bufferBinds.data();
+	VkSparseImageMemoryBindInfo imageInfo = {};
+	imageInfo.image = m_image;
+	imageInfo.bindCount = static_cast<uint32_t>(imageBinds.size());
+	imageInfo.pBinds = imageBinds.data();
+	VkSparseImageOpaqueMemoryBindInfo opaqueInfo = {};
+	opaqueInfo.image = m_image;
+	opaqueInfo.bindCount = static_cast<uint32_t>(opaqueBinds.size());
+	opaqueInfo.pBinds = opaqueBinds.data();
+	VkBindSparseInfo info = {};
+	info.sType = VK_STRUCTURE_TYPE_BIND_SPARSE_INFO;
+	if (bufferInfo.bindCount)
+	{
+		info.bufferBindCount = 1;
+		info.pBufferBinds = &bufferInfo;
+	}
+	if (imageInfo.bindCount)
+	{
+		info.imageBindCount = 1;
+		info.pImageBinds = &imageInfo;
+	}
+	if (opaqueInfo.bindCount)
+	{
+		info.imageOpaqueBindCount = 1;
+		info.pImageOpaqueBinds = &opaqueInfo;
+	}
+	if (!info.bufferBindCount && !info.imageBindCount && !info.imageOpaqueBindCount) return;
+	if (!m_pDevice || !m_pDevice->QueueSparseBind(queue, info)) return;
+
+	for (const auto& bind : ordered)
+	{
+		m_tiles[bind.Tile].Memory = bind.Memory;
+		m_tiles[bind.Tile].MemoryOffset = bind.Offset;
+	}
 }
 
 void Resource_VK::Create(void* pDeviceHandle, void* pResourceHandle, const wchar_t* name, uint32_t maxThreads)
@@ -366,6 +1131,8 @@ void Resource_VK::Create(void* pDeviceHandle, void* pResourceHandle, const wchar
 	m_isImage = true;
 	m_ownsImage = false;
 	m_undefined.assign(1, 1);
+	m_discarded.clear();
+	m_pendingLayout = 1;
 	setState(ResourceState::COMMON, 1, maxThreads);
 	SetName(name);
 }
@@ -382,9 +1149,9 @@ void Resource_VK::SetName(const wchar_t* name)
 	}
 }
 
-void* Resource_VK::GetHandle() const
+void* Resource_VK::GetHandle()
 {
-	return m_isImage ? static_cast<void*>(m_image) : static_cast<void*>(m_buffer);
+	return this;
 }
 
 bool Resource_VK::Is3D() const
@@ -439,12 +1206,41 @@ void Resource_VK::WrapImage(VkDevice device, VkImage image, VkFormat format, uin
 	m_isImage = true;
 	m_ownsImage = false;
 	m_undefined.assign(1, 1);
+	m_discarded.clear();
+	m_pendingLayout = 1;
 	m_vkFormat = format;
 	m_width = width;
 	m_height = height;
 	m_depthOrArray = 1;
 	m_mipLevels = 1;
+	m_presentable = true;
 	setState(ResourceState::COMMON, 1, 1);
+}
+
+VkImageLayout Resource_VK::ImageLayout(ResourceState state) const
+{
+	// PRESENT aliases COMMON. Swapchain images must use the present layout;
+	// every other image keeps GENERAL for that state.
+	if (m_presentable && state == ResourceState::COMMON)
+		return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+	const auto layout = GetVKImageLayout(state);
+	if (layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+	{
+		switch (m_vkFormat)
+		{
+		case VK_FORMAT_D16_UNORM:
+		case VK_FORMAT_D16_UNORM_S8_UINT:
+		case VK_FORMAT_D24_UNORM_S8_UINT:
+		case VK_FORMAT_D32_SFLOAT:
+		case VK_FORMAT_D32_SFLOAT_S8_UINT:
+			return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+		default:
+			break;
+		}
+	}
+
+	return layout;
 }
 
 uint64_t Resource_VK::GetByteSize() const
@@ -464,8 +1260,10 @@ bool Resource_VK::needsUndefinedLayout(uint32_t subresource) const
 
 void Resource_VK::consumeLayoutMark(uint32_t subresource)
 {
+	const auto pending = needsUndefinedLayout(subresource);
 	consumeDiscarded(subresource);
 	if (subresource < m_undefined.size()) m_undefined[subresource] = 0;
+	if (pending && m_pendingLayout) --m_pendingLayout;
 }
 
 uint32_t Resource_VK::subresourceCount() const
@@ -490,7 +1288,11 @@ bool Resource_VK::isDiscarded(uint32_t subresource) const
 
 void Resource_VK::consumeDiscarded(uint32_t subresource)
 {
-	if (subresource < m_discarded.size()) m_discarded[subresource] = 0;
+	if (subresource < m_discarded.size() && m_discarded[subresource])
+	{
+		m_discarded[subresource] = 0;
+		if (m_discardCount) --m_discardCount;
+	}
 }
 
 void Resource_VK::discardRange(const VkImageSubresourceRange& range, uint32_t& baseMip, uint32_t& mipCount,
@@ -519,11 +1321,36 @@ void Resource_VK::Discard(uint32_t firstSubresource, uint32_t numSubresources)
 	if (firstSubresource >= count) return;
 	numSubresources = (min)(numSubresources, count - firstSubresource);
 	if (m_discarded.size() < count) m_discarded.resize(count);
-	for (auto i = 0u; i < numSubresources; ++i) m_discarded[firstSubresource + i] = 1;
+	for (auto i = 0u; i < numSubresources; ++i)
+	{
+		const auto index = firstSubresource + i;
+		const auto pending = needsUndefinedLayout(index);
+		if (!m_discarded[index])
+		{
+			m_discarded[index] = 1;
+			++m_discardCount;
+		}
+		if (!pending) ++m_pendingLayout;
+	}
+}
+
+bool Resource_VK::HasPendingDiscard() const
+{
+	return m_discardCount != 0;
+}
+
+VkAttachmentLoadOp Resource_VK::ConsumeDiscardLoadOp(uint32_t subresource)
+{
+	if (!isDiscarded(subresource)) return VK_ATTACHMENT_LOAD_OP_LOAD;
+
+	consumeDiscarded(subresource);
+
+	return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 }
 
 VkAttachmentLoadOp Resource_VK::ConsumeDiscardLoadOp(uint32_t baseMip, uint32_t mipCount, uint32_t baseLayer, uint32_t layerCount)
 {
+	if (!m_discardCount) return VK_ATTACHMENT_LOAD_OP_LOAD;
 	if (!mipCount) mipCount = 1;
 	if (!layerCount) layerCount = 1;
 	if (m_is3D)
@@ -552,8 +1379,14 @@ VkAttachmentLoadOp Resource_VK::ConsumeDiscardLoadOp(uint32_t baseMip, uint32_t 
 	return all ? VK_ATTACHMENT_LOAD_OP_DONT_CARE : VK_ATTACHMENT_LOAD_OP_LOAD;
 }
 
-void Resource_VK::AppendImageBarrier(VkImageMemoryBarrier2 image, std::vector<VkImageMemoryBarrier2>& barriers)
+void Resource_VK::AppendImageBarrier(VkImageMemoryBarrier2 image, vector<VkImageMemoryBarrier2>& barriers)
 {
+	if (!m_pendingLayout && image.oldLayout != VK_IMAGE_LAYOUT_UNDEFINED)
+	{
+		barriers.push_back(image);
+		return;
+	}
+
 	uint32_t baseMip = 0, mipCount = 0, baseLayer = 0, layerCount = 0;
 	discardRange(image.subresourceRange, baseMip, mipCount, baseLayer, layerCount);
 	auto any = false;
@@ -605,10 +1438,10 @@ void Resource_VK::AppendImageBarrier(VkImageMemoryBarrier2 image, std::vector<Vk
 	}
 }
 
-bool Resource_VK::CreateUploadBuffer(const Device* pDevice, size_t byteSize)
+bool Resource_VK::CreateUploadBuffer(Device* pDevice, size_t byteSize)
 {
-	XUSG_N_RETURN(initialize(pDevice ? pDevice : m_pDevice, 1), false);
-	if (m_buffer && m_byteSize >= byteSize) return true;
+	if (!m_device) XUSG_N_RETURN(initialize(pDevice ? pDevice : m_pDevice, 1), false);
+	if (m_buffer && m_byteSize >= byteSize && m_pDataBegin) return true;
 
 	return createBuffer(nullptr, 0, byteSize, ResourceFlag::NONE, MemoryType::UPLOAD);
 }
@@ -618,12 +1451,12 @@ void* Resource_VK::GetMappedData() const
 	return m_pDataBegin;
 }
 
-bool Resource_VK::initialize(const Device* pDevice, uint32_t maxThreads)
+bool Resource_VK::initialize(Device* pDevice, uint32_t maxThreads)
 {
 	(void)maxThreads;
 	if (!pDevice) return m_device != VK_NULL_HANDLE;
 
-	m_pDevice = dynamic_cast<const Device_VK*>(pDevice);
+	m_pDevice = pDevice ? static_cast<Device_VK*>(pDevice->GetHandle()) : nullptr;
 	assert(m_pDevice);
 	m_device = m_pDevice->GetDevice();
 	m_states.clear();
@@ -664,11 +1497,6 @@ bool Resource_VK::allocateMemory(VkMemoryRequirements requirements, MemoryType m
 		address.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
 		address.buffer = m_buffer;
 		m_address = vkGetBufferDeviceAddress(m_device, &address);
-		BufferNative native = {};
-		native.Buffer = m_buffer;
-		native.Address = m_address;
-		native.Size = m_byteSize;
-		RegisterBuffer(native);
 	}
 
 	if (hostVisible) XUSG_VK_CHECK(vkMapMemory(m_device, m_memory, 0, m_byteSize, 0, &m_pDataBegin), cerr, false);
@@ -682,34 +1510,53 @@ void Resource_VK::setState(ResourceState state, uint32_t subresources, uint32_t 
 	for (auto& states : m_states) states.assign(subresources ? subresources : 1, state);
 }
 
-bool Resource_VK::createBuffer(const Heap* pHeap, uint64_t heapOffset, size_t byteWidth,
-	ResourceFlag resourceFlags, MemoryType memoryType)
+bool Resource_VK::createBuffer(Heap* pHeap, uint64_t heapOffset, size_t byteWidth,
+	ResourceFlag resourceFlags, MemoryType memoryType, bool reserved)
 {
-	if (m_buffer) UnregisterBuffer(m_buffer);
 	if (m_ownsBuffer && m_buffer) vkDestroyBuffer(m_device, m_buffer, nullptr);
+
+	m_sparse = false;
+	m_hasSparseInfo = false;
+	m_tilingReady = false;
+	m_resourceFormat = Format::UNKNOWN;
+	if (reserved)
+	{
+		assert(m_pDevice && m_pDevice->SupportsSparseBuffer());
+		if (!m_pDevice || !m_pDevice->SupportsSparseBuffer()) return false;
+	}
 
 	uint32_t sharingCount = 0;
 	const uint32_t* pSharingFamilies = nullptr;
 	if (m_pDevice) m_pDevice->GetSharingFamilies(sharingCount, pSharingFamilies);
 
+	const auto size = reserved ? XUSG_DIV_UP(static_cast<uint64_t>(byteWidth), TileBytes) * TileBytes : byteWidth;
 	VkBufferCreateInfo info = {};
 	info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	info.size = byteWidth;
+	info.size = size;
 	info.usage = GetVKBufferUsage(resourceFlags);
 	info.sharingMode = sharingCount > 1 ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
 	info.queueFamilyIndexCount = sharingCount;
 	info.pQueueFamilyIndices = pSharingFamilies;
+	if (reserved)
+	{
+		info.flags |= VK_BUFFER_CREATE_SPARSE_BINDING_BIT | VK_BUFFER_CREATE_SPARSE_RESIDENCY_BIT;
+		if (m_pDevice->SupportsSparseAliased()) info.flags |= VK_BUFFER_CREATE_SPARSE_ALIASED_BIT;
+	}
 	if (m_pDevice && m_pDevice->HasConditionalRendering())
 		info.usage |= VK_BUFFER_USAGE_CONDITIONAL_RENDERING_BIT_EXT;
+	if (m_pDevice && m_pDevice->HasTransformFeedback())
+		info.usage |= VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT |
+		VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT;
 	XUSG_VK_CHECK(vkCreateBuffer(m_device, &info, nullptr, &m_buffer), cerr, false);
 	m_ownsBuffer = true;
 	m_isImage = false;
-	m_width = byteWidth;
-	m_byteSize = byteWidth;
+	m_sparse = reserved;
+	m_width = size;
+	m_byteSize = size;
 
 	if (pHeap)
 	{
-		const auto heap = dynamic_cast<const Heap_VK*>(pHeap);
+		const auto heap = static_cast<const Heap_VK*>(pHeap->GetHandle());
 		VkMemoryRequirements requirements = {};
 		vkGetBufferMemoryRequirements(m_device, m_buffer, &requirements);
 		assert((requirements.memoryTypeBits & (1u << heap->GetMemoryType())) &&
@@ -720,11 +1567,14 @@ bool Resource_VK::createBuffer(const Heap* pHeap, uint64_t heapOffset, size_t by
 		address.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
 		address.buffer = m_buffer;
 		m_address = vkGetBufferDeviceAddress(m_device, &address);
-		BufferNative native = {};
-		native.Buffer = m_buffer;
-		native.Address = m_address;
-		native.Size = byteWidth;
-		RegisterBuffer(native);
+	}
+	else if (reserved)
+	{
+		VkMemoryRequirements requirements = {};
+		vkGetBufferMemoryRequirements(m_device, m_buffer, &requirements);
+		m_sparseTypeBits = requirements.memoryTypeBits;
+		m_address = 0;
+		assert(requirements.alignment == 0 || TileBytes % requirements.alignment == 0);
 	}
 	else
 	{
@@ -737,20 +1587,39 @@ bool Resource_VK::createBuffer(const Heap* pHeap, uint64_t heapOffset, size_t by
 	return true;
 }
 
-bool Resource_VK::createImage(const Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
+bool Resource_VK::createImage(Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 	uint32_t depth, Format format, uint16_t arraySize, ResourceFlag resourceFlags, uint8_t numMips,
 	uint8_t sampleCount, MemoryType memoryType, bool is3D, bool cube, uint8_t numCastableFormats,
-	const Format* pCastableFormats)
+	const Format* pCastableFormats, bool reserved)
 {
+	if (m_ownsImage && m_image)
+	{
+		vkDestroyImage(m_device, m_image, nullptr);
+		m_image = VK_NULL_HANDLE;
+		m_ownsImage = false;
+	}
+	releaseSparseMetadata();
+
 	m_is3D = is3D;
 	m_isImage = true;
+	m_sparse = false;
+	m_hasSparseInfo = false;
+	m_tilingReady = false;
+	m_resourceFormat = format;
 	m_width = width;
 	m_height = height;
 	m_depthOrArray = is3D ? depth : arraySize;
 	m_mipLevels = numMips ? numMips : 1;
 	m_sampleCount = sampleCount ? sampleCount : 1;
-	m_vkFormat = GetVKFormat(format);
+	m_vkFormat = GetVKFormat(m_pDevice, format);
+	if (reserved)
+	{
+		assert(m_pDevice && m_pDevice->SupportsSparseImage(is3D, m_sampleCount));
+		if (!m_pDevice || !m_pDevice->SupportsSparseImage(is3D, m_sampleCount)) return false;
+	}
 	m_undefined.assign(subresourceCount(), 1);
+	m_discarded.clear();
+	m_pendingLayout = static_cast<uint32_t>(m_undefined.size());
 
 	vector<VkFormat> viewFormats;
 	VkImageFormatListCreateInfo formatList = {};
@@ -760,7 +1629,7 @@ bool Resource_VK::createImage(const Heap* pHeap, uint64_t heapOffset, uint32_t w
 		viewFormats.push_back(m_vkFormat);
 		for (auto i = 0u; i < numCastableFormats; ++i)
 		{
-			const auto viewFormat = GetVKFormat(pCastableFormats[i]);
+			const auto viewFormat = GetVKFormat(m_pDevice, pCastableFormats[i]);
 			if (viewFormat != VK_FORMAT_UNDEFINED && viewFormat != m_vkFormat) viewFormats.push_back(viewFormat);
 		}
 		if (viewFormats.size() > 1)
@@ -782,6 +1651,13 @@ bool Resource_VK::createImage(const Heap* pHeap, uint64_t heapOffset, uint32_t w
 	info.pQueueFamilyIndices = pSharingFamilies;
 	info.flags = cube ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
 	if (formatList.viewFormatCount) info.flags |= VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
+	if (m_pDevice && m_pDevice->HasSampleLocations() && IsDepthStencilFormat(format))
+		info.flags |= VK_IMAGE_CREATE_SAMPLE_LOCATIONS_COMPATIBLE_DEPTH_BIT_EXT;
+	if (reserved)
+	{
+		info.flags |= VK_IMAGE_CREATE_SPARSE_BINDING_BIT | VK_IMAGE_CREATE_SPARSE_RESIDENCY_BIT;
+		if (m_pDevice->SupportsSparseAliased()) info.flags |= VK_IMAGE_CREATE_SPARSE_ALIASED_BIT;
+	}
 	info.imageType = is3D ? VK_IMAGE_TYPE_3D : VK_IMAGE_TYPE_2D;
 	info.format = m_vkFormat;
 	info.extent = { width, (max)(height, 1u), is3D ? depth : 1u };
@@ -793,10 +1669,13 @@ bool Resource_VK::createImage(const Heap* pHeap, uint64_t heapOffset, uint32_t w
 	info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	XUSG_VK_CHECK(vkCreateImage(m_device, &info, nullptr, &m_image), cerr, false);
 	m_ownsImage = true;
+	m_sparse = reserved;
+
+	if (reserved) return finishSparseImage();
 
 	if (pHeap)
 	{
-		const auto heap = dynamic_cast<const Heap_VK*>(pHeap);
+		const auto heap = static_cast<const Heap_VK*>(pHeap->GetHandle());
 		VkMemoryRequirements requirements = {};
 		vkGetImageMemoryRequirements(m_device, m_image, &requirements);
 		assert((requirements.memoryTypeBits & (1u << heap->GetMemoryType())) &&
@@ -831,6 +1710,8 @@ shared_ptr<ResourceView_VK> Resource_VK::storeView(ResourceViewType type, VkDesc
 }
 
 //--------------------------------------------------------------------------------------
+// Constant buffer
+//--------------------------------------------------------------------------------------
 
 ConstantBuffer_VK::ConstantBuffer_VK()
 {
@@ -840,42 +1721,80 @@ ConstantBuffer_VK::~ConstantBuffer_VK()
 {
 }
 
-bool ConstantBuffer_VK::Create(const Device* pDevice, size_t byteWidth, uint32_t numCBVs,
+bool ConstantBuffer_VK::Create(Device* pDevice, size_t byteWidth, uint32_t numCBVs,
 	const size_t* cbvByteOffsets, MemoryType memoryType, MemoryFlag memoryFlags, const wchar_t* name)
 {
 	(void)memoryFlags;
+	assert(byteWidth);
+	vector<size_t> offsetList;
+	if (!cbvByteOffsets)
+	{
+		// Same placement as the DX12 path: each CBV is 256-byte aligned, which also
+		// satisfies Vulkan minUniformBufferOffsetAlignment on current devices.
+		size_t numBytes = 0;
+		const auto cbvSize = AlignCBV(byteWidth / numCBVs);
+		offsetList.resize(numCBVs);
+		for (auto& offset : offsetList)
+		{
+			offset = numBytes;
+			numBytes += cbvSize;
+		}
+		cbvByteOffsets = offsetList.data();
+		byteWidth = cbvSize * numCBVs;
+	}
+
 	XUSG_N_RETURN(CreateResource(pDevice, byteWidth, memoryType), false);
 	SetName(name);
 	m_cbvs.resize(numCBVs);
 	m_cbvByteOffsets.resize(numCBVs);
+	const auto maxSize = static_cast<uint32_t>(byteWidth);
 	for (auto i = 0u; i < numCBVs; ++i)
 	{
-		const auto offset = cbvByteOffsets ? cbvByteOffsets[i] : AlignCBV(byteWidth) * i;
-		m_cbvByteOffsets[i] = offset;
-		m_cbvs[i] = CreateCBV(static_cast<uint32_t>(byteWidth), offset);
+		const auto byteOffset = cbvByteOffsets[i];
+		const auto byteSize = static_cast<uint32_t>((i + 1 >= numCBVs ? maxSize : cbvByteOffsets[i + 1]) - byteOffset);
+		m_cbvByteOffsets[i] = byteOffset;
+		m_cbvs[i] = CreateCBV(byteSize, byteOffset);
 	}
 
 	return true;
 }
 
-bool ConstantBuffer_VK::Create(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, size_t byteWidth,
+bool ConstantBuffer_VK::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, size_t byteWidth,
 	uint32_t numCBVs, const size_t* cbvByteOffsets, const wchar_t* name)
 {
+	assert(byteWidth);
+	vector<size_t> offsetList;
+	if (!cbvByteOffsets)
+	{
+		size_t numBytes = 0;
+		const auto cbvSize = AlignCBV(byteWidth / numCBVs);
+		offsetList.resize(numCBVs);
+		for (auto& offset : offsetList)
+		{
+			offset = numBytes;
+			numBytes += cbvSize;
+		}
+		cbvByteOffsets = offsetList.data();
+		byteWidth = cbvSize * numCBVs;
+	}
+
 	XUSG_N_RETURN(CreateResource(pDevice, pHeap, heapOffset, byteWidth), false);
 	SetName(name);
 	m_cbvs.resize(numCBVs);
 	m_cbvByteOffsets.resize(numCBVs);
+	const auto maxSize = static_cast<uint32_t>(byteWidth);
 	for (auto i = 0u; i < numCBVs; ++i)
 	{
-		const auto offset = cbvByteOffsets ? cbvByteOffsets[i] : 0;
-		m_cbvByteOffsets[i] = offset;
-		m_cbvs[i] = CreateCBV(static_cast<uint32_t>(byteWidth), offset);
+		const auto byteOffset = cbvByteOffsets[i];
+		const auto byteSize = static_cast<uint32_t>((i + 1 >= numCBVs ? maxSize : cbvByteOffsets[i + 1]) - byteOffset);
+		m_cbvByteOffsets[i] = byteOffset;
+		m_cbvs[i] = CreateCBV(byteSize, byteOffset);
 	}
 
 	return true;
 }
 
-bool ConstantBuffer_VK::CreateResource(const Device* pDevice, size_t byteWidth, MemoryType memoryType,
+bool ConstantBuffer_VK::CreateResource(Device* pDevice, size_t byteWidth, MemoryType memoryType,
 	MemoryFlag memoryFlags, ResourceState initialResourceState)
 {
 	(void)memoryFlags;
@@ -886,11 +1805,11 @@ bool ConstantBuffer_VK::CreateResource(const Device* pDevice, size_t byteWidth, 
 	return true;
 }
 
-bool ConstantBuffer_VK::CreateResource(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, size_t byteWidth,
+bool ConstantBuffer_VK::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset, size_t byteWidth,
 	ResourceState initialResourceState)
 {
 	XUSG_N_RETURN(initialize(pDevice, 1), false);
-	XUSG_N_RETURN(createBuffer(pHeap, heapOffset, byteWidth, ResourceFlag::NONE, MemoryType::DEFAULT), false);
+	XUSG_N_RETURN(createBuffer(pHeap, heapOffset, byteWidth, ResourceFlag::NONE, MemoryType::DEFAULT, pHeap == nullptr), false);
 	setState(initialResourceState, 1, 1);
 
 	return true;
@@ -899,8 +1818,8 @@ bool ConstantBuffer_VK::CreateResource(const Device* pDevice, const Heap* pHeap,
 bool ConstantBuffer_VK::Upload(CommandList* pCommandList, Resource* pUploader, const void* pData,
 	size_t size, size_t byteOffset, ResourceState srcState, ResourceState dstState)
 {
-	const auto uploader = dynamic_cast<Resource_VK*>(pUploader);
-	assert(uploader);
+	assert(pUploader);
+	const auto uploader = static_cast<Resource_VK*>(pUploader->GetHandle());
 	XUSG_N_RETURN(uploader->CreateUploadBuffer(m_pDevice, size), false);
 	auto dst = static_cast<uint8_t*>(uploader->GetMappedData());
 	memcpy(dst, pData, size);
@@ -966,7 +1885,7 @@ size_t ConstantBuffer_VK::GetTiledResourceTileSize() const
 }
 
 void ConstantBuffer_VK::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment,
-	const Device* pDevice, size_t byteWidth, uint64_t requiredAlignment)
+	Device* pDevice, size_t byteWidth, uint64_t requiredAlignment)
 {
 	(void)pDevice;
 	alignment = (max)(requiredAlignment, 256ull);
@@ -978,6 +1897,8 @@ size_t ConstantBuffer_VK::AlignCBV(size_t byteSize)
 	return XUSG_DIV_UP(byteSize, 256) * 256;
 }
 
+//--------------------------------------------------------------------------------------
+// Resource base
 //--------------------------------------------------------------------------------------
 
 ShaderResource_VK::ShaderResource_VK() :
@@ -1025,47 +1946,75 @@ Texture_VK::~Texture_VK()
 {
 }
 
-bool Texture_VK::Create(const Device* pDevice, uint32_t width, uint32_t height, Format format,
+bool Texture_VK::Create(Device* pDevice, uint32_t width, uint32_t height, Format format,
 	uint16_t arraySize, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount, bool isCubeMap,
 	MemoryFlag memoryFlags, const wchar_t* name, uint16_t srvComponentMapping, TextureLayout textureLayout,
 	uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads)
 {
 	(void)memoryFlags;
 	(void)textureLayout;
-	XUSG_N_RETURN(CreateResource(pDevice, width, height, format, arraySize, resourceFlags, numMips, sampleCount,
-		MemoryFlag::NONE, ResourceState::COMMON, TextureLayout::UNKNOWN, numUavFormats, uavFormats, maxThreads), false);
+	assert(sampleCount >= 1 && sampleCount <= 16);
+	assert(sampleCount <= 1 || numMips <= 1);
+	XUSG_N_RETURN(initialize(pDevice, maxThreads), false);
+	m_format = format;
+	m_hasPromotion = (resourceFlags & ResourceFlag::ALLOW_SIMULTANEOUS_ACCESS) == ResourceFlag::ALLOW_SIMULTANEOUS_ACCESS;
 	m_cube = isCubeMap;
+
+	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
+	const auto hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
+	const auto fullMips = CalculateMipLevels(width, height);
+	numMips = numMips ? (min)(numMips, fullMips) : fullMips;
+	numMips = (max)(numMips, static_cast<uint8_t>(1));
+
+	XUSG_N_RETURN(createImage(nullptr, 0, width, height, 1, format, arraySize, resourceFlags, numMips, sampleCount,
+		MemoryType::DEFAULT, false, isCubeMap, numUavFormats, uavFormats), false);
+	setState(ResourceState::COMMON, static_cast<uint32_t>(arraySize) * numMips, maxThreads);
 	SetName(name);
-	createSRVs(arraySize, format, numMips, sampleCount > 1, isCubeMap, srvComponentMapping);
-	createSingleLevelSRVs(arraySize, numMips, format, sampleCount > 1, isCubeMap, srvComponentMapping);
-	if ((resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) != ResourceFlag::NONE)
+	if (hasSRV) createSRVs(arraySize, format, numMips, sampleCount > 1, isCubeMap, srvComponentMapping);
+	if (hasUAV)
 	{
 		createUAVs(arraySize, format, numMips);
 		if (numUavFormats && uavFormats)
 			for (auto i = 0u; i < numUavFormats; ++i) createCastableUAVs(arraySize, uavFormats[i], numMips);
 	}
+	if (hasSRV && hasUAV)
+		createSingleLevelSRVs(arraySize, numMips, format, sampleCount > 1, isCubeMap, srvComponentMapping);
 
 	return true;
 }
 
-bool Texture_VK::Create(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
+bool Texture_VK::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 	Format format, uint16_t arraySize, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount, bool isCubeMap,
 	const wchar_t* name, uint16_t srvComponentMapping, TextureLayout textureLayout, uint8_t numUavFormats,
 	const Format* uavFormats, uint32_t maxThreads)
 {
 	(void)textureLayout;
-	XUSG_N_RETURN(CreateResource(pDevice, pHeap, heapOffset, width, height, format, arraySize, resourceFlags,
-		numMips, sampleCount, ResourceState::COMMON, TextureLayout::UNKNOWN, numUavFormats, uavFormats, maxThreads), false);
+	assert(sampleCount >= 1 && sampleCount <= 16);
+	assert(sampleCount <= 1 || numMips <= 1);
+	XUSG_N_RETURN(initialize(pDevice, maxThreads), false);
+	m_format = format;
+	m_hasPromotion = (resourceFlags & ResourceFlag::ALLOW_SIMULTANEOUS_ACCESS) == ResourceFlag::ALLOW_SIMULTANEOUS_ACCESS;
 	m_cube = isCubeMap;
+
+	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
+	const auto hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
+	const auto fullMips = CalculateMipLevels(width, height);
+	numMips = numMips ? (min)(numMips, fullMips) : fullMips;
+	numMips = (max)(numMips, static_cast<uint8_t>(1));
+
+	XUSG_N_RETURN(createImage(pHeap, heapOffset, width, height, 1, format, arraySize, resourceFlags, numMips,
+		sampleCount, MemoryType::DEFAULT, false, isCubeMap, numUavFormats, uavFormats, pHeap == nullptr), false);
+	setState(ResourceState::COMMON, static_cast<uint32_t>(arraySize) * numMips, maxThreads);
 	SetName(name);
-	createSRVs(arraySize, format, numMips, sampleCount > 1, isCubeMap, srvComponentMapping);
-	createSingleLevelSRVs(arraySize, numMips, format, sampleCount > 1, isCubeMap, srvComponentMapping);
-	if ((resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) != ResourceFlag::NONE) createUAVs(arraySize, format, numMips);
+	if (hasSRV) createSRVs(arraySize, format, numMips, sampleCount > 1, isCubeMap, srvComponentMapping);
+	if (hasUAV) createUAVs(arraySize, format, numMips);
+	if (hasSRV && hasUAV)
+		createSingleLevelSRVs(arraySize, numMips, format, sampleCount > 1, isCubeMap, srvComponentMapping);
 
 	return true;
 }
 
-bool Texture_VK::CreateResource(const Device* pDevice, uint32_t width, uint32_t height, Format format,
+bool Texture_VK::CreateResource(Device* pDevice, uint32_t width, uint32_t height, Format format,
 	uint16_t arraySize, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount, MemoryFlag memoryFlags,
 	ResourceState initialResourceState, TextureLayout textureLayout, uint8_t numCastableFormats,
 	const Format* pCastableFormats, uint32_t maxThreads)
@@ -1082,7 +2031,7 @@ bool Texture_VK::CreateResource(const Device* pDevice, uint32_t width, uint32_t 
 	return true;
 }
 
-bool Texture_VK::CreateResource(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, uint32_t width,
+bool Texture_VK::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width,
 	uint32_t height, Format format, uint16_t arraySize, ResourceFlag resourceFlags, uint8_t numMips,
 	uint8_t sampleCount, ResourceState initialResourceState, TextureLayout textureLayout, uint8_t numCastableFormats,
 	const Format* pCastableFormats, uint32_t maxThreads)
@@ -1091,7 +2040,7 @@ bool Texture_VK::CreateResource(const Device* pDevice, const Heap* pHeap, uint64
 	XUSG_N_RETURN(initialize(pDevice, maxThreads), false);
 	m_format = format;
 	XUSG_N_RETURN(createImage(pHeap, heapOffset, width, height, 1, format, arraySize, resourceFlags, numMips,
-		sampleCount, MemoryType::DEFAULT, false, false, numCastableFormats, pCastableFormats), false);
+		sampleCount, MemoryType::DEFAULT, false, false, numCastableFormats, pCastableFormats, pHeap == nullptr), false);
 	setState(initialResourceState, static_cast<uint32_t>(arraySize) * (numMips ? numMips : 1), maxThreads);
 
 	return true;
@@ -1101,8 +2050,8 @@ bool Texture_VK::Upload(CommandList* pCommandList, Resource* pUploader, const Su
 	uint32_t numSubresources, ResourceState dstState, uint32_t firstSubresource, uint32_t threadIdx)
 {
 	XUSG_N_RETURN(pSubresourceData, false);
-	const auto uploader = dynamic_cast<Resource_VK*>(pUploader);
-	assert(uploader);
+	assert(pUploader);
+	const auto uploader = static_cast<Resource_VK*>(pUploader->GetHandle());
 	const auto uploadSize = GetRequiredIntermediateSize(firstSubresource, numSubresources);
 	XUSG_N_RETURN(uploader->CreateUploadBuffer(m_pDevice, uploadSize), false);
 
@@ -1115,7 +2064,8 @@ bool Texture_VK::Upload(CommandList* pCommandList, Resource* pUploader, const Su
 
 	auto dst = static_cast<uint8_t*>(uploader->GetMappedData());
 	auto offset = 0ull;
-	const auto commandList = dynamic_cast<CommandList_VK*>(pCommandList);
+	assert(pCommandList);
+	const auto commandList = static_cast<CommandList_VK*>(pCommandList->GetHandle());
 	assert(commandList);
 	for (auto i = 0u; i < numSubresources; ++i)
 	{
@@ -1123,14 +2073,26 @@ bool Texture_VK::Upload(CommandList* pCommandList, Resource* pUploader, const Su
 		const auto mip = subresource % (max)(m_mipLevels, 1u);
 		const auto width = static_cast<uint32_t>((max)(m_width >> mip, 1ull));
 		const auto height = (max)(m_height >> mip, 1u);
+		const auto depth = m_is3D ? (max)(m_depthOrArray >> mip, 1u) : 1u;
+		const auto block = IsCompressedFormat(m_format) ? 4u : 1u;
+		const auto rows = XUSG_DIV_UP(height, block);
 		const auto pitch = RowPitch(m_format, width);
 		const auto srcPitch = static_cast<uint32_t>(pSubresourceData[i].RowPitch);
-		for (auto row = 0u; row < height; ++row)
-			memcpy(dst + offset + static_cast<size_t>(row) * pitch,
-				static_cast<const uint8_t*>(pSubresourceData[i].pData) + static_cast<size_t>(row) * srcPitch,
-				(min)(pitch, srcPitch));
-		commandList->CopyBufferToImage(this, subresource, uploader, offset, width, height);
-		offset += static_cast<uint64_t>(pitch) * height;
+		const auto srcSlicePitch = pSubresourceData[i].SlicePitch ?
+			static_cast<size_t>(pSubresourceData[i].SlicePitch) : static_cast<size_t>(srcPitch) * rows;
+		const auto copyBytes = (min)(pitch, srcPitch);
+		for (auto slice = 0u; slice < depth; ++slice)
+		{
+			const auto srcSlice = static_cast<const uint8_t*>(pSubresourceData[i].pData) + slice * srcSlicePitch;
+			for (auto row = 0u; row < rows; ++row)
+				memcpy(dst + offset + (static_cast<size_t>(slice) * rows + row) * pitch,
+					srcSlice + static_cast<size_t>(row) * srcPitch, copyBytes);
+		}
+		const auto texelBytes = CopyTexelBytes(m_format);
+		const auto bufferRowLength = texelBytes ? pitch / texelBytes * block : width;
+		const auto bufferImageHeight = XUSG_DIV_UP(height, block) * block;
+		commandList->CopyBufferToImage(this, subresource, uploader, offset, bufferRowLength, bufferImageHeight);
+		offset += static_cast<uint64_t>(pitch) * rows * depth;
 	}
 
 	numBarriers = 0;
@@ -1199,7 +2161,7 @@ bool Texture_VK::ReadBack(CommandList* pCommandList, Buffer* pReadBuffer, uint32
 		cursor += static_cast<uint64_t>(pitch) * XUSG_DIV_UP(height, block) * depth;
 	}
 
-	if (!pReadBuffer->GetHandle())
+	if (!static_cast<Resource_VK*>(pReadBuffer->GetHandle())->GetBuffer())
 		XUSG_N_RETURN(pReadBuffer->Create(pCommandList->GetDevice(), static_cast<size_t>(cursor),
 			ResourceFlag::DENY_SHADER_RESOURCE, MemoryType::READBACK, 0, nullptr, 0, nullptr, MemoryFlag::NONE,
 			(m_name + L".ReadResource").c_str()), false);
@@ -1219,7 +2181,8 @@ bool Texture_VK::ReadBack(CommandList* pCommandList, Buffer* pReadBuffer, uint32
 	}
 	if (!barriers.empty()) pCommandList->Barrier(static_cast<uint32_t>(barriers.size()), barriers.data());
 
-	const auto commandList = dynamic_cast<CommandList_VK*>(pCommandList);
+	assert(pCommandList);
+	const auto commandList = static_cast<CommandList_VK*>(pCommandList->GetHandle());
 	assert(commandList);
 	const auto aspect = IsDepthStencilFormat(m_format) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 	for (auto i = 0u; i < numSubresources; ++i)
@@ -1251,9 +2214,11 @@ Descriptor Texture_VK::CreateSRV(uint16_t arraySize, uint16_t firstArraySlice, F
 	const auto viewType = isCubeMap ? (arraySize > 6 ? VK_IMAGE_VIEW_TYPE_CUBE_ARRAY : VK_IMAGE_VIEW_TYPE_CUBE) :
 		arraySize > 1 ? VK_IMAGE_VIEW_TYPE_2D_ARRAY : m_height > 1 ? VK_IMAGE_VIEW_TYPE_2D : VK_IMAGE_VIEW_TYPE_1D;
 	const auto viewFormat = format == Format::UNKNOWN ? m_format : format;
-	fillImageView(*view, viewType, GetVKFormat(viewFormat), mostDetailedMip, numMips,
+	const auto layout = IsDepthStencilFormat(viewFormat) ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL :
+		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	fillImageView(*view, viewType, GetVKFormat(m_pDevice, viewFormat), mostDetailedMip, numMips,
 		firstArraySlice, arraySize, ImageViewAspect(viewFormat, plane),
-		srvComponentMapping, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
+		srvComponentMapping, layout, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
 
 	return view.get();
 }
@@ -1263,7 +2228,7 @@ Descriptor Texture_VK::CreateUAV(uint16_t arraySize, uint16_t firstArraySlice, F
 	(void)plane;
 	auto view = storeView(ResourceViewType::UAV, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, true, false);
 	const auto viewType = arraySize > 1 ? VK_IMAGE_VIEW_TYPE_2D_ARRAY : m_height > 1 ? VK_IMAGE_VIEW_TYPE_2D : VK_IMAGE_VIEW_TYPE_1D;
-	fillImageView(*view, viewType, GetVKFormat(format == Format::UNKNOWN ? m_format : format), mipLevel, 1,
+	fillImageView(*view, viewType, GetVKFormat(m_pDevice, format == Format::UNKNOWN ? m_format : format), mipLevel, 1,
 		firstArraySlice, arraySize, VK_IMAGE_ASPECT_COLOR_BIT, XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 		VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
@@ -1279,7 +2244,7 @@ uint32_t Texture_VK::SetBarrier(ResourceBarrier* pBarriers, uint8_t mipLevel, Re
 void Texture_VK::Blit(const CommandList* pCommandList, uint32_t groupSizeX, uint32_t groupSizeY,
 	uint32_t groupSizeZ, const DescriptorTable& uavSrvTable, uint32_t uavSrvSlot, uint8_t mipLevel,
 	const DescriptorTable& srvTable, uint32_t srvSlot, const DescriptorTable& samplerTable,
-	uint32_t samplerSlot, const Pipeline& pipeline)
+	uint32_t samplerSlot, const Pipeline& pipeline) const
 {
 	if (uavSrvTable) pCommandList->SetComputeDescriptorTable(uavSrvSlot, uavSrvTable);
 	if (srvTable) pCommandList->SetComputeDescriptorTable(srvSlot, srvTable);
@@ -1292,7 +2257,7 @@ void Texture_VK::Blit(const CommandList* pCommandList, uint32_t groupSizeX, uint
 		XUSG_DIV_UP(m_depthOrArray, groupSizeZ));
 }
 
-uint32_t Texture_VK::Blit(CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
+uint32_t Texture_VK::Blit(const CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
 	uint32_t groupSizeY, uint32_t groupSizeZ, uint8_t mipLevel, int8_t srcMipLevel, ResourceState srcState,
 	const DescriptorTable& uavSrvTable, uint32_t uavSrvSlot, uint32_t numBarriers, const DescriptorTable& srvTable,
 	uint32_t srvSlot, uint16_t baseSlice, uint16_t numSlices, uint32_t threadIdx)
@@ -1324,7 +2289,7 @@ uint32_t Texture_VK::Blit(CommandList* pCommandList, ResourceBarrier* pBarriers,
 	return numBarriers;
 }
 
-uint32_t Texture_VK::GenerateMips(CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
+uint32_t Texture_VK::GenerateMips(const CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
 	uint32_t groupSizeY, uint32_t groupSizeZ, ResourceState dstState, const PipelineLayout& pipelineLayout,
 	const Pipeline& pipeline, const DescriptorTable* pUavSrvTables, uint32_t uavSrvSlot, const DescriptorTable& samplerTable,
 	uint32_t samplerSlot, uint32_t numBarriers, const DescriptorTable* pSrvTables, uint32_t srvSlot, uint8_t baseMip,
@@ -1418,7 +2383,9 @@ size_t Texture_VK::GetRequiredIntermediateSize(uint32_t firstSubresource, uint32
 		const auto mip = (firstSubresource + i) % (max)(m_mipLevels, 1u);
 		const auto width = static_cast<uint32_t>((max)(m_width >> mip, 1ull));
 		const auto height = (max)(m_height >> mip, 1u);
-		size += static_cast<uint64_t>(RowPitch(m_format, width)) * height;
+		const auto depth = m_is3D ? (max)(m_depthOrArray >> mip, 1u) : 1u;
+		const auto block = IsCompressedFormat(m_format) ? 4u : 1u;
+		size += static_cast<uint64_t>(RowPitch(m_format, width)) * XUSG_DIV_UP(height, block) * depth;
 	}
 
 	return static_cast<size_t>(size);
@@ -1447,17 +2414,18 @@ void* Texture_VK::Map(const Range* pReadRange, uint32_t subresource)
 	return m_pDataBegin;
 }
 
-void Texture_VK::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, const Device* pDevice,
+void Texture_VK::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, Device* pDevice,
 	uint32_t width, uint32_t height, Format format, uint16_t arraySize, ResourceFlag resourceFlags,
 	uint8_t numMips, uint8_t sampleCount, TextureLayout textureLayout, uint64_t requiredAlignment)
 {
 	(void)textureLayout;
-	const auto device = dynamic_cast<const Device_VK*>(pDevice);
+	assert(pDevice);
+	const auto device = static_cast<const Device_VK*>(pDevice->GetHandle());
 	assert(device);
 	VkImageCreateInfo info = {};
 	info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	info.imageType = height > 1 ? VK_IMAGE_TYPE_2D : VK_IMAGE_TYPE_1D;
-	info.format = GetVKFormat(format);
+	info.format = GetVKFormat(device, format);
 	info.extent = { width, (max)(height, 1u), 1 };
 	info.mipLevels = numMips ? numMips : 1;
 	info.arrayLayers = arraySize ? arraySize : 1;
@@ -1534,10 +2502,30 @@ void Texture_VK::fillImageView(ResourceView_VK& view, VkImageViewType viewType, 
 	view.Layout = layout;
 	view.VkType = type;
 	view.IsImage = true;
-	if (view.Type == ResourceViewType::RTV || view.Type == ResourceViewType::DSV)
-		vkCreateImageView(m_device, &view.ViewInfo, nullptr, &view.ImageView);
+	if (view.Type != ResourceViewType::RTV && view.Type != ResourceViewType::DSV) return;
+
+	VkImageViewCreateInfo info = view.ViewInfo;
+	auto& target = view.Target;
+	target = {};
+	target.Rendering.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+	target.Rendering.imageLayout = layout;
+	target.Rendering.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+	target.Rendering.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	vkCreateImageView(m_device, &info, nullptr, &target.Rendering.imageView);
+	target.Width = static_cast<uint32_t>((max)(m_width >> baseMip, 1ull));
+	target.Height = (max)(m_height >> baseMip, 1u);
+	target.BaseMip = baseMip;
+	target.MipCount = static_cast<uint16_t>(info.subresourceRange.levelCount);
+	target.BaseLayer = baseLayer;
+	target.Layers = static_cast<uint16_t>(info.subresourceRange.layerCount);
+	target.SingleSubresource = target.MipCount == 1 && target.Layers == 1;
+	target.Subresource = subresourceIndex(baseMip, baseLayer);
+	target.HasStencil = format == VK_FORMAT_D24_UNORM_S8_UINT || format == VK_FORMAT_D32_SFLOAT_S8_UINT ||
+		format == VK_FORMAT_D16_UNORM_S8_UINT;
 }
 
+//--------------------------------------------------------------------------------------
+// Render target
 //--------------------------------------------------------------------------------------
 
 RenderTarget_VK::RenderTarget_VK()
@@ -1548,7 +2536,7 @@ RenderTarget_VK::~RenderTarget_VK()
 {
 }
 
-bool RenderTarget_VK::Create(const Device* pDevice, uint32_t width, uint32_t height, Format format, uint16_t arraySize,
+bool RenderTarget_VK::Create(Device* pDevice, uint32_t width, uint32_t height, Format format, uint16_t arraySize,
 	ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount, const float* pClearColor, bool isCubeMap,
 	MemoryFlag memoryFlags, const wchar_t* name, uint16_t srvComponentMapping, TextureLayout textureLayout,
 	uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads)
@@ -1557,18 +2545,21 @@ bool RenderTarget_VK::Create(const Device* pDevice, uint32_t width, uint32_t hei
 	resourceFlags = resourceFlags | ResourceFlag::ALLOW_RENDER_TARGET;
 	XUSG_N_RETURN(Texture_VK::Create(pDevice, width, height, format, arraySize, resourceFlags, numMips, sampleCount,
 		isCubeMap, memoryFlags, name, srvComponentMapping, textureLayout, numUavFormats, uavFormats, maxThreads), false);
-	m_rtvs.resize(numMips);
-	for (auto mip = 0u; mip < numMips; ++mip)
+	if ((resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE &&
+		(resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::NONE)
+		createSingleLevelSRVs(arraySize, static_cast<uint8_t>(m_mipLevels), format, sampleCount > 1, isCubeMap, srvComponentMapping);
+	m_rtvs.resize(arraySize);
+	for (uint16_t slice = 0; slice < arraySize; ++slice)
 	{
-		m_rtvs[mip].resize(arraySize);
-		for (auto slice = 0u; slice < arraySize; ++slice)
-			m_rtvs[mip][slice] = CreateRTV(1, static_cast<uint16_t>(slice), format, static_cast<uint8_t>(mip), sampleCount > 1);
+		m_rtvs[slice].resize(m_mipLevels);
+		for (auto mip = 0u; mip < m_mipLevels; ++mip)
+			m_rtvs[slice][mip] = CreateRTV(1, slice, format, static_cast<uint8_t>(mip), sampleCount > 1);
 	}
 
 	return true;
 }
 
-bool RenderTarget_VK::Create(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
+bool RenderTarget_VK::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 	Format format, uint16_t arraySize, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount, const float* pClearColor,
 	bool isCubeMap, const wchar_t* name, uint16_t srvComponentMapping, TextureLayout textureLayout,
 	uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads)
@@ -1577,36 +2568,70 @@ bool RenderTarget_VK::Create(const Device* pDevice, const Heap* pHeap, uint64_t 
 	resourceFlags = resourceFlags | ResourceFlag::ALLOW_RENDER_TARGET;
 	XUSG_N_RETURN(Texture_VK::Create(pDevice, pHeap, heapOffset, width, height, format, arraySize, resourceFlags, numMips,
 		sampleCount, isCubeMap, name, srvComponentMapping, textureLayout, numUavFormats, uavFormats, maxThreads), false);
+	if ((resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE &&
+		(resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::NONE)
+		createSingleLevelSRVs(arraySize, static_cast<uint8_t>(m_mipLevels), format, sampleCount > 1, isCubeMap, srvComponentMapping);
+	m_rtvs.resize(arraySize);
+	for (uint16_t slice = 0; slice < arraySize; ++slice)
+	{
+		m_rtvs[slice].resize(m_mipLevels);
+		for (auto mip = 0u; mip < m_mipLevels; ++mip)
+			m_rtvs[slice][mip] = CreateRTV(1, slice, format, static_cast<uint8_t>(mip), sampleCount > 1);
+	}
 
 	return true;
 }
 
-bool RenderTarget_VK::CreateArray(const Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize, Format format,
+bool RenderTarget_VK::CreateArray(Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize, Format format,
 	ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount, const float* pClearColor, bool isCubeMap,
 	MemoryFlag memoryFlags, const wchar_t* name, uint16_t srvComponentMapping, TextureLayout textureLayout,
 	uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads)
 {
-	return Create(pDevice, width, height, format, arraySize, resourceFlags, numMips, sampleCount, pClearColor, isCubeMap,
-		memoryFlags, name, srvComponentMapping, textureLayout, numUavFormats, uavFormats, maxThreads);
+	(void)pClearColor;
+	resourceFlags = resourceFlags | ResourceFlag::ALLOW_RENDER_TARGET;
+	XUSG_N_RETURN(Texture_VK::Create(pDevice, width, height, format, arraySize, resourceFlags, numMips, sampleCount,
+		isCubeMap, memoryFlags, name, srvComponentMapping, textureLayout, numUavFormats, uavFormats, maxThreads), false);
+	if ((resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE &&
+		(resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::NONE)
+		createSingleLevelSRVs(arraySize, static_cast<uint8_t>(m_mipLevels), format, sampleCount > 1, isCubeMap, srvComponentMapping);
+	m_rtvs.resize(1);
+	m_rtvs[0].resize(m_mipLevels);
+	for (auto mip = 0u; mip < m_mipLevels; ++mip)
+		m_rtvs[0][mip] = CreateRTV(arraySize, 0, format, static_cast<uint8_t>(mip), sampleCount > 1);
+
+	return true;
 }
 
-bool RenderTarget_VK::CreateArray(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
+bool RenderTarget_VK::CreateArray(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 	uint16_t arraySize, Format format, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount, const float* pClearColor,
 	bool isCubeMap, const wchar_t* name, uint16_t srvComponentMapping, TextureLayout textureLayout,
 	uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads)
 {
-	return Create(pDevice, pHeap, heapOffset, width, height, format, arraySize, resourceFlags, numMips, sampleCount,
-		pClearColor, isCubeMap, name, srvComponentMapping, textureLayout, numUavFormats, uavFormats, maxThreads);
+	(void)pClearColor;
+	resourceFlags = resourceFlags | ResourceFlag::ALLOW_RENDER_TARGET;
+	XUSG_N_RETURN(Texture_VK::Create(pDevice, pHeap, heapOffset, width, height, format, arraySize, resourceFlags, numMips,
+		sampleCount, isCubeMap, name, srvComponentMapping, textureLayout, numUavFormats, uavFormats, maxThreads), false);
+	if ((resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE &&
+		(resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::NONE)
+		createSingleLevelSRVs(arraySize, static_cast<uint8_t>(m_mipLevels), format, sampleCount > 1, isCubeMap, srvComponentMapping);
+	m_rtvs.resize(1);
+	m_rtvs[0].resize(m_mipLevels);
+	for (auto mip = 0u; mip < m_mipLevels; ++mip)
+		m_rtvs[0][mip] = CreateRTV(arraySize, 0, format, static_cast<uint8_t>(mip), sampleCount > 1);
+
+	return true;
 }
 
-bool RenderTarget_VK::CreateFromSwapChain(const Device* pDevice, const SwapChain* pSwapChain, uint32_t bufferIndex, uint32_t maxThreads)
+bool RenderTarget_VK::CreateFromSwapChain(Device* pDevice, SwapChain* pSwapChain, uint32_t bufferIndex, uint32_t maxThreads)
 {
-	const auto swapChain = dynamic_cast<const SwapChain_VK*>(pSwapChain);
+	const auto swapChain = static_cast<const SwapChain_VK*>(pSwapChain->GetHandle());
 	assert(swapChain);
+	const auto device = static_cast<const Device_VK*>(pDevice->GetHandle());
+	assert(device);
 	XUSG_N_RETURN(initialize(pDevice, maxThreads), false);
-	WrapImage(swapChain->GetHandle() ? static_cast<VkDevice>(pDevice->GetHandle()) : VK_NULL_HANDLE,
-		swapChain->GetImage(static_cast<uint8_t>(bufferIndex)), swapChain->GetVkFormat(), swapChain->GetWidth(), swapChain->GetHeight());
-	m_device = static_cast<VkDevice>(pDevice->GetHandle());
+	WrapImage(device->GetDevice(), swapChain->GetImage(static_cast<uint8_t>(bufferIndex)),
+		swapChain->GetVkFormat(), swapChain->GetWidth(), swapChain->GetHeight());
+	m_device = device->GetDevice();
 	m_format = GetFormatFromVK(m_vkFormat);
 	m_rtvs.resize(1);
 	m_rtvs[0].resize(1);
@@ -1615,7 +2640,7 @@ bool RenderTarget_VK::CreateFromSwapChain(const Device* pDevice, const SwapChain
 	return true;
 }
 
-bool RenderTarget_VK::CreateResource(const Device* pDevice, uint32_t width, uint32_t height, Format format, uint16_t arraySize,
+bool RenderTarget_VK::CreateResource(Device* pDevice, uint32_t width, uint32_t height, Format format, uint16_t arraySize,
 	ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount, MemoryFlag memoryFlags, ResourceState initialResourceState,
 	const float* pClearColor, TextureLayout textureLayout, uint8_t numCastableFormats, const Format* pCastableFormats, uint32_t maxThreads)
 {
@@ -1625,7 +2650,7 @@ bool RenderTarget_VK::CreateResource(const Device* pDevice, uint32_t width, uint
 		numMips, sampleCount, memoryFlags, initialResourceState, textureLayout, numCastableFormats, pCastableFormats, maxThreads);
 }
 
-bool RenderTarget_VK::CreateResource(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, uint32_t width,
+bool RenderTarget_VK::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width,
 	uint32_t height, Format format, uint16_t arraySize, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount,
 	ResourceState initialResourceState, const float* pClearColor, TextureLayout textureLayout, uint8_t numCastableFormats,
 	const Format* pCastableFormats, uint32_t maxThreads)
@@ -1642,7 +2667,7 @@ Descriptor RenderTarget_VK::CreateRTV(uint16_t arraySize, uint16_t firstArraySli
 	(void)multisamples;
 	auto view = storeView(ResourceViewType::RTV, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, true, false);
 	const auto viewType = arraySize > 1 ? VK_IMAGE_VIEW_TYPE_2D_ARRAY : VK_IMAGE_VIEW_TYPE_2D;
-	fillImageView(*view, viewType, GetVKFormat(format == Format::UNKNOWN ? m_format : format), mipLevel, 1,
+	fillImageView(*view, viewType, GetVKFormat(m_pDevice, format == Format::UNKNOWN ? m_format : format), mipLevel, 1,
 		firstArraySlice, arraySize, VK_IMAGE_ASPECT_COLOR_BIT, XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
 
@@ -1651,7 +2676,7 @@ Descriptor RenderTarget_VK::CreateRTV(uint16_t arraySize, uint16_t firstArraySli
 
 void RenderTarget_VK::Blit(const CommandList* pCommandList, const DescriptorTable& srcSrvTable, uint32_t srcSlot,
 	uint8_t mipLevel, uint16_t baseSlice, uint16_t numSlices, const DescriptorTable& samplerTable, uint32_t samplerSlot,
-	const Pipeline& pipeline, uint32_t offsetForSliceId, uint32_t cbSlot)
+	const Pipeline& pipeline, uint32_t offsetForSliceId, uint32_t cbSlot) const
 {
 	if (srcSrvTable) pCommandList->SetGraphicsDescriptorTable(srcSlot, srcSrvTable);
 	if (samplerTable) pCommandList->SetGraphicsDescriptorTable(samplerSlot, samplerTable);
@@ -1678,7 +2703,7 @@ void RenderTarget_VK::Blit(const CommandList* pCommandList, const DescriptorTabl
 	}
 }
 
-uint32_t RenderTarget_VK::Blit(CommandList* pCommandList, ResourceBarrier* pBarriers, uint8_t mipLevel, int8_t srcMipLevel,
+uint32_t RenderTarget_VK::Blit(const CommandList* pCommandList, ResourceBarrier* pBarriers, uint8_t mipLevel, int8_t srcMipLevel,
 	ResourceState srcState, const DescriptorTable& srcSrvTable, uint32_t srcSlot, uint32_t numBarriers, uint16_t baseSlice,
 	uint16_t numSlices, uint32_t offsetForSliceId, uint32_t cbSlot, uint32_t threadIdx)
 {
@@ -1703,7 +2728,7 @@ uint32_t RenderTarget_VK::Blit(CommandList* pCommandList, ResourceBarrier* pBarr
 	return numBarriers;
 }
 
-uint32_t RenderTarget_VK::GenerateMips(CommandList* pCommandList, ResourceBarrier* pBarriers, ResourceState dstState,
+uint32_t RenderTarget_VK::GenerateMips(const CommandList* pCommandList, ResourceBarrier* pBarriers, ResourceState dstState,
 	const PipelineLayout& pipelineLayout, const Pipeline& pipeline, const DescriptorTable* pSrcSrvTables, uint32_t srcSlot,
 	const DescriptorTable& samplerTable, uint32_t samplerSlot, uint32_t numBarriers, uint8_t baseMip, uint8_t numMips,
 	uint16_t baseSlice, uint16_t numSlices, uint32_t offsetForSliceId, uint32_t cbSlot, uint32_t threadIdx)
@@ -1711,14 +2736,22 @@ uint32_t RenderTarget_VK::GenerateMips(CommandList* pCommandList, ResourceBarrie
 	if (pipelineLayout) pCommandList->SetGraphicsPipelineLayout(pipelineLayout);
 	if (samplerTable) pCommandList->SetGraphicsDescriptorTable(samplerSlot, samplerTable);
 	if (pipeline) pCommandList->SetPipelineState(pipeline);
+	if (!(numMips || baseMip || numSlices || baseSlice))
+		numBarriers = SetBarrier(pBarriers, ResourceState::RENDER_TARGET, numBarriers,
+			XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
 	if (!numSlices) numSlices = static_cast<uint16_t>(m_depthOrArray - baseSlice);
 	if (!numMips) numMips = static_cast<uint8_t>(m_mipLevels - baseMip);
 	for (uint8_t i = 0; i < numMips; ++i)
 	{
 		const uint8_t j = baseMip + i;
-		for (uint16_t k = 0; k < numSlices; ++k)
-			numBarriers = SetBarrier(pBarriers, j, ResourceState::RENDER_TARGET, numBarriers, baseSlice + k,
+		if (j) for (uint16_t k = 0; k < numSlices; ++k)
+		{
+			const uint16_t n = baseSlice + k;
+			numBarriers = SetBarrier(pBarriers, j, ResourceState::RENDER_TARGET, numBarriers, n,
 				BarrierFlag::NONE, ResourceState::AUTO, 0, threadIdx);
+			numBarriers = SetBarrier(pBarriers, static_cast<uint8_t>(j - 1), dstState, numBarriers, n,
+				BarrierFlag::NONE, ResourceState::AUTO, 0, threadIdx);
+		}
 		if (numBarriers)
 		{
 			pCommandList->Barrier(numBarriers, pBarriers);
@@ -1727,19 +2760,22 @@ uint32_t RenderTarget_VK::GenerateMips(CommandList* pCommandList, ResourceBarrie
 		Blit(pCommandList, pSrcSrvTables ? pSrcSrvTables[i] : XUSG_NULL, srcSlot, j, baseSlice, numSlices,
 			XUSG_NULL, samplerSlot, nullptr, offsetForSliceId, cbSlot);
 	}
+	const auto lastMip = static_cast<uint8_t>(baseMip + numMips - 1);
 	for (uint16_t i = 0; i < numSlices; ++i)
-		numBarriers = SetBarrier(pBarriers, static_cast<uint8_t>(baseMip + numMips - 1), dstState, numBarriers,
-			baseSlice + i, BarrierFlag::NONE, ResourceState::AUTO, 0, threadIdx);
+		numBarriers = SetBarrier(pBarriers, lastMip, dstState, numBarriers, baseSlice + i,
+			BarrierFlag::NONE, ResourceState::AUTO, 0, threadIdx);
 
 	return numBarriers;
 }
 
 const Descriptor& RenderTarget_VK::GetRTV(uint16_t slice, uint8_t mipLevel) const
 {
-	return m_rtvs[mipLevel][slice];
+	assert(m_rtvs.size() > slice && m_rtvs[slice].size() > mipLevel);
+
+	return m_rtvs[slice][mipLevel];
 }
 
-void RenderTarget_VK::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, const Device* pDevice, uint32_t width,
+void RenderTarget_VK::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, Device* pDevice, uint32_t width,
 	uint32_t height, Format format, uint16_t arraySize, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount,
 	TextureLayout textureLayout, uint64_t requiredAlignment)
 {
@@ -1747,6 +2783,8 @@ void RenderTarget_VK::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment,
 		resourceFlags | ResourceFlag::ALLOW_RENDER_TARGET, numMips, sampleCount, textureLayout, requiredAlignment);
 }
 
+//--------------------------------------------------------------------------------------
+// Depth stencil
 //--------------------------------------------------------------------------------------
 
 DepthStencil_VK::DepthStencil_VK()
@@ -1758,7 +2796,7 @@ DepthStencil_VK::~DepthStencil_VK()
 {
 }
 
-bool DepthStencil_VK::Create(const Device* pDevice, uint32_t width, uint32_t height, Format format, ResourceFlag resourceFlags,
+bool DepthStencil_VK::Create(Device* pDevice, uint32_t width, uint32_t height, Format format, ResourceFlag resourceFlags,
 	uint16_t arraySize, uint8_t numMips, uint8_t sampleCount, float clearDepth, uint8_t clearStencil, bool isCubeMap,
 	MemoryFlag memoryFlags, const wchar_t* name, uint16_t srvComponentMapping, uint16_t stencilSrvComponentMapping,
 	TextureLayout textureLayout, uint32_t maxThreads)
@@ -1769,57 +2807,126 @@ bool DepthStencil_VK::Create(const Device* pDevice, uint32_t width, uint32_t hei
 	resourceFlags = resourceFlags | ResourceFlag::ALLOW_DEPTH_STENCIL;
 	XUSG_N_RETURN(Texture_VK::Create(pDevice, width, height, format, arraySize, resourceFlags, numMips, sampleCount,
 		isCubeMap, memoryFlags, name, srvComponentMapping, textureLayout, 0, nullptr, maxThreads), false);
-	m_dsvs.resize(numMips);
-	m_readOnlyDsvs.resize(numMips);
-	for (auto mip = 0u; mip < numMips; ++mip)
+
+	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
+	const auto hasStencil = format == Format::D24_UNORM_S8_UINT || format == Format::D32_FLOAT_S8X24_UINT;
+	m_dsvs.resize(arraySize);
+	m_readOnlyDsvs.resize(arraySize);
+	for (uint16_t slice = 0; slice < arraySize; ++slice)
 	{
-		m_dsvs[mip].resize(arraySize);
-		m_readOnlyDsvs[mip].resize(arraySize);
-		for (auto slice = 0u; slice < arraySize; ++slice)
+		m_dsvs[slice].resize(m_mipLevels);
+		m_readOnlyDsvs[slice].resize(m_mipLevels);
+		for (auto mip = 0u; mip < m_mipLevels; ++mip)
 		{
-			m_dsvs[mip][slice] = CreateDSV(1, static_cast<uint16_t>(slice), format, static_cast<uint8_t>(mip), sampleCount > 1, false, false);
-			m_readOnlyDsvs[mip][slice] = CreateDSV(1, static_cast<uint16_t>(slice), format, static_cast<uint8_t>(mip), sampleCount > 1, true, true);
+			m_dsvs[slice][mip] = CreateDSV(1, slice, format, static_cast<uint8_t>(mip), sampleCount > 1, false, false);
+			m_readOnlyDsvs[slice][mip] = hasSRV ?
+				CreateDSV(1, slice, format, static_cast<uint8_t>(mip), sampleCount > 1, true, hasStencil) :
+				m_dsvs[slice][mip];
 		}
 	}
-	m_stencilSrv = CreateSRV(arraySize, 0, format, numMips, 0, sampleCount > 1, isCubeMap, stencilSrvComponentMapping, 1);
+	if (hasSRV && hasStencil)
+		m_stencilSrv = CreateSRV(arraySize, 0, format, m_mipLevels, 0, sampleCount > 1, isCubeMap, stencilSrvComponentMapping, 1);
 
 	return true;
 }
 
-bool DepthStencil_VK::Create(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
+bool DepthStencil_VK::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 	Format format, ResourceFlag resourceFlags, uint16_t arraySize, uint8_t numMips, uint8_t sampleCount, float clearDepth,
 	uint8_t clearStencil, bool isCubeMap, const wchar_t* name, uint16_t srvComponentMapping, uint16_t stencilSrvComponentMapping,
 	TextureLayout textureLayout, uint32_t maxThreads)
 {
 	(void)clearDepth;
 	(void)clearStencil;
-	(void)stencilSrvComponentMapping;
 	mapFormat(format);
+	resourceFlags = resourceFlags | ResourceFlag::ALLOW_DEPTH_STENCIL;
+	XUSG_N_RETURN(Texture_VK::Create(pDevice, pHeap, heapOffset, width, height, format, arraySize, resourceFlags, numMips,
+		sampleCount, isCubeMap, name, srvComponentMapping, textureLayout, 0, nullptr, maxThreads), false);
 
-	return Texture_VK::Create(pDevice, pHeap, heapOffset, width, height, format, arraySize,
-		resourceFlags | ResourceFlag::ALLOW_DEPTH_STENCIL, numMips, sampleCount, isCubeMap, name, srvComponentMapping,
-		textureLayout, 0, nullptr, maxThreads);
+	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
+	const auto hasStencil = format == Format::D24_UNORM_S8_UINT || format == Format::D32_FLOAT_S8X24_UINT;
+	m_dsvs.resize(arraySize);
+	m_readOnlyDsvs.resize(arraySize);
+	for (uint16_t slice = 0; slice < arraySize; ++slice)
+	{
+		m_dsvs[slice].resize(m_mipLevels);
+		m_readOnlyDsvs[slice].resize(m_mipLevels);
+		for (auto mip = 0u; mip < m_mipLevels; ++mip)
+		{
+			m_dsvs[slice][mip] = CreateDSV(1, slice, format, static_cast<uint8_t>(mip), sampleCount > 1, false, false);
+			m_readOnlyDsvs[slice][mip] = hasSRV ?
+				CreateDSV(1, slice, format, static_cast<uint8_t>(mip), sampleCount > 1, true, hasStencil) :
+				m_dsvs[slice][mip];
+		}
+	}
+	if (hasSRV && hasStencil)
+		m_stencilSrv = CreateSRV(arraySize, 0, format, m_mipLevels, 0, sampleCount > 1, isCubeMap, stencilSrvComponentMapping, 1);
+
+	return true;
 }
 
-bool DepthStencil_VK::CreateArray(const Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize, Format format,
+bool DepthStencil_VK::CreateArray(Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize, Format format,
 	ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount, float clearDepth, uint8_t clearStencil, bool isCubeMap,
 	MemoryFlag memoryFlags, const wchar_t* name, uint16_t srvComponentMapping, uint16_t stencilSrvComponentMapping,
 	TextureLayout textureLayout, uint32_t maxThreads)
 {
-	return Create(pDevice, width, height, format, resourceFlags, arraySize, numMips, sampleCount, clearDepth, clearStencil,
-		isCubeMap, memoryFlags, name, srvComponentMapping, stencilSrvComponentMapping, textureLayout, maxThreads);
+	(void)clearDepth;
+	(void)clearStencil;
+	mapFormat(format);
+	resourceFlags = resourceFlags | ResourceFlag::ALLOW_DEPTH_STENCIL;
+	XUSG_N_RETURN(Texture_VK::Create(pDevice, width, height, format, arraySize, resourceFlags, numMips, sampleCount,
+		isCubeMap, memoryFlags, name, srvComponentMapping, textureLayout, 0, nullptr, maxThreads), false);
+
+	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
+	const auto hasStencil = format == Format::D24_UNORM_S8_UINT || format == Format::D32_FLOAT_S8X24_UINT;
+	m_dsvs.resize(1);
+	m_readOnlyDsvs.resize(1);
+	m_dsvs[0].resize(m_mipLevels);
+	m_readOnlyDsvs[0].resize(m_mipLevels);
+	for (auto mip = 0u; mip < m_mipLevels; ++mip)
+	{
+		m_dsvs[0][mip] = CreateDSV(arraySize, 0, format, static_cast<uint8_t>(mip), sampleCount > 1, false, false);
+		m_readOnlyDsvs[0][mip] = hasSRV ?
+			CreateDSV(arraySize, 0, format, static_cast<uint8_t>(mip), sampleCount > 1, true, hasStencil) :
+			m_dsvs[0][mip];
+	}
+	if (hasSRV && hasStencil)
+		m_stencilSrv = CreateSRV(arraySize, 0, format, m_mipLevels, 0, sampleCount > 1, isCubeMap, stencilSrvComponentMapping, 1);
+
+	return true;
 }
 
-bool DepthStencil_VK::CreateArray(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
+bool DepthStencil_VK::CreateArray(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 	uint16_t arraySize, Format format, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount, float clearDepth,
 	uint8_t clearStencil, bool isCubeMap, const wchar_t* name, uint16_t srvComponentMapping, uint16_t stencilSrvComponentMapping,
 	TextureLayout textureLayout, uint32_t maxThreads)
 {
-	return Create(pDevice, pHeap, heapOffset, width, height, format, resourceFlags, arraySize, numMips, sampleCount,
-		clearDepth, clearStencil, isCubeMap, name, srvComponentMapping, stencilSrvComponentMapping, textureLayout, maxThreads);
+	(void)clearDepth;
+	(void)clearStencil;
+	mapFormat(format);
+	resourceFlags = resourceFlags | ResourceFlag::ALLOW_DEPTH_STENCIL;
+	XUSG_N_RETURN(Texture_VK::Create(pDevice, pHeap, heapOffset, width, height, format, arraySize, resourceFlags, numMips,
+		sampleCount, isCubeMap, name, srvComponentMapping, textureLayout, 0, nullptr, maxThreads), false);
+
+	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
+	const auto hasStencil = format == Format::D24_UNORM_S8_UINT || format == Format::D32_FLOAT_S8X24_UINT;
+	m_dsvs.resize(1);
+	m_readOnlyDsvs.resize(1);
+	m_dsvs[0].resize(m_mipLevels);
+	m_readOnlyDsvs[0].resize(m_mipLevels);
+	for (auto mip = 0u; mip < m_mipLevels; ++mip)
+	{
+		m_dsvs[0][mip] = CreateDSV(arraySize, 0, format, static_cast<uint8_t>(mip), sampleCount > 1, false, false);
+		m_readOnlyDsvs[0][mip] = hasSRV ?
+			CreateDSV(arraySize, 0, format, static_cast<uint8_t>(mip), sampleCount > 1, true, hasStencil) :
+			m_dsvs[0][mip];
+	}
+	if (hasSRV && hasStencil)
+		m_stencilSrv = CreateSRV(arraySize, 0, format, m_mipLevels, 0, sampleCount > 1, isCubeMap, stencilSrvComponentMapping, 1);
+
+	return true;
 }
 
-bool DepthStencil_VK::CreateResource(const Device* pDevice, uint32_t width, uint32_t height, Format format, uint16_t arraySize,
+bool DepthStencil_VK::CreateResource(Device* pDevice, uint32_t width, uint32_t height, Format format, uint16_t arraySize,
 	ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount, MemoryFlag memoryFlags, ResourceState initialResourceState,
 	float clearDepth, uint8_t clearStencil, TextureLayout textureLayout, uint32_t maxThreads)
 {
@@ -1831,7 +2938,7 @@ bool DepthStencil_VK::CreateResource(const Device* pDevice, uint32_t width, uint
 		numMips, sampleCount, memoryFlags, initialResourceState, textureLayout, 0, nullptr, maxThreads);
 }
 
-bool DepthStencil_VK::CreateResource(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, uint32_t width,
+bool DepthStencil_VK::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width,
 	uint32_t height, Format format, uint16_t arraySize, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount,
 	ResourceState initialResourceState, float clearDepth, uint8_t clearStencil, TextureLayout textureLayout, uint32_t maxThreads)
 {
@@ -1850,7 +2957,7 @@ Descriptor DepthStencil_VK::CreateDSV(uint16_t arraySize, uint16_t firstArraySli
 	(void)readOnlyStencil;
 	auto view = storeView(ResourceViewType::DSV, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, true, false);
 	const auto viewType = arraySize > 1 ? VK_IMAGE_VIEW_TYPE_2D_ARRAY : VK_IMAGE_VIEW_TYPE_2D;
-	fillImageView(*view, viewType, GetVKFormat(format == Format::UNKNOWN ? m_format : format), mipLevel, 1, firstArraySlice, arraySize,
+	fillImageView(*view, viewType, GetVKFormat(m_pDevice, format == Format::UNKNOWN ? m_format : format), mipLevel, 1, firstArraySlice, arraySize,
 		GetVKImageAspect(format == Format::UNKNOWN ? m_format : format), XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 		readOnlyDepth ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
 		VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
@@ -1860,7 +2967,10 @@ Descriptor DepthStencil_VK::CreateDSV(uint16_t arraySize, uint16_t firstArraySli
 
 const Descriptor& DepthStencil_VK::GetDSV(uint16_t slice, uint8_t mipLevel, bool readOnly) const
 {
-	return readOnly ? m_readOnlyDsvs[mipLevel][slice] : m_dsvs[mipLevel][slice];
+	const auto& dsvs = readOnly ? m_readOnlyDsvs : m_dsvs;
+	assert(dsvs.size() > slice && dsvs[slice].size() > mipLevel);
+
+	return dsvs[slice][mipLevel];
 }
 
 const Descriptor& DepthStencil_VK::GetSRV(uint8_t firstLevel, bool singleLevel, bool stencil) const
@@ -1870,7 +2980,7 @@ const Descriptor& DepthStencil_VK::GetSRV(uint8_t firstLevel, bool singleLevel, 
 	return Texture_VK::GetSRV(firstLevel, singleLevel);
 }
 
-void DepthStencil_VK::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, const Device* pDevice, uint32_t width,
+void DepthStencil_VK::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, Device* pDevice, uint32_t width,
 	uint32_t height, Format format, uint16_t arraySize, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount,
 	TextureLayout textureLayout, uint64_t requiredAlignment)
 {
@@ -1880,7 +2990,30 @@ void DepthStencil_VK::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment,
 
 void DepthStencil_VK::mapFormat(Format& format)
 {
-	if (format == Format::UNKNOWN) format = Format::D32_FLOAT;
+	// Same default as DepthStencil_DX12: an unknown depth format is D24S8.
+	// GetVKFormat substitutes D32S8 when the device cannot attach D24S8.
+	switch (format)
+	{
+	case Format::D32_FLOAT_S8X24_UINT:
+	case Format::R32_FLOAT_X8X24_TYPELESS:
+	case Format::R32G8X24_TYPELESS:
+	case Format::X32_TYPELESS_G8X24_UINT:
+		format = Format::D32_FLOAT_S8X24_UINT;
+		break;
+	case Format::D16_UNORM:
+	case Format::R16_UNORM:
+	case Format::R16_TYPELESS:
+		format = Format::D16_UNORM;
+		break;
+	case Format::D32_FLOAT:
+	case Format::R32_FLOAT:
+	case Format::R32_TYPELESS:
+		format = Format::D32_FLOAT;
+		break;
+	default:
+		format = Format::D24_UNORM_S8_UINT;
+	}
+
 	m_format = format;
 }
 
@@ -1894,7 +3027,7 @@ Texture3D_VK::~Texture3D_VK()
 {
 }
 
-bool Texture3D_VK::Create(const Device* pDevice, uint32_t width, uint32_t height, uint16_t depth, Format format,
+bool Texture3D_VK::Create(Device* pDevice, uint32_t width, uint32_t height, uint16_t depth, Format format,
 	ResourceFlag resourceFlags, uint8_t numMips, MemoryFlag memoryFlags, const wchar_t* name, uint16_t srvComponentMapping,
 	TextureLayout textureLayout, uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads)
 {
@@ -1902,41 +3035,85 @@ bool Texture3D_VK::Create(const Device* pDevice, uint32_t width, uint32_t height
 	(void)textureLayout;
 	XUSG_N_RETURN(initialize(pDevice, maxThreads), false);
 	m_format = format;
-	XUSG_N_RETURN(createImage(nullptr, 0, width, height, depth, format, 1, resourceFlags, numMips, 1, MemoryType::DEFAULT, true, false), false);
+
+	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
+	const auto hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
+	const auto fullMips = CalculateMipLevels(width, height);
+	numMips = numMips ? (min)(numMips, fullMips) : fullMips;
+	numMips = (max)(numMips, static_cast<uint8_t>(1));
+
+	XUSG_N_RETURN(createImage(nullptr, 0, width, height, depth, format, 1, resourceFlags, numMips, 1, MemoryType::DEFAULT, true, false,
+		numUavFormats, uavFormats), false);
 	setState(ResourceState::COMMON, numMips, maxThreads);
 	SetName(name);
-	m_srvs.resize(1);
-	m_srvs[0] = CreateSRV(format, numMips, 0, srvComponentMapping);
-	if ((resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) != ResourceFlag::NONE)
+	if (hasSRV)
+	{
+		m_srvs.resize(numMips);
+		for (auto i = 0u; i < numMips; ++i)
+			m_srvs[i] = CreateSRV(format, static_cast<uint8_t>(numMips - i), static_cast<uint8_t>(i), srvComponentMapping);
+	}
+	if (hasUAV)
 	{
 		m_uavs.resize(numMips);
-		for (auto i = 0u; i < numMips; ++i) m_uavs[i] = CreateUAV(static_cast<uint16_t>((max)(depth >> i, 1)), 0, format, static_cast<uint8_t>(i));
+		for (auto i = 0u; i < numMips; ++i)
+			m_uavs[i] = CreateUAV(static_cast<uint16_t>((max)(depth >> i, 1)), 0, format, static_cast<uint8_t>(i));
+		if (numUavFormats && uavFormats)
+		{
+			for (auto i = 0u; i < numUavFormats; ++i)
+			{
+				auto& castable = m_castableUavs[uavFormats[i]];
+				castable.resize(numMips);
+				for (auto mip = 0u; mip < numMips; ++mip)
+					castable[mip] = CreateUAV(static_cast<uint16_t>((max)(depth >> mip, 1)), 0, uavFormats[i], static_cast<uint8_t>(mip));
+			}
+		}
 	}
-	(void)numUavFormats;
-	(void)uavFormats;
+	if (hasSRV && hasUAV)
+	{
+		m_singleLevelSrvs.resize(numMips);
+		if (numMips <= 1 && !m_srvs.empty()) m_singleLevelSrvs[0] = m_srvs[0];
+		else for (auto i = 0u; i < numMips; ++i)
+			m_singleLevelSrvs[i] = CreateSRV(format, 1, static_cast<uint8_t>(i), srvComponentMapping);
+	}
 
 	return true;
 }
 
-bool Texture3D_VK::Create(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
+bool Texture3D_VK::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 	uint16_t depth, Format format, ResourceFlag resourceFlags, uint8_t numMips, const wchar_t* name, uint16_t srvComponentMapping,
 	TextureLayout textureLayout, uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads)
 {
 	(void)textureLayout;
-	(void)numUavFormats;
-	(void)uavFormats;
 	XUSG_N_RETURN(initialize(pDevice, maxThreads), false);
 	m_format = format;
-	XUSG_N_RETURN(createImage(pHeap, heapOffset, width, height, depth, format, 1, resourceFlags, numMips, 1, MemoryType::DEFAULT, true, false), false);
+
+	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
+	const auto hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
+	const auto fullMips = CalculateMipLevels(width, height);
+	numMips = numMips ? (min)(numMips, fullMips) : fullMips;
+	numMips = (max)(numMips, static_cast<uint8_t>(1));
+
+	XUSG_N_RETURN(createImage(pHeap, heapOffset, width, height, depth, format, 1, resourceFlags, numMips, 1,
+		MemoryType::DEFAULT, true, false, numUavFormats, uavFormats, pHeap == nullptr), false);
 	setState(ResourceState::COMMON, numMips, maxThreads);
 	SetName(name);
-	m_srvs.resize(1);
-	m_srvs[0] = CreateSRV(format, numMips, 0, srvComponentMapping);
+	if (hasSRV)
+	{
+		m_srvs.resize(numMips);
+		for (auto i = 0u; i < numMips; ++i)
+			m_srvs[i] = CreateSRV(format, static_cast<uint8_t>(numMips - i), static_cast<uint8_t>(i), srvComponentMapping);
+	}
+	if (hasUAV)
+	{
+		m_uavs.resize(numMips);
+		for (auto i = 0u; i < numMips; ++i)
+			m_uavs[i] = CreateUAV(static_cast<uint16_t>((max)(depth >> i, 1)), 0, format, static_cast<uint8_t>(i));
+	}
 
 	return true;
 }
 
-bool Texture3D_VK::CreateResource(const Device* pDevice, uint32_t width, uint32_t height, uint16_t depth, Format format,
+bool Texture3D_VK::CreateResource(Device* pDevice, uint32_t width, uint32_t height, uint16_t depth, Format format,
 	ResourceFlag resourceFlags, uint8_t numMips, MemoryFlag memoryFlags, ResourceState initialResourceState,
 	TextureLayout textureLayout, uint8_t numCastableFormats, const Format* pCastableFormats, uint32_t maxThreads)
 {
@@ -1951,7 +3128,7 @@ bool Texture3D_VK::CreateResource(const Device* pDevice, uint32_t width, uint32_
 	return true;
 }
 
-bool Texture3D_VK::CreateResource(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
+bool Texture3D_VK::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 	uint16_t depth, Format format, ResourceFlag resourceFlags, uint8_t numMips, ResourceState initialResourceState,
 	TextureLayout textureLayout, uint8_t numCastableFormats, const Format* pCastableFormats, uint32_t maxThreads)
 {
@@ -1959,7 +3136,7 @@ bool Texture3D_VK::CreateResource(const Device* pDevice, const Heap* pHeap, uint
 	XUSG_N_RETURN(initialize(pDevice, maxThreads), false);
 	m_format = format;
 	XUSG_N_RETURN(createImage(pHeap, heapOffset, width, height, depth, format, 1, resourceFlags, numMips, 1,
-		MemoryType::DEFAULT, true, false, numCastableFormats, pCastableFormats), false);
+		MemoryType::DEFAULT, true, false, numCastableFormats, pCastableFormats, pHeap == nullptr), false);
 	setState(initialResourceState, numMips, maxThreads);
 
 	return true;
@@ -1968,7 +3145,7 @@ bool Texture3D_VK::CreateResource(const Device* pDevice, const Heap* pHeap, uint
 Descriptor Texture3D_VK::CreateSRV(Format format, uint8_t numMips, uint8_t mostDetailedMip, uint16_t srvComponentMapping)
 {
 	auto view = storeView(ResourceViewType::SRV, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, true, false);
-	fillImageView(*view, VK_IMAGE_VIEW_TYPE_3D, GetVKFormat(format == Format::UNKNOWN ? m_format : format), mostDetailedMip, numMips,
+	fillImageView(*view, VK_IMAGE_VIEW_TYPE_3D, GetVKFormat(m_pDevice, format == Format::UNKNOWN ? m_format : format), mostDetailedMip, numMips,
 		0, 1, VK_IMAGE_ASPECT_COLOR_BIT, srvComponentMapping, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
 
 	return view.get();
@@ -1979,7 +3156,7 @@ Descriptor Texture3D_VK::CreateUAV(uint16_t wSize, uint16_t firstWSlice, Format 
 	(void)firstWSlice;
 	(void)wSize;
 	auto view = storeView(ResourceViewType::UAV, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, true, false);
-	fillImageView(*view, VK_IMAGE_VIEW_TYPE_3D, GetVKFormat(format == Format::UNKNOWN ? m_format : format), mipLevel, 1,
+	fillImageView(*view, VK_IMAGE_VIEW_TYPE_3D, GetVKFormat(m_pDevice, format == Format::UNKNOWN ? m_format : format), mipLevel, 1,
 		0, 1, VK_IMAGE_ASPECT_COLOR_BIT, XUSG_DEFAULT_SRV_COMPONENT_MAPPING, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
 	return view.get();
@@ -1995,7 +3172,7 @@ uint16_t Texture3D_VK::GetDepth() const
 	return static_cast<uint16_t>(m_depthOrArray);
 }
 
-void Texture3D_VK::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, const Device* pDevice, uint32_t width,
+void Texture3D_VK::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, Device* pDevice, uint32_t width,
 	uint32_t height, uint16_t depth, Format format, ResourceFlag resourceFlags, uint8_t numMips,
 	TextureLayout textureLayout, uint64_t requiredAlignment)
 {
@@ -2003,6 +3180,8 @@ void Texture3D_VK::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, co
 	Texture_VK::GetAllocationInfo(byteSize, alignment, pDevice, width, height, format, 1, resourceFlags, numMips, 1, textureLayout, requiredAlignment);
 }
 
+//--------------------------------------------------------------------------------------
+// Raw buffer
 //--------------------------------------------------------------------------------------
 
 Buffer_VK::Buffer_VK()
@@ -2013,12 +3192,11 @@ Buffer_VK::~Buffer_VK()
 {
 }
 
-bool Buffer_VK::Create(const Device* pDevice, size_t byteWidth, ResourceFlag resourceFlags, MemoryType memoryType,
+bool Buffer_VK::Create(Device* pDevice, size_t byteWidth, ResourceFlag resourceFlags, MemoryType memoryType,
 	uint32_t numSRVs, const uintptr_t* firstSrvElements, uint32_t numUAVs, const uintptr_t* firstUavElements,
 	MemoryFlag memoryFlags, const wchar_t* name, const uintptr_t* counterByteOffsets, uint32_t maxThreads)
 {
-	(void)memoryFlags;
-	XUSG_N_RETURN(CreateResource(pDevice, byteWidth, resourceFlags, memoryType, MemoryFlag::NONE,
+	XUSG_N_RETURN(CreateResource(pDevice, byteWidth, resourceFlags, memoryType, memoryFlags,
 		ResourceState::COMMON, 0, nullptr, maxThreads), false);
 	SetName(name);
 	const auto stride = 4u;
@@ -2028,7 +3206,7 @@ bool Buffer_VK::Create(const Device* pDevice, size_t byteWidth, ResourceFlag res
 	return true;
 }
 
-bool Buffer_VK::Create(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, size_t byteWidth, ResourceFlag resourceFlags,
+bool Buffer_VK::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, size_t byteWidth, ResourceFlag resourceFlags,
 	uint32_t numSRVs, const uintptr_t* firstSrvElements, uint32_t numUAVs, const uintptr_t* firstUavElements,
 	const wchar_t* name, const uintptr_t* counterByteOffsets, uint32_t maxThreads)
 {
@@ -2040,7 +3218,7 @@ bool Buffer_VK::Create(const Device* pDevice, const Heap* pHeap, uint64_t heapOf
 	return true;
 }
 
-bool Buffer_VK::CreateResource(const Device* pDevice, size_t byteWidth, ResourceFlag resourceFlags, MemoryType memoryType,
+bool Buffer_VK::CreateResource(Device* pDevice, size_t byteWidth, ResourceFlag resourceFlags, MemoryType memoryType,
 	MemoryFlag memoryFlags, ResourceState initialResourceState, uint8_t numCastableFormats, const Format* pCastableFormats, uint32_t maxThreads)
 {
 	(void)memoryFlags;
@@ -2054,13 +3232,13 @@ bool Buffer_VK::CreateResource(const Device* pDevice, size_t byteWidth, Resource
 	return true;
 }
 
-bool Buffer_VK::CreateResource(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, size_t byteWidth,
+bool Buffer_VK::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset, size_t byteWidth,
 	ResourceFlag resourceFlags, ResourceState initialResourceState, uint8_t numCastableFormats, const Format* pCastableFormats, uint32_t maxThreads)
 {
 	(void)numCastableFormats;
 	(void)pCastableFormats;
 	XUSG_N_RETURN(initialize(pDevice, maxThreads), false);
-	XUSG_N_RETURN(createBuffer(pHeap, heapOffset, byteWidth, resourceFlags, MemoryType::DEFAULT), false);
+	XUSG_N_RETURN(createBuffer(pHeap, heapOffset, byteWidth, resourceFlags, MemoryType::DEFAULT, pHeap == nullptr), false);
 	setState(initialResourceState, 1, maxThreads);
 
 	return true;
@@ -2069,8 +3247,8 @@ bool Buffer_VK::CreateResource(const Device* pDevice, const Heap* pHeap, uint64_
 bool Buffer_VK::Upload(CommandList* pCommandList, Resource* pUploader, const void* pData, size_t size,
 	size_t offset, ResourceState dstState, uint32_t threadIdx)
 {
-	const auto uploader = dynamic_cast<Resource_VK*>(pUploader);
-	assert(uploader);
+	assert(pUploader);
+	const auto uploader = static_cast<Resource_VK*>(pUploader->GetHandle());
 	XUSG_N_RETURN(uploader->CreateUploadBuffer(m_pDevice, size), false);
 	memcpy(uploader->GetMappedData(), pData, size);
 	ResourceBarrier barrier;
@@ -2169,7 +3347,7 @@ size_t Buffer_VK::GetTiledResourceTileSize() const
 	return 65536;
 }
 
-void Buffer_VK::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, const Device* pDevice, size_t byteWidth,
+void Buffer_VK::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, Device* pDevice, size_t byteWidth,
 	ResourceFlag resourceFlags, uint64_t requiredAlignment)
 {
 	(void)pDevice;
@@ -2225,6 +3403,8 @@ void Buffer_VK::getViewRange(uint32_t& viewElements, uintptr_t& firstElement, ui
 }
 
 //--------------------------------------------------------------------------------------
+// Structured buffer
+//--------------------------------------------------------------------------------------
 
 StructuredBuffer_VK::StructuredBuffer_VK()
 {
@@ -2234,7 +3414,7 @@ StructuredBuffer_VK::~StructuredBuffer_VK()
 {
 }
 
-bool StructuredBuffer_VK::Create(const Device* pDevice, size_t numElements, uint32_t byteStride, ResourceFlag resourceFlags,
+bool StructuredBuffer_VK::Create(Device* pDevice, size_t numElements, uint32_t byteStride, ResourceFlag resourceFlags,
 	MemoryType memoryType, uint32_t numSRVs, const uintptr_t* firstSrvElements, uint32_t numUAVs, const uintptr_t* firstUavElements,
 	MemoryFlag memoryFlags, const wchar_t* name, const uintptr_t* counterByteOffsets, uint32_t maxThreads)
 {
@@ -2247,7 +3427,7 @@ bool StructuredBuffer_VK::Create(const Device* pDevice, size_t numElements, uint
 		counterByteOffsets, XUSG_DEFAULT_SRV_COMPONENT_MAPPING);
 }
 
-bool StructuredBuffer_VK::Create(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, size_t numElements,
+bool StructuredBuffer_VK::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, size_t numElements,
 	uint32_t byteStride, ResourceFlag resourceFlags, uint32_t numSRVs, const uintptr_t* firstSrvElements,
 	uint32_t numUAVs, const uintptr_t* firstUavElements, const wchar_t* name, const uintptr_t* counterByteOffsets, uint32_t maxThreads)
 {
@@ -2260,6 +3440,8 @@ bool StructuredBuffer_VK::Create(const Device* pDevice, const Heap* pHeap, uint6
 }
 
 //--------------------------------------------------------------------------------------
+// Typed buffer
+//--------------------------------------------------------------------------------------
 
 TypedBuffer_VK::TypedBuffer_VK()
 {
@@ -2269,7 +3451,7 @@ TypedBuffer_VK::~TypedBuffer_VK()
 {
 }
 
-bool TypedBuffer_VK::Create(const Device* pDevice, size_t numElements, uint32_t byteStride, Format format, ResourceFlag resourceFlags,
+bool TypedBuffer_VK::Create(Device* pDevice, size_t numElements, uint32_t byteStride, Format format, ResourceFlag resourceFlags,
 	MemoryType memoryType, uint32_t numSRVs, const uintptr_t* firstSrvElements, uint32_t numUAVs, const uintptr_t* firstUavElements,
 	MemoryFlag memoryFlags, const wchar_t* name, uint16_t srvComponentMapping, const uintptr_t* counterByteOffsets,
 	uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads)
@@ -2286,7 +3468,7 @@ bool TypedBuffer_VK::Create(const Device* pDevice, size_t numElements, uint32_t 
 		counterByteOffsets, srvComponentMapping);
 }
 
-bool TypedBuffer_VK::Create(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, size_t numElements, uint32_t byteStride,
+bool TypedBuffer_VK::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, size_t numElements, uint32_t byteStride,
 	Format format, ResourceFlag resourceFlags, uint32_t numSRVs, const uintptr_t* firstSrvElements, uint32_t numUAVs,
 	const uintptr_t* firstUavElements, const wchar_t* name, uint16_t srvComponentMapping, const uintptr_t* counterByteOffsets,
 	uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads)
@@ -2316,6 +3498,8 @@ const Descriptor& TypedBuffer_VK::GetUAV(uint32_t index, Format format) const
 }
 
 //--------------------------------------------------------------------------------------
+// Vertex buffer
+//--------------------------------------------------------------------------------------
 
 VertexBuffer_VK::VertexBuffer_VK()
 {
@@ -2325,7 +3509,7 @@ VertexBuffer_VK::~VertexBuffer_VK()
 {
 }
 
-bool VertexBuffer_VK::Create(const Device* pDevice, size_t numVertices, uint32_t byteStride, ResourceFlag resourceFlags,
+bool VertexBuffer_VK::Create(Device* pDevice, size_t numVertices, uint32_t byteStride, ResourceFlag resourceFlags,
 	MemoryType memoryType, uint32_t numVBVs, const uintptr_t* firstVertices, uint32_t numSRVs, const uintptr_t* firstSrvElements,
 	uint32_t numUAVs, const uintptr_t* firstUavElements, MemoryFlag memoryFlags, const wchar_t* name,
 	const uintptr_t* counterByteOffsets, uint32_t maxThreads)
@@ -2337,7 +3521,7 @@ bool VertexBuffer_VK::Create(const Device* pDevice, size_t numVertices, uint32_t
 	return true;
 }
 
-bool VertexBuffer_VK::Create(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, size_t numVertices, uint32_t byteStride,
+bool VertexBuffer_VK::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, size_t numVertices, uint32_t byteStride,
 	ResourceFlag resourceFlags, uint32_t numVBVs, const uintptr_t* firstVertices, uint32_t numSRVs, const uintptr_t* firstSrvElements,
 	uint32_t numUAVs, const uintptr_t* firstUavElements, const wchar_t* name, const uintptr_t* counterByteOffsets, uint32_t maxThreads)
 {
@@ -2348,7 +3532,7 @@ bool VertexBuffer_VK::Create(const Device* pDevice, const Heap* pHeap, uint64_t 
 	return true;
 }
 
-bool VertexBuffer_VK::CreateAsRaw(const Device* pDevice, size_t numVertices, uint32_t byteStride, ResourceFlag resourceFlags,
+bool VertexBuffer_VK::CreateAsRaw(Device* pDevice, size_t numVertices, uint32_t byteStride, ResourceFlag resourceFlags,
 	MemoryType memoryType, uint32_t numVBVs, const uintptr_t* firstVertices, uint32_t numSRVs, const uintptr_t* firstSrvElements,
 	uint32_t numUAVs, const uintptr_t* firstUavElements, MemoryFlag memoryFlags, const wchar_t* name,
 	const uintptr_t* counterByteOffsets, uint32_t maxThreads)
@@ -2360,7 +3544,7 @@ bool VertexBuffer_VK::CreateAsRaw(const Device* pDevice, size_t numVertices, uin
 	return true;
 }
 
-bool VertexBuffer_VK::CreateAsRaw(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, size_t numVertices, uint32_t byteStride,
+bool VertexBuffer_VK::CreateAsRaw(Device* pDevice, Heap* pHeap, uint64_t heapOffset, size_t numVertices, uint32_t byteStride,
 	ResourceFlag resourceFlags, uint32_t numVBVs, const uintptr_t* firstVertices, uint32_t numSRVs, const uintptr_t* firstSrvElements,
 	uint32_t numUAVs, const uintptr_t* firstUavElements, const wchar_t* name, const uintptr_t* counterByteOffsets, uint32_t maxThreads)
 {
@@ -2373,9 +3557,10 @@ bool VertexBuffer_VK::CreateAsRaw(const Device* pDevice, const Heap* pHeap, uint
 
 void VertexBuffer_VK::CreateVBV(VertexBufferView& vbv, uint32_t numVertices, uint32_t byteStride, size_t firstVertex)
 {
-	vbv.BufferLocation = GetVirtualAddress(static_cast<int>(firstVertex * byteStride));
-	vbv.SizeInBytes = numVertices * byteStride;
-	vbv.StrideInBytes = byteStride;
+	vbv.pResource = this;
+	vbv.ByteOffset = byteStride * firstVertex;
+	vbv.ByteStride = byteStride;
+	vbv.ByteSize = byteStride * numVertices;
 }
 
 const VertexBufferView& VertexBuffer_VK::GetVBV(uint32_t index) const
@@ -2395,6 +3580,8 @@ void VertexBuffer_VK::createVBVs(size_t numVertices, uint32_t byteStride, uint32
 }
 
 //--------------------------------------------------------------------------------------
+// Index buffer
+//--------------------------------------------------------------------------------------
 
 IndexBuffer_VK::IndexBuffer_VK()
 {
@@ -2404,7 +3591,7 @@ IndexBuffer_VK::~IndexBuffer_VK()
 {
 }
 
-bool IndexBuffer_VK::Create(const Device* pDevice, size_t byteWidth, Format format, ResourceFlag resourceFlags, MemoryType memoryType,
+bool IndexBuffer_VK::Create(Device* pDevice, size_t byteWidth, Format format, ResourceFlag resourceFlags, MemoryType memoryType,
 	uint32_t numIBVs, const uintptr_t* ibvByteOffsets, uint32_t numSRVs, const uintptr_t* firstSrvElements, uint32_t numUAVs,
 	const uintptr_t* firstUavElements, MemoryFlag memoryFlags, const wchar_t* name, uint16_t srvComponentMapping,
 	const uintptr_t* counterByteOffsets, uint32_t maxThreads)
@@ -2419,7 +3606,7 @@ bool IndexBuffer_VK::Create(const Device* pDevice, size_t byteWidth, Format form
 	return true;
 }
 
-bool IndexBuffer_VK::Create(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, size_t byteWidth, Format format,
+bool IndexBuffer_VK::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, size_t byteWidth, Format format,
 	ResourceFlag resourceFlags, uint32_t numIBVs, const uintptr_t* ibvByteOffsets, uint32_t numSRVs, const uintptr_t* firstSrvElements,
 	uint32_t numUAVs, const uintptr_t* firstUavElements, const wchar_t* name, uint16_t srvComponentMapping,
 	const uintptr_t* counterByteOffsets, uint32_t maxThreads)
@@ -2436,8 +3623,9 @@ bool IndexBuffer_VK::Create(const Device* pDevice, const Heap* pHeap, uint64_t h
 
 void IndexBuffer_VK::CreateIBV(IndexBufferView& ibv, Format format, uint32_t byteSize, size_t byteOffset)
 {
-	ibv.BufferLocation = GetVirtualAddress(static_cast<int>(byteOffset));
-	ibv.SizeInBytes = byteSize;
+	ibv.pResource = this;
+	ibv.ByteOffset = byteOffset;
+	ibv.ByteSize = byteSize;
 	ibv.Format = format;
 }
 

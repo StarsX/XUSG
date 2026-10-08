@@ -255,6 +255,22 @@
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdafx.h</ForcedIncludeFiles>
     </ClCompile>
   </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="..\XUSG-EZ\Shaders\CSBlit2D.hlsl">
+      <ShaderType>Compute</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <HeaderFileOutput>$(OutDir)%(Filename).h</HeaderFileOutput>
+      <VariableName>%(Filename)</VariableName>
+      <ObjectFileOutput></ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="..\XUSG-EZ\Shaders\CSBlit3D.hlsl">
+      <ShaderType>Compute</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <HeaderFileOutput>$(OutDir)%(Filename).h</HeaderFileOutput>
+      <VariableName>%(Filename)</VariableName>
+      <ObjectFileOutput></ObjectFileOutput>
+    </FxCompile>
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

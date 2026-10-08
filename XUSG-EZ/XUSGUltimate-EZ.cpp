@@ -23,13 +23,19 @@ XUSG::EZ::ResourceView XUSG::Ultimate::EZ::GetUAV(const SamplerFeedBack* pResour
 	return resourceView;
 }
 
-EZ::CommandList::uptr EZ::CommandList::MakeUnique(API api)
+EZ::CommandList::uptr EZ::CommandList::MakeUnique()
 {
+	XUSG::Device::LockApi();
+	assert(XUSG::Device::GetApi() != API::VULKAN && "Ultimate EZ is not implemented on Vulkan");
+
 	return make_unique<EZ::CommandList_DX12>();
 }
 
-EZ::CommandList::sptr EZ::CommandList::MakeShared(API api)
+EZ::CommandList::sptr EZ::CommandList::MakeShared()
 {
+	XUSG::Device::LockApi();
+	assert(XUSG::Device::GetApi() != API::VULKAN && "Ultimate EZ is not implemented on Vulkan");
+
 	return make_shared<EZ::CommandList_DX12>();
 }
 
@@ -45,8 +51,11 @@ EZ::CommandList::uptr EZ::CommandList::MakeUnique(Ultimate::CommandList* pComman
 	const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE],
 	const uint32_t constantSlots[Shader::Stage::NUM_STAGE],
 	const uint32_t constantSpaces[Shader::Stage::NUM_STAGE],
-	uint32_t slotExt, uint32_t spaceExt, API api)
+	uint32_t slotExt, uint32_t spaceExt)
 {
+	XUSG::Device::LockApi();
+	assert(XUSG::Device::GetApi() != API::VULKAN && "Ultimate EZ is not implemented on Vulkan");
+
 	return make_unique<EZ::CommandList_DX12>(pCommandList, samplerHeapSize, cbvSrvUavHeapSize,
 		maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
 		maxCbvSpaces, maxSrvSpaces, maxUavSpaces, max32BitConstants,
@@ -65,8 +74,11 @@ EZ::CommandList::sptr EZ::CommandList::MakeShared(Ultimate::CommandList* pComman
 	const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE],
 	const uint32_t constantSlots[Shader::Stage::NUM_STAGE],
 	const uint32_t constantSpaces[Shader::Stage::NUM_STAGE],
-	uint32_t slotExt, uint32_t spaceExt, API api)
+	uint32_t slotExt, uint32_t spaceExt)
 {
+	XUSG::Device::LockApi();
+	assert(XUSG::Device::GetApi() != API::VULKAN && "Ultimate EZ is not implemented on Vulkan");
+
 	return make_shared<EZ::CommandList_DX12>(pCommandList, samplerHeapSize, cbvSrvUavHeapSize,
 		maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
 		maxCbvSpaces, maxSrvSpaces, maxUavSpaces, max32BitConstants,

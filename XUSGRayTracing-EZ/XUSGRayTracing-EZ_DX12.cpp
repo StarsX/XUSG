@@ -48,13 +48,13 @@ bool EZ::CommandList_DXR::Create(RayTracing::CommandList* pCommandList, uint32_t
 	XUSG_N_RETURN(pDxDevice, false);
 	pDxDevice->QueryRaytracingCommandList(m_commandList.get(), IID_PPV_ARGS(&m_commandListRT));
 
-	m_rayTracingPipelineLib = PipelineLib::MakeUnique(m_pDeviceRT, API::DIRECTX_12);
-	m_rayTracingState = State::MakeUnique(API::DIRECTX_12);
+	m_rayTracingPipelineLib = PipelineLib::MakeUnique(m_pDeviceRT);
+	m_rayTracingState = State::MakeUnique();
 
 	return true;
 }
 
-bool EZ::CommandList_DXR::Create(const RayTracing::Device* pDevice, void* pHandle,
+bool EZ::CommandList_DXR::Create(RayTracing::Device* pDevice, void* pHandle,
 	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize, const wchar_t* name)
 {
 	m_pDeviceRT = pDevice;
@@ -107,7 +107,7 @@ bool EZ::CommandList_DXR::CreatePipelineLayouts(
 	return true;
 }
 
-bool EZ::CommandList_DXR::Reset(const CommandAllocator* pAllocator, const Pipeline& initialState)
+bool EZ::CommandList_DXR::Reset(CommandAllocator* pAllocator, const Pipeline& initialState)
 {
 	if (!m_scratches.empty())
 	{
@@ -441,7 +441,7 @@ void EZ::CommandList_DXR::DispatchRays(uint32_t width, uint32_t height, uint32_t
 	RayTracing::CommandList_DX12::DispatchRays(width, height, depth, pRayGen, pHitGroup, pMiss);
 }
 
-void EZ::CommandList_DXR::DispatchRaysIndirect(const CommandLayout* pCommandlayout, uint32_t maxCommandCount,
+void EZ::CommandList_DXR::DispatchRaysIndirect(CommandLayout* pCommandlayout, uint32_t maxCommandCount,
 	const wchar_t* rayGenShaderName, const wchar_t* const* pMissShaderNames, uint32_t numMissShaders,
 	Resource* pArgumentBuffer, uint64_t argumentBufferOffset, Resource* pCountBuffer, uint64_t countBufferOffset)
 {
@@ -463,7 +463,7 @@ void EZ::CommandList_DXR::DispatchRaysIndirect(const CommandLayout* pCommandlayo
 		m_uploaders.emplace_back();
 		auto& uploader = m_uploaders.back();
 
-		uploader = Buffer::MakeUnique(API::DIRECTX_12);
+		uploader = Buffer::MakeUnique();
 		const auto result = uploader->Create(m_pDevice, sizeof(DX12DispatchRaysDescHeader),
 			ResourceFlag::DENY_SHADER_RESOURCE, MemoryType::UPLOAD, 0, nullptr,
 			0, nullptr, MemoryFlag::NONE);
@@ -495,7 +495,7 @@ bool EZ::CommandList_DXR::createComputePipelineLayouts(uint32_t maxSamplers, con
 {
 	// Create common compute pipeline layout with ray tracing
 	auto paramIndex = 0u;
-	const auto pipelineLayout = PipelineLayout::MakeUnique(API::DIRECTX_12);
+	const auto pipelineLayout = PipelineLayout::MakeUnique();
 	const auto maxSpaces = (max)(maxCbvSpaces, (max)(maxSrvSpaces, maxUavSpaces));
 
 	auto& descriptorTables = m_cbvSrvUavTables[Shader::Stage::CS];
@@ -593,13 +593,13 @@ void EZ::CommandList_DXR::predispatchRays(CShaderTablePtr& pRayGen, CShaderTable
 				for (auto i = 0u; i < numHitGroups; ++i) // Set hit-group shader IDs into the key
 				{
 					const auto hitGroupName = m_rayTracingState->GetHitGroupName(i);
-					pShaderIDs[i] = ShaderRecord::GetShaderIdentifier(pipeline, hitGroupName, API::DIRECTX_12);
+					pShaderIDs[i] = ShaderRecord::GetShaderIdentifier(pipeline, hitGroupName);
 				}
 				pHitGroup = getShaderTable(key, m_hitGroupTables, numHitGroups);
 			}
 			// Different from other types of state objects, m_rayTracingState cannot be reused
 			// for the next different pipeline, so we need to remake it
-			m_rayTracingState = State::MakeUnique(API::DIRECTX_12);
+			m_rayTracingState = State::MakeUnique();
 			m_isRTStateDirty = false;
 		}
 	}
@@ -609,7 +609,7 @@ void EZ::CommandList_DXR::predispatchRays(CShaderTablePtr& pRayGen, CShaderTable
 	{
 		string key(sizeof(void*), '\0');
 		auto& shaderID = reinterpret_cast<const void*&>(key[0]);
-		shaderID = ShaderRecord::GetShaderIdentifier(m_pipeline, rayGenShaderName, API::DIRECTX_12);
+		shaderID = ShaderRecord::GetShaderIdentifier(m_pipeline, rayGenShaderName);
 		pRayGen = getShaderTable(key, m_rayGenTables, 1);
 	}
 
@@ -621,7 +621,7 @@ void EZ::CommandList_DXR::predispatchRays(CShaderTablePtr& pRayGen, CShaderTable
 		for (auto i = 0u; i < numMissShaders; ++i) // Set hit-group shader IDs into the key
 		{
 			assert(pMissShaderNames[i]);
-			pShaderIDs[i] = ShaderRecord::GetShaderIdentifier(m_pipeline, pMissShaderNames[i], API::DIRECTX_12);
+			pShaderIDs[i] = ShaderRecord::GetShaderIdentifier(m_pipeline, pMissShaderNames[i]);
 		}
 		pMiss = getShaderTable(key, m_missTables, numMissShaders);
 	}
@@ -658,7 +658,7 @@ XUSG::Resource* EZ::CommandList_DXR::needScratch(size_t size)
 {
 	if (m_scratches.empty() || !m_scratches.back() || m_scratches.back()->GetWidth() < size)
 	{
-		m_scratches.emplace_back(Buffer::MakeUnique(API::DIRECTX_12));
+		m_scratches.emplace_back(Buffer::MakeUnique());
 		AccelerationStructure::AllocateUAVBuffer(m_pDeviceRT, m_scratches.back().get(), size);
 	}
 
@@ -673,10 +673,10 @@ const ShaderTable* EZ::CommandList_DXR::getShaderTable(const string& key,
 
 	if (shaderTablePair == shaderTables.cend())
 	{
-		const auto shaderIDSize = ShaderRecord::GetShaderIdentifierSize(m_pDeviceRT, API::DIRECTX_12);
+		const auto shaderIDSize = ShaderRecord::GetShaderIdentifierSize(m_pDeviceRT);
 
 		auto& shaderTable = shaderTables[key];
-		shaderTable = ShaderTable::MakeUnique(API::DIRECTX_12);
+		shaderTable = ShaderTable::MakeUnique();
 		shaderTable->Create(m_pDeviceRT, numShaderIDs, shaderIDSize);
 
 		const auto pShaderIDs = reinterpret_cast<void* const*>(&key[0]);

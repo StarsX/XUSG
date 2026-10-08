@@ -47,7 +47,7 @@ namespace XUSG
 					const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
-				bool Create(const Device* pDevice, void* pHandle,
+				bool Create(Device* pDevice, void* pHandle,
 					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
@@ -91,7 +91,7 @@ namespace XUSG
 				void MSSetGraphicsShader(Shader::Stage stage, const Blob& shader);
 				void SetGraphicsNodeMask(uint32_t nodeMask);
 				void DispatchMesh(uint32_t ThreadGroupCountX, uint32_t ThreadGroupCountY, uint32_t ThreadGroupCountZ);
-				void DispatchMeshIndirect(const CommandLayout* pCommandlayout,
+				void DispatchMeshIndirect(CommandLayout* pCommandlayout,
 					uint32_t maxCommandCount,
 					Resource* pArgumentBuffer,
 					uint64_t argumentBufferOffset = 0,

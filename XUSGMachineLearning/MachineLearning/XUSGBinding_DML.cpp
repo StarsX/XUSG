@@ -67,7 +67,7 @@ bool Binding_DML::Reset(const Operator& dispatchable, const DescriptorHeap& desc
 	return true;
 }
 
-void Binding_DML::BindInput(uint32_t i, const Resource* pResource, uint64_t size, uint64_t offset)
+void Binding_DML::BindInput(uint32_t i, Resource* pResource, uint64_t size, uint64_t offset)
 {
 	BindInputBuffer(i, pResource, size, offset);
 	BindInput(i, pResource ? static_cast<size_t>(i) : -1);
@@ -101,7 +101,7 @@ void Binding_DML::BindInput(uint32_t i, uintptr_t bindingIndex, uint32_t binding
 	}
 }
 
-void Binding_DML::BindOutput(uint32_t i, const Resource* pResource, uint64_t size, uint64_t offset)
+void Binding_DML::BindOutput(uint32_t i, Resource* pResource, uint64_t size, uint64_t offset)
 {
 	BindOutputBuffer(i, pResource, size, offset);
 	BindOutput(i, pResource ? static_cast<size_t>(i) : -1);
@@ -136,7 +136,7 @@ void Binding_DML::BindOutput(uint32_t i, uintptr_t bindingIndex, uint32_t bindin
 	}
 }
 
-void Binding_DML::AppendInput(const Resource* pResource, uint64_t size, uint64_t offset)
+void Binding_DML::AppendInput(Resource* pResource, uint64_t size, uint64_t offset)
 {
 	BindInput(static_cast<uint32_t>(m_inputBindings.size()), pResource, size, offset);
 }
@@ -146,7 +146,7 @@ void Binding_DML::AppendInput(uintptr_t bindingIndex, uint32_t bindingCount)
 	BindInput(static_cast<uint32_t>(m_inputBindings.size()), bindingIndex, bindingCount);
 }
 
-void Binding_DML::AppendOutput(const Resource* pResource, uint64_t size, uint64_t offset)
+void Binding_DML::AppendOutput(Resource* pResource, uint64_t size, uint64_t offset)
 {
 	BindOutput(static_cast<uint32_t>(m_outputBindings.size()), pResource, size, offset);
 }
@@ -156,7 +156,7 @@ void Binding_DML::AppendOutput(uintptr_t bindingIndex, uint32_t bindingCount)
 	BindOutput(static_cast<uint32_t>(m_outputBindings.size()), bindingIndex, bindingCount);
 }
 
-void Binding_DML::BindInputBuffer(uint32_t i, const Resource* pResource, uint64_t size, uint64_t offset)
+void Binding_DML::BindInputBuffer(uint32_t i, Resource* pResource, uint64_t size, uint64_t offset)
 {
 	if (i >= m_inputBufferBindings.size())
 		m_inputBufferBindings.resize(i + 1);
@@ -167,7 +167,7 @@ void Binding_DML::BindInputBuffer(uint32_t i, const Resource* pResource, uint64_
 	m_inputBufferBindings[i].SizeInBytes = size;
 }
 
-void Binding_DML::BindOutputBuffer(uint32_t i, const Resource* pResource, uint64_t size, uint64_t offset)
+void Binding_DML::BindOutputBuffer(uint32_t i, Resource* pResource, uint64_t size, uint64_t offset)
 {
 	if (i >= m_outputBufferBindings.size())
 		m_outputBufferBindings.resize(i + 1);
@@ -178,7 +178,7 @@ void Binding_DML::BindOutputBuffer(uint32_t i, const Resource* pResource, uint64
 	m_outputBufferBindings[i].SizeInBytes = size;
 }
 
-void Binding_DML::BindTemporary(const Resource* pResource, uint64_t size, uint64_t offset)
+void Binding_DML::BindTemporary(Resource* pResource, uint64_t size, uint64_t offset)
 {
 	size = !pResource || size > 0 ? size : pResource->GetWidth();
 	const DML_BUFFER_BINDING bufferBinding =
@@ -197,7 +197,7 @@ void Binding_DML::BindTemporary(const Resource* pResource, uint64_t size, uint64
 	m_bindingTable->BindTemporaryResource(&bindingDesc);
 }
 
-void Binding_DML::BindPersistent(const Resource* pResource, uint64_t size, uint64_t offset)
+void Binding_DML::BindPersistent(Resource* pResource, uint64_t size, uint64_t offset)
 {
 	size = !pResource || size > 0 ? size : pResource->GetWidth();
 	const DML_BUFFER_BINDING bufferBinding =

@@ -268,6 +268,15 @@ VkFormat XUSG::GetVKFormat(Format format)
 	return vkFormat;
 }
 
+VkFormat XUSG::GetVKFormat(const Device_VK* pDevice, Format format)
+{
+	const auto vkFormat = GetVKFormat(format);
+	if (pDevice && pDevice->EmulatesD24S8() && vkFormat == VK_FORMAT_D24_UNORM_S8_UINT)
+		return VK_FORMAT_D32_SFLOAT_S8_UINT;
+
+	return vkFormat;
+}
+
 Format XUSG::GetFormatFromVK(VkFormat format)
 {
 	switch (format)
@@ -507,7 +516,9 @@ VkAccessFlags2 XUSG::GetVKAccess(ResourceState state)
 	if ((state & ResourceState::INDIRECT_ARGUMENT) != ResourceState::COMMON)
 		access |= VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT;
 	if ((state & ResourceState::STREAM_OUT) != ResourceState::COMMON)
-		access |= VK_ACCESS_2_TRANSFORM_FEEDBACK_WRITE_BIT_EXT;
+		access |= VK_ACCESS_2_TRANSFORM_FEEDBACK_WRITE_BIT_EXT |
+		VK_ACCESS_2_TRANSFORM_FEEDBACK_COUNTER_READ_BIT_EXT |
+		VK_ACCESS_2_TRANSFORM_FEEDBACK_COUNTER_WRITE_BIT_EXT;
 
 	return access;
 }
@@ -913,10 +924,10 @@ VkQueryType XUSG::GetVKQueryType(QueryType type)
 		VK_QUERY_TYPE_OCCLUSION,
 		VK_QUERY_TYPE_TIMESTAMP,
 		VK_QUERY_TYPE_PIPELINE_STATISTICS,
-		VK_QUERY_TYPE_OCCLUSION,
-		VK_QUERY_TYPE_OCCLUSION,
-		VK_QUERY_TYPE_OCCLUSION,
-		VK_QUERY_TYPE_OCCLUSION,
+		VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT,
+		VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT,
+		VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT,
+		VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT,
 		VK_QUERY_TYPE_OCCLUSION,
 	};
 
@@ -924,10 +935,10 @@ VkQueryType XUSG::GetVKQueryType(QueryType type)
 	assert(types[static_cast<uint32_t>(QueryType::BINARY_OCCLUSION)] == VK_QUERY_TYPE_OCCLUSION);
 	assert(types[static_cast<uint32_t>(QueryType::TIMESTAMP)] == VK_QUERY_TYPE_TIMESTAMP);
 	assert(types[static_cast<uint32_t>(QueryType::PIPELINE_STATISTICS)] == VK_QUERY_TYPE_PIPELINE_STATISTICS);
-	assert(types[static_cast<uint32_t>(QueryType::SO_STATISTICS_STREAM0)] == VK_QUERY_TYPE_OCCLUSION);
-	assert(types[static_cast<uint32_t>(QueryType::SO_STATISTICS_STREAM1)] == VK_QUERY_TYPE_OCCLUSION);
-	assert(types[static_cast<uint32_t>(QueryType::SO_STATISTICS_STREAM2)] == VK_QUERY_TYPE_OCCLUSION);
-	assert(types[static_cast<uint32_t>(QueryType::SO_STATISTICS_STREAM3)] == VK_QUERY_TYPE_OCCLUSION);
+	assert(types[static_cast<uint32_t>(QueryType::SO_STATISTICS_STREAM0)] == VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT);
+	assert(types[static_cast<uint32_t>(QueryType::SO_STATISTICS_STREAM1)] == VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT);
+	assert(types[static_cast<uint32_t>(QueryType::SO_STATISTICS_STREAM2)] == VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT);
+	assert(types[static_cast<uint32_t>(QueryType::SO_STATISTICS_STREAM3)] == VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT);
 	assert(types[static_cast<uint32_t>(QueryType::VIDEO_DECODE_STATISTICS)] == VK_QUERY_TYPE_OCCLUSION);
 
 	return types[static_cast<uint32_t>(type)];

@@ -550,7 +550,7 @@ static bool FillInitData(uint32_t width, uint32_t height, uint32_t depth,
 static bool CreateTexture(CommandList* pCommandList, const DDS_HEADER* header,
 	const uint8_t* bitData, size_t bitSize, size_t maxsize, bool forceSRGB,
 	Texture::sptr& texture, Resource* pUploader, ResourceState state,
-	MemoryFlag memoryFlags, const wchar_t* name, API api)
+	MemoryFlag memoryFlags, const wchar_t* name)
 {
 	const auto width = header->width;
 	auto height = header->height;
@@ -648,7 +648,7 @@ static bool CreateTexture(CommandList* pCommandList, const DDS_HEADER* header,
 	case ResourceDimension::TEXTURE1D:
 		F_RETURN(arraySize > GetDX12Requirement(REQ_TEXTURE1D_ARRAY_AXIS_DIMENSION) ||
 			width > GetDX12Requirement(REQ_TEXTURE1D_U_DIMENSION), cerr, ERROR_NOT_SUPPORTED, false);
-		texture = Texture::MakeShared(api);
+		texture = Texture::MakeShared();
 		break;
 
 	case ResourceDimension::TEXTURE2D:
@@ -664,7 +664,7 @@ static bool CreateTexture(CommandList* pCommandList, const DDS_HEADER* header,
 			width > GetDX12Requirement(REQ_TEXTURE2D_U_OR_V_DIMENSION) ||
 			height > GetDX12Requirement(REQ_TEXTURE2D_U_OR_V_DIMENSION),
 			cerr, ERROR_NOT_SUPPORTED, false);
-		texture = Texture::MakeShared(api);
+		texture = Texture::MakeShared();
 		break;
 
 	case ResourceDimension::TEXTURE3D:
@@ -673,7 +673,7 @@ static bool CreateTexture(CommandList* pCommandList, const DDS_HEADER* header,
 			height > GetDX12Requirement(REQ_TEXTURE3D_U_V_OR_W_DIMENSION) ||
 			depth > GetDX12Requirement(REQ_TEXTURE3D_U_V_OR_W_DIMENSION),
 			cerr, ERROR_NOT_SUPPORTED, false);
-		texture = Texture3D::MakeShared(api);
+		texture = Texture3D::MakeShared();
 		break;
 
 	default:
@@ -729,7 +729,7 @@ static bool CreateTexture(CommandList* pCommandList, const DDS_HEADER* header,
 					if (texture3D) // Texture3D can be a Texture2D, so it goes first.
 					{
 						const auto fmt = forceSRGB ? MakeSRGB(format) : format;
-						texture = Texture3D::MakeShared(api);
+						texture = Texture3D::MakeShared();
 						success = texture3D->Create(pDevice, width, height, depth, fmt,
 							resourceFlags, mipCount, memoryFlags, name);
 						if (success) success = texture3D->Upload(pCommandList, pUploader, initData.data(),
@@ -738,7 +738,7 @@ static bool CreateTexture(CommandList* pCommandList, const DDS_HEADER* header,
 					else
 					{
 						const auto fmt = forceSRGB ? MakeSRGB(format) : format;
-						texture = Texture::MakeShared(api);
+						texture = Texture::MakeShared();
 						success = texture->Create(pDevice, width, height, fmt, arraySize,
 							resourceFlags, mipCount, 1, isCubeMap, memoryFlags, name);
 						if (success) success = texture->Upload(pCommandList, pUploader, initData.data(),
@@ -793,7 +793,7 @@ Loader::~Loader()
 bool Loader::CreateTextureFromMemory(CommandList* pCommandList, const uint8_t* ddsData,
 	size_t ddsDataSize, size_t maxsize, bool forceSRGB, Texture::sptr& texture,
 	Resource* pUploader, AlphaMode* alphaMode, ResourceState state,
-	MemoryFlag memoryFlags, API api)
+	MemoryFlag memoryFlags)
 {
 	if (alphaMode)* alphaMode = ALPHA_MODE_UNKNOWN;
 	F_RETURN(!pCommandList || !ddsData, cerr, E_INVALIDARG, false);
@@ -820,7 +820,7 @@ bool Loader::CreateTextureFromMemory(CommandList* pCommandList, const uint8_t* d
 	XUSG_C_RETURN(ddsDataSize < offset, false);
 
 	XUSG_N_RETURN(CreateTexture(pCommandList, header, ddsData + offset, ddsDataSize - offset, maxsize,
-		forceSRGB, texture, pUploader, state, memoryFlags, L"DDSTextureLoader", api), false);
+		forceSRGB, texture, pUploader, state, memoryFlags, L"DDSTextureLoader"), false);
 
 	if (alphaMode)* alphaMode = GetAlphaMode(header);
 
@@ -829,7 +829,7 @@ bool Loader::CreateTextureFromMemory(CommandList* pCommandList, const uint8_t* d
 
 bool Loader::CreateTextureFromFile(CommandList* pCommandList, const wchar_t* fileName,
 	size_t maxsize, bool forceSRGB, Texture::sptr& texture, Resource* pUploader,
-	AlphaMode* alphaMode, ResourceState state, MemoryFlag memoryFlags, API api)
+	AlphaMode* alphaMode, ResourceState state, MemoryFlag memoryFlags)
 {
 	if (alphaMode)* alphaMode = ALPHA_MODE_UNKNOWN;
 	F_RETURN(!pCommandList || !fileName, cerr, E_INVALIDARG, false);
@@ -842,7 +842,7 @@ bool Loader::CreateTextureFromFile(CommandList* pCommandList, const wchar_t* fil
 	XUSG_N_RETURN(LoadTextureDataFromFile(fileName, ddsData, &header, &bitData, &bitSize), false);
 
 	XUSG_N_RETURN(CreateTexture(pCommandList, header, bitData, bitSize, maxsize,
-		forceSRGB, texture, pUploader, state, memoryFlags, fileName, api), false);
+		forceSRGB, texture, pUploader, state, memoryFlags, fileName), false);
 
 	if (alphaMode)* alphaMode = GetAlphaMode(header);
 

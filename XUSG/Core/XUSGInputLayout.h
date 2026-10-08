@@ -18,7 +18,7 @@ namespace XUSG
 
 		const InputLayout* CreateLayout(uint32_t numElements, const InputElement* pElements);
 
-		const InputLayout* GetLayout(uint32_t index);
+		const InputLayout* GetLayout(uint32_t index) const;
 
 	protected:
 		void setLayout(uint32_t index, uint32_t numElements, const InputElement* pElements);
@@ -27,6 +27,6 @@ namespace XUSG
 
 		std::vector<InputLayout> m_layouts;
 
-		std::mutex m_mtx;
+		mutable std::mutex m_mtx;
 	};
 }

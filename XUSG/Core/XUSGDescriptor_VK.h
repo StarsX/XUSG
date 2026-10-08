@@ -9,6 +9,15 @@
 
 namespace XUSG
 {
+	struct DescriptorTableProperty_VK
+	{
+		uint32_t DescriptorIndex;
+		uint16_t HeapType;
+		uint16_t IsInitialized;
+	};
+
+	static_assert(sizeof(DescriptorTableProperty_VK) == sizeof(DescriptorTable), "DescriptorTableProperty_VK must fit in DescriptorTable");
+
 	struct ResourceView_VK;
 
 	class DescriptorHeap_VK
@@ -88,10 +97,10 @@ namespace XUSG
 	{
 	public:
 		DescriptorTableLib_VK();
-		DescriptorTableLib_VK(const Device* pDevice, const wchar_t* name = nullptr);
+		DescriptorTableLib_VK(Device* pDevice, const wchar_t* name = nullptr);
 		virtual ~DescriptorTableLib_VK();
 
-		void SetDevice(const Device* pDevice);
+		void SetDevice(Device* pDevice);
 		void SetName(const wchar_t* name);
 		void ResetDescriptorHeap(DescriptorHeapType type, uint8_t index = 0);
 
@@ -103,11 +112,11 @@ namespace XUSG
 		DescriptorTable CreateSamplerTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table = XUSG_NULL);
 		DescriptorTable GetSamplerTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table = XUSG_NULL);
 
-		DescriptorHeap GetDescriptorHeap(DescriptorHeapType type, uint8_t index = 0);
+		DescriptorHeap GetDescriptorHeap(DescriptorHeapType type, uint8_t index = 0) const;
 
 		const Sampler* GetSampler(SamplerPreset preset);
 
-		uint32_t GetDescriptorStride(DescriptorHeapType type);
+		uint32_t GetDescriptorStride(DescriptorHeapType type) const;
 
 	protected:
 		void checkDescriptorHeapTypeStorage(DescriptorHeapType type, uint8_t index);
@@ -127,7 +136,7 @@ namespace XUSG
 		bool writeResource(const ResourceView_VK* pView, void* pDescriptor) const;
 		bool writeSampler(const Sampler* pSampler, void* pDescriptor) const;
 
-		const Device_VK* m_pDevice;
+		Device_VK* m_pDevice;
 		VkDevice m_device;
 
 		std::vector<std::unordered_map<std::string, DescriptorTable>> m_cbvSrvUavTables;
@@ -142,6 +151,6 @@ namespace XUSG
 
 		std::wstring m_name;
 
-		std::mutex m_mtx;
+		mutable std::mutex m_mtx;
 	};
 }

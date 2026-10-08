@@ -8,6 +8,15 @@
 
 namespace XUSG
 {
+	struct DescriptorTableProperty_DX12
+	{
+		int32_t Offset;
+		uint16_t HeapType;
+		uint16_t IsInitialized;
+	};
+
+	static_assert(sizeof(DescriptorTableProperty_DX12) == sizeof(DescriptorTable), "DescriptorTableProperty_DX12 must fit in DescriptorTable");
+
 	namespace Util
 	{
 		class DescriptorTable_DX12 :
@@ -53,10 +62,10 @@ namespace XUSG
 	{
 	public:
 		DescriptorTableLib_DX12();
-		DescriptorTableLib_DX12(const Device* pDevice, const wchar_t* name = nullptr);
+		DescriptorTableLib_DX12(Device* pDevice, const wchar_t* name = nullptr);
 		virtual ~DescriptorTableLib_DX12();
 
-		void SetDevice(const Device* pDevice);
+		void SetDevice(Device* pDevice);
 		void SetName(const wchar_t* name);
 		void ResetDescriptorHeap(DescriptorHeapType type, uint8_t index = 0);
 
@@ -68,11 +77,11 @@ namespace XUSG
 		DescriptorTable CreateSamplerTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table = XUSG_NULL);
 		DescriptorTable GetSamplerTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table = XUSG_NULL);
 
-		DescriptorHeap GetDescriptorHeap(DescriptorHeapType type, uint8_t index = 0);
+		DescriptorHeap GetDescriptorHeap(DescriptorHeapType type, uint8_t index = 0) const;
 
 		const Sampler* GetSampler(SamplerPreset preset);
 
-		uint32_t GetDescriptorStride(DescriptorHeapType type);
+		uint32_t GetDescriptorStride(DescriptorHeapType type) const;
 
 	protected:
 		void checkDescriptorHeapTypeStorage(DescriptorHeapType type, uint8_t index);
@@ -103,6 +112,6 @@ namespace XUSG
 
 		std::wstring m_name;
 
-		std::mutex m_mtx;
+		mutable std::mutex m_mtx;
 	};
 }

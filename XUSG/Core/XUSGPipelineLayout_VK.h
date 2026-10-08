@@ -61,10 +61,10 @@ namespace XUSG
 	{
 	public:
 		PipelineLayoutLib_VK();
-		PipelineLayoutLib_VK(const Device* pDevice);
+		PipelineLayoutLib_VK(Device* pDevice);
 		virtual ~PipelineLayoutLib_VK();
 
-		void SetDevice(const Device* pDevice);
+		void SetDevice(Device* pDevice);
 		void SetPipelineLayout(const std::string& key, const PipelineLayout& pipelineLayout);
 
 		PipelineLayout CreatePipelineLayout(Util::PipelineLayout* pUtil, PipelineLayoutFlag flags,
@@ -81,7 +81,13 @@ namespace XUSG
 
 	protected:
 		PipelineLayout createPipelineLayout(const std::string& key, const wchar_t* name, uint32_t nodeMask);
+		PipelineLayout createRootSignature(const std::string& key, const Blob& blobSignature,
+			const wchar_t* name, uint32_t nodeMask);
+		PipelineLayout createRootSignatureFromPayload(const std::string& key, const void* pPayload,
+			size_t payloadSize, const wchar_t* name, uint32_t nodeMask);
 		PipelineLayout getPipelineLayout(const std::string& key, const wchar_t* name, bool create, uint32_t nodeMask);
+		PipelineLayout getRootSignature(const std::string& key, const Blob& blobSignature,
+			const wchar_t* name, bool create, uint32_t nodeMask);
 
 		DescriptorTableLayout createDescriptorTableLayout(const std::string& key);
 		DescriptorTableLayout getDescriptorTableLayout(const std::string& key);
@@ -98,7 +104,7 @@ namespace XUSG
 			PipelineLayoutObject* Object;
 		};
 
-		const Device_VK* m_pDevice;
+		Device_VK* m_pDevice;
 		VkDevice m_device;
 
 		std::unordered_map<std::string, LayoutEntry> m_pipelineLayouts;

@@ -30,7 +30,7 @@ namespace XUSG
 
 				virtual bool Create(RayTracing::CommandList* pCommandList,
 					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize) = 0;
-				virtual bool Create(const RayTracing::Device* pDevice, void* pHandle, uint32_t samplerHeapSize,
+				virtual bool Create(RayTracing::Device* pDevice, void* pHandle, uint32_t samplerHeapSize,
 					uint32_t cbvSrvUavHeapSize, const wchar_t* name = nullptr) = 0;
 				// Must be called after all acceleration structures allocated
 				// By default maxCbvsEachSpace[stage] = 14 for graphics or 12 for ray tracing and compute
@@ -48,7 +48,7 @@ namespace XUSG
 					const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					uint32_t maxTLASSrvs = 0, uint32_t spaceTLAS = 0,
 					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE) = 0;
-				virtual bool Reset(const CommandAllocator* pAllocator, const Pipeline& initialState) = 0;
+				virtual bool Reset(CommandAllocator* pAllocator, const Pipeline& initialState) = 0;
 				virtual bool PrebuildBLAS(BottomLevelAS* pBLAS, uint32_t numGeometries, const GeometryBuffer& geometries,
 					BuildFlag flags = BuildFlag::PREFER_FAST_TRACE) = 0;
 				virtual bool PrebuildTLAS(TopLevelAS* pTLAS, uint32_t numInstances,
@@ -92,7 +92,7 @@ namespace XUSG
 				virtual void RTSetPipelineState(const Pipeline& pipelineState, RayTracing::State* pState = nullptr) = 0;
 				virtual void DispatchRays(uint32_t width, uint32_t height, uint32_t depth, const wchar_t* rayGenShaderName,
 					const wchar_t* const* pMissShaderNames, uint32_t numMissShaders) = 0;
-				virtual void DispatchRaysIndirect(const CommandLayout* pCommandlayout,
+				virtual void DispatchRaysIndirect(CommandLayout* pCommandlayout,
 					uint32_t maxCommandCount,
 					const wchar_t* rayGenShaderName,
 					const wchar_t* const* pMissShaderNames,
@@ -104,15 +104,15 @@ namespace XUSG
 
 				virtual size_t GetDispatchRaysArgReservedOffset() const = 0;
 
-				virtual const Device* GetRTDevice() const = 0;
+				virtual Device* GetRTDevice() const = 0;
 				virtual RayTracing::CommandList* AsRTCommandList() = 0;
 
-				static uptr MakeUnique(API api = API::DIRECTX_12);
-				static sptr MakeShared(API api = API::DIRECTX_12);
+				static uptr MakeUnique();
+				static sptr MakeShared();
 				static uptr MakeUnique(RayTracing::CommandList* pCommandList, uint32_t samplerHeapSize,
-					uint32_t cbvSrvUavHeapSize, API api = API::DIRECTX_12);
+					uint32_t cbvSrvUavHeapSize);
 				static sptr MakeShared(RayTracing::CommandList* pCommandList, uint32_t samplerHeapSize,
-					uint32_t cbvSrvUavHeapSize, API api = API::DIRECTX_12);
+					uint32_t cbvSrvUavHeapSize);
 			};
 		}
 	}

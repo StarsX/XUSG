@@ -108,14 +108,14 @@ namespace XUSG
 		{
 		public:
 			PipelineLib_VK();
-			PipelineLib_VK(const Device* pDevice);
+			PipelineLib_VK(Device* pDevice);
 			virtual ~PipelineLib_VK();
 
-			void SetDevice(const Device* pDevice);
+			void SetDevice(Device* pDevice);
 			void SetPipeline(const State* pState, const Pipeline& pipeline);
 
 			void SetInputLayout(uint32_t index, uint32_t numElements, const InputElement* pElements);
-			const InputLayout* GetInputLayout(uint32_t index);
+			const InputLayout* GetInputLayout(uint32_t index) const;
 			const InputLayout* CreateInputLayout(uint32_t numElements, const InputElement* pElements);
 
 			Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr);
@@ -129,7 +129,7 @@ namespace XUSG
 			Pipeline createPipeline(const std::string& key, const wchar_t* name);
 			Pipeline getPipeline(const std::string& key, const wchar_t* name);
 
-			const Device_VK* m_pDevice;
+			Device_VK* m_pDevice;
 			VkDevice m_device;
 
 			InputLayoutLib_Impl m_inputLayoutLib;

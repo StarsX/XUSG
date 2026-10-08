@@ -17,10 +17,17 @@ namespace XUSG
 
 		bool SetShader(const Blob& shader);
 		bool IsValid() const;
-		uint32_t GetResourceBindingPointByName(const char* name, uint32_t defaultVal = UINT32_MAX) const;
+		uint32_t GetResourceBindingPointByName(const char* name) const;
+		uint32_t GetResourceSpaceByName(const char* name, uint32_t defaultVal = UINT32_MAX) const;
 
 	protected:
+		struct BindingInfo
+		{
+			uint32_t Binding;
+			uint32_t Space;
+		};
+
 		bool m_valid;
-		std::unordered_map<std::string, uint32_t> m_bindings;
+		std::unordered_map<std::string, BindingInfo> m_bindings;
 	};
 }

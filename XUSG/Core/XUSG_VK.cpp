@@ -6,8 +6,6 @@
 #include "XUSGResource_VK.h"
 #include "XUSGEnum_VK.h"
 
-#include <map>
-
 using namespace std;
 using namespace XUSG;
 
@@ -16,7 +14,62 @@ namespace
 	mutex g_queueMutex;
 	unordered_map<VkQueue, QueueNative> g_queues;
 	unordered_map<VkQueue, uint32_t> g_queueRefs;
-	unordered_map<VkQueue, VkSemaphore> g_acquireWaits;
+	struct AcquireWait
+	{
+		VkSemaphore Wait;
+		VkFence Fence;
+		VkSemaphore PresentSignal;
+	};
+
+	unordered_map<VkQueue, AcquireWait> g_acquireWaits;
+
+	bool SubmitQueueInfo(bool synchronization2, VkQueue queue, const VkSubmitInfo2& info, VkFence fence,
+		VkSemaphore* pWaitSemaphores, VkPipelineStageFlags* pWaitStages, uint64_t* pWaitValues,
+		VkCommandBuffer* pCommandBuffers, VkSemaphore* pSignalSemaphores, uint64_t* pSignalValues)
+	{
+		if (synchronization2)
+		{
+			XUSG_VK_CHECK(vkQueueSubmit2(queue, 1, &info, fence), cerr, false);
+
+			return true;
+		}
+
+		for (auto i = 0u; i < info.waitSemaphoreInfoCount; ++i)
+		{
+			pWaitSemaphores[i] = info.pWaitSemaphoreInfos[i].semaphore;
+			const auto stage = info.pWaitSemaphoreInfos[i].stageMask;
+			pWaitStages[i] = stage ? static_cast<VkPipelineStageFlags>(stage) : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+			pWaitValues[i] = info.pWaitSemaphoreInfos[i].value;
+		}
+		for (auto i = 0u; i < info.commandBufferInfoCount; ++i)
+			pCommandBuffers[i] = info.pCommandBufferInfos[i].commandBuffer;
+		for (auto i = 0u; i < info.signalSemaphoreInfoCount; ++i)
+		{
+			pSignalSemaphores[i] = info.pSignalSemaphoreInfos[i].semaphore;
+			pSignalValues[i] = info.pSignalSemaphoreInfos[i].value;
+		}
+
+		VkTimelineSemaphoreSubmitInfo timeline = {};
+		timeline.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
+		timeline.waitSemaphoreValueCount = info.waitSemaphoreInfoCount;
+		timeline.pWaitSemaphoreValues = info.waitSemaphoreInfoCount ? pWaitValues : nullptr;
+		timeline.signalSemaphoreValueCount = info.signalSemaphoreInfoCount;
+		timeline.pSignalSemaphoreValues = info.signalSemaphoreInfoCount ? pSignalValues : nullptr;
+
+		VkSubmitInfo submit = {};
+		submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		if (info.waitSemaphoreInfoCount || info.signalSemaphoreInfoCount) submit.pNext = &timeline;
+		submit.waitSemaphoreCount = info.waitSemaphoreInfoCount;
+		submit.pWaitSemaphores = info.waitSemaphoreInfoCount ? pWaitSemaphores : nullptr;
+		submit.pWaitDstStageMask = info.waitSemaphoreInfoCount ? pWaitStages : nullptr;
+		submit.commandBufferCount = info.commandBufferInfoCount;
+		submit.pCommandBuffers = info.commandBufferInfoCount ? pCommandBuffers : nullptr;
+		submit.signalSemaphoreCount = info.signalSemaphoreInfoCount;
+		submit.pSignalSemaphores = info.signalSemaphoreInfoCount ? pSignalSemaphores : nullptr;
+		XUSG_VK_CHECK(vkQueueSubmit(queue, 1, &submit, fence), cerr, false);
+
+		return true;
+	}
 
 	bool EnvContains(const char* name, const char* token)
 	{
@@ -76,10 +129,6 @@ namespace
 		return 0;
 	}
 
-	mutex g_bufferMutex;
-	map<VkDeviceAddress, BufferNative> g_buffers;
-	unordered_map<VkBuffer, VkDeviceAddress> g_bufferAddresses;
-
 	bool HasExtension(const vector<VkExtensionProperties>& props, const char* name)
 	{
 		for (const auto& prop : props)
@@ -121,20 +170,22 @@ bool XUSG::FindQueue(VkQueue queue, QueueNative& native)
 	return true;
 }
 
-void XUSG::SetQueueAcquireWait(VkQueue queue, VkSemaphore semaphore)
+void XUSG::SetQueueAcquireWait(VkQueue queue, VkSemaphore wait, VkFence fence, VkSemaphore presentSignal)
 {
 	lock_guard<mutex> lock(g_queueMutex);
-	g_acquireWaits[queue] = semaphore;
+	g_acquireWaits[queue] = { wait, fence, presentSignal };
 }
 
-bool XUSG::TakeQueueAcquireWait(VkQueue queue, VkSemaphore& semaphore)
+bool XUSG::TakeQueueAcquireWait(VkQueue queue, VkSemaphore& wait, VkFence& fence, VkSemaphore& presentSignal)
 {
 	lock_guard<mutex> lock(g_queueMutex);
 	const auto it = g_acquireWaits.find(queue);
-	if (it == g_acquireWaits.cend() || !it->second) return false;
+	if (it == g_acquireWaits.cend() || !it->second.Wait) return false;
 
-	semaphore = it->second;
-	it->second = VK_NULL_HANDLE;
+	wait = it->second.Wait;
+	fence = it->second.Fence;
+	presentSignal = it->second.PresentSignal;
+	it->second = {};
 
 	return true;
 }
@@ -143,44 +194,6 @@ void XUSG::ClearQueueAcquireWait(VkQueue queue)
 {
 	lock_guard<mutex> lock(g_queueMutex);
 	g_acquireWaits.erase(queue);
-}
-
-void XUSG::RegisterBuffer(const BufferNative& buffer)
-{
-	if (!buffer.Buffer || !buffer.Address) return;
-
-	lock_guard<mutex> lock(g_bufferMutex);
-	const auto previous = g_bufferAddresses.find(buffer.Buffer);
-	if (previous != g_bufferAddresses.cend()) g_buffers.erase(previous->second);
-
-	g_bufferAddresses[buffer.Buffer] = buffer.Address;
-	g_buffers[buffer.Address] = buffer;
-}
-
-void XUSG::UnregisterBuffer(VkBuffer buffer)
-{
-	if (!buffer) return;
-
-	lock_guard<mutex> lock(g_bufferMutex);
-	const auto it = g_bufferAddresses.find(buffer);
-	if (it == g_bufferAddresses.cend()) return;
-
-	g_buffers.erase(it->second);
-	g_bufferAddresses.erase(it);
-}
-
-bool XUSG::FindBuffer(VkDeviceAddress address, BufferNative& native)
-{
-	lock_guard<mutex> lock(g_bufferMutex);
-	auto it = g_buffers.upper_bound(address);
-	if (it == g_buffers.begin()) return false;
-
-	--it;
-	if (address < it->second.Address || address >= it->second.Address + it->second.Size) return false;
-
-	native = it->second;
-
-	return true;
 }
 
 PipelineLayoutObject::PipelineLayoutObject() :
@@ -256,11 +269,175 @@ Device_VK::Device_VK() :
 	m_removedReason(0),
 	m_debugUtils(false),
 	m_customBorderColor(false),
+	m_vertexAttributeDivisor(false),
+	m_shaderUntypedPointers(false),
+	m_nullDescriptor(false),
+	m_deviceGeneratedCommands(false),
+	m_maintenance5(false),
+	m_synchronization2(false),
+	m_depthStencilResolve(false),
+	m_independentResolveNone(false),
+	m_independentResolve(false),
+	m_depthResolveModes(0),
+	m_stencilResolveModes(0),
+	m_shaderInt64(false),
+	m_shaderInt8(false),
+	m_storageBuffer8BitAccess(false),
+	m_uniformAndStorageBuffer8BitAccess(false),
+	m_storagePushConstant8(false),
+	m_storageBuffer16BitAccess(false),
+	m_uniformAndStorageBuffer16BitAccess(false),
+	m_storagePushConstant16(false),
+	m_storageInputOutput16(false),
+	m_shaderDrawParameters(false),
+	m_shaderSubgroupExtendedTypes(false),
+	m_shaderBufferInt64Atomics(false),
+	m_shaderSharedInt64Atomics(false),
+	m_shaderImageInt64Atomics(false),
+	m_sparseImageInt64Atomics(false),
+	m_subgroupSizeControl(false),
+	m_computeFullSubgroups(false),
+	m_shaderIntegerDotProduct(false),
+	m_shaderDemoteToHelperInvocation(false),
+	m_shaderSubgroupRotate(false),
+	m_shaderSubgroupRotateClustered(false),
+	m_shaderFloatControls2(false),
+	m_shaderSubgroupPartitioned(false),
+	m_shaderQuadControl(false),
+	m_shaderSubgroupUniformControlFlow(false),
+	m_shaderMaximalReconvergence(false),
+	m_computeDerivativeGroupQuads(false),
+	m_computeDerivativeGroupLinear(false),
+	m_fragmentShaderBarycentric(false),
+	m_shaderSubgroupBallot(false),
+	m_shaderSubgroupVote(false),
+	m_shaderUniformBufferArrayDynamicIndexing(false),
+	m_shaderSampledImageArrayDynamicIndexing(false),
+	m_shaderStorageBufferArrayDynamicIndexing(false),
+	m_shaderStorageImageArrayDynamicIndexing(false),
+	m_shaderInputAttachmentArrayDynamicIndexing(false),
+	m_shaderUniformTexelBufferArrayDynamicIndexing(false),
+	m_shaderStorageTexelBufferArrayDynamicIndexing(false),
+	m_shaderUniformBufferArrayNonUniformIndexing(false),
+	m_shaderSampledImageArrayNonUniformIndexing(false),
+	m_shaderStorageBufferArrayNonUniformIndexing(false),
+	m_shaderStorageImageArrayNonUniformIndexing(false),
+	m_shaderInputAttachmentArrayNonUniformIndexing(false),
+	m_shaderUniformTexelBufferArrayNonUniformIndexing(false),
+	m_shaderStorageTexelBufferArrayNonUniformIndexing(false),
+	m_shaderInt16(false),
+	m_shaderFloat64(false),
+	m_shaderStorageImageReadWithoutFormat(false),
+	m_shaderStorageImageExtendedFormats(false),
+	m_shaderStorageImageMultisample(false),
+	m_imageFormatList(false),
+	m_shaderClipDistance(false),
+	m_shaderCullDistance(false),
+	m_vertexPipelineStoresAndAtomics(false),
+	m_sampleRateShading(false),
+	m_imageCubeArray(false),
+	m_textureCompressionBC(false),
+	m_drawIndirectFirstInstance(false),
+	m_scalarBlockLayout(false),
+	m_runtimeDescriptorArray(false),
+	m_descriptorBindingPartiallyBound(false),
+	m_shaderOutputViewportIndex(false),
+	m_shaderOutputLayer(false),
+	m_subgroupBroadcastDynamicId(false),
+	m_shaderBufferFloat32Atomics(false),
+	m_shaderBufferFloat32AtomicAdd(false),
+	m_shaderBufferFloat64Atomics(false),
+	m_shaderBufferFloat64AtomicAdd(false),
+	m_shaderSharedFloat32Atomics(false),
+	m_shaderSharedFloat32AtomicAdd(false),
+	m_shaderSharedFloat64Atomics(false),
+	m_shaderSharedFloat64AtomicAdd(false),
+	m_shaderImageFloat32Atomics(false),
+	m_shaderImageFloat32AtomicAdd(false),
+	m_sparseImageFloat32Atomics(false),
+	m_sparseImageFloat32AtomicAdd(false),
+	m_shaderBufferFloat16Atomics(false),
+	m_shaderBufferFloat16AtomicAdd(false),
+	m_shaderBufferFloat16AtomicMinMax(false),
+	m_shaderBufferFloat32AtomicMinMax(false),
+	m_shaderBufferFloat64AtomicMinMax(false),
+	m_shaderSharedFloat16Atomics(false),
+	m_shaderSharedFloat16AtomicAdd(false),
+	m_shaderSharedFloat16AtomicMinMax(false),
+	m_shaderSharedFloat32AtomicMinMax(false),
+	m_shaderSharedFloat64AtomicMinMax(false),
+	m_shaderImageFloat32AtomicMinMax(false),
+	m_sparseImageFloat32AtomicMinMax(false),
+	m_shaderSubgroupClock(false),
+	m_shaderDeviceClock(false),
+	m_hlslFunctionality1(false),
+	m_deferredHostOperations(false),
+	m_pipelineLibrary(false),
+	m_spirv14(false),
+	m_shaderFloatControls(false),
+	m_accelerationStructure(false),
+	m_accelerationStructureCaptureReplay(false),
+	m_accelerationStructureIndirectBuild(false),
+	m_accelerationStructureHostCommands(false),
+	m_rayTracingPipeline(false),
+	m_rayTracingPipelineShaderGroupHandleCaptureReplay(false),
+	m_rayTracingPipelineShaderGroupHandleCaptureReplayMixed(false),
+	m_rayTracingPipelineTraceRaysIndirect(false),
+	m_rayTraversalPrimitiveCulling(false),
+	m_rayQuery(false),
+	m_rayTracingMaintenance1(false),
+	m_rayTracingPipelineTraceRaysIndirect2(false),
+	m_rayTracingPositionFetch(false),
+	m_micromap(false),
+	m_micromapCaptureReplay(false),
+	m_micromapHostCommands(false),
+	m_rayTracingInvocationReorder(false),
+	m_pipelineLibraryGroupHandles(false),
+	m_cooperativeMatrix(false),
+	m_cooperativeMatrixRobustBufferAccess(false),
+	m_shaderBFloat16Type(false),
+	m_shaderBFloat16DotProduct(false),
+	m_shaderBFloat16CooperativeMatrix(false),
+	m_shaderFloat8(false),
+	m_shaderFloat8CooperativeMatrix(false),
+	m_workgroupMemoryExplicitLayout(false),
+	m_workgroupMemoryExplicitLayoutScalarBlockLayout(false),
+	m_workgroupMemoryExplicitLayout8BitAccess(false),
+	m_workgroupMemoryExplicitLayout16BitAccess(false),
+	m_longVector(false),
+	m_maxLongVectorComponents(0),
+	m_cooperativeMatrixProperties2(false),
+	m_cooperativeMatrixReductions(false),
+	m_cooperativeMatrixConversions(false),
+	m_cooperativeMatrixPerElementOperations(false),
+	m_cooperativeMatrixGetCoordinate(false),
+	m_subgroupSize(0),
+	m_subgroupStages(0),
+	m_subgroupOperations(0),
+	m_subgroupQuadOperationsInAllStages(false),
 	m_meshShader(false),
 	m_fragmentShadingRate(false),
 	m_conditionalRendering(false),
+	m_transformFeedback(false),
+	m_geometryStreams(false),
+	m_sampleLocations(false),
+	m_variableSampleLocations(false),
+	m_sampleLocationRange{},
+	m_sampleLocationSubPixelBits(0),
+	m_sampleLocationCounts(0),
+	m_sampleLocationGrids{},
 	m_conservativeRaster(false),
+	m_emulateD24S8(false),
 	m_ownsInstance(false),
+	m_sparseBinding(false),
+	m_sparseResidencyBuffer(false),
+	m_sparseResidencyImage2D(false),
+	m_sparseResidencyImage3D(false),
+	m_sparseResidency2Samples(false),
+	m_sparseResidency4Samples(false),
+	m_sparseResidency8Samples(false),
+	m_sparseResidency16Samples(false),
+	m_sparseResidencyAliased(false),
 	m_heapProps{},
 	m_dgcProps{},
 	m_beginRendering(nullptr),
@@ -272,12 +449,15 @@ Device_VK::Device_VK() :
 	m_poolCount(0),
 	m_typePool{},
 	m_sharingFamilies{},
-	m_sharingCount(0)
+	m_sharingCount(0),
+	m_sparseTimeline(VK_NULL_HANDLE),
+	m_sparseValue(0)
 {
 }
 
 Device_VK::~Device_VK()
 {
+	if (m_sparseTimeline) vkDestroySemaphore(m_device, m_sparseTimeline, nullptr);
 	if (m_device) vkDestroyDevice(m_device, nullptr);
 	if (m_ownsInstance && m_instance) vkDestroyInstance(m_instance, nullptr);
 }
@@ -295,7 +475,7 @@ bool Device_VK::GetCommandAllocator(CommandAllocator* pCommandAllocator,
 }
 
 bool Device_VK::GetCommandList(CommandList* pCommandList, uint32_t nodeMask, CommandListType type,
-	const CommandAllocator* pCommandAllocator, const Pipeline& pipeline, const wchar_t* name)
+	CommandAllocator* pCommandAllocator, const Pipeline& pipeline, const wchar_t* name)
 {
 	return pCommandList->Create(this, nodeMask, type, pCommandAllocator, pipeline, name);
 }
@@ -307,8 +487,9 @@ bool Device_VK::GetFence(Fence* pFence, uint64_t initialValue, FenceFlag flags, 
 
 uint32_t Device_VK::Create(void* pAdapter, uint32_t minFeatureLevel, const wchar_t* name)
 {
-	// minFeatureLevel is a D3D feature level on the DX12 path. Vulkan requires 1.2+ and the
-	// extensions asserted below; the feature-level argument is not a Vulkan version.
+	// minFeatureLevel is a D3D feature level on the DX12 path. Vulkan requests 1.3 when the
+	// loader supports it, and falls back through 1.2 and 1.1 to 1.0. The feature-level
+	// argument is not a Vulkan version.
 	(void)minFeatureLevel;
 
 	XUSG_N_RETURN(createInstance(), static_cast<uint32_t>(VK_ERROR_INITIALIZATION_FAILED));
@@ -331,9 +512,9 @@ void Device_VK::Create(void* pHandle, const wchar_t* name)
 	if (name) SetDebugName(VK_OBJECT_TYPE_DEVICE, reinterpret_cast<uint64_t>(m_device), name);
 }
 
-void* Device_VK::GetHandle() const
+void* Device_VK::GetHandle()
 {
-	return m_device;
+	return this;
 }
 
 VkInstance Device_VK::GetInstance() const
@@ -454,6 +635,744 @@ bool Device_VK::HasCustomBorderColor() const
 	return m_customBorderColor;
 }
 
+bool Device_VK::HasVertexAttributeDivisor() const
+{
+	return m_vertexAttributeDivisor;
+}
+
+bool Device_VK::HasShaderUntypedPointers() const
+{
+	return m_shaderUntypedPointers;
+}
+
+bool Device_VK::HasNullDescriptor() const
+{
+	return m_nullDescriptor;
+}
+
+bool Device_VK::HasDeviceGeneratedCommands() const
+{
+	return m_deviceGeneratedCommands;
+}
+
+bool Device_VK::HasMaintenance5() const
+{
+	return m_maintenance5;
+}
+
+bool Device_VK::HasSynchronization2() const
+{
+	return m_synchronization2;
+}
+
+bool Device_VK::HasDepthStencilResolve() const
+{
+	return m_depthStencilResolve;
+}
+
+VkResolveModeFlags Device_VK::SupportedDepthResolveModes() const
+{
+	return m_depthResolveModes;
+}
+
+VkResolveModeFlags Device_VK::SupportedStencilResolveModes() const
+{
+	return m_stencilResolveModes;
+}
+
+bool Device_VK::IndependentDepthStencilResolveNone() const
+{
+	return m_independentResolveNone;
+}
+
+bool Device_VK::IndependentDepthStencilResolve() const
+{
+	return m_independentResolve;
+}
+
+bool Device_VK::HasShaderInt64() const
+{
+	return m_shaderInt64;
+}
+
+bool Device_VK::HasShaderInt8() const
+{
+	return m_shaderInt8;
+}
+
+bool Device_VK::HasStorageBuffer8BitAccess() const
+{
+	return m_storageBuffer8BitAccess;
+}
+
+bool Device_VK::HasUniformAndStorageBuffer8BitAccess() const
+{
+	return m_uniformAndStorageBuffer8BitAccess;
+}
+
+bool Device_VK::HasStoragePushConstant8() const
+{
+	return m_storagePushConstant8;
+}
+
+bool Device_VK::HasStorageBuffer16BitAccess() const
+{
+	return m_storageBuffer16BitAccess;
+}
+
+bool Device_VK::HasUniformAndStorageBuffer16BitAccess() const
+{
+	return m_uniformAndStorageBuffer16BitAccess;
+}
+
+bool Device_VK::HasStoragePushConstant16() const
+{
+	return m_storagePushConstant16;
+}
+
+bool Device_VK::HasStorageInputOutput16() const
+{
+	return m_storageInputOutput16;
+}
+
+bool Device_VK::HasShaderDrawParameters() const
+{
+	return m_shaderDrawParameters;
+}
+
+bool Device_VK::HasShaderSubgroupExtendedTypes() const
+{
+	return m_shaderSubgroupExtendedTypes;
+}
+
+bool Device_VK::HasShaderBufferInt64Atomics() const
+{
+	return m_shaderBufferInt64Atomics;
+}
+
+bool Device_VK::HasShaderSharedInt64Atomics() const
+{
+	return m_shaderSharedInt64Atomics;
+}
+
+bool Device_VK::HasShaderImageInt64Atomics() const
+{
+	return m_shaderImageInt64Atomics;
+}
+
+bool Device_VK::HasSparseImageInt64Atomics() const
+{
+	return m_sparseImageInt64Atomics;
+}
+
+bool Device_VK::HasSubgroupSizeControl() const
+{
+	return m_subgroupSizeControl;
+}
+
+bool Device_VK::HasComputeFullSubgroups() const
+{
+	return m_computeFullSubgroups;
+}
+
+bool Device_VK::HasShaderIntegerDotProduct() const
+{
+	return m_shaderIntegerDotProduct;
+}
+
+bool Device_VK::HasShaderDemoteToHelperInvocation() const
+{
+	return m_shaderDemoteToHelperInvocation;
+}
+
+bool Device_VK::HasShaderSubgroupRotate() const
+{
+	return m_shaderSubgroupRotate;
+}
+
+bool Device_VK::HasShaderSubgroupRotateClustered() const
+{
+	return m_shaderSubgroupRotateClustered;
+}
+
+bool Device_VK::HasShaderFloatControls2() const
+{
+	return m_shaderFloatControls2;
+}
+
+bool Device_VK::HasShaderSubgroupPartitioned() const
+{
+	return m_shaderSubgroupPartitioned;
+}
+
+bool Device_VK::HasShaderQuadControl() const
+{
+	return m_shaderQuadControl;
+}
+
+bool Device_VK::HasShaderSubgroupUniformControlFlow() const
+{
+	return m_shaderSubgroupUniformControlFlow;
+}
+
+bool Device_VK::HasShaderMaximalReconvergence() const
+{
+	return m_shaderMaximalReconvergence;
+}
+
+bool Device_VK::HasComputeDerivativeGroupQuads() const
+{
+	return m_computeDerivativeGroupQuads;
+}
+
+bool Device_VK::HasComputeDerivativeGroupLinear() const
+{
+	return m_computeDerivativeGroupLinear;
+}
+
+bool Device_VK::HasFragmentShaderBarycentric() const
+{
+	return m_fragmentShaderBarycentric;
+}
+
+bool Device_VK::HasShaderSubgroupBallot() const
+{
+	return m_shaderSubgroupBallot;
+}
+
+bool Device_VK::HasShaderSubgroupVote() const
+{
+	return m_shaderSubgroupVote;
+}
+
+bool Device_VK::HasShaderUniformBufferArrayDynamicIndexing() const
+{
+	return m_shaderUniformBufferArrayDynamicIndexing;
+}
+
+bool Device_VK::HasShaderSampledImageArrayDynamicIndexing() const
+{
+	return m_shaderSampledImageArrayDynamicIndexing;
+}
+
+bool Device_VK::HasShaderStorageBufferArrayDynamicIndexing() const
+{
+	return m_shaderStorageBufferArrayDynamicIndexing;
+}
+
+bool Device_VK::HasShaderStorageImageArrayDynamicIndexing() const
+{
+	return m_shaderStorageImageArrayDynamicIndexing;
+}
+
+bool Device_VK::HasShaderInputAttachmentArrayDynamicIndexing() const
+{
+	return m_shaderInputAttachmentArrayDynamicIndexing;
+}
+
+bool Device_VK::HasShaderUniformTexelBufferArrayDynamicIndexing() const
+{
+	return m_shaderUniformTexelBufferArrayDynamicIndexing;
+}
+
+bool Device_VK::HasShaderStorageTexelBufferArrayDynamicIndexing() const
+{
+	return m_shaderStorageTexelBufferArrayDynamicIndexing;
+}
+
+bool Device_VK::HasShaderUniformBufferArrayNonUniformIndexing() const
+{
+	return m_shaderUniformBufferArrayNonUniformIndexing;
+}
+
+bool Device_VK::HasShaderSampledImageArrayNonUniformIndexing() const
+{
+	return m_shaderSampledImageArrayNonUniformIndexing;
+}
+
+bool Device_VK::HasShaderStorageBufferArrayNonUniformIndexing() const
+{
+	return m_shaderStorageBufferArrayNonUniformIndexing;
+}
+
+bool Device_VK::HasShaderStorageImageArrayNonUniformIndexing() const
+{
+	return m_shaderStorageImageArrayNonUniformIndexing;
+}
+
+bool Device_VK::HasShaderInputAttachmentArrayNonUniformIndexing() const
+{
+	return m_shaderInputAttachmentArrayNonUniformIndexing;
+}
+
+bool Device_VK::HasShaderUniformTexelBufferArrayNonUniformIndexing() const
+{
+	return m_shaderUniformTexelBufferArrayNonUniformIndexing;
+}
+
+bool Device_VK::HasShaderStorageTexelBufferArrayNonUniformIndexing() const
+{
+	return m_shaderStorageTexelBufferArrayNonUniformIndexing;
+}
+
+bool Device_VK::HasShaderInt16() const
+{
+	return m_shaderInt16;
+}
+
+bool Device_VK::HasShaderFloat64() const
+{
+	return m_shaderFloat64;
+}
+
+bool Device_VK::HasShaderStorageImageReadWithoutFormat() const
+{
+	return m_shaderStorageImageReadWithoutFormat;
+}
+
+bool Device_VK::HasShaderStorageImageExtendedFormats() const
+{
+	return m_shaderStorageImageExtendedFormats;
+}
+
+bool Device_VK::HasShaderStorageImageMultisample() const
+{
+	return m_shaderStorageImageMultisample;
+}
+
+bool Device_VK::HasImageFormatList() const
+{
+	return m_imageFormatList;
+}
+
+bool Device_VK::HasShaderClipDistance() const
+{
+	return m_shaderClipDistance;
+}
+
+bool Device_VK::HasShaderCullDistance() const
+{
+	return m_shaderCullDistance;
+}
+
+bool Device_VK::HasVertexPipelineStoresAndAtomics() const
+{
+	return m_vertexPipelineStoresAndAtomics;
+}
+
+bool Device_VK::HasSampleRateShading() const
+{
+	return m_sampleRateShading;
+}
+
+bool Device_VK::HasImageCubeArray() const
+{
+	return m_imageCubeArray;
+}
+
+bool Device_VK::HasTextureCompressionBC() const
+{
+	return m_textureCompressionBC;
+}
+
+bool Device_VK::HasDrawIndirectFirstInstance() const
+{
+	return m_drawIndirectFirstInstance;
+}
+
+bool Device_VK::HasScalarBlockLayout() const
+{
+	return m_scalarBlockLayout;
+}
+
+bool Device_VK::HasRuntimeDescriptorArray() const
+{
+	return m_runtimeDescriptorArray;
+}
+
+bool Device_VK::HasDescriptorBindingPartiallyBound() const
+{
+	return m_descriptorBindingPartiallyBound;
+}
+
+bool Device_VK::HasShaderOutputViewportIndex() const
+{
+	return m_shaderOutputViewportIndex;
+}
+
+bool Device_VK::HasShaderOutputLayer() const
+{
+	return m_shaderOutputLayer;
+}
+
+bool Device_VK::HasSubgroupBroadcastDynamicId() const
+{
+	return m_subgroupBroadcastDynamicId;
+}
+
+bool Device_VK::HasShaderBufferFloat32Atomics() const
+{
+	return m_shaderBufferFloat32Atomics;
+}
+
+bool Device_VK::HasShaderBufferFloat32AtomicAdd() const
+{
+	return m_shaderBufferFloat32AtomicAdd;
+}
+
+bool Device_VK::HasShaderBufferFloat64Atomics() const
+{
+	return m_shaderBufferFloat64Atomics;
+}
+
+bool Device_VK::HasShaderBufferFloat64AtomicAdd() const
+{
+	return m_shaderBufferFloat64AtomicAdd;
+}
+
+bool Device_VK::HasShaderSharedFloat32Atomics() const
+{
+	return m_shaderSharedFloat32Atomics;
+}
+
+bool Device_VK::HasShaderSharedFloat32AtomicAdd() const
+{
+	return m_shaderSharedFloat32AtomicAdd;
+}
+
+bool Device_VK::HasShaderSharedFloat64Atomics() const
+{
+	return m_shaderSharedFloat64Atomics;
+}
+
+bool Device_VK::HasShaderSharedFloat64AtomicAdd() const
+{
+	return m_shaderSharedFloat64AtomicAdd;
+}
+
+bool Device_VK::HasShaderImageFloat32Atomics() const
+{
+	return m_shaderImageFloat32Atomics;
+}
+
+bool Device_VK::HasShaderImageFloat32AtomicAdd() const
+{
+	return m_shaderImageFloat32AtomicAdd;
+}
+
+bool Device_VK::HasSparseImageFloat32Atomics() const
+{
+	return m_sparseImageFloat32Atomics;
+}
+
+bool Device_VK::HasSparseImageFloat32AtomicAdd() const
+{
+	return m_sparseImageFloat32AtomicAdd;
+}
+
+bool Device_VK::HasShaderBufferFloat16Atomics() const
+{
+	return m_shaderBufferFloat16Atomics;
+}
+
+bool Device_VK::HasShaderBufferFloat16AtomicAdd() const
+{
+	return m_shaderBufferFloat16AtomicAdd;
+}
+
+bool Device_VK::HasShaderBufferFloat16AtomicMinMax() const
+{
+	return m_shaderBufferFloat16AtomicMinMax;
+}
+
+bool Device_VK::HasShaderBufferFloat32AtomicMinMax() const
+{
+	return m_shaderBufferFloat32AtomicMinMax;
+}
+
+bool Device_VK::HasShaderBufferFloat64AtomicMinMax() const
+{
+	return m_shaderBufferFloat64AtomicMinMax;
+}
+
+bool Device_VK::HasShaderSharedFloat16Atomics() const
+{
+	return m_shaderSharedFloat16Atomics;
+}
+
+bool Device_VK::HasShaderSharedFloat16AtomicAdd() const
+{
+	return m_shaderSharedFloat16AtomicAdd;
+}
+
+bool Device_VK::HasShaderSharedFloat16AtomicMinMax() const
+{
+	return m_shaderSharedFloat16AtomicMinMax;
+}
+
+bool Device_VK::HasShaderSharedFloat32AtomicMinMax() const
+{
+	return m_shaderSharedFloat32AtomicMinMax;
+}
+
+bool Device_VK::HasShaderSharedFloat64AtomicMinMax() const
+{
+	return m_shaderSharedFloat64AtomicMinMax;
+}
+
+bool Device_VK::HasShaderImageFloat32AtomicMinMax() const
+{
+	return m_shaderImageFloat32AtomicMinMax;
+}
+
+bool Device_VK::HasSparseImageFloat32AtomicMinMax() const
+{
+	return m_sparseImageFloat32AtomicMinMax;
+}
+
+bool Device_VK::HasShaderSubgroupClock() const
+{
+	return m_shaderSubgroupClock;
+}
+
+bool Device_VK::HasShaderDeviceClock() const
+{
+	return m_shaderDeviceClock;
+}
+
+bool Device_VK::HasHlslFunctionality1() const
+{
+	return m_hlslFunctionality1;
+}
+
+bool Device_VK::HasDeferredHostOperations() const
+{
+	return m_deferredHostOperations;
+}
+
+bool Device_VK::HasPipelineLibrary() const
+{
+	return m_pipelineLibrary;
+}
+
+bool Device_VK::HasSpirv14() const
+{
+	return m_spirv14;
+}
+
+bool Device_VK::HasShaderFloatControls() const
+{
+	return m_shaderFloatControls;
+}
+
+bool Device_VK::HasAccelerationStructure() const
+{
+	return m_accelerationStructure;
+}
+
+bool Device_VK::HasAccelerationStructureCaptureReplay() const
+{
+	return m_accelerationStructureCaptureReplay;
+}
+
+bool Device_VK::HasAccelerationStructureIndirectBuild() const
+{
+	return m_accelerationStructureIndirectBuild;
+}
+
+bool Device_VK::HasAccelerationStructureHostCommands() const
+{
+	return m_accelerationStructureHostCommands;
+}
+
+bool Device_VK::HasRayTracingPipeline() const
+{
+	return m_rayTracingPipeline;
+}
+
+bool Device_VK::HasRayTracingPipelineShaderGroupHandleCaptureReplay() const
+{
+	return m_rayTracingPipelineShaderGroupHandleCaptureReplay;
+}
+
+bool Device_VK::HasRayTracingPipelineShaderGroupHandleCaptureReplayMixed() const
+{
+	return m_rayTracingPipelineShaderGroupHandleCaptureReplayMixed;
+}
+
+bool Device_VK::HasRayTracingPipelineTraceRaysIndirect() const
+{
+	return m_rayTracingPipelineTraceRaysIndirect;
+}
+
+bool Device_VK::HasRayTraversalPrimitiveCulling() const
+{
+	return m_rayTraversalPrimitiveCulling;
+}
+
+bool Device_VK::HasRayQuery() const
+{
+	return m_rayQuery;
+}
+
+bool Device_VK::HasRayTracingMaintenance1() const
+{
+	return m_rayTracingMaintenance1;
+}
+
+bool Device_VK::HasRayTracingPipelineTraceRaysIndirect2() const
+{
+	return m_rayTracingPipelineTraceRaysIndirect2;
+}
+
+bool Device_VK::HasRayTracingPositionFetch() const
+{
+	return m_rayTracingPositionFetch;
+}
+
+bool Device_VK::HasMicromap() const
+{
+	return m_micromap;
+}
+
+bool Device_VK::HasMicromapCaptureReplay() const
+{
+	return m_micromapCaptureReplay;
+}
+
+bool Device_VK::HasMicromapHostCommands() const
+{
+	return m_micromapHostCommands;
+}
+
+bool Device_VK::HasRayTracingInvocationReorder() const
+{
+	return m_rayTracingInvocationReorder;
+}
+
+bool Device_VK::HasPipelineLibraryGroupHandles() const
+{
+	return m_pipelineLibraryGroupHandles;
+}
+
+bool Device_VK::HasCooperativeMatrix() const
+{
+	return m_cooperativeMatrix;
+}
+
+bool Device_VK::HasCooperativeMatrixRobustBufferAccess() const
+{
+	return m_cooperativeMatrixRobustBufferAccess;
+}
+
+bool Device_VK::HasShaderBFloat16Type() const
+{
+	return m_shaderBFloat16Type;
+}
+
+bool Device_VK::HasShaderBFloat16DotProduct() const
+{
+	return m_shaderBFloat16DotProduct;
+}
+
+bool Device_VK::HasShaderBFloat16CooperativeMatrix() const
+{
+	return m_shaderBFloat16CooperativeMatrix;
+}
+
+bool Device_VK::HasShaderFloat8() const
+{
+	return m_shaderFloat8;
+}
+
+bool Device_VK::HasShaderFloat8CooperativeMatrix() const
+{
+	return m_shaderFloat8CooperativeMatrix;
+}
+
+bool Device_VK::HasWorkgroupMemoryExplicitLayout() const
+{
+	return m_workgroupMemoryExplicitLayout;
+}
+
+bool Device_VK::HasWorkgroupMemoryExplicitLayoutScalarBlockLayout() const
+{
+	return m_workgroupMemoryExplicitLayoutScalarBlockLayout;
+}
+
+bool Device_VK::HasWorkgroupMemoryExplicitLayout8BitAccess() const
+{
+	return m_workgroupMemoryExplicitLayout8BitAccess;
+}
+
+bool Device_VK::HasWorkgroupMemoryExplicitLayout16BitAccess() const
+{
+	return m_workgroupMemoryExplicitLayout16BitAccess;
+}
+
+bool Device_VK::HasLongVector() const
+{
+	return m_longVector;
+}
+
+uint32_t Device_VK::MaxLongVectorComponents() const
+{
+	return m_maxLongVectorComponents;
+}
+
+bool Device_VK::HasCooperativeMatrixProperties2() const
+{
+	return m_cooperativeMatrixProperties2;
+}
+
+bool Device_VK::HasCooperativeMatrixReductions() const
+{
+	return m_cooperativeMatrixReductions;
+}
+
+bool Device_VK::HasCooperativeMatrixConversions() const
+{
+	return m_cooperativeMatrixConversions;
+}
+
+bool Device_VK::HasCooperativeMatrixPerElementOperations() const
+{
+	return m_cooperativeMatrixPerElementOperations;
+}
+
+bool Device_VK::HasCooperativeMatrixGetCoordinate() const
+{
+	return m_cooperativeMatrixGetCoordinate;
+}
+
+uint32_t Device_VK::SubgroupSize() const
+{
+	return m_subgroupSize;
+}
+
+VkShaderStageFlags Device_VK::SubgroupStages() const
+{
+	return m_subgroupStages;
+}
+
+VkSubgroupFeatureFlags Device_VK::SubgroupOperations() const
+{
+	return m_subgroupOperations;
+}
+
+bool Device_VK::SubgroupQuadOperationsInAllStages() const
+{
+	return m_subgroupQuadOperationsInAllStages;
+}
+
+bool Device_VK::SubmitQueue(VkQueue queue, const VkSubmitInfo2& info, VkFence fence,
+	VkSemaphore* pWaitSemaphores, VkPipelineStageFlags* pWaitStages, uint64_t* pWaitValues,
+	VkCommandBuffer* pCommandBuffers, VkSemaphore* pSignalSemaphores, uint64_t* pSignalValues) const
+{
+	return SubmitQueueInfo(m_synchronization2, queue, info, fence, pWaitSemaphores, pWaitStages, pWaitValues,
+		pCommandBuffers, pSignalSemaphores, pSignalValues);
+}
+
 bool Device_VK::HasMeshShader() const
 {
 	return m_meshShader;
@@ -469,9 +1388,177 @@ bool Device_VK::HasConditionalRendering() const
 	return m_conditionalRendering;
 }
 
+bool Device_VK::HasTransformFeedback() const
+{
+	return m_transformFeedback;
+}
+
+bool Device_VK::HasGeometryStreams() const
+{
+	return m_geometryStreams;
+}
+
+bool Device_VK::HasSampleLocations() const
+{
+	return m_sampleLocations;
+}
+
+bool Device_VK::VariableSampleLocations() const
+{
+	return m_variableSampleLocations;
+}
+
+bool Device_VK::SampleLocationGrid(uint32_t sampleCount, uint32_t& width, uint32_t& height) const
+{
+	auto index = 0u;
+	auto count = sampleCount;
+	if (count < 1 || count > 16 || (count & (count - 1)) != 0) return false;
+	while (count > 1)
+	{
+		count >>= 1;
+		++index;
+	}
+
+	width = m_sampleLocationGrids[index].width;
+	height = m_sampleLocationGrids[index].height;
+
+	return width != 0 && height != 0;
+}
+
+void Device_VK::SampleLocationRange(float& minimum, float& maximum, uint32_t& subPixelBits) const
+{
+	minimum = m_sampleLocationRange[0];
+	maximum = m_sampleLocationRange[1];
+	subPixelBits = m_sampleLocationSubPixelBits;
+}
+
 bool Device_VK::HasConservativeRasterization() const
 {
 	return m_conservativeRaster;
+}
+
+bool Device_VK::HasSparseBinding() const
+{
+	return m_sparseBinding;
+}
+
+bool Device_VK::SupportsSparseBuffer() const
+{
+	return m_sparseBinding && m_sparseResidencyBuffer;
+}
+
+bool Device_VK::SupportsSparseImage(bool is3D, uint32_t sampleCount) const
+{
+	if (!m_sparseBinding) return false;
+	if (is3D) return m_sparseResidencyImage3D;
+
+	if (!m_sparseResidencyImage2D) return false;
+	if (sampleCount <= 1) return true;
+	if (sampleCount == 2) return m_sparseResidency2Samples;
+	if (sampleCount == 4) return m_sparseResidency4Samples;
+	if (sampleCount == 8) return m_sparseResidency8Samples;
+	if (sampleCount == 16) return m_sparseResidency16Samples;
+
+	return false;
+}
+
+bool Device_VK::SupportsSparseAliased() const
+{
+	return m_sparseBinding && m_sparseResidencyAliased;
+}
+
+bool Device_VK::GetSparseQueue(VkQueue& queue) const
+{
+	queue = VK_NULL_HANDLE;
+	uint32_t familyCount = 0;
+	vkGetPhysicalDeviceQueueFamilyProperties(m_physicalDevice, &familyCount, nullptr);
+	vector<VkQueueFamilyProperties> families(familyCount);
+	if (familyCount) vkGetPhysicalDeviceQueueFamilyProperties(m_physicalDevice, &familyCount, families.data());
+
+	for (auto i = 0u; i < m_poolCount; ++i)
+	{
+		const auto family = m_queuePools[i].Family;
+		if (family >= familyCount || (families[family].queueFlags & VK_QUEUE_SPARSE_BINDING_BIT) == 0) continue;
+
+		vkGetDeviceQueue(m_device, family, 0, &queue);
+
+		return queue != VK_NULL_HANDLE;
+	}
+
+	return false;
+}
+
+bool Device_VK::QueueSparseBind(VkQueue queue, VkBindSparseInfo bind) const
+{
+	assert(queue);
+	if (!queue) return false;
+
+	{
+		lock_guard<mutex> lock(m_queueMutex);
+		if (!m_sparseTimeline)
+		{
+			VkSemaphoreTypeCreateInfo type = {};
+			type.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO;
+			type.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE;
+			VkSemaphoreCreateInfo info = {};
+			info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+			info.pNext = &type;
+			if (vkCreateSemaphore(m_device, &info, nullptr, &m_sparseTimeline) < 0)
+			{
+				assert(m_sparseTimeline);
+				return false;
+			}
+		}
+	}
+
+	uint64_t waitValue = 0;
+	uint64_t signalValue = 0;
+	{
+		lock_guard<mutex> lock(m_queueMutex);
+		waitValue = m_sparseValue;
+		signalValue = m_sparseValue + 1;
+		++m_sparseValue;
+	}
+
+	VkTimelineSemaphoreSubmitInfo timeline = {};
+	timeline.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
+	timeline.waitSemaphoreValueCount = waitValue ? 1u : 0u;
+	timeline.pWaitSemaphoreValues = waitValue ? &waitValue : nullptr;
+	timeline.signalSemaphoreValueCount = 1;
+	timeline.pSignalSemaphoreValues = &signalValue;
+	bind.pNext = &timeline;
+	bind.waitSemaphoreCount = waitValue ? 1u : 0u;
+	bind.pWaitSemaphores = waitValue ? &m_sparseTimeline : nullptr;
+	bind.signalSemaphoreCount = 1;
+	bind.pSignalSemaphores = &m_sparseTimeline;
+
+	const auto result = vkQueueBindSparse(queue, 1, &bind, VK_NULL_HANDLE);
+	if (result < 0)
+	{
+		cerr << "VkResult " << result << endl;
+		assert(result >= 0);
+		VkTimelineSemaphoreSubmitInfo signalTimeline = {};
+		signalTimeline.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
+		signalTimeline.signalSemaphoreValueCount = 1;
+		signalTimeline.pSignalSemaphoreValues = &signalValue;
+		VkBindSparseInfo signalOnly = {};
+		signalOnly.sType = VK_STRUCTURE_TYPE_BIND_SPARSE_INFO;
+		signalOnly.pNext = &signalTimeline;
+		signalOnly.signalSemaphoreCount = 1;
+		signalOnly.pSignalSemaphores = &m_sparseTimeline;
+		vkQueueBindSparse(queue, 1, &signalOnly, VK_NULL_HANDLE);
+
+		return false;
+	}
+
+	return true;
+}
+
+void Device_VK::ReadSparseTimeline(VkSemaphore& semaphore, uint64_t& value) const
+{
+	lock_guard<mutex> lock(m_queueMutex);
+	semaphore = m_sparseTimeline;
+	value = m_sparseValue;
 }
 
 uint32_t Device_VK::FindMemoryType(uint32_t typeBits, VkMemoryPropertyFlags properties) const
@@ -511,9 +1598,13 @@ void Device_VK::SetDebugName(VkObjectType type, uint64_t handle, const wchar_t* 
 bool Device_VK::createInstance()
 {
 	uint32_t loaderVersion = VK_API_VERSION_1_0;
-	vkEnumerateInstanceVersion(&loaderVersion);
-	m_apiVersion = loaderVersion >= VK_API_VERSION_1_3 ? VK_API_VERSION_1_3 : VK_API_VERSION_1_2;
-	assert(loaderVersion >= VK_API_VERSION_1_2);
+	const auto enumerateInstanceVersion = reinterpret_cast<PFN_vkEnumerateInstanceVersion>(
+		vkGetInstanceProcAddr(nullptr, "vkEnumerateInstanceVersion"));
+	if (enumerateInstanceVersion) enumerateInstanceVersion(&loaderVersion);
+	if (loaderVersion >= VK_API_VERSION_1_3) m_apiVersion = VK_API_VERSION_1_3;
+	else if (loaderVersion >= VK_API_VERSION_1_2) m_apiVersion = VK_API_VERSION_1_2;
+	else if (loaderVersion >= VK_API_VERSION_1_1) m_apiVersion = VK_API_VERSION_1_1;
+	else m_apiVersion = VK_API_VERSION_1_0;
 
 	uint32_t extCount = 0;
 	vkEnumerateInstanceExtensionProperties(nullptr, &extCount, nullptr);
@@ -523,6 +1614,16 @@ bool Device_VK::createInstance()
 	vector<const char*> enabled;
 	enabled.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
 	enabled.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+	if (m_apiVersion < VK_API_VERSION_1_1)
+	{
+		if (!HasExtension(exts, VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME))
+		{
+			cerr << "Vulkan extension unavailable: " << VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME << endl;
+
+			return false;
+		}
+		enabled.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+	}
 	m_debugUtils = HasExtension(exts, VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 	if (m_debugUtils) enabled.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
@@ -554,7 +1655,7 @@ bool Device_VK::pickPhysicalDevice(VkPhysicalDevice requested)
 
 	uint32_t count = 0;
 	vkEnumeratePhysicalDevices(m_instance, &count, nullptr);
-	assert(count);
+	if (!count) return false;
 	vector<VkPhysicalDevice> devices(count);
 	vkEnumeratePhysicalDevices(m_instance, &count, devices.data());
 	m_physicalDevice = devices[0];
@@ -562,8 +1663,19 @@ bool Device_VK::pickPhysicalDevice(VkPhysicalDevice requested)
 	return m_physicalDevice != VK_NULL_HANDLE;
 }
 
+bool Device_VK::EmulatesD24S8() const
+{
+	return m_emulateD24S8;
+}
+
 bool Device_VK::createDevice()
 {
+	// vkd3d-proton does the same: AMD (and some other drivers) do not expose
+	// D24S8 as a depth attachment, so the D24 family is stored as D32S8.
+	VkFormatProperties d24s8 = {};
+	vkGetPhysicalDeviceFormatProperties(m_physicalDevice, VK_FORMAT_D24_UNORM_S8_UINT, &d24s8);
+	m_emulateD24S8 = (d24s8.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) == 0;
+
 	uint32_t familyCount = 0;
 	vkGetPhysicalDeviceQueueFamilyProperties(m_physicalDevice, &familyCount, nullptr);
 	vector<VkQueueFamilyProperties> families(familyCount);
@@ -578,7 +1690,6 @@ bool Device_VK::createDevice()
 		VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT, VK_QUEUE_TRANSFER_BIT);
 	if (computeFamily == UINT32_MAX) computeFamily = graphicsFamily;
 	if (copyFamily == UINT32_MAX) copyFamily = computeFamily;
-	assert(graphicsFamily != UINT32_MAX);
 	if (graphicsFamily == UINT32_MAX) return false;
 	m_graphicsFamily = graphicsFamily;
 
@@ -609,53 +1720,81 @@ bool Device_VK::createDevice()
 	auto require = [&](const char* name)
 	{
 		const auto supported = HasExtension(exts, name);
-		assert(supported && name);
+		if (!supported) cerr << "Vulkan extension unavailable: " << name << endl;
 
 		return supported;
 	};
 
-	vector<const char*> enabled;
-	XUSG_N_RETURN(require(VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME), false);
-	XUSG_N_RETURN(require(VK_EXT_DEVICE_GENERATED_COMMANDS_EXTENSION_NAME), false);
-	XUSG_N_RETURN(require(VK_KHR_SHADER_UNTYPED_POINTERS_EXTENSION_NAME), false);
-	XUSG_N_RETURN(require(VK_KHR_SWAPCHAIN_EXTENSION_NAME), false);
-	auto robustName = VK_KHR_ROBUSTNESS_2_EXTENSION_NAME;
-	if (!HasExtension(exts, robustName)) robustName = VK_EXT_ROBUSTNESS_2_EXTENSION_NAME;
-	XUSG_N_RETURN(require(robustName), false);
-	auto divisorName = VK_KHR_VERTEX_ATTRIBUTE_DIVISOR_EXTENSION_NAME;
-	if (!HasExtension(exts, divisorName)) divisorName = VK_EXT_VERTEX_ATTRIBUTE_DIVISOR_EXTENSION_NAME;
-	XUSG_N_RETURN(require(divisorName), false);
-	XUSG_N_RETURN(require(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME), false);
-	XUSG_N_RETURN(require(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME), false);
-	XUSG_N_RETURN(require(VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME), false);
-	XUSG_N_RETURN(require(VK_KHR_MAINTENANCE_5_EXTENSION_NAME), false);
-	enabled.push_back(VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME);
-	enabled.push_back(VK_EXT_DEVICE_GENERATED_COMMANDS_EXTENSION_NAME);
-	enabled.push_back(VK_KHR_SHADER_UNTYPED_POINTERS_EXTENSION_NAME);
-	enabled.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-	enabled.push_back(robustName);
-	enabled.push_back(divisorName);
-	enabled.push_back(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
-	enabled.push_back(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME);
-	enabled.push_back(VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME);
-	enabled.push_back(VK_KHR_MAINTENANCE_5_EXTENSION_NAME);
-
-	const auto coreDynamicRendering = m_apiVersion >= VK_API_VERSION_1_3;
-
-	m_meshShader = HasExtension(exts, VK_EXT_MESH_SHADER_EXTENSION_NAME);
-	if (m_meshShader) enabled.push_back(VK_EXT_MESH_SHADER_EXTENSION_NAME);
-	m_fragmentShadingRate = HasExtension(exts, VK_KHR_FRAGMENT_SHADING_RATE_EXTENSION_NAME);
-	if (m_fragmentShadingRate) enabled.push_back(VK_KHR_FRAGMENT_SHADING_RATE_EXTENSION_NAME);
-	m_conditionalRendering = HasExtension(exts, VK_EXT_CONDITIONAL_RENDERING_EXTENSION_NAME);
-	if (m_conditionalRendering) enabled.push_back(VK_EXT_CONDITIONAL_RENDERING_EXTENSION_NAME);
-	m_conservativeRaster = HasExtension(exts, VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME);
-	if (m_conservativeRaster) enabled.push_back(VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME);
-	m_customBorderColor = HasExtension(exts, VK_EXT_CUSTOM_BORDER_COLOR_EXTENSION_NAME);
-	if (m_customBorderColor) enabled.push_back(VK_EXT_CUSTOM_BORDER_COLOR_EXTENSION_NAME);
-
 	VkPhysicalDeviceProperties props = {};
 	vkGetPhysicalDeviceProperties(m_physicalDevice, &props);
+	const auto instanceVersion = m_apiVersion;
 	if (props.apiVersion < m_apiVersion) m_apiVersion = props.apiVersion;
+	const auto core11 = m_apiVersion >= VK_API_VERSION_1_1;
+	const auto core12 = m_apiVersion >= VK_API_VERSION_1_2;
+	const auto coreDynamicRendering = m_apiVersion >= VK_API_VERSION_1_3;
+
+	vector<const char*> enabled;
+	// Core extensions with no fallback. Missing one fails device creation.
+	// A name promoted into the requested API version is already core.
+	XUSG_N_RETURN(require(VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME), false);
+	XUSG_N_RETURN(require(VK_KHR_SWAPCHAIN_EXTENSION_NAME), false);
+	const char* robustName = nullptr;
+	if (HasExtension(exts, VK_KHR_ROBUSTNESS_2_EXTENSION_NAME))
+		robustName = VK_KHR_ROBUSTNESS_2_EXTENSION_NAME;
+	else if (HasExtension(exts, VK_EXT_ROBUSTNESS_2_EXTENSION_NAME))
+		robustName = VK_EXT_ROBUSTNESS_2_EXTENSION_NAME;
+	m_nullDescriptor = robustName != nullptr;
+	m_deviceGeneratedCommands = HasExtension(exts, VK_EXT_DEVICE_GENERATED_COMMANDS_EXTENSION_NAME);
+	m_maintenance5 = HasExtension(exts, VK_KHR_MAINTENANCE_5_EXTENSION_NAME);
+	const char* untypedName = nullptr;
+	if (HasExtension(exts, VK_KHR_SHADER_UNTYPED_POINTERS_EXTENSION_NAME))
+		untypedName = VK_KHR_SHADER_UNTYPED_POINTERS_EXTENSION_NAME;
+	m_shaderUntypedPointers = untypedName != nullptr;
+	const char* divisorName = nullptr;
+	if (HasExtension(exts, VK_KHR_VERTEX_ATTRIBUTE_DIVISOR_EXTENSION_NAME))
+		divisorName = VK_KHR_VERTEX_ATTRIBUTE_DIVISOR_EXTENSION_NAME;
+	else if (HasExtension(exts, VK_EXT_VERTEX_ATTRIBUTE_DIVISOR_EXTENSION_NAME))
+		divisorName = VK_EXT_VERTEX_ATTRIBUTE_DIVISOR_EXTENSION_NAME;
+	m_vertexAttributeDivisor = divisorName != nullptr;
+	const auto dynamicRenderingExt = HasExtension(exts, VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
+	const auto sync2Ext = HasExtension(exts, VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME);
+	const auto extendedDynamicStateExt = HasExtension(exts, VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME);
+	if (!dynamicRenderingExt && !coreDynamicRendering)
+		XUSG_N_RETURN(require(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME), false);
+	if (!extendedDynamicStateExt && !coreDynamicRendering)
+		XUSG_N_RETURN(require(VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME), false);
+	const auto depthResolveExt = HasExtension(exts, VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME);
+	const auto bufferAddressExt = HasExtension(exts, VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
+	const auto timelineExt = HasExtension(exts, VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
+	const auto float16Ext = HasExtension(exts, VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME);
+	if (!core12 && instanceVersion < VK_API_VERSION_1_2)
+	{
+		XUSG_N_RETURN(require(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME), false);
+		XUSG_N_RETURN(require(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME), false);
+		XUSG_N_RETURN(require(VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME), false);
+	}
+	enabled.push_back(VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME);
+	enabled.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+	if (!core12 && bufferAddressExt) enabled.push_back(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
+	if (!core12 && timelineExt) enabled.push_back(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
+	if (!core12 && float16Ext) enabled.push_back(VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME);
+	if (dynamicRenderingExt) enabled.push_back(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
+	// Core extensions that stay off when missing. Device creation still succeeds.
+	m_conditionalRendering = HasExtension(exts, VK_EXT_CONDITIONAL_RENDERING_EXTENSION_NAME);
+	m_transformFeedback = HasExtension(exts, VK_EXT_TRANSFORM_FEEDBACK_EXTENSION_NAME);
+	m_conservativeRaster = HasExtension(exts, VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME);
+	m_customBorderColor = HasExtension(exts, VK_EXT_CUSTOM_BORDER_COLOR_EXTENSION_NAME);
+
+	// Ultimate extensions. A missing extension leaves the feature off.
+	m_meshShader = HasExtension(exts, VK_EXT_MESH_SHADER_EXTENSION_NAME);
+	m_fragmentShadingRate = HasExtension(exts, VK_KHR_FRAGMENT_SHADING_RATE_EXTENSION_NAME);
+	m_sampleLocations = HasExtension(exts, VK_EXT_SAMPLE_LOCATIONS_EXTENSION_NAME) &&
+		(coreDynamicRendering || HasExtension(exts, VK_EXT_EXTENDED_DYNAMIC_STATE_2_EXTENSION_NAME)) &&
+		HasExtension(exts, VK_EXT_EXTENDED_DYNAMIC_STATE_3_EXTENSION_NAME);
+	auto enableExtendedDynamicState = false;
+	auto meshTask = false;
+	auto fsrPrimitive = false;
+	auto fsrAttachment = false;
 
 	m_heapProps = {};
 	m_heapProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_PROPERTIES_EXT;
@@ -667,76 +1806,1127 @@ bool Device_VK::createDevice()
 	heapFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT;
 	VkPhysicalDeviceDeviceGeneratedCommandsFeaturesEXT dgcFeatures = {};
 	dgcFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_GENERATED_COMMANDS_FEATURES_EXT;
-	dgcFeatures.pNext = &heapFeatures;
 	VkPhysicalDeviceRobustness2FeaturesKHR robust = {};
 	robust.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_KHR;
 	VkPhysicalDeviceVertexAttributeDivisorFeatures divisor = {};
 	divisor.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_ATTRIBUTE_DIVISOR_FEATURES;
-	divisor.pNext = &robust;
+	void* featureNext = &heapFeatures;
+	if (m_deviceGeneratedCommands)
+	{
+		dgcFeatures.pNext = featureNext;
+		featureNext = &dgcFeatures;
+	}
+	if (m_nullDescriptor)
+	{
+		robust.pNext = featureNext;
+		featureNext = &robust;
+	}
+	if (m_vertexAttributeDivisor)
+	{
+		divisor.pNext = featureNext;
+		featureNext = &divisor;
+	}
 	VkPhysicalDeviceConditionalRenderingFeaturesEXT conditional = {};
 	conditional.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CONDITIONAL_RENDERING_FEATURES_EXT;
-	conditional.pNext = &divisor;
+	if (m_conditionalRendering)
+	{
+		conditional.pNext = featureNext;
+		featureNext = &conditional;
+	}
 
 	VkPhysicalDeviceExtendedDynamicStateFeaturesEXT dynamicState = {};
 	dynamicState.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT;
-	dynamicState.pNext = m_conditionalRendering ? static_cast<void*>(&conditional) : static_cast<void*>(&divisor);
 
 	VkPhysicalDeviceMaintenance5Features maintenance5 = {};
 	maintenance5.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_FEATURES;
-	maintenance5.pNext = &dynamicState;
+	if (extendedDynamicStateExt)
+	{
+		dynamicState.pNext = featureNext;
+		featureNext = &dynamicState;
+	}
+	if (m_maintenance5)
+	{
+		maintenance5.pNext = featureNext;
+		featureNext = &maintenance5;
+	}
 
 	VkPhysicalDeviceShaderUntypedPointersFeaturesKHR untyped = {};
 	untyped.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_UNTYPED_POINTERS_FEATURES_KHR;
-	untyped.pNext = &maintenance5;
+	VkPhysicalDeviceTransformFeedbackFeaturesEXT xfbQuery = {};
+	xfbQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_FEATURES_EXT;
+	void* queryTail = featureNext;
+	if (m_shaderUntypedPointers)
+	{
+		untyped.pNext = queryTail;
+		queryTail = &untyped;
+	}
+	if (m_transformFeedback)
+	{
+		xfbQuery.pNext = queryTail;
+		queryTail = &xfbQuery;
+	}
+	VkPhysicalDeviceExtendedDynamicState3FeaturesEXT dynamicState3 = {};
+	dynamicState3.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_3_FEATURES_EXT;
+	VkPhysicalDeviceMeshShaderFeaturesEXT meshQuery = {};
+	meshQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
+	VkPhysicalDeviceFragmentShadingRateFeaturesKHR fsrQuery = {};
+	fsrQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_FEATURES_KHR;
+	VkPhysicalDeviceCustomBorderColorFeaturesEXT borderQuery = {};
+	borderQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CUSTOM_BORDER_COLOR_FEATURES_EXT;
+	VkPhysicalDeviceDynamicRenderingFeatures dynamicRenderingQuery = {};
+	dynamicRenderingQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
+	VkPhysicalDeviceSynchronization2Features sync2Query = {};
+	sync2Query.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
+
+	void* queryHead = queryTail;
+	if (m_sampleLocations)
+	{
+		dynamicState3.pNext = queryHead;
+		queryHead = &dynamicState3;
+	}
+	if (m_meshShader)
+	{
+		meshQuery.pNext = queryHead;
+		queryHead = &meshQuery;
+	}
+	if (m_fragmentShadingRate)
+	{
+		fsrQuery.pNext = queryHead;
+		queryHead = &fsrQuery;
+	}
+	if (m_customBorderColor)
+	{
+		borderQuery.pNext = queryHead;
+		queryHead = &borderQuery;
+	}
+	if (!coreDynamicRendering)
+	{
+		dynamicRenderingQuery.pNext = queryHead;
+		queryHead = &dynamicRenderingQuery;
+		if (sync2Ext)
+		{
+			sync2Query.pNext = queryHead;
+			queryHead = &sync2Query;
+		}
+	}
 
 	VkPhysicalDeviceFeatures2 features = {};
 	features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-	features.pNext = &untyped;
-	dgcFeatures.pNext = &heapFeatures;
-	robust.pNext = &dgcFeatures;
+	features.pNext = queryHead;
 	vkGetPhysicalDeviceFeatures2(m_physicalDevice, &features);
-	assert(heapFeatures.descriptorHeap);
-	assert(dgcFeatures.deviceGeneratedCommands);
-	assert(untyped.shaderUntypedPointers);
-	assert(robust.nullDescriptor);
-	assert(divisor.vertexAttributeInstanceRateDivisor);
-	assert(dynamicState.extendedDynamicState);
-	assert(maintenance5.maintenance5);
+	if (!heapFeatures.descriptorHeap) return false;
+	if (m_deviceGeneratedCommands && !dgcFeatures.deviceGeneratedCommands) m_deviceGeneratedCommands = false;
+	if (m_deviceGeneratedCommands) enabled.push_back(VK_EXT_DEVICE_GENERATED_COMMANDS_EXTENSION_NAME);
+	if (m_nullDescriptor && !robust.nullDescriptor) m_nullDescriptor = false;
+	if (m_nullDescriptor) enabled.push_back(robustName);
+	if (m_maintenance5 && !maintenance5.maintenance5) m_maintenance5 = false;
+	if (m_maintenance5) enabled.push_back(VK_KHR_MAINTENANCE_5_EXTENSION_NAME);
 	if (m_conditionalRendering && !conditional.conditionalRendering) m_conditionalRendering = false;
+	if (m_conditionalRendering) enabled.push_back(VK_EXT_CONDITIONAL_RENDERING_EXTENSION_NAME);
+	if (m_transformFeedback && !xfbQuery.transformFeedback) m_transformFeedback = false;
+	if (m_transformFeedback) enabled.push_back(VK_EXT_TRANSFORM_FEEDBACK_EXTENSION_NAME);
+	if (m_conservativeRaster) enabled.push_back(VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME);
+	if (m_shaderUntypedPointers && !untyped.shaderUntypedPointers) m_shaderUntypedPointers = false;
+	if (m_vertexAttributeDivisor && !divisor.vertexAttributeInstanceRateDivisor) m_vertexAttributeDivisor = false;
+	if (m_shaderUntypedPointers) enabled.push_back(untypedName);
+	if (m_vertexAttributeDivisor) enabled.push_back(divisorName);
+	if (!coreDynamicRendering && !dynamicRenderingQuery.dynamicRendering) return false;
+	enableExtendedDynamicState = extendedDynamicStateExt && dynamicState.extendedDynamicState == VK_TRUE;
+	if (!enableExtendedDynamicState && !coreDynamicRendering)
+	{
+		cerr << "Vulkan extension unavailable: " << VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME << endl;
 
+		return false;
+	}
+	if (enableExtendedDynamicState) enabled.push_back(VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME);
+	m_geometryStreams = m_transformFeedback && xfbQuery.geometryStreams == VK_TRUE;
+	if (m_meshShader && !meshQuery.meshShader) m_meshShader = false;
+	meshTask = m_meshShader && meshQuery.taskShader == VK_TRUE;
+	if (m_fragmentShadingRate && !fsrQuery.pipelineFragmentShadingRate) m_fragmentShadingRate = false;
+	fsrPrimitive = m_fragmentShadingRate && fsrQuery.primitiveFragmentShadingRate == VK_TRUE;
+	fsrAttachment = m_fragmentShadingRate && fsrQuery.attachmentFragmentShadingRate == VK_TRUE;
+	if (m_customBorderColor && (!borderQuery.customBorderColors || !borderQuery.customBorderColorWithoutFormat))
+		m_customBorderColor = false;
+	if (m_sampleLocations && !dynamicState3.extendedDynamicState3SampleLocationsEnable) m_sampleLocations = false;
+	if (m_customBorderColor) enabled.push_back(VK_EXT_CUSTOM_BORDER_COLOR_EXTENSION_NAME);
+	if (m_meshShader) enabled.push_back(VK_EXT_MESH_SHADER_EXTENSION_NAME);
+	if (m_fragmentShadingRate) enabled.push_back(VK_KHR_FRAGMENT_SHADING_RATE_EXTENSION_NAME);
+	if (m_sampleLocations)
+	{
+		enabled.push_back(VK_EXT_SAMPLE_LOCATIONS_EXTENSION_NAME);
+		if (!coreDynamicRendering) enabled.push_back(VK_EXT_EXTENDED_DYNAMIC_STATE_2_EXTENSION_NAME);
+		enabled.push_back(VK_EXT_EXTENDED_DYNAMIC_STATE_3_EXTENSION_NAME);
+	}
+
+	VkPhysicalDeviceSampleLocationsPropertiesEXT sampleLocProps = {};
+	sampleLocProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLE_LOCATIONS_PROPERTIES_EXT;
+	VkPhysicalDeviceDepthStencilResolveProperties resolveProps = {};
+	resolveProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEPTH_STENCIL_RESOLVE_PROPERTIES;
+	VkPhysicalDeviceSubgroupProperties subgroupProps = {};
 	VkPhysicalDeviceProperties2 props2 = {};
 	props2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-	props2.pNext = &m_dgcProps;
+	props2.pNext = m_deviceGeneratedCommands ? static_cast<void*>(&m_dgcProps) : static_cast<void*>(&m_heapProps);
+	if (core12 || depthResolveExt)
+	{
+		resolveProps.pNext = props2.pNext;
+		props2.pNext = &resolveProps;
+	}
+	if (m_sampleLocations)
+	{
+		sampleLocProps.pNext = props2.pNext;
+		props2.pNext = &sampleLocProps;
+	}
+	if (instanceVersion >= VK_API_VERSION_1_1)
+	{
+		subgroupProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES;
+		subgroupProps.pNext = props2.pNext;
+		props2.pNext = &subgroupProps;
+	}
+	VkPhysicalDeviceShaderLongVectorPropertiesEXT longVectorProps = {};
+	const auto longVectorExt = HasExtension(exts, VK_EXT_SHADER_LONG_VECTOR_EXTENSION_NAME);
+	if (longVectorExt)
+	{
+		longVectorProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_LONG_VECTOR_PROPERTIES_EXT;
+		longVectorProps.pNext = props2.pNext;
+		props2.pNext = &longVectorProps;
+	}
 	vkGetPhysicalDeviceProperties2(m_physicalDevice, &props2);
+	if (m_sampleLocations)
+	{
+		m_variableSampleLocations = sampleLocProps.variableSampleLocations == VK_TRUE;
+		m_sampleLocationRange[0] = sampleLocProps.sampleLocationCoordinateRange[0];
+		m_sampleLocationRange[1] = sampleLocProps.sampleLocationCoordinateRange[1];
+		m_sampleLocationSubPixelBits = sampleLocProps.sampleLocationSubPixelBits;
+		m_sampleLocationCounts = sampleLocProps.sampleLocationSampleCounts;
+	}
+	if (core12 || depthResolveExt)
+	{
+		m_depthResolveModes = resolveProps.supportedDepthResolveModes;
+		m_stencilResolveModes = resolveProps.supportedStencilResolveModes;
+		m_independentResolveNone = resolveProps.independentResolveNone == VK_TRUE;
+		m_independentResolve = resolveProps.independentResolve == VK_TRUE;
+		m_depthStencilResolve = m_depthResolveModes != 0 || m_stencilResolveModes != 0;
+	}
+	if (!core12 && depthResolveExt && m_depthStencilResolve)
+		enabled.push_back(VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME);
+	if (instanceVersion >= VK_API_VERSION_1_1)
+	{
+		m_subgroupSize = subgroupProps.subgroupSize;
+		m_subgroupStages = subgroupProps.supportedStages;
+		m_subgroupOperations = subgroupProps.supportedOperations;
+		m_subgroupQuadOperationsInAllStages = subgroupProps.quadOperationsInAllStages == VK_TRUE;
+	}
 
 	const auto imageStride = static_cast<uint32_t>(m_heapProps.imageDescriptorSize);
 	const auto bufferStride = static_cast<uint32_t>(m_heapProps.bufferDescriptorSize);
 	m_resourceStride = (max)(imageStride, bufferStride);
 	m_samplerStride = static_cast<uint32_t>(m_heapProps.samplerDescriptorSize);
-	assert(m_resourceStride);
-	assert(m_samplerStride);
+	if (!m_resourceStride || !m_samplerStride) return false;
 
 	VkPhysicalDeviceShaderUntypedPointersFeaturesKHR untypedEnable = {};
-	untypedEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_UNTYPED_POINTERS_FEATURES_KHR;
-	untypedEnable.shaderUntypedPointers = VK_TRUE;
-
 	VkPhysicalDeviceDescriptorHeapFeaturesEXT heapEnable = {};
 	heapEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT;
-	heapEnable.pNext = &untypedEnable;
 	heapEnable.descriptorHeap = VK_TRUE;
+	if (m_shaderUntypedPointers)
+	{
+		untypedEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_UNTYPED_POINTERS_FEATURES_KHR;
+		untypedEnable.shaderUntypedPointers = VK_TRUE;
+		heapEnable.pNext = &untypedEnable;
+	}
 
 	VkPhysicalDeviceDeviceGeneratedCommandsFeaturesEXT dgcEnable = {};
-	dgcEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_GENERATED_COMMANDS_FEATURES_EXT;
-	dgcEnable.pNext = &heapEnable;
-	dgcEnable.deviceGeneratedCommands = VK_TRUE;
+	void* enableBase = &heapEnable;
+	if (m_deviceGeneratedCommands)
+	{
+		dgcEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_GENERATED_COMMANDS_FEATURES_EXT;
+		dgcEnable.pNext = &heapEnable;
+		dgcEnable.deviceGeneratedCommands = VK_TRUE;
+		enableBase = &dgcEnable;
+	}
+
+	VkPhysicalDeviceVulkan13Features supported13 = {};
+	VkPhysicalDeviceVulkan12Features supported12 = {};
+	VkPhysicalDeviceVulkan11Features supported11 = {};
+	VkPhysicalDeviceBufferDeviceAddressFeatures supportedAddress = {};
+	VkPhysicalDeviceTimelineSemaphoreFeatures supportedTimeline = {};
+	VkPhysicalDeviceShaderFloat16Int8Features supportedFloat16 = {};
+	supported12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+	VkPhysicalDeviceFeatures2 supported2 = {};
+	supported2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+	if (instanceVersion >= VK_API_VERSION_1_1)
+	{
+		supported11.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
+		supported12.pNext = &supported11;
+	}
+	if (instanceVersion >= VK_API_VERSION_1_2)
+	{
+		if (instanceVersion >= VK_API_VERSION_1_3)
+		{
+			supported13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+			supported13.pNext = &supported12;
+			supported2.pNext = &supported13;
+		}
+		else supported2.pNext = &supported12;
+	}
+	else
+	{
+		supportedAddress.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
+		supportedTimeline.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
+		supportedTimeline.pNext = &supportedAddress;
+		supportedFloat16.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES;
+		supportedFloat16.pNext = &supportedTimeline;
+		supported2.pNext = &supportedFloat16;
+		if (instanceVersion >= VK_API_VERSION_1_1) supportedAddress.pNext = &supported11;
+	}
+	vkGetPhysicalDeviceFeatures2(m_physicalDevice, &supported2);
+	const auto shaderFloat16 = instanceVersion >= VK_API_VERSION_1_2 ? supported12.shaderFloat16 : supportedFloat16.shaderFloat16;
+	const auto bufferDeviceAddress = instanceVersion >= VK_API_VERSION_1_2 ?
+		supported12.bufferDeviceAddress : supportedAddress.bufferDeviceAddress;
+	const auto timelineSemaphore = instanceVersion >= VK_API_VERSION_1_2 ?
+		supported12.timelineSemaphore : supportedTimeline.timelineSemaphore;
+	if (!shaderFloat16 || !bufferDeviceAddress || !timelineSemaphore) return false;
+	if (coreDynamicRendering && !supported13.dynamicRendering) return false;
+	if (coreDynamicRendering) m_synchronization2 = supported13.synchronization2 == VK_TRUE;
+	else m_synchronization2 = sync2Ext && sync2Query.synchronization2 == VK_TRUE;
+	if (m_synchronization2 && sync2Ext) enabled.push_back(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME);
+
+	// Shader-model and subgroup features. A missing bit or extension leaves that feature off.
+	const auto storage16Ext = HasExtension(exts, VK_KHR_16BIT_STORAGE_EXTENSION_NAME);
+	const auto drawParamExt = HasExtension(exts, VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME);
+	const auto storage8Ext = HasExtension(exts, VK_KHR_8BIT_STORAGE_EXTENSION_NAME);
+	const auto atomicInt64Ext = HasExtension(exts, VK_KHR_SHADER_ATOMIC_INT64_EXTENSION_NAME);
+	const auto subgroupExtTypesExt = HasExtension(exts, VK_KHR_SHADER_SUBGROUP_EXTENDED_TYPES_EXTENSION_NAME);
+	const auto subgroupSizeExt = HasExtension(exts, VK_EXT_SUBGROUP_SIZE_CONTROL_EXTENSION_NAME);
+	const auto integerDotExt = HasExtension(exts, VK_KHR_SHADER_INTEGER_DOT_PRODUCT_EXTENSION_NAME);
+	const auto demoteExt = HasExtension(exts, VK_EXT_SHADER_DEMOTE_TO_HELPER_INVOCATION_EXTENSION_NAME);
+	const auto subgroupRotateExt = HasExtension(exts, VK_KHR_SHADER_SUBGROUP_ROTATE_EXTENSION_NAME);
+	const auto floatControls2Ext = HasExtension(exts, VK_KHR_SHADER_FLOAT_CONTROLS_2_EXTENSION_NAME);
+	const auto subgroupPartitionedExt = HasExtension(exts, VK_EXT_SHADER_SUBGROUP_PARTITIONED_EXTENSION_NAME);
+	const auto quadControlExt = HasExtension(exts, VK_KHR_SHADER_QUAD_CONTROL_EXTENSION_NAME);
+	const auto uniformControlFlowExt = HasExtension(exts, VK_KHR_SHADER_SUBGROUP_UNIFORM_CONTROL_FLOW_EXTENSION_NAME);
+	const auto maximalReconvergenceExt = HasExtension(exts, VK_KHR_SHADER_MAXIMAL_RECONVERGENCE_EXTENSION_NAME);
+	const auto computeDerivativesExt = HasExtension(exts, VK_KHR_COMPUTE_SHADER_DERIVATIVES_EXTENSION_NAME);
+	const auto barycentricExt = HasExtension(exts, VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME);
+	const auto imageAtomicInt64Ext = HasExtension(exts, VK_EXT_SHADER_IMAGE_ATOMIC_INT64_EXTENSION_NAME);
+	const auto shaderAtomicFloatExt = HasExtension(exts, VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME);
+	const auto shaderAtomicFloat2Ext = HasExtension(exts, VK_EXT_SHADER_ATOMIC_FLOAT_2_EXTENSION_NAME) &&
+		shaderAtomicFloatExt;
+	const auto shaderClockExt = HasExtension(exts, VK_KHR_SHADER_CLOCK_EXTENSION_NAME);
+	m_hlslFunctionality1 = HasExtension(exts, VK_GOOGLE_HLSL_FUNCTIONALITY_1_EXTENSION_NAME);
+	const auto descriptorIndexingExt = HasExtension(exts, VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
+	const auto scalarBlockLayoutExt = HasExtension(exts, VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME);
+	const auto viewportIndexLayerExt = HasExtension(exts, VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_EXTENSION_NAME);
+	const auto deferredHostOpsExt = core11 && HasExtension(exts, VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
+	const auto accelerationStructureExt = deferredHostOpsExt &&
+		HasExtension(exts, VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
+	const auto pipelineLibraryExt = core11 && HasExtension(exts, VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME);
+	const auto shaderFloatControlsExt = !core12 && HasExtension(exts, VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME);
+	const auto spirv14Ext = shaderFloatControlsExt && HasExtension(exts, VK_KHR_SPIRV_1_4_EXTENSION_NAME);
+	m_deferredHostOperations = deferredHostOpsExt;
+	m_pipelineLibrary = pipelineLibraryExt;
+	m_shaderFloatControls = core12 || shaderFloatControlsExt;
+	m_spirv14 = core12 || spirv14Ext;
+	const auto rayTracingPipelineExt = core11 && HasExtension(exts, VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
+	const auto rayQueryExt = core11 && HasExtension(exts, VK_KHR_RAY_QUERY_EXTENSION_NAME);
+	const auto rayTracingMaintenance1Ext = core11 &&
+		HasExtension(exts, VK_KHR_RAY_TRACING_MAINTENANCE_1_EXTENSION_NAME);
+	const auto rayTracingPositionFetchExt = core11 &&
+		HasExtension(exts, VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME);
+	const char* opacityMicromapExtName = nullptr;
+	auto opacityMicromapKhr = false;
+	if (core11 && HasExtension(exts, VK_KHR_OPACITY_MICROMAP_EXTENSION_NAME))
+	{
+		opacityMicromapExtName = VK_KHR_OPACITY_MICROMAP_EXTENSION_NAME;
+		opacityMicromapKhr = true;
+	}
+	else if (core11 && HasExtension(exts, VK_EXT_OPACITY_MICROMAP_EXTENSION_NAME))
+		opacityMicromapExtName = VK_EXT_OPACITY_MICROMAP_EXTENSION_NAME;
+	const auto invocationReorderExt = core11 &&
+		HasExtension(exts, VK_EXT_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME);
+	const char* pipelineLibraryGroupHandlesExtName = nullptr;
+	if (core11 && HasExtension(exts, VK_KHR_PIPELINE_LIBRARY_GROUP_HANDLES_EXTENSION_NAME))
+		pipelineLibraryGroupHandlesExtName = VK_KHR_PIPELINE_LIBRARY_GROUP_HANDLES_EXTENSION_NAME;
+	else if (core11 && HasExtension(exts, VK_EXT_PIPELINE_LIBRARY_GROUP_HANDLES_EXTENSION_NAME))
+		pipelineLibraryGroupHandlesExtName = VK_EXT_PIPELINE_LIBRARY_GROUP_HANDLES_EXTENSION_NAME;
+	const auto cooperativeMatrixExt = HasExtension(exts, VK_KHR_COOPERATIVE_MATRIX_EXTENSION_NAME);
+	const auto shaderBfloat16Ext = HasExtension(exts, VK_KHR_SHADER_BFLOAT16_EXTENSION_NAME);
+	const auto shaderFloat8Ext = HasExtension(exts, VK_EXT_SHADER_FLOAT8_EXTENSION_NAME);
+	const auto workgroupLayoutExt = HasExtension(exts, VK_KHR_WORKGROUP_MEMORY_EXPLICIT_LAYOUT_EXTENSION_NAME);
+	const auto cooperativeMatrixMaintenance1Ext = cooperativeMatrixExt &&
+		HasExtension(exts, VK_EXT_COOPERATIVE_MATRIX_MAINTENANCE_1_EXTENSION_NAME);
+	m_shaderInt64 = features.features.shaderInt64 == VK_TRUE;
+	m_shaderInt16 = features.features.shaderInt16 == VK_TRUE;
+	m_shaderFloat64 = features.features.shaderFloat64 == VK_TRUE;
+	m_shaderStorageImageReadWithoutFormat = features.features.shaderStorageImageReadWithoutFormat == VK_TRUE;
+	m_shaderStorageImageExtendedFormats = features.features.shaderStorageImageExtendedFormats == VK_TRUE;
+	m_shaderStorageImageMultisample = features.features.shaderStorageImageMultisample == VK_TRUE;
+	m_shaderClipDistance = features.features.shaderClipDistance == VK_TRUE;
+	m_shaderCullDistance = features.features.shaderCullDistance == VK_TRUE;
+	m_vertexPipelineStoresAndAtomics = features.features.vertexPipelineStoresAndAtomics == VK_TRUE;
+	m_sampleRateShading = features.features.sampleRateShading == VK_TRUE;
+	m_imageCubeArray = features.features.imageCubeArray == VK_TRUE;
+	m_textureCompressionBC = features.features.textureCompressionBC == VK_TRUE;
+	m_drawIndirectFirstInstance = features.features.drawIndirectFirstInstance == VK_TRUE;
+	m_shaderUniformBufferArrayDynamicIndexing = features.features.shaderUniformBufferArrayDynamicIndexing == VK_TRUE;
+	m_shaderSampledImageArrayDynamicIndexing = features.features.shaderSampledImageArrayDynamicIndexing == VK_TRUE;
+	m_shaderStorageBufferArrayDynamicIndexing = features.features.shaderStorageBufferArrayDynamicIndexing == VK_TRUE;
+	m_shaderStorageImageArrayDynamicIndexing = features.features.shaderStorageImageArrayDynamicIndexing == VK_TRUE;
+	if (instanceVersion >= VK_API_VERSION_1_1)
+	{
+		m_storageBuffer16BitAccess = supported11.storageBuffer16BitAccess == VK_TRUE;
+		m_uniformAndStorageBuffer16BitAccess = supported11.uniformAndStorageBuffer16BitAccess == VK_TRUE;
+		m_storagePushConstant16 = supported11.storagePushConstant16 == VK_TRUE;
+		m_storageInputOutput16 = supported11.storageInputOutput16 == VK_TRUE;
+		m_shaderDrawParameters = supported11.shaderDrawParameters == VK_TRUE;
+	}
+	if (instanceVersion >= VK_API_VERSION_1_2)
+	{
+		m_shaderInt8 = supported12.shaderInt8 == VK_TRUE;
+		m_storageBuffer8BitAccess = supported12.storageBuffer8BitAccess == VK_TRUE;
+		m_uniformAndStorageBuffer8BitAccess = supported12.uniformAndStorageBuffer8BitAccess == VK_TRUE;
+		m_storagePushConstant8 = supported12.storagePushConstant8 == VK_TRUE;
+		m_shaderBufferInt64Atomics = supported12.shaderBufferInt64Atomics == VK_TRUE;
+		m_shaderSharedInt64Atomics = supported12.shaderSharedInt64Atomics == VK_TRUE;
+		m_shaderSubgroupExtendedTypes = supported12.shaderSubgroupExtendedTypes == VK_TRUE;
+		m_shaderInputAttachmentArrayDynamicIndexing = supported12.shaderInputAttachmentArrayDynamicIndexing == VK_TRUE;
+		m_shaderUniformTexelBufferArrayDynamicIndexing = supported12.shaderUniformTexelBufferArrayDynamicIndexing == VK_TRUE;
+		m_shaderStorageTexelBufferArrayDynamicIndexing = supported12.shaderStorageTexelBufferArrayDynamicIndexing == VK_TRUE;
+		m_shaderUniformBufferArrayNonUniformIndexing = supported12.shaderUniformBufferArrayNonUniformIndexing == VK_TRUE;
+		m_shaderSampledImageArrayNonUniformIndexing = supported12.shaderSampledImageArrayNonUniformIndexing == VK_TRUE;
+		m_shaderStorageBufferArrayNonUniformIndexing = supported12.shaderStorageBufferArrayNonUniformIndexing == VK_TRUE;
+		m_shaderStorageImageArrayNonUniformIndexing = supported12.shaderStorageImageArrayNonUniformIndexing == VK_TRUE;
+		m_shaderInputAttachmentArrayNonUniformIndexing = supported12.shaderInputAttachmentArrayNonUniformIndexing == VK_TRUE;
+		m_shaderUniformTexelBufferArrayNonUniformIndexing = supported12.shaderUniformTexelBufferArrayNonUniformIndexing == VK_TRUE;
+		m_shaderStorageTexelBufferArrayNonUniformIndexing = supported12.shaderStorageTexelBufferArrayNonUniformIndexing == VK_TRUE;
+		m_runtimeDescriptorArray = supported12.runtimeDescriptorArray == VK_TRUE;
+		m_descriptorBindingPartiallyBound = supported12.descriptorBindingPartiallyBound == VK_TRUE;
+		m_scalarBlockLayout = supported12.scalarBlockLayout == VK_TRUE;
+		m_shaderOutputViewportIndex = supported12.shaderOutputViewportIndex == VK_TRUE;
+		m_shaderOutputLayer = supported12.shaderOutputLayer == VK_TRUE;
+		m_subgroupBroadcastDynamicId = supported12.subgroupBroadcastDynamicId == VK_TRUE;
+	}
+	else m_shaderInt8 = supportedFloat16.shaderInt8 == VK_TRUE;
+	if (instanceVersion >= VK_API_VERSION_1_3)
+	{
+		m_shaderDemoteToHelperInvocation = supported13.shaderDemoteToHelperInvocation == VK_TRUE;
+		m_subgroupSizeControl = supported13.subgroupSizeControl == VK_TRUE;
+		m_computeFullSubgroups = supported13.computeFullSubgroups == VK_TRUE;
+		m_shaderIntegerDotProduct = supported13.shaderIntegerDotProduct == VK_TRUE;
+	}
+
+	VkPhysicalDevice16BitStorageFeatures storage16Query = {};
+	VkPhysicalDeviceShaderDrawParametersFeatures drawParamQuery = {};
+	VkPhysicalDevice8BitStorageFeatures storage8Query = {};
+	VkPhysicalDeviceShaderAtomicInt64Features atomicInt64Query = {};
+	VkPhysicalDeviceShaderSubgroupExtendedTypesFeatures subgroupExtTypesQuery = {};
+	VkPhysicalDeviceSubgroupSizeControlFeatures subgroupSizeQuery = {};
+	VkPhysicalDeviceShaderIntegerDotProductFeatures integerDotQuery = {};
+	VkPhysicalDeviceShaderDemoteToHelperInvocationFeatures demoteQuery = {};
+	VkPhysicalDeviceShaderSubgroupRotateFeatures subgroupRotateQuery = {};
+	VkPhysicalDeviceShaderFloatControls2Features floatControls2Query = {};
+	VkPhysicalDeviceShaderSubgroupPartitionedFeaturesEXT subgroupPartitionedQuery = {};
+	VkPhysicalDeviceShaderQuadControlFeaturesKHR quadControlQuery = {};
+	VkPhysicalDeviceShaderSubgroupUniformControlFlowFeaturesKHR uniformControlFlowQuery = {};
+	VkPhysicalDeviceShaderMaximalReconvergenceFeaturesKHR maximalReconvergenceQuery = {};
+	VkPhysicalDeviceComputeShaderDerivativesFeaturesKHR computeDerivativesQuery = {};
+	VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR barycentricQuery = {};
+	VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT imageAtomicInt64Query = {};
+	VkPhysicalDeviceShaderAtomicFloatFeaturesEXT shaderAtomicFloatQuery = {};
+	VkPhysicalDeviceShaderAtomicFloat2FeaturesEXT shaderAtomicFloat2Query = {};
+	VkPhysicalDeviceShaderClockFeaturesKHR shaderClockQuery = {};
+	VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingQuery = {};
+	VkPhysicalDeviceScalarBlockLayoutFeatures scalarBlockLayoutQuery = {};
+	VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureQuery = {};
+	VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineQuery = {};
+	VkPhysicalDeviceRayQueryFeaturesKHR rayQueryQuery = {};
+	VkPhysicalDeviceRayTracingMaintenance1FeaturesKHR rayTracingMaintenance1Query = {};
+	VkPhysicalDeviceRayTracingPositionFetchFeaturesKHR rayTracingPositionFetchQuery = {};
+	VkPhysicalDeviceOpacityMicromapFeaturesKHR opacityMicromapQuery = {};
+	VkPhysicalDeviceOpacityMicromapFeaturesEXT opacityMicromapExtQuery = {};
+	VkPhysicalDeviceRayTracingInvocationReorderFeaturesEXT invocationReorderQuery = {};
+	VkPhysicalDevicePipelineLibraryGroupHandlesFeaturesKHR pipelineLibraryGroupHandlesQuery = {};
+	VkPhysicalDeviceCooperativeMatrixFeaturesKHR cooperativeMatrixQuery = {};
+	VkPhysicalDeviceShaderBfloat16FeaturesKHR shaderBfloat16Query = {};
+	VkPhysicalDeviceShaderFloat8FeaturesEXT shaderFloat8Query = {};
+	VkPhysicalDeviceWorkgroupMemoryExplicitLayoutFeaturesKHR workgroupLayoutQuery = {};
+	VkPhysicalDeviceShaderLongVectorFeaturesEXT longVectorQuery = {};
+	VkPhysicalDeviceCooperativeMatrixMaintenance1FeaturesEXT cooperativeMatrixMaintenance1Query = {};
+	void* shaderHead = nullptr;
+	auto linkQuery = [&](void*& next, void* feature)
+	{
+		next = shaderHead;
+		shaderHead = feature;
+	};
+	if (instanceVersion < VK_API_VERSION_1_1 && storage16Ext)
+	{
+		storage16Query.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES;
+		linkQuery(storage16Query.pNext, &storage16Query);
+	}
+	if (instanceVersion < VK_API_VERSION_1_1 && drawParamExt)
+	{
+		drawParamQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETERS_FEATURES;
+		linkQuery(drawParamQuery.pNext, &drawParamQuery);
+	}
+	if (instanceVersion < VK_API_VERSION_1_2 && storage8Ext)
+	{
+		storage8Query.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES;
+		linkQuery(storage8Query.pNext, &storage8Query);
+	}
+	if (instanceVersion < VK_API_VERSION_1_2 && atomicInt64Ext)
+	{
+		atomicInt64Query.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES;
+		linkQuery(atomicInt64Query.pNext, &atomicInt64Query);
+	}
+	if (instanceVersion < VK_API_VERSION_1_2 && subgroupExtTypesExt)
+	{
+		subgroupExtTypesQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_EXTENDED_TYPES_FEATURES;
+		linkQuery(subgroupExtTypesQuery.pNext, &subgroupExtTypesQuery);
+	}
+	if (instanceVersion < VK_API_VERSION_1_3 && subgroupSizeExt)
+	{
+		subgroupSizeQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES;
+		linkQuery(subgroupSizeQuery.pNext, &subgroupSizeQuery);
+	}
+	if (instanceVersion < VK_API_VERSION_1_3 && integerDotExt)
+	{
+		integerDotQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_DOT_PRODUCT_FEATURES;
+		linkQuery(integerDotQuery.pNext, &integerDotQuery);
+	}
+	if (instanceVersion < VK_API_VERSION_1_3 && demoteExt)
+	{
+		demoteQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DEMOTE_TO_HELPER_INVOCATION_FEATURES;
+		linkQuery(demoteQuery.pNext, &demoteQuery);
+	}
+	if (subgroupRotateExt)
+	{
+		subgroupRotateQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_ROTATE_FEATURES;
+		linkQuery(subgroupRotateQuery.pNext, &subgroupRotateQuery);
+	}
+	if (floatControls2Ext)
+	{
+		floatControls2Query.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT_CONTROLS_2_FEATURES;
+		linkQuery(floatControls2Query.pNext, &floatControls2Query);
+	}
+	if (subgroupPartitionedExt)
+	{
+		subgroupPartitionedQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_PARTITIONED_FEATURES_EXT;
+		linkQuery(subgroupPartitionedQuery.pNext, &subgroupPartitionedQuery);
+	}
+	if (quadControlExt)
+	{
+		quadControlQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_QUAD_CONTROL_FEATURES_KHR;
+		linkQuery(quadControlQuery.pNext, &quadControlQuery);
+	}
+	if (uniformControlFlowExt)
+	{
+		uniformControlFlowQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_UNIFORM_CONTROL_FLOW_FEATURES_KHR;
+		linkQuery(uniformControlFlowQuery.pNext, &uniformControlFlowQuery);
+	}
+	if (maximalReconvergenceExt)
+	{
+		maximalReconvergenceQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_MAXIMAL_RECONVERGENCE_FEATURES_KHR;
+		linkQuery(maximalReconvergenceQuery.pNext, &maximalReconvergenceQuery);
+	}
+	if (computeDerivativesExt)
+	{
+		computeDerivativesQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COMPUTE_SHADER_DERIVATIVES_FEATURES_KHR;
+		linkQuery(computeDerivativesQuery.pNext, &computeDerivativesQuery);
+	}
+	if (barycentricExt)
+	{
+		barycentricQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR;
+		linkQuery(barycentricQuery.pNext, &barycentricQuery);
+	}
+	if (imageAtomicInt64Ext)
+	{
+		imageAtomicInt64Query.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_ATOMIC_INT64_FEATURES_EXT;
+		linkQuery(imageAtomicInt64Query.pNext, &imageAtomicInt64Query);
+	}
+	if (instanceVersion < VK_API_VERSION_1_2 && descriptorIndexingExt)
+	{
+		descriptorIndexingQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+		linkQuery(descriptorIndexingQuery.pNext, &descriptorIndexingQuery);
+	}
+	if (instanceVersion < VK_API_VERSION_1_2 && scalarBlockLayoutExt)
+	{
+		scalarBlockLayoutQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES;
+		linkQuery(scalarBlockLayoutQuery.pNext, &scalarBlockLayoutQuery);
+	}
+	if (shaderAtomicFloatExt)
+	{
+		shaderAtomicFloatQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_FEATURES_EXT;
+		linkQuery(shaderAtomicFloatQuery.pNext, &shaderAtomicFloatQuery);
+	}
+	if (shaderAtomicFloat2Ext)
+	{
+		shaderAtomicFloat2Query.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_2_FEATURES_EXT;
+		linkQuery(shaderAtomicFloat2Query.pNext, &shaderAtomicFloat2Query);
+	}
+	if (shaderClockExt)
+	{
+		shaderClockQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CLOCK_FEATURES_KHR;
+		linkQuery(shaderClockQuery.pNext, &shaderClockQuery);
+	}
+	if (accelerationStructureExt)
+	{
+		accelerationStructureQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+		linkQuery(accelerationStructureQuery.pNext, &accelerationStructureQuery);
+	}
+	if (rayTracingPipelineExt)
+	{
+		rayTracingPipelineQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+		linkQuery(rayTracingPipelineQuery.pNext, &rayTracingPipelineQuery);
+	}
+	if (rayQueryExt)
+	{
+		rayQueryQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
+		linkQuery(rayQueryQuery.pNext, &rayQueryQuery);
+	}
+	if (rayTracingMaintenance1Ext)
+	{
+		rayTracingMaintenance1Query.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_MAINTENANCE_1_FEATURES_KHR;
+		linkQuery(rayTracingMaintenance1Query.pNext, &rayTracingMaintenance1Query);
+	}
+	if (rayTracingPositionFetchExt)
+	{
+		rayTracingPositionFetchQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_POSITION_FETCH_FEATURES_KHR;
+		linkQuery(rayTracingPositionFetchQuery.pNext, &rayTracingPositionFetchQuery);
+	}
+	if (opacityMicromapKhr)
+	{
+		opacityMicromapQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_OPACITY_MICROMAP_FEATURES_KHR;
+		linkQuery(opacityMicromapQuery.pNext, &opacityMicromapQuery);
+	}
+	else if (opacityMicromapExtName)
+	{
+		opacityMicromapExtQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_OPACITY_MICROMAP_FEATURES_EXT;
+		linkQuery(opacityMicromapExtQuery.pNext, &opacityMicromapExtQuery);
+	}
+	if (invocationReorderExt)
+	{
+		invocationReorderQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_INVOCATION_REORDER_FEATURES_EXT;
+		linkQuery(invocationReorderQuery.pNext, &invocationReorderQuery);
+	}
+	if (pipelineLibraryGroupHandlesExtName)
+	{
+		pipelineLibraryGroupHandlesQuery.sType =
+			VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_LIBRARY_GROUP_HANDLES_FEATURES_KHR;
+		linkQuery(pipelineLibraryGroupHandlesQuery.pNext, &pipelineLibraryGroupHandlesQuery);
+	}
+	if (cooperativeMatrixExt)
+	{
+		cooperativeMatrixQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_FEATURES_KHR;
+		linkQuery(cooperativeMatrixQuery.pNext, &cooperativeMatrixQuery);
+	}
+	if (shaderBfloat16Ext)
+	{
+		shaderBfloat16Query.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_BFLOAT16_FEATURES_KHR;
+		linkQuery(shaderBfloat16Query.pNext, &shaderBfloat16Query);
+	}
+	if (shaderFloat8Ext)
+	{
+		shaderFloat8Query.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT8_FEATURES_EXT;
+		linkQuery(shaderFloat8Query.pNext, &shaderFloat8Query);
+	}
+	if (workgroupLayoutExt)
+	{
+		workgroupLayoutQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_WORKGROUP_MEMORY_EXPLICIT_LAYOUT_FEATURES_KHR;
+		linkQuery(workgroupLayoutQuery.pNext, &workgroupLayoutQuery);
+	}
+	if (longVectorExt)
+	{
+		longVectorQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_LONG_VECTOR_FEATURES_EXT;
+		linkQuery(longVectorQuery.pNext, &longVectorQuery);
+	}
+	if (cooperativeMatrixMaintenance1Ext)
+	{
+		cooperativeMatrixMaintenance1Query.sType =
+			VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_MAINTENANCE_1_FEATURES_EXT;
+		linkQuery(cooperativeMatrixMaintenance1Query.pNext, &cooperativeMatrixMaintenance1Query);
+	}
+	if (shaderHead)
+	{
+		VkPhysicalDeviceFeatures2 shaderFeatures = {};
+		shaderFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+		shaderFeatures.pNext = shaderHead;
+		vkGetPhysicalDeviceFeatures2(m_physicalDevice, &shaderFeatures);
+	}
+	if (instanceVersion < VK_API_VERSION_1_1 && storage16Ext)
+	{
+		m_storageBuffer16BitAccess = storage16Query.storageBuffer16BitAccess == VK_TRUE;
+		m_uniformAndStorageBuffer16BitAccess = storage16Query.uniformAndStorageBuffer16BitAccess == VK_TRUE;
+		m_storagePushConstant16 = storage16Query.storagePushConstant16 == VK_TRUE;
+		m_storageInputOutput16 = storage16Query.storageInputOutput16 == VK_TRUE;
+	}
+	if (instanceVersion < VK_API_VERSION_1_1 && drawParamExt)
+		m_shaderDrawParameters = drawParamQuery.shaderDrawParameters == VK_TRUE;
+	if (instanceVersion < VK_API_VERSION_1_2 && storage8Ext)
+	{
+		m_storageBuffer8BitAccess = storage8Query.storageBuffer8BitAccess == VK_TRUE;
+		m_uniformAndStorageBuffer8BitAccess = storage8Query.uniformAndStorageBuffer8BitAccess == VK_TRUE;
+		m_storagePushConstant8 = storage8Query.storagePushConstant8 == VK_TRUE;
+	}
+	if (instanceVersion < VK_API_VERSION_1_2 && atomicInt64Ext)
+	{
+		m_shaderBufferInt64Atomics = atomicInt64Query.shaderBufferInt64Atomics == VK_TRUE;
+		m_shaderSharedInt64Atomics = atomicInt64Query.shaderSharedInt64Atomics == VK_TRUE;
+	}
+	if (instanceVersion < VK_API_VERSION_1_2 && subgroupExtTypesExt)
+		m_shaderSubgroupExtendedTypes = subgroupExtTypesQuery.shaderSubgroupExtendedTypes == VK_TRUE;
+	if (instanceVersion < VK_API_VERSION_1_3 && subgroupSizeExt)
+	{
+		m_subgroupSizeControl = subgroupSizeQuery.subgroupSizeControl == VK_TRUE;
+		m_computeFullSubgroups = subgroupSizeQuery.computeFullSubgroups == VK_TRUE;
+	}
+	if (instanceVersion < VK_API_VERSION_1_3 && integerDotExt)
+		m_shaderIntegerDotProduct = integerDotQuery.shaderIntegerDotProduct == VK_TRUE;
+	if (instanceVersion < VK_API_VERSION_1_3 && demoteExt)
+		m_shaderDemoteToHelperInvocation = demoteQuery.shaderDemoteToHelperInvocation == VK_TRUE;
+	if (subgroupRotateExt)
+	{
+		m_shaderSubgroupRotate = subgroupRotateQuery.shaderSubgroupRotate == VK_TRUE;
+		m_shaderSubgroupRotateClustered = subgroupRotateQuery.shaderSubgroupRotateClustered == VK_TRUE;
+	}
+	if (floatControls2Ext) m_shaderFloatControls2 = floatControls2Query.shaderFloatControls2 == VK_TRUE;
+	if (subgroupPartitionedExt)
+		m_shaderSubgroupPartitioned = subgroupPartitionedQuery.shaderSubgroupPartitioned == VK_TRUE;
+	if (quadControlExt) m_shaderQuadControl = quadControlQuery.shaderQuadControl == VK_TRUE;
+	if (uniformControlFlowExt)
+		m_shaderSubgroupUniformControlFlow = uniformControlFlowQuery.shaderSubgroupUniformControlFlow == VK_TRUE;
+	if (maximalReconvergenceExt)
+		m_shaderMaximalReconvergence = maximalReconvergenceQuery.shaderMaximalReconvergence == VK_TRUE;
+	if (computeDerivativesExt)
+	{
+		m_computeDerivativeGroupQuads = computeDerivativesQuery.computeDerivativeGroupQuads == VK_TRUE;
+		m_computeDerivativeGroupLinear = computeDerivativesQuery.computeDerivativeGroupLinear == VK_TRUE;
+	}
+	if (barycentricExt) m_fragmentShaderBarycentric = barycentricQuery.fragmentShaderBarycentric == VK_TRUE;
+	if (imageAtomicInt64Ext)
+	{
+		m_shaderImageInt64Atomics = imageAtomicInt64Query.shaderImageInt64Atomics == VK_TRUE;
+		m_sparseImageInt64Atomics = imageAtomicInt64Query.sparseImageInt64Atomics == VK_TRUE;
+	}
+	if (shaderAtomicFloatExt)
+	{
+		m_shaderBufferFloat32Atomics = shaderAtomicFloatQuery.shaderBufferFloat32Atomics == VK_TRUE;
+		m_shaderBufferFloat32AtomicAdd = shaderAtomicFloatQuery.shaderBufferFloat32AtomicAdd == VK_TRUE;
+		m_shaderBufferFloat64Atomics = shaderAtomicFloatQuery.shaderBufferFloat64Atomics == VK_TRUE;
+		m_shaderBufferFloat64AtomicAdd = shaderAtomicFloatQuery.shaderBufferFloat64AtomicAdd == VK_TRUE;
+		m_shaderSharedFloat32Atomics = shaderAtomicFloatQuery.shaderSharedFloat32Atomics == VK_TRUE;
+		m_shaderSharedFloat32AtomicAdd = shaderAtomicFloatQuery.shaderSharedFloat32AtomicAdd == VK_TRUE;
+		m_shaderSharedFloat64Atomics = shaderAtomicFloatQuery.shaderSharedFloat64Atomics == VK_TRUE;
+		m_shaderSharedFloat64AtomicAdd = shaderAtomicFloatQuery.shaderSharedFloat64AtomicAdd == VK_TRUE;
+		m_shaderImageFloat32Atomics = shaderAtomicFloatQuery.shaderImageFloat32Atomics == VK_TRUE;
+		m_shaderImageFloat32AtomicAdd = shaderAtomicFloatQuery.shaderImageFloat32AtomicAdd == VK_TRUE;
+		m_sparseImageFloat32Atomics = shaderAtomicFloatQuery.sparseImageFloat32Atomics == VK_TRUE;
+		m_sparseImageFloat32AtomicAdd = shaderAtomicFloatQuery.sparseImageFloat32AtomicAdd == VK_TRUE;
+	}
+	if (shaderAtomicFloat2Ext)
+	{
+		m_shaderBufferFloat16Atomics = shaderAtomicFloat2Query.shaderBufferFloat16Atomics == VK_TRUE;
+		m_shaderBufferFloat16AtomicAdd = shaderAtomicFloat2Query.shaderBufferFloat16AtomicAdd == VK_TRUE;
+		m_shaderBufferFloat16AtomicMinMax = shaderAtomicFloat2Query.shaderBufferFloat16AtomicMinMax == VK_TRUE;
+		m_shaderBufferFloat32AtomicMinMax = shaderAtomicFloat2Query.shaderBufferFloat32AtomicMinMax == VK_TRUE;
+		m_shaderBufferFloat64AtomicMinMax = shaderAtomicFloat2Query.shaderBufferFloat64AtomicMinMax == VK_TRUE;
+		m_shaderSharedFloat16Atomics = shaderAtomicFloat2Query.shaderSharedFloat16Atomics == VK_TRUE;
+		m_shaderSharedFloat16AtomicAdd = shaderAtomicFloat2Query.shaderSharedFloat16AtomicAdd == VK_TRUE;
+		m_shaderSharedFloat16AtomicMinMax = shaderAtomicFloat2Query.shaderSharedFloat16AtomicMinMax == VK_TRUE;
+		m_shaderSharedFloat32AtomicMinMax = shaderAtomicFloat2Query.shaderSharedFloat32AtomicMinMax == VK_TRUE;
+		m_shaderSharedFloat64AtomicMinMax = shaderAtomicFloat2Query.shaderSharedFloat64AtomicMinMax == VK_TRUE;
+		m_shaderImageFloat32AtomicMinMax = shaderAtomicFloat2Query.shaderImageFloat32AtomicMinMax == VK_TRUE;
+		m_sparseImageFloat32AtomicMinMax = shaderAtomicFloat2Query.sparseImageFloat32AtomicMinMax == VK_TRUE;
+	}
+	if (shaderClockExt)
+	{
+		m_shaderSubgroupClock = shaderClockQuery.shaderSubgroupClock == VK_TRUE;
+		m_shaderDeviceClock = shaderClockQuery.shaderDeviceClock == VK_TRUE;
+	}
+	if (!m_shaderBufferFloat32Atomics) m_shaderBufferFloat32AtomicAdd = false;
+	if (!m_shaderSharedFloat32Atomics) m_shaderSharedFloat32AtomicAdd = false;
+	if (!m_shaderImageFloat32Atomics)
+	{
+		m_shaderImageFloat32AtomicAdd = false;
+		m_sparseImageFloat32Atomics = false;
+	}
+	if (!m_sparseImageFloat32Atomics) m_sparseImageFloat32AtomicAdd = false;
+	if (features.features.sparseBinding != VK_TRUE)
+	{
+		m_sparseImageFloat32Atomics = false;
+		m_sparseImageFloat32AtomicAdd = false;
+	}
+	if (!m_shaderFloat64)
+	{
+		m_shaderBufferFloat64Atomics = false;
+		m_shaderBufferFloat64AtomicAdd = false;
+		m_shaderSharedFloat64Atomics = false;
+		m_shaderSharedFloat64AtomicAdd = false;
+	}
+	if (!m_shaderBufferFloat64Atomics) m_shaderBufferFloat64AtomicAdd = false;
+	if (!m_shaderSharedFloat64Atomics) m_shaderSharedFloat64AtomicAdd = false;
+	if (!m_storageBuffer16BitAccess)
+	{
+		m_shaderBufferFloat16Atomics = false;
+		m_shaderBufferFloat16AtomicAdd = false;
+		m_shaderBufferFloat16AtomicMinMax = false;
+	}
+	if (!m_shaderBufferFloat16Atomics)
+	{
+		m_shaderBufferFloat16AtomicAdd = false;
+		m_shaderBufferFloat16AtomicMinMax = false;
+	}
+	if (!m_shaderBufferFloat32Atomics) m_shaderBufferFloat32AtomicMinMax = false;
+	if (!m_shaderBufferFloat64Atomics) m_shaderBufferFloat64AtomicMinMax = false;
+	if (!m_shaderSharedFloat16Atomics)
+	{
+		m_shaderSharedFloat16AtomicAdd = false;
+		m_shaderSharedFloat16AtomicMinMax = false;
+	}
+	if (!m_shaderSharedFloat32Atomics) m_shaderSharedFloat32AtomicMinMax = false;
+	if (!m_shaderSharedFloat64Atomics) m_shaderSharedFloat64AtomicMinMax = false;
+	if (!m_shaderImageFloat32Atomics) m_shaderImageFloat32AtomicMinMax = false;
+	if (!m_sparseImageFloat32Atomics || !m_shaderImageFloat32AtomicMinMax)
+		m_sparseImageFloat32AtomicMinMax = false;
+	if (instanceVersion < VK_API_VERSION_1_2 && descriptorIndexingExt)
+	{
+		m_shaderInputAttachmentArrayDynamicIndexing = descriptorIndexingQuery.shaderInputAttachmentArrayDynamicIndexing == VK_TRUE;
+		m_shaderUniformTexelBufferArrayDynamicIndexing = descriptorIndexingQuery.shaderUniformTexelBufferArrayDynamicIndexing == VK_TRUE;
+		m_shaderStorageTexelBufferArrayDynamicIndexing = descriptorIndexingQuery.shaderStorageTexelBufferArrayDynamicIndexing == VK_TRUE;
+		m_shaderUniformBufferArrayNonUniformIndexing = descriptorIndexingQuery.shaderUniformBufferArrayNonUniformIndexing == VK_TRUE;
+		m_shaderSampledImageArrayNonUniformIndexing = descriptorIndexingQuery.shaderSampledImageArrayNonUniformIndexing == VK_TRUE;
+		m_shaderStorageBufferArrayNonUniformIndexing = descriptorIndexingQuery.shaderStorageBufferArrayNonUniformIndexing == VK_TRUE;
+		m_shaderStorageImageArrayNonUniformIndexing = descriptorIndexingQuery.shaderStorageImageArrayNonUniformIndexing == VK_TRUE;
+		m_shaderInputAttachmentArrayNonUniformIndexing = descriptorIndexingQuery.shaderInputAttachmentArrayNonUniformIndexing == VK_TRUE;
+		m_shaderUniformTexelBufferArrayNonUniformIndexing = descriptorIndexingQuery.shaderUniformTexelBufferArrayNonUniformIndexing == VK_TRUE;
+		m_shaderStorageTexelBufferArrayNonUniformIndexing = descriptorIndexingQuery.shaderStorageTexelBufferArrayNonUniformIndexing == VK_TRUE;
+		m_runtimeDescriptorArray = descriptorIndexingQuery.runtimeDescriptorArray == VK_TRUE;
+		m_descriptorBindingPartiallyBound = descriptorIndexingQuery.descriptorBindingPartiallyBound == VK_TRUE;
+	}
+	if (instanceVersion < VK_API_VERSION_1_2 && scalarBlockLayoutExt)
+		m_scalarBlockLayout = scalarBlockLayoutQuery.scalarBlockLayout == VK_TRUE;
+	if (instanceVersion < VK_API_VERSION_1_2 && viewportIndexLayerExt)
+	{
+		m_shaderOutputViewportIndex = true;
+		m_shaderOutputLayer = true;
+	}
+	if (!m_shaderUniformBufferArrayDynamicIndexing) m_shaderUniformBufferArrayNonUniformIndexing = false;
+	if (!m_shaderSampledImageArrayDynamicIndexing) m_shaderSampledImageArrayNonUniformIndexing = false;
+	if (!m_shaderStorageBufferArrayDynamicIndexing) m_shaderStorageBufferArrayNonUniformIndexing = false;
+	if (!m_shaderStorageImageArrayDynamicIndexing) m_shaderStorageImageArrayNonUniformIndexing = false;
+	if (!m_shaderInputAttachmentArrayDynamicIndexing) m_shaderInputAttachmentArrayNonUniformIndexing = false;
+	if (!m_shaderUniformTexelBufferArrayDynamicIndexing) m_shaderUniformTexelBufferArrayNonUniformIndexing = false;
+	if (!m_shaderStorageTexelBufferArrayDynamicIndexing) m_shaderStorageTexelBufferArrayNonUniformIndexing = false;
+	if (!m_shaderSampledImageArrayNonUniformIndexing) m_runtimeDescriptorArray = false;
+	if (!coreDynamicRendering && !subgroupSizeExt)
+	{
+		m_subgroupSizeControl = false;
+		m_computeFullSubgroups = false;
+	}
+	if (!coreDynamicRendering && !integerDotExt) m_shaderIntegerDotProduct = false;
+	if (!coreDynamicRendering && !demoteExt) m_shaderDemoteToHelperInvocation = false;
+	if (!m_storageBuffer16BitAccess)
+	{
+		m_uniformAndStorageBuffer16BitAccess = false;
+		m_storagePushConstant16 = false;
+		m_storageInputOutput16 = false;
+	}
+	if (!m_storageBuffer8BitAccess)
+	{
+		m_uniformAndStorageBuffer8BitAccess = false;
+		m_storagePushConstant8 = false;
+	}
+	if (!m_shaderSubgroupRotate) m_shaderSubgroupRotateClustered = false;
+	if (!m_subgroupSizeControl) m_computeFullSubgroups = false;
+	if (!m_shaderInt64)
+	{
+		m_shaderBufferInt64Atomics = false;
+		m_shaderSharedInt64Atomics = false;
+		m_shaderImageInt64Atomics = false;
+		m_sparseImageInt64Atomics = false;
+	}
+	if (!m_shaderImageInt64Atomics) m_sparseImageInt64Atomics = false;
+	m_shaderSubgroupBallot = !core11 && HasExtension(exts, VK_EXT_SHADER_SUBGROUP_BALLOT_EXTENSION_NAME);
+	m_shaderSubgroupVote = !core11 && HasExtension(exts, VK_EXT_SHADER_SUBGROUP_VOTE_EXTENSION_NAME);
+
+	const auto storage16On = m_storageBuffer16BitAccess || m_uniformAndStorageBuffer16BitAccess ||
+		m_storagePushConstant16 || m_storageInputOutput16;
+	const auto storage8On = m_storageBuffer8BitAccess || m_uniformAndStorageBuffer8BitAccess || m_storagePushConstant8;
+	if (!core11 && storage16Ext && storage16On) enabled.push_back(VK_KHR_16BIT_STORAGE_EXTENSION_NAME);
+	if (!core11 && drawParamExt && m_shaderDrawParameters)
+		enabled.push_back(VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME);
+	if (!core12 && storage8Ext && storage8On) enabled.push_back(VK_KHR_8BIT_STORAGE_EXTENSION_NAME);
+	if (!core12 && atomicInt64Ext && (m_shaderBufferInt64Atomics || m_shaderSharedInt64Atomics))
+		enabled.push_back(VK_KHR_SHADER_ATOMIC_INT64_EXTENSION_NAME);
+	if (!core12 && subgroupExtTypesExt && m_shaderSubgroupExtendedTypes)
+		enabled.push_back(VK_KHR_SHADER_SUBGROUP_EXTENDED_TYPES_EXTENSION_NAME);
+	if (!coreDynamicRendering && subgroupSizeExt && (m_subgroupSizeControl || m_computeFullSubgroups))
+		enabled.push_back(VK_EXT_SUBGROUP_SIZE_CONTROL_EXTENSION_NAME);
+	if (!coreDynamicRendering && integerDotExt && m_shaderIntegerDotProduct)
+		enabled.push_back(VK_KHR_SHADER_INTEGER_DOT_PRODUCT_EXTENSION_NAME);
+	if (!coreDynamicRendering && demoteExt && m_shaderDemoteToHelperInvocation)
+		enabled.push_back(VK_EXT_SHADER_DEMOTE_TO_HELPER_INVOCATION_EXTENSION_NAME);
+	if (subgroupRotateExt && (m_shaderSubgroupRotate || m_shaderSubgroupRotateClustered))
+		enabled.push_back(VK_KHR_SHADER_SUBGROUP_ROTATE_EXTENSION_NAME);
+	if (floatControls2Ext && m_shaderFloatControls2)
+		enabled.push_back(VK_KHR_SHADER_FLOAT_CONTROLS_2_EXTENSION_NAME);
+	if (subgroupPartitionedExt && m_shaderSubgroupPartitioned)
+		enabled.push_back(VK_EXT_SHADER_SUBGROUP_PARTITIONED_EXTENSION_NAME);
+	if (quadControlExt && m_shaderQuadControl) enabled.push_back(VK_KHR_SHADER_QUAD_CONTROL_EXTENSION_NAME);
+	if (uniformControlFlowExt && m_shaderSubgroupUniformControlFlow)
+		enabled.push_back(VK_KHR_SHADER_SUBGROUP_UNIFORM_CONTROL_FLOW_EXTENSION_NAME);
+	if (maximalReconvergenceExt && m_shaderMaximalReconvergence)
+		enabled.push_back(VK_KHR_SHADER_MAXIMAL_RECONVERGENCE_EXTENSION_NAME);
+	if (computeDerivativesExt && (m_computeDerivativeGroupQuads || m_computeDerivativeGroupLinear))
+		enabled.push_back(VK_KHR_COMPUTE_SHADER_DERIVATIVES_EXTENSION_NAME);
+	if (barycentricExt && m_fragmentShaderBarycentric)
+		enabled.push_back(VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME);
+	if (imageAtomicInt64Ext && (m_shaderImageInt64Atomics || m_sparseImageInt64Atomics))
+		enabled.push_back(VK_EXT_SHADER_IMAGE_ATOMIC_INT64_EXTENSION_NAME);
+	const auto shaderAtomicFloatOn = m_shaderBufferFloat32Atomics || m_shaderBufferFloat32AtomicAdd ||
+		m_shaderBufferFloat64Atomics || m_shaderBufferFloat64AtomicAdd ||
+		m_shaderSharedFloat32Atomics || m_shaderSharedFloat32AtomicAdd ||
+		m_shaderSharedFloat64Atomics || m_shaderSharedFloat64AtomicAdd ||
+		m_shaderImageFloat32Atomics || m_shaderImageFloat32AtomicAdd ||
+		m_sparseImageFloat32Atomics || m_sparseImageFloat32AtomicAdd;
+	const auto shaderAtomicFloat2On = m_shaderBufferFloat16Atomics || m_shaderBufferFloat16AtomicAdd ||
+		m_shaderBufferFloat16AtomicMinMax || m_shaderBufferFloat32AtomicMinMax || m_shaderBufferFloat64AtomicMinMax ||
+		m_shaderSharedFloat16Atomics || m_shaderSharedFloat16AtomicAdd || m_shaderSharedFloat16AtomicMinMax ||
+		m_shaderSharedFloat32AtomicMinMax || m_shaderSharedFloat64AtomicMinMax ||
+		m_shaderImageFloat32AtomicMinMax || m_sparseImageFloat32AtomicMinMax;
+	if (shaderAtomicFloatExt && (shaderAtomicFloatOn || shaderAtomicFloat2On))
+		enabled.push_back(VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME);
+	if (shaderAtomicFloat2Ext && shaderAtomicFloat2On)
+		enabled.push_back(VK_EXT_SHADER_ATOMIC_FLOAT_2_EXTENSION_NAME);
+	if (shaderClockExt && (m_shaderSubgroupClock || m_shaderDeviceClock))
+		enabled.push_back(VK_KHR_SHADER_CLOCK_EXTENSION_NAME);
+	m_imageFormatList = core12 || HasExtension(exts, VK_KHR_IMAGE_FORMAT_LIST_EXTENSION_NAME);
+	if (!core12 && m_imageFormatList) enabled.push_back(VK_KHR_IMAGE_FORMAT_LIST_EXTENSION_NAME);
+	if (m_hlslFunctionality1) enabled.push_back(VK_GOOGLE_HLSL_FUNCTIONALITY_1_EXTENSION_NAME);
+	if (m_shaderSubgroupBallot) enabled.push_back(VK_EXT_SHADER_SUBGROUP_BALLOT_EXTENSION_NAME);
+	if (m_shaderSubgroupVote) enabled.push_back(VK_EXT_SHADER_SUBGROUP_VOTE_EXTENSION_NAME);
+	if (accelerationStructureExt)
+	{
+		m_accelerationStructure = accelerationStructureQuery.accelerationStructure == VK_TRUE;
+		m_accelerationStructureCaptureReplay = accelerationStructureQuery.accelerationStructureCaptureReplay == VK_TRUE;
+		m_accelerationStructureIndirectBuild = accelerationStructureQuery.accelerationStructureIndirectBuild == VK_TRUE;
+		m_accelerationStructureHostCommands = accelerationStructureQuery.accelerationStructureHostCommands == VK_TRUE;
+	}
+	if (!core12 && !descriptorIndexingExt) m_accelerationStructure = false;
+	if (!m_accelerationStructure)
+	{
+		m_accelerationStructureCaptureReplay = false;
+		m_accelerationStructureIndirectBuild = false;
+		m_accelerationStructureHostCommands = false;
+	}
+	if (rayTracingPipelineExt && m_accelerationStructure && m_spirv14 && m_shaderFloatControls)
+	{
+		m_rayTracingPipeline = rayTracingPipelineQuery.rayTracingPipeline == VK_TRUE;
+		m_rayTracingPipelineShaderGroupHandleCaptureReplay =
+			rayTracingPipelineQuery.rayTracingPipelineShaderGroupHandleCaptureReplay == VK_TRUE;
+		m_rayTracingPipelineShaderGroupHandleCaptureReplayMixed =
+			rayTracingPipelineQuery.rayTracingPipelineShaderGroupHandleCaptureReplayMixed == VK_TRUE;
+		m_rayTracingPipelineTraceRaysIndirect = rayTracingPipelineQuery.rayTracingPipelineTraceRaysIndirect == VK_TRUE;
+		m_rayTraversalPrimitiveCulling = rayTracingPipelineQuery.rayTraversalPrimitiveCulling == VK_TRUE;
+	}
+	if (!m_rayTracingPipeline)
+	{
+		m_rayTracingPipelineShaderGroupHandleCaptureReplay = false;
+		m_rayTracingPipelineShaderGroupHandleCaptureReplayMixed = false;
+		m_rayTracingPipelineTraceRaysIndirect = false;
+		m_rayTraversalPrimitiveCulling = false;
+	}
+	if (!m_rayTracingPipelineShaderGroupHandleCaptureReplay)
+		m_rayTracingPipelineShaderGroupHandleCaptureReplayMixed = false;
+	if (rayQueryExt && m_accelerationStructure && m_spirv14 && m_shaderFloatControls)
+		m_rayQuery = rayQueryQuery.rayQuery == VK_TRUE;
+	if (rayTracingMaintenance1Ext && m_accelerationStructure)
+	{
+		m_rayTracingMaintenance1 = rayTracingMaintenance1Query.rayTracingMaintenance1 == VK_TRUE;
+		m_rayTracingPipelineTraceRaysIndirect2 =
+			rayTracingMaintenance1Query.rayTracingPipelineTraceRaysIndirect2 == VK_TRUE;
+	}
+	if (!m_rayTracingMaintenance1 || !m_rayTracingPipelineTraceRaysIndirect)
+		m_rayTracingPipelineTraceRaysIndirect2 = false;
+	if (rayTracingPositionFetchExt && m_accelerationStructure)
+		m_rayTracingPositionFetch = rayTracingPositionFetchQuery.rayTracingPositionFetch == VK_TRUE;
+	if (opacityMicromapExtName && m_accelerationStructure && m_synchronization2)
+	{
+		if (opacityMicromapKhr) m_micromap = opacityMicromapQuery.micromap == VK_TRUE;
+		else
+		{
+			m_micromap = opacityMicromapExtQuery.micromap == VK_TRUE;
+			m_micromapCaptureReplay = opacityMicromapExtQuery.micromapCaptureReplay == VK_TRUE;
+			m_micromapHostCommands = opacityMicromapExtQuery.micromapHostCommands == VK_TRUE;
+		}
+	}
+	if (!m_micromap)
+	{
+		m_micromapCaptureReplay = false;
+		m_micromapHostCommands = false;
+	}
+	if (!m_deferredHostOperations) m_micromapHostCommands = false;
+	if (invocationReorderExt && m_rayTracingPipeline)
+		m_rayTracingInvocationReorder = invocationReorderQuery.rayTracingInvocationReorder == VK_TRUE;
+	if (pipelineLibraryGroupHandlesExtName && m_pipelineLibrary && m_rayTracingPipeline)
+		m_pipelineLibraryGroupHandles = pipelineLibraryGroupHandlesQuery.pipelineLibraryGroupHandles == VK_TRUE;
+	const auto descriptorIndexingOn = m_shaderInputAttachmentArrayDynamicIndexing ||
+		m_shaderUniformTexelBufferArrayDynamicIndexing || m_shaderStorageTexelBufferArrayDynamicIndexing ||
+		m_shaderUniformBufferArrayNonUniformIndexing || m_shaderSampledImageArrayNonUniformIndexing ||
+		m_shaderStorageBufferArrayNonUniformIndexing || m_shaderStorageImageArrayNonUniformIndexing ||
+		m_shaderInputAttachmentArrayNonUniformIndexing || m_shaderUniformTexelBufferArrayNonUniformIndexing ||
+		m_shaderStorageTexelBufferArrayNonUniformIndexing || m_runtimeDescriptorArray ||
+		m_descriptorBindingPartiallyBound;
+	const auto descriptorIndexingNeeded = descriptorIndexingOn || m_accelerationStructure;
+	if (!core12 && descriptorIndexingExt && descriptorIndexingNeeded)
+		enabled.push_back(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
+	if (!core12 && scalarBlockLayoutExt && m_scalarBlockLayout)
+		enabled.push_back(VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME);
+	if (!core12 && viewportIndexLayerExt && (m_shaderOutputViewportIndex || m_shaderOutputLayer))
+		enabled.push_back(VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_EXTENSION_NAME);
+	if (!core12 && m_shaderFloatControls) enabled.push_back(VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME);
+	if (!core12 && m_spirv14) enabled.push_back(VK_KHR_SPIRV_1_4_EXTENSION_NAME);
+	if (m_deferredHostOperations) enabled.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
+	if (m_pipelineLibrary) enabled.push_back(VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME);
+	if (m_accelerationStructure) enabled.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
+	if (m_rayTracingPipeline) enabled.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
+	if (m_rayQuery) enabled.push_back(VK_KHR_RAY_QUERY_EXTENSION_NAME);
+	if (m_rayTracingMaintenance1 || m_rayTracingPipelineTraceRaysIndirect2)
+		enabled.push_back(VK_KHR_RAY_TRACING_MAINTENANCE_1_EXTENSION_NAME);
+	if (m_rayTracingPositionFetch) enabled.push_back(VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME);
+	if (m_micromap) enabled.push_back(opacityMicromapExtName);
+	if (m_rayTracingInvocationReorder)
+		enabled.push_back(VK_EXT_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME);
+	if (m_pipelineLibraryGroupHandles) enabled.push_back(pipelineLibraryGroupHandlesExtName);
+	if (cooperativeMatrixExt)
+	{
+		m_cooperativeMatrix = cooperativeMatrixQuery.cooperativeMatrix == VK_TRUE;
+		m_cooperativeMatrixRobustBufferAccess = cooperativeMatrixQuery.cooperativeMatrixRobustBufferAccess == VK_TRUE;
+	}
+	if (!m_cooperativeMatrix || features.features.robustBufferAccess != VK_TRUE)
+		m_cooperativeMatrixRobustBufferAccess = false;
+	if (shaderBfloat16Ext)
+	{
+		m_shaderBFloat16Type = shaderBfloat16Query.shaderBFloat16Type == VK_TRUE;
+		m_shaderBFloat16DotProduct = shaderBfloat16Query.shaderBFloat16DotProduct == VK_TRUE;
+		m_shaderBFloat16CooperativeMatrix = shaderBfloat16Query.shaderBFloat16CooperativeMatrix == VK_TRUE;
+	}
+	if (!m_shaderBFloat16Type || !m_shaderIntegerDotProduct) m_shaderBFloat16DotProduct = false;
+	if (!m_shaderBFloat16Type || !m_cooperativeMatrix) m_shaderBFloat16CooperativeMatrix = false;
+	if (shaderFloat8Ext)
+	{
+		m_shaderFloat8 = shaderFloat8Query.shaderFloat8 == VK_TRUE;
+		m_shaderFloat8CooperativeMatrix = shaderFloat8Query.shaderFloat8CooperativeMatrix == VK_TRUE;
+	}
+	if (!m_shaderFloat8 || !m_cooperativeMatrix) m_shaderFloat8CooperativeMatrix = false;
+	if (workgroupLayoutExt)
+	{
+		m_workgroupMemoryExplicitLayout = workgroupLayoutQuery.workgroupMemoryExplicitLayout == VK_TRUE;
+		m_workgroupMemoryExplicitLayoutScalarBlockLayout =
+			workgroupLayoutQuery.workgroupMemoryExplicitLayoutScalarBlockLayout == VK_TRUE;
+		m_workgroupMemoryExplicitLayout8BitAccess = workgroupLayoutQuery.workgroupMemoryExplicitLayout8BitAccess == VK_TRUE;
+		m_workgroupMemoryExplicitLayout16BitAccess = workgroupLayoutQuery.workgroupMemoryExplicitLayout16BitAccess == VK_TRUE;
+	}
+	if (!m_workgroupMemoryExplicitLayout)
+	{
+		m_workgroupMemoryExplicitLayoutScalarBlockLayout = false;
+		m_workgroupMemoryExplicitLayout8BitAccess = false;
+		m_workgroupMemoryExplicitLayout16BitAccess = false;
+	}
+	if (!m_scalarBlockLayout) m_workgroupMemoryExplicitLayoutScalarBlockLayout = false;
+	if (!m_storageBuffer8BitAccess) m_workgroupMemoryExplicitLayout8BitAccess = false;
+	if (!m_storageBuffer16BitAccess) m_workgroupMemoryExplicitLayout16BitAccess = false;
+	if (longVectorExt) m_longVector = longVectorQuery.longVector == VK_TRUE;
+	if (m_longVector) m_maxLongVectorComponents = longVectorProps.maxVectorComponents;
+	if (cooperativeMatrixMaintenance1Ext && m_cooperativeMatrix)
+	{
+		m_cooperativeMatrixProperties2 = cooperativeMatrixMaintenance1Query.cooperativeMatrixProperties2 == VK_TRUE;
+		m_cooperativeMatrixReductions = cooperativeMatrixMaintenance1Query.cooperativeMatrixReductions == VK_TRUE;
+		m_cooperativeMatrixConversions = cooperativeMatrixMaintenance1Query.cooperativeMatrixConversions == VK_TRUE;
+		m_cooperativeMatrixPerElementOperations =
+			cooperativeMatrixMaintenance1Query.cooperativeMatrixPerElementOperations == VK_TRUE;
+		m_cooperativeMatrixGetCoordinate = cooperativeMatrixMaintenance1Query.cooperativeMatrixGetCoordinate == VK_TRUE;
+	}
+	const auto cooperativeMatrixMaintenance1On = m_cooperativeMatrixProperties2 || m_cooperativeMatrixReductions ||
+		m_cooperativeMatrixConversions || m_cooperativeMatrixPerElementOperations || m_cooperativeMatrixGetCoordinate;
+	const auto workgroupLayoutOn = m_workgroupMemoryExplicitLayout ||
+		m_workgroupMemoryExplicitLayoutScalarBlockLayout || m_workgroupMemoryExplicitLayout8BitAccess ||
+		m_workgroupMemoryExplicitLayout16BitAccess;
+	if (m_cooperativeMatrix) enabled.push_back(VK_KHR_COOPERATIVE_MATRIX_EXTENSION_NAME);
+	if (m_shaderBFloat16Type || m_shaderBFloat16DotProduct || m_shaderBFloat16CooperativeMatrix)
+		enabled.push_back(VK_KHR_SHADER_BFLOAT16_EXTENSION_NAME);
+	if (m_shaderFloat8 || m_shaderFloat8CooperativeMatrix) enabled.push_back(VK_EXT_SHADER_FLOAT8_EXTENSION_NAME);
+	if (workgroupLayoutOn) enabled.push_back(VK_KHR_WORKGROUP_MEMORY_EXPLICIT_LAYOUT_EXTENSION_NAME);
+	if (m_longVector) enabled.push_back(VK_EXT_SHADER_LONG_VECTOR_EXTENSION_NAME);
+	if (cooperativeMatrixMaintenance1On)
+		enabled.push_back(VK_EXT_COOPERATIVE_MATRIX_MAINTENANCE_1_EXTENSION_NAME);
 
 	VkPhysicalDeviceVulkan12Features features12 = {};
-	features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-	features12.pNext = &dgcEnable;
-	features12.bufferDeviceAddress = VK_TRUE;
-	features12.timelineSemaphore = VK_TRUE;
+	VkPhysicalDeviceBufferDeviceAddressFeatures addressEnable = {};
+	VkPhysicalDeviceTimelineSemaphoreFeatures timelineEnable = {};
+	VkPhysicalDeviceShaderFloat16Int8Features float16Enable = {};
+	void* promoted = enableBase;
+	if (instanceVersion >= VK_API_VERSION_1_2)
+	{
+		features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+		features12.pNext = enableBase;
+		features12.bufferDeviceAddress = VK_TRUE;
+		features12.timelineSemaphore = VK_TRUE;
+		features12.shaderFloat16 = VK_TRUE;
+		features12.shaderInt8 = m_shaderInt8 ? VK_TRUE : VK_FALSE;
+		features12.storageBuffer8BitAccess = m_storageBuffer8BitAccess ? VK_TRUE : VK_FALSE;
+		features12.uniformAndStorageBuffer8BitAccess = m_uniformAndStorageBuffer8BitAccess ? VK_TRUE : VK_FALSE;
+		features12.storagePushConstant8 = m_storagePushConstant8 ? VK_TRUE : VK_FALSE;
+		features12.shaderBufferInt64Atomics = m_shaderBufferInt64Atomics ? VK_TRUE : VK_FALSE;
+		features12.shaderSharedInt64Atomics = m_shaderSharedInt64Atomics ? VK_TRUE : VK_FALSE;
+		features12.shaderSubgroupExtendedTypes = m_shaderSubgroupExtendedTypes ? VK_TRUE : VK_FALSE;
+		features12.descriptorIndexing = descriptorIndexingNeeded ? VK_TRUE : VK_FALSE;
+		features12.shaderInputAttachmentArrayDynamicIndexing = m_shaderInputAttachmentArrayDynamicIndexing ? VK_TRUE : VK_FALSE;
+		features12.shaderUniformTexelBufferArrayDynamicIndexing = m_shaderUniformTexelBufferArrayDynamicIndexing ? VK_TRUE : VK_FALSE;
+		features12.shaderStorageTexelBufferArrayDynamicIndexing = m_shaderStorageTexelBufferArrayDynamicIndexing ? VK_TRUE : VK_FALSE;
+		features12.shaderUniformBufferArrayNonUniformIndexing = m_shaderUniformBufferArrayNonUniformIndexing ? VK_TRUE : VK_FALSE;
+		features12.shaderSampledImageArrayNonUniformIndexing = m_shaderSampledImageArrayNonUniformIndexing ? VK_TRUE : VK_FALSE;
+		features12.shaderStorageBufferArrayNonUniformIndexing = m_shaderStorageBufferArrayNonUniformIndexing ? VK_TRUE : VK_FALSE;
+		features12.shaderStorageImageArrayNonUniformIndexing = m_shaderStorageImageArrayNonUniformIndexing ? VK_TRUE : VK_FALSE;
+		features12.shaderInputAttachmentArrayNonUniformIndexing = m_shaderInputAttachmentArrayNonUniformIndexing ? VK_TRUE : VK_FALSE;
+		features12.shaderUniformTexelBufferArrayNonUniformIndexing = m_shaderUniformTexelBufferArrayNonUniformIndexing ? VK_TRUE : VK_FALSE;
+		features12.shaderStorageTexelBufferArrayNonUniformIndexing = m_shaderStorageTexelBufferArrayNonUniformIndexing ? VK_TRUE : VK_FALSE;
+		features12.runtimeDescriptorArray = m_runtimeDescriptorArray ? VK_TRUE : VK_FALSE;
+		features12.descriptorBindingPartiallyBound = m_descriptorBindingPartiallyBound ? VK_TRUE : VK_FALSE;
+		features12.scalarBlockLayout = m_scalarBlockLayout ? VK_TRUE : VK_FALSE;
+		features12.shaderOutputViewportIndex = m_shaderOutputViewportIndex ? VK_TRUE : VK_FALSE;
+		features12.shaderOutputLayer = m_shaderOutputLayer ? VK_TRUE : VK_FALSE;
+		features12.subgroupBroadcastDynamicId = m_subgroupBroadcastDynamicId ? VK_TRUE : VK_FALSE;
+		promoted = &features12;
+	}
+	else
+	{
+		addressEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
+		addressEnable.pNext = enableBase;
+		addressEnable.bufferDeviceAddress = VK_TRUE;
+		timelineEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
+		timelineEnable.pNext = &addressEnable;
+		timelineEnable.timelineSemaphore = VK_TRUE;
+		float16Enable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES;
+		float16Enable.pNext = &timelineEnable;
+		float16Enable.shaderFloat16 = VK_TRUE;
+		float16Enable.shaderInt8 = m_shaderInt8 ? VK_TRUE : VK_FALSE;
+		promoted = &float16Enable;
+	}
 
-	void* featureChain = &features12;
+	VkPhysicalDeviceVulkan11Features features11 = {};
+	if (instanceVersion >= VK_API_VERSION_1_1 && (storage16On || m_shaderDrawParameters))
+	{
+		features11.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
+		features11.pNext = enableBase;
+		features11.storageBuffer16BitAccess = m_storageBuffer16BitAccess ? VK_TRUE : VK_FALSE;
+		features11.uniformAndStorageBuffer16BitAccess = m_uniformAndStorageBuffer16BitAccess ? VK_TRUE : VK_FALSE;
+		features11.storagePushConstant16 = m_storagePushConstant16 ? VK_TRUE : VK_FALSE;
+		features11.storageInputOutput16 = m_storageInputOutput16 ? VK_TRUE : VK_FALSE;
+		features11.shaderDrawParameters = m_shaderDrawParameters ? VK_TRUE : VK_FALSE;
+		if (instanceVersion >= VK_API_VERSION_1_2) features12.pNext = &features11;
+		else addressEnable.pNext = &features11;
+	}
+
+	void* featureChain = promoted;
 	VkPhysicalDeviceExtendedDynamicStateFeaturesEXT dynamicStateEnable = {};
 	dynamicStateEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT;
 	dynamicStateEnable.extendedDynamicState = VK_TRUE;
@@ -747,21 +2937,33 @@ bool Device_VK::createDevice()
 	if (coreDynamicRendering)
 	{
 		features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
-		features13.pNext = &features12;
+		features13.pNext = promoted;
 		features13.dynamicRendering = VK_TRUE;
-		features13.synchronization2 = VK_TRUE;
-		dynamicStateEnable.pNext = &features13;
-		featureChain = &dynamicStateEnable;
+		features13.synchronization2 = m_synchronization2 ? VK_TRUE : VK_FALSE;
+		features13.shaderDemoteToHelperInvocation = m_shaderDemoteToHelperInvocation ? VK_TRUE : VK_FALSE;
+		features13.subgroupSizeControl = m_subgroupSizeControl ? VK_TRUE : VK_FALSE;
+		features13.computeFullSubgroups = m_computeFullSubgroups ? VK_TRUE : VK_FALSE;
+		features13.shaderIntegerDotProduct = m_shaderIntegerDotProduct ? VK_TRUE : VK_FALSE;
+		if (enableExtendedDynamicState)
+		{
+			dynamicStateEnable.pNext = &features13;
+			featureChain = &dynamicStateEnable;
+		}
+		else featureChain = &features13;
 	}
 	else
 	{
 		dynamicRendering.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
-		dynamicRendering.pNext = &features12;
+		dynamicRendering.pNext = promoted;
 		dynamicRendering.dynamicRendering = VK_TRUE;
-		sync2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
-		sync2.pNext = &dynamicRendering;
-		sync2.synchronization2 = VK_TRUE;
-		dynamicStateEnable.pNext = &sync2;
+		if (m_synchronization2)
+		{
+			sync2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
+			sync2.pNext = &dynamicRendering;
+			sync2.synchronization2 = VK_TRUE;
+			dynamicStateEnable.pNext = &sync2;
+		}
+		else dynamicStateEnable.pNext = &dynamicRendering;
 		featureChain = &dynamicStateEnable;
 	}
 
@@ -771,7 +2973,7 @@ bool Device_VK::createDevice()
 		mesh.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
 		mesh.pNext = featureChain;
 		mesh.meshShader = VK_TRUE;
-		mesh.taskShader = VK_TRUE;
+		mesh.taskShader = meshTask ? VK_TRUE : VK_FALSE;
 		featureChain = &mesh;
 	}
 
@@ -781,8 +2983,8 @@ bool Device_VK::createDevice()
 		shadingRate.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_FEATURES_KHR;
 		shadingRate.pNext = featureChain;
 		shadingRate.pipelineFragmentShadingRate = VK_TRUE;
-		shadingRate.primitiveFragmentShadingRate = VK_TRUE;
-		shadingRate.attachmentFragmentShadingRate = VK_TRUE;
+		shadingRate.primitiveFragmentShadingRate = fsrPrimitive ? VK_TRUE : VK_FALSE;
+		shadingRate.attachmentFragmentShadingRate = fsrAttachment ? VK_TRUE : VK_FALSE;
 		featureChain = &shadingRate;
 	}
 
@@ -792,20 +2994,27 @@ bool Device_VK::createDevice()
 		border.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CUSTOM_BORDER_COLOR_FEATURES_EXT;
 		border.pNext = featureChain;
 		border.customBorderColors = VK_TRUE;
+		border.customBorderColorWithoutFormat = VK_TRUE;
 		featureChain = &border;
 	}
 
 	VkPhysicalDeviceRobustness2FeaturesKHR robustEnable = {};
-	robustEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_KHR;
-	robustEnable.pNext = featureChain;
-	robustEnable.nullDescriptor = VK_TRUE;
-	featureChain = &robustEnable;
+	if (m_nullDescriptor)
+	{
+		robustEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_KHR;
+		robustEnable.pNext = featureChain;
+		robustEnable.nullDescriptor = VK_TRUE;
+		featureChain = &robustEnable;
+	}
 
 	VkPhysicalDeviceVertexAttributeDivisorFeatures divisorEnable = {};
-	divisorEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_ATTRIBUTE_DIVISOR_FEATURES;
-	divisorEnable.pNext = featureChain;
-	divisorEnable.vertexAttributeInstanceRateDivisor = VK_TRUE;
-	featureChain = &divisorEnable;
+	if (m_vertexAttributeDivisor)
+	{
+		divisorEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_ATTRIBUTE_DIVISOR_FEATURES;
+		divisorEnable.pNext = featureChain;
+		divisorEnable.vertexAttributeInstanceRateDivisor = VK_TRUE;
+		featureChain = &divisorEnable;
+	}
 
 	VkPhysicalDeviceConditionalRenderingFeaturesEXT conditionalEnable = {};
 	if (m_conditionalRendering)
@@ -817,10 +3026,449 @@ bool Device_VK::createDevice()
 	}
 
 	VkPhysicalDeviceMaintenance5Features maintenance5Enable = {};
-	maintenance5Enable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_FEATURES;
-	maintenance5Enable.pNext = featureChain;
-	maintenance5Enable.maintenance5 = VK_TRUE;
-	featureChain = &maintenance5Enable;
+	if (m_maintenance5)
+	{
+		maintenance5Enable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_FEATURES;
+		maintenance5Enable.pNext = featureChain;
+		maintenance5Enable.maintenance5 = VK_TRUE;
+		featureChain = &maintenance5Enable;
+	}
+
+	VkPhysicalDeviceTransformFeedbackFeaturesEXT xfbEnable = {};
+	if (m_transformFeedback)
+	{
+		xfbEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_FEATURES_EXT;
+		xfbEnable.pNext = featureChain;
+		xfbEnable.transformFeedback = VK_TRUE;
+		xfbEnable.geometryStreams = m_geometryStreams ? VK_TRUE : VK_FALSE;
+		featureChain = &xfbEnable;
+	}
+
+	VkPhysicalDeviceExtendedDynamicState3FeaturesEXT dynamicState3Enable = {};
+	if (m_sampleLocations)
+	{
+		dynamicState3Enable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_3_FEATURES_EXT;
+		dynamicState3Enable.pNext = featureChain;
+		dynamicState3Enable.extendedDynamicState3SampleLocationsEnable = VK_TRUE;
+		featureChain = &dynamicState3Enable;
+	}
+
+	VkPhysicalDevice16BitStorageFeatures storage16Enable = {};
+	if (instanceVersion < VK_API_VERSION_1_1 && storage16On)
+	{
+		storage16Enable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES;
+		storage16Enable.pNext = featureChain;
+		storage16Enable.storageBuffer16BitAccess = m_storageBuffer16BitAccess ? VK_TRUE : VK_FALSE;
+		storage16Enable.uniformAndStorageBuffer16BitAccess = m_uniformAndStorageBuffer16BitAccess ? VK_TRUE : VK_FALSE;
+		storage16Enable.storagePushConstant16 = m_storagePushConstant16 ? VK_TRUE : VK_FALSE;
+		storage16Enable.storageInputOutput16 = m_storageInputOutput16 ? VK_TRUE : VK_FALSE;
+		featureChain = &storage16Enable;
+	}
+
+	VkPhysicalDeviceShaderDrawParametersFeatures drawParamEnable = {};
+	if (instanceVersion < VK_API_VERSION_1_1 && m_shaderDrawParameters)
+	{
+		drawParamEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETERS_FEATURES;
+		drawParamEnable.pNext = featureChain;
+		drawParamEnable.shaderDrawParameters = VK_TRUE;
+		featureChain = &drawParamEnable;
+	}
+
+	VkPhysicalDevice8BitStorageFeatures storage8Enable = {};
+	if (instanceVersion < VK_API_VERSION_1_2 && storage8On)
+	{
+		storage8Enable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES;
+		storage8Enable.pNext = featureChain;
+		storage8Enable.storageBuffer8BitAccess = m_storageBuffer8BitAccess ? VK_TRUE : VK_FALSE;
+		storage8Enable.uniformAndStorageBuffer8BitAccess = m_uniformAndStorageBuffer8BitAccess ? VK_TRUE : VK_FALSE;
+		storage8Enable.storagePushConstant8 = m_storagePushConstant8 ? VK_TRUE : VK_FALSE;
+		featureChain = &storage8Enable;
+	}
+
+	VkPhysicalDeviceShaderAtomicInt64Features atomicInt64Enable = {};
+	if (instanceVersion < VK_API_VERSION_1_2 && (m_shaderBufferInt64Atomics || m_shaderSharedInt64Atomics))
+	{
+		atomicInt64Enable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES;
+		atomicInt64Enable.pNext = featureChain;
+		atomicInt64Enable.shaderBufferInt64Atomics = m_shaderBufferInt64Atomics ? VK_TRUE : VK_FALSE;
+		atomicInt64Enable.shaderSharedInt64Atomics = m_shaderSharedInt64Atomics ? VK_TRUE : VK_FALSE;
+		featureChain = &atomicInt64Enable;
+	}
+
+	VkPhysicalDeviceShaderSubgroupExtendedTypesFeatures subgroupExtTypesEnable = {};
+	if (instanceVersion < VK_API_VERSION_1_2 && m_shaderSubgroupExtendedTypes)
+	{
+		subgroupExtTypesEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_EXTENDED_TYPES_FEATURES;
+		subgroupExtTypesEnable.pNext = featureChain;
+		subgroupExtTypesEnable.shaderSubgroupExtendedTypes = VK_TRUE;
+		featureChain = &subgroupExtTypesEnable;
+	}
+
+	VkPhysicalDeviceSubgroupSizeControlFeatures subgroupSizeEnable = {};
+	if (!coreDynamicRendering && (m_subgroupSizeControl || m_computeFullSubgroups))
+	{
+		subgroupSizeEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES;
+		subgroupSizeEnable.pNext = featureChain;
+		subgroupSizeEnable.subgroupSizeControl = m_subgroupSizeControl ? VK_TRUE : VK_FALSE;
+		subgroupSizeEnable.computeFullSubgroups = m_computeFullSubgroups ? VK_TRUE : VK_FALSE;
+		featureChain = &subgroupSizeEnable;
+	}
+
+	VkPhysicalDeviceShaderIntegerDotProductFeatures integerDotEnable = {};
+	if (!coreDynamicRendering && m_shaderIntegerDotProduct)
+	{
+		integerDotEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_DOT_PRODUCT_FEATURES;
+		integerDotEnable.pNext = featureChain;
+		integerDotEnable.shaderIntegerDotProduct = VK_TRUE;
+		featureChain = &integerDotEnable;
+	}
+
+	VkPhysicalDeviceShaderDemoteToHelperInvocationFeatures demoteEnable = {};
+	if (!coreDynamicRendering && m_shaderDemoteToHelperInvocation)
+	{
+		demoteEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DEMOTE_TO_HELPER_INVOCATION_FEATURES;
+		demoteEnable.pNext = featureChain;
+		demoteEnable.shaderDemoteToHelperInvocation = VK_TRUE;
+		featureChain = &demoteEnable;
+	}
+
+	VkPhysicalDeviceShaderSubgroupRotateFeatures subgroupRotateEnable = {};
+	if (m_shaderSubgroupRotate || m_shaderSubgroupRotateClustered)
+	{
+		subgroupRotateEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_ROTATE_FEATURES;
+		subgroupRotateEnable.pNext = featureChain;
+		subgroupRotateEnable.shaderSubgroupRotate = m_shaderSubgroupRotate ? VK_TRUE : VK_FALSE;
+		subgroupRotateEnable.shaderSubgroupRotateClustered = m_shaderSubgroupRotateClustered ? VK_TRUE : VK_FALSE;
+		featureChain = &subgroupRotateEnable;
+	}
+
+	VkPhysicalDeviceShaderFloatControls2Features floatControls2Enable = {};
+	if (m_shaderFloatControls2)
+	{
+		floatControls2Enable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT_CONTROLS_2_FEATURES;
+		floatControls2Enable.pNext = featureChain;
+		floatControls2Enable.shaderFloatControls2 = VK_TRUE;
+		featureChain = &floatControls2Enable;
+	}
+
+	VkPhysicalDeviceShaderSubgroupPartitionedFeaturesEXT subgroupPartitionedEnable = {};
+	if (m_shaderSubgroupPartitioned)
+	{
+		subgroupPartitionedEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_PARTITIONED_FEATURES_EXT;
+		subgroupPartitionedEnable.pNext = featureChain;
+		subgroupPartitionedEnable.shaderSubgroupPartitioned = VK_TRUE;
+		featureChain = &subgroupPartitionedEnable;
+	}
+
+	VkPhysicalDeviceShaderQuadControlFeaturesKHR quadControlEnable = {};
+	if (m_shaderQuadControl)
+	{
+		quadControlEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_QUAD_CONTROL_FEATURES_KHR;
+		quadControlEnable.pNext = featureChain;
+		quadControlEnable.shaderQuadControl = VK_TRUE;
+		featureChain = &quadControlEnable;
+	}
+
+	VkPhysicalDeviceShaderSubgroupUniformControlFlowFeaturesKHR uniformControlFlowEnable = {};
+	if (m_shaderSubgroupUniformControlFlow)
+	{
+		uniformControlFlowEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_UNIFORM_CONTROL_FLOW_FEATURES_KHR;
+		uniformControlFlowEnable.pNext = featureChain;
+		uniformControlFlowEnable.shaderSubgroupUniformControlFlow = VK_TRUE;
+		featureChain = &uniformControlFlowEnable;
+	}
+
+	VkPhysicalDeviceShaderMaximalReconvergenceFeaturesKHR maximalReconvergenceEnable = {};
+	if (m_shaderMaximalReconvergence)
+	{
+		maximalReconvergenceEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_MAXIMAL_RECONVERGENCE_FEATURES_KHR;
+		maximalReconvergenceEnable.pNext = featureChain;
+		maximalReconvergenceEnable.shaderMaximalReconvergence = VK_TRUE;
+		featureChain = &maximalReconvergenceEnable;
+	}
+
+	VkPhysicalDeviceComputeShaderDerivativesFeaturesKHR computeDerivativesEnable = {};
+	if (m_computeDerivativeGroupQuads || m_computeDerivativeGroupLinear)
+	{
+		computeDerivativesEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COMPUTE_SHADER_DERIVATIVES_FEATURES_KHR;
+		computeDerivativesEnable.pNext = featureChain;
+		computeDerivativesEnable.computeDerivativeGroupQuads = m_computeDerivativeGroupQuads ? VK_TRUE : VK_FALSE;
+		computeDerivativesEnable.computeDerivativeGroupLinear = m_computeDerivativeGroupLinear ? VK_TRUE : VK_FALSE;
+		featureChain = &computeDerivativesEnable;
+	}
+
+	VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR barycentricEnable = {};
+	if (m_fragmentShaderBarycentric)
+	{
+		barycentricEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR;
+		barycentricEnable.pNext = featureChain;
+		barycentricEnable.fragmentShaderBarycentric = VK_TRUE;
+		featureChain = &barycentricEnable;
+	}
+
+	VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT imageAtomicInt64Enable = {};
+	if (m_shaderImageInt64Atomics || m_sparseImageInt64Atomics)
+	{
+		imageAtomicInt64Enable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_ATOMIC_INT64_FEATURES_EXT;
+		imageAtomicInt64Enable.pNext = featureChain;
+		imageAtomicInt64Enable.shaderImageInt64Atomics = m_shaderImageInt64Atomics ? VK_TRUE : VK_FALSE;
+		imageAtomicInt64Enable.sparseImageInt64Atomics = m_sparseImageInt64Atomics ? VK_TRUE : VK_FALSE;
+		featureChain = &imageAtomicInt64Enable;
+	}
+
+	VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingEnable = {};
+	if (instanceVersion < VK_API_VERSION_1_2 && descriptorIndexingNeeded)
+	{
+		descriptorIndexingEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+		descriptorIndexingEnable.pNext = featureChain;
+		descriptorIndexingEnable.shaderInputAttachmentArrayDynamicIndexing = m_shaderInputAttachmentArrayDynamicIndexing ? VK_TRUE : VK_FALSE;
+		descriptorIndexingEnable.shaderUniformTexelBufferArrayDynamicIndexing = m_shaderUniformTexelBufferArrayDynamicIndexing ? VK_TRUE : VK_FALSE;
+		descriptorIndexingEnable.shaderStorageTexelBufferArrayDynamicIndexing = m_shaderStorageTexelBufferArrayDynamicIndexing ? VK_TRUE : VK_FALSE;
+		descriptorIndexingEnable.shaderUniformBufferArrayNonUniformIndexing = m_shaderUniformBufferArrayNonUniformIndexing ? VK_TRUE : VK_FALSE;
+		descriptorIndexingEnable.shaderSampledImageArrayNonUniformIndexing = m_shaderSampledImageArrayNonUniformIndexing ? VK_TRUE : VK_FALSE;
+		descriptorIndexingEnable.shaderStorageBufferArrayNonUniformIndexing = m_shaderStorageBufferArrayNonUniformIndexing ? VK_TRUE : VK_FALSE;
+		descriptorIndexingEnable.shaderStorageImageArrayNonUniformIndexing = m_shaderStorageImageArrayNonUniformIndexing ? VK_TRUE : VK_FALSE;
+		descriptorIndexingEnable.shaderInputAttachmentArrayNonUniformIndexing = m_shaderInputAttachmentArrayNonUniformIndexing ? VK_TRUE : VK_FALSE;
+		descriptorIndexingEnable.shaderUniformTexelBufferArrayNonUniformIndexing = m_shaderUniformTexelBufferArrayNonUniformIndexing ? VK_TRUE : VK_FALSE;
+		descriptorIndexingEnable.shaderStorageTexelBufferArrayNonUniformIndexing = m_shaderStorageTexelBufferArrayNonUniformIndexing ? VK_TRUE : VK_FALSE;
+		descriptorIndexingEnable.runtimeDescriptorArray = m_runtimeDescriptorArray ? VK_TRUE : VK_FALSE;
+		descriptorIndexingEnable.descriptorBindingPartiallyBound = m_descriptorBindingPartiallyBound ? VK_TRUE : VK_FALSE;
+		featureChain = &descriptorIndexingEnable;
+	}
+
+	VkPhysicalDeviceScalarBlockLayoutFeatures scalarBlockLayoutEnable = {};
+	if (instanceVersion < VK_API_VERSION_1_2 && m_scalarBlockLayout)
+	{
+		scalarBlockLayoutEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES;
+		scalarBlockLayoutEnable.pNext = featureChain;
+		scalarBlockLayoutEnable.scalarBlockLayout = VK_TRUE;
+		featureChain = &scalarBlockLayoutEnable;
+	}
+
+	VkPhysicalDeviceShaderAtomicFloatFeaturesEXT shaderAtomicFloatEnable = {};
+	if (shaderAtomicFloatOn || shaderAtomicFloat2On)
+	{
+		shaderAtomicFloatEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_FEATURES_EXT;
+		shaderAtomicFloatEnable.pNext = featureChain;
+		shaderAtomicFloatEnable.shaderBufferFloat32Atomics = m_shaderBufferFloat32Atomics ? VK_TRUE : VK_FALSE;
+		shaderAtomicFloatEnable.shaderBufferFloat32AtomicAdd = m_shaderBufferFloat32AtomicAdd ? VK_TRUE : VK_FALSE;
+		shaderAtomicFloatEnable.shaderBufferFloat64Atomics = m_shaderBufferFloat64Atomics ? VK_TRUE : VK_FALSE;
+		shaderAtomicFloatEnable.shaderBufferFloat64AtomicAdd = m_shaderBufferFloat64AtomicAdd ? VK_TRUE : VK_FALSE;
+		shaderAtomicFloatEnable.shaderSharedFloat32Atomics = m_shaderSharedFloat32Atomics ? VK_TRUE : VK_FALSE;
+		shaderAtomicFloatEnable.shaderSharedFloat32AtomicAdd = m_shaderSharedFloat32AtomicAdd ? VK_TRUE : VK_FALSE;
+		shaderAtomicFloatEnable.shaderSharedFloat64Atomics = m_shaderSharedFloat64Atomics ? VK_TRUE : VK_FALSE;
+		shaderAtomicFloatEnable.shaderSharedFloat64AtomicAdd = m_shaderSharedFloat64AtomicAdd ? VK_TRUE : VK_FALSE;
+		shaderAtomicFloatEnable.shaderImageFloat32Atomics = m_shaderImageFloat32Atomics ? VK_TRUE : VK_FALSE;
+		shaderAtomicFloatEnable.shaderImageFloat32AtomicAdd = m_shaderImageFloat32AtomicAdd ? VK_TRUE : VK_FALSE;
+		shaderAtomicFloatEnable.sparseImageFloat32Atomics = m_sparseImageFloat32Atomics ? VK_TRUE : VK_FALSE;
+		shaderAtomicFloatEnable.sparseImageFloat32AtomicAdd = m_sparseImageFloat32AtomicAdd ? VK_TRUE : VK_FALSE;
+		featureChain = &shaderAtomicFloatEnable;
+	}
+
+	VkPhysicalDeviceShaderAtomicFloat2FeaturesEXT shaderAtomicFloat2Enable = {};
+	if (shaderAtomicFloat2On)
+	{
+		shaderAtomicFloat2Enable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_2_FEATURES_EXT;
+		shaderAtomicFloat2Enable.pNext = featureChain;
+		shaderAtomicFloat2Enable.shaderBufferFloat16Atomics = m_shaderBufferFloat16Atomics ? VK_TRUE : VK_FALSE;
+		shaderAtomicFloat2Enable.shaderBufferFloat16AtomicAdd = m_shaderBufferFloat16AtomicAdd ? VK_TRUE : VK_FALSE;
+		shaderAtomicFloat2Enable.shaderBufferFloat16AtomicMinMax = m_shaderBufferFloat16AtomicMinMax ? VK_TRUE : VK_FALSE;
+		shaderAtomicFloat2Enable.shaderBufferFloat32AtomicMinMax = m_shaderBufferFloat32AtomicMinMax ? VK_TRUE : VK_FALSE;
+		shaderAtomicFloat2Enable.shaderBufferFloat64AtomicMinMax = m_shaderBufferFloat64AtomicMinMax ? VK_TRUE : VK_FALSE;
+		shaderAtomicFloat2Enable.shaderSharedFloat16Atomics = m_shaderSharedFloat16Atomics ? VK_TRUE : VK_FALSE;
+		shaderAtomicFloat2Enable.shaderSharedFloat16AtomicAdd = m_shaderSharedFloat16AtomicAdd ? VK_TRUE : VK_FALSE;
+		shaderAtomicFloat2Enable.shaderSharedFloat16AtomicMinMax = m_shaderSharedFloat16AtomicMinMax ? VK_TRUE : VK_FALSE;
+		shaderAtomicFloat2Enable.shaderSharedFloat32AtomicMinMax = m_shaderSharedFloat32AtomicMinMax ? VK_TRUE : VK_FALSE;
+		shaderAtomicFloat2Enable.shaderSharedFloat64AtomicMinMax = m_shaderSharedFloat64AtomicMinMax ? VK_TRUE : VK_FALSE;
+		shaderAtomicFloat2Enable.shaderImageFloat32AtomicMinMax = m_shaderImageFloat32AtomicMinMax ? VK_TRUE : VK_FALSE;
+		shaderAtomicFloat2Enable.sparseImageFloat32AtomicMinMax = m_sparseImageFloat32AtomicMinMax ? VK_TRUE : VK_FALSE;
+		featureChain = &shaderAtomicFloat2Enable;
+	}
+
+	VkPhysicalDeviceShaderClockFeaturesKHR shaderClockEnable = {};
+	if (m_shaderSubgroupClock || m_shaderDeviceClock)
+	{
+		shaderClockEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CLOCK_FEATURES_KHR;
+		shaderClockEnable.pNext = featureChain;
+		shaderClockEnable.shaderSubgroupClock = m_shaderSubgroupClock ? VK_TRUE : VK_FALSE;
+		shaderClockEnable.shaderDeviceClock = m_shaderDeviceClock ? VK_TRUE : VK_FALSE;
+		featureChain = &shaderClockEnable;
+	}
+
+	VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureEnable = {};
+	if (m_accelerationStructure)
+	{
+		accelerationStructureEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+		accelerationStructureEnable.pNext = featureChain;
+		accelerationStructureEnable.accelerationStructure = VK_TRUE;
+		accelerationStructureEnable.accelerationStructureCaptureReplay =
+			m_accelerationStructureCaptureReplay ? VK_TRUE : VK_FALSE;
+		accelerationStructureEnable.accelerationStructureIndirectBuild =
+			m_accelerationStructureIndirectBuild ? VK_TRUE : VK_FALSE;
+		accelerationStructureEnable.accelerationStructureHostCommands =
+			m_accelerationStructureHostCommands ? VK_TRUE : VK_FALSE;
+		featureChain = &accelerationStructureEnable;
+	}
+
+	VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineEnable = {};
+	if (m_rayTracingPipeline)
+	{
+		rayTracingPipelineEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+		rayTracingPipelineEnable.pNext = featureChain;
+		rayTracingPipelineEnable.rayTracingPipeline = VK_TRUE;
+		rayTracingPipelineEnable.rayTracingPipelineShaderGroupHandleCaptureReplay =
+			m_rayTracingPipelineShaderGroupHandleCaptureReplay ? VK_TRUE : VK_FALSE;
+		rayTracingPipelineEnable.rayTracingPipelineShaderGroupHandleCaptureReplayMixed =
+			m_rayTracingPipelineShaderGroupHandleCaptureReplayMixed ? VK_TRUE : VK_FALSE;
+		rayTracingPipelineEnable.rayTracingPipelineTraceRaysIndirect =
+			m_rayTracingPipelineTraceRaysIndirect ? VK_TRUE : VK_FALSE;
+		rayTracingPipelineEnable.rayTraversalPrimitiveCulling = m_rayTraversalPrimitiveCulling ? VK_TRUE : VK_FALSE;
+		featureChain = &rayTracingPipelineEnable;
+	}
+
+	VkPhysicalDeviceRayQueryFeaturesKHR rayQueryEnable = {};
+	if (m_rayQuery)
+	{
+		rayQueryEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
+		rayQueryEnable.pNext = featureChain;
+		rayQueryEnable.rayQuery = VK_TRUE;
+		featureChain = &rayQueryEnable;
+	}
+
+	VkPhysicalDeviceRayTracingMaintenance1FeaturesKHR rayTracingMaintenance1Enable = {};
+	if (m_rayTracingMaintenance1 || m_rayTracingPipelineTraceRaysIndirect2)
+	{
+		rayTracingMaintenance1Enable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_MAINTENANCE_1_FEATURES_KHR;
+		rayTracingMaintenance1Enable.pNext = featureChain;
+		rayTracingMaintenance1Enable.rayTracingMaintenance1 = m_rayTracingMaintenance1 ? VK_TRUE : VK_FALSE;
+		rayTracingMaintenance1Enable.rayTracingPipelineTraceRaysIndirect2 =
+			m_rayTracingPipelineTraceRaysIndirect2 ? VK_TRUE : VK_FALSE;
+		featureChain = &rayTracingMaintenance1Enable;
+	}
+
+	VkPhysicalDeviceRayTracingPositionFetchFeaturesKHR rayTracingPositionFetchEnable = {};
+	if (m_rayTracingPositionFetch)
+	{
+		rayTracingPositionFetchEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_POSITION_FETCH_FEATURES_KHR;
+		rayTracingPositionFetchEnable.pNext = featureChain;
+		rayTracingPositionFetchEnable.rayTracingPositionFetch = VK_TRUE;
+		featureChain = &rayTracingPositionFetchEnable;
+	}
+
+	VkPhysicalDeviceOpacityMicromapFeaturesKHR opacityMicromapEnable = {};
+	VkPhysicalDeviceOpacityMicromapFeaturesEXT opacityMicromapExtEnable = {};
+	if (m_micromap && opacityMicromapKhr)
+	{
+		opacityMicromapEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_OPACITY_MICROMAP_FEATURES_KHR;
+		opacityMicromapEnable.pNext = featureChain;
+		opacityMicromapEnable.micromap = VK_TRUE;
+		featureChain = &opacityMicromapEnable;
+	}
+	else if (m_micromap)
+	{
+		opacityMicromapExtEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_OPACITY_MICROMAP_FEATURES_EXT;
+		opacityMicromapExtEnable.pNext = featureChain;
+		opacityMicromapExtEnable.micromap = VK_TRUE;
+		opacityMicromapExtEnable.micromapCaptureReplay = m_micromapCaptureReplay ? VK_TRUE : VK_FALSE;
+		opacityMicromapExtEnable.micromapHostCommands = m_micromapHostCommands ? VK_TRUE : VK_FALSE;
+		featureChain = &opacityMicromapExtEnable;
+	}
+
+	VkPhysicalDeviceRayTracingInvocationReorderFeaturesEXT invocationReorderEnable = {};
+	if (m_rayTracingInvocationReorder)
+	{
+		invocationReorderEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_INVOCATION_REORDER_FEATURES_EXT;
+		invocationReorderEnable.pNext = featureChain;
+		invocationReorderEnable.rayTracingInvocationReorder = VK_TRUE;
+		featureChain = &invocationReorderEnable;
+	}
+
+	VkPhysicalDevicePipelineLibraryGroupHandlesFeaturesKHR pipelineLibraryGroupHandlesEnable = {};
+	if (m_pipelineLibraryGroupHandles)
+	{
+		pipelineLibraryGroupHandlesEnable.sType =
+			VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_LIBRARY_GROUP_HANDLES_FEATURES_KHR;
+		pipelineLibraryGroupHandlesEnable.pNext = featureChain;
+		pipelineLibraryGroupHandlesEnable.pipelineLibraryGroupHandles = VK_TRUE;
+		featureChain = &pipelineLibraryGroupHandlesEnable;
+	}
+
+	VkPhysicalDeviceCooperativeMatrixFeaturesKHR cooperativeMatrixEnable = {};
+	if (m_cooperativeMatrix)
+	{
+		cooperativeMatrixEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_FEATURES_KHR;
+		cooperativeMatrixEnable.pNext = featureChain;
+		cooperativeMatrixEnable.cooperativeMatrix = VK_TRUE;
+		cooperativeMatrixEnable.cooperativeMatrixRobustBufferAccess =
+			m_cooperativeMatrixRobustBufferAccess ? VK_TRUE : VK_FALSE;
+		featureChain = &cooperativeMatrixEnable;
+	}
+
+	VkPhysicalDeviceShaderBfloat16FeaturesKHR shaderBfloat16Enable = {};
+	if (m_shaderBFloat16Type || m_shaderBFloat16DotProduct || m_shaderBFloat16CooperativeMatrix)
+	{
+		shaderBfloat16Enable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_BFLOAT16_FEATURES_KHR;
+		shaderBfloat16Enable.pNext = featureChain;
+		shaderBfloat16Enable.shaderBFloat16Type = m_shaderBFloat16Type ? VK_TRUE : VK_FALSE;
+		shaderBfloat16Enable.shaderBFloat16DotProduct = m_shaderBFloat16DotProduct ? VK_TRUE : VK_FALSE;
+		shaderBfloat16Enable.shaderBFloat16CooperativeMatrix = m_shaderBFloat16CooperativeMatrix ? VK_TRUE : VK_FALSE;
+		featureChain = &shaderBfloat16Enable;
+	}
+
+	VkPhysicalDeviceShaderFloat8FeaturesEXT shaderFloat8Enable = {};
+	if (m_shaderFloat8 || m_shaderFloat8CooperativeMatrix)
+	{
+		shaderFloat8Enable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT8_FEATURES_EXT;
+		shaderFloat8Enable.pNext = featureChain;
+		shaderFloat8Enable.shaderFloat8 = m_shaderFloat8 ? VK_TRUE : VK_FALSE;
+		shaderFloat8Enable.shaderFloat8CooperativeMatrix = m_shaderFloat8CooperativeMatrix ? VK_TRUE : VK_FALSE;
+		featureChain = &shaderFloat8Enable;
+	}
+
+	VkPhysicalDeviceWorkgroupMemoryExplicitLayoutFeaturesKHR workgroupLayoutEnable = {};
+	if (m_workgroupMemoryExplicitLayout || m_workgroupMemoryExplicitLayoutScalarBlockLayout ||
+		m_workgroupMemoryExplicitLayout8BitAccess || m_workgroupMemoryExplicitLayout16BitAccess)
+	{
+		workgroupLayoutEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_WORKGROUP_MEMORY_EXPLICIT_LAYOUT_FEATURES_KHR;
+		workgroupLayoutEnable.pNext = featureChain;
+		workgroupLayoutEnable.workgroupMemoryExplicitLayout = m_workgroupMemoryExplicitLayout ? VK_TRUE : VK_FALSE;
+		workgroupLayoutEnable.workgroupMemoryExplicitLayoutScalarBlockLayout =
+			m_workgroupMemoryExplicitLayoutScalarBlockLayout ? VK_TRUE : VK_FALSE;
+		workgroupLayoutEnable.workgroupMemoryExplicitLayout8BitAccess =
+			m_workgroupMemoryExplicitLayout8BitAccess ? VK_TRUE : VK_FALSE;
+		workgroupLayoutEnable.workgroupMemoryExplicitLayout16BitAccess =
+			m_workgroupMemoryExplicitLayout16BitAccess ? VK_TRUE : VK_FALSE;
+		featureChain = &workgroupLayoutEnable;
+	}
+
+	VkPhysicalDeviceShaderLongVectorFeaturesEXT longVectorEnable = {};
+	if (m_longVector)
+	{
+		longVectorEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_LONG_VECTOR_FEATURES_EXT;
+		longVectorEnable.pNext = featureChain;
+		longVectorEnable.longVector = VK_TRUE;
+		featureChain = &longVectorEnable;
+	}
+
+	VkPhysicalDeviceCooperativeMatrixMaintenance1FeaturesEXT cooperativeMatrixMaintenance1Enable = {};
+	if (m_cooperativeMatrixProperties2 || m_cooperativeMatrixReductions || m_cooperativeMatrixConversions ||
+		m_cooperativeMatrixPerElementOperations || m_cooperativeMatrixGetCoordinate)
+	{
+		cooperativeMatrixMaintenance1Enable.sType =
+			VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_MAINTENANCE_1_FEATURES_EXT;
+		cooperativeMatrixMaintenance1Enable.pNext = featureChain;
+		cooperativeMatrixMaintenance1Enable.cooperativeMatrixProperties2 =
+			m_cooperativeMatrixProperties2 ? VK_TRUE : VK_FALSE;
+		cooperativeMatrixMaintenance1Enable.cooperativeMatrixReductions =
+			m_cooperativeMatrixReductions ? VK_TRUE : VK_FALSE;
+		cooperativeMatrixMaintenance1Enable.cooperativeMatrixConversions =
+			m_cooperativeMatrixConversions ? VK_TRUE : VK_FALSE;
+		cooperativeMatrixMaintenance1Enable.cooperativeMatrixPerElementOperations =
+			m_cooperativeMatrixPerElementOperations ? VK_TRUE : VK_FALSE;
+		cooperativeMatrixMaintenance1Enable.cooperativeMatrixGetCoordinate =
+			m_cooperativeMatrixGetCoordinate ? VK_TRUE : VK_FALSE;
+		featureChain = &cooperativeMatrixMaintenance1Enable;
+	}
 
 	const float priorities[] = { 1.0f, 1.0f, 1.0f, 1.0f };
 	VkDeviceQueueCreateInfo queueInfos[3] = {};
@@ -834,12 +3482,13 @@ bool Device_VK::createDevice()
 
 	VkPhysicalDeviceFeatures supported = {};
 	vkGetPhysicalDeviceFeatures(m_physicalDevice, &supported);
-	assert(supported.samplerAnisotropy);
-	assert(supported.independentBlend);
-	assert(supported.fillModeNonSolid);
+	if (!supported.samplerAnisotropy || !supported.independentBlend ||
+		!supported.fillModeNonSolid || !supported.shaderImageGatherExtended)
+		return false;
 
 	VkPhysicalDeviceFeatures enabledFeatures = {};
 	enabledFeatures.samplerAnisotropy = supported.samplerAnisotropy;
+	enabledFeatures.shaderImageGatherExtended = supported.shaderImageGatherExtended;
 	enabledFeatures.geometryShader = supported.geometryShader;
 	enabledFeatures.tessellationShader = supported.tessellationShader;
 	enabledFeatures.fillModeNonSolid = supported.fillModeNonSolid;
@@ -847,8 +3496,43 @@ bool Device_VK::createDevice()
 	enabledFeatures.multiDrawIndirect = supported.multiDrawIndirect;
 	enabledFeatures.depthClamp = supported.depthClamp;
 	enabledFeatures.fragmentStoresAndAtomics = supported.fragmentStoresAndAtomics;
+	enabledFeatures.robustBufferAccess = m_cooperativeMatrixRobustBufferAccess ? VK_TRUE : VK_FALSE;
 	enabledFeatures.shaderInt64 = supported.shaderInt64;
+	enabledFeatures.shaderInt16 = m_shaderInt16 ? VK_TRUE : VK_FALSE;
+	enabledFeatures.shaderFloat64 = m_shaderFloat64 ? VK_TRUE : VK_FALSE;
+	enabledFeatures.shaderStorageImageReadWithoutFormat = m_shaderStorageImageReadWithoutFormat ? VK_TRUE : VK_FALSE;
+	enabledFeatures.shaderStorageImageExtendedFormats = m_shaderStorageImageExtendedFormats ? VK_TRUE : VK_FALSE;
+	enabledFeatures.shaderStorageImageMultisample = m_shaderStorageImageMultisample ? VK_TRUE : VK_FALSE;
+	enabledFeatures.shaderClipDistance = m_shaderClipDistance ? VK_TRUE : VK_FALSE;
+	enabledFeatures.shaderCullDistance = m_shaderCullDistance ? VK_TRUE : VK_FALSE;
+	enabledFeatures.vertexPipelineStoresAndAtomics = m_vertexPipelineStoresAndAtomics ? VK_TRUE : VK_FALSE;
+	enabledFeatures.sampleRateShading = m_sampleRateShading ? VK_TRUE : VK_FALSE;
+	enabledFeatures.imageCubeArray = m_imageCubeArray ? VK_TRUE : VK_FALSE;
+	enabledFeatures.textureCompressionBC = m_textureCompressionBC ? VK_TRUE : VK_FALSE;
+	enabledFeatures.drawIndirectFirstInstance = m_drawIndirectFirstInstance ? VK_TRUE : VK_FALSE;
+	enabledFeatures.shaderUniformBufferArrayDynamicIndexing = m_shaderUniformBufferArrayDynamicIndexing ? VK_TRUE : VK_FALSE;
+	enabledFeatures.shaderSampledImageArrayDynamicIndexing = m_shaderSampledImageArrayDynamicIndexing ? VK_TRUE : VK_FALSE;
+	enabledFeatures.shaderStorageBufferArrayDynamicIndexing = m_shaderStorageBufferArrayDynamicIndexing ? VK_TRUE : VK_FALSE;
+	enabledFeatures.shaderStorageImageArrayDynamicIndexing = m_shaderStorageImageArrayDynamicIndexing ? VK_TRUE : VK_FALSE;
 	enabledFeatures.shaderStorageImageWriteWithoutFormat = supported.shaderStorageImageWriteWithoutFormat;
+	enabledFeatures.sparseBinding = supported.sparseBinding;
+	enabledFeatures.sparseResidencyBuffer = supported.sparseResidencyBuffer;
+	enabledFeatures.sparseResidencyImage2D = supported.sparseResidencyImage2D;
+	enabledFeatures.sparseResidencyImage3D = supported.sparseResidencyImage3D;
+	enabledFeatures.sparseResidency2Samples = supported.sparseResidency2Samples;
+	enabledFeatures.sparseResidency4Samples = supported.sparseResidency4Samples;
+	enabledFeatures.sparseResidency8Samples = supported.sparseResidency8Samples;
+	enabledFeatures.sparseResidency16Samples = supported.sparseResidency16Samples;
+	enabledFeatures.sparseResidencyAliased = supported.sparseResidencyAliased;
+	m_sparseBinding = supported.sparseBinding == VK_TRUE;
+	m_sparseResidencyBuffer = supported.sparseResidencyBuffer == VK_TRUE;
+	m_sparseResidencyImage2D = supported.sparseResidencyImage2D == VK_TRUE;
+	m_sparseResidencyImage3D = supported.sparseResidencyImage3D == VK_TRUE;
+	m_sparseResidency2Samples = supported.sparseResidency2Samples == VK_TRUE;
+	m_sparseResidency4Samples = supported.sparseResidency4Samples == VK_TRUE;
+	m_sparseResidency8Samples = supported.sparseResidency8Samples == VK_TRUE;
+	m_sparseResidency16Samples = supported.sparseResidency16Samples == VK_TRUE;
+	m_sparseResidencyAliased = supported.sparseResidencyAliased == VK_TRUE;
 
 	VkDeviceCreateInfo info = {};
 	info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -859,7 +3543,13 @@ bool Device_VK::createDevice()
 	info.ppEnabledExtensionNames = enabled.data();
 	info.pEnabledFeatures = &enabledFeatures;
 
-	XUSG_VK_CHECK(vkCreateDevice(m_physicalDevice, &info, nullptr, &m_device), cerr, false);
+	const auto deviceResult = vkCreateDevice(m_physicalDevice, &info, nullptr, &m_device);
+	if (deviceResult < 0)
+	{
+		cerr << "VkResult " << deviceResult << endl;
+
+		return false;
+	}
 
 	if (coreDynamicRendering)
 	{
@@ -881,31 +3571,45 @@ bool Device_VK::createDevice()
 
 	m_ext.SetDebugName = reinterpret_cast<PFN_vkSetDebugUtilsObjectNameEXT>(
 		vkGetInstanceProcAddr(m_instance, "vkSetDebugUtilsObjectNameEXT"));
-	m_ext.CreateIndirectCommandsLayout = reinterpret_cast<PFN_vkCreateIndirectCommandsLayoutEXT>(
-		vkGetDeviceProcAddr(m_device, "vkCreateIndirectCommandsLayoutEXT"));
-	m_ext.DestroyIndirectCommandsLayout = reinterpret_cast<PFN_vkDestroyIndirectCommandsLayoutEXT>(
-		vkGetDeviceProcAddr(m_device, "vkDestroyIndirectCommandsLayoutEXT"));
+	if (m_deviceGeneratedCommands)
+	{
+		m_ext.CreateIndirectCommandsLayout = reinterpret_cast<PFN_vkCreateIndirectCommandsLayoutEXT>(
+			vkGetDeviceProcAddr(m_device, "vkCreateIndirectCommandsLayoutEXT"));
+		m_ext.DestroyIndirectCommandsLayout = reinterpret_cast<PFN_vkDestroyIndirectCommandsLayoutEXT>(
+			vkGetDeviceProcAddr(m_device, "vkDestroyIndirectCommandsLayoutEXT"));
+		m_ext.GetGeneratedCommandsMemoryRequirements = reinterpret_cast<PFN_vkGetGeneratedCommandsMemoryRequirementsEXT>(
+			vkGetDeviceProcAddr(m_device, "vkGetGeneratedCommandsMemoryRequirementsEXT"));
+		m_ext.PreprocessGeneratedCommands = reinterpret_cast<PFN_vkCmdPreprocessGeneratedCommandsEXT>(
+			vkGetDeviceProcAddr(m_device, "vkCmdPreprocessGeneratedCommandsEXT"));
+		m_ext.ExecuteGeneratedCommands = reinterpret_cast<PFN_vkCmdExecuteGeneratedCommandsEXT>(
+			vkGetDeviceProcAddr(m_device, "vkCmdExecuteGeneratedCommandsEXT"));
+		if (!m_ext.CreateIndirectCommandsLayout || !m_ext.DestroyIndirectCommandsLayout ||
+			!m_ext.GetGeneratedCommandsMemoryRequirements || !m_ext.PreprocessGeneratedCommands ||
+			!m_ext.ExecuteGeneratedCommands)
+			m_deviceGeneratedCommands = false;
+	}
 	m_ext.BindSamplerHeap = reinterpret_cast<PFN_vkCmdBindSamplerHeapEXT>(vkGetDeviceProcAddr(m_device, "vkCmdBindSamplerHeapEXT"));
 	m_ext.BindResourceHeap = reinterpret_cast<PFN_vkCmdBindResourceHeapEXT>(vkGetDeviceProcAddr(m_device, "vkCmdBindResourceHeapEXT"));
 	m_ext.PushData = reinterpret_cast<PFN_vkCmdPushDataEXT>(vkGetDeviceProcAddr(m_device, "vkCmdPushDataEXT"));
-	m_ext.GetGeneratedCommandsMemoryRequirements = reinterpret_cast<PFN_vkGetGeneratedCommandsMemoryRequirementsEXT>(
-		vkGetDeviceProcAddr(m_device, "vkGetGeneratedCommandsMemoryRequirementsEXT"));
-	m_ext.PreprocessGeneratedCommands = reinterpret_cast<PFN_vkCmdPreprocessGeneratedCommandsEXT>(
-		vkGetDeviceProcAddr(m_device, "vkCmdPreprocessGeneratedCommandsEXT"));
-	m_ext.ExecuteGeneratedCommands = reinterpret_cast<PFN_vkCmdExecuteGeneratedCommandsEXT>(
-		vkGetDeviceProcAddr(m_device, "vkCmdExecuteGeneratedCommandsEXT"));
 	m_ext.WriteSamplerDescriptors = reinterpret_cast<PFN_vkWriteSamplerDescriptorsEXT>(
 		vkGetDeviceProcAddr(m_device, "vkWriteSamplerDescriptorsEXT"));
 	m_ext.WriteResourceDescriptors = reinterpret_cast<PFN_vkWriteResourceDescriptorsEXT>(
 		vkGetDeviceProcAddr(m_device, "vkWriteResourceDescriptorsEXT"));
-	assert(m_ext.CreateIndirectCommandsLayout);
-	assert(m_ext.DestroyIndirectCommandsLayout);
+	assert(!m_deviceGeneratedCommands || m_ext.CreateIndirectCommandsLayout);
+	assert(!m_deviceGeneratedCommands || m_ext.DestroyIndirectCommandsLayout);
 	assert(m_ext.BindSamplerHeap);
 	assert(m_ext.BindResourceHeap);
 	assert(m_ext.PushData);
-	assert(m_ext.GetGeneratedCommandsMemoryRequirements);
-	assert(m_ext.PreprocessGeneratedCommands);
-	assert(m_ext.ExecuteGeneratedCommands);
+	assert(!m_deviceGeneratedCommands || m_ext.GetGeneratedCommandsMemoryRequirements);
+	assert(!m_deviceGeneratedCommands || m_ext.PreprocessGeneratedCommands);
+	assert(!m_deviceGeneratedCommands || m_ext.ExecuteGeneratedCommands);
+	m_ext.TraceRaysIndirect2 = nullptr;
+	if (m_rayTracingPipelineTraceRaysIndirect2)
+	{
+		m_ext.TraceRaysIndirect2 = reinterpret_cast<PFN_vkCmdTraceRaysIndirect2KHR>(
+			vkGetDeviceProcAddr(m_device, "vkCmdTraceRaysIndirect2KHR"));
+		if (!m_ext.TraceRaysIndirect2) m_rayTracingPipelineTraceRaysIndirect2 = false;
+	}
 	assert(m_ext.WriteSamplerDescriptors);
 	assert(m_ext.WriteResourceDescriptors);
 	if (m_conditionalRendering)
@@ -916,6 +3620,58 @@ bool Device_VK::createDevice()
 			vkGetDeviceProcAddr(m_device, "vkCmdEndConditionalRenderingEXT"));
 		assert(m_ext.BeginConditionalRendering);
 		assert(m_ext.EndConditionalRendering);
+	}
+	if (m_transformFeedback)
+	{
+		m_ext.BindTransformFeedbackBuffers = reinterpret_cast<PFN_vkCmdBindTransformFeedbackBuffersEXT>(
+			vkGetDeviceProcAddr(m_device, "vkCmdBindTransformFeedbackBuffersEXT"));
+		m_ext.BeginTransformFeedback = reinterpret_cast<PFN_vkCmdBeginTransformFeedbackEXT>(
+			vkGetDeviceProcAddr(m_device, "vkCmdBeginTransformFeedbackEXT"));
+		m_ext.EndTransformFeedback = reinterpret_cast<PFN_vkCmdEndTransformFeedbackEXT>(
+			vkGetDeviceProcAddr(m_device, "vkCmdEndTransformFeedbackEXT"));
+		m_ext.BeginQueryIndexed = reinterpret_cast<PFN_vkCmdBeginQueryIndexedEXT>(
+			vkGetDeviceProcAddr(m_device, "vkCmdBeginQueryIndexedEXT"));
+		m_ext.EndQueryIndexed = reinterpret_cast<PFN_vkCmdEndQueryIndexedEXT>(
+			vkGetDeviceProcAddr(m_device, "vkCmdEndQueryIndexedEXT"));
+		assert(m_ext.BindTransformFeedbackBuffers);
+		assert(m_ext.BeginTransformFeedback);
+		assert(m_ext.EndTransformFeedback);
+		assert(m_ext.BeginQueryIndexed);
+		assert(m_ext.EndQueryIndexed);
+	}
+	if (m_sampleLocations)
+	{
+		m_ext.SetSampleLocations = reinterpret_cast<PFN_vkCmdSetSampleLocationsEXT>(
+			vkGetDeviceProcAddr(m_device, "vkCmdSetSampleLocationsEXT"));
+		m_ext.SetSampleLocationsEnable = reinterpret_cast<PFN_vkCmdSetSampleLocationsEnableEXT>(
+			vkGetDeviceProcAddr(m_device, "vkCmdSetSampleLocationsEnableEXT"));
+		m_ext.GetMultisampleProperties = reinterpret_cast<PFN_vkGetPhysicalDeviceMultisamplePropertiesEXT>(
+			vkGetInstanceProcAddr(m_instance, "vkGetPhysicalDeviceMultisamplePropertiesEXT"));
+		assert(m_ext.SetSampleLocations);
+		assert(m_ext.SetSampleLocationsEnable);
+		assert(m_ext.GetMultisampleProperties);
+		if (!m_ext.SetSampleLocations || !m_ext.SetSampleLocationsEnable || !m_ext.GetMultisampleProperties)
+			m_sampleLocations = false;
+		else
+		{
+			const VkSampleCountFlagBits counts[] =
+			{
+				VK_SAMPLE_COUNT_1_BIT,
+				VK_SAMPLE_COUNT_2_BIT,
+				VK_SAMPLE_COUNT_4_BIT,
+				VK_SAMPLE_COUNT_8_BIT,
+				VK_SAMPLE_COUNT_16_BIT
+			};
+			for (auto i = 0u; i < 5u; ++i)
+			{
+				m_sampleLocationGrids[i] = {};
+				if ((m_sampleLocationCounts & counts[i]) == 0) continue;
+				VkMultisamplePropertiesEXT multi = {};
+				multi.sType = VK_STRUCTURE_TYPE_MULTISAMPLE_PROPERTIES_EXT;
+				m_ext.GetMultisampleProperties(m_physicalDevice, counts[i], &multi);
+				m_sampleLocationGrids[i] = multi.maxSampleLocationGridSize;
+			}
+		}
 	}
 
 	return true;
@@ -940,10 +3696,11 @@ Fence_VK::~Fence_VK()
 	if (m_semaphore) vkDestroySemaphore(m_device, m_semaphore, nullptr);
 }
 
-bool Fence_VK::Create(const Device* pDevice, uint64_t initialValue, FenceFlag flags, const wchar_t* name)
+bool Fence_VK::Create(Device* pDevice, uint64_t initialValue, FenceFlag flags, const wchar_t* name)
 {
 	(void)flags;
-	const auto pDeviceVK = dynamic_cast<const Device_VK*>(pDevice);
+	assert(pDevice);
+	const auto pDeviceVK = static_cast<Device_VK*>(pDevice->GetHandle());
 	assert(pDeviceVK);
 	m_device = pDeviceVK->GetDevice();
 	m_pDevice = pDevice;
@@ -965,18 +3722,15 @@ bool Fence_VK::Create(const Device* pDevice, uint64_t initialValue, FenceFlag fl
 
 bool Fence_VK::SetEventOnCompletion(uint64_t value, void* hEvent)
 {
-	const auto device = m_device;
-	const auto semaphore = m_semaphore;
-	thread([device, semaphore, value, hEvent]()
-	{
-		VkSemaphoreWaitInfo wait = {};
-		wait.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
-		wait.semaphoreCount = 1;
-		wait.pSemaphores = &semaphore;
-		wait.pValues = &value;
-		vkWaitSemaphores(device, &wait, UINT64_MAX);
-		if (hEvent) XUSG_SIGNAL_EVENT(hEvent);
-	}).detach();
+	// Wait on this thread. Spawning a worker just to SetEvent then WaitForSingleObject
+	// on the caller adds thread create/join cost every frame.
+	VkSemaphoreWaitInfo wait = {};
+	wait.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
+	wait.semaphoreCount = 1;
+	wait.pSemaphores = &m_semaphore;
+	wait.pValues = &value;
+	XUSG_VK_CHECK(vkWaitSemaphores(m_device, &wait, UINT64_MAX), cerr, false);
+	if (hEvent) XUSG_SIGNAL_EVENT(hEvent);
 
 	return true;
 }
@@ -1006,7 +3760,7 @@ void Fence_VK::Create(void* pHandle, const wchar_t* name)
 	(void)name;
 }
 
-void* Fence_VK::GetHandle() const
+void* Fence_VK::GetHandle()
 {
 	return m_semaphore;
 }
@@ -1024,7 +3778,9 @@ CommandLayout_VK::CommandLayout_VK() :
 	m_layout(VK_NULL_HANDLE),
 	m_stages(VK_SHADER_STAGE_ALL),
 	m_stride(0),
-	m_isDispatch(false)
+	m_isDispatch(false),
+	m_traceRays(false),
+	m_traceRaysOnly(false)
 {
 }
 
@@ -1033,11 +3789,13 @@ CommandLayout_VK::~CommandLayout_VK()
 	if (m_layout && m_pDevice) m_pDevice->GetExtProcs().DestroyIndirectCommandsLayout(m_device, m_layout, nullptr);
 }
 
-bool CommandLayout_VK::Create(const Device* pDevice, uint32_t byteStride, uint32_t numArguments,
-	const IndirectArgument* pArguments, const PipelineLayout& pipelineLayout, uint32_t nodeMask, const wchar_t* name)
+bool CommandLayout_VK::Create(Device* pDevice, uint32_t byteStride, uint32_t numArguments,
+	const IndirectArgument* pArguments, const PipelineLayout& pipelineLayout, uint32_t nodeMask,
+	const wchar_t* name)
 {
 	(void)nodeMask;
-	const auto pDeviceVK = dynamic_cast<const Device_VK*>(pDevice);
+	assert(pDevice);
+	const auto pDeviceVK = static_cast<Device_VK*>(pDevice->GetHandle());
 	assert(pDeviceVK);
 	m_device = pDeviceVK->GetDevice();
 	m_pDevice = pDeviceVK;
@@ -1050,6 +3808,8 @@ bool CommandLayout_VK::Create(const Device* pDevice, uint32_t byteStride, uint32
 
 	auto offset = 0u;
 	m_isDispatch = false;
+	m_traceRays = false;
+	m_traceRaysOnly = false;
 	auto graphics = false;
 	for (auto i = 0u; i < numArguments; ++i)
 	{
@@ -1074,6 +3834,17 @@ bool CommandLayout_VK::Create(const Device* pDevice, uint32_t byteStride, uint32
 			token.type = VK_INDIRECT_COMMANDS_TOKEN_TYPE_DISPATCH_EXT;
 			offset += sizeof(VkDispatchIndirectCommand);
 			m_isDispatch = true;
+			break;
+		case IndirectArgumentType::DISPATCH_RAYS:
+			assert(pDeviceVK->HasRayTracingPipelineTraceRaysIndirect2());
+			if (!pDeviceVK->HasRayTracingPipelineTraceRaysIndirect2()) return false;
+			assert(!m_traceRays && !graphics && !m_isDispatch);
+			if (m_traceRays || graphics || m_isDispatch) return false;
+			static_assert(sizeof(VkTraceRaysIndirectCommand2KHR) == sizeof(D3D12_DISPATCH_RAYS_DESC));
+			static_assert(offsetof(VkTraceRaysIndirectCommand2KHR, depth) == offsetof(D3D12_DISPATCH_RAYS_DESC, Depth));
+			token.type = VK_INDIRECT_COMMANDS_TOKEN_TYPE_TRACE_RAYS2_EXT;
+			offset += sizeof(VkTraceRaysIndirectCommand2KHR);
+			m_traceRays = true;
 			break;
 		case IndirectArgumentType::DISPATCH_MESH:
 			token.type = VK_INDIRECT_COMMANDS_TOKEN_TYPE_DRAW_MESH_TASKS_EXT;
@@ -1169,13 +3940,46 @@ bool CommandLayout_VK::Create(const Device* pDevice, uint32_t byteStride, uint32
 		}
 	}
 
-	m_stages = m_isDispatch && !graphics ? VK_SHADER_STAGE_COMPUTE_BIT :
-		graphics && !m_isDispatch ? (VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT) : VK_SHADER_STAGE_ALL;
+	m_traceRaysOnly = m_traceRays && numArguments == 1;
+	const auto rayStages = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR |
+		VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR |
+		VK_SHADER_STAGE_INTERSECTION_BIT_KHR | VK_SHADER_STAGE_CALLABLE_BIT_KHR;
+	auto dgcRays = false;
+	if (m_traceRays)
+	{
+		m_stages = rayStages;
+		if (pDeviceVK->HasDeviceGeneratedCommands())
+		{
+			const auto supported = pDeviceVK->GetGeneratedCommandsProperties().supportedIndirectCommandsShaderStages & rayStages;
+			dgcRays = (supported & VK_SHADER_STAGE_RAYGEN_BIT_KHR) != 0;
+			if (dgcRays) m_stages = supported;
+		}
+		for (auto& push : m_pushTokens)
+			push.updateRange.stageFlags = m_stages;
+		if (!m_traceRaysOnly && !dgcRays)
+		{
+			assert(!"Indirect ray dispatch with other arguments needs device generated command ray stages");
+			return false;
+		}
+	}
+	else
+	{
+		m_stages = m_isDispatch && !graphics ? VK_SHADER_STAGE_COMPUTE_BIT :
+			graphics && !m_isDispatch ? (VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT) : VK_SHADER_STAGE_ALL;
+	}
+
+	m_stride = byteStride ? byteStride : offset;
+
+	// A rays-only signature uses vkCmdTraceRaysIndirect2KHR. DGC is kept for a count buffer
+	// when the device can put raygen in an indirect-commands layout. vkd3d-proton does the same split.
+	if (m_traceRaysOnly && !dgcRays) return true;
+
+	assert(pDeviceVK->HasDeviceGeneratedCommands());
+	if (!pDeviceVK->HasDeviceGeneratedCommands()) return false;
 
 	VkIndirectCommandsLayoutCreateInfoEXT info = {};
 	info.sType = VK_STRUCTURE_TYPE_INDIRECT_COMMANDS_LAYOUT_CREATE_INFO_EXT;
 	info.shaderStages = m_stages;
-	m_stride = byteStride ? byteStride : offset;
 	info.indirectStride = m_stride;
 	info.pipelineLayout = VK_NULL_HANDLE;
 	info.tokenCount = numArguments;
@@ -1193,9 +3997,9 @@ void CommandLayout_VK::Create(void* pHandle, const wchar_t* name)
 	(void)name;
 }
 
-void* CommandLayout_VK::GetHandle() const
+void* CommandLayout_VK::GetHandle()
 {
-	return m_layout;
+	return this;
 }
 
 VkIndirectCommandsLayoutEXT CommandLayout_VK::GetLayout() const
@@ -1218,6 +4022,16 @@ bool CommandLayout_VK::IsDispatch() const
 	return m_isDispatch;
 }
 
+bool CommandLayout_VK::IsTraceRays() const
+{
+	return m_traceRays;
+}
+
+bool CommandLayout_VK::IsTraceRaysOnly() const
+{
+	return m_traceRaysOnly;
+}
+
 //--------------------------------------------------------------------------------------
 
 SwapChain_VK::SwapChain_VK() :
@@ -1235,7 +4049,8 @@ SwapChain_VK::SwapChain_VK() :
 	m_imageIndex(0),
 	m_allowTearing(false),
 	m_acquired(false),
-	m_acquireSemaphore(VK_NULL_HANDLE)
+	m_synchronization2(false),
+	m_acquireSlot(0)
 {
 }
 
@@ -1246,7 +4061,11 @@ SwapChain_VK::~SwapChain_VK()
 		ClearQueueAcquireWait(m_queue);
 		vkQueueWaitIdle(m_queue);
 	}
-	if (m_acquireSemaphore) vkDestroySemaphore(m_device, m_acquireSemaphore, nullptr);
+	for (const auto& slot : m_acquireSlots)
+	{
+		if (slot.Semaphore) vkDestroySemaphore(m_device, slot.Semaphore, nullptr);
+		if (slot.Fence) vkDestroyFence(m_device, slot.Fence, nullptr);
+	}
 	for (const auto semaphore : m_renderSemaphores)
 		if (semaphore) vkDestroySemaphore(m_device, semaphore, nullptr);
 	if (m_swapChain) vkDestroySwapchainKHR(m_device, m_swapChain, nullptr);
@@ -1260,12 +4079,15 @@ bool SwapChain_VK::Create(void* pFactory, void* hWnd, void* pDevice, uint8_t buf
 	(void)windowed;
 	const auto queue = static_cast<VkQueue>(pDevice);
 	QueueNative native = {};
-	assert(FindQueue(queue, native));
+	const auto found = FindQueue(queue, native);
+	assert(found);
+	if (!found) return false;
 	m_instance = native.Instance;
 	m_physicalDevice = native.PhysicalDevice;
 	m_device = native.Device;
 	m_queue = native.Queue;
 	m_family = native.Family;
+	m_synchronization2 = native.Synchronization2;
 
 	VkWin32SurfaceCreateInfoKHR surface = {};
 	surface.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
@@ -1313,11 +4135,24 @@ bool SwapChain_VK::createSwapchain(uint8_t bufferCount, uint32_t width, uint32_t
 	m_images.resize(imageCount);
 	vkGetSwapchainImagesKHR(m_device, m_swapChain, &imageCount, m_images.data());
 	m_acquired = false;
-	if (!m_acquireSemaphore)
+	m_acquireSlot = 0;
+	if (m_queue) ClearQueueAcquireWait(m_queue);
+	for (const auto& slot : m_acquireSlots)
+	{
+		if (slot.Semaphore) vkDestroySemaphore(m_device, slot.Semaphore, nullptr);
+		if (slot.Fence) vkDestroyFence(m_device, slot.Fence, nullptr);
+	}
+	m_acquireSlots.clear();
+	m_acquireSlots.resize(m_images.size());
+	for (auto& slot : m_acquireSlots)
 	{
 		VkSemaphoreCreateInfo semaphore = {};
 		semaphore.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-		XUSG_VK_CHECK(vkCreateSemaphore(m_device, &semaphore, nullptr, &m_acquireSemaphore), cerr, false);
+		XUSG_VK_CHECK(vkCreateSemaphore(m_device, &semaphore, nullptr, &slot.Semaphore), cerr, false);
+		VkFenceCreateInfo fence = {};
+		fence.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+		XUSG_VK_CHECK(vkCreateFence(m_device, &fence, nullptr, &slot.Fence), cerr, false);
+		slot.Submitted = false;
 	}
 	while (m_renderSemaphores.size() < m_images.size())
 	{
@@ -1328,15 +4163,28 @@ bool SwapChain_VK::createSwapchain(uint8_t bufferCount, uint32_t width, uint32_t
 		m_renderSemaphores.push_back(semaphore);
 	}
 
-	return acquire();
+	// The window is not shown yet when the swapchain is created from OnInit.
+	// Acquiring here blocks forever inside vkAcquireNextImageKHR.
+	return true;
 }
 
 bool SwapChain_VK::acquire() const
 {
 	if (m_acquired) return true;
+	if (m_acquireSlots.empty()) return false;
+
+	// One semaphore per swapchain image. Wait until the submit that consumed
+	// this semaphore has finished before acquire signals it again.
+	auto& slot = m_acquireSlots[m_acquireSlot];
+	if (slot.Submitted)
+	{
+		if (vkGetFenceStatus(m_device, slot.Fence) != VK_SUCCESS)
+			vkWaitForFences(m_device, 1, &slot.Fence, VK_TRUE, UINT64_MAX);
+		vkResetFences(m_device, 1, &slot.Fence);
+	}
 
 	uint32_t index = 0;
-	const auto result = vkAcquireNextImageKHR(m_device, m_swapChain, UINT64_MAX, m_acquireSemaphore, VK_NULL_HANDLE, &index);
+	const auto result = vkAcquireNextImageKHR(m_device, m_swapChain, UINT64_MAX, slot.Semaphore, VK_NULL_HANDLE, &index);
 	if (result == VK_ERROR_OUT_OF_DATE_KHR) return false;
 	if (result < 0)
 	{
@@ -1345,9 +4193,13 @@ bool SwapChain_VK::acquire() const
 
 		return false;
 	}
+	slot.Submitted = true;
+	m_acquireSlot = (m_acquireSlot + 1) % static_cast<uint32_t>(m_acquireSlots.size());
 	m_imageIndex = index;
 	m_acquired = true;
-	SetQueueAcquireWait(m_queue, m_acquireSemaphore);
+	// Work submit waits on the acquire semaphore and signals the present
+	// semaphore, matching vkd3d-proton (no empty present-time submit).
+	SetQueueAcquireWait(m_queue, slot.Semaphore, slot.Fence, m_renderSemaphores[m_imageIndex]);
 
 	return true;
 }
@@ -1359,23 +4211,34 @@ bool SwapChain_VK::Present(uint8_t syncInterval, PresentFlag flags)
 	if (!m_acquired && !acquire()) return false;
 
 	VkSemaphore acquireSemaphore = VK_NULL_HANDLE;
-	const auto waitAcquire = TakeQueueAcquireWait(m_queue, acquireSemaphore);
-	VkSemaphoreSubmitInfo wait = {};
-	wait.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
-	wait.semaphore = acquireSemaphore;
-	wait.stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
-	VkSemaphoreSubmitInfo signal = {};
-	signal.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
-	signal.semaphore = m_renderSemaphores[m_imageIndex];
-	signal.stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+	VkFence acquireFence = VK_NULL_HANDLE;
+	VkSemaphore presentSignal = VK_NULL_HANDLE;
+	if (TakeQueueAcquireWait(m_queue, acquireSemaphore, acquireFence, presentSignal))
+	{
+		// No command submit consumed the acquire wait; chain it here.
+		VkSemaphoreSubmitInfo wait = {};
+		wait.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+		wait.semaphore = acquireSemaphore;
+		wait.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_2_COPY_BIT;
+		VkSemaphoreSubmitInfo signal = {};
+		signal.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+		signal.semaphore = presentSignal ? presentSignal : m_renderSemaphores[m_imageIndex];
+		signal.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_2_COPY_BIT;
 
-	VkSubmitInfo2 submit = {};
-	submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
-	submit.waitSemaphoreInfoCount = waitAcquire ? 1 : 0;
-	submit.pWaitSemaphoreInfos = waitAcquire ? &wait : nullptr;
-	submit.signalSemaphoreInfoCount = 1;
-	submit.pSignalSemaphoreInfos = &signal;
-	XUSG_VK_CHECK(vkQueueSubmit2(m_queue, 1, &submit, VK_NULL_HANDLE), cerr, false);
+		VkSubmitInfo2 submit = {};
+		submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
+		submit.waitSemaphoreInfoCount = 1;
+		submit.pWaitSemaphoreInfos = &wait;
+		submit.signalSemaphoreInfoCount = 1;
+		submit.pSignalSemaphoreInfos = &signal;
+		VkSemaphore waitSemaphores[1];
+		VkPipelineStageFlags waitStages[1];
+		uint64_t waitValues[1];
+		VkSemaphore signalSemaphores[1];
+		uint64_t signalValues[1];
+		XUSG_N_RETURN(SubmitQueueInfo(m_synchronization2, m_queue, submit, acquireFence,
+			waitSemaphores, waitStages, waitValues, nullptr, signalSemaphores, signalValues), false);
+	}
 
 	VkPresentInfoKHR info = {};
 	info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -1389,7 +4252,7 @@ bool SwapChain_VK::Present(uint8_t syncInterval, PresentFlag flags)
 	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) return true;
 	XUSG_VK_CHECK(result, cerr, false);
 
-	return acquire();
+	return true;
 }
 
 bool SwapChain_VK::PresentEx(uint8_t syncInterval, PresentFlag flags, uint32_t dirtyRectsCount,
@@ -1407,7 +4270,7 @@ bool SwapChain_VK::GetBuffer(uint8_t buffer, Resource* pResource) const
 {
 	assert(pResource);
 	assert(buffer < m_images.size());
-	const auto resource = dynamic_cast<Resource_VK*>(pResource);
+	const auto resource = static_cast<Resource_VK*>(pResource->GetHandle());
 	assert(resource);
 	resource->WrapImage(m_device, m_images[buffer], m_format, m_width, m_height);
 
@@ -1438,9 +4301,9 @@ void SwapChain_VK::Create(void* pHandle)
 	m_swapChain = static_cast<VkSwapchainKHR>(pHandle);
 }
 
-void* SwapChain_VK::GetHandle() const
+void* SwapChain_VK::GetHandle()
 {
-	return m_swapChain;
+	return this;
 }
 
 VkImage SwapChain_VK::GetImage(uint8_t buffer) const

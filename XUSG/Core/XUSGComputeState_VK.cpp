@@ -98,7 +98,7 @@ PipelineLib_VK::PipelineLib_VK() :
 {
 }
 
-PipelineLib_VK::PipelineLib_VK(const Device* pDevice) :
+PipelineLib_VK::PipelineLib_VK(Device* pDevice) :
 	PipelineLib_VK()
 {
 	SetDevice(pDevice);
@@ -109,9 +109,9 @@ PipelineLib_VK::~PipelineLib_VK()
 	for (auto& pipeline : m_pipelines) ReleaseVKPipeline(m_device, pipeline.second);
 }
 
-void PipelineLib_VK::SetDevice(const Device* pDevice)
+void PipelineLib_VK::SetDevice(Device* pDevice)
 {
-	m_pDevice = dynamic_cast<const Device_VK*>(pDevice);
+	m_pDevice = pDevice ? static_cast<Device_VK*>(pDevice->GetHandle()) : nullptr;
 	assert(m_pDevice);
 	m_device = m_pDevice->GetDevice();
 }

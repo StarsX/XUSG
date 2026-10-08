@@ -331,7 +331,7 @@ PipelineLib_DX12::PipelineLib_DX12() :
 	m_pfnDepthStencils[DepthStencilPreset::STENCIL_FRONT_FAIL_INVERT] = StencilFailInvert;
 }
 
-PipelineLib_DX12::PipelineLib_DX12(const Device* pDevice) :
+PipelineLib_DX12::PipelineLib_DX12(Device* pDevice) :
 	PipelineLib_DX12()
 {
 	SetDevice(pDevice);
@@ -341,7 +341,7 @@ PipelineLib_DX12::~PipelineLib_DX12()
 {
 }
 
-void PipelineLib_DX12::SetDevice(const Device* pDevice)
+void PipelineLib_DX12::SetDevice(Device* pDevice)
 {
 	m_device = pDevice->GetHandle();
 	assert(m_device);
@@ -362,7 +362,7 @@ void PipelineLib_DX12::SetInputLayout(uint32_t index, uint32_t numElements, cons
 	m_inputLayoutLib.SetLayout(index, numElements, pElements);
 }
 
-const InputLayout* PipelineLib_DX12::GetInputLayout(uint32_t index)
+const InputLayout* PipelineLib_DX12::GetInputLayout(uint32_t index) const
 {
 	return m_inputLayoutLib.GetLayout(index);
 }
