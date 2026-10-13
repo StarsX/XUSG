@@ -20,6 +20,11 @@ State_VK::~State_VK()
 {
 }
 
+void* State_VK::GetBackend()
+{
+	return this;
+}
+
 void State_VK::SetPipelineLayout(const PipelineLayout& layout)
 {
 	m_pKey->Layout = layout;
@@ -93,8 +98,7 @@ void State_VK::GetHandleDesc(void* pHandleDesc) const
 //--------------------------------------------------------------------------------------
 
 PipelineLib_VK::PipelineLib_VK() :
-	m_pDevice(nullptr),
-	m_device(VK_NULL_HANDLE)
+	m_pDevice(nullptr)
 {
 }
 
@@ -106,32 +110,33 @@ PipelineLib_VK::PipelineLib_VK(Device* pDevice) :
 
 PipelineLib_VK::~PipelineLib_VK()
 {
-	for (auto& pipeline : m_pipelines) ReleaseVKPipeline(m_device, pipeline.second);
+	if (m_pipelines.empty()) return;
+	const auto device = m_pDevice->GetDevice();
+	for (auto& pipeline : m_pipelines) ReleaseVKPipeline(device, pipeline.second);
 }
 
 void PipelineLib_VK::SetDevice(Device* pDevice)
 {
-	m_pDevice = pDevice ? static_cast<Device_VK*>(pDevice->GetHandle()) : nullptr;
+	m_pDevice = AsVK(pDevice);
 	assert(m_pDevice);
-	m_device = m_pDevice->GetDevice();
 }
 
 void PipelineLib_VK::SetPipeline(const State* pState, const Pipeline& pipeline)
 {
 	lock_guard<mutex> lock(m_mtx);
-	const auto p = dynamic_cast<const State_VK*>(pState);
+	const auto p = AsVK(pState);
 	assert(p);
 	const auto& key = p->GetKey();
 	const auto incoming = static_cast<Pipeline_VK*>(pipeline);
 	RetainVKPipeline(incoming);
 	const auto existing = m_pipelines.find(key);
-	if (existing != m_pipelines.end()) ReleaseVKPipeline(m_device, existing->second);
+	if (existing != m_pipelines.end()) ReleaseVKPipeline(m_pDevice->GetDevice(), existing->second);
 	m_pipelines[key] = incoming;
 }
 
 Pipeline PipelineLib_VK::CreatePipeline(const State* pState, const wchar_t* name)
 {
-	const auto p = dynamic_cast<const State_VK*>(pState);
+	const auto p = AsVK(pState);
 	assert(p);
 	lock_guard<mutex> lock(m_mtx);
 
@@ -140,7 +145,7 @@ Pipeline PipelineLib_VK::CreatePipeline(const State* pState, const wchar_t* name
 
 Pipeline PipelineLib_VK::GetPipeline(const State* pState, const wchar_t* name)
 {
-	const auto p = dynamic_cast<const State_VK*>(pState);
+	const auto p = AsVK(pState);
 	assert(p);
 	lock_guard<mutex> lock(m_mtx);
 
@@ -155,7 +160,7 @@ Pipeline PipelineLib_VK::createPipeline(const string& key, const wchar_t* name)
 	if (!pipeline) return nullptr;
 
 	const auto existing = m_pipelines.find(key);
-	if (existing != m_pipelines.end()) ReleaseVKPipeline(m_device, existing->second);
+	if (existing != m_pipelines.end()) ReleaseVKPipeline(m_pDevice->GetDevice(), existing->second);
 	m_pipelines[key] = pipeline;
 
 	return pipeline;

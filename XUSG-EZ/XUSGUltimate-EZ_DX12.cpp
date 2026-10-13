@@ -91,7 +91,7 @@ bool EZ::CommandList_DX12::Create(Ultimate::CommandList* pCommandList,
 	return true;
 }
 
-bool EZ::CommandList_DX12::Create(Device* pDevice, void* pHandle,
+bool EZ::CommandList_DX12::Create(Device* pDevice, void* pNativeHandle,
 	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 	const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
@@ -106,7 +106,8 @@ bool EZ::CommandList_DX12::Create(Device* pDevice, void* pHandle,
 	uint32_t slotExt, uint32_t spaceExt, const wchar_t* name)
 {
 	m_pDevice = pDevice;
-	Ultimate::CommandList_DX12::Create(pHandle, name);
+	if (name) static_cast<ID3D12GraphicsCommandList*>(pNativeHandle)->SetName(name);
+	Ultimate::CommandList_DX12::Create(pNativeHandle, pDevice);
 
 	return Create(this, samplerHeapSize, cbvSrvUavHeapSize, maxSamplers,
 		pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,

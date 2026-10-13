@@ -197,9 +197,8 @@ namespace
 //--------------------------------------------------------------------------------------
 
 Heap_VK::Heap_VK() :
-	m_device(VK_NULL_HANDLE),
-	m_memory(VK_NULL_HANDLE),
 	m_pDevice(nullptr),
+	m_memory(VK_NULL_HANDLE),
 	m_size(0),
 	m_alignment(0),
 	m_memoryTypeIndex(0),
@@ -209,16 +208,16 @@ Heap_VK::Heap_VK() :
 
 Heap_VK::~Heap_VK()
 {
-	if (m_memory) vkFreeMemory(m_device, m_memory, nullptr);
+	if (m_memory != VK_NULL_HANDLE) vkFreeMemory(m_pDevice->GetDevice(), m_memory, nullptr);
 }
 
 bool Heap_VK::Create(Device* pDevice, uint64_t byteSize, MemoryType memoryType,
 	MemoryFlag memoryFlags, uint64_t alignment, const wchar_t* name)
 {
 	(void)memoryFlags;
-	m_pDevice = pDevice ? static_cast<Device_VK*>(pDevice->GetHandle()) : nullptr;
+	m_pDevice = AsVK(pDevice);
 	assert(m_pDevice);
-	m_device = m_pDevice->GetDevice();
+	const auto device = m_pDevice->GetDevice();
 	m_size = byteSize;
 	m_alignment = alignment;
 	m_memoryType = memoryType;
@@ -228,15 +227,15 @@ bool Heap_VK::Create(Device* pDevice, uint64_t byteSize, MemoryType memoryType,
 		properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
 	else if (memoryType == MemoryType::UPLOAD || memoryType == MemoryType::GPU_UPLOAD)
 		properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-	m_memoryTypeIndex = m_pDevice->FindMemoryType(HeapMemoryTypeBits(m_device, memoryType), properties);
+	m_memoryTypeIndex = m_pDevice->FindMemoryType(HeapMemoryTypeBits(device, memoryType), properties);
 	assert(m_memoryTypeIndex != UINT32_MAX);
 
 	VkMemoryAllocateInfo info = {};
 	info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	info.allocationSize = byteSize;
 	info.memoryTypeIndex = m_memoryTypeIndex;
-	XUSG_VK_CHECK(vkAllocateMemory(m_device, &info, nullptr, &m_memory), cerr, false);
-	m_pDevice->SetDebugName(VK_OBJECT_TYPE_DEVICE_MEMORY, reinterpret_cast<uint64_t>(m_memory), name);
+	XUSG_VK_CHECK(vkAllocateMemory(device, &info, nullptr, &m_memory), cerr, false);
+	m_pDevice->SetDebugName(VK_OBJECT_TYPE_DEVICE_MEMORY, (uint64_t)m_memory, name);
 
 	return true;
 }
@@ -256,11 +255,13 @@ MemoryType Heap_VK::GetType() const
 	return m_memoryType;
 }
 
-void Heap_VK::Create(void* pDeviceHandle, void* pHeapHandle, const wchar_t* name)
+void Heap_VK::Create(uint64_t nativeHandle, Device* pDevice)
 {
-	m_device = static_cast<VkDevice>(pDeviceHandle);
-	m_memory = static_cast<VkDeviceMemory>(pHeapHandle);
-	(void)name;
+	m_pDevice = AsVK(pDevice);
+	assert(m_pDevice);
+
+	m_memory = (VkDeviceMemory)nativeHandle;
+	m_name.clear();
 }
 
 void Heap_VK::SetName(const wchar_t* name)
@@ -268,7 +269,12 @@ void Heap_VK::SetName(const wchar_t* name)
 	if (name) m_name = name;
 }
 
-void* Heap_VK::GetHandle()
+uint64_t Heap_VK::GetNativeHandle() const
+{
+	return (uint64_t)m_memory;
+}
+
+void* Heap_VK::GetBackend()
 {
 	return this;
 }
@@ -288,7 +294,6 @@ uint32_t Heap_VK::GetMemoryType() const
 //--------------------------------------------------------------------------------------
 
 Resource_VK::Resource_VK() :
-	m_device(VK_NULL_HANDLE),
 	m_pDevice(nullptr),
 	m_image(VK_NULL_HANDLE),
 	m_buffer(VK_NULL_HANDLE),
@@ -302,6 +307,7 @@ Resource_VK::Resource_VK() :
 	m_ownsMemory(false),
 	m_hasPromotion(false),
 	m_presentable(false),
+	m_commonLayout(VK_IMAGE_LAYOUT_GENERAL),
 	m_byteSize(0),
 	m_width(0),
 	m_height(1),
@@ -327,16 +333,19 @@ Resource_VK::Resource_VK() :
 
 Resource_VK::~Resource_VK()
 {
+	if (!m_pDevice) return;
+
+	const auto device = m_pDevice->GetDevice();
 	for (auto& view : m_resourceViews)
 		if (view && (view->Type == ResourceViewType::RTV || view->Type == ResourceViewType::DSV) &&
-			view->Target.Rendering.imageView)
-			vkDestroyImageView(m_device, view->Target.Rendering.imageView, nullptr);
+			view->Target.Rendering.imageView != VK_NULL_HANDLE)
+			vkDestroyImageView(device, view->Target.Rendering.imageView, nullptr);
 
-	if (m_pDataBegin) vkUnmapMemory(m_device, m_memory);
-	if (m_ownsImage && m_image) vkDestroyImage(m_device, m_image, nullptr);
-	if (m_ownsBuffer && m_buffer) vkDestroyBuffer(m_device, m_buffer, nullptr);
+	if (m_pDataBegin) vkUnmapMemory(device, m_memory);
+	if (m_ownsImage && m_image != VK_NULL_HANDLE) vkDestroyImage(device, m_image, nullptr);
+	if (m_ownsBuffer && m_buffer != VK_NULL_HANDLE) vkDestroyBuffer(device, m_buffer, nullptr);
 	releaseSparseMetadata();
-	if (m_ownsMemory && m_memory) vkFreeMemory(m_device, m_memory, nullptr);
+	if (m_ownsMemory && m_memory != VK_NULL_HANDLE) vkFreeMemory(device, m_memory, nullptr);
 }
 
 bool Resource_VK::ReadFromSubresource(void* pDstData, uint32_t dstRowPitch, uint32_t dstDepthPitch,
@@ -368,7 +377,7 @@ bool Resource_VK::WriteToSubresource(uint32_t dstSubresource, const void* pSrcDa
 uint32_t Resource_VK::SetBarrier(ResourceBarrier* pBarriers, ResourceState dstState, uint32_t numBarriers,
 	uint32_t subresource, BarrierFlag flags, ResourceState srcState, uint32_t threadIdx)
 {
-	assert(m_states.empty() || (!m_image && !m_buffer) || !m_states.empty());
+	assert(m_states.empty() || (m_image == VK_NULL_HANDLE && m_buffer == VK_NULL_HANDLE) || !m_states.empty());
 	if (!m_states.empty())
 	{
 		const auto& state = m_states[threadIdx][subresource == XUSG_BARRIER_ALL_SUBRESOURCES ? 0 : subresource];
@@ -427,9 +436,9 @@ uint64_t Resource_VK::GetVirtualAddress(int offset) const
 void Resource_VK::Unmap(const Range* pWrittenRange)
 {
 	(void)pWrittenRange;
-	if (m_pDataBegin && m_memory)
+	if (m_pDataBegin && m_memory != VK_NULL_HANDLE)
 	{
-		vkUnmapMemory(m_device, m_memory);
+		vkUnmapMemory(m_pDevice->GetDevice(), m_memory);
 		m_pDataBegin = nullptr;
 	}
 }
@@ -520,7 +529,8 @@ void Resource_VK::BindTileMappings(VkQueue queue, uint32_t numResourceRegions,
 	assert(pHeapRangeFlags);
 	if (!pHeapRangeFlags) return;
 
-	const auto heap = pHeap ? static_cast<const Heap_VK*>(pHeap->GetHandle()) : nullptr;
+	const auto pVkHeap = AsVK(pHeap);
+	assert(pVkHeap);
 	TiledResourceCoord whole = {};
 	TileRegionSize wholeRegion = {};
 	wholeRegion.NumTiles = m_totalTiles;
@@ -582,27 +592,28 @@ void Resource_VK::BindTileMappings(VkQueue queue, uint32_t numResourceRegions,
 				bind.Tile = tile;
 				if (!nullRange)
 				{
-					assert(heap);
-					if (!heap) return;
+					assert(pVkHeap);
+					if (!pVkHeap) return;
 					if (reuse)
 					{
-						assert(m_pDevice && m_pDevice->SupportsSparseAliased());
-						if (!m_pDevice || !m_pDevice->SupportsSparseAliased()) return;
+						const auto sparseAliased = m_pDevice && m_pDevice->SupportsSparseAliased();
+						assert(sparseAliased);
+						if (!sparseAliased) return;
 					}
 
 					const auto tileOffset = static_cast<VkDeviceSize>(reuse ? rangeOffset : rangeOffset + rangeTile) * TileBytes;
-					if (heap->GetSize() && tileOffset + TileBytes > heap->GetSize())
+					if (pVkHeap->GetSize() && tileOffset + TileBytes > pVkHeap->GetSize())
 					{
 						assert(!"Tile heap offset is outside the heap");
 						return;
 					}
-					if (m_sparseTypeBits && (m_sparseTypeBits & (1u << heap->GetMemoryType())) == 0)
+					if (m_sparseTypeBits && (m_sparseTypeBits & (1u << pVkHeap->GetMemoryType())) == 0)
 					{
 						assert(!"Tile heap memory type is incompatible with the sparse resource");
 						return;
 					}
 
-					bind.Memory = heap->GetMemory();
+					bind.Memory = pVkHeap->GetMemory();
 					bind.Offset = tileOffset;
 				}
 				binds.push_back(bind);
@@ -655,24 +666,562 @@ void Resource_VK::CopyBoundTiles(VkQueue queue, const TiledResourceCoord& dstCoo
 	bindTiles(queue, binds);
 }
 
-void Resource_VK::releaseSparseMetadata()
+void Resource_VK::Create(uint64_t nativeHandle, Device* pDevice, uint32_t maxThreads)
 {
-	if (m_metadata && m_device) vkFreeMemory(m_device, m_metadata, nullptr);
-	m_metadata = VK_NULL_HANDLE;
+	initialize(pDevice, maxThreads);
+
+	m_image = (VkImage)nativeHandle;
+	m_isImage = true;
+	m_ownsImage = false;
+	m_undefined.assign(1, 1);
+	m_discarded.clear();
+	m_pendingLayout = 1;
+	setState(ResourceState::COMMON, 1, maxThreads);
+	m_name.clear();
+}
+
+void Resource_VK::SetName(const wchar_t* name)
+{
+	if (!name) return;
+
+	m_name = name;
+	if (m_pDevice)
+	{
+		const auto handle = m_isImage ? (uint64_t)m_image : (uint64_t)m_buffer;
+		m_pDevice->SetDebugName(m_isImage ? VK_OBJECT_TYPE_IMAGE : VK_OBJECT_TYPE_BUFFER, handle, name);
+	}
+}
+
+uint64_t Resource_VK::GetNativeHandle() const
+{
+	return m_isImage ? (uint64_t)m_image : (uint64_t)m_buffer;
+}
+
+void* Resource_VK::GetBackend()
+{
+	return this;
+}
+
+bool Resource_VK::Is3D() const
+{
+	return m_is3D;
+}
+
+bool Resource_VK::IsImage() const
+{
+	return m_isImage;
+}
+
+VkImage Resource_VK::GetImage() const
+{
+	return m_image;
+}
+
+VkBuffer Resource_VK::GetBuffer() const
+{
+	return m_buffer;
+}
+
+VkFormat Resource_VK::GetVkFormat() const
+{
+	return m_vkFormat;
+}
+
+uint32_t Resource_VK::GetHeight() const
+{
+	return m_height;
+}
+
+uint32_t Resource_VK::GetDepthOrArray() const
+{
+	return m_depthOrArray;
+}
+
+uint32_t Resource_VK::GetMipLevels() const
+{
+	return m_mipLevels;
+}
+
+uint32_t Resource_VK::GetSampleCount() const
+{
+	return m_sampleCount;
+}
+
+void Resource_VK::WrapImage(VkDevice device, VkImage image, VkFormat format, uint32_t width, uint32_t height,
+	bool presentable)
+{
+	(void)device;
+	m_image = image;
+	m_isImage = true;
+	m_ownsImage = false;
+	m_undefined.assign(1, 1);
+	m_discarded.clear();
+	m_pendingLayout = 1;
+	m_vkFormat = format;
+	m_width = width;
+	m_height = height;
+	m_depthOrArray = 1;
+	m_mipLevels = 1;
+	m_presentable = presentable;
+	// Non-WSI images use COLOR_ATTACHMENT as COMMON (vkd3d user backbuffer).
+	if (!presentable) m_commonLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	setState(ResourceState::COMMON, 1, 1);
+}
+
+VkImageLayout Resource_VK::ImageLayout(ResourceState state) const
+{
+	// PRESENT aliases COMMON. Swapchain images use PRESENT_SRC; other images use
+	// the per-resource common layout (vkd3d-style) so COMMON↔SRV often needs no transition.
+	if (state == ResourceState::COMMON || state == ResourceState::PRESENT)
+	{
+		if (m_presentable) return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+		return m_isImage ? m_commonLayout : VK_IMAGE_LAYOUT_GENERAL;
+	}
+
+	const auto layout = GetVKImageLayout(state);
+	if (layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+	{
+		switch (m_vkFormat)
+		{
+		case VK_FORMAT_D16_UNORM:
+		case VK_FORMAT_D16_UNORM_S8_UINT:
+		case VK_FORMAT_D24_UNORM_S8_UINT:
+		case VK_FORMAT_D32_SFLOAT:
+		case VK_FORMAT_D32_SFLOAT_S8_UINT:
+			return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+		default:
+			break;
+		}
+	}
+
+	return layout;
+}
+
+uint64_t Resource_VK::GetByteSize() const
+{
+	return m_byteSize;
+}
+
+bool Resource_VK::IsUndefinedLayout(uint32_t subresource) const
+{
+	return subresource < m_undefined.size() && m_undefined[subresource];
+}
+
+void Resource_VK::Discard(uint32_t firstSubresource, uint32_t numSubresources)
+{
+	const auto count = subresourceCount();
+	if (!count) return;
+	if (!numSubresources)
+	{
+		firstSubresource = 0;
+		numSubresources = count;
+	}
+	if (firstSubresource >= count) return;
+	numSubresources = (min)(numSubresources, count - firstSubresource);
+	if (m_discarded.size() < count) m_discarded.resize(count);
+	for (auto i = 0u; i < numSubresources; ++i)
+	{
+		const auto index = firstSubresource + i;
+		const auto pending = needsUndefinedLayout(index);
+		if (!m_discarded[index])
+		{
+			m_discarded[index] = 1;
+			++m_discardCount;
+		}
+		if (!pending) ++m_pendingLayout;
+	}
+}
+
+bool Resource_VK::HasPendingDiscard() const
+{
+	return m_discardCount != 0;
+}
+
+VkAttachmentLoadOp Resource_VK::ConsumeDiscardLoadOp(uint32_t subresource)
+{
+	if (!isDiscarded(subresource)) return VK_ATTACHMENT_LOAD_OP_LOAD;
+
+	consumeDiscarded(subresource);
+
+	return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+}
+
+VkAttachmentLoadOp Resource_VK::ConsumeDiscardLoadOp(uint32_t baseMip, uint32_t mipCount, uint32_t baseLayer, uint32_t layerCount)
+{
+	if (!m_discardCount) return VK_ATTACHMENT_LOAD_OP_LOAD;
+	if (!mipCount) mipCount = 1;
+	if (!layerCount) layerCount = 1;
+	if (m_is3D)
+	{
+		baseLayer = 0;
+		layerCount = 1;
+	}
+
+	auto any = false;
+	auto all = true;
+	const auto mips = m_mipLevels ? m_mipLevels : 1u;
+	for (auto layer = baseLayer; layer < baseLayer + layerCount; ++layer)
+	{
+		for (auto mip = baseMip; mip < baseMip + mipCount && mip < mips; ++mip)
+		{
+			if (isDiscarded(subresourceIndex(mip, layer))) any = true;
+			else all = false;
+		}
+	}
+	if (!any) return VK_ATTACHMENT_LOAD_OP_LOAD;
+
+	for (auto layer = baseLayer; layer < baseLayer + layerCount; ++layer)
+		for (auto mip = baseMip; mip < baseMip + mipCount && mip < mips; ++mip)
+			if (isDiscarded(subresourceIndex(mip, layer))) consumeDiscarded(subresourceIndex(mip, layer));
+
+	return all ? VK_ATTACHMENT_LOAD_OP_DONT_CARE : VK_ATTACHMENT_LOAD_OP_LOAD;
+}
+
+void Resource_VK::AppendImageBarrier(VkImageMemoryBarrier2 image, vector<VkImageMemoryBarrier2>& barriers)
+{
+	if (!m_pendingLayout && image.oldLayout != VK_IMAGE_LAYOUT_UNDEFINED)
+	{
+		barriers.push_back(image);
+		return;
+	}
+
+	uint32_t baseMip = 0, mipCount = 0, baseLayer = 0, layerCount = 0;
+	discardRange(image.subresourceRange, baseMip, mipCount, baseLayer, layerCount);
+	auto any = false;
+	for (auto layer = baseLayer; layer < baseLayer + layerCount && !any; ++layer)
+		for (auto mip = baseMip; mip < baseMip + mipCount; ++mip)
+			if (needsUndefinedLayout(subresourceIndex(mip, layer))) any = true;
+
+	if (!any || image.oldLayout == VK_IMAGE_LAYOUT_UNDEFINED)
+	{
+		if (image.oldLayout == VK_IMAGE_LAYOUT_UNDEFINED || any)
+		{
+			for (auto layer = baseLayer; layer < baseLayer + layerCount; ++layer)
+				for (auto mip = baseMip; mip < baseMip + mipCount; ++mip)
+					consumeLayoutMark(subresourceIndex(mip, layer));
+			if (any)
+			{
+				image.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+				image.srcAccessMask = VK_ACCESS_2_NONE;
+			}
+		}
+		barriers.push_back(image);
+
+		return;
+	}
+
+	for (auto layer = baseLayer; layer < baseLayer + layerCount; ++layer)
+	{
+		auto mip = baseMip;
+		while (mip < baseMip + mipCount)
+		{
+			const auto undefined = needsUndefinedLayout(subresourceIndex(mip, layer));
+			auto end = mip + 1;
+			while (end < baseMip + mipCount && needsUndefinedLayout(subresourceIndex(end, layer)) == undefined) ++end;
+
+			auto piece = image;
+			piece.subresourceRange.baseMipLevel = mip;
+			piece.subresourceRange.levelCount = end - mip;
+			piece.subresourceRange.baseArrayLayer = layer;
+			piece.subresourceRange.layerCount = 1;
+			if (undefined)
+			{
+				piece.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+				piece.srcAccessMask = VK_ACCESS_2_NONE;
+				for (auto i = mip; i < end; ++i) consumeLayoutMark(subresourceIndex(i, layer));
+			}
+			barriers.push_back(piece);
+			mip = end;
+		}
+	}
+}
+
+bool Resource_VK::CreateUploadBuffer(Device* pDevice, size_t byteSize)
+{
+	if (!m_pDevice || m_pDevice->GetDevice() == VK_NULL_HANDLE)
+		XUSG_N_RETURN(initialize(pDevice ? pDevice : m_pDevice, 1), false);
+	if (m_buffer != VK_NULL_HANDLE && m_byteSize >= byteSize && m_pDataBegin) return true;
+
+	return createBuffer(nullptr, 0, byteSize, ResourceFlag::NONE, MemoryType::UPLOAD);
+}
+
+void* Resource_VK::GetMappedData() const
+{
+	return m_pDataBegin;
+}
+
+bool Resource_VK::initialize(Device* pDevice, uint32_t maxThreads)
+{
+	(void)maxThreads;
+	if (!pDevice) return m_pDevice && m_pDevice->GetDevice() != VK_NULL_HANDLE;
+
+	m_pDevice = AsVK(pDevice);
+	assert(m_pDevice);
+	m_states.clear();
+	m_pDataBegin = nullptr;
+
+	return true;
+}
+
+bool Resource_VK::allocateMemory(VkMemoryRequirements requirements, MemoryType memoryType, bool hostVisible)
+{
+	const auto device = m_pDevice->GetDevice();
+
+	VkMemoryPropertyFlags properties = hostVisible ?
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT :
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+	if (memoryType == MemoryType::UPLOAD || memoryType == MemoryType::READBACK) hostVisible = true;
+	if (memoryType == MemoryType::READBACK)
+		properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+	else if (hostVisible)
+		properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
+	VkMemoryAllocateFlagsInfo flags = {};
+	flags.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
+	flags.flags = m_buffer ? VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT : 0;
+
+	VkMemoryAllocateInfo info = {};
+	info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	info.pNext = m_buffer != VK_NULL_HANDLE ? &flags : nullptr;
+	info.allocationSize = requirements.size;
+	info.memoryTypeIndex = m_pDevice->FindMemoryType(requirements.memoryTypeBits, properties);
+	XUSG_VK_CHECK(vkAllocateMemory(device, &info, nullptr, &m_memory), cerr, false);
+	m_ownsMemory = true;
+	m_byteSize = requirements.size;
+	if (m_image != VK_NULL_HANDLE) XUSG_VK_CHECK(vkBindImageMemory(device, m_image, m_memory, 0), cerr, false);
+	if (m_buffer != VK_NULL_HANDLE) XUSG_VK_CHECK(vkBindBufferMemory(device, m_buffer, m_memory, 0), cerr, false);
+
+	if (m_buffer != VK_NULL_HANDLE)
+	{
+		VkBufferDeviceAddressInfo address = {};
+		address.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+		address.buffer = m_buffer;
+		m_address = vkGetBufferDeviceAddress(device, &address);
+	}
+
+	if (hostVisible) XUSG_VK_CHECK(vkMapMemory(device, m_memory, 0, m_byteSize, 0, &m_pDataBegin), cerr, false);
+
+	return true;
+}
+
+void Resource_VK::setState(ResourceState state, uint32_t subresources, uint32_t maxThreads)
+{
+	m_states.resize(maxThreads ? maxThreads : 1);
+	for (auto& states : m_states) states.assign(subresources ? subresources : 1, state);
+}
+
+bool Resource_VK::createBuffer(Heap* pHeap, uint64_t heapOffset, size_t byteWidth,
+	ResourceFlag resourceFlags, MemoryType memoryType, bool reserved)
+{
+	const auto device = m_pDevice->GetDevice();
+	if (m_ownsBuffer && m_buffer != VK_NULL_HANDLE) vkDestroyBuffer(device, m_buffer, nullptr);
+
+	m_sparse = false;
+	m_hasSparseInfo = false;
+	m_tilingReady = false;
+	m_resourceFormat = Format::UNKNOWN;
+	if (reserved)
+	{
+		const auto sparseBuffer = m_pDevice && m_pDevice->SupportsSparseBuffer();
+		assert(sparseBuffer);
+		if (!sparseBuffer) return false;
+	}
+
+	uint32_t sharingCount = 0;
+	const uint32_t* pSharingFamilies = nullptr;
+	if (m_pDevice) m_pDevice->GetSharingFamilies(sharingCount, pSharingFamilies);
+
+	const auto size = reserved ? XUSG_DIV_UP(static_cast<uint64_t>(byteWidth), TileBytes) * TileBytes : byteWidth;
+	VkBufferCreateInfo info = {};
+	info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	info.size = size;
+	info.usage = GetVKBufferUsage(resourceFlags);
+	info.sharingMode = sharingCount > 1 ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
+	info.queueFamilyIndexCount = sharingCount;
+	info.pQueueFamilyIndices = pSharingFamilies;
+	if (reserved)
+	{
+		info.flags |= VK_BUFFER_CREATE_SPARSE_BINDING_BIT | VK_BUFFER_CREATE_SPARSE_RESIDENCY_BIT;
+		if (m_pDevice->SupportsSparseAliased()) info.flags |= VK_BUFFER_CREATE_SPARSE_ALIASED_BIT;
+	}
+	if (m_pDevice && m_pDevice->HasConditionalRendering())
+		info.usage |= VK_BUFFER_USAGE_CONDITIONAL_RENDERING_BIT_EXT;
+	if (m_pDevice && m_pDevice->HasTransformFeedback())
+		info.usage |= VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT |
+		VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT;
+	XUSG_VK_CHECK(vkCreateBuffer(device, &info, nullptr, &m_buffer), cerr, false);
+	m_ownsBuffer = true;
+	m_isImage = false;
+	m_sparse = reserved;
+	m_width = size;
+	m_byteSize = size;
+
+	if (pHeap)
+	{
+		const auto pVkHeap = AsVK(pHeap);
+		assert(pVkHeap);
+		VkMemoryRequirements requirements = {};
+		vkGetBufferMemoryRequirements(device, m_buffer, &requirements);
+		assert((requirements.memoryTypeBits & (1u << pVkHeap->GetMemoryType())) &&
+			"Placed buffer memory type is incompatible with the heap");
+		if ((requirements.memoryTypeBits & (1u << pVkHeap->GetMemoryType())) == 0) return false;
+		XUSG_VK_CHECK(vkBindBufferMemory(device, m_buffer, pVkHeap->GetMemory(), heapOffset), cerr, false);
+		VkBufferDeviceAddressInfo address = {};
+		address.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+		address.buffer = m_buffer;
+		m_address = vkGetBufferDeviceAddress(device, &address);
+	}
+	else if (reserved)
+	{
+		VkMemoryRequirements requirements = {};
+		vkGetBufferMemoryRequirements(device, m_buffer, &requirements);
+		m_sparseTypeBits = requirements.memoryTypeBits;
+		m_address = 0;
+		assert(requirements.alignment == 0 || TileBytes % requirements.alignment == 0);
+	}
+	else
+	{
+		VkMemoryRequirements requirements = {};
+		vkGetBufferMemoryRequirements(device, m_buffer, &requirements);
+		const auto host = memoryType == MemoryType::UPLOAD || memoryType == MemoryType::READBACK || memoryType == MemoryType::GPU_UPLOAD;
+		XUSG_N_RETURN(allocateMemory(requirements, memoryType, host), false);
+	}
+
+	return true;
+}
+
+bool Resource_VK::createImage(Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
+	uint32_t depth, Format format, uint16_t arraySize, ResourceFlag resourceFlags, uint8_t numMips,
+	uint8_t sampleCount, MemoryType memoryType, bool is3D, bool cube, uint8_t numCastableFormats,
+	const Format* pCastableFormats, bool reserved)
+{
+	const auto device = m_pDevice->GetDevice();
+	if (m_ownsImage && m_image != VK_NULL_HANDLE)
+	{
+		vkDestroyImage(device, m_image, nullptr);
+		m_image = VK_NULL_HANDLE;
+		m_ownsImage = false;
+	}
+	releaseSparseMetadata();
+
+	m_is3D = is3D;
+	m_isImage = true;
+	m_sparse = false;
+	m_hasSparseInfo = false;
+	m_tilingReady = false;
+	m_resourceFormat = format;
+	m_width = width;
+	m_height = height;
+	m_depthOrArray = is3D ? depth : arraySize;
+	m_mipLevels = numMips ? numMips : 1;
+	m_sampleCount = sampleCount ? sampleCount : 1;
+	m_vkFormat = GetVKFormat(m_pDevice, format);
+	// Mirror vkd3d vk_common_image_layout_from_d3d12_desc for non-presentable images.
+	if ((resourceFlags & ResourceFlag::ALLOW_SIMULTANEOUS_ACCESS) != ResourceFlag::NONE)
+		m_commonLayout = VK_IMAGE_LAYOUT_GENERAL;
+	else if ((resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) != ResourceFlag::NONE)
+		m_commonLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	else if ((resourceFlags & ResourceFlag::ALLOW_DEPTH_STENCIL) != ResourceFlag::NONE)
+		m_commonLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+	else m_commonLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	if (reserved)
+	{
+		const auto sparseImage = m_pDevice && m_pDevice->SupportsSparseImage(is3D, m_sampleCount);
+		assert(sparseImage);
+		if (!sparseImage) return false;
+	}
+	m_undefined.assign(subresourceCount(), 1);
+	m_discarded.clear();
+	m_pendingLayout = static_cast<uint32_t>(m_undefined.size());
+
+	vector<VkFormat> viewFormats;
+	VkImageFormatListCreateInfo formatList = {};
+	formatList.sType = VK_STRUCTURE_TYPE_IMAGE_FORMAT_LIST_CREATE_INFO;
+	if (numCastableFormats && pCastableFormats)
+	{
+		viewFormats.push_back(m_vkFormat);
+		for (auto i = 0u; i < numCastableFormats; ++i)
+		{
+			const auto viewFormat = GetVKFormat(m_pDevice, pCastableFormats[i]);
+			if (viewFormat != VK_FORMAT_UNDEFINED && viewFormat != m_vkFormat) viewFormats.push_back(viewFormat);
+		}
+		if (viewFormats.size() > 1)
+		{
+			formatList.viewFormatCount = static_cast<uint32_t>(viewFormats.size());
+			formatList.pViewFormats = viewFormats.data();
+		}
+	}
+
+	uint32_t sharingCount = 0;
+	const uint32_t* pSharingFamilies = nullptr;
+	if (m_pDevice) m_pDevice->GetSharingFamilies(sharingCount, pSharingFamilies);
+
+	VkImageCreateInfo info = {};
+	info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	info.pNext = formatList.viewFormatCount ? &formatList : nullptr;
+	info.sharingMode = sharingCount > 1 ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
+	info.queueFamilyIndexCount = sharingCount;
+	info.pQueueFamilyIndices = pSharingFamilies;
+	info.flags = cube ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
+	if (formatList.viewFormatCount) info.flags |= VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
+	if (m_pDevice && m_pDevice->HasSampleLocations() && IsDepthStencilFormat(format))
+		info.flags |= VK_IMAGE_CREATE_SAMPLE_LOCATIONS_COMPATIBLE_DEPTH_BIT_EXT;
+	if (reserved)
+	{
+		info.flags |= VK_IMAGE_CREATE_SPARSE_BINDING_BIT | VK_IMAGE_CREATE_SPARSE_RESIDENCY_BIT;
+		if (m_pDevice->SupportsSparseAliased()) info.flags |= VK_IMAGE_CREATE_SPARSE_ALIASED_BIT;
+	}
+	info.imageType = is3D ? VK_IMAGE_TYPE_3D : VK_IMAGE_TYPE_2D;
+	info.format = m_vkFormat;
+	info.extent = { width, (max)(height, 1u), is3D ? depth : 1u };
+	info.mipLevels = m_mipLevels;
+	info.arrayLayers = is3D ? 1u : arraySize;
+	info.samples = static_cast<VkSampleCountFlagBits>(m_sampleCount);
+	info.tiling = VK_IMAGE_TILING_OPTIMAL;
+	info.usage = GetVKImageUsage(resourceFlags);
+	info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	XUSG_VK_CHECK(vkCreateImage(device, &info, nullptr, &m_image), cerr, false);
+	m_ownsImage = true;
+	m_sparse = reserved;
+
+	if (reserved) return finishSparseImage();
+
+	if (pHeap)
+	{
+		const auto pVkHeap = AsVK(pHeap);
+		assert(pVkHeap);
+		VkMemoryRequirements requirements = {};
+		vkGetImageMemoryRequirements(device, m_image, &requirements);
+		assert((requirements.memoryTypeBits & (1u << pVkHeap->GetMemoryType())) &&
+			"Placed image memory type is incompatible with the heap");
+		if ((requirements.memoryTypeBits & (1u << pVkHeap->GetMemoryType())) == 0) return false;
+		XUSG_VK_CHECK(vkBindImageMemory(device, m_image, pVkHeap->GetMemory(), heapOffset), cerr, false);
+	}
+	else
+	{
+		VkMemoryRequirements requirements = {};
+		vkGetImageMemoryRequirements(device, m_image, &requirements);
+		m_byteSize = requirements.size;
+		XUSG_N_RETURN(allocateMemory(requirements, memoryType, false), false);
+	}
+
+	return true;
 }
 
 bool Resource_VK::finishSparseImage()
 {
 	uint32_t count = 0;
-	vkGetImageSparseMemoryRequirements(m_device, m_image, &count, nullptr);
+	const auto device = m_pDevice->GetDevice();
+	vkGetImageSparseMemoryRequirements(device, m_image, &count, nullptr);
 	assert(count);
 	if (!count) return false;
 
 	vector<VkSparseImageMemoryRequirements> requirements(count);
-	vkGetImageSparseMemoryRequirements(m_device, m_image, &count, requirements.data());
+	vkGetImageSparseMemoryRequirements(device, m_image, &count, requirements.data());
 
 	VkMemoryRequirements memory = {};
-	vkGetImageMemoryRequirements(m_device, m_image, &memory);
+	vkGetImageMemoryRequirements(device, m_image, &memory);
 	m_sparseTypeBits = memory.memoryTypeBits;
 
 	vector<VkSparseMemoryBind> metadataBinds;
@@ -721,12 +1270,13 @@ bool Resource_VK::finishSparseImage()
 		alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 		alloc.allocationSize = metadataSize;
 		alloc.memoryTypeIndex = typeIndex;
-		XUSG_VK_CHECK(vkAllocateMemory(m_device, &alloc, nullptr, &m_metadata), cerr, false);
+		XUSG_VK_CHECK(vkAllocateMemory(device, &alloc, nullptr, &m_metadata), cerr, false);
 		for (auto& bind : metadataBinds) bind.memory = m_metadata;
 
 		VkQueue queue = VK_NULL_HANDLE;
-		assert(m_pDevice->GetSparseQueue(queue));
-		if (!m_pDevice->GetSparseQueue(queue)) return false;
+		const auto sparseQueue = m_pDevice->GetSparseQueue(queue);
+		assert(sparseQueue);
+		if (!sparseQueue) return false;
 
 		VkSparseImageOpaqueMemoryBindInfo opaque = {};
 		opaque.image = m_image;
@@ -740,6 +1290,13 @@ bool Resource_VK::finishSparseImage()
 	}
 
 	return true;
+}
+
+void Resource_VK::releaseSparseMetadata()
+{
+	const auto device = m_pDevice->GetDevice();
+	if (m_metadata != VK_NULL_HANDLE && device != VK_NULL_HANDLE) vkFreeMemory(device, m_metadata, nullptr);
+	m_metadata = VK_NULL_HANDLE;
 }
 
 void Resource_VK::ensureTiling() const
@@ -1124,146 +1681,19 @@ void Resource_VK::bindTiles(VkQueue queue, const vector<SparseTileBind>& binds)
 	}
 }
 
-void Resource_VK::Create(void* pDeviceHandle, void* pResourceHandle, const wchar_t* name, uint32_t maxThreads)
+shared_ptr<ResourceView_VK> Resource_VK::storeView(ResourceViewType type, VkDescriptorType vkType, bool image, bool texel)
 {
-	m_device = static_cast<VkDevice>(pDeviceHandle);
-	m_image = static_cast<VkImage>(pResourceHandle);
-	m_isImage = true;
-	m_ownsImage = false;
-	m_undefined.assign(1, 1);
-	m_discarded.clear();
-	m_pendingLayout = 1;
-	setState(ResourceState::COMMON, 1, maxThreads);
-	SetName(name);
-}
+	auto view = make_shared<ResourceView_VK>();
+	*view = {};
+	view->Type = type;
+	view->pResource = this;
+	view->VkType = vkType;
+	view->IsImage = image;
+	view->IsTexelBuffer = texel;
+	view->ViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	m_resourceViews.push_back(view);
 
-void Resource_VK::SetName(const wchar_t* name)
-{
-	if (!name) return;
-
-	m_name = name;
-	if (m_pDevice)
-	{
-		const auto handle = m_isImage ? reinterpret_cast<uint64_t>(m_image) : reinterpret_cast<uint64_t>(m_buffer);
-		m_pDevice->SetDebugName(m_isImage ? VK_OBJECT_TYPE_IMAGE : VK_OBJECT_TYPE_BUFFER, handle, name);
-	}
-}
-
-void* Resource_VK::GetHandle()
-{
-	return this;
-}
-
-bool Resource_VK::Is3D() const
-{
-	return m_is3D;
-}
-
-bool Resource_VK::IsImage() const
-{
-	return m_isImage;
-}
-
-VkImage Resource_VK::GetImage() const
-{
-	return m_image;
-}
-
-VkBuffer Resource_VK::GetBuffer() const
-{
-	return m_buffer;
-}
-
-VkFormat Resource_VK::GetVkFormat() const
-{
-	return m_vkFormat;
-}
-
-uint32_t Resource_VK::GetHeight() const
-{
-	return m_height;
-}
-
-uint32_t Resource_VK::GetDepthOrArray() const
-{
-	return m_depthOrArray;
-}
-
-uint32_t Resource_VK::GetMipLevels() const
-{
-	return m_mipLevels;
-}
-
-uint32_t Resource_VK::GetSampleCount() const
-{
-	return m_sampleCount;
-}
-
-void Resource_VK::WrapImage(VkDevice device, VkImage image, VkFormat format, uint32_t width, uint32_t height)
-{
-	m_device = device;
-	m_image = image;
-	m_isImage = true;
-	m_ownsImage = false;
-	m_undefined.assign(1, 1);
-	m_discarded.clear();
-	m_pendingLayout = 1;
-	m_vkFormat = format;
-	m_width = width;
-	m_height = height;
-	m_depthOrArray = 1;
-	m_mipLevels = 1;
-	m_presentable = true;
-	setState(ResourceState::COMMON, 1, 1);
-}
-
-VkImageLayout Resource_VK::ImageLayout(ResourceState state) const
-{
-	// PRESENT aliases COMMON. Swapchain images must use the present layout;
-	// every other image keeps GENERAL for that state.
-	if (m_presentable && state == ResourceState::COMMON)
-		return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-	const auto layout = GetVKImageLayout(state);
-	if (layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-	{
-		switch (m_vkFormat)
-		{
-		case VK_FORMAT_D16_UNORM:
-		case VK_FORMAT_D16_UNORM_S8_UINT:
-		case VK_FORMAT_D24_UNORM_S8_UINT:
-		case VK_FORMAT_D32_SFLOAT:
-		case VK_FORMAT_D32_SFLOAT_S8_UINT:
-			return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-		default:
-			break;
-		}
-	}
-
-	return layout;
-}
-
-uint64_t Resource_VK::GetByteSize() const
-{
-	return m_byteSize;
-}
-
-bool Resource_VK::IsUndefinedLayout(uint32_t subresource) const
-{
-	return subresource < m_undefined.size() && m_undefined[subresource];
-}
-
-bool Resource_VK::needsUndefinedLayout(uint32_t subresource) const
-{
-	return isDiscarded(subresource) || IsUndefinedLayout(subresource);
-}
-
-void Resource_VK::consumeLayoutMark(uint32_t subresource)
-{
-	const auto pending = needsUndefinedLayout(subresource);
-	consumeDiscarded(subresource);
-	if (subresource < m_undefined.size()) m_undefined[subresource] = 0;
-	if (pending && m_pendingLayout) --m_pendingLayout;
+	return view;
 }
 
 uint32_t Resource_VK::subresourceCount() const
@@ -1295,6 +1725,19 @@ void Resource_VK::consumeDiscarded(uint32_t subresource)
 	}
 }
 
+bool Resource_VK::needsUndefinedLayout(uint32_t subresource) const
+{
+	return isDiscarded(subresource) || IsUndefinedLayout(subresource);
+}
+
+void Resource_VK::consumeLayoutMark(uint32_t subresource)
+{
+	const auto pending = needsUndefinedLayout(subresource);
+	consumeDiscarded(subresource);
+	if (subresource < m_undefined.size()) m_undefined[subresource] = 0;
+	if (pending && m_pendingLayout) --m_pendingLayout;
+}
+
 void Resource_VK::discardRange(const VkImageSubresourceRange& range, uint32_t& baseMip, uint32_t& mipCount,
 	uint32_t& baseLayer, uint32_t& layerCount) const
 {
@@ -1307,406 +1750,6 @@ void Resource_VK::discardRange(const VkImageSubresourceRange& range, uint32_t& b
 	layerCount = m_is3D || range.layerCount == VK_REMAINING_ARRAY_LAYERS ?
 		(baseLayer < layers ? layers - baseLayer : 0) : (min)(range.layerCount, baseLayer < layers ? layers - baseLayer : 0);
 	if (m_is3D) layerCount = mipCount ? 1 : 0;
-}
-
-void Resource_VK::Discard(uint32_t firstSubresource, uint32_t numSubresources)
-{
-	const auto count = subresourceCount();
-	if (!count) return;
-	if (!numSubresources)
-	{
-		firstSubresource = 0;
-		numSubresources = count;
-	}
-	if (firstSubresource >= count) return;
-	numSubresources = (min)(numSubresources, count - firstSubresource);
-	if (m_discarded.size() < count) m_discarded.resize(count);
-	for (auto i = 0u; i < numSubresources; ++i)
-	{
-		const auto index = firstSubresource + i;
-		const auto pending = needsUndefinedLayout(index);
-		if (!m_discarded[index])
-		{
-			m_discarded[index] = 1;
-			++m_discardCount;
-		}
-		if (!pending) ++m_pendingLayout;
-	}
-}
-
-bool Resource_VK::HasPendingDiscard() const
-{
-	return m_discardCount != 0;
-}
-
-VkAttachmentLoadOp Resource_VK::ConsumeDiscardLoadOp(uint32_t subresource)
-{
-	if (!isDiscarded(subresource)) return VK_ATTACHMENT_LOAD_OP_LOAD;
-
-	consumeDiscarded(subresource);
-
-	return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-}
-
-VkAttachmentLoadOp Resource_VK::ConsumeDiscardLoadOp(uint32_t baseMip, uint32_t mipCount, uint32_t baseLayer, uint32_t layerCount)
-{
-	if (!m_discardCount) return VK_ATTACHMENT_LOAD_OP_LOAD;
-	if (!mipCount) mipCount = 1;
-	if (!layerCount) layerCount = 1;
-	if (m_is3D)
-	{
-		baseLayer = 0;
-		layerCount = 1;
-	}
-
-	auto any = false;
-	auto all = true;
-	const auto mips = m_mipLevels ? m_mipLevels : 1u;
-	for (auto layer = baseLayer; layer < baseLayer + layerCount; ++layer)
-	{
-		for (auto mip = baseMip; mip < baseMip + mipCount && mip < mips; ++mip)
-		{
-			if (isDiscarded(subresourceIndex(mip, layer))) any = true;
-			else all = false;
-		}
-	}
-	if (!any) return VK_ATTACHMENT_LOAD_OP_LOAD;
-
-	for (auto layer = baseLayer; layer < baseLayer + layerCount; ++layer)
-		for (auto mip = baseMip; mip < baseMip + mipCount && mip < mips; ++mip)
-			if (isDiscarded(subresourceIndex(mip, layer))) consumeDiscarded(subresourceIndex(mip, layer));
-
-	return all ? VK_ATTACHMENT_LOAD_OP_DONT_CARE : VK_ATTACHMENT_LOAD_OP_LOAD;
-}
-
-void Resource_VK::AppendImageBarrier(VkImageMemoryBarrier2 image, vector<VkImageMemoryBarrier2>& barriers)
-{
-	if (!m_pendingLayout && image.oldLayout != VK_IMAGE_LAYOUT_UNDEFINED)
-	{
-		barriers.push_back(image);
-		return;
-	}
-
-	uint32_t baseMip = 0, mipCount = 0, baseLayer = 0, layerCount = 0;
-	discardRange(image.subresourceRange, baseMip, mipCount, baseLayer, layerCount);
-	auto any = false;
-	for (auto layer = baseLayer; layer < baseLayer + layerCount && !any; ++layer)
-		for (auto mip = baseMip; mip < baseMip + mipCount; ++mip)
-			if (needsUndefinedLayout(subresourceIndex(mip, layer))) any = true;
-
-	if (!any || image.oldLayout == VK_IMAGE_LAYOUT_UNDEFINED)
-	{
-		if (image.oldLayout == VK_IMAGE_LAYOUT_UNDEFINED || any)
-		{
-			for (auto layer = baseLayer; layer < baseLayer + layerCount; ++layer)
-				for (auto mip = baseMip; mip < baseMip + mipCount; ++mip)
-					consumeLayoutMark(subresourceIndex(mip, layer));
-			if (any)
-			{
-				image.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-				image.srcAccessMask = VK_ACCESS_2_NONE;
-			}
-		}
-		barriers.push_back(image);
-
-		return;
-	}
-
-	for (auto layer = baseLayer; layer < baseLayer + layerCount; ++layer)
-	{
-		auto mip = baseMip;
-		while (mip < baseMip + mipCount)
-		{
-			const auto undefined = needsUndefinedLayout(subresourceIndex(mip, layer));
-			auto end = mip + 1;
-			while (end < baseMip + mipCount && needsUndefinedLayout(subresourceIndex(end, layer)) == undefined) ++end;
-
-			auto piece = image;
-			piece.subresourceRange.baseMipLevel = mip;
-			piece.subresourceRange.levelCount = end - mip;
-			piece.subresourceRange.baseArrayLayer = layer;
-			piece.subresourceRange.layerCount = 1;
-			if (undefined)
-			{
-				piece.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-				piece.srcAccessMask = VK_ACCESS_2_NONE;
-				for (auto i = mip; i < end; ++i) consumeLayoutMark(subresourceIndex(i, layer));
-			}
-			barriers.push_back(piece);
-			mip = end;
-		}
-	}
-}
-
-bool Resource_VK::CreateUploadBuffer(Device* pDevice, size_t byteSize)
-{
-	if (!m_device) XUSG_N_RETURN(initialize(pDevice ? pDevice : m_pDevice, 1), false);
-	if (m_buffer && m_byteSize >= byteSize && m_pDataBegin) return true;
-
-	return createBuffer(nullptr, 0, byteSize, ResourceFlag::NONE, MemoryType::UPLOAD);
-}
-
-void* Resource_VK::GetMappedData() const
-{
-	return m_pDataBegin;
-}
-
-bool Resource_VK::initialize(Device* pDevice, uint32_t maxThreads)
-{
-	(void)maxThreads;
-	if (!pDevice) return m_device != VK_NULL_HANDLE;
-
-	m_pDevice = pDevice ? static_cast<Device_VK*>(pDevice->GetHandle()) : nullptr;
-	assert(m_pDevice);
-	m_device = m_pDevice->GetDevice();
-	m_states.clear();
-	m_pDataBegin = nullptr;
-
-	return true;
-}
-
-bool Resource_VK::allocateMemory(VkMemoryRequirements requirements, MemoryType memoryType, bool hostVisible)
-{
-	VkMemoryPropertyFlags properties = hostVisible ?
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT :
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-	if (memoryType == MemoryType::UPLOAD || memoryType == MemoryType::READBACK) hostVisible = true;
-	if (memoryType == MemoryType::READBACK)
-		properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
-	else if (hostVisible)
-		properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-
-	VkMemoryAllocateFlagsInfo flags = {};
-	flags.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
-	flags.flags = m_buffer ? VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT : 0;
-
-	VkMemoryAllocateInfo info = {};
-	info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	info.pNext = m_buffer ? &flags : nullptr;
-	info.allocationSize = requirements.size;
-	info.memoryTypeIndex = m_pDevice->FindMemoryType(requirements.memoryTypeBits, properties);
-	XUSG_VK_CHECK(vkAllocateMemory(m_device, &info, nullptr, &m_memory), cerr, false);
-	m_ownsMemory = true;
-	m_byteSize = requirements.size;
-	if (m_image) XUSG_VK_CHECK(vkBindImageMemory(m_device, m_image, m_memory, 0), cerr, false);
-	if (m_buffer) XUSG_VK_CHECK(vkBindBufferMemory(m_device, m_buffer, m_memory, 0), cerr, false);
-
-	if (m_buffer)
-	{
-		VkBufferDeviceAddressInfo address = {};
-		address.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
-		address.buffer = m_buffer;
-		m_address = vkGetBufferDeviceAddress(m_device, &address);
-	}
-
-	if (hostVisible) XUSG_VK_CHECK(vkMapMemory(m_device, m_memory, 0, m_byteSize, 0, &m_pDataBegin), cerr, false);
-
-	return true;
-}
-
-void Resource_VK::setState(ResourceState state, uint32_t subresources, uint32_t maxThreads)
-{
-	m_states.resize(maxThreads ? maxThreads : 1);
-	for (auto& states : m_states) states.assign(subresources ? subresources : 1, state);
-}
-
-bool Resource_VK::createBuffer(Heap* pHeap, uint64_t heapOffset, size_t byteWidth,
-	ResourceFlag resourceFlags, MemoryType memoryType, bool reserved)
-{
-	if (m_ownsBuffer && m_buffer) vkDestroyBuffer(m_device, m_buffer, nullptr);
-
-	m_sparse = false;
-	m_hasSparseInfo = false;
-	m_tilingReady = false;
-	m_resourceFormat = Format::UNKNOWN;
-	if (reserved)
-	{
-		assert(m_pDevice && m_pDevice->SupportsSparseBuffer());
-		if (!m_pDevice || !m_pDevice->SupportsSparseBuffer()) return false;
-	}
-
-	uint32_t sharingCount = 0;
-	const uint32_t* pSharingFamilies = nullptr;
-	if (m_pDevice) m_pDevice->GetSharingFamilies(sharingCount, pSharingFamilies);
-
-	const auto size = reserved ? XUSG_DIV_UP(static_cast<uint64_t>(byteWidth), TileBytes) * TileBytes : byteWidth;
-	VkBufferCreateInfo info = {};
-	info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	info.size = size;
-	info.usage = GetVKBufferUsage(resourceFlags);
-	info.sharingMode = sharingCount > 1 ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
-	info.queueFamilyIndexCount = sharingCount;
-	info.pQueueFamilyIndices = pSharingFamilies;
-	if (reserved)
-	{
-		info.flags |= VK_BUFFER_CREATE_SPARSE_BINDING_BIT | VK_BUFFER_CREATE_SPARSE_RESIDENCY_BIT;
-		if (m_pDevice->SupportsSparseAliased()) info.flags |= VK_BUFFER_CREATE_SPARSE_ALIASED_BIT;
-	}
-	if (m_pDevice && m_pDevice->HasConditionalRendering())
-		info.usage |= VK_BUFFER_USAGE_CONDITIONAL_RENDERING_BIT_EXT;
-	if (m_pDevice && m_pDevice->HasTransformFeedback())
-		info.usage |= VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT |
-		VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT;
-	XUSG_VK_CHECK(vkCreateBuffer(m_device, &info, nullptr, &m_buffer), cerr, false);
-	m_ownsBuffer = true;
-	m_isImage = false;
-	m_sparse = reserved;
-	m_width = size;
-	m_byteSize = size;
-
-	if (pHeap)
-	{
-		const auto heap = static_cast<const Heap_VK*>(pHeap->GetHandle());
-		VkMemoryRequirements requirements = {};
-		vkGetBufferMemoryRequirements(m_device, m_buffer, &requirements);
-		assert((requirements.memoryTypeBits & (1u << heap->GetMemoryType())) &&
-			"Placed buffer memory type is incompatible with the heap");
-		if ((requirements.memoryTypeBits & (1u << heap->GetMemoryType())) == 0) return false;
-		XUSG_VK_CHECK(vkBindBufferMemory(m_device, m_buffer, heap->GetMemory(), heapOffset), cerr, false);
-		VkBufferDeviceAddressInfo address = {};
-		address.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
-		address.buffer = m_buffer;
-		m_address = vkGetBufferDeviceAddress(m_device, &address);
-	}
-	else if (reserved)
-	{
-		VkMemoryRequirements requirements = {};
-		vkGetBufferMemoryRequirements(m_device, m_buffer, &requirements);
-		m_sparseTypeBits = requirements.memoryTypeBits;
-		m_address = 0;
-		assert(requirements.alignment == 0 || TileBytes % requirements.alignment == 0);
-	}
-	else
-	{
-		VkMemoryRequirements requirements = {};
-		vkGetBufferMemoryRequirements(m_device, m_buffer, &requirements);
-		const auto host = memoryType == MemoryType::UPLOAD || memoryType == MemoryType::READBACK || memoryType == MemoryType::GPU_UPLOAD;
-		XUSG_N_RETURN(allocateMemory(requirements, memoryType, host), false);
-	}
-
-	return true;
-}
-
-bool Resource_VK::createImage(Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
-	uint32_t depth, Format format, uint16_t arraySize, ResourceFlag resourceFlags, uint8_t numMips,
-	uint8_t sampleCount, MemoryType memoryType, bool is3D, bool cube, uint8_t numCastableFormats,
-	const Format* pCastableFormats, bool reserved)
-{
-	if (m_ownsImage && m_image)
-	{
-		vkDestroyImage(m_device, m_image, nullptr);
-		m_image = VK_NULL_HANDLE;
-		m_ownsImage = false;
-	}
-	releaseSparseMetadata();
-
-	m_is3D = is3D;
-	m_isImage = true;
-	m_sparse = false;
-	m_hasSparseInfo = false;
-	m_tilingReady = false;
-	m_resourceFormat = format;
-	m_width = width;
-	m_height = height;
-	m_depthOrArray = is3D ? depth : arraySize;
-	m_mipLevels = numMips ? numMips : 1;
-	m_sampleCount = sampleCount ? sampleCount : 1;
-	m_vkFormat = GetVKFormat(m_pDevice, format);
-	if (reserved)
-	{
-		assert(m_pDevice && m_pDevice->SupportsSparseImage(is3D, m_sampleCount));
-		if (!m_pDevice || !m_pDevice->SupportsSparseImage(is3D, m_sampleCount)) return false;
-	}
-	m_undefined.assign(subresourceCount(), 1);
-	m_discarded.clear();
-	m_pendingLayout = static_cast<uint32_t>(m_undefined.size());
-
-	vector<VkFormat> viewFormats;
-	VkImageFormatListCreateInfo formatList = {};
-	formatList.sType = VK_STRUCTURE_TYPE_IMAGE_FORMAT_LIST_CREATE_INFO;
-	if (numCastableFormats && pCastableFormats)
-	{
-		viewFormats.push_back(m_vkFormat);
-		for (auto i = 0u; i < numCastableFormats; ++i)
-		{
-			const auto viewFormat = GetVKFormat(m_pDevice, pCastableFormats[i]);
-			if (viewFormat != VK_FORMAT_UNDEFINED && viewFormat != m_vkFormat) viewFormats.push_back(viewFormat);
-		}
-		if (viewFormats.size() > 1)
-		{
-			formatList.viewFormatCount = static_cast<uint32_t>(viewFormats.size());
-			formatList.pViewFormats = viewFormats.data();
-		}
-	}
-
-	uint32_t sharingCount = 0;
-	const uint32_t* pSharingFamilies = nullptr;
-	if (m_pDevice) m_pDevice->GetSharingFamilies(sharingCount, pSharingFamilies);
-
-	VkImageCreateInfo info = {};
-	info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-	info.pNext = formatList.viewFormatCount ? &formatList : nullptr;
-	info.sharingMode = sharingCount > 1 ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
-	info.queueFamilyIndexCount = sharingCount;
-	info.pQueueFamilyIndices = pSharingFamilies;
-	info.flags = cube ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
-	if (formatList.viewFormatCount) info.flags |= VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
-	if (m_pDevice && m_pDevice->HasSampleLocations() && IsDepthStencilFormat(format))
-		info.flags |= VK_IMAGE_CREATE_SAMPLE_LOCATIONS_COMPATIBLE_DEPTH_BIT_EXT;
-	if (reserved)
-	{
-		info.flags |= VK_IMAGE_CREATE_SPARSE_BINDING_BIT | VK_IMAGE_CREATE_SPARSE_RESIDENCY_BIT;
-		if (m_pDevice->SupportsSparseAliased()) info.flags |= VK_IMAGE_CREATE_SPARSE_ALIASED_BIT;
-	}
-	info.imageType = is3D ? VK_IMAGE_TYPE_3D : VK_IMAGE_TYPE_2D;
-	info.format = m_vkFormat;
-	info.extent = { width, (max)(height, 1u), is3D ? depth : 1u };
-	info.mipLevels = m_mipLevels;
-	info.arrayLayers = is3D ? 1u : arraySize;
-	info.samples = static_cast<VkSampleCountFlagBits>(m_sampleCount);
-	info.tiling = VK_IMAGE_TILING_OPTIMAL;
-	info.usage = GetVKImageUsage(resourceFlags);
-	info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	XUSG_VK_CHECK(vkCreateImage(m_device, &info, nullptr, &m_image), cerr, false);
-	m_ownsImage = true;
-	m_sparse = reserved;
-
-	if (reserved) return finishSparseImage();
-
-	if (pHeap)
-	{
-		const auto heap = static_cast<const Heap_VK*>(pHeap->GetHandle());
-		VkMemoryRequirements requirements = {};
-		vkGetImageMemoryRequirements(m_device, m_image, &requirements);
-		assert((requirements.memoryTypeBits & (1u << heap->GetMemoryType())) &&
-			"Placed image memory type is incompatible with the heap");
-		if ((requirements.memoryTypeBits & (1u << heap->GetMemoryType())) == 0) return false;
-		XUSG_VK_CHECK(vkBindImageMemory(m_device, m_image, heap->GetMemory(), heapOffset), cerr, false);
-	}
-	else
-	{
-		VkMemoryRequirements requirements = {};
-		vkGetImageMemoryRequirements(m_device, m_image, &requirements);
-		m_byteSize = requirements.size;
-		XUSG_N_RETURN(allocateMemory(requirements, memoryType, false), false);
-	}
-
-	return true;
-}
-
-shared_ptr<ResourceView_VK> Resource_VK::storeView(ResourceViewType type, VkDescriptorType vkType, bool image, bool texel)
-{
-	auto view = make_shared<ResourceView_VK>();
-	*view = {};
-	view->Type = type;
-	view->pResource = this;
-	view->VkType = vkType;
-	view->IsImage = image;
-	view->IsTexelBuffer = texel;
-	view->ViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	m_resourceViews.push_back(view);
-
-	return view;
 }
 
 //--------------------------------------------------------------------------------------
@@ -1819,9 +1862,10 @@ bool ConstantBuffer_VK::Upload(CommandList* pCommandList, Resource* pUploader, c
 	size_t size, size_t byteOffset, ResourceState srcState, ResourceState dstState)
 {
 	assert(pUploader);
-	const auto uploader = static_cast<Resource_VK*>(pUploader->GetHandle());
-	XUSG_N_RETURN(uploader->CreateUploadBuffer(m_pDevice, size), false);
-	auto dst = static_cast<uint8_t*>(uploader->GetMappedData());
+	const auto pVkUploader = AsVK(pUploader);
+	assert(pVkUploader);
+	XUSG_N_RETURN(pVkUploader->CreateUploadBuffer(m_pDevice, size), false);
+	auto dst = static_cast<uint8_t*>(pVkUploader->GetMappedData());
 	memcpy(dst, pData, size);
 
 	ResourceBarrier barrier = { this, srcState == ResourceState::AUTO ? GetResourceState() : srcState, ResourceState::COPY_DEST };
@@ -1830,7 +1874,7 @@ bool ConstantBuffer_VK::Upload(CommandList* pCommandList, Resource* pUploader, c
 		Transition(ResourceState::COPY_DEST);
 		pCommandList->Barrier(1, &barrier);
 	}
-	pCommandList->CopyBufferRegion(this, byteOffset, uploader, 0, size);
+	pCommandList->CopyBufferRegion(this, byteOffset, pVkUploader, 0, size);
 	barrier = { this, ResourceState::COPY_DEST, dstState };
 	Transition(dstState);
 	pCommandList->Barrier(1, &barrier);
@@ -1864,7 +1908,7 @@ void* ConstantBuffer_VK::Map(uint32_t cbvIndex, uintptr_t readBegin, uintptr_t r
 void* ConstantBuffer_VK::Map(const Range* pReadRange, uint32_t cbvIndex)
 {
 	(void)pReadRange;
-	if (!m_pDataBegin && m_memory) vkMapMemory(m_device, m_memory, 0, m_byteSize, 0, &m_pDataBegin);
+	if (!m_pDataBegin && m_memory != VK_NULL_HANDLE) vkMapMemory(m_pDevice->GetDevice(), m_memory, 0, m_byteSize, 0, &m_pDataBegin);
 
 	return static_cast<uint8_t*>(m_pDataBegin) + (cbvIndex < m_cbvByteOffsets.size() ? m_cbvByteOffsets[cbvIndex] : 0);
 }
@@ -2049,11 +2093,12 @@ bool Texture_VK::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffse
 bool Texture_VK::Upload(CommandList* pCommandList, Resource* pUploader, const SubresourceData* pSubresourceData,
 	uint32_t numSubresources, ResourceState dstState, uint32_t firstSubresource, uint32_t threadIdx)
 {
+	assert(pCommandList);
 	XUSG_N_RETURN(pSubresourceData, false);
-	assert(pUploader);
-	const auto uploader = static_cast<Resource_VK*>(pUploader->GetHandle());
+	const auto pVkUploader = AsVK(pUploader);
+	assert(pVkUploader);
 	const auto uploadSize = GetRequiredIntermediateSize(firstSubresource, numSubresources);
-	XUSG_N_RETURN(uploader->CreateUploadBuffer(m_pDevice, uploadSize), false);
+	XUSG_N_RETURN(pVkUploader->CreateUploadBuffer(m_pDevice, uploadSize), false);
 
 	vector<ResourceBarrier> barriers(numSubresources);
 	auto numBarriers = 0u;
@@ -2062,11 +2107,10 @@ bool Texture_VK::Upload(CommandList* pCommandList, Resource* pUploader, const Su
 			BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
 	if (numBarriers) pCommandList->Barrier(numBarriers, barriers.data());
 
-	auto dst = static_cast<uint8_t*>(uploader->GetMappedData());
+	auto dst = static_cast<uint8_t*>(pVkUploader->GetMappedData());
 	auto offset = 0ull;
-	assert(pCommandList);
-	const auto commandList = static_cast<CommandList_VK*>(pCommandList->GetHandle());
-	assert(commandList);
+	const auto pVkCommandList = AsVK(pCommandList);
+	assert(pVkCommandList);
 	for (auto i = 0u; i < numSubresources; ++i)
 	{
 		const auto subresource = firstSubresource + i;
@@ -2091,7 +2135,7 @@ bool Texture_VK::Upload(CommandList* pCommandList, Resource* pUploader, const Su
 		const auto texelBytes = CopyTexelBytes(m_format);
 		const auto bufferRowLength = texelBytes ? pitch / texelBytes * block : width;
 		const auto bufferImageHeight = XUSG_DIV_UP(height, block) * block;
-		commandList->CopyBufferToImage(this, subresource, uploader, offset, bufferRowLength, bufferImageHeight);
+		pVkCommandList->CopyBufferToImage(this, subresource, pVkUploader, offset, bufferRowLength, bufferImageHeight);
 		offset += static_cast<uint64_t>(pitch) * rows * depth;
 	}
 
@@ -2161,7 +2205,7 @@ bool Texture_VK::ReadBack(CommandList* pCommandList, Buffer* pReadBuffer, uint32
 		cursor += static_cast<uint64_t>(pitch) * XUSG_DIV_UP(height, block) * depth;
 	}
 
-	if (!static_cast<Resource_VK*>(pReadBuffer->GetHandle())->GetBuffer())
+	if ((VkBuffer)pReadBuffer->GetNativeHandle() == VK_NULL_HANDLE)
 		XUSG_N_RETURN(pReadBuffer->Create(pCommandList->GetDevice(), static_cast<size_t>(cursor),
 			ResourceFlag::DENY_SHADER_RESOURCE, MemoryType::READBACK, 0, nullptr, 0, nullptr, MemoryFlag::NONE,
 			(m_name + L".ReadResource").c_str()), false);
@@ -2182,12 +2226,12 @@ bool Texture_VK::ReadBack(CommandList* pCommandList, Buffer* pReadBuffer, uint32
 	if (!barriers.empty()) pCommandList->Barrier(static_cast<uint32_t>(barriers.size()), barriers.data());
 
 	assert(pCommandList);
-	const auto commandList = static_cast<CommandList_VK*>(pCommandList->GetHandle());
-	assert(commandList);
+	const auto pVkCommandList = AsVK(pCommandList);
+	assert(pVkCommandList);
 	const auto aspect = IsDepthStencilFormat(m_format) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 	for (auto i = 0u; i < numSubresources; ++i)
 	{
-		commandList->CopyImageToBuffer(this, footprints[i].Mip, footprints[i].Layer, pReadBuffer, footprints[i].Offset,
+		pVkCommandList->CopyImageToBuffer(this, footprints[i].Mip, footprints[i].Layer, pReadBuffer, footprints[i].Offset,
 			footprints[i].RowLength, footprints[i].ImageHeight, aspect);
 		if (pRowPitches) pRowPitches[i] = footprints[i].RowPitch;
 	}
@@ -2409,7 +2453,7 @@ void* Texture_VK::Map(const Range* pReadRange, uint32_t subresource)
 {
 	(void)pReadRange;
 	(void)subresource;
-	if (!m_pDataBegin && m_memory) vkMapMemory(m_device, m_memory, 0, m_byteSize, 0, &m_pDataBegin);
+	if (!m_pDataBegin && m_memory != VK_NULL_HANDLE) vkMapMemory(m_pDevice->GetDevice(), m_memory, 0, m_byteSize, 0, &m_pDataBegin);
 
 	return m_pDataBegin;
 }
@@ -2420,12 +2464,13 @@ void Texture_VK::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, Devi
 {
 	(void)textureLayout;
 	assert(pDevice);
-	const auto device = static_cast<const Device_VK*>(pDevice->GetHandle());
-	assert(device);
+	const auto pVkDevice = AsVK(pDevice);
+	assert(pVkDevice);
+	const auto device = pVkDevice->GetDevice();
 	VkImageCreateInfo info = {};
 	info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	info.imageType = height > 1 ? VK_IMAGE_TYPE_2D : VK_IMAGE_TYPE_1D;
-	info.format = GetVKFormat(device, format);
+	info.format = GetVKFormat(pVkDevice, format);
 	info.extent = { width, (max)(height, 1u), 1 };
 	info.mipLevels = numMips ? numMips : 1;
 	info.arrayLayers = arraySize ? arraySize : 1;
@@ -2433,7 +2478,7 @@ void Texture_VK::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, Devi
 	info.tiling = VK_IMAGE_TILING_OPTIMAL;
 	info.usage = GetVKImageUsage(resourceFlags);
 	VkImage image = VK_NULL_HANDLE;
-	if (vkCreateImage(device->GetDevice(), &info, nullptr, &image) < 0)
+	if (vkCreateImage(device, &info, nullptr, &image) < 0)
 	{
 		byteSize = 0;
 		alignment = requiredAlignment;
@@ -2441,8 +2486,8 @@ void Texture_VK::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, Devi
 		return;
 	}
 	VkMemoryRequirements requirements = {};
-	vkGetImageMemoryRequirements(device->GetDevice(), image, &requirements);
-	vkDestroyImage(device->GetDevice(), image, nullptr);
+	vkGetImageMemoryRequirements(device, image, &requirements);
+	vkDestroyImage(device, image, nullptr);
 	byteSize = requirements.size;
 	alignment = (max)(requirements.alignment, requiredAlignment);
 }
@@ -2511,7 +2556,7 @@ void Texture_VK::fillImageView(ResourceView_VK& view, VkImageViewType viewType, 
 	target.Rendering.imageLayout = layout;
 	target.Rendering.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
 	target.Rendering.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	vkCreateImageView(m_device, &info, nullptr, &target.Rendering.imageView);
+	vkCreateImageView(m_pDevice->GetDevice(), &info, nullptr, &target.Rendering.imageView);
 	target.Width = static_cast<uint32_t>((max)(m_width >> baseMip, 1ull));
 	target.Height = (max)(m_height >> baseMip, 1u);
 	target.BaseMip = baseMip;
@@ -2624,14 +2669,14 @@ bool RenderTarget_VK::CreateArray(Device* pDevice, Heap* pHeap, uint64_t heapOff
 
 bool RenderTarget_VK::CreateFromSwapChain(Device* pDevice, SwapChain* pSwapChain, uint32_t bufferIndex, uint32_t maxThreads)
 {
-	const auto swapChain = static_cast<const SwapChain_VK*>(pSwapChain->GetHandle());
+	const auto swapChain = AsVK(pSwapChain);
 	assert(swapChain);
-	const auto device = static_cast<const Device_VK*>(pDevice->GetHandle());
-	assert(device);
+	m_pDevice = AsVK(pDevice);
+	assert(m_pDevice);
 	XUSG_N_RETURN(initialize(pDevice, maxThreads), false);
-	WrapImage(device->GetDevice(), swapChain->GetImage(static_cast<uint8_t>(bufferIndex)),
-		swapChain->GetVkFormat(), swapChain->GetWidth(), swapChain->GetHeight());
-	m_device = device->GetDevice();
+	// false = user backbuffer (not WSI); Present blits to the real swapchain.
+	WrapImage(m_pDevice->GetDevice(), swapChain->GetImage(static_cast<uint8_t>(bufferIndex)),
+		swapChain->GetVkFormat(), swapChain->GetWidth(), swapChain->GetHeight(), false);
 	m_format = GetFormatFromVK(m_vkFormat);
 	m_rtvs.resize(1);
 	m_rtvs[0].resize(1);
@@ -3247,14 +3292,14 @@ bool Buffer_VK::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset
 bool Buffer_VK::Upload(CommandList* pCommandList, Resource* pUploader, const void* pData, size_t size,
 	size_t offset, ResourceState dstState, uint32_t threadIdx)
 {
-	assert(pUploader);
-	const auto uploader = static_cast<Resource_VK*>(pUploader->GetHandle());
-	XUSG_N_RETURN(uploader->CreateUploadBuffer(m_pDevice, size), false);
-	memcpy(uploader->GetMappedData(), pData, size);
+	const auto pVkUploader = AsVK(pUploader);
+	assert(pVkUploader);
+	XUSG_N_RETURN(pVkUploader->CreateUploadBuffer(m_pDevice, size), false);
+	memcpy(pVkUploader->GetMappedData(), pData, size);
 	ResourceBarrier barrier;
 	auto numBarriers = SetBarrier(&barrier, ResourceState::COPY_DEST, 0, 0, BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
 	if (numBarriers) pCommandList->Barrier(numBarriers, &barrier);
-	pCommandList->CopyBufferRegion(this, offset, uploader, 0, size);
+	pCommandList->CopyBufferRegion(this, offset, pVkUploader, 0, size);
 	numBarriers = SetBarrier(&barrier, dstState, 0, 0, BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
 	if (numBarriers) pCommandList->Barrier(numBarriers, &barrier);
 
@@ -3326,7 +3371,7 @@ void* Buffer_VK::Map(uint32_t descriptorIndex, uintptr_t readBegin, uintptr_t re
 void* Buffer_VK::Map(const Range* pReadRange, uint32_t descriptorIndex)
 {
 	(void)pReadRange;
-	if (!m_pDataBegin && m_memory) vkMapMemory(m_device, m_memory, 0, m_byteSize, 0, &m_pDataBegin);
+	if (!m_pDataBegin && m_memory != VK_NULL_HANDLE) vkMapMemory(m_pDevice->GetDevice(), m_memory, 0, m_byteSize, 0, &m_pDataBegin);
 	const auto offset = descriptorIndex < m_srvByteOffsets.size() ? m_srvByteOffsets[descriptorIndex] : 0;
 
 	return static_cast<uint8_t*>(m_pDataBegin) + offset;
@@ -3399,7 +3444,8 @@ void Buffer_VK::getViewRange(uint32_t& viewElements, uintptr_t& firstElement, ui
 	(void)byteStride;
 	firstElement = firstElements ? firstElements[i] : 0;
 	const auto next = (firstElements && i + 1 < numDescriptors) ? firstElements[i + 1] : bufferElements;
-	if (next > firstElement) viewElements = static_cast<uint32_t>(next - firstElement);
+	assert(next >= firstElement);
+	viewElements = static_cast<uint32_t>(next - firstElement);
 }
 
 //--------------------------------------------------------------------------------------
@@ -3601,7 +3647,12 @@ bool IndexBuffer_VK::Create(Device* pDevice, size_t byteWidth, Format format, Re
 		numUAVs, firstUavElements, memoryFlags, name, srvComponentMapping, counterByteOffsets, 0, nullptr, maxThreads), false);
 	m_ibvs.resize(numIBVs);
 	for (auto i = 0u; i < numIBVs; ++i)
-		CreateIBV(m_ibvs[i], format, static_cast<uint32_t>(byteWidth), ibvByteOffsets ? ibvByteOffsets[i] : 0);
+	{
+		const auto byteOffset = ibvByteOffsets ? ibvByteOffsets[i] : 0;
+		const auto byteSize = static_cast<uint32_t>((!ibvByteOffsets || i + 1 >= numIBVs ?
+			byteWidth : ibvByteOffsets[i + 1]) - byteOffset);
+		CreateIBV(m_ibvs[i], format, byteSize, byteOffset);
+	}
 
 	return true;
 }
@@ -3616,7 +3667,12 @@ bool IndexBuffer_VK::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, s
 		firstSrvElements, numUAVs, firstUavElements, name, srvComponentMapping, counterByteOffsets, 0, nullptr, maxThreads), false);
 	m_ibvs.resize(numIBVs);
 	for (auto i = 0u; i < numIBVs; ++i)
-		CreateIBV(m_ibvs[i], format, static_cast<uint32_t>(byteWidth), ibvByteOffsets ? ibvByteOffsets[i] : 0);
+	{
+		const auto byteOffset = ibvByteOffsets ? ibvByteOffsets[i] : 0;
+		const auto byteSize = static_cast<uint32_t>((!ibvByteOffsets || i + 1 >= numIBVs ?
+			byteWidth : ibvByteOffsets[i + 1]) - byteOffset);
+		CreateIBV(m_ibvs[i], format, byteSize, byteOffset);
+	}
 
 	return true;
 }

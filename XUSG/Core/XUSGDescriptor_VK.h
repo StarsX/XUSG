@@ -39,7 +39,7 @@ namespace XUSG
 	protected:
 		void reset();
 
-		VkDevice			m_device;
+		const Device_VK*	m_pDevice;
 		VkBuffer			m_buffer;
 		VkDeviceMemory		m_memory;
 		void*				m_mapped;
@@ -117,6 +117,7 @@ namespace XUSG
 		const Sampler* GetSampler(SamplerPreset preset);
 
 		uint32_t GetDescriptorStride(DescriptorHeapType type) const;
+		void* GetBackend() override;
 
 	protected:
 		void checkDescriptorHeapTypeStorage(DescriptorHeapType type, uint8_t index);
@@ -137,7 +138,6 @@ namespace XUSG
 		bool writeSampler(const Sampler* pSampler, void* pDescriptor) const;
 
 		Device_VK* m_pDevice;
-		VkDevice m_device;
 
 		std::vector<std::unordered_map<std::string, DescriptorTable>> m_cbvSrvUavTables;
 		std::vector<std::unordered_map<std::string, DescriptorTable>> m_samplerTables;
@@ -153,4 +153,16 @@ namespace XUSG
 
 		mutable std::mutex m_mtx;
 	};
+
+	inline DescriptorTableLib_VK* AsVK(DescriptorTableLib* p)
+	{
+		assert(!p || p->GetBackend());
+		return static_cast<DescriptorTableLib_VK*>(p ? p->GetBackend() : nullptr);
+	}
+
+	inline const DescriptorTableLib_VK* AsVK(const DescriptorTableLib* p)
+	{
+		assert(!p || const_cast<DescriptorTableLib*>(p)->GetBackend());
+		return static_cast<const DescriptorTableLib_VK*>(p ? const_cast<DescriptorTableLib*>(p)->GetBackend() : nullptr);
+	}
 }

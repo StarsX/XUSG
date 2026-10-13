@@ -66,18 +66,18 @@ namespace XUSG
 		uint64_t GetAlignment() const;
 		MemoryType GetType() const;
 
-		void Create(void* pDeviceHandle, void* pHeapHandle, const wchar_t* name = nullptr);
+		void Create(uint64_t nativeHandle, Device* pDevice);
 		void SetName(const wchar_t* name);
 
-		void* GetHandle();
+		uint64_t GetNativeHandle() const;
+		void* GetBackend() override;
 
 		VkDeviceMemory GetMemory() const;
 		uint32_t GetMemoryType() const;
 
 	protected:
-		VkDevice			m_device;
-		VkDeviceMemory		m_memory;
-		Device_VK*	m_pDevice;
+		Device_VK*		m_pDevice;
+		VkDeviceMemory	m_memory;
 
 		uint64_t	m_size;
 		uint64_t	m_alignment;
@@ -137,11 +137,11 @@ namespace XUSG
 		void CopyBoundTiles(VkQueue queue, const TiledResourceCoord& dstCoord, const Resource_VK* pSrc,
 			const TiledResourceCoord& srcCoord, const TileRegionSize& region);
 
-		void Create(void* pDeviceHandle, void* pResourceHandle,
-			const wchar_t* name = nullptr, uint32_t maxThreads = 1);
+		void Create(uint64_t nativeHandle, Device* pDevice, uint32_t maxThreads = 1);
 		void SetName(const wchar_t* name);
 
-		void* GetHandle();
+		uint64_t GetNativeHandle() const;
+		void* GetBackend() override;
 
 		bool Is3D() const;
 		bool IsImage() const;
@@ -152,9 +152,11 @@ namespace XUSG
 		uint32_t GetDepthOrArray() const;
 		uint32_t GetMipLevels() const;
 		uint32_t GetSampleCount() const;
-		void WrapImage(VkDevice device, VkImage image, VkFormat format, uint32_t width, uint32_t height);
+		void WrapImage(VkDevice device, VkImage image, VkFormat format, uint32_t width, uint32_t height,
+			bool presentable = true);
 		VkImageLayout ImageLayout(ResourceState state) const;
 		bool IsPresentable() const { return m_presentable; }
+		VkImageLayout GetCommonLayout() const { return m_commonLayout; }
 		uint64_t GetByteSize() const;
 		bool IsUndefinedLayout(uint32_t subresource) const;
 		void Discard(uint32_t firstSubresource, uint32_t numSubresources);
@@ -191,13 +193,12 @@ namespace XUSG
 		void discardRange(const VkImageSubresourceRange& range, uint32_t& baseMip, uint32_t& mipCount,
 			uint32_t& baseLayer, uint32_t& layerCount) const;
 
-		VkDevice			m_device;
-		Device_VK*	m_pDevice;
-		VkImage				m_image;
-		VkBuffer			m_buffer;
-		VkDeviceMemory		m_memory;
-		VkDeviceAddress		m_address;
-		void*				m_pDataBegin;
+		Device_VK*		m_pDevice;
+		VkImage			m_image;
+		VkBuffer		m_buffer;
+		VkDeviceMemory	m_memory;
+		VkDeviceAddress	m_address;
+		void*			m_pDataBegin;
 
 		bool m_is3D;
 		bool m_isImage;
@@ -206,6 +207,7 @@ namespace XUSG
 		bool m_ownsMemory;
 		bool m_hasPromotion;
 		bool m_presentable;
+		VkImageLayout m_commonLayout;
 
 		uint64_t m_byteSize;
 		uint64_t m_width;
@@ -874,4 +876,28 @@ namespace XUSG
 	protected:
 		std::vector<IndexBufferView> m_ibvs;
 	};
+
+	inline Resource_VK* AsVK(Resource* p)
+	{
+		assert(!p || p->GetBackend());
+		return static_cast<Resource_VK*>(p ? p->GetBackend() : nullptr);
+	}
+
+	inline const Resource_VK* AsVK(const Resource* p)
+	{
+		assert(!p || const_cast<Resource*>(p)->GetBackend());
+		return static_cast<const Resource_VK*>(p ? const_cast<Resource*>(p)->GetBackend() : nullptr);
+	}
+
+	inline Heap_VK* AsVK(Heap* p)
+	{
+		assert(!p || p->GetBackend());
+		return static_cast<Heap_VK*>(p ? p->GetBackend() : nullptr);
+	}
+
+	inline const Heap_VK* AsVK(const Heap* p)
+	{
+		assert(!p || const_cast<Heap*>(p)->GetBackend());
+		return static_cast<const Heap_VK*>(p ? const_cast<Heap*>(p)->GetBackend() : nullptr);
+	}
 }

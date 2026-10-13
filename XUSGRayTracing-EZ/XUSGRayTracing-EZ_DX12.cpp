@@ -54,11 +54,12 @@ bool EZ::CommandList_DXR::Create(RayTracing::CommandList* pCommandList, uint32_t
 	return true;
 }
 
-bool EZ::CommandList_DXR::Create(RayTracing::Device* pDevice, void* pHandle,
+bool EZ::CommandList_DXR::Create(RayTracing::Device* pDevice, void* pNativeHandle,
 	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize, const wchar_t* name)
 {
 	m_pDeviceRT = pDevice;
-	RayTracing::CommandList_DX12::Create(pHandle, name);
+	if (name) static_cast<ID3D12GraphicsCommandList*>(pNativeHandle)->SetName(name);
+	RayTracing::CommandList_DX12::Create(pNativeHandle, pDevice);
 
 	return Create(this, samplerHeapSize, cbvSrvUavHeapSize);
 }
@@ -96,7 +97,7 @@ bool EZ::CommandList_DXR::CreatePipelineLayouts(
 		maxTLASSrvs, spaceTLAS, slotExt, spaceExt), false);
 
 	D3D12_FEATURE_DATA_D3D12_OPTIONS7 featureSupportData = {};
-	const auto hr = static_cast<ID3D12Device*>(m_pDevice->GetHandle())->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS7,
+	const auto hr = static_cast<ID3D12Device*>(m_pDevice->GetNativeHandle())->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS7,
 		&featureSupportData, sizeof(featureSupportData));
 
 	if (m_commandListU && SUCCEEDED(hr) && featureSupportData.MeshShaderTier != D3D12_MESH_SHADER_TIER_NOT_SUPPORTED)

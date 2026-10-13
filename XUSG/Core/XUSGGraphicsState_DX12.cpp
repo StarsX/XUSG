@@ -25,6 +25,11 @@ State_DX12::~State_DX12()
 {
 }
 
+void* State_DX12::GetBackend()
+{
+	return this;
+}
+
 void State_DX12::SetPipelineLayout(const PipelineLayout& layout)
 {
 	m_pKey->Layout = layout;
@@ -343,13 +348,13 @@ PipelineLib_DX12::~PipelineLib_DX12()
 
 void PipelineLib_DX12::SetDevice(Device* pDevice)
 {
-	m_device = pDevice->GetHandle();
+	m_device = pDevice->GetNativeHandle();
 	assert(m_device);
 }
 
 void PipelineLib_DX12::SetPipeline(const State* pState, const Pipeline& pipeline)
 {
-	const auto p = dynamic_cast<const State_DX12*>(pState);
+	const auto p = AsDX12(pState);
 	assert(p);
 
 	lock_guard<mutex> lock(m_mtx);
@@ -374,7 +379,7 @@ const InputLayout* PipelineLib_DX12::CreateInputLayout(uint32_t numElements, con
 
 Pipeline PipelineLib_DX12::CreatePipeline(const State* pState, const wchar_t* name)
 {
-	const auto p = dynamic_cast<const State_DX12*>(pState);
+	const auto p = AsDX12(pState);
 	assert(p);
 
 	lock_guard<mutex> lock(m_mtx);
@@ -384,7 +389,7 @@ Pipeline PipelineLib_DX12::CreatePipeline(const State* pState, const wchar_t* na
 
 Pipeline PipelineLib_DX12::GetPipeline(const State* pState, const wchar_t* name)
 {
-	const auto p = dynamic_cast<const State_DX12*>(pState);
+	const auto p = AsDX12(pState);
 	assert(p);
 
 	lock_guard<mutex> lock(m_mtx);
@@ -420,33 +425,6 @@ const Graphics::DepthStencil* PipelineLib_DX12::GetDepthStencil(DepthStencilPres
 		m_depthStencils[preset] = make_unique<DepthStencil>(m_pfnDepthStencils[preset]());
 
 	return m_depthStencils[preset].get();
-}
-
-Pipeline PipelineLib_DX12::createPipeline(const std::string& key, const wchar_t* name)
-{
-	// Fill desc
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC desc;
-	vector<D3D12_INPUT_ELEMENT_DESC> inputElements;
-	GetHandleDesc(&desc, &inputElements, key);
-
-	// Create pipeline
-	com_ptr<ID3D12PipelineState> pipeline;
-	V_RETURN(m_device->CreateGraphicsPipelineState(&desc, IID_PPV_ARGS(&pipeline)), cerr, nullptr);
-
-	if (name) pipeline->SetName(name);
-	m_pipelines[key] = pipeline;
-
-	return pipeline.get();
-}
-
-Pipeline PipelineLib_DX12::getPipeline(const string& key, const wchar_t* name)
-{
-	const auto pPipeline = m_pipelines.find(key);
-
-	// Create one, if it does not exist
-	if (pPipeline == m_pipelines.cend()) return createPipeline(key, name);
-
-	return pPipeline->second.get();
 }
 
 void PipelineLib_DX12::GetHandleDesc(void* pHandleDesc, void* pInputElements, const string& key)
@@ -598,4 +576,31 @@ void PipelineLib_DX12::GetHandleDesc(void* pHandleDesc, void* pInputElements, co
 	default:
 		assert(desc.IBStripCutValue == D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_DISABLED);
 	}
+}
+
+Pipeline PipelineLib_DX12::createPipeline(const std::string& key, const wchar_t* name)
+{
+	// Fill desc
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC desc;
+	vector<D3D12_INPUT_ELEMENT_DESC> inputElements;
+	GetHandleDesc(&desc, &inputElements, key);
+
+	// Create pipeline
+	com_ptr<ID3D12PipelineState> pipeline;
+	V_RETURN(m_device->CreateGraphicsPipelineState(&desc, IID_PPV_ARGS(&pipeline)), cerr, nullptr);
+
+	if (name) pipeline->SetName(name);
+	m_pipelines[key] = pipeline;
+
+	return pipeline.get();
+}
+
+Pipeline PipelineLib_DX12::getPipeline(const string& key, const wchar_t* name)
+{
+	const auto pPipeline = m_pipelines.find(key);
+
+	// Create one, if it does not exist
+	if (pPipeline == m_pipelines.cend()) return createPipeline(key, name);
+
+	return pPipeline->second.get();
 }

@@ -73,15 +73,19 @@ uint32_t Device_DX12::GetDeviceRemovedReason() const
 	return m_device->GetDeviceRemovedReason();
 }
 
-void Device_DX12::Create(void* pHandle, const wchar_t* name)
+void Device_DX12::Create(void* pNativeHandle)
 {
-	m_device = pHandle;
-	if (name) m_device->SetName(name);
+	m_device = pNativeHandle;
 }
 
-void* Device_DX12::GetHandle()
+void* Device_DX12::GetNativeHandle()
 {
 	return m_device.get();
+}
+
+void* Device_DX12::GetBackend()
+{
+	return this;
 }
 
 //--------------------------------------------------------------------------------------
@@ -96,7 +100,7 @@ Fence_DX12::~Fence_DX12()
 
 bool Fence_DX12::Create(Device* pDevice, uint64_t initialValue, FenceFlag flags, const wchar_t* name)
 {
-	const auto pDxDevice = static_cast<ID3D12Device*>(pDevice->GetHandle());
+	const auto pDxDevice = static_cast<ID3D12Device*>(pDevice->GetNativeHandle());
 
 	assert(pDxDevice);
 	V_RETURN(pDxDevice->CreateFence(initialValue, GetDX12FenceFlags(flags), IID_PPV_ARGS(&m_fence)), cerr, false);
@@ -124,15 +128,15 @@ uint64_t Fence_DX12::GetCompletedValue() const
 	return m_fence->GetCompletedValue();
 }
 
-void Fence_DX12::Create(void* pHandle, const wchar_t* name)
+void Fence_DX12::Create(uint64_t nativeHandle, Device* pDevice)
 {
-	m_fence = pHandle;
-	if (name) m_fence->SetName(name);
+	(void)pDevice;
+	m_fence = reinterpret_cast<ID3D12Fence*>(nativeHandle);
 }
 
-void* Fence_DX12::GetHandle()
+uint64_t Fence_DX12::GetNativeHandle() const
 {
-	return m_fence.get();
+	return reinterpret_cast<uintptr_t>(m_fence.get());
 }
 
 //--------------------------------------------------------------------------------------
@@ -188,7 +192,7 @@ bool CommandLayout_DX12::Create(Device* pDevice, uint32_t byteStride, uint32_t n
 	desc.pArgumentDescs = argDescs.data();
 	desc.NodeMask = nodeMask;
 
-	const auto pDxDevice = static_cast<ID3D12Device*>(pDevice->GetHandle());
+	const auto pDxDevice = static_cast<ID3D12Device*>(pDevice->GetNativeHandle());
 
 	assert(pDxDevice);
 	V_RETURN(pDxDevice->CreateCommandSignature(&desc, static_cast<ID3D12RootSignature*>(pipelineLayout),
@@ -198,15 +202,20 @@ bool CommandLayout_DX12::Create(Device* pDevice, uint32_t byteStride, uint32_t n
 	return true;
 }
 
-void CommandLayout_DX12::Create(void* pHandle, const wchar_t* name)
+void CommandLayout_DX12::Create(uint64_t nativeHandle, Device* pDevice)
 {
-	m_commandSignature = pHandle;
-	if (name) m_commandSignature->SetName(name);
+	(void)pDevice;
+	m_commandSignature = reinterpret_cast<ID3D12CommandSignature*>(nativeHandle);
 }
 
-void* CommandLayout_DX12::GetHandle()
+uint64_t CommandLayout_DX12::GetNativeHandle() const
 {
-	return m_commandSignature.get();
+	return reinterpret_cast<uintptr_t>(m_commandSignature.get());
+}
+
+void* CommandLayout_DX12::GetBackend()
+{
+	return this;
 }
 
 //--------------------------------------------------------------------------------------
@@ -311,7 +320,7 @@ bool SwapChain_DX12::PresentEx(uint8_t syncInterval, PresentFlag flags, uint32_t
 
 bool SwapChain_DX12::GetBuffer(uint8_t buffer, Resource* pResource) const
 {
-	const auto p = dynamic_cast<Resource_DX12*>(pResource);
+	const auto p = AsDX12(pResource);
 	assert(p);
 
 	V_RETURN(m_swapChain->GetBuffer(buffer, IID_PPV_ARGS(&p->GetResource())), cerr, false);
@@ -332,14 +341,19 @@ uint8_t SwapChain_DX12::GetCurrentBackBufferIndex() const
 	return m_swapChain->GetCurrentBackBufferIndex();
 }
 
-void SwapChain_DX12::Create(void* pHandle)
+void SwapChain_DX12::Create(uint64_t nativeHandle)
 {
-	m_swapChain = pHandle;
+	m_swapChain = reinterpret_cast<IDXGISwapChain3*>(nativeHandle);
 }
 
-void* SwapChain_DX12::GetHandle()
+uint64_t SwapChain_DX12::GetNativeHandle() const
 {
-	return m_swapChain.get();
+	return reinterpret_cast<uintptr_t>(m_swapChain.get());
+}
+
+void* SwapChain_DX12::GetBackend()
+{
+	return this;
 }
 
 void XUSG::GetDX12BlobData(const Blob& blob, const void** ppData, size_t* pSize)

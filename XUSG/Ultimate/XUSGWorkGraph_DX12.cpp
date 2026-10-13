@@ -28,6 +28,11 @@ State_DX12::~State_DX12()
 {
 }
 
+void* State_DX12::GetBackend()
+{
+	return this;
+}
+
 void State_DX12::SetShaderLibrary(uint32_t index, const Blob& shaderLib,
 	uint32_t numShaders, const wchar_t** pShaderNames)
 {
@@ -316,13 +321,13 @@ PipelineLib_DX12::~PipelineLib_DX12()
 
 void PipelineLib_DX12::SetDevice(Device* pDevice)
 {
-	m_device = pDevice->GetHandle();
+	m_device = pDevice->GetNativeHandle();
 	assert(m_device);
 }
 
 void PipelineLib_DX12::SetPipeline(State* pState, const Pipeline& pipeline)
 {
-	const auto p = dynamic_cast<State_DX12*>(pState);
+	const auto p = AsDX12(pState);
 	assert(p);
 
 	lock_guard<mutex> lock(m_mtx);
@@ -332,7 +337,7 @@ void PipelineLib_DX12::SetPipeline(State* pState, const Pipeline& pipeline)
 
 Pipeline PipelineLib_DX12::CreatePipeline(State* pState, const wchar_t* name)
 {
-	const auto p = dynamic_cast<State_DX12*>(pState);
+	const auto p = AsDX12(pState);
 	assert(p);
 
 	lock_guard<mutex> lock(m_mtx);
@@ -342,7 +347,7 @@ Pipeline PipelineLib_DX12::CreatePipeline(State* pState, const wchar_t* name)
 
 Pipeline PipelineLib_DX12::GetPipeline(State* pState, const wchar_t* name)
 {
-	const auto p = dynamic_cast<State_DX12*>(pState);
+	const auto p = AsDX12(pState);
 	assert(p);
 
 	lock_guard<mutex> lock(m_mtx);

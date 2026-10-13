@@ -38,10 +38,11 @@ namespace XUSG
 		uint64_t GetAlignment() const;
 		MemoryType GetType() const;
 
-		void Create(void* pDeviceHandle, void* pHeapHandle, const wchar_t* name = nullptr);
+		void Create(uint64_t nativeHandle, Device* pDevice);
 		void SetName(const wchar_t* name);
 
-		void* GetHandle();
+		uint64_t GetNativeHandle() const;
+		void* GetBackend() override;
 
 		com_ptr<ID3D12Heap>& GetHeap();
 
@@ -86,11 +87,11 @@ namespace XUSG
 			TileShape* pStandardTileShapeForNonPackedMips = nullptr, uint32_t* pNumSubresourceTilings = nullptr,
 			uint32_t firstSubresourceTiling = 0, SubresourceTiling* pSubresourceTilingsForNonPackedMips = nullptr) const;
 
-		void Create(void* pDeviceHandle, void* pResourceHandle,
-			const wchar_t* name = nullptr, uint32_t maxThreads = 1);
+		void Create(uint64_t nativeHandle, Device* pDevice, uint32_t maxThreads = 1);
 		void SetName(const wchar_t* name);
 
-		void* GetHandle();
+		uint64_t GetNativeHandle() const;
+		void* GetBackend() override;
 
 		com_ptr<ID3D12Resource>& GetResource();
 
@@ -742,4 +743,28 @@ namespace XUSG
 	protected:
 		std::vector<IndexBufferView> m_ibvs;
 	};
+
+	inline Resource_DX12* AsDX12(Resource* p)
+	{
+		assert(!p || p->GetBackend());
+		return static_cast<Resource_DX12*>(p ? p->GetBackend() : nullptr);
+	}
+
+	inline const Resource_DX12* AsDX12(const Resource* p)
+	{
+		assert(!p || const_cast<Resource*>(p)->GetBackend());
+		return static_cast<const Resource_DX12*>(p ? const_cast<Resource*>(p)->GetBackend() : nullptr);
+	}
+
+	inline Heap_DX12* AsDX12(Heap* p)
+	{
+		assert(!p || p->GetBackend());
+		return static_cast<Heap_DX12*>(p ? p->GetBackend() : nullptr);
+	}
+
+	inline const Heap_DX12* AsDX12(const Heap* p)
+	{
+		assert(!p || const_cast<Heap*>(p)->GetBackend());
+		return static_cast<const Heap_DX12*>(p ? const_cast<Heap*>(p)->GetBackend() : nullptr);
+	}
 }

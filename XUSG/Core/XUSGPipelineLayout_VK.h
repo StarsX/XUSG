@@ -41,6 +41,7 @@ namespace XUSG
 
 			const std::vector<std::string>& GetDescriptorTableLayoutKeys() const;
 			std::string& GetPipelineLayoutKey(PipelineLayoutLib* pPipelineLayoutLib);
+			void* GetBackend() override;
 
 			static const uint8_t DescriptorTableLayoutCountOffset = sizeof(uint16_t);
 			static const uint8_t DescriptorTableLayoutOffset = DescriptorTableLayoutCountOffset + sizeof(uint16_t);
@@ -54,6 +55,18 @@ namespace XUSG
 
 			bool m_isTableLayoutsCompleted;
 		};
+
+		inline PipelineLayout_VK* AsVK(PipelineLayout* p)
+		{
+			assert(!p || p->GetBackend());
+			return static_cast<PipelineLayout_VK*>(p ? p->GetBackend() : nullptr);
+		}
+
+		inline const PipelineLayout_VK* AsVK(const PipelineLayout* p)
+		{
+			assert(!p || const_cast<PipelineLayout*>(p)->GetBackend());
+			return static_cast<const PipelineLayout_VK*>(p ? const_cast<PipelineLayout*>(p)->GetBackend() : nullptr);
+		}
 	}
 
 	class PipelineLayoutLib_VK :
@@ -105,7 +118,6 @@ namespace XUSG
 		};
 
 		Device_VK* m_pDevice;
-		VkDevice m_device;
 
 		std::unordered_map<std::string, LayoutEntry> m_pipelineLayouts;
 		std::unordered_map<std::string, DescriptorTableLayout> m_descriptorTableLayouts;

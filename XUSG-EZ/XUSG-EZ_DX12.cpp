@@ -102,7 +102,7 @@ bool EZ::CommandList_DX12::Create(XUSG::CommandList* pCommandList,
 	return true;
 }
 
-bool EZ::CommandList_DX12::Create(Device* pDevice, void* pHandle,
+bool EZ::CommandList_DX12::Create(Device* pDevice, void* pNativeHandle,
 	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 	const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
@@ -117,7 +117,8 @@ bool EZ::CommandList_DX12::Create(Device* pDevice, void* pHandle,
 	uint32_t slotExt, uint32_t spaceExt, const wchar_t* name)
 {
 	m_pDevice = pDevice;
-	XUSG::CommandList_DX12::Create(pHandle, name);
+	if (name) static_cast<ID3D12GraphicsCommandList*>(pNativeHandle)->SetName(name);
+	XUSG::CommandList_DX12::Create(pNativeHandle, pDevice);
 
 	return Create(this, samplerHeapSize, cbvSrvUavHeapSize, maxSamplers,
 		pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
@@ -860,9 +861,9 @@ CommandList* EZ::CommandList_DX12::AsCommandList()
 bool EZ::CommandList_DX12::init(XUSG::CommandList* pCommandList, uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize)
 {
 	m_pDevice = pCommandList->GetDevice();
-	m_commandList = dynamic_cast<XUSG::CommandList_DX12*>(pCommandList)->GetGraphicsCommandList();
+	m_commandList = AsDX12(pCommandList)->GetGraphicsCommandList();
 
-	const auto pDxDevice = static_cast<ID3D12Device*>(m_pDevice->GetHandle());
+	const auto pDxDevice = static_cast<ID3D12Device*>(m_pDevice->GetNativeHandle());
 	m_rtvStride = pDxDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 	m_dsvStride = pDxDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
 

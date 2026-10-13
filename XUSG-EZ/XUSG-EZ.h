@@ -86,7 +86,8 @@ namespace XUSG
 				const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE) = 0;
-			virtual bool Create(Device* pDevice, void* pHandle,
+			// pNativeHandle is ID3D12GraphicsCommandList*.
+			virtual bool Create(Device* pDevice, void* pNativeHandle,
 				uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 				const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
@@ -224,8 +225,14 @@ namespace XUSG
 			virtual uint32_t GetGraphicsConstantParamIndex(Shader::Stage stage) const = 0;
 			virtual uint32_t GetComputeConstantParamIndex() const = 0;
 
-			virtual void* GetHandle() = 0;
-			virtual void* GetDeviceHandle() const = 0;
+			// Get API native handle. Cast to ID3D12GraphicsCommandList*.
+			virtual void* GetNativeHandle() = 0;
+
+			// Get API native handle of the device for this command list. Cast to ID3D12Device*.
+			virtual void* GetDeviceNativeHandle() const = 0;
+
+			// Backend C++ object (XUSG::CommandList_DX12*). Not the GPU native handle.
+			virtual void* GetBackend() = 0;
 
 			virtual Device* GetDevice() const = 0;
 			virtual XUSG::CommandList* AsCommandList() = 0;

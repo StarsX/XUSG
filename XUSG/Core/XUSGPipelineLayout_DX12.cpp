@@ -143,6 +143,11 @@ string& Util::PipelineLayout_DX12::GetPipelineLayoutKey(PipelineLayoutLib* pPipe
 	return m_pipelineLayoutKey;
 }
 
+void* Util::PipelineLayout_DX12::GetBackend()
+{
+	return this;
+}
+
 std::string& Util::PipelineLayout_DX12::checkKeyStorage(uint32_t index)
 {
 	m_isTableLayoutsCompleted = false;
@@ -179,7 +184,7 @@ PipelineLayoutLib_DX12::~PipelineLayoutLib_DX12()
 
 void PipelineLayoutLib_DX12::SetDevice(Device* pDevice)
 {
-	m_device = pDevice->GetHandle();
+	m_device = pDevice->GetNativeHandle();
 	assert(m_device);
 }
 

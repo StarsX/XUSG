@@ -179,7 +179,7 @@ CommandList_VK::CommandList_VK() :
 CommandList_VK::CommandList_VK(XUSG::CommandList& commandList) :
 	CommandList_VK()
 {
-	const auto pCommandList = static_cast<XUSG::CommandList_VK*>(commandList.GetHandle());
+	const auto pCommandList = AsVK(&commandList);
 	assert(pCommandList);
 	Attach(*pCommandList);
 	CreateInterface();
@@ -187,9 +187,12 @@ CommandList_VK::CommandList_VK(XUSG::CommandList& commandList) :
 
 CommandList_VK::~CommandList_VK()
 {
-	if (m_shadingRate.View) vkDestroyImageView(m_device, m_shadingRate.View, nullptr);
-	if (m_resolveSrc.View) vkDestroyImageView(m_device, m_resolveSrc.View, nullptr);
-	if (m_resolveDst.View) vkDestroyImageView(m_device, m_resolveDst.View, nullptr);
+	if (!m_pDevice) return;
+
+	const auto device = m_pDevice->GetDevice();
+	if (m_shadingRate.View != VK_NULL_HANDLE) vkDestroyImageView(device, m_shadingRate.View, nullptr);
+	if (m_resolveSrc.View != VK_NULL_HANDLE) vkDestroyImageView(device, m_resolveSrc.View, nullptr);
+	if (m_resolveDst.View != VK_NULL_HANDLE) vkDestroyImageView(device, m_resolveDst.View, nullptr);
 }
 
 bool CommandList_VK::Create(Device* pDevice, uint32_t nodeMask, CommandListType type,
@@ -203,92 +206,10 @@ bool CommandList_VK::Create(Device* pDevice, uint32_t nodeMask, CommandListType 
 
 bool CommandList_VK::CreateInterface()
 {
-	if (!m_commandBuffer || !m_device) return false;
+	if (m_commandBuffer == VK_NULL_HANDLE || !m_pDevice || m_pDevice->GetDevice() == VK_NULL_HANDLE) return false;
 	loadProcs();
 
 	return true;
-}
-
-void CommandList_VK::loadProcs()
-{
-	if (!m_device) return;
-	m_setShadingRate = reinterpret_cast<PFN_vkCmdSetFragmentShadingRateKHR>(
-		vkGetDeviceProcAddr(m_device, "vkCmdSetFragmentShadingRateKHR"));
-	m_drawMesh = reinterpret_cast<PFN_vkCmdDrawMeshTasksEXT>(vkGetDeviceProcAddr(m_device, "vkCmdDrawMeshTasksEXT"));
-}
-
-void CommandList_VK::flushBarriers(VkMemoryBarrier2& memory) const
-{
-	if (!memory.srcStageMask && !memory.dstStageMask && m_buffers.empty() && m_images.empty()) return;
-
-	VkDependencyInfo info = {};
-	FillBarrierDependency(info, memory, m_buffers, m_images);
-	pipelineBarrier(info);
-	memory.srcStageMask = 0;
-	memory.srcAccessMask = 0;
-	memory.dstStageMask = 0;
-	memory.dstAccessMask = 0;
-	m_buffers.clear();
-	m_images.clear();
-}
-
-void CommandList_VK::addBarrier(const ResourceBarrier& barrier, VkMemoryBarrier2& memory) const
-{
-	if (!barrier.pResource)
-	{
-		memory.srcStageMask |= BarrierStage(barrier.SyncBefore);
-		memory.srcAccessMask |= BarrierAccessFlags(barrier.AccessBefore);
-		memory.dstStageMask |= BarrierStage(barrier.SyncAfter);
-		memory.dstAccessMask |= BarrierAccessFlags(barrier.AccessAfter);
-
-		return;
-	}
-
-	const auto pResource = static_cast<XUSG::Resource_VK*>(barrier.pResource->GetHandle());
-	if (IsBufferBarrier(barrier) || !pResource->IsImage())
-	{
-		VkBufferMemoryBarrier2 buffer = {};
-		buffer.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
-		buffer.srcStageMask = BarrierStage(barrier.SyncBefore);
-		buffer.srcAccessMask = BarrierAccessFlags(barrier.AccessBefore);
-		buffer.dstStageMask = BarrierStage(barrier.SyncAfter);
-		buffer.dstAccessMask = BarrierAccessFlags(barrier.AccessAfter);
-		buffer.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		buffer.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		buffer.buffer = pResource->GetBuffer();
-		buffer.offset = barrier.Offset;
-		buffer.size = barrier.Size ? barrier.Size : VK_WHOLE_SIZE;
-		m_buffers.push_back(buffer);
-
-		return;
-	}
-
-	VkImageMemoryBarrier2 image = {};
-	image.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
-	image.srcStageMask = BarrierStage(barrier.SyncBefore);
-	image.srcAccessMask = BarrierAccessFlags(barrier.AccessBefore);
-	image.dstStageMask = BarrierStage(barrier.SyncAfter);
-	image.dstAccessMask = BarrierAccessFlags(barrier.AccessAfter);
-	image.oldLayout = XUSG::GetVKBarrierLayout(barrier.LayoutBefore);
-	image.newLayout = XUSG::GetVKBarrierLayout(barrier.LayoutAfter);
-	image.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	image.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	image.image = pResource->GetImage();
-	SubresourceRange(barrier, pResource, image.subresourceRange);
-	// Vulkan applies every barrier in one call at once, so an overlapping layout
-	// change has to be submitted first.
-	if (image.oldLayout != image.newLayout)
-	{
-		for (const auto& queued : m_images)
-		{
-			if (ImageBarrierOverlaps(image, queued) && queued.oldLayout != queued.newLayout)
-			{
-				flushBarriers(memory);
-				break;
-			}
-		}
-	}
-	pResource->AppendImageBarrier(image, m_images);
 }
 
 void CommandList_VK::Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups) const
@@ -359,13 +280,15 @@ void CommandList_VK::SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numP
 	const auto numSamples = static_cast<uint32_t>(numSamplesPerPixel) * numPixels;
 	assert(numSamples == 0 || pPositions);
 	assert(numSamples <= 16);
-	assert(m_pDeviceVK && m_pDeviceVK->HasSampleLocations());
-	if (!m_pDeviceVK || !m_pDeviceVK->HasSampleLocations()) return;
+	const auto sampleLocations = m_pDevice && m_pDevice->HasSampleLocations();
+	assert(sampleLocations);
+	if (!sampleLocations) return;
 
-	const auto restart = m_renderingBegun && !m_pDeviceVK->VariableSampleLocations();
+	const auto variableSampleLocations = m_pDevice->VariableSampleLocations();
+	const auto restart = m_renderingBegun && !variableSampleLocations;
 	if (restart) endRendering();
 
-	const auto& ext = m_pDeviceVK->GetExtProcs();
+	const auto& ext = m_pDevice->GetExtProcs();
 	if (!numSamplesPerPixel || !numPixels)
 	{
 		ext.SetSampleLocationsEnable(m_commandBuffer, VK_FALSE);
@@ -376,8 +299,9 @@ void CommandList_VK::SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numP
 
 	uint32_t deviceWidth = 0;
 	uint32_t deviceHeight = 0;
-	assert(m_pDeviceVK->SampleLocationGrid(numSamplesPerPixel, deviceWidth, deviceHeight));
-	if (!m_pDeviceVK->SampleLocationGrid(numSamplesPerPixel, deviceWidth, deviceHeight))
+	const auto sampleLocationGrid = m_pDevice->SampleLocationGrid(numSamplesPerPixel, deviceWidth, deviceHeight);
+	assert(sampleLocationGrid);
+	if (!sampleLocationGrid)
 	{
 		if (restart) beginRendering();
 
@@ -388,7 +312,7 @@ void CommandList_VK::SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numP
 	const auto appHeight = numPixels == 4 ? 2u : 1u;
 	auto gridWidth = appWidth;
 	auto gridHeight = appHeight;
-	if (!m_pDeviceVK->VariableSampleLocations())
+	if (!variableSampleLocations)
 	{
 		assert(deviceWidth % appWidth == 0 && deviceHeight % appHeight == 0);
 		if (deviceWidth % appWidth != 0 || deviceHeight % appHeight != 0)
@@ -423,7 +347,7 @@ void CommandList_VK::SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numP
 	float rangeMin = 0.0f;
 	float rangeMax = 1.0f;
 	auto subPixelBits = 4u;
-	m_pDeviceVK->SampleLocationRange(rangeMin, rangeMax, subPixelBits);
+	m_pDevice->SampleLocationRange(rangeMin, rangeMax, subPixelBits);
 	if (subPixelBits > 16) subPixelBits = 16;
 	const auto scale = static_cast<float>(1u << subPixelBits);
 
@@ -477,8 +401,8 @@ void CommandList_VK::ResolveSubresourceRegion(Resource* pDstResource, uint32_t d
 		assert(pSrcResource);
 		endRendering();
 		flushDeferredClears();
-		resolveMinMax(pDstResource, dstSubresource, dstX, dstY, pSrcResource, srcSubresource,
-			srcRect, format, resolveMode);
+		resolveMinMax(pDstResource, dstSubresource, dstX, dstY,
+			pSrcResource, srcSubresource, srcRect, resolveMode);
 
 		return;
 	}
@@ -493,8 +417,10 @@ void CommandList_VK::ResolveSubresourceRegion(Resource* pDstResource, uint32_t d
 	endRendering();
 	flushDeferredClears();
 
-	const auto pSrc = static_cast<const XUSG::Resource_VK*>(pSrcResource->GetHandle());
-	const auto pDst = static_cast<const XUSG::Resource_VK*>(pDstResource->GetHandle());
+	const auto pSrc = AsVK(pSrcResource);
+	const auto pDst = AsVK(pDstResource);
+	assert(pSrc);
+	assert(pDst);
 	const auto srcMips = (max)(pSrc->GetMipLevels(), 1u);
 	const auto dstMips = (max)(pDst->GetMipLevels(), 1u);
 	VkImageResolve region = {};
@@ -522,12 +448,209 @@ void CommandList_VK::ResolveSubresourceRegion(Resource* pDstResource, uint32_t d
 	(void)format;
 }
 
-void CommandList_VK::resolveMinMax(Resource* pDstResource, uint32_t dstSubresource, uint32_t dstX, uint32_t dstY,
-	Resource* pSrcResource, uint32_t srcSubresource, const RectRange& srcRect, Format format, ResolveMode resolveMode) const
+void CommandList_VK::RSSetShadingRate(ShadingRate baseShadingRate, const ShadingRateCombiner* pCombiners) const
 {
-	(void)format;
-	const auto pSrc = static_cast<const XUSG::Resource_VK*>(pSrcResource->GetHandle());
-	const auto pDst = static_cast<const XUSG::Resource_VK*>(pDstResource->GetHandle());
+	assert(m_setShadingRate);
+	const auto rate = static_cast<uint32_t>(baseShadingRate);
+	VkExtent2D size = { 1u << (rate >> 2), 1u << (rate & 3) };
+	VkFragmentShadingRateCombinerOpKHR combiners[2] =
+	{
+		pCombiners ? Combiner(pCombiners[0]) : VK_FRAGMENT_SHADING_RATE_COMBINER_OP_KEEP_KHR,
+		pCombiners ? Combiner(pCombiners[1]) : VK_FRAGMENT_SHADING_RATE_COMBINER_OP_KEEP_KHR
+	};
+	m_setShadingRate(m_commandBuffer, &size, combiners);
+}
+
+void CommandList_VK::RSSetShadingRateImage(Resource* pShadingRateImage) const
+{
+	if (!pShadingRateImage)
+	{
+		if (m_shadingRate.View == VK_NULL_HANDLE) return;
+		endRendering();
+		vkDestroyImageView(m_pDevice->GetDevice(), m_shadingRate.View, nullptr);
+		m_shadingRate = {};
+
+		return;
+	}
+
+	assert(m_pDevice && m_pDevice->HasFragmentShadingRate());
+	const auto pResource = AsVK(pShadingRateImage);
+	if (viewCached(m_shadingRate, pResource, 0, 0, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D)) return;
+
+	endRendering();
+	cachedView(m_shadingRate, pResource, 0, 0, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D);
+}
+
+void CommandList_VK::DispatchMesh(uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ) const
+{
+	assert(m_drawMesh);
+	if (!m_drawMesh) return;
+	if (m_type == CommandListType::DIRECT) beginRendering();
+	flushPush(true);
+	m_drawMesh(m_commandBuffer, threadGroupCountX, threadGroupCountY, threadGroupCountZ);
+}
+
+void CommandList_VK::SetStateObject(const Pipeline& stateObject) const
+{
+	assert(!"SetStateObject is not implemented on Vulkan");
+	(void)stateObject;
+}
+
+void CommandList_VK::SetProgram(ProgramType type, ProgramIdentifier identifier, WorkGraphFlag flags,
+	uint64_t backingMemoryAddress, uint64_t backingMemoryByteSize, uint64_t localRootArgTableAddress,
+	uint64_t localRootArgTableByteSize, uint64_t localRootArgTableByteStride) const
+{
+	assert(!"SetProgram is not implemented on Vulkan");
+	(void)type;
+	(void)identifier;
+	(void)flags;
+	(void)backingMemoryAddress;
+	(void)backingMemoryByteSize;
+	(void)localRootArgTableAddress;
+	(void)localRootArgTableByteSize;
+	(void)localRootArgTableByteStride;
+}
+
+void CommandList_VK::DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride) const
+{
+	assert(!"DispatchGraph is not implemented on Vulkan");
+	(void)numNodeInputs;
+	(void)pNodeInputs;
+	(void)nodeInputByteStride;
+}
+
+void CommandList_VK::DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes) const
+{
+	assert(!"DispatchGraph is not implemented on Vulkan");
+	(void)nodeGPUInputAddress;
+	(void)isMultiNodes;
+}
+
+void CommandList_VK::ConvertLinearAlgebraMatrix(const LinearAlgebraMatrixConversionInfo* pConversions, uint32_t numConversions) const
+{
+	assert(!"ConvertLinearAlgebraMatrix is not implemented on Vulkan");
+	(void)pConversions;
+	(void)numConversions;
+}
+
+const void* CommandList_VK::renderingPNext() const
+{
+	if (m_shadingRate.View == VK_NULL_HANDLE) return nullptr;
+
+	m_shadingRateInfo.sType = VK_STRUCTURE_TYPE_RENDERING_FRAGMENT_SHADING_RATE_ATTACHMENT_INFO_KHR;
+	m_shadingRateInfo.pNext = nullptr;
+	m_shadingRateInfo.imageView = m_shadingRate.View;
+	m_shadingRateInfo.imageLayout = VK_IMAGE_LAYOUT_FRAGMENT_SHADING_RATE_ATTACHMENT_OPTIMAL_KHR;
+
+	return &m_shadingRateInfo;
+}
+
+void CommandList_VK::loadProcs()
+{
+	if (!m_pDevice) return;
+	const auto device = m_pDevice->GetDevice();
+	if (device == VK_NULL_HANDLE) return;
+	m_setShadingRate = reinterpret_cast<PFN_vkCmdSetFragmentShadingRateKHR>(
+		vkGetDeviceProcAddr(device, "vkCmdSetFragmentShadingRateKHR"));
+	m_drawMesh = reinterpret_cast<PFN_vkCmdDrawMeshTasksEXT>(vkGetDeviceProcAddr(device, "vkCmdDrawMeshTasksEXT"));
+}
+
+void CommandList_VK::flushBarriers(VkMemoryBarrier2& memory) const
+{
+	if (!memory.srcStageMask && !memory.dstStageMask && m_buffers.empty() && m_images.empty()) return;
+
+	VkDependencyInfo info = {};
+	FillBarrierDependency(info, memory, m_buffers, m_images);
+	pipelineBarrier(info);
+	memory.srcStageMask = 0;
+	memory.srcAccessMask = 0;
+	memory.dstStageMask = 0;
+	memory.dstAccessMask = 0;
+	m_buffers.clear();
+	m_images.clear();
+}
+
+void CommandList_VK::addBarrier(const ResourceBarrier& barrier, VkMemoryBarrier2& memory) const
+{
+	if (!barrier.pResource)
+	{
+		memory.srcStageMask |= BarrierStage(barrier.SyncBefore);
+		memory.srcAccessMask |= BarrierAccessFlags(barrier.AccessBefore);
+		memory.dstStageMask |= BarrierStage(barrier.SyncAfter);
+		memory.dstAccessMask |= BarrierAccessFlags(barrier.AccessAfter);
+
+		return;
+	}
+
+	const auto pResource = AsVK(barrier.pResource);
+	assert(pResource);
+	if (IsBufferBarrier(barrier) || !pResource->IsImage())
+	{
+		VkBufferMemoryBarrier2 buffer = {};
+		buffer.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
+		buffer.srcStageMask = BarrierStage(barrier.SyncBefore);
+		buffer.srcAccessMask = BarrierAccessFlags(barrier.AccessBefore);
+		buffer.dstStageMask = BarrierStage(barrier.SyncAfter);
+		buffer.dstAccessMask = BarrierAccessFlags(barrier.AccessAfter);
+		buffer.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		buffer.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		buffer.buffer = pResource->GetBuffer();
+		buffer.offset = barrier.Offset;
+		buffer.size = barrier.Size ? barrier.Size : VK_WHOLE_SIZE;
+		m_buffers.push_back(buffer);
+
+		return;
+	}
+
+	VkImageMemoryBarrier2 image = {};
+	image.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+	image.srcStageMask = BarrierStage(barrier.SyncBefore);
+	image.srcAccessMask = BarrierAccessFlags(barrier.AccessBefore);
+	image.dstStageMask = BarrierStage(barrier.SyncAfter);
+	image.dstAccessMask = BarrierAccessFlags(barrier.AccessAfter);
+	image.oldLayout = XUSG::GetVKBarrierLayout(barrier.LayoutBefore);
+	image.newLayout = XUSG::GetVKBarrierLayout(barrier.LayoutAfter);
+	// BarrierLayout::PRESENT aliases COMMON and maps to GENERAL in GetVKBarrierLayout;
+	// resolve to PRESENT_SRC / per-resource common layout like Resource_VK::ImageLayout.
+	if (barrier.LayoutBefore == BarrierLayout::COMMON)
+	{
+		image.oldLayout = pResource->IsPresentable() ?
+			VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : pResource->GetCommonLayout();
+	}
+	if (barrier.LayoutAfter == BarrierLayout::COMMON)
+	{
+		image.newLayout = pResource->IsPresentable() ?
+			VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : pResource->GetCommonLayout();
+	}
+	image.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	image.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	image.image = pResource->GetImage();
+	SubresourceRange(barrier, pResource, image.subresourceRange);
+	if (image.oldLayout == image.newLayout && barrier.LayoutBefore == BarrierLayout::COMMON)
+		return;
+	// Vulkan applies every barrier in one call at once, so an overlapping layout
+	// change has to be submitted first.
+	if (image.oldLayout != image.newLayout)
+	{
+		for (const auto& queued : m_images)
+		{
+			if (ImageBarrierOverlaps(image, queued) && queued.oldLayout != queued.newLayout)
+			{
+				flushBarriers(memory);
+				break;
+			}
+		}
+	}
+	pResource->AppendImageBarrier(image, m_images);
+}
+
+void CommandList_VK::resolveMinMax(Resource* pDstResource, uint32_t dstSubresource, uint32_t dstX, uint32_t dstY,
+	Resource* pSrcResource, uint32_t srcSubresource, const RectRange& srcRect, ResolveMode resolveMode) const
+{
+	const auto pSrc = AsVK(pSrcResource);
+	const auto pDst = AsVK(pDstResource);
+	assert(pSrc);
+	assert(pDst);
 	const auto srcAspect = DepthStencilAspect(pSrc->GetVkFormat());
 	const auto dstAspect = DepthStencilAspect(pDst->GetVkFormat());
 	if (srcAspect == VK_IMAGE_ASPECT_COLOR_BIT || dstAspect == VK_IMAGE_ASPECT_COLOR_BIT)
@@ -536,8 +659,9 @@ void CommandList_VK::resolveMinMax(Resource* pDstResource, uint32_t dstSubresour
 
 		return;
 	}
-	assert(m_pDeviceVK && m_pDeviceVK->HasDepthStencilResolve());
-	if (!m_pDeviceVK || !m_pDeviceVK->HasDepthStencilResolve()) return;
+	const auto depthStencilResolve = m_pDevice && m_pDevice->HasDepthStencilResolve();
+	assert(depthStencilResolve);
+	if (!depthStencilResolve) return;
 	assert(pSrc->GetSampleCount() > 1 && pDst->GetSampleCount() <= 1);
 	if (pSrc->GetSampleCount() <= 1 || pDst->GetSampleCount() > 1) return;
 
@@ -554,30 +678,31 @@ void CommandList_VK::resolveMinMax(Resource* pDstResource, uint32_t dstSubresour
 	}
 
 	const auto mode = resolveMode == ResolveMode::MIN ? VK_RESOLVE_MODE_MIN_BIT : VK_RESOLVE_MODE_MAX_BIT;
+	const auto independentNone = m_pDevice->IndependentDepthStencilResolveNone();
 	auto depthMode = (srcAspect & VK_IMAGE_ASPECT_DEPTH_BIT) != 0 &&
-		(m_pDeviceVK->SupportedDepthResolveModes() & mode) != 0 ? mode : VK_RESOLVE_MODE_NONE;
+		(m_pDevice->SupportedDepthResolveModes() & mode) != 0 ? mode : VK_RESOLVE_MODE_NONE;
 	auto stencilMode = (srcAspect & VK_IMAGE_ASPECT_STENCIL_BIT) != 0 &&
-		(m_pDeviceVK->SupportedStencilResolveModes() & mode) != 0 ? mode : VK_RESOLVE_MODE_NONE;
+		(m_pDevice->SupportedStencilResolveModes() & mode) != 0 ? mode : VK_RESOLVE_MODE_NONE;
 	if ((dstAspect & VK_IMAGE_ASPECT_DEPTH_BIT) == 0) depthMode = VK_RESOLVE_MODE_NONE;
 	if ((dstAspect & VK_IMAGE_ASPECT_STENCIL_BIT) == 0) stencilMode = VK_RESOLVE_MODE_NONE;
 	const auto wantDepth = (srcAspect & dstAspect & VK_IMAGE_ASPECT_DEPTH_BIT) != 0;
 	const auto wantStencil = (srcAspect & dstAspect & VK_IMAGE_ASPECT_STENCIL_BIT) != 0;
 	if (wantDepth && depthMode == VK_RESOLVE_MODE_NONE &&
-		(!wantStencil || stencilMode == VK_RESOLVE_MODE_NONE || !m_pDeviceVK->IndependentDepthStencilResolveNone()))
+		(!wantStencil || stencilMode == VK_RESOLVE_MODE_NONE || !independentNone))
 	{
 		assert(!"Depth resolve mode is not supported");
 
 		return;
 	}
 	if (wantStencil && stencilMode == VK_RESOLVE_MODE_NONE &&
-		(!wantDepth || depthMode == VK_RESOLVE_MODE_NONE || !m_pDeviceVK->IndependentDepthStencilResolveNone()))
+		(!wantDepth || depthMode == VK_RESOLVE_MODE_NONE || !independentNone))
 	{
 		assert(!"Stencil resolve mode is not supported");
 
 		return;
 	}
 	if (depthMode != VK_RESOLVE_MODE_NONE && stencilMode != VK_RESOLVE_MODE_NONE &&
-		depthMode != stencilMode && !m_pDeviceVK->IndependentDepthStencilResolve())
+		depthMode != stencilMode && !m_pDevice->IndependentDepthStencilResolve())
 	{
 		assert(!"Independent depth and stencil resolve is not supported");
 
@@ -716,106 +841,10 @@ void CommandList_VK::resolveMinMax(Resource* pDstResource, uint32_t dstSubresour
 	if (restart) beginPredication();
 }
 
-void CommandList_VK::RSSetShadingRate(ShadingRate baseShadingRate, const ShadingRateCombiner* pCombiners) const
-{
-	assert(m_setShadingRate);
-	const auto rate = static_cast<uint32_t>(baseShadingRate);
-	VkExtent2D size = { 1u << (rate >> 2), 1u << (rate & 3) };
-	VkFragmentShadingRateCombinerOpKHR combiners[2] =
-	{
-		pCombiners ? Combiner(pCombiners[0]) : VK_FRAGMENT_SHADING_RATE_COMBINER_OP_KEEP_KHR,
-		pCombiners ? Combiner(pCombiners[1]) : VK_FRAGMENT_SHADING_RATE_COMBINER_OP_KEEP_KHR
-	};
-	m_setShadingRate(m_commandBuffer, &size, combiners);
-}
-
-void CommandList_VK::RSSetShadingRateImage(Resource* pShadingRateImage) const
-{
-	if (!pShadingRateImage)
-	{
-		if (!m_shadingRate.View) return;
-		endRendering();
-		vkDestroyImageView(m_device, m_shadingRate.View, nullptr);
-		m_shadingRate = {};
-
-		return;
-	}
-
-	assert(m_pDeviceVK && m_pDeviceVK->HasFragmentShadingRate());
-	const auto pResource = static_cast<const XUSG::Resource_VK*>(pShadingRateImage->GetHandle());
-	if (viewCached(m_shadingRate, pResource, 0, 0, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D)) return;
-
-	endRendering();
-	cachedView(m_shadingRate, pResource, 0, 0, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D);
-}
-
-void CommandList_VK::DispatchMesh(uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ) const
-{
-	assert(m_drawMesh);
-	if (!m_drawMesh) return;
-	assert(m_type != CommandListType::DIRECT || m_renderingBegun);
-	m_drawMesh(m_commandBuffer, threadGroupCountX, threadGroupCountY, threadGroupCountZ);
-}
-
-void CommandList_VK::SetStateObject(const Pipeline& stateObject) const
-{
-	assert(!"SetStateObject is not implemented on Vulkan");
-	(void)stateObject;
-}
-
-void CommandList_VK::SetProgram(ProgramType type, ProgramIdentifier identifier, WorkGraphFlag flags,
-	uint64_t backingMemoryAddress, uint64_t backingMemoryByteSize, uint64_t localRootArgTableAddress,
-	uint64_t localRootArgTableByteSize, uint64_t localRootArgTableByteStride) const
-{
-	assert(!"SetProgram is not implemented on Vulkan");
-	(void)type;
-	(void)identifier;
-	(void)flags;
-	(void)backingMemoryAddress;
-	(void)backingMemoryByteSize;
-	(void)localRootArgTableAddress;
-	(void)localRootArgTableByteSize;
-	(void)localRootArgTableByteStride;
-}
-
-void CommandList_VK::DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride) const
-{
-	assert(!"DispatchGraph is not implemented on Vulkan");
-	(void)numNodeInputs;
-	(void)pNodeInputs;
-	(void)nodeInputByteStride;
-}
-
-void CommandList_VK::DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes) const
-{
-	assert(!"DispatchGraph is not implemented on Vulkan");
-	(void)nodeGPUInputAddress;
-	(void)isMultiNodes;
-}
-
-void CommandList_VK::ConvertLinearAlgebraMatrix(const LinearAlgebraMatrixConversionInfo* pConversions, uint32_t numConversions) const
-{
-	assert(!"ConvertLinearAlgebraMatrix is not implemented on Vulkan");
-	(void)pConversions;
-	(void)numConversions;
-}
-
-const void* CommandList_VK::renderingPNext() const
-{
-	if (!m_shadingRate.View) return nullptr;
-
-	m_shadingRateInfo.sType = VK_STRUCTURE_TYPE_RENDERING_FRAGMENT_SHADING_RATE_ATTACHMENT_INFO_KHR;
-	m_shadingRateInfo.pNext = nullptr;
-	m_shadingRateInfo.imageView = m_shadingRate.View;
-	m_shadingRateInfo.imageLayout = VK_IMAGE_LAYOUT_FRAGMENT_SHADING_RATE_ATTACHMENT_OPTIMAL_KHR;
-
-	return &m_shadingRateInfo;
-}
-
 bool CommandList_VK::viewCached(const CachedView& cached, const XUSG::Resource_VK* pResource, uint32_t mip,
 	uint32_t layer, VkImageAspectFlags aspect, VkImageViewType type) const
 {
-	return cached.View && cached.Image == pResource->GetImage() && cached.Format == pResource->GetVkFormat() &&
+	return cached.View != VK_NULL_HANDLE && cached.Image == pResource->GetImage() && cached.Format == pResource->GetVkFormat() &&
 		cached.Type == type && cached.Mip == mip && cached.Layer == layer && cached.Aspect == aspect;
 }
 
@@ -824,7 +853,8 @@ bool CommandList_VK::cachedView(CachedView& cached, const XUSG::Resource_VK* pRe
 {
 	if (viewCached(cached, pResource, mip, layer, aspect, type)) return true;
 
-	if (cached.View) vkDestroyImageView(m_device, cached.View, nullptr);
+	const auto device = m_pDevice->GetDevice();
+	if (cached.View != VK_NULL_HANDLE) vkDestroyImageView(device, cached.View, nullptr);
 	cached.View = VK_NULL_HANDLE;
 
 	VkImageViewCreateInfo info = {};
@@ -837,7 +867,7 @@ bool CommandList_VK::cachedView(CachedView& cached, const XUSG::Resource_VK* pRe
 	info.subresourceRange.levelCount = 1;
 	info.subresourceRange.baseArrayLayer = layer;
 	info.subresourceRange.layerCount = 1;
-	const auto result = vkCreateImageView(m_device, &info, nullptr, &cached.View);
+	const auto result = vkCreateImageView(device, &info, nullptr, &cached.View);
 	if (result < 0)
 	{
 		cerr << "VkResult " << result << endl;
@@ -897,11 +927,11 @@ XUSG::PipelineLayout PipelineLayoutLib_VK::createRootSignatureFromLibSubobject(c
 	const Blob& blobLib, const wchar_t* name, uint32_t nodeMask)
 {
 	const void* pData = nullptr;
-	auto size = 0ull;
+	size_t size = 0;
 	XUSG::GetVKBlobData(blobLib, &pData, &size);
 
 	const void* pPayload = nullptr;
-	auto payloadSize = 0ull;
+	size_t payloadSize = 0;
 	XUSG_N_RETURN(XUSG::FindVKRootSignaturePayload(pData, size, name, &pPayload, &payloadSize), nullptr);
 
 	return createRootSignatureFromPayload(key, pPayload, payloadSize, name, nodeMask);

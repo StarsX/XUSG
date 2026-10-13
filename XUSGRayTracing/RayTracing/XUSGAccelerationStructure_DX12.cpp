@@ -138,7 +138,7 @@ size_t AccelerationStructure_DX12::Align(size_t byteSize)
 bool AccelerationStructure_DX12::prebuild(Device* pDevice)
 {
 	const auto& inputs = m_buildDesc.Inputs;
-	assert(pDevice->GetHandle());
+	assert(pDevice->GetNativeHandle());
 
 	D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO prebuildInfo;
 	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(pDevice->GetRTHandle());
@@ -467,7 +467,7 @@ void TopLevelAS_DX12::SetInstances(Device* pDevice, Buffer* pInstances, uint32_t
 		instanceDescs[i].AccelerationStructure = reinterpret_cast<const WRAPPED_GPU_POINTER&>(bottomLevelASPtr);
 	}
 
-	if (pInstances->GetHandle())
+	if (pInstances->GetNativeHandle())
 	{
 		void* pMappedData = pInstances->Map();
 		memcpy(pMappedData, instanceDescs.data(), sizeof(D3D12_RAYTRACING_FALLBACK_INSTANCE_DESC) * numInstances);
@@ -607,7 +607,7 @@ void OpacityMicromapArray_DX12::SetOmmDescs(Device* pDevice, Buffer* pOmmDescsBu
 		ommDescs[i].Format = static_cast<D3D12_RAYTRACING_OPACITY_MICROMAP_FORMAT>(ommDesc.Format);
 	}
 
-	if (pOmmDescsBuffer->GetHandle())
+	if (pOmmDescsBuffer->GetNativeHandle())
 	{
 		void* pMappedData = pOmmDescsBuffer->Map();
 		memcpy(pMappedData, ommDescs.data(), sizeof(D3D12_RAYTRACING_OPACITY_MICROMAP_DESC) * numOmmDescs);

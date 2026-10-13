@@ -63,6 +63,7 @@ namespace XUSG
 
 			State_DX12();
 			virtual ~State_DX12();
+			void* GetBackend() override;
 
 			void SetShaderLibrary(uint32_t index, const Blob& shaderLib,
 				uint32_t numShaders = 0, const wchar_t** pShaderNames = nullptr);
@@ -161,5 +162,17 @@ namespace XUSG
 
 			std::mutex m_mtx;
 		};
+
+		inline State_DX12* AsDX12(State* p)
+		{
+			assert(!p || p->GetBackend());
+			return static_cast<State_DX12*>(p ? p->GetBackend() : nullptr);
+		}
+
+		inline const State_DX12* AsDX12(const State* p)
+		{
+			assert(!p || const_cast<State*>(p)->GetBackend());
+			return static_cast<const State_DX12*>(p ? const_cast<State*>(p)->GetBackend() : nullptr);
+		}
 	}
 }

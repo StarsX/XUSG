@@ -23,7 +23,7 @@ namespace XUSG
 				virtual ~CommandList_DXR();
 
 				bool Create(RayTracing::CommandList* pCommandList, uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize);
-				bool Create(RayTracing::Device* pDevice, void* pHandle, uint32_t samplerHeapSize,
+				bool Create(RayTracing::Device* pDevice, void* pNativeHandle, uint32_t samplerHeapSize,
 					uint32_t cbvSrvUavHeapSize, const wchar_t* name = nullptr);
 				bool CreatePipelineLayouts(
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,

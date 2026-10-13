@@ -60,7 +60,7 @@ void Util::DescriptorTable_DX12::SetSamplers(uint32_t start, uint32_t num, const
 
 DescriptorTable Util::DescriptorTable_DX12::CreateCbvSrvUavTable(DescriptorTableLib* pDescriptorTableLib, const XUSG::DescriptorTable& table)
 {
-	const auto p = dynamic_cast<DescriptorTableLib_DX12*>(pDescriptorTableLib);
+	const auto p = AsDX12(pDescriptorTableLib);
 	assert(p);
 
 	return p->CreateCbvSrvUavTable(this, table);
@@ -68,7 +68,7 @@ DescriptorTable Util::DescriptorTable_DX12::CreateCbvSrvUavTable(DescriptorTable
 
 DescriptorTable Util::DescriptorTable_DX12::GetCbvSrvUavTable(DescriptorTableLib* pDescriptorTableLib, const XUSG::DescriptorTable& table)
 {
-	const auto p = dynamic_cast<DescriptorTableLib_DX12*>(pDescriptorTableLib);
+	const auto p = AsDX12(pDescriptorTableLib);
 	assert(p);
 
 	return p->GetCbvSrvUavTable(this, table);
@@ -76,7 +76,7 @@ DescriptorTable Util::DescriptorTable_DX12::GetCbvSrvUavTable(DescriptorTableLib
 
 DescriptorTable Util::DescriptorTable_DX12::CreateSamplerTable(DescriptorTableLib* pDescriptorTableLib, const XUSG::DescriptorTable& table)
 {
-	const auto p = dynamic_cast<DescriptorTableLib_DX12*>(pDescriptorTableLib);
+	const auto p = AsDX12(pDescriptorTableLib);
 	assert(p);
 
 	return p->CreateSamplerTable(this, table);
@@ -84,7 +84,7 @@ DescriptorTable Util::DescriptorTable_DX12::CreateSamplerTable(DescriptorTableLi
 
 DescriptorTable Util::DescriptorTable_DX12::GetSamplerTable(DescriptorTableLib* pDescriptorTableLib, const XUSG::DescriptorTable& table)
 {
-	const auto p = dynamic_cast<DescriptorTableLib_DX12*>(pDescriptorTableLib);
+	const auto p = AsDX12(pDescriptorTableLib);
 	assert(p);
 
 	return p->GetSamplerTable(this, table);
@@ -146,8 +146,8 @@ DescriptorTableLib_DX12::DescriptorTableLib_DX12() :
 	m_cbvSrvUavTables(),
 	m_samplerTables(),
 	m_descriptorHeaps(),
-	m_descriptorStrides(),
 	m_descriptorCounts(),
+	m_descriptorStrides(),
 	m_samplers()
 {
 	// Sampler presets
@@ -203,7 +203,7 @@ DescriptorTableLib_DX12::~DescriptorTableLib_DX12()
 
 void DescriptorTableLib_DX12::SetDevice(Device* pDevice)
 {
-	m_device = pDevice->GetHandle();
+	m_device = pDevice->GetNativeHandle();
 
 	assert(m_device);
 	m_descriptorStrides[CBV_SRV_UAV_HEAP] = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -292,6 +292,11 @@ uint32_t DescriptorTableLib_DX12::GetDescriptorStride(DescriptorHeapType type) c
 	lock_guard<mutex> lock(m_mtx);
 
 	return m_descriptorStrides[type];
+}
+
+void* DescriptorTableLib_DX12::GetBackend()
+{
+	return this;
 }
 
 void DescriptorTableLib_DX12::checkDescriptorHeapTypeStorage(DescriptorHeapType type, uint8_t index)
@@ -432,16 +437,16 @@ DescriptorTable DescriptorTableLib_DX12::createCbvSrvUavTable(const string& key,
 			case ResourceViewType::SRV:
 			{
 				const auto pDxResource = pResourceView->pResource ?
-					static_cast<ID3D12Resource*>(pResourceView->pResource->GetHandle()) : nullptr;
+					reinterpret_cast<ID3D12Resource*>(pResourceView->pResource->GetNativeHandle()) : nullptr;
 				m_device->CreateShaderResourceView(pDxResource, &pResourceView->SrvDesc, descriptorHandle);
 				break;
 			}
 			case ResourceViewType::UAV:
 			{
 				const auto pDxResource = pResourceView->pResource ?
-					static_cast<ID3D12Resource*>(pResourceView->pResource->GetHandle()) : nullptr;
+					reinterpret_cast<ID3D12Resource*>(pResourceView->pResource->GetNativeHandle()) : nullptr;
 				const auto pDxCounter = pResourceView->pCounterResource ?
-					static_cast<ID3D12Resource*>(pResourceView->pCounterResource->GetHandle()) : nullptr;
+					reinterpret_cast<ID3D12Resource*>(pResourceView->pCounterResource->GetNativeHandle()) : nullptr;
 				m_device->CreateUnorderedAccessView(pDxResource, pDxCounter, &pResourceView->UavDesc, descriptorHandle);
 				break;
 			}
@@ -450,9 +455,9 @@ DescriptorTable DescriptorTableLib_DX12::createCbvSrvUavTable(const string& key,
 				com_ptr<ID3D12Device10> device;
 				V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&device)), cerr, XUSG_NULL);
 				const auto pDxResource = pResourceView->pResource ?
-					static_cast<ID3D12Resource*>(pResourceView->pResource->GetHandle()) : nullptr;
+					reinterpret_cast<ID3D12Resource*>(pResourceView->pResource->GetNativeHandle()) : nullptr;
 				const auto pDxTarget = pResourceView->pSamplerFeedbackTarget ?
-					static_cast<ID3D12Resource*>(pResourceView->pSamplerFeedbackTarget->GetHandle()) : nullptr;
+					reinterpret_cast<ID3D12Resource*>(pResourceView->pSamplerFeedbackTarget->GetNativeHandle()) : nullptr;
 				device->CreateSamplerFeedbackUnorderedAccessView(pDxTarget, pDxResource, descriptorHandle);
 				break;
 			}

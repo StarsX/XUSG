@@ -9,6 +9,11 @@
 #define XUSG_INTERFACE
 #endif
 
+// The Vulkan SDK no longer ships 32-bit libraries.
+#if defined(_WIN32) && !defined(_WIN64)
+#define XUSG_NO_VULKAN
+#endif
+
 #define XUSG_M_RETURN(x, o, m, r)		if (x) { o << m << std::endl; assert(!m); return r; }
 #define XUSG_C_RETURN(x, r)				if (x) return r
 #define XUSG_N_RETURN(x, r)				XUSG_C_RETURN(!(x), r)
@@ -1198,7 +1203,7 @@ namespace XUSG
 	using DescriptorTableLayout = const void*;
 	using DescriptorHeap = void*;
 	using Blob = void*;
-	using QueryHeap = void*;
+	using QueryHeap = uint64_t;
 
 	//--------------------------------------------------------------------------------------
 	// Device
@@ -1228,18 +1233,23 @@ namespace XUSG
 		virtual uint32_t Create(void* pAdapter, uint32_t minFeatureLevel, const wchar_t* name = nullptr) = 0;
 		virtual uint32_t GetDeviceRemovedReason() const = 0;
 
-		// Create from API native handle
-		virtual void Create(void* pHandle, const wchar_t* name = nullptr) = 0;
+		// Create from API native handle. pNativeHandle is ID3D12Device* or VkDevice.
+		virtual void Create(void* pNativeHandle) = 0;
 
-		// Get API native handle
-		virtual void* GetHandle() = 0;
+		// Get API native handle. Cast to ID3D12Device* or VkDevice.
+		virtual void* GetNativeHandle() = 0;
+
+		// Backend C++ object (Device_DX12* / Device_VK*). Not the GPU native handle.
+		// Needed because virtual inheritance forbids static_cast from Device* to *_DX12/*_VK*.
+		virtual void* GetBackend() = 0;
 
 		using uptr = std::unique_ptr<Device>;
 		using sptr = std::shared_ptr<Device>;
 
+		static void LockApi();
+		static void UnlockApi();
 		static void SetApi(API api);
 		static API GetApi();
-		static void LockApi();
 
 		static uptr MakeUnique();
 		static sptr MakeShared();
@@ -1261,11 +1271,11 @@ namespace XUSG
 
 		virtual uint64_t GetCompletedValue() const = 0;
 
-		// Create from API native handle
-		virtual void Create(void* pHandle, const wchar_t* name = nullptr) = 0;
+		// Create from API native handle. nativeHandle is ID3D12Fence* or VkSemaphore.
+		virtual void Create(uint64_t nativeHandle, Device* pDevice) = 0;
 
-		// Get API native handle
-		virtual void* GetHandle() = 0;
+		// Get API native handle. Cast to ID3D12Fence* or VkSemaphore.
+		virtual uint64_t GetNativeHandle() const = 0;
 
 		using uptr = std::unique_ptr<Fence>;
 		using sptr = std::shared_ptr<Fence>;
@@ -1293,11 +1303,14 @@ namespace XUSG
 			const IndirectArgument* pArguments, const PipelineLayout& pipelineLayout = nullptr,
 			uint32_t nodeMask = 0, const wchar_t* name = nullptr) = 0;
 
-		// Create from API native handle
-		virtual void Create(void* pHandle, const wchar_t* name = nullptr) = 0;
+		// Create from API native handle. nativeHandle is ID3D12CommandSignature* or VkIndirectCommandsLayoutEXT.
+		virtual void Create(uint64_t nativeHandle, Device* pDevice) = 0;
 
-		// Get API native handle
-		virtual void* GetHandle() = 0;
+		// Get API native handle. Cast to ID3D12CommandSignature* or VkIndirectCommandsLayoutEXT.
+		virtual uint64_t GetNativeHandle() const = 0;
+
+		// Backend C++ object (CommandLayout_DX12* / CommandLayout_VK*). Not the GPU native handle.
+		virtual void* GetBackend() = 0;
 
 		using uptr = std::unique_ptr<CommandLayout>;
 		using sptr = std::shared_ptr<CommandLayout>;
@@ -1318,14 +1331,14 @@ namespace XUSG
 		virtual bool Create(Device* pDevice, CommandListType type, const wchar_t* name = nullptr) = 0;
 		virtual bool Reset() = 0;
 
-		// Create from API native handle
-		virtual void Create(void* pHandle, const wchar_t* name = nullptr) = 0;
+		// Create from API native handle. nativeHandle is ID3D12CommandAllocator* or VkCommandPool.
+		virtual void Create(uint64_t nativeHandle, Device* pDevice) = 0;
 
-		// Get API native handle
-		virtual void* GetHandle() = 0;
+		// Get API native handle. Cast to ID3D12CommandAllocator* or VkCommandPool.
+		virtual uint64_t GetNativeHandle() const = 0;
 
-		// Get API native handle of the device for this command allocator
-		virtual void* GetDeviceHandle() const = 0;
+		// Get API native handle of the device for this command allocator. Cast to ID3D12Device* or VkDevice.
+		virtual void* GetDeviceNativeHandle() const = 0;
 
 		virtual Device* GetDevice() const = 0;
 
@@ -1452,14 +1465,17 @@ namespace XUSG
 			Resource* pArgumentBuffer, uint64_t argumentBufferOffset = 0,
 			Resource* pCountBuffer = nullptr, uint64_t countBufferOffset = 0) const = 0;
 
-		// Create from API native handle
-		virtual void Create(void* pHandle, const wchar_t* name = nullptr) = 0;
+		// Create from API native handle. pNativeHandle is ID3D12GraphicsCommandList* or VkCommandBuffer.
+		virtual void Create(void* pNativeHandle, Device* pDevice) = 0;
 
-		// Get API native handle
-		virtual void* GetHandle() = 0;
+		// Get API native handle. Cast to ID3D12GraphicsCommandList* or VkCommandBuffer.
+		virtual void* GetNativeHandle() = 0;
 
-		// Get API native handle of the device for this command list
-		virtual void* GetDeviceHandle() const = 0;
+		// Get API native handle of the device for this command list. Cast to ID3D12Device* or VkDevice.
+		virtual void* GetDeviceNativeHandle() const = 0;
+
+		// Backend C++ object (CommandList_DX12* / CommandList_VK*). Not the GPU native handle.
+		virtual void* GetBackend() = 0;
 
 		virtual Device* GetDevice() const = 0;
 
@@ -1502,14 +1518,14 @@ namespace XUSG
 			Resource* pSrcResource, const TiledResourceCoord* pSrcRegionStartCoordinate,
 			const TileRegionSize& regionSize, TileMappingFlag Flags = TileMappingFlag::NONE) const = 0;
 
-		// Create from API native handle
-		virtual void Create(void* pHandle, const wchar_t* name = nullptr) = 0;
+		// Create from API native handle. pNativeHandle is ID3D12CommandQueue* or VkQueue.
+		virtual void Create(void* pNativeHandle, Device* pDevice) = 0;
 
-		// Get API native handle
-		virtual void* GetHandle() = 0;
+		// Get API native handle. Cast to ID3D12CommandQueue* or VkQueue.
+		virtual void* GetNativeHandle() = 0;
 
-		// Get API native handle of the device for this command list
-		virtual void* GetDeviceHandle() const = 0;
+		// Get API native handle of the device for this command queue. Cast to ID3D12Device* or VkDevice.
+		virtual void* GetDeviceNativeHandle() const = 0;
 
 		virtual Device* GetDevice() const = 0;
 
@@ -1545,11 +1561,14 @@ namespace XUSG
 
 		virtual uint8_t GetCurrentBackBufferIndex() const = 0;
 
-		// Create from API native handle
-		virtual void Create(void* pHandle) = 0;
+		// Create from API native handle. nativeHandle is IDXGISwapChain3* or VkSwapchainKHR.
+		virtual void Create(uint64_t nativeHandle) = 0;
 
-		// Get API native handle
-		virtual void* GetHandle() = 0;
+		// Get API native handle. Cast to IDXGISwapChain3* or VkSwapchainKHR.
+		virtual uint64_t GetNativeHandle() const = 0;
+
+		// Backend C++ object (SwapChain_DX12* / SwapChain_VK*). Not the GPU native handle.
+		virtual void* GetBackend() = 0;
 
 		using uptr = std::unique_ptr<SwapChain>;
 		using sptr = std::shared_ptr<SwapChain>;
@@ -1575,12 +1594,16 @@ namespace XUSG
 		virtual uint64_t GetAlignment() const = 0;
 		virtual MemoryType GetType() const = 0;
 
-		// Create from API native handle
-		virtual void Create(void* pDeviceHandle, void* pHeapHandle, const wchar_t* name = nullptr) = 0;
+		// Create from API native handle. nativeHandle is ID3D12Heap* or VkDeviceMemory.
+		// DX12 copies the existing debug name into the stored name. Vulkan leaves that name empty.
+		virtual void Create(uint64_t nativeHandle, Device* pDevice) = 0;
 		virtual void SetName(const wchar_t* name) = 0;
 
-		// Get API native handle
-		virtual void* GetHandle() = 0;
+		// Get API native handle. Cast to ID3D12Heap* or VkDeviceMemory.
+		virtual uint64_t GetNativeHandle() const = 0;
+
+		// Backend C++ object (Heap_DX12* / Heap_VK*). Not the GPU native handle.
+		virtual void* GetBackend() = 0;
 
 		using uptr = std::unique_ptr<Heap>;
 		using sptr = std::shared_ptr<Heap>;
@@ -1620,13 +1643,18 @@ namespace XUSG
 			TileShape* pStandardTileShapeForNonPackedMips = nullptr, uint32_t* pNumSubresourceTilings = nullptr,
 			uint32_t firstSubresourceTiling = 0, SubresourceTiling* pSubresourceTilingsForNonPackedMips = nullptr) const = 0;
 
-		// Create from API native handle
-		virtual void Create(void* pDeviceHandle, void* pResourceHandle,
-			const wchar_t* name = nullptr, uint32_t maxThreads = 1) = 0;
+		// Create from API native handle. nativeHandle is ID3D12Resource* or VkImage.
+		// The Vulkan wrap stores this handle as an image. A VkBuffer is not accepted here.
+		// DX12 copies the existing debug name into the stored name. Vulkan leaves that name empty.
+		virtual void Create(uint64_t nativeHandle, Device* pDevice, uint32_t maxThreads = 1) = 0;
 		virtual void SetName(const wchar_t* name) = 0;
 
-		// Get API native handle
-		virtual void* GetHandle() = 0;
+		// Get API native handle. Cast to ID3D12Resource*, VkImage, or VkBuffer.
+		virtual uint64_t GetNativeHandle() const = 0;
+
+		// Backend C++ object (Resource_DX12* / Resource_VK*). Not the GPU native handle.
+		// Needed because virtual inheritance forbids static_cast from Resource* to *_DX12/*_VK*.
+		virtual void* GetBackend() = 0;
 
 		using uptr = std::unique_ptr<Resource>;
 		using sptr = std::shared_ptr<Resource>;
@@ -2345,6 +2373,9 @@ namespace XUSG
 
 		virtual uint32_t GetDescriptorStride(DescriptorHeapType type) const = 0;
 
+		// Backend C++ object (DescriptorTableLib_DX12* / DescriptorTableLib_VK*).
+		virtual void* GetBackend() = 0;
+
 		static Sampler SamplerPointWrap();
 		static Sampler SamplerPointMirror();
 		static Sampler SamplerPointClamp();
@@ -2481,6 +2512,9 @@ namespace XUSG
 
 			virtual const std::vector<std::string>& GetDescriptorTableLayoutKeys() const = 0;
 			virtual std::string& GetPipelineLayoutKey(PipelineLayoutLib* pPipelineLayoutLib) = 0;
+
+			// Backend C++ object (PipelineLayout_DX12* / PipelineLayout_VK*).
+			virtual void* GetBackend() = 0;
 
 			using uptr = std::unique_ptr<PipelineLayout>;
 			using sptr = std::shared_ptr<PipelineLayout>;
@@ -2741,6 +2775,9 @@ namespace XUSG
 			// pInputElements should be a pointer to std::vector<[API]_INPUT_ELEMENT_DESC>
 			virtual void GetHandleDesc(void* pHandleDesc, void* pInputElements) const = 0;
 
+			// Backend C++ object (Graphics::State_DX12* / State_VK*).
+			virtual void* GetBackend() = 0;
+
 			using uptr = std::unique_ptr<State>;
 			using sptr = std::shared_ptr<State>;
 
@@ -2891,6 +2928,9 @@ namespace XUSG
 
 			// Get API native desc of this PSO handle
 			virtual void GetHandleDesc(void* pHandleDesc) const = 0;
+
+			// Backend C++ object (Compute::State_DX12* / State_VK*).
+			virtual void* GetBackend() = 0;
 
 			using uptr = std::unique_ptr<State>;
 			using sptr = std::shared_ptr<State>;

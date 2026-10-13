@@ -71,15 +71,13 @@ namespace XUSG
 	void RetainVKPipeline(Pipeline_VK* pPipeline);
 	void ReleaseVKPipeline(VkDevice device, Pipeline_VK* pPipeline);
 
+	class Device_VK;
+
 	struct QueueNative
 	{
 		VkQueue Queue;
-		VkDevice Device;
-		VkPhysicalDevice PhysicalDevice;
-		VkInstance Instance;
+		Device_VK* Device;
 		uint32_t Family;
-		uint32_t ApiVersion;
-		bool Synchronization2;
 	};
 
 	void RegisterQueue(const QueueNative& queue);
@@ -88,6 +86,18 @@ namespace XUSG
 	void SetQueueAcquireWait(VkQueue queue, VkSemaphore wait, VkFence fence, VkSemaphore presentSignal);
 	bool TakeQueueAcquireWait(VkQueue queue, VkSemaphore& wait, VkFence& fence, VkSemaphore& presentSignal);
 	void ClearQueueAcquireWait(VkQueue queue);
+
+	// Pending present flushed from CommandQueue::Signal (vkd3d-style).
+	class SwapChain_VK;
+	struct QueuePendingPresent
+	{
+		SwapChain_VK* SwapChain;
+		uint32_t UserIndex;
+	};
+	void SetQueuePendingPresent(VkQueue queue, const QueuePendingPresent& present);
+	bool TakeQueuePendingPresent(VkQueue queue, QueuePendingPresent& present);
+	bool HasQueuePendingPresent(VkQueue queue);
+	bool FlushQueuePendingPresent(VkQueue queue);
 
 	class Device_VK :
 		public virtual Device
@@ -110,9 +120,10 @@ namespace XUSG
 		uint32_t Create(void* pAdapter, uint32_t minFeatureLevel, const wchar_t* name = nullptr);
 		uint32_t GetDeviceRemovedReason() const;
 
-		void Create(void* pHandle, const wchar_t* name = nullptr);
+		void Create(void* pNativeHandle);
 
-		void* GetHandle();
+		void* GetNativeHandle();
+		void* GetBackend() override;
 
 		VkInstance GetInstance() const;
 		VkPhysicalDevice GetPhysicalDevice() const;
@@ -562,16 +573,15 @@ namespace XUSG
 
 		uint64_t GetCompletedValue() const;
 
-		void Create(void* pHandle, const wchar_t* name = nullptr);
+		void Create(uint64_t nativeHandle, Device* pDevice);
 
-		void* GetHandle();
+		uint64_t GetNativeHandle() const;
 
 		VkSemaphore GetSemaphore() const;
 
 	protected:
-		VkDevice		m_device;
-		VkSemaphore		m_semaphore;
-		Device*	m_pDevice;
+		Device_VK*	m_pDevice;
+		VkSemaphore	m_semaphore;
 	};
 
 	class CommandLayout_VK :
@@ -585,9 +595,10 @@ namespace XUSG
 			const IndirectArgument* pArguments, const PipelineLayout& pipelineLayout = nullptr,
 			uint32_t nodeMask = 0, const wchar_t* name = nullptr);
 
-		void Create(void* pHandle, const wchar_t* name = nullptr);
+		void Create(uint64_t nativeHandle, Device* pDevice);
 
-		void* GetHandle();
+		uint64_t GetNativeHandle() const;
+		void* GetBackend() override;
 
 		VkIndirectCommandsLayoutEXT GetLayout() const;
 		VkShaderStageFlags GetShaderStages() const;
@@ -597,19 +608,18 @@ namespace XUSG
 		bool IsTraceRaysOnly() const;
 
 	protected:
-		VkDevice						m_device;
-		Device_VK*				m_pDevice;
-		VkIndirectCommandsLayoutEXT		m_layout;
-		VkShaderStageFlags				m_stages;
-		uint32_t						m_stride;
-		bool							m_isDispatch;
-		bool							m_traceRays;
-		bool							m_traceRaysOnly;
+		Device_VK*					m_pDevice;
+		VkIndirectCommandsLayoutEXT	m_layout;
+		VkShaderStageFlags			m_stages;
+		uint32_t					m_stride;
+		bool						m_isDispatch;
+		bool						m_traceRays;
+		bool						m_traceRaysOnly;
 
-		std::vector<VkIndirectCommandsLayoutTokenEXT>			m_tokens;
-		std::vector<VkIndirectCommandsVertexBufferTokenEXT>		m_vertexTokens;
-		std::vector<VkIndirectCommandsIndexBufferTokenEXT>		m_indexTokens;
-		std::vector<VkIndirectCommandsPushConstantTokenEXT>		m_pushTokens;
+		std::vector<VkIndirectCommandsLayoutTokenEXT>		m_tokens;
+		std::vector<VkIndirectCommandsVertexBufferTokenEXT>	m_vertexTokens;
+		std::vector<VkIndirectCommandsIndexBufferTokenEXT>	m_indexTokens;
+		std::vector<VkIndirectCommandsPushConstantTokenEXT>	m_pushTokens;
 	};
 
 	class SwapChain_VK :
@@ -633,9 +643,10 @@ namespace XUSG
 
 		uint8_t GetCurrentBackBufferIndex() const;
 
-		void Create(void* pHandle);
+		void Create(uint64_t nativeHandle);
 
-		void* GetHandle();
+		uint64_t GetNativeHandle() const;
+		void* GetBackend() override;
 
 		VkImage GetImage(uint8_t buffer) const;
 		VkFormat GetVkFormat() const;
@@ -643,12 +654,17 @@ namespace XUSG
 		uint32_t GetHeight() const;
 
 	protected:
-		bool createSwapchain(uint8_t bufferCount, uint32_t width, uint32_t height, Format format, VkSwapchainKHR old);
-		bool acquire() const;
+		friend bool FlushQueuePendingPresent(VkQueue queue);
 
-		VkInstance			m_instance;
-		VkPhysicalDevice	m_physicalDevice;
-		VkDevice			m_device;
+		bool createSwapchain(uint8_t bufferCount, uint32_t width, uint32_t height, Format format, VkSwapchainKHR old);
+		bool createUserImages();
+		void destroyUserImages();
+		bool createBlitResources();
+		void destroyBlitResources();
+		bool acquire() const;
+		bool flushPresent(uint32_t userIndex);
+
+		Device_VK*			m_pDevice;
 		VkQueue				m_queue;
 		uint32_t			m_family;
 		VkSurfaceKHR		m_surface;
@@ -659,9 +675,11 @@ namespace XUSG
 		uint32_t			m_height;
 		uint8_t				m_bufferCount;
 		mutable uint32_t	m_imageIndex;
+		mutable uint32_t	m_userIndex;
 		bool				m_allowTearing;
 		mutable bool		m_acquired;
-		bool				m_synchronization2;
+		mutable VkSemaphore	m_lastAcquireSemaphore;
+		mutable VkFence		m_lastAcquireFence;
 
 		struct AcquireSlot
 		{
@@ -672,9 +690,15 @@ namespace XUSG
 
 		mutable std::vector<AcquireSlot> m_acquireSlots;
 		mutable uint32_t	m_acquireSlot;
-		std::vector<VkSemaphore> m_renderSemaphores;
+		std::vector<VkSemaphore> m_releaseSemaphores;
 
 		std::vector<VkImage> m_images;
+		std::vector<VkImage> m_userImages;
+		std::vector<VkDeviceMemory> m_userMemory;
+
+		VkCommandPool		m_blitPool;
+		std::vector<VkCommandBuffer> m_blitBuffers;
+		uint32_t			m_blitSlot;
 	};
 
 	void GetVKBlobData(const Blob& blob, const void** ppData, size_t* pSize);
@@ -683,4 +707,42 @@ namespace XUSG
 	Blob GetVKPipelineCache(Pipeline pipeline);
 
 	std::string WideToUtf8(const wchar_t* name);
+
+	// Virtual inheritance blocks static_cast from Device*/CommandLayout* to *_VK*.
+	// GetBackend() returns the concrete subobject; AsVK recovers it without RTTI.
+	inline Device_VK* AsVK(Device* p)
+	{
+		assert(!p || p->GetBackend());
+		return static_cast<Device_VK*>(p ? p->GetBackend() : nullptr);
+	}
+
+	inline const Device_VK* AsVK(const Device* p)
+	{
+		assert(!p || const_cast<Device*>(p)->GetBackend());
+		return static_cast<const Device_VK*>(p ? const_cast<Device*>(p)->GetBackend() : nullptr);
+	}
+
+	inline CommandLayout_VK* AsVK(CommandLayout* p)
+	{
+		assert(!p || p->GetBackend());
+		return static_cast<CommandLayout_VK*>(p ? p->GetBackend() : nullptr);
+	}
+
+	inline const CommandLayout_VK* AsVK(const CommandLayout* p)
+	{
+		assert(!p || const_cast<CommandLayout*>(p)->GetBackend());
+		return static_cast<const CommandLayout_VK*>(p ? const_cast<CommandLayout*>(p)->GetBackend() : nullptr);
+	}
+
+	inline SwapChain_VK* AsVK(SwapChain* p)
+	{
+		assert(!p || p->GetBackend());
+		return static_cast<SwapChain_VK*>(p ? p->GetBackend() : nullptr);
+	}
+
+	inline const SwapChain_VK* AsVK(const SwapChain* p)
+	{
+		assert(!p || const_cast<SwapChain*>(p)->GetBackend());
+		return static_cast<const SwapChain_VK*>(p ? const_cast<SwapChain*>(p)->GetBackend() : nullptr);
+	}
 }

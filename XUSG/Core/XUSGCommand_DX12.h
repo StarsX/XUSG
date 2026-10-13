@@ -18,10 +18,10 @@ namespace XUSG
 		bool Create(Device* pDevice, CommandListType type, const wchar_t* name = nullptr);
 		bool Reset();
 
-		void Create(void* pHandle, const wchar_t* name = nullptr);
+		void Create(uint64_t nativeHandle, Device* pDevice);
 
-		void* GetHandle();
-		void* GetDeviceHandle() const;
+		uint64_t GetNativeHandle() const;
+		void* GetDeviceNativeHandle() const;
 
 		Device* GetDevice() const;
 
@@ -136,10 +136,11 @@ namespace XUSG
 			Resource* pArgumentBuffer, uint64_t argumentBufferOffset = 0,
 			Resource* pCountBuffer = nullptr, uint64_t countBufferOffset = 0) const;
 
-		void Create(void* pHandle, const wchar_t* name = nullptr);
+		void Create(void* pNativeHandle, Device* pDevice);
 
-		void* GetHandle();
-		void* GetDeviceHandle() const;
+		void* GetNativeHandle();
+		void* GetDeviceNativeHandle() const;
+		void* GetBackend() override;
 
 		Device* GetDevice() const;
 
@@ -195,10 +196,10 @@ namespace XUSG
 			Resource* pSrcResource, const TiledResourceCoord* pSrcRegionStartCoordinate,
 			const TileRegionSize& regionSize, TileMappingFlag Flags = TileMappingFlag::NONE) const;
 
-		void Create(void* pHandle, const wchar_t* name = nullptr);
+		void Create(void* pNativeHandle, Device* pDevice);
 
-		void* GetHandle();
-		void* GetDeviceHandle() const;
+		void* GetNativeHandle();
+		void* GetDeviceNativeHandle() const;
 
 		Device* GetDevice() const;
 
@@ -215,4 +216,16 @@ namespace XUSG
 		mutable std::vector<D3D12_TILE_REGION_SIZE> m_resourceRegionSizes;
 		mutable std::vector<D3D12_TILE_RANGE_FLAGS> m_heapRangeFlags;
 	};
+
+	inline CommandList_DX12* AsDX12(CommandList* p)
+	{
+		assert(!p || p->GetBackend());
+		return static_cast<CommandList_DX12*>(p ? p->GetBackend() : nullptr);
+	}
+
+	inline const CommandList_DX12* AsDX12(const CommandList* p)
+	{
+		assert(!p || const_cast<CommandList*>(p)->GetBackend());
+		return static_cast<const CommandList_DX12*>(p ? const_cast<CommandList*>(p)->GetBackend() : nullptr);
+	}
 }

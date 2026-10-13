@@ -36,7 +36,7 @@ CommandList_DX12::CommandList_DX12() :
 CommandList_DX12::CommandList_DX12(XUSG::CommandList& commandList) :
 	XUSG::CommandList_DX12()
 {
-	const auto pCommandList = dynamic_cast<XUSG::CommandList_DX12*>(&commandList);
+	const auto pCommandList = AsDX12(&commandList);
 	assert(pCommandList);
 
 	m_commandList = pCommandList->GetGraphicsCommandList();
@@ -137,7 +137,7 @@ void CommandList_DX12::Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrier
 						textureBarrier.AccessAfter = GetDX12BarrierAccesses(barrier.AccessAfter);
 						textureBarrier.LayoutBefore = GetDX12BarrierLayout(barrier.LayoutBefore);
 						textureBarrier.LayoutAfter = GetDX12BarrierLayout(barrier.LayoutAfter);
-						textureBarrier.pResource = static_cast<ID3D12Resource*>(barrier.pResource->GetHandle());
+						textureBarrier.pResource = reinterpret_cast<ID3D12Resource*>(barrier.pResource->GetNativeHandle());
 						textureBarrier.Subresources.IndexOrFirstMipLevel = barrier.IndexOrFirstMipLevel;
 						textureBarrier.Subresources.NumMipLevels = barrier.NumMipLevels;
 						textureBarrier.Subresources.FirstArraySlice = barrier.FirstArraySlice;
@@ -169,7 +169,7 @@ void CommandList_DX12::Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrier
 						bufferBarrier.SyncAfter = GetDX12BarrierSyncs(barrier.SyncAfter);
 						bufferBarrier.AccessBefore = GetDX12BarrierAccesses(barrier.AccessBefore);
 						bufferBarrier.AccessAfter = GetDX12BarrierAccesses(barrier.AccessAfter);
-						bufferBarrier.pResource = static_cast<ID3D12Resource*>(barrier.pResource->GetHandle());
+						bufferBarrier.pResource = reinterpret_cast<ID3D12Resource*>(barrier.pResource->GetNativeHandle());
 						bufferBarrier.Offset = barrier.Offset;
 						bufferBarrier.Size = barrier.Size;
 					}
@@ -215,7 +215,7 @@ void CommandList_DX12::Barrier(uint32_t numBufferBarriers, ResourceBarrier* pBuf
 			bufferBarrier.SyncAfter = GetDX12BarrierSyncs(barrier.SyncAfter);
 			bufferBarrier.AccessBefore = GetDX12BarrierAccesses(barrier.AccessBefore);
 			bufferBarrier.AccessAfter = GetDX12BarrierAccesses(barrier.AccessAfter);
-			bufferBarrier.pResource = static_cast<ID3D12Resource*>(barrier.pResource->GetHandle());
+			bufferBarrier.pResource = reinterpret_cast<ID3D12Resource*>(barrier.pResource->GetNativeHandle());
 			bufferBarrier.Offset = barrier.Offset;
 			bufferBarrier.Size = barrier.Size;
 		}
@@ -242,7 +242,7 @@ void CommandList_DX12::Barrier(uint32_t numBufferBarriers, ResourceBarrier* pBuf
 			textureBarrier.AccessAfter = GetDX12BarrierAccesses(barrier.AccessAfter);
 			textureBarrier.LayoutBefore = GetDX12BarrierLayout(barrier.LayoutBefore);
 			textureBarrier.LayoutAfter = GetDX12BarrierLayout(barrier.LayoutAfter);
-			textureBarrier.pResource = static_cast<ID3D12Resource*>(barrier.pResource->GetHandle());
+			textureBarrier.pResource = reinterpret_cast<ID3D12Resource*>(barrier.pResource->GetNativeHandle());
 			textureBarrier.Subresources.IndexOrFirstMipLevel = barrier.IndexOrFirstMipLevel;
 			textureBarrier.Subresources.NumMipLevels = barrier.NumMipLevels;
 			textureBarrier.Subresources.FirstArraySlice = barrier.FirstArraySlice;
@@ -322,8 +322,8 @@ void CommandList_DX12::ResolveSubresourceRegion(Resource* pDstResource, uint32_t
 
 	D3D12_RECT rect = { srcRect.Left, srcRect.Top, srcRect.Right, srcRect.Bottom };
 
-	m_commandListU->ResolveSubresourceRegion(static_cast<ID3D12Resource*>(pDstResource->GetHandle()),
-		dstSubresource, dstX, dstY, static_cast<ID3D12Resource*>(pSrcResource->GetHandle()), srcSubresource,
+	m_commandListU->ResolveSubresourceRegion(reinterpret_cast<ID3D12Resource*>(pDstResource->GetNativeHandle()),
+		dstSubresource, dstX, dstY, reinterpret_cast<ID3D12Resource*>(pSrcResource->GetNativeHandle()), srcSubresource,
 		&rect, GetDXGIFormat(format), GetDX12ResolveMode(resolveMode));
 }
 
@@ -340,7 +340,7 @@ void CommandList_DX12::RSSetShadingRate(ShadingRate baseShadingRate, const Shadi
 void CommandList_DX12::RSSetShadingRateImage(Resource* pShadingRateImage)  const
 {
 	m_commandListU->RSSetShadingRateImage(pShadingRateImage ?
-		static_cast<ID3D12Resource*>(pShadingRateImage->GetHandle()) : nullptr);
+		reinterpret_cast<ID3D12Resource*>(pShadingRateImage->GetNativeHandle()) : nullptr);
 }
 
 void CommandList_DX12::DispatchMesh(uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ)  const
@@ -740,7 +740,7 @@ bool SamplerFeedBack_DX12::CreateResource(Device* pDevice, Heap* pHeap, uint64_t
 		states.resize(arraySize * numMips, initialResourceState);
 
 	assert(pHeap);
-	V_RETURN(device->CreatePlacedResource2(static_cast<ID3D12Heap*>(pHeap->GetHandle()), heapOffset, &desc,
+	V_RETURN(device->CreatePlacedResource2(reinterpret_cast<ID3D12Heap*>(pHeap->GetNativeHandle()), heapOffset, &desc,
 		GetDX12BarrierLayout(GetBarrierLayout(m_states[0][0])), nullptr, 0, nullptr, IID_PPV_ARGS(&m_resource)),
 		clog, false);
 
@@ -793,12 +793,12 @@ void XUSG::Ultimate::GetDX12LinearAlgebraMatrixInfo(Device* pDevice, LinearAlgeb
 	auto destInfo = GetDX12LinearAlgebraConversionDestInfo(matrixInfo);
 
 	com_ptr<ID3D12DevicePreview> device = nullptr;
-	auto hr = static_cast<ID3D12Device*>(pDevice->GetHandle())->QueryInterface(IID_PPV_ARGS(&device));
+	auto hr = static_cast<ID3D12Device*>(pDevice->GetNativeHandle())->QueryInterface(IID_PPV_ARGS(&device));
 
 	if (FAILED(hr) || !device)
 	{
 		com_ptr<ID3D12DevicePreview0> device = nullptr;
-		hr = static_cast<ID3D12Device*>(pDevice->GetHandle())->QueryInterface(IID_PPV_ARGS(&device));
+		hr = static_cast<ID3D12Device*>(pDevice->GetNativeHandle())->QueryInterface(IID_PPV_ARGS(&device));
 
 		if (FAILED(hr)) OutputDebugString(L"Couldn't get DirectX preview interface for the device.\n");
 

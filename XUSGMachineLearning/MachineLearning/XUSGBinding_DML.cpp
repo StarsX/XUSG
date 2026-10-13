@@ -162,7 +162,7 @@ void Binding_DML::BindInputBuffer(uint32_t i, Resource* pResource, uint64_t size
 		m_inputBufferBindings.resize(i + 1);
 
 	size = !pResource || size > 0 ? size : pResource->GetWidth();
-	m_inputBufferBindings[i].Buffer = pResource ? static_cast<ID3D12Resource*>(pResource->GetHandle()) : nullptr;
+	m_inputBufferBindings[i].Buffer = pResource ? reinterpret_cast<ID3D12Resource*>(pResource->GetNativeHandle()) : nullptr;
 	m_inputBufferBindings[i].Offset = offset;
 	m_inputBufferBindings[i].SizeInBytes = size;
 }
@@ -173,7 +173,7 @@ void Binding_DML::BindOutputBuffer(uint32_t i, Resource* pResource, uint64_t siz
 		m_outputBufferBindings.resize(i + 1);
 
 	size = !pResource || size > 0 ? size : pResource->GetWidth();
-	m_outputBufferBindings[i].Buffer = pResource ? static_cast<ID3D12Resource*>(pResource->GetHandle()) : nullptr;
+	m_outputBufferBindings[i].Buffer = pResource ? reinterpret_cast<ID3D12Resource*>(pResource->GetNativeHandle()) : nullptr;
 	m_outputBufferBindings[i].Offset = offset;
 	m_outputBufferBindings[i].SizeInBytes = size;
 }
@@ -183,7 +183,7 @@ void Binding_DML::BindTemporary(Resource* pResource, uint64_t size, uint64_t off
 	size = !pResource || size > 0 ? size : pResource->GetWidth();
 	const DML_BUFFER_BINDING bufferBinding =
 	{
-		pResource ? static_cast<ID3D12Resource*>(pResource->GetHandle()) : nullptr,
+		pResource ? reinterpret_cast<ID3D12Resource*>(pResource->GetNativeHandle()) : nullptr,
 		offset,
 		size
 	};
@@ -202,7 +202,7 @@ void Binding_DML::BindPersistent(Resource* pResource, uint64_t size, uint64_t of
 	size = !pResource || size > 0 ? size : pResource->GetWidth();
 	const DML_BUFFER_BINDING bufferBinding =
 	{
-		pResource ? static_cast<ID3D12Resource*>(pResource->GetHandle()) : nullptr,
+		pResource ? reinterpret_cast<ID3D12Resource*>(pResource->GetNativeHandle()) : nullptr,
 		offset,
 		size
 	};

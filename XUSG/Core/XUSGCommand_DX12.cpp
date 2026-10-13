@@ -22,7 +22,7 @@ CommandAllocator_DX12::~CommandAllocator_DX12()
 
 bool CommandAllocator_DX12::Create(Device* pDevice, CommandListType type, const wchar_t* name)
 {
-	const auto pDxDevice = static_cast<ID3D12Device*>(pDevice->GetHandle());
+	const auto pDxDevice = static_cast<ID3D12Device*>(pDevice->GetNativeHandle());
 
 	assert(pDxDevice);
 	V_RETURN(pDxDevice->CreateCommandAllocator(GetDX12CommandListType(type),
@@ -41,18 +41,18 @@ bool CommandAllocator_DX12::Reset()
 	return true;
 }
 
-void CommandAllocator_DX12::Create(void* pHandle, const wchar_t* name)
+void CommandAllocator_DX12::Create(uint64_t nativeHandle, Device* pDevice)
 {
-	m_commandAllocator = pHandle;
-	if (name) m_commandAllocator->SetName(name);
+	m_commandAllocator = reinterpret_cast<ID3D12CommandAllocator*>(nativeHandle);
+	m_pDevice = pDevice;
 }
 
-void* CommandAllocator_DX12::GetHandle()
+uint64_t CommandAllocator_DX12::GetNativeHandle() const
 {
-	return m_commandAllocator.get();
+	return reinterpret_cast<uint64_t>(m_commandAllocator.get());
 }
 
-void* CommandAllocator_DX12::GetDeviceHandle() const
+void* CommandAllocator_DX12::GetDeviceNativeHandle() const
 {
 	com_ptr<ID3D12Device> device;
 	V_RETURN(m_commandAllocator->GetDevice(IID_PPV_ARGS(&device)), cerr, nullptr);
@@ -70,7 +70,8 @@ Device* CommandAllocator_DX12::GetDevice() const
 CommandList_DX12::CommandList_DX12() :
 	m_pDevice(nullptr),
 	m_descriptorHeapStarts(),
-	m_rtvStride(0)
+	m_rtvStride(0),
+	m_dsvStride(0)
 {
 }
 
@@ -81,11 +82,11 @@ CommandList_DX12::~CommandList_DX12()
 bool CommandList_DX12::Create(Device* pDevice, uint32_t nodeMask, CommandListType type,
 	CommandAllocator* pCommandAllocator, const Pipeline& pipeline, const wchar_t* name)
 {
-	const auto pDxDevice = static_cast<ID3D12Device*>(pDevice->GetHandle());
-	const auto pDxCommandAllocator = static_cast<ID3D12CommandAllocator*>(pCommandAllocator->GetHandle());
+	const auto pDxDevice = static_cast<ID3D12Device*>(pDevice->GetNativeHandle());
+	const auto pAllocator = reinterpret_cast<ID3D12CommandAllocator*>(pCommandAllocator->GetNativeHandle());
 
 	assert(pDxDevice);
-	V_RETURN(pDxDevice->CreateCommandList(nodeMask, GetDX12CommandListType(type), pDxCommandAllocator,
+	V_RETURN(pDxDevice->CreateCommandList(nodeMask, GetDX12CommandListType(type), pAllocator,
 		static_cast<ID3D12PipelineState*>(pipeline), IID_PPV_ARGS(&m_commandList)), cerr, false);
 	if (name) m_commandList->SetName(name);
 
@@ -125,7 +126,7 @@ bool CommandList_DX12::Close() const
 bool CommandList_DX12::Reset(CommandAllocator* pCommandAllocator, const Pipeline& initialState) const
 {
 	assert(pCommandAllocator);
-	V_RETURN(m_commandList->Reset(static_cast<ID3D12CommandAllocator*>(pCommandAllocator->GetHandle()),
+	V_RETURN(m_commandList->Reset(reinterpret_cast<ID3D12CommandAllocator*>(pCommandAllocator->GetNativeHandle()),
 		static_cast<ID3D12PipelineState*>(initialState)), cerr, false);
 
 	return true;
@@ -160,8 +161,8 @@ void CommandList_DX12::CopyBufferRegion(Resource* pDstBuffer, uint64_t dstOffset
 {
 	assert(pDstBuffer);
 	assert(pSrcBuffer);
-	m_commandList->CopyBufferRegion(static_cast<ID3D12Resource*>(pDstBuffer->GetHandle()), dstOffset,
-		static_cast<ID3D12Resource*>(pSrcBuffer->GetHandle()), srcOffset, numBytes);
+	m_commandList->CopyBufferRegion(reinterpret_cast<ID3D12Resource*>(pDstBuffer->GetNativeHandle()), dstOffset,
+		reinterpret_cast<ID3D12Resource*>(pSrcBuffer->GetNativeHandle()), srcOffset, numBytes);
 }
 
 void CommandList_DX12::CopyTextureRegion(const TextureCopyLocation& dst,
@@ -181,8 +182,8 @@ void CommandList_DX12::CopyTextureRegion(const TextureCopyLocation& dst,
 
 	assert(dst.pResource);
 	assert(src.pResource);
-	const CD3DX12_TEXTURE_COPY_LOCATION dstCopy(static_cast<ID3D12Resource*>(dst.pResource->GetHandle()), dst.SubresourceIndex);
-	const CD3DX12_TEXTURE_COPY_LOCATION srcCopy(static_cast<ID3D12Resource*>(src.pResource->GetHandle()), src.SubresourceIndex);
+	const CD3DX12_TEXTURE_COPY_LOCATION dstCopy(reinterpret_cast<ID3D12Resource*>(dst.pResource->GetNativeHandle()), dst.SubresourceIndex);
+	const CD3DX12_TEXTURE_COPY_LOCATION srcCopy(reinterpret_cast<ID3D12Resource*>(src.pResource->GetNativeHandle()), src.SubresourceIndex);
 	m_commandList->CopyTextureRegion(&dstCopy, dstX, dstY, dstZ, &srcCopy, pSrcBox ? &srcBox : nullptr);
 }
 
@@ -190,8 +191,8 @@ void CommandList_DX12::CopyResource(Resource* pDstResource, Resource* pSrcResour
 {
 	assert(pDstResource);
 	assert(pSrcResource);
-	m_commandList->CopyResource(static_cast<ID3D12Resource*>(pDstResource->GetHandle()),
-		static_cast<ID3D12Resource*>(pSrcResource->GetHandle()));
+	m_commandList->CopyResource(reinterpret_cast<ID3D12Resource*>(pDstResource->GetNativeHandle()),
+		reinterpret_cast<ID3D12Resource*>(pSrcResource->GetNativeHandle()));
 }
 
 void CommandList_DX12::CopyTiles(Resource* pTiledResource, const TiledResourceCoord* pTileRegionStartCoord,
@@ -219,8 +220,8 @@ void CommandList_DX12::CopyTiles(Resource* pTiledResource, const TiledResourceCo
 		tileRegionSize.Depth
 	};
 
-	m_commandList->CopyTiles(static_cast<ID3D12Resource*>(pTiledResource->GetHandle()), &regionStartCoord,
-		&regionSize, static_cast<ID3D12Resource*>(pBuffer->GetHandle()), bufferStartByteOffset,
+	m_commandList->CopyTiles(reinterpret_cast<ID3D12Resource*>(pTiledResource->GetNativeHandle()), &regionStartCoord,
+		&regionSize, reinterpret_cast<ID3D12Resource*>(pBuffer->GetNativeHandle()), bufferStartByteOffset,
 		GetDX12TileCopyFlags(flags));
 }
 
@@ -229,8 +230,8 @@ void CommandList_DX12::ResolveSubresource(Resource* pDstResource, uint32_t dstSu
 {
 	assert(pDstResource);
 	assert(pSrcResource);
-	m_commandList->ResolveSubresource(static_cast<ID3D12Resource*>(pDstResource->GetHandle()), dstSubresource,
-		static_cast<ID3D12Resource*>(pSrcResource->GetHandle()), srcSubresource, GetDXGIFormat(format));
+	m_commandList->ResolveSubresource(reinterpret_cast<ID3D12Resource*>(pDstResource->GetNativeHandle()), dstSubresource,
+		reinterpret_cast<ID3D12Resource*>(pSrcResource->GetNativeHandle()), srcSubresource, GetDXGIFormat(format));
 }
 
 void CommandList_DX12::IASetPrimitiveTopology(PrimitiveTopology primitiveTopology) const
@@ -298,11 +299,11 @@ void CommandList_DX12::Barrier(uint32_t numBarriers, const ResourceBarrier* pBar
 		for (auto i = 0u; i < numBarriers; ++i)
 		{
 			const auto& barrier = pBarriers[i];
-			const auto pResourceAfter = barrier.pResourceAfter ? static_cast<ID3D12Resource*>(barrier.pResourceAfter->GetHandle()) : nullptr;
+			const auto pResourceAfter = barrier.pResourceAfter ? reinterpret_cast<ID3D12Resource*>(barrier.pResourceAfter->GetNativeHandle()) : nullptr;
 
 			if (barrier.pResource)
 			{
-				const auto pResource = static_cast<ID3D12Resource*>(barrier.pResource->GetHandle());
+				const auto pResource = reinterpret_cast<ID3D12Resource*>(barrier.pResource->GetNativeHandle());
 
 				if (barrier.StateBefore == barrier.StateAfter)
 					m_barriers[i] = barrier.StateAfter == ResourceState::UNORDERED_ACCESS ?
@@ -321,7 +322,7 @@ void CommandList_DX12::Barrier(uint32_t numBarriers, const ResourceBarrier* pBar
 void CommandList_DX12::ExecuteBundle(CommandList* pCommandList) const
 {
 	assert(pCommandList);
-	m_commandList->ExecuteBundle(static_cast<ID3D12GraphicsCommandList*>(pCommandList->GetHandle()));
+	m_commandList->ExecuteBundle(static_cast<ID3D12GraphicsCommandList*>(pCommandList->GetNativeHandle()));
 }
 
 void CommandList_DX12::SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps) const
@@ -522,7 +523,7 @@ void CommandList_DX12::OMSetRenderTargets(uint32_t numRenderTargetDescriptors,
 	assert(numRenderTargetDescriptors == 0 || pRenderTargetViews);
 	assert(numRenderTargetDescriptors < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT);
 
-	const auto pDxDevice = static_cast<ID3D12Device*>(m_pDevice->GetHandle());
+	const auto pDxDevice = static_cast<ID3D12Device*>(m_pDevice->GetNativeHandle());
 
 	const auto rtvHeapStart = m_rtvHeap->GetCPUDescriptorHandleForHeapStart();
 	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(rtvHeapStart);
@@ -531,7 +532,7 @@ void CommandList_DX12::OMSetRenderTargets(uint32_t numRenderTargetDescriptors,
 		assert(pRenderTargetViews[i]);
 		const auto& pRtv = static_cast<const ResourceView*>(pRenderTargetViews[i]);
 		assert(pRtv->Type == ResourceViewType::RTV);
-		const auto pDxResource = pRtv->pResource ? static_cast<ID3D12Resource*>(pRtv->pResource->GetHandle()) : nullptr;
+		const auto pDxResource = pRtv->pResource ? reinterpret_cast<ID3D12Resource*>(pRtv->pResource->GetNativeHandle()) : nullptr;
 		pDxDevice->CreateRenderTargetView(pDxResource, pRtv->RtvDesc.ViewDimension ? &pRtv->RtvDesc : nullptr, rtvHandle);
 		rtvHandle.Offset(m_rtvStride);
 	}
@@ -541,7 +542,7 @@ void CommandList_DX12::OMSetRenderTargets(uint32_t numRenderTargetDescriptors,
 	{
 		const auto& pDsv = static_cast<const ResourceView*>(*pDepthStencilView);
 		assert(pDsv->Type == ResourceViewType::DSV);
-		const auto pDxResource = pDsv->pResource ? static_cast<ID3D12Resource*>(pDsv->pResource->GetHandle()) : nullptr;
+		const auto pDxResource = pDsv->pResource ? reinterpret_cast<ID3D12Resource*>(pDsv->pResource->GetNativeHandle()) : nullptr;
 		pDxDevice->CreateDepthStencilView(pDxResource, &pDsv->DsvDesc, dsvHeapStart);
 	}
 
@@ -558,7 +559,7 @@ void CommandList_DX12::ClearDepthStencilView(ClearFlag clearFlags, float depth,
 void CommandList_DX12::ClearDepthStencilView(const Descriptor& depthStencilView, ClearFlag clearFlags, float depth,
 	uint8_t stencil, uint32_t numRects, const RectRange* pRects) const
 {
-	const auto pDxDevice = static_cast<ID3D12Device*>(m_pDevice->GetHandle());
+	const auto pDxDevice = static_cast<ID3D12Device*>(m_pDevice->GetNativeHandle());
 
 	CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle;
 	if (depthStencilView)
@@ -567,8 +568,8 @@ void CommandList_DX12::ClearDepthStencilView(const Descriptor& depthStencilView,
 		const auto& pDsv = static_cast<const ResourceView*>(depthStencilView);
 		assert(pDsv->Type == ResourceViewType::DSV);
 		assert(pDsv->pResource);
-		const auto pDxResource = static_cast<ID3D12Resource*>(pDsv->pResource->GetHandle());
-		pDxDevice->CreateDepthStencilView(pDxResource, &pDsv->DsvDesc, dsvHandle);
+		const auto pResource = reinterpret_cast<ID3D12Resource*>(pDsv->pResource->GetNativeHandle());
+		pDxDevice->CreateDepthStencilView(pResource, &pDsv->DsvDesc, dsvHandle);
 	}
 	else dsvHandle = m_dsvHeap->GetCPUDescriptorHandleForHeapStart();
 
@@ -608,7 +609,7 @@ void CommandList_DX12::ClearRenderTargetView(const float colorRGBA[4], uint8_t r
 void CommandList_DX12::ClearRenderTargetView(const Descriptor& renderTargetView, const float colorRGBA[4],
 	uint32_t numRects, const RectRange* pRects) const
 {
-	const auto pDxDevice = static_cast<ID3D12Device*>(m_pDevice->GetHandle());
+	const auto pDxDevice = static_cast<ID3D12Device*>(m_pDevice->GetNativeHandle());
 
 	const CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart(),
 		D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT, m_rtvStride);
@@ -616,8 +617,8 @@ void CommandList_DX12::ClearRenderTargetView(const Descriptor& renderTargetView,
 	const auto& pRtv = static_cast<const ResourceView*>(renderTargetView);
 	assert(pRtv->Type == ResourceViewType::RTV);
 	assert(pRtv->pResource);
-	const auto pDxResource = static_cast<ID3D12Resource*>(pRtv->pResource->GetHandle());
-	pDxDevice->CreateRenderTargetView(pDxResource, pRtv->RtvDesc.ViewDimension ? &pRtv->RtvDesc : nullptr, rtvHandle);
+	const auto pResource = reinterpret_cast<ID3D12Resource*>(pRtv->pResource->GetNativeHandle());
+	pDxDevice->CreateRenderTargetView(pResource, pRtv->RtvDesc.ViewDimension ? &pRtv->RtvDesc : nullptr, rtvHandle);
 
 	ClearRenderTargetView(colorRGBA, D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT, numRects, pRects);
 }
@@ -625,15 +626,15 @@ void CommandList_DX12::ClearRenderTargetView(const Descriptor& renderTargetView,
 void CommandList_DX12::ClearUnorderedAccessViewUint(const DescriptorTable& descriptorTable, const Descriptor& descriptor,
 	const uint32_t values[4], uint32_t numRects, const RectRange* pRects) const
 {
-	const auto pDxDevice = static_cast<ID3D12Device*>(m_pDevice->GetHandle());
+	const auto pDxDevice = static_cast<ID3D12Device*>(m_pDevice->GetNativeHandle());
 
 	const CD3DX12_CPU_DESCRIPTOR_HANDLE uavHandle(m_uavHeap->GetCPUDescriptorHandleForHeapStart());
 	assert(descriptor);
 	const auto& pUav = static_cast<const ResourceView*>(descriptor);
 	assert(pUav->Type == ResourceViewType::UAV);
 	assert(pUav->pResource);
-	const auto pDxResource = static_cast<ID3D12Resource*>(pUav->pResource->GetHandle());
-	pDxDevice->CreateUnorderedAccessView(pDxResource, nullptr, &pUav->UavDesc, uavHandle);
+	const auto pResource = reinterpret_cast<ID3D12Resource*>(pUav->pResource->GetNativeHandle());
+	pDxDevice->CreateUnorderedAccessView(pResource, nullptr, &pUav->UavDesc, uavHandle);
 
 	assert(numRects == 0 || pRects);
 	if (m_rects.size() < numRects) m_rects.resize(numRects);
@@ -648,22 +649,22 @@ void CommandList_DX12::ClearUnorderedAccessViewUint(const DescriptorTable& descr
 	const auto& tableProperty = reinterpret_cast<const DescriptorTableProperty_DX12&>(descriptorTable);
 	assert(tableProperty.HeapType == 0 || tableProperty.HeapType == 1);
 	const auto baseDescriptor = m_descriptorHeapStarts[tableProperty.HeapType] + tableProperty.Offset;
-	m_commandList->ClearUnorderedAccessViewUint({ baseDescriptor }, uavHandle, pDxResource,
+	m_commandList->ClearUnorderedAccessViewUint({ baseDescriptor }, uavHandle, pResource,
 		values, numRects, numRects ? m_rects.data() : nullptr);
 }
 
 void CommandList_DX12::ClearUnorderedAccessViewFloat(const DescriptorTable& descriptorTable, const Descriptor& descriptor,
 	const float values[4], uint32_t numRects, const RectRange* pRects) const
 {
-	const auto pDxDevice = static_cast<ID3D12Device*>(m_pDevice->GetHandle());
+	const auto pDxDevice = static_cast<ID3D12Device*>(m_pDevice->GetNativeHandle());
 
 	const CD3DX12_CPU_DESCRIPTOR_HANDLE uavHandle(m_uavHeap->GetCPUDescriptorHandleForHeapStart());
 	assert(descriptor);
 	const auto& pUav = static_cast<const ResourceView*>(descriptor);
 	assert(pUav->Type == ResourceViewType::UAV);
 	assert(pUav->pResource);
-	const auto pDxResource = static_cast<ID3D12Resource*>(pUav->pResource->GetHandle());
-	pDxDevice->CreateUnorderedAccessView(pDxResource, nullptr, &pUav->UavDesc, uavHandle);
+	const auto pResource = reinterpret_cast<ID3D12Resource*>(pUav->pResource->GetNativeHandle());
+	pDxDevice->CreateUnorderedAccessView(pResource, nullptr, &pUav->UavDesc, uavHandle);
 
 	assert(numRects == 0 || pRects);
 	if (m_rects.size() < numRects) m_rects.resize(numRects);
@@ -678,7 +679,7 @@ void CommandList_DX12::ClearUnorderedAccessViewFloat(const DescriptorTable& desc
 	const auto& tableProperty = reinterpret_cast<const DescriptorTableProperty_DX12&>(descriptorTable);
 	assert(tableProperty.HeapType == 0 || tableProperty.HeapType == 1);
 	const auto baseDescriptor = m_descriptorHeapStarts[tableProperty.HeapType] + tableProperty.Offset;
-	m_commandList->ClearUnorderedAccessViewFloat({ baseDescriptor }, uavHandle, pDxResource,
+	m_commandList->ClearUnorderedAccessViewFloat({ baseDescriptor }, uavHandle, pResource,
 		values, numRects, numRects ? m_rects.data() : nullptr);
 }
 
@@ -699,31 +700,31 @@ void CommandList_DX12::DiscardResource(Resource* pResource, uint32_t numRects, c
 
 	const D3D12_DISCARD_REGION region =
 	{ numRects, numRects ? m_rects.data() : nullptr, firstSubresource, numSubresources };
-	m_commandList->DiscardResource(static_cast<ID3D12Resource*>(pResource->GetHandle()), &region);
+	m_commandList->DiscardResource(reinterpret_cast<ID3D12Resource*>(pResource->GetNativeHandle()), &region);
 }
 
 void CommandList_DX12::BeginQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const
 {
-	m_commandList->BeginQuery(static_cast<ID3D12QueryHeap*>(queryHeap), GetDX12QueryType(type), index);
+	m_commandList->BeginQuery(reinterpret_cast<ID3D12QueryHeap*>(queryHeap), GetDX12QueryType(type), index);
 }
 
 void CommandList_DX12::EndQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const
 {
-	m_commandList->EndQuery(static_cast<ID3D12QueryHeap*>(queryHeap), GetDX12QueryType(type), index);
+	m_commandList->EndQuery(reinterpret_cast<ID3D12QueryHeap*>(queryHeap), GetDX12QueryType(type), index);
 }
 
 void CommandList_DX12::ResolveQueryData(const QueryHeap& queryHeap, QueryType type, uint32_t startIndex,
 	uint32_t numQueries, Resource* pDstBuffer, uint64_t alignedDstBufferOffset) const
 {
 	assert(pDstBuffer);
-	m_commandList->ResolveQueryData(static_cast<ID3D12QueryHeap*>(queryHeap), GetDX12QueryType(type),
-		startIndex, numQueries, static_cast<ID3D12Resource*>(pDstBuffer->GetHandle()), alignedDstBufferOffset);
+	m_commandList->ResolveQueryData(reinterpret_cast<ID3D12QueryHeap*>(queryHeap), GetDX12QueryType(type),
+		startIndex, numQueries, reinterpret_cast<ID3D12Resource*>(pDstBuffer->GetNativeHandle()), alignedDstBufferOffset);
 }
 
 void CommandList_DX12::SetPredication(Resource* pBuffer, uint64_t alignedBufferOffset, bool opEqualZero) const
 {
 	assert(pBuffer);
-	m_commandList->SetPredication(static_cast<ID3D12Resource*>(pBuffer->GetHandle()), alignedBufferOffset,
+	m_commandList->SetPredication(reinterpret_cast<ID3D12Resource*>(pBuffer->GetNativeHandle()), alignedBufferOffset,
 		opEqualZero ? D3D12_PREDICATION_OP_EQUAL_ZERO : D3D12_PREDICATION_OP_NOT_EQUAL_ZERO);
 }
 
@@ -748,29 +749,58 @@ void CommandList_DX12::ExecuteIndirect(CommandLayout* pCommandlayout, uint32_t m
 {
 	assert(pCommandlayout);
 	assert(pArgumentBuffer);
-	m_commandList->ExecuteIndirect(static_cast<ID3D12CommandSignature*>(pCommandlayout->GetHandle()),
-		maxCommandCount, static_cast<ID3D12Resource*>(pArgumentBuffer->GetHandle()), argumentBufferOffset,
-		pCountBuffer ? static_cast<ID3D12Resource*>(pCountBuffer->GetHandle()) : nullptr,
+	m_commandList->ExecuteIndirect(reinterpret_cast<ID3D12CommandSignature*>(pCommandlayout->GetNativeHandle()),
+		maxCommandCount, reinterpret_cast<ID3D12Resource*>(pArgumentBuffer->GetNativeHandle()), argumentBufferOffset,
+		pCountBuffer ? reinterpret_cast<ID3D12Resource*>(pCountBuffer->GetNativeHandle()) : nullptr,
 		countBufferOffset);
 }
 
-void CommandList_DX12::Create(void* pHandle, const wchar_t* name)
+void CommandList_DX12::Create(void* pNativeHandle, Device* pDevice)
 {
-	m_commandList = pHandle;
-	if (name) m_commandList->SetName(name);
+	m_commandList = pNativeHandle;
+	const auto name = GetDebugObjectName(m_commandList.get());
+
+	m_pDevice = pDevice;
+	const auto pDxDevice = static_cast<ID3D12Device*>(pDevice->GetNativeHandle());
+	m_rtvStride = pDxDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	m_dsvStride = pDxDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+
+	D3D12_DESCRIPTOR_HEAP_DESC desc = {};
+	desc.NumDescriptors = D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT + 1; // Extra one for clear
+	desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+	m_rtvHeap = nullptr;
+	V_RETURN(pDxDevice->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&m_rtvHeap)), cerr, static_cast<void>(0));
+	if (!name.empty()) m_rtvHeap->SetName((name + L".RtvHeap").c_str());
+
+	desc.NumDescriptors = 2; // Extra one for clear
+	desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+	m_dsvHeap = nullptr;
+	V_RETURN(pDxDevice->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&m_dsvHeap)), cerr, static_cast<void>(0));
+	if (!name.empty()) m_dsvHeap->SetName((name + L".DsvHeap").c_str());
+
+	desc.NumDescriptors = 1;
+	desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	m_uavHeap = nullptr;
+	V_RETURN(pDxDevice->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&m_uavHeap)), cerr, static_cast<void>(0));
+	if (!name.empty()) m_uavHeap->SetName((name + L".UavHeap").c_str());
 }
 
-void* CommandList_DX12::GetHandle()
+void* CommandList_DX12::GetNativeHandle()
 {
 	return m_commandList.get();
 }
 
-void* CommandList_DX12::GetDeviceHandle() const
+void* CommandList_DX12::GetDeviceNativeHandle() const
 {
 	com_ptr<ID3D12Device> device;
 	V_RETURN(m_commandList->GetDevice(IID_PPV_ARGS(&device)), cerr, nullptr);
 
 	return device.get();
+}
+
+void* CommandList_DX12::GetBackend()
+{
+	return this;
 }
 
 Device* CommandList_DX12::GetDevice() const
@@ -818,7 +848,7 @@ bool CommandQueue_DX12::Create(Device* pDevice, CommandListType type,
 	queueDesc.Flags = GetDX12CommandQueueFlags(flags);
 	queueDesc.NodeMask = nodeMask;
 
-	const auto pDxDevice = static_cast<ID3D12Device*>(pDevice->GetHandle());
+	const auto pDxDevice = static_cast<ID3D12Device*>(pDevice->GetNativeHandle());
 
 	assert(pDxDevice);
 	V_RETURN(pDxDevice->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&m_commandQueue)), cerr, false);
@@ -853,18 +883,32 @@ bool CommandQueue_DX12::SubmitCommandList(CommandList* pCommandList,
 	return true;
 }
 
+bool CommandQueue_DX12::Wait(Fence* pFence, uint64_t value) const
+{
+	V_RETURN(m_commandQueue->Wait(reinterpret_cast<ID3D12Fence*>(pFence->GetNativeHandle()), value), cerr, false);
+
+	return true;
+}
+
+bool CommandQueue_DX12::Signal(Fence* pFence, uint64_t value) const
+{
+	V_RETURN(m_commandQueue->Signal(reinterpret_cast<ID3D12Fence*>(pFence->GetNativeHandle()), value), cerr, false);
+
+	return true;
+}
+
 void CommandQueue_DX12::ExecuteCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists) const
 {
 	if (m_pCommandLists.size() < numCommandLists) m_pCommandLists.resize(numCommandLists);
 	for (auto i = 0u; i < numCommandLists; ++i)
-		m_pCommandLists[i] = static_cast<ID3D12CommandList*>(ppCommandLists[i]->GetHandle());
+		m_pCommandLists[i] = static_cast<ID3D12CommandList*>(ppCommandLists[i]->GetNativeHandle());
 
 	m_commandQueue->ExecuteCommandLists(numCommandLists, m_pCommandLists.data());
 }
 
 void CommandQueue_DX12::ExecuteCommandList(CommandList* pCommandList) const
 {
-	const auto pDxCommandList = static_cast<ID3D12CommandList*>(pCommandList->GetHandle());
+	const auto pDxCommandList = static_cast<ID3D12CommandList*>(pCommandList->GetNativeHandle());
 
 	m_commandQueue->ExecuteCommandLists(1, &pDxCommandList);
 }
@@ -908,9 +952,9 @@ void CommandQueue_DX12::UpdateTileMappings(Resource* pResource, uint32_t numReso
 
 	for (auto i = 0u; i < numHeapRanges; ++i) m_heapRangeFlags[i] = GetDX12TileRangeFlag(pHeapRangeFlags[i]);
 
-	m_commandQueue->UpdateTileMappings(static_cast<ID3D12Resource*>(pResource->GetHandle()), numResourceRegions,
+	m_commandQueue->UpdateTileMappings(reinterpret_cast<ID3D12Resource*>(pResource->GetNativeHandle()), numResourceRegions,
 		m_resourceRegionStartCoords.data(), m_resourceRegionSizes.data(),
-		pHeap ? static_cast<ID3D12Heap*>(pHeap->GetHandle()) : nullptr, numHeapRanges,
+		pHeap ? reinterpret_cast<ID3D12Heap*>(pHeap->GetNativeHandle()) : nullptr, numHeapRanges,
 		m_heapRangeFlags.data(), pHeapRangeStartOffsets, pHeapRangeTileCounts,
 		GetDX12TileMappingFlags(flags));
 }
@@ -949,37 +993,24 @@ void CommandQueue_DX12::CopyTileMappings(Resource* pDstResource, const TiledReso
 		regionSize.Depth
 	};
 
-	m_commandQueue->CopyTileMappings(static_cast<ID3D12Resource*>(pDstResource->GetHandle()), &dstRegionStartCoord,
-		static_cast<ID3D12Resource*>(pSrcResource->GetHandle()), &srcRegionStartCoord,
+	m_commandQueue->CopyTileMappings(reinterpret_cast<ID3D12Resource*>(pDstResource->GetNativeHandle()), &dstRegionStartCoord,
+		reinterpret_cast<ID3D12Resource*>(pSrcResource->GetNativeHandle()), &srcRegionStartCoord,
 		&tileRegionSize, GetDX12TileMappingFlags(Flags));
 }
 
-bool CommandQueue_DX12::Wait(Fence* pFence, uint64_t value) const
+void CommandQueue_DX12::Create(void* pNativeHandle, Device* pDevice)
 {
-	V_RETURN(m_commandQueue->Wait(static_cast<ID3D12Fence*>(pFence->GetHandle()), value), cerr, false);
+	m_commandQueue = pNativeHandle;
 
-	return true;
+	m_pDevice = pDevice;
 }
 
-bool CommandQueue_DX12::Signal(Fence* pFence, uint64_t value) const
-{
-	V_RETURN(m_commandQueue->Signal(static_cast<ID3D12Fence*>(pFence->GetHandle()), value), cerr, false);
-
-	return true;
-}
-
-void CommandQueue_DX12::Create(void* pHandle, const wchar_t* name)
-{
-	m_commandQueue = pHandle;
-	if (name) m_commandQueue->SetName(name);
-}
-
-void* CommandQueue_DX12::GetHandle()
+void* CommandQueue_DX12::GetNativeHandle()
 {
 	return m_commandQueue.get();
 }
 
-void* CommandQueue_DX12::GetDeviceHandle() const
+void* CommandQueue_DX12::GetDeviceNativeHandle() const
 {
 	com_ptr<ID3D12Device> device;
 	V_RETURN(m_commandQueue->GetDevice(IID_PPV_ARGS(&device)), cerr, nullptr);

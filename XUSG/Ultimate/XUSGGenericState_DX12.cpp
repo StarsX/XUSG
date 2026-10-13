@@ -29,6 +29,11 @@ State_DX12::~State_DX12()
 {
 }
 
+void* State_DX12::GetBackend()
+{
+	return this;
+}
+
 void State_DX12::SetPipelineLayout(const PipelineLayout& layout)
 {
 	m_pKey->Layout = layout;
@@ -406,13 +411,13 @@ PipelineLib_DX12::~PipelineLib_DX12()
 
 void PipelineLib_DX12::SetDevice(Device* pDevice)
 {
-	m_device = pDevice->GetHandle();
+	m_device = pDevice->GetNativeHandle();
 	assert(m_device);
 }
 
 void PipelineLib_DX12::SetPipeline(const State* pState, const Pipeline& pipeline)
 {
-	const auto p = dynamic_cast<const State_DX12*>(pState);
+	const auto p = AsDX12(pState);
 	assert(p);
 
 	lock_guard<mutex> lock(m_mtx);
@@ -437,7 +442,7 @@ const InputLayout* PipelineLib_DX12::CreateInputLayout(uint32_t numElements, con
 
 Pipeline PipelineLib_DX12::CreatePipeline(const State* pState, const wchar_t* name)
 {
-	const auto p = dynamic_cast<const State_DX12*>(pState);
+	const auto p = AsDX12(pState);
 	assert(p);
 
 	lock_guard<mutex> lock(m_mtx);
@@ -447,7 +452,7 @@ Pipeline PipelineLib_DX12::CreatePipeline(const State* pState, const wchar_t* na
 
 Pipeline PipelineLib_DX12::GetPipeline(const State* pState, const wchar_t* name)
 {
-	const auto p = dynamic_cast<const State_DX12*>(pState);
+	const auto p = AsDX12(pState);
 	assert(p);
 
 	lock_guard<mutex> lock(m_mtx);

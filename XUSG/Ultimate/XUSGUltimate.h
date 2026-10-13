@@ -413,6 +413,9 @@ namespace XUSG
 			virtual ViewInstanceFlag GetViewInstanceFlags() const = 0;
 			virtual const ViewInstance& GetViewInstance(uint8_t i) const = 0;
 
+			// Backend C++ object (Ultimate::State_DX12* / State_VK*).
+			virtual void* GetBackend() = 0;
+
 			using uptr = std::unique_ptr<State>;
 			using sptr = std::shared_ptr<State>;
 
@@ -587,6 +590,9 @@ namespace XUSG
 
 			virtual void GetMemoryRequirements(uint32_t workGraphIndex, MemoryRequirements* pMemoryReq) const = 0;
 
+			// Backend C++ object (WorkGraph::State_DX12*).
+			virtual void* GetBackend() = 0;
+
 			using uptr = std::unique_ptr<State>;
 			using sptr = std::shared_ptr<State>;
 
@@ -718,6 +724,9 @@ namespace XUSG
 			virtual uint8_t GetNumViewInstances(uint8_t n, ViewInstanceFlag flags) const = 0;
 			virtual ViewInstanceFlag GetViewInstanceFlags() const = 0;
 			virtual const ViewInstance& GetViewInstance(uint8_t i) const = 0;
+
+			// Backend C++ object (Generic::State_DX12* / State_VK*).
+			virtual void* GetBackend() = 0;
 
 			using uptr = std::unique_ptr<State>;
 			using sptr = std::shared_ptr<State>;

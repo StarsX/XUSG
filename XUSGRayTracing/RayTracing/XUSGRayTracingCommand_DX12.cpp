@@ -27,7 +27,7 @@ RayTracing::CommandList_DX12::~CommandList_DX12()
 
 RayTracing::CommandList_DX12::CommandList_DX12(XUSG::CommandList* pCommandList, RayTracing::Device* pDevice)
 {
-	const auto p = dynamic_cast<XUSG::CommandList_DX12*>(pCommandList);
+	const auto p = AsDX12(pCommandList);
 	assert(p);
 
 	m_commandList = p->GetGraphicsCommandList();

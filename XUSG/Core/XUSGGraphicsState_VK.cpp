@@ -25,6 +25,11 @@ State_VK::~State_VK()
 {
 }
 
+void* State_VK::GetBackend()
+{
+	return this;
+}
+
 void State_VK::SetPipelineLayout(const PipelineLayout& layout)
 {
 	m_pKey->Layout = layout;
@@ -242,8 +247,7 @@ const string& State_VK::GetKey() const
 //--------------------------------------------------------------------------------------
 
 PipelineLib_VK::PipelineLib_VK() :
-	m_pDevice(nullptr),
-	m_device(VK_NULL_HANDLE)
+	m_pDevice(nullptr)
 {
 	InitGraphicsPresets(m_pfnBlends, m_pfnRasterizers, m_pfnDepthStencils);
 }
@@ -256,26 +260,27 @@ PipelineLib_VK::PipelineLib_VK(Device* pDevice) :
 
 PipelineLib_VK::~PipelineLib_VK()
 {
-	for (auto& pipeline : m_pipelines) ReleaseVKPipeline(m_device, pipeline.second);
+	if (m_pipelines.empty()) return;
+	const auto device = m_pDevice->GetDevice();
+	for (auto& pipeline : m_pipelines) ReleaseVKPipeline(device, pipeline.second);
 }
 
 void PipelineLib_VK::SetDevice(Device* pDevice)
 {
-	m_pDevice = pDevice ? static_cast<Device_VK*>(pDevice->GetHandle()) : nullptr;
+	m_pDevice = AsVK(pDevice);
 	assert(m_pDevice);
-	m_device = m_pDevice->GetDevice();
 }
 
 void PipelineLib_VK::SetPipeline(const State* pState, const Pipeline& pipeline)
 {
 	lock_guard<mutex> lock(m_mtx);
-	const auto p = dynamic_cast<const State_VK*>(pState);
+	const auto p = AsVK(pState);
 	assert(p);
 	const auto& key = p->GetKey();
 	const auto incoming = static_cast<Pipeline_VK*>(pipeline);
 	RetainVKPipeline(incoming);
 	const auto existing = m_pipelines.find(key);
-	if (existing != m_pipelines.end()) ReleaseVKPipeline(m_device, existing->second);
+	if (existing != m_pipelines.end()) ReleaseVKPipeline(m_pDevice->GetDevice(), existing->second);
 	m_pipelines[key] = incoming;
 }
 
@@ -296,7 +301,7 @@ const InputLayout* PipelineLib_VK::CreateInputLayout(uint32_t numElements, const
 
 Pipeline PipelineLib_VK::CreatePipeline(const State* pState, const wchar_t* name)
 {
-	const auto p = dynamic_cast<const State_VK*>(pState);
+	const auto p = AsVK(pState);
 	assert(p);
 	lock_guard<mutex> lock(m_mtx);
 
@@ -305,7 +310,7 @@ Pipeline PipelineLib_VK::CreatePipeline(const State* pState, const wchar_t* name
 
 Pipeline PipelineLib_VK::GetPipeline(const State* pState, const wchar_t* name)
 {
-	const auto p = dynamic_cast<const State_VK*>(pState);
+	const auto p = AsVK(pState);
 	assert(p);
 	lock_guard<mutex> lock(m_mtx);
 
@@ -370,8 +375,19 @@ namespace
 		return false;
 	}
 
+	constexpr uint32_t SpirvMagic = 0x07230203;
+	constexpr uint32_t MaxPatchControlPoints = 32;
+
 	uint32_t SpirvInputControlPointCount(const Blob& blob, const char* entry)
 	{
+		constexpr uint32_t OpEntryPoint = 15;
+		constexpr uint32_t OpTypeArray = 28;
+		constexpr uint32_t OpTypePointer = 32;
+		constexpr uint32_t OpConstant = 43;
+		constexpr uint32_t OpVariable = 59;
+		constexpr uint32_t ExecutionModelTessellationControl = 3;
+		constexpr uint32_t StorageClassInput = 1;
+
 		const void* pData = nullptr;
 		size_t size = 0;
 		GetVKBlobData(blob, &pData, &size);
@@ -379,7 +395,7 @@ namespace
 
 		const auto words = static_cast<const uint32_t*>(pData);
 		const auto count = size / sizeof(uint32_t);
-		if (words[0] != 0x07230203) return 0;
+		if (words[0] != SpirvMagic) return 0;
 
 		unordered_map<uint32_t, uint32_t> constants;
 		unordered_map<uint32_t, uint32_t> arrayLengths;
@@ -393,15 +409,16 @@ namespace
 			const auto opcode = words[i] & 0xffff;
 			if (!wordCount || i + wordCount > count) break;
 
-			if (opcode == 43 && wordCount >= 4)
+			if (opcode == OpConstant && wordCount >= 4)
 				constants[words[i + 2]] = words[i + 3];
-			else if (opcode == 28 && wordCount >= 4)
+			else if (opcode == OpTypeArray && wordCount >= 4)
 				arrayLengths[words[i + 1]] = words[i + 3];
-			else if (opcode == 32 && wordCount >= 4 && words[i + 2] == 1)
+			else if (opcode == OpTypePointer && wordCount >= 4 && words[i + 2] == StorageClassInput)
 				pointerTypes[words[i + 1]] = words[i + 3];
-			else if (opcode == 59 && wordCount >= 4)
+			else if (opcode == OpVariable && wordCount >= 4)
 				variables[words[i + 2]] = { words[i + 3], words[i + 1] };
-			else if (opcode == 15 && wordCount >= 4 && words[i + 1] == 3 &&
+			else if (opcode == OpEntryPoint && wordCount >= 4 &&
+				words[i + 1] == ExecutionModelTessellationControl &&
 				SpirvNameEquals(&words[i + 3], wordCount - 3, entry))
 			{
 				auto nameWords = 0u;
@@ -425,20 +442,20 @@ namespace
 		{
 			interfaces.clear();
 			for (const auto& variable : variables)
-				if (variable.second.first == 1) interfaces.push_back(variable.first);
+				if (variable.second.first == StorageClassInput) interfaces.push_back(variable.first);
 		}
 
 		auto patchCount = 0u;
 		for (const auto id : interfaces)
 		{
 			const auto variable = variables.find(id);
-			if (variable == variables.end() || variable->second.first != 1) continue;
+			if (variable == variables.end() || variable->second.first != StorageClassInput) continue;
 			const auto pointee = pointerTypes.find(variable->second.second);
 			if (pointee == pointerTypes.end()) continue;
 			const auto lengthId = arrayLengths.find(pointee->second);
 			if (lengthId == arrayLengths.end()) continue;
 			const auto value = constants.find(lengthId->second);
-			if (value == constants.end() || !value->second || value->second > 32) continue;
+			if (value == constants.end() || !value->second || value->second > MaxPatchControlPoints) continue;
 			assert(!patchCount || patchCount == value->second);
 			if (!patchCount) patchCount = value->second;
 		}
@@ -455,7 +472,7 @@ namespace
 
 		const auto words = static_cast<const uint32_t*>(pData);
 		const auto count = size / sizeof(uint32_t);
-		if (words[0] != 0x07230203) return 0;
+		if (words[0] != SpirvMagic) return 0;
 
 		constexpr uint32_t OpExecutionMode = 16;
 		constexpr uint32_t OpDecorate = 71;
@@ -672,8 +689,9 @@ Pipeline_VK* XUSG::CreateVKGraphicsPipeline(const Device_VK* pDevice, const Grap
 	divisorState.pVertexBindingDivisors = divisors.empty() ? nullptr : divisors.data();
 	if (!divisors.empty())
 	{
-		assert(pDevice->HasVertexAttributeDivisor());
-		if (pDevice->HasVertexAttributeDivisor()) vertex.pNext = &divisorState;
+		const auto vertexAttributeDivisor = pDevice->HasVertexAttributeDivisor();
+		assert(vertexAttributeDivisor);
+		if (vertexAttributeDivisor) vertex.pNext = &divisorState;
 	}
 
 	VkPipelineInputAssemblyStateCreateInfo assembly = {};
@@ -736,8 +754,9 @@ Pipeline_VK* XUSG::CreateVKGraphicsPipeline(const Device_VK* pDevice, const Grap
 	conservative.conservativeRasterizationMode = VK_CONSERVATIVE_RASTERIZATION_MODE_OVERESTIMATE_EXT;
 	if (rasterizer.ConservativeRaster)
 	{
-		assert(pDevice->HasConservativeRasterization());
-		if (pDevice->HasConservativeRasterization()) raster.pNext = &conservative;
+		const auto conservativeRasterization = pDevice->HasConservativeRasterization();
+		assert(conservativeRasterization);
+		if (conservativeRasterization) raster.pNext = &conservative;
 	}
 
 	const auto sampleCount = desc.SampleCount ? desc.SampleCount : 1u;
@@ -758,7 +777,8 @@ Pipeline_VK* XUSG::CreateVKGraphicsPipeline(const Device_VK* pDevice, const Grap
 
 	VkPipelineMultisampleStateCreateInfo multisample = {};
 	multisample.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-	multisample.pNext = pDevice->HasSampleLocations() ? &sampleLocations : nullptr;
+	const auto hasSampleLocations = pDevice->HasSampleLocations();
+	multisample.pNext = hasSampleLocations ? &sampleLocations : nullptr;
 	multisample.rasterizationSamples = static_cast<VkSampleCountFlagBits>(sampleCount);
 	multisample.alphaToCoverageEnable = blendDesc.AlphaToCoverageEnable;
 
@@ -794,7 +814,7 @@ Pipeline_VK* XUSG::CreateVKGraphicsPipeline(const Device_VK* pDevice, const Grap
 	};
 	auto dynamicCount = 5u;
 	if (pDevice->GetBindVertexBuffers2()) dynamics[dynamicCount++] = VK_DYNAMIC_STATE_VERTEX_INPUT_BINDING_STRIDE;
-	if (pDevice->HasSampleLocations())
+	if (hasSampleLocations)
 	{
 		dynamics[dynamicCount++] = VK_DYNAMIC_STATE_SAMPLE_LOCATIONS_EXT;
 		dynamics[dynamicCount++] = VK_DYNAMIC_STATE_SAMPLE_LOCATIONS_ENABLE_EXT;
@@ -839,7 +859,7 @@ Pipeline_VK* XUSG::CreateVKGraphicsPipeline(const Device_VK* pDevice, const Grap
 	VkPipeline handle = VK_NULL_HANDLE;
 	const auto result = vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &info, nullptr, &handle);
 	for (auto i = 0u; i < stageCount; ++i)
-		if (modules[i]) vkDestroyShaderModule(device, modules[i], nullptr);
+		if (modules[i] != VK_NULL_HANDLE) vkDestroyShaderModule(device, modules[i], nullptr);
 	if (result < 0)
 	{
 		cerr << "VkResult " << result << endl;
@@ -865,7 +885,7 @@ Pipeline_VK* XUSG::CreateVKGraphicsPipeline(const Device_VK* pDevice, const Grap
 	pipeline->BindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 	pipeline->Refs = 1;
 	pipeline->XfbBuffers = xfbBuffers;
-	pDevice->SetDebugName(VK_OBJECT_TYPE_PIPELINE, reinterpret_cast<uint64_t>(handle), desc.Name);
+	pDevice->SetDebugName(VK_OBJECT_TYPE_PIPELINE, (uint64_t)handle, desc.Name);
 
 	return pipeline;
 }
@@ -898,7 +918,7 @@ Pipeline_VK* XUSG::CreateVKComputePipeline(const Device_VK* pDevice, const Pipel
 
 	VkPipeline handle = VK_NULL_HANDLE;
 	const auto result = vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &info, nullptr, &handle);
-	if (module) vkDestroyShaderModule(device, module, nullptr);
+	if (module != VK_NULL_HANDLE) vkDestroyShaderModule(device, module, nullptr);
 	if (result < 0)
 	{
 		cerr << "VkResult " << result << endl;
@@ -910,7 +930,7 @@ Pipeline_VK* XUSG::CreateVKComputePipeline(const Device_VK* pDevice, const Pipel
 	pipeline->Handle = handle;
 	pipeline->BindPoint = VK_PIPELINE_BIND_POINT_COMPUTE;
 	pipeline->Refs = 1;
-	pDevice->SetDebugName(VK_OBJECT_TYPE_PIPELINE, reinterpret_cast<uint64_t>(handle), name);
+	pDevice->SetDebugName(VK_OBJECT_TYPE_PIPELINE, (uint64_t)handle, name);
 
 	return pipeline;
 }
@@ -936,7 +956,7 @@ Pipeline PipelineLib_VK::createPipeline(const string& key, const wchar_t* name)
 	if (!pipeline) return nullptr;
 
 	const auto existing = m_pipelines.find(key);
-	if (existing != m_pipelines.end()) ReleaseVKPipeline(m_device, existing->second);
+	if (existing != m_pipelines.end()) ReleaseVKPipeline(m_pDevice->GetDevice(), existing->second);
 	m_pipelines[key] = pipeline;
 
 	return pipeline;

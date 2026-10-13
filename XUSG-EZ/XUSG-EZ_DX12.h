@@ -44,7 +44,7 @@ namespace XUSG
 				const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
-			bool Create(Device* pDevice, void* pHandle,
+			bool Create(Device* pDevice, void* pNativeHandle,
 				uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
 				const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
@@ -217,8 +217,9 @@ namespace XUSG
 			uint32_t GetGraphicsConstantParamIndex(Shader::Stage stage) const;
 			uint32_t GetComputeConstantParamIndex() const;
 
-			void* GetHandle() { return XUSG::CommandList_DX12::GetHandle(); }
-			void* GetDeviceHandle() const { return XUSG::CommandList_DX12::GetDeviceHandle(); }
+			void* GetNativeHandle() { return XUSG::CommandList_DX12::GetNativeHandle(); }
+			void* GetDeviceNativeHandle() const { return XUSG::CommandList_DX12::GetDeviceNativeHandle(); }
+			void* GetBackend() { return XUSG::CommandList_DX12::GetBackend(); }
 
 			Device* GetDevice() const { return XUSG::CommandList_DX12::GetDevice(); }
 			XUSG::CommandList* AsCommandList();

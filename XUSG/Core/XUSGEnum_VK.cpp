@@ -328,18 +328,37 @@ VkImageViewType XUSG::GetVKImageViewType(ResourceDimension dimension, bool isArr
 
 VkImageLayout XUSG::GetVKImageLayout(ResourceState state)
 {
+	// COMMON/PRESENT for images is resolved in Resource_VK::ImageLayout (presentable →
+	// PRESENT_SRC, else per-resource common layout). Keep GENERAL here as the generic fallback.
 	if (state == ResourceState::COMMON || state == ResourceState::PRESENT) return VK_IMAGE_LAYOUT_GENERAL;
-	if ((state & ResourceState::RENDER_TARGET) != ResourceState::COMMON) return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	if ((state & ResourceState::DEPTH_WRITE) != ResourceState::COMMON) return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-	if ((state & ResourceState::DEPTH_READ) != ResourceState::COMMON) return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-	if ((state & ResourceState::UNORDERED_ACCESS) != ResourceState::COMMON) return VK_IMAGE_LAYOUT_GENERAL;
-	if ((state & ResourceState::COPY_DEST) != ResourceState::COMMON) return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-	if ((state & ResourceState::COPY_SOURCE) != ResourceState::COMMON) return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-	if ((state & ResourceState::RESOLVE_DEST) != ResourceState::COMMON) return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-	if ((state & ResourceState::RESOLVE_SOURCE) != ResourceState::COMMON) return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-	if ((state & (ResourceState::PIXEL_SHADER_RESOURCE | ResourceState::NON_PIXEL_SHADER_RESOURCE)) != ResourceState::COMMON)
+
+	// DX12 allows combined states (e.g. COPY_SOURCE | PIXEL_SHADER_RESOURCE). Vulkan needs one
+	// layout; exclusive intents use the optimal layout, multi-use falls back to GENERAL.
+	const auto color = (state & ResourceState::RENDER_TARGET) != ResourceState::COMMON;
+	const auto depthWrite = (state & ResourceState::DEPTH_WRITE) != ResourceState::COMMON;
+	const auto depthRead = (state & ResourceState::DEPTH_READ) != ResourceState::COMMON;
+	const auto uav = (state & ResourceState::UNORDERED_ACCESS) != ResourceState::COMMON;
+	const auto copyDst = (state & (ResourceState::COPY_DEST | ResourceState::RESOLVE_DEST)) != ResourceState::COMMON;
+	const auto copySrc = (state & (ResourceState::COPY_SOURCE | ResourceState::RESOLVE_SOURCE)) != ResourceState::COMMON;
+	const auto srv = (state & (ResourceState::PIXEL_SHADER_RESOURCE | ResourceState::NON_PIXEL_SHADER_RESOURCE)) != ResourceState::COMMON;
+	const auto shadingRate = (state & ResourceState::SHADING_RATE_SOURCE) != ResourceState::COMMON;
+
+	if (color && !depthWrite && !depthRead && !uav && !copyDst && !copySrc && !srv && !shadingRate)
+		return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	if (depthWrite && !color && !uav && !copyDst && !copySrc && !srv && !shadingRate)
+		return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	// DEPTH_READ | PSR is valid as depth-stencil read-only (sample + test).
+	if (depthRead && !depthWrite && !color && !uav && !copyDst && !copySrc && !shadingRate)
+		return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+	if (uav && !color && !depthWrite && !depthRead && !copyDst && !copySrc && !srv && !shadingRate)
+		return VK_IMAGE_LAYOUT_GENERAL;
+	if (copyDst && !color && !depthWrite && !depthRead && !uav && !copySrc && !srv && !shadingRate)
+		return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	if (copySrc && !color && !depthWrite && !depthRead && !uav && !copyDst && !srv && !shadingRate)
+		return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+	if (srv && !color && !depthWrite && !depthRead && !uav && !copyDst && !copySrc && !shadingRate)
 		return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	if ((state & ResourceState::SHADING_RATE_SOURCE) != ResourceState::COMMON)
+	if (shadingRate && !color && !depthWrite && !depthRead && !uav && !copyDst && !copySrc && !srv)
 		return VK_IMAGE_LAYOUT_FRAGMENT_SHADING_RATE_ATTACHMENT_OPTIMAL_KHR;
 
 	return VK_IMAGE_LAYOUT_GENERAL;
@@ -476,6 +495,7 @@ VkPipelineStageFlags2 XUSG::GetVKStage(ResourceState state)
 		stage |= VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT |
 		VK_PIPELINE_STAGE_2_GEOMETRY_SHADER_BIT | VK_PIPELINE_STAGE_2_TESSELLATION_CONTROL_SHADER_BIT |
 		VK_PIPELINE_STAGE_2_TESSELLATION_EVALUATION_SHADER_BIT;
+	// PIXEL_SHADER_RESOURCE maps only to fragment shading (not ALL_GRAPHICS / ALL_COMMANDS).
 	if ((state & ResourceState::PIXEL_SHADER_RESOURCE) != ResourceState::COMMON)
 		stage |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
 	if ((state & ResourceState::UNORDERED_ACCESS) != ResourceState::COMMON)
@@ -832,23 +852,70 @@ VkStencilOp XUSG::GetVKStencilOp(StencilOp op)
 
 VkFilter XUSG::GetVKFilter(SamplerFilter filter, bool minFilter, bool magFilter)
 {
-	const auto index = static_cast<uint8_t>(filter) % 8;
-	const auto linear = minFilter ? (index & 0x4) != 0 : (index & 0x1) != 0;
-	if (!minFilter && magFilter)
-	{
-		const auto magLinear = (index == 2 || index == 3 || index == 6 || index == 7);
+	// SamplerFilter packs min/mag/mip as sequential bits (not D3D12_FILTER encoding).
+	constexpr auto groupSize = static_cast<uint8_t>(SamplerFilter::ANISOTROPIC) + 1;
+	constexpr auto minLinearBit = static_cast<uint8_t>(SamplerFilter::MIN_LINEAR_MAG_MIP_POINT);
+	constexpr auto magLinearBit = static_cast<uint8_t>(SamplerFilter::MIN_POINT_MAG_LINEAR_MIP_POINT);
+	constexpr auto mipLinearBit = static_cast<uint8_t>(SamplerFilter::MIN_MAG_POINT_MIP_LINEAR);
+	static_assert(minLinearBit == 4 && magLinearBit == 2 && mipLinearBit == 1 && groupSize == 9);
 
-		return magLinear ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
-	}
+	const auto index = static_cast<uint8_t>(filter) % groupSize;
+	if (index == static_cast<uint8_t>(SamplerFilter::ANISOTROPIC)) return VK_FILTER_LINEAR;
 
-	return linear ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
+	const auto mask = minFilter ? minLinearBit : magFilter ? magLinearBit : mipLinearBit;
+
+	return (index & mask) ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
 }
 
 VkSamplerMipmapMode XUSG::GetVKMipmapMode(SamplerFilter filter)
 {
-	const auto index = static_cast<uint8_t>(filter) % 8;
+	constexpr auto groupSize = static_cast<uint8_t>(SamplerFilter::ANISOTROPIC) + 1;
+	constexpr auto mipLinearBit = static_cast<uint8_t>(SamplerFilter::MIN_MAG_POINT_MIP_LINEAR);
 
-	return (index & 0x1) ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST;
+	const auto index = static_cast<uint8_t>(filter) % groupSize;
+	if (index == static_cast<uint8_t>(SamplerFilter::ANISOTROPIC))
+		return VK_SAMPLER_MIPMAP_MODE_LINEAR;
+
+	return (index & mipLinearBit) ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST;
+}
+
+bool XUSG::IsAnisotropicSamplerFilter(SamplerFilter filter)
+{
+	constexpr auto groupSize = static_cast<uint8_t>(SamplerFilter::ANISOTROPIC) + 1;
+
+	return (static_cast<uint8_t>(filter) % groupSize) == static_cast<uint8_t>(SamplerFilter::ANISOTROPIC);
+}
+
+SamplerFilter XUSG::GetSamplerFilterFromRootSig(uint32_t encodedFilter)
+{
+	// Same order as GetDX12Filter. Matches D3D12_DECODE_* used by vkd3d-proton.
+	static const uint32_t filters[] =
+	{
+		0x00, 0x01, 0x04, 0x05, 0x10, 0x11, 0x14, 0x15, 0x55,
+		0x80, 0x81, 0x84, 0x85, 0x90, 0x91, 0x94, 0x95, 0xd5,
+		0x100, 0x101, 0x104, 0x105, 0x110, 0x111, 0x114, 0x115, 0x155,
+		0x180, 0x181, 0x184, 0x185, 0x190, 0x191, 0x194, 0x195, 0x1d5,
+	};
+	static_assert(sizeof(filters) / sizeof(filters[0]) ==
+		static_cast<uint32_t>(SamplerFilter::MAXIMUM_ANISOTROPIC) + 1);
+
+	for (auto i = 0u; i < sizeof(filters) / sizeof(filters[0]); ++i)
+		if (filters[i] == encodedFilter) return static_cast<SamplerFilter>(i);
+
+	// *_MIN_MAG_ANISOTROPIC_MIP_POINT (0x54 etc.): still anisotropic (aniso bit +
+	// linear min/mag). Current SDK DECODE_IS_ANISOTROPIC no longer requires mip LINEAR;
+	// ENCODE_MIN_MAG_ANISOTROPIC_MIP_POINT_FILTER exists for a reason. SamplerFilter has
+	// no separate mip-point anisotropic slot, so map to full anisotropic (LINEAR mip).
+	switch (encodedFilter)
+	{
+	case 0x54: return SamplerFilter::ANISOTROPIC;
+	case 0xd4: return SamplerFilter::COMPARISON_ANISOTROPIC;
+	case 0x154: return SamplerFilter::MINIMUM_ANISOTROPIC;
+	case 0x1d4: return SamplerFilter::MAXIMUM_ANISOTROPIC;
+	default:
+		assert(!"Unknown encoded filter in root signature");
+		return SamplerFilter::MIN_MAG_MIP_POINT;
+	}
 }
 
 VkSamplerAddressMode XUSG::GetVKSamplerAddressMode(TextureAddressMode mode)

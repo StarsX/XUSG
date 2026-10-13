@@ -21,10 +21,10 @@ namespace XUSG
 		bool Create(Device* pDevice, CommandListType type, const wchar_t* name = nullptr);
 		bool Reset();
 
-		void Create(void* pHandle, const wchar_t* name = nullptr);
+		void Create(uint64_t nativeHandle, Device* pDevice);
 
-		void* GetHandle();
-		void* GetDeviceHandle() const;
+		uint64_t GetNativeHandle() const;
+		void* GetDeviceNativeHandle() const;
 
 		Device* GetDevice() const;
 
@@ -32,11 +32,9 @@ namespace XUSG
 		uint32_t GetFamily() const;
 
 	protected:
-		VkDevice		m_device;
+		Device_VK*		m_pDevice;
 		VkCommandPool	m_pool;
 		uint32_t		m_family;
-
-		Device* m_pDevice;
 	};
 
 	class CommandList_VK :
@@ -132,11 +130,12 @@ namespace XUSG
 			Resource* pArgumentBuffer, uint64_t argumentBufferOffset = 0,
 			Resource* pCountBuffer = nullptr, uint64_t countBufferOffset = 0) const;
 
-		void Create(void* pHandle, const wchar_t* name = nullptr);
+		void Create(void* pNativeHandle, Device* pDevice);
 		void Attach(const CommandList_VK& source);
 
-		void* GetHandle();
-		void* GetDeviceHandle() const;
+		void* GetNativeHandle();
+		void* GetDeviceNativeHandle() const;
+		void* GetBackend() override;
 
 		Device* GetDevice() const;
 		VkCommandBuffer GetCommandBuffer() const;
@@ -160,12 +159,16 @@ namespace XUSG
 			uint32_t Subresource;
 			uint8_t SingleSubresource;
 			uint8_t HasStencil;
+			uint8_t PendingClear;
 		};
 
 		void resetState() const;
 		void endPredication() const;
 		void beginPredication() const;
 		void endRendering() const;
+		bool sameRenderTargets(uint32_t numRenderTargetDescriptors, const Descriptor* pRenderTargetViews,
+			const Descriptor* pDepthStencilView) const;
+		bool hasPendingClear() const;
 		void beginRendering() const;
 		void beginTransformFeedback() const;
 		void endTransformFeedback() const;
@@ -174,6 +177,8 @@ namespace XUSG
 		virtual const void* renderingPNext() const;
 		void bindHeap(DescriptorHeap heap) const;
 		void pushData(uint32_t offset, const void* pData, uint32_t size) const;
+		void writePush(bool graphics, uint32_t rootIndex, uint32_t offset, const void* pData, uint32_t size) const;
+		void flushPush(bool graphics) const;
 		void setDescriptorTable(const PipelineLayoutObject* pLayout, uint32_t index, uint32_t descriptorIndex) const;
 		void setConstants(const PipelineLayoutObject* pLayout, uint32_t index, uint32_t num32BitValues,
 			const void* pData, uint32_t destOffsetIn32BitValues) const;
@@ -200,7 +205,6 @@ namespace XUSG
 		void submitBarrierBatch(VkMemoryBarrier2& memory, std::vector<VkImageMemoryBarrier2>& images) const;
 		void pipelineBarrier(const VkDependencyInfo& dependency) const;
 
-		VkDevice					m_device;
 		mutable VkCommandPool		m_pool;
 		mutable VkCommandBuffer		m_commandBuffer;
 		bool						m_ownsCommandBuffer;
@@ -211,9 +215,8 @@ namespace XUSG
 			VkCommandBuffer Buffer;
 		};
 		mutable std::vector<PoolBuffer> m_poolBuffers;
-		Device*		m_pDevice;
-		const Device_VK*	m_pDeviceVK;
-		CommandListType		m_type;
+		Device_VK*		m_pDevice;
+		CommandListType	m_type;
 
 		PFN_vkCmdBeginRendering				m_beginRendering;
 		PFN_vkCmdEndRendering				m_endRendering;
@@ -244,6 +247,15 @@ namespace XUSG
 		mutable const Pipeline_VK*	m_pipeline;
 		mutable DescriptorHeap		m_resourceHeap;
 		mutable DescriptorHeap		m_samplerHeap;
+
+		// D3D12 root-signature push budget is 256 bytes. Dirty is tracked per root
+		// parameter; flush merges adjacent byte ranges and splits on gaps.
+		static constexpr uint32_t	MaxPushDataBytes = 256;
+		static constexpr uint32_t	MaxRootParameters = 64;
+		mutable uint8_t				m_graphicsPushData[MaxPushDataBytes];
+		mutable uint8_t				m_computePushData[MaxPushDataBytes];
+		mutable uint64_t			m_graphicsPushDirty;
+		mutable uint64_t			m_computePushDirty;
 
 		mutable VkBuffer			m_preprocessBuffer;
 		mutable VkDeviceMemory		m_preprocessMemory;
@@ -317,28 +329,33 @@ namespace XUSG
 			Resource* pSrcResource, const TiledResourceCoord* pSrcRegionStartCoordinate,
 			const TileRegionSize& regionSize, TileMappingFlag flags = TileMappingFlag::NONE) const;
 
-		void Create(void* pHandle, const wchar_t* name = nullptr);
+		void Create(void* pNativeHandle, Device* pDevice);
 
-		void* GetHandle();
-		void* GetDeviceHandle() const;
+		void* GetNativeHandle();
+		void* GetDeviceNativeHandle() const;
 
 		Device* GetDevice() const;
 
 	protected:
 		bool submit(uint32_t numCommandLists, CommandList* const* ppCommandLists,
 			const Semaphore* pWaits, uint32_t numWaits, const Semaphore* pSignals, uint32_t numSignals) const;
+		bool flushDeferred(const Semaphore* pWaits, uint32_t numWaits,
+			const Semaphore* pSignals, uint32_t numSignals) const;
 		bool consumeSparseWait(VkSemaphoreSubmitInfo& wait) const;
 		VkQueue sparseQueue() const;
 
-		VkDevice		m_device;
+		Device_VK*		m_pDevice;
 		VkQueue			m_queue;
-		Device* m_pDevice;
 		uint32_t		m_family;
 		uint32_t		m_queueIndex;
 		bool			m_registered;
 		bool			m_ownsSlot;
 		bool			m_sparseQueue;
 		mutable uint64_t m_sparseWaited;
+
+		// ExecuteCommandList defers until Signal (or explicit Submit) so
+		// Execute → Present → Signal collapses to one queue submit + PresentKHR.
+		mutable std::vector<CommandList*> m_deferredLists;
 
 		mutable std::vector<VkCommandBufferSubmitInfo> m_commandInfos;
 		mutable std::vector<VkSemaphoreSubmitInfo> m_waitInfos;
@@ -350,4 +367,16 @@ namespace XUSG
 		mutable std::vector<VkSemaphore> m_signalSemaphores;
 		mutable std::vector<uint64_t> m_signalValues;
 	};
+
+	inline CommandList_VK* AsVK(CommandList* p)
+	{
+		assert(!p || p->GetBackend());
+		return static_cast<CommandList_VK*>(p ? p->GetBackend() : nullptr);
+	}
+
+	inline const CommandList_VK* AsVK(const CommandList* p)
+	{
+		assert(!p || const_cast<CommandList*>(p)->GetBackend());
+		return static_cast<const CommandList_VK*>(p ? const_cast<CommandList*>(p)->GetBackend() : nullptr);
+	}
 }

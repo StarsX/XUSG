@@ -65,7 +65,9 @@ namespace
 	{
 		TRANSPARENT_BLACK = 0,
 		OPAQUE_BLACK = 1,
-		OPAQUE_WHITE = 2
+		OPAQUE_WHITE = 2,
+		OPAQUE_BLACK_UINT = 3,
+		OPAQUE_WHITE_UINT = 4
 	};
 
 	enum class RdatPartType : uint32_t
@@ -249,7 +251,8 @@ namespace
 	void FillStaticSampler(Sampler& sampler, const uint32_t* pWords, bool hasFlags)
 	{
 		sampler = {};
-		sampler.Filter = static_cast<SamplerFilter>(pWords[0]);
+		// pWords[0] is RTS0 bit-encoded filter, not sequential SamplerFilter.
+		sampler.Filter = GetSamplerFilterFromRootSig(pWords[0]);
 		sampler.AddressU = static_cast<TextureAddressMode>(pWords[1] - 1u);
 		sampler.AddressV = static_cast<TextureAddressMode>(pWords[2] - 1u);
 		sampler.AddressW = static_cast<TextureAddressMode>(pWords[3] - 1u);
@@ -266,6 +269,15 @@ namespace
 			sampler.BorderColor[0] = sampler.BorderColor[1] = sampler.BorderColor[2] = 0.0f;
 			sampler.BorderColor[3] = 1.0f;
 			break;
+		case StaticBorderColor::OPAQUE_BLACK_UINT:
+			sampler.Flags |= SamplerFlag::UINT_BORDER_COLOR;
+			sampler.BorderColorU[0] = sampler.BorderColorU[1] = sampler.BorderColorU[2] = 0u;
+			sampler.BorderColorU[3] = 1u;
+			break;
+		case StaticBorderColor::OPAQUE_WHITE_UINT:
+			sampler.Flags |= SamplerFlag::UINT_BORDER_COLOR;
+			sampler.BorderColorU[0] = sampler.BorderColorU[1] = sampler.BorderColorU[2] = sampler.BorderColorU[3] = 1u;
+			break;
 		default:
 			sampler.BorderColor[0] = sampler.BorderColor[1] = sampler.BorderColor[2] = sampler.BorderColor[3] = 0.0f;
 			break;
@@ -273,8 +285,9 @@ namespace
 
 		memcpy(&sampler.MinLOD, &pWords[8], sizeof(float));
 		memcpy(&sampler.MaxLOD, &pWords[9], sizeof(float));
-		if (hasFlags && (pWords[13] & 0x1u))
-			sampler.Flags |= SamplerFlag::NON_NORMALIZED_COORDINATES;
+		// D3D12_SAMPLER_FLAG_UINT_BORDER_COLOR = 0x1, NON_NORMALIZED = 0x2 (matches SamplerFlag).
+		if (hasFlags)
+			sampler.Flags |= static_cast<SamplerFlag>(pWords[13] & 0x3u);
 	}
 
 }
@@ -518,6 +531,11 @@ string& Util::PipelineLayout_VK::GetPipelineLayoutKey(PipelineLayoutLib* pPipeli
 	return m_pipelineLayoutKey;
 }
 
+void* Util::PipelineLayout_VK::GetBackend()
+{
+	return this;
+}
+
 string& Util::PipelineLayout_VK::checkKeyStorage(uint32_t index)
 {
 	m_isTableLayoutsCompleted = false;
@@ -537,8 +555,7 @@ string& Util::PipelineLayout_VK::checkKeyStorage(uint32_t index)
 //--------------------------------------------------------------------------------------
 
 PipelineLayoutLib_VK::PipelineLayoutLib_VK() :
-	m_pDevice(nullptr),
-	m_device(VK_NULL_HANDLE)
+	m_pDevice(nullptr)
 {
 }
 
@@ -554,9 +571,8 @@ PipelineLayoutLib_VK::~PipelineLayoutLib_VK()
 
 void PipelineLayoutLib_VK::SetDevice(Device* pDevice)
 {
-	m_pDevice = pDevice ? static_cast<Device_VK*>(pDevice->GetHandle()) : nullptr;
+	m_pDevice = AsVK(pDevice);
 	assert(m_pDevice);
-	m_device = m_pDevice->GetDevice();
 }
 
 void PipelineLayoutLib_VK::SetPipelineLayout(const string& key, const PipelineLayout& pipelineLayout)
@@ -767,11 +783,11 @@ PipelineLayout PipelineLayoutLib_VK::createRootSignature(const string& key,
 	const Blob& blobSignature, const wchar_t* name, uint32_t nodeMask)
 {
 	const void* pData = nullptr;
-	auto size = 0ull;
+	size_t size = 0;
 	GetVKBlobData(blobSignature, &pData, &size);
 
 	const void* pPayload = nullptr;
-	auto payloadSize = 0ull;
+	size_t payloadSize = 0;
 	XUSG_N_RETURN(FindVKRootSignaturePayload(pData, size, nullptr, &pPayload, &payloadSize), nullptr);
 
 	return createRootSignatureFromPayload(key, pPayload, payloadSize, name, nodeMask);
@@ -1056,21 +1072,58 @@ void PipelineLayoutLib_VK::fillEmbeddedSampler(EmbeddedSampler_VK& embedded, con
 	embedded.Reduction.sType = VK_STRUCTURE_TYPE_SAMPLER_REDUCTION_MODE_CREATE_INFO;
 	embedded.Reduction.reductionMode = GetVKReductionMode(pSampler->Filter);
 
-	const auto standard = (pSampler->BorderColor[3] == 0.0f && pSampler->BorderColor[0] == 0.0f &&
-		pSampler->BorderColor[1] == 0.0f && pSampler->BorderColor[2] == 0.0f) ||
-		(pSampler->BorderColor[3] == 1.0f && pSampler->BorderColor[0] == pSampler->BorderColor[1] &&
-			pSampler->BorderColor[1] == pSampler->BorderColor[2] &&
-			(pSampler->BorderColor[0] == 0.0f || pSampler->BorderColor[0] == 1.0f));
-	if (m_pDevice->HasCustomBorderColor() && !standard)
+	const auto uintBorder = (pSampler->Flags & SamplerFlag::UINT_BORDER_COLOR) != SamplerFlag::NONE;
+	VkBorderColor borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
+	if (uintBorder)
 	{
-		embedded.Border.sType = VK_STRUCTURE_TYPE_SAMPLER_CUSTOM_BORDER_COLOR_CREATE_INFO_EXT;
-		embedded.Border.customBorderColor.float32[0] = pSampler->BorderColor[0];
-		embedded.Border.customBorderColor.float32[1] = pSampler->BorderColor[1];
-		embedded.Border.customBorderColor.float32[2] = pSampler->BorderColor[2];
-		embedded.Border.customBorderColor.float32[3] = pSampler->BorderColor[3];
+		const auto r = pSampler->BorderColorU[0];
+		const auto g = pSampler->BorderColorU[1];
+		const auto b = pSampler->BorderColorU[2];
+		const auto a = pSampler->BorderColorU[3];
+		// Match vkd3d: standard UINT borders use 0/1, not 0/~0.
+		const auto black = r == 0 && g == 0 && b == 0;
+		const auto white = r == 1 && g == 1 && b == 1;
+		const auto standard = (black && (a == 0 || a == 1)) || (white && a == 1);
+		if (!standard && m_pDevice->HasCustomBorderColor())
+		{
+			embedded.Border.sType = VK_STRUCTURE_TYPE_SAMPLER_CUSTOM_BORDER_COLOR_CREATE_INFO_EXT;
+			embedded.Border.customBorderColor.uint32[0] = r;
+			embedded.Border.customBorderColor.uint32[1] = g;
+			embedded.Border.customBorderColor.uint32[2] = b;
+			embedded.Border.customBorderColor.uint32[3] = a;
+			borderColor = VK_BORDER_COLOR_INT_CUSTOM_EXT;
+		}
+		else
+		{
+			borderColor = a == 0 ? VK_BORDER_COLOR_INT_TRANSPARENT_BLACK :
+				(r || g || b) ? VK_BORDER_COLOR_INT_OPAQUE_WHITE : VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+		}
+	}
+	else
+	{
+		const auto standard = (pSampler->BorderColor[3] == 0.0f && pSampler->BorderColor[0] == 0.0f &&
+			pSampler->BorderColor[1] == 0.0f && pSampler->BorderColor[2] == 0.0f) ||
+			(pSampler->BorderColor[3] == 1.0f && pSampler->BorderColor[0] == pSampler->BorderColor[1] &&
+				pSampler->BorderColor[1] == pSampler->BorderColor[2] &&
+				(pSampler->BorderColor[0] == 0.0f || pSampler->BorderColor[0] == 1.0f));
+		if (!standard && m_pDevice->HasCustomBorderColor())
+		{
+			embedded.Border.sType = VK_STRUCTURE_TYPE_SAMPLER_CUSTOM_BORDER_COLOR_CREATE_INFO_EXT;
+			embedded.Border.customBorderColor.float32[0] = pSampler->BorderColor[0];
+			embedded.Border.customBorderColor.float32[1] = pSampler->BorderColor[1];
+			embedded.Border.customBorderColor.float32[2] = pSampler->BorderColor[2];
+			embedded.Border.customBorderColor.float32[3] = pSampler->BorderColor[3];
+			borderColor = VK_BORDER_COLOR_FLOAT_CUSTOM_EXT;
+		}
+		else
+		{
+			const auto white = pSampler->BorderColor[0] > 0.5f || pSampler->BorderColor[1] > 0.5f ||
+				pSampler->BorderColor[2] > 0.5f;
+			borderColor = pSampler->BorderColor[3] <= 0.0f ? VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK :
+				white ? VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE : VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
+		}
 	}
 
-	const auto white = pSampler->BorderColor[0] > 0.5f || pSampler->BorderColor[1] > 0.5f || pSampler->BorderColor[2] > 0.5f;
 	embedded.Info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
 	embedded.Info.magFilter = GetVKFilter(pSampler->Filter, false, true);
 	embedded.Info.minFilter = GetVKFilter(pSampler->Filter, true, false);
@@ -1079,16 +1132,17 @@ void PipelineLayoutLib_VK::fillEmbeddedSampler(EmbeddedSampler_VK& embedded, con
 	embedded.Info.addressModeV = GetVKSamplerAddressMode(pSampler->AddressV);
 	embedded.Info.addressModeW = GetVKSamplerAddressMode(pSampler->AddressW);
 	embedded.Info.mipLodBias = pSampler->MipLODBias;
-	embedded.Info.anisotropyEnable = pSampler->MaxAnisotropy > 1;
-	embedded.Info.maxAnisotropy = pSampler->MaxAnisotropy;
+	// Match vkd3d: aniso from filter type, then MaxAnisotropy < 1 disables; clamp to 16.
+	embedded.Info.anisotropyEnable = IsAnisotropicSamplerFilter(pSampler->Filter) && pSampler->MaxAnisotropy >= 1;
+	embedded.Info.maxAnisotropy = embedded.Info.anisotropyEnable ?
+		(min)(16.0f, static_cast<float>(pSampler->MaxAnisotropy)) : 1.0f;
 	const auto filterValue = static_cast<uint8_t>(pSampler->Filter);
 	embedded.Info.compareEnable = filterValue >= static_cast<uint8_t>(SamplerFilter::COMPARISON_MIN_MAG_MIP_POINT) &&
 		filterValue <= static_cast<uint8_t>(SamplerFilter::COMPARISON_ANISOTROPIC);
 	embedded.Info.compareOp = GetVKCompareOp(pSampler->Comparison);
 	embedded.Info.minLod = pSampler->MinLOD;
 	embedded.Info.maxLod = pSampler->MaxLOD;
-	embedded.Info.borderColor = pSampler->BorderColor[3] <= 0.0f ? VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK :
-		white ? VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE : VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
+	embedded.Info.borderColor = borderColor;
 	embedded.Info.unnormalizedCoordinates = (pSampler->Flags & SamplerFlag::NON_NORMALIZED_COORDINATES) != SamplerFlag::NONE;
 }
 

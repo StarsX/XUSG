@@ -31,7 +31,7 @@ Heap_DX12::~Heap_DX12()
 bool Heap_DX12::Create(Device* pDevice, uint64_t byteSize, MemoryType memoryType,
 	MemoryFlag memoryFlags, uint64_t alignment, const wchar_t* name)
 {
-	m_device = pDevice->GetHandle();
+	m_device = pDevice->GetNativeHandle();
 	XUSG_M_RETURN(!m_device, cerr, "The device is NULL.", false);
 
 	m_memoryType = memoryType;
@@ -70,12 +70,11 @@ MemoryType Heap_DX12::GetType() const
 	return m_memoryType;
 }
 
-void Heap_DX12::Create(void* pDeviceHandle, void* pHeapHandle, const wchar_t* name)
+void Heap_DX12::Create(uint64_t nativeHandle, Device* pDevice)
 {
-	m_device = pDeviceHandle;
-	m_heap = pHeapHandle;
-
-	SetName(name);
+	m_device = pDevice->GetNativeHandle();
+	m_heap = reinterpret_cast<ID3D12Heap*>(nativeHandle);
+	m_name = GetDebugObjectName(m_heap.get());
 }
 
 void Heap_DX12::SetName(const wchar_t* name)
@@ -87,9 +86,14 @@ void Heap_DX12::SetName(const wchar_t* name)
 	}
 }
 
-void* Heap_DX12::GetHandle()
+uint64_t Heap_DX12::GetNativeHandle() const
 {
-	return m_heap.get();
+	return reinterpret_cast<uint64_t>(m_heap.get());
+}
+
+void* Heap_DX12::GetBackend()
+{
+	return this;
 }
 
 com_ptr<ID3D12Heap>& Heap_DX12::GetHeap()
@@ -269,11 +273,10 @@ void Resource_DX12::GetTiling(uint32_t* pTotalNumTiles, PackedMipInfo* pPackedMi
 	}
 }
 
-void Resource_DX12::Create(void* pDeviceHandle, void* pResourceHandle,
-	const wchar_t* name, uint32_t maxThreads)
+void Resource_DX12::Create(uint64_t nativeHandle, Device* pDevice, uint32_t maxThreads)
 {
-	m_device = pDeviceHandle;
-	m_resource = pResourceHandle;
+	m_device = pDevice->GetNativeHandle();
+	m_resource = reinterpret_cast<ID3D12Resource*>(nativeHandle);
 
 	if (m_resource)
 	{
@@ -281,9 +284,9 @@ void Resource_DX12::Create(void* pDeviceHandle, void* pResourceHandle,
 		m_states.resize(maxThreads);
 		for (auto& states : m_states)
 			states.resize(desc.MipLevels * desc.DepthOrArraySize, ResourceState::COMMON);
-
-		SetName(name);
 	}
+
+	m_name = GetDebugObjectName(m_resource.get());
 }
 
 void Resource_DX12::SetName(const wchar_t* name)
@@ -295,9 +298,14 @@ void Resource_DX12::SetName(const wchar_t* name)
 	}
 }
 
-void* Resource_DX12::GetHandle()
+uint64_t Resource_DX12::GetNativeHandle() const
 {
-	return m_resource.get();
+	return reinterpret_cast<uint64_t>(m_resource.get());
+}
+
+void* Resource_DX12::GetBackend()
+{
+	return this;
 }
 
 com_ptr<ID3D12Resource>& Resource_DX12::GetResource()
@@ -307,7 +315,7 @@ com_ptr<ID3D12Resource>& Resource_DX12::GetResource()
 
 bool Resource_DX12::initialize(Device* pDevice)
 {
-	m_device = pDevice->GetHandle();
+	m_device = pDevice->GetNativeHandle();
 	XUSG_M_RETURN(!m_device, cerr, "The device is NULL.", false);
 
 	m_resource = nullptr;
@@ -465,8 +473,8 @@ bool ConstantBuffer_DX12::CreateResource(Device* pDevice, Heap* pHeap, uint64_t 
 
 	if (pHeap)
 	{
-		V_RETURN(m_device->CreatePlacedResource(static_cast<ID3D12Heap*>(pHeap->GetHandle()), heapOffset, &desc,
-			GetDX12ResourceStates(m_states[0][0]), nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
+		V_RETURN(m_device->CreatePlacedResource(reinterpret_cast<ID3D12Heap*>(pHeap->GetNativeHandle()), heapOffset,
+			&desc, GetDX12ResourceStates(m_states[0][0]), nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
 	}
 	else
 	{
@@ -482,7 +490,7 @@ bool ConstantBuffer_DX12::Upload(CommandList* pCommandList, Resource* pUploader,
 {
 	// Create the GPU upload buffer.
 	assert(pUploader);
-	const auto p = dynamic_cast<Resource_DX12*>(pUploader);
+	const auto p = AsDX12(pUploader);
 	assert(p);
 	auto& uploaderResource = p->GetResource();
 	if (!uploaderResource)
@@ -508,7 +516,7 @@ bool ConstantBuffer_DX12::Upload(CommandList* pCommandList, Resource* pUploader,
 		pCommandList->Barrier(1, &barrier);
 	}
 
-	const auto pGraphicsCommandList = static_cast<ID3D12GraphicsCommandList*>(pCommandList->GetHandle());
+	const auto pGraphicsCommandList = static_cast<ID3D12GraphicsCommandList*>(pCommandList->GetNativeHandle());
 	pGraphicsCommandList->CopyBufferRegion(m_resource.get(), byteOffset, uploaderResource.get(), 0, size);
 
 	const ResourceBarrier barrier = { this, ResourceState::COPY_DEST, dstState, XUSG_BARRIER_ALL_SUBRESOURCES };
@@ -581,7 +589,7 @@ void ConstantBuffer_DX12::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignm
 	Device* pDevice, size_t byteWidth, uint64_t requiredAlignment)
 {
 	const auto desc = CD3DX12_RESOURCE_DESC::Buffer(byteWidth, D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE, requiredAlignment);
-	const auto info = static_cast<ID3D12Device*>(pDevice->GetHandle())->GetResourceAllocationInfo(0, 1, &desc);
+	const auto info = static_cast<ID3D12Device*>(pDevice->GetNativeHandle())->GetResourceAllocationInfo(0, 1, &desc);
 
 	byteSize = info.SizeInBytes;
 	alignment = info.Alignment;
@@ -929,8 +937,8 @@ bool Texture_DX12::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOff
 				sampleCount, 0, GetDX12ResourceFlags(resourceFlags), GetDX12TextureLayout(textureLayout));
 
 			// Create the texture.
-			V_RETURN(device->CreatePlacedResource2(static_cast<ID3D12Heap*>(pHeap->GetHandle()), heapOffset, &desc,
-				GetDX12BarrierLayout(GetBarrierLayout(m_states[0][0])), nullptr, numCastableFormats,
+			V_RETURN(device->CreatePlacedResource2(reinterpret_cast<ID3D12Heap*>(pHeap->GetNativeHandle()), heapOffset,
+				&desc, GetDX12BarrierLayout(GetBarrierLayout(m_states[0][0])), nullptr, numCastableFormats,
 				castableFormats.data(), IID_PPV_ARGS(&m_resource)), clog, false);
 		}
 		else
@@ -954,8 +962,8 @@ bool Texture_DX12::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOff
 				sampleCount, 0, GetDX12ResourceFlags(resourceFlags), GetDX12TextureLayout(textureLayout));
 
 			// Create the texture.
-			V_RETURN(m_device->CreatePlacedResource(static_cast<ID3D12Heap*>(pHeap->GetHandle()), heapOffset, &desc,
-				GetDX12ResourceStates(m_states[0][0]), nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
+			V_RETURN(m_device->CreatePlacedResource(reinterpret_cast<ID3D12Heap*>(pHeap->GetNativeHandle()), heapOffset,
+				&desc, GetDX12ResourceStates(m_states[0][0]), nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
 		}
 		else
 		{
@@ -988,7 +996,7 @@ bool Texture_DX12::Upload(CommandList* pCommandList, Resource* pUploader,
 
 	// Create the GPU upload buffer.
 	assert(pUploader);
-	const auto p = dynamic_cast<Resource_DX12*>(pUploader);
+	const auto p = AsDX12(pUploader);
 	assert(p);
 	auto& uploaderResource = p->GetResource();
 	if (!uploaderResource)
@@ -1011,7 +1019,7 @@ bool Texture_DX12::Upload(CommandList* pCommandList, Resource* pUploader,
 			firstSubresource + i, BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
 	pCommandList->Barrier(numBarriers, barriers.data());
 
-	const auto pGraphicsCommandList = static_cast<ID3D12GraphicsCommandList*>(pCommandList->GetHandle());
+	const auto pGraphicsCommandList = static_cast<ID3D12GraphicsCommandList*>(pCommandList->GetNativeHandle());
 	XUSG_M_RETURN(UpdateSubresources(pGraphicsCommandList, m_resource.get(), uploaderResource.get(),
 		0, firstSubresource, numSubresources, subresourceData.data()) <= 0,
 		clog, "Failed to upload the resource.", false);
@@ -1056,12 +1064,12 @@ bool Texture_DX12::ReadBack(CommandList* pCommandList, Buffer* pReadBuffer, uint
 
 	// Create the GPU read-back buffer.
 	assert(pReadBuffer);
-	if (!pReadBuffer->GetHandle())
+	if (!pReadBuffer->GetNativeHandle())
 		XUSG_N_RETURN(pReadBuffer->Create(pCommandList->GetDevice(), static_cast<size_t>(readBufferSize),
 			ResourceFlag::DENY_SHADER_RESOURCE, MemoryType::READBACK, 0, nullptr, 0, nullptr, MemoryFlag::NONE,
 			(m_name + L".ReadResource").c_str()), false);
 
-	const auto p = dynamic_cast<Resource_DX12*>(pReadBuffer);
+	const auto p = AsDX12(pReadBuffer);
 	assert(p);
 	auto& readResource = p->GetResource();
 	assert(readResource);
@@ -1078,7 +1086,7 @@ bool Texture_DX12::ReadBack(CommandList* pCommandList, Buffer* pReadBuffer, uint
 	}
 	pCommandList->Barrier(numBarriers, barriers.data());
 
-	const auto pGraphicsCommandList = static_cast<ID3D12GraphicsCommandList*>(pCommandList->GetHandle());
+	const auto pGraphicsCommandList = static_cast<ID3D12GraphicsCommandList*>(pCommandList->GetNativeHandle());
 	for (auto i = 0u; i < numSubresources; ++i)
 	{
 		const CD3DX12_TEXTURE_COPY_LOCATION dst(readResource.get(), layouts[i]);
@@ -1406,7 +1414,7 @@ void Texture_DX12::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, De
 {
 	const auto desc = CD3DX12_RESOURCE_DESC::Tex2D(GetDXGIFormat(format), width, height, arraySize, numMips,
 		sampleCount, 0, GetDX12ResourceFlags(resourceFlags), GetDX12TextureLayout(textureLayout), requiredAlignment);
-	const auto info = static_cast<ID3D12Device*>(pDevice->GetHandle())->GetResourceAllocationInfo(0, 1, &desc);
+	const auto info = static_cast<ID3D12Device*>(pDevice->GetNativeHandle())->GetResourceAllocationInfo(0, 1, &desc);
 
 	byteSize = info.SizeInBytes;
 	alignment = info.Alignment;
@@ -1713,8 +1721,8 @@ bool RenderTarget_DX12::CreateResource(Device* pDevice, Heap* pHeap, uint64_t he
 				0, GetDX12ResourceFlags(ResourceFlag::ALLOW_RENDER_TARGET | resourceFlags), GetDX12TextureLayout(textureLayout));
 
 			// Create the render-target texture.
-			V_RETURN(device->CreatePlacedResource2(static_cast<ID3D12Heap*>(pHeap->GetHandle()), heapOffset, &desc,
-				GetDX12BarrierLayout(GetBarrierLayout(m_states[0][0])), &clearValue, numCastableFormats,
+			V_RETURN(device->CreatePlacedResource2(reinterpret_cast<ID3D12Heap*>(pHeap->GetNativeHandle()), heapOffset,
+				&desc, GetDX12BarrierLayout(GetBarrierLayout(m_states[0][0])), &clearValue, numCastableFormats,
 				castableFormats.data(), IID_PPV_ARGS(&m_resource)), clog, false);
 		}
 		else
@@ -1739,8 +1747,8 @@ bool RenderTarget_DX12::CreateResource(Device* pDevice, Heap* pHeap, uint64_t he
 				0, GetDX12ResourceFlags(ResourceFlag::ALLOW_RENDER_TARGET | resourceFlags), GetDX12TextureLayout(textureLayout));
 
 			// Create the render-target texture.
-			V_RETURN(m_device->CreatePlacedResource(static_cast<ID3D12Heap*>(pHeap->GetHandle()), heapOffset, &desc,
-				GetDX12ResourceStates(m_states[0][0]), &clearValue, IID_PPV_ARGS(&m_resource)), clog, false);
+			V_RETURN(m_device->CreatePlacedResource(reinterpret_cast<ID3D12Heap*>(pHeap->GetNativeHandle()), heapOffset,
+				&desc, GetDX12ResourceStates(m_states[0][0]), &clearValue, IID_PPV_ARGS(&m_resource)), clog, false);
 		}
 		else
 		{
@@ -2279,8 +2287,8 @@ bool DepthStencil_DX12::CreateResource(Device* pDevice, Heap* pHeap, uint64_t he
 		const auto desc = CD3DX12_RESOURCE_DESC::Tex2D(GetDXGIFormat(format), width, height, arraySize, numMips, sampleCount,
 			0, GetDX12ResourceFlags(ResourceFlag::ALLOW_DEPTH_STENCIL | resourceFlags), GetDX12TextureLayout(textureLayout));
 
-		V_RETURN(m_device->CreatePlacedResource(static_cast<ID3D12Heap*>(pHeap->GetHandle()), heapOffset, &desc,
-			GetDX12ResourceStates(m_states[0][0]), &clearValue, IID_PPV_ARGS(&m_resource)), clog, false);
+		V_RETURN(m_device->CreatePlacedResource(reinterpret_cast<ID3D12Heap*>(pHeap->GetNativeHandle()), heapOffset,
+			&desc, GetDX12ResourceStates(m_states[0][0]), &clearValue, IID_PPV_ARGS(&m_resource)), clog, false);
 	}
 	else
 	{
@@ -2746,8 +2754,8 @@ bool Texture3D_DX12::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapO
 				numMips, GetDX12ResourceFlags(resourceFlags), GetDX12TextureLayout(textureLayout));
 
 			// Create the texture.
-			V_RETURN(device->CreatePlacedResource2(static_cast<ID3D12Heap*>(pHeap->GetHandle()), heapOffset, &desc,
-				GetDX12BarrierLayout(GetBarrierLayout(m_states[0][0])), nullptr, numCastableFormats,
+			V_RETURN(device->CreatePlacedResource2(reinterpret_cast<ID3D12Heap*>(pHeap->GetNativeHandle()), heapOffset,
+				&desc, GetDX12BarrierLayout(GetBarrierLayout(m_states[0][0])), nullptr, numCastableFormats,
 				castableFormats.data(), IID_PPV_ARGS(&m_resource)), clog, false);
 		}
 		else
@@ -2771,8 +2779,8 @@ bool Texture3D_DX12::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapO
 				numMips, GetDX12ResourceFlags(resourceFlags), GetDX12TextureLayout(textureLayout));
 
 			// Create the texture.
-			V_RETURN(m_device->CreatePlacedResource(static_cast<ID3D12Heap*>(pHeap->GetHandle()), heapOffset, &desc,
-				GetDX12ResourceStates(m_states[0][0]), nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
+			V_RETURN(m_device->CreatePlacedResource(reinterpret_cast<ID3D12Heap*>(pHeap->GetNativeHandle()), heapOffset,
+				&desc, GetDX12ResourceStates(m_states[0][0]), nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
 		}
 		else
 		{
@@ -2850,7 +2858,7 @@ void Texture3D_DX12::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, 
 {
 	const auto desc = CD3DX12_RESOURCE_DESC::Tex3D(GetDXGIFormat(format), width, height, depth,
 		numMips, GetDX12ResourceFlags(resourceFlags), GetDX12TextureLayout(textureLayout), requiredAlignment);
-	const auto info = static_cast<ID3D12Device*>(pDevice->GetHandle())->GetResourceAllocationInfo(0, 1, &desc);
+	const auto info = static_cast<ID3D12Device*>(pDevice->GetNativeHandle())->GetResourceAllocationInfo(0, 1, &desc);
 
 	byteSize = info.SizeInBytes;
 	alignment = info.Alignment;
@@ -3018,8 +3026,8 @@ bool Buffer_DX12::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffs
 			const auto desc = CD3DX12_RESOURCE_DESC1::Buffer(byteWidth, GetDX12ResourceFlags(resourceFlags));
 
 			// Create the buffer.
-			V_RETURN(device->CreatePlacedResource2(static_cast<ID3D12Heap*>(pHeap->GetHandle()), heapOffset, &desc,
-				D3D12_BARRIER_LAYOUT_UNDEFINED, nullptr, numCastableFormats, castableFormats.data(),
+			V_RETURN(device->CreatePlacedResource2(reinterpret_cast<ID3D12Heap*>(pHeap->GetNativeHandle()), heapOffset,
+				&desc, D3D12_BARRIER_LAYOUT_UNDEFINED, nullptr, numCastableFormats, castableFormats.data(),
 				IID_PPV_ARGS(&m_resource)), clog, false);
 		}
 		else
@@ -3040,8 +3048,8 @@ bool Buffer_DX12::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffs
 		// Create the buffer.
 		if (pHeap)
 		{
-			V_RETURN(m_device->CreatePlacedResource(static_cast<ID3D12Heap*>(pHeap->GetHandle()), heapOffset, &desc,
-				GetDX12ResourceStates(m_states[0][0]), nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
+			V_RETURN(m_device->CreatePlacedResource(reinterpret_cast<ID3D12Heap*>(pHeap->GetNativeHandle()), heapOffset,
+				&desc, GetDX12ResourceStates(m_states[0][0]), nullptr, IID_PPV_ARGS(&m_resource)), clog, false);
 		}
 		else
 		{
@@ -3058,7 +3066,7 @@ bool Buffer_DX12::Upload(CommandList* pCommandList, Resource* pUploader, const v
 {
 	// Create the GPU upload buffer.
 	assert(pUploader);
-	const auto p = dynamic_cast<Resource_DX12*>(pUploader);
+	const auto p = AsDX12(pUploader);
 	assert(p);
 	auto& uploaderResource = p->GetResource();
 	if (!uploaderResource)
@@ -3083,7 +3091,7 @@ bool Buffer_DX12::Upload(CommandList* pCommandList, Resource* pUploader, const v
 		BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
 	pCommandList->Barrier(numBarriers, &barrier);
 
-	const auto pGraphicsCommandList = static_cast<ID3D12GraphicsCommandList*>(pCommandList->GetHandle());
+	const auto pGraphicsCommandList = static_cast<ID3D12GraphicsCommandList*>(pCommandList->GetNativeHandle());
 	pGraphicsCommandList->CopyBufferRegion(m_resource.get(), offset, uploaderResource.get(), 0, size);
 
 	numBarriers = SetBarrier(&barrier, dstState, 0, XUSG_BARRIER_ALL_SUBRESOURCES,
@@ -3108,11 +3116,11 @@ bool Buffer_DX12::ReadBack(CommandList* pCommandList, Buffer* pReadBuffer, size_
 
 	// Create the GPU read-back buffer.
 	assert(pReadBuffer);
-	if (!pReadBuffer->GetHandle())
+	if (!pReadBuffer->GetNativeHandle())
 		XUSG_N_RETURN(pReadBuffer->Create(pCommandList->GetDevice(), readSize + dstOffset, ResourceFlag::DENY_SHADER_RESOURCE,
 			MemoryType::READBACK, 0, nullptr, 0, nullptr, MemoryFlag::NONE, (m_name + L".ReadResource").c_str()), false);
 
-	const auto p = dynamic_cast<Resource_DX12*>(pReadBuffer);
+	const auto p = AsDX12(pReadBuffer);
 	assert(p);
 	auto& readResource = p->GetResource();
 	assert(readResource);
@@ -3123,7 +3131,7 @@ bool Buffer_DX12::ReadBack(CommandList* pCommandList, Buffer* pReadBuffer, size_
 		XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
 	pCommandList->Barrier(numBarriers, &barrier);
 
-	const auto pGraphicsCommandList = static_cast<ID3D12GraphicsCommandList*>(pCommandList->GetHandle());
+	const auto pGraphicsCommandList = static_cast<ID3D12GraphicsCommandList*>(pCommandList->GetNativeHandle());
 	pGraphicsCommandList->CopyBufferRegion(readResource.get(), dstOffset, m_resource.get(), srcOffset, readSize);
 
 	numBarriers = SetBarrier(&barrier, dstState, 0, XUSG_BARRIER_ALL_SUBRESOURCES,
@@ -3237,7 +3245,7 @@ void Buffer_DX12::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, Dev
 	size_t byteWidth, ResourceFlag resourceFlags, uint64_t requiredAlignment)
 {
 	const auto desc = CD3DX12_RESOURCE_DESC::Buffer(byteWidth, GetDX12ResourceFlags(resourceFlags), requiredAlignment);
-	const auto info = static_cast<ID3D12Device*>(pDevice->GetHandle())->GetResourceAllocationInfo(0, 1, &desc);
+	const auto info = static_cast<ID3D12Device*>(pDevice->GetNativeHandle())->GetResourceAllocationInfo(0, 1, &desc);
 
 	byteSize = info.SizeInBytes;
 	alignment = info.Alignment;
@@ -3359,8 +3367,9 @@ void Buffer_DX12::getViewRange(uint32_t& viewElements, uintptr_t& firstElement, 
 	uint32_t numDescriptors, uintptr_t* pByteOffset)
 {
 	firstElement = firstElements ? firstElements[i] : 0;
-	viewElements = static_cast<uint32_t>((firstElements && i + 1 < numDescriptors ?
-		firstElements[i + 1] : bufferElements) - firstElement);
+	const auto next = (firstElements && i + 1 < numDescriptors) ? firstElements[i + 1] : bufferElements;
+	assert(next >= firstElement);
+	viewElements = static_cast<uint32_t>(next - firstElement);
 
 	if (pByteOffset) *pByteOffset = byteStride * firstElement;
 }

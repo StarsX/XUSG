@@ -10,19 +10,27 @@
 #include "XUSGPipelineState_DX12.h"
 #include "XUSGWorkGraph_DX12.h"
 #include "XUSGGenericState_DX12.h"
+#ifndef XUSG_NO_VULKAN
 #include "Core/XUSGCommand_VK.h"
 #include "Core/XUSGPipelineLayout_VK.h"
 #include "XUSGUltimate_VK.h"
 #include "XUSGPipelineState_VK.h"
 #include "XUSGGenericState_VK.h"
+#endif
 
 using namespace std;
 using namespace XUSG;
 
+#ifdef XUSG_NO_VULKAN
+#define XUSG_IF_VK(...)
+#else
+#define XUSG_IF_VK(...) if (Device::GetApi() == API::VULKAN) __VA_ARGS__
+#endif
+
 Ultimate::CommandList::uptr Ultimate::CommandList::MakeUnique()
 {
 	Device::LockApi();
-	if (Device::GetApi() == API::VULKAN) return make_unique<CommandList_VK>();
+	XUSG_IF_VK(return make_unique<CommandList_VK>();)
 
 	return make_unique<CommandList_DX12>();
 }
@@ -30,7 +38,7 @@ Ultimate::CommandList::uptr Ultimate::CommandList::MakeUnique()
 Ultimate::CommandList::sptr Ultimate::CommandList::MakeShared()
 {
 	Device::LockApi();
-	if (Device::GetApi() == API::VULKAN) return make_shared<CommandList_VK>();
+	XUSG_IF_VK(return make_shared<CommandList_VK>();)
 
 	return make_shared<CommandList_DX12>();
 }
@@ -38,7 +46,7 @@ Ultimate::CommandList::sptr Ultimate::CommandList::MakeShared()
 Ultimate::CommandList::uptr Ultimate::CommandList::MakeUnique(XUSG::CommandList& commandList)
 {
 	Device::LockApi();
-	if (Device::GetApi() == API::VULKAN) return make_unique<CommandList_VK>(commandList);
+	XUSG_IF_VK(return make_unique<CommandList_VK>(commandList);)
 
 	return make_unique<CommandList_DX12>(commandList);
 }
@@ -46,7 +54,7 @@ Ultimate::CommandList::uptr Ultimate::CommandList::MakeUnique(XUSG::CommandList&
 Ultimate::CommandList::sptr Ultimate::CommandList::MakeShared(XUSG::CommandList& commandList)
 {
 	Device::LockApi();
-	if (Device::GetApi() == API::VULKAN) return make_shared<CommandList_VK>(commandList);
+	XUSG_IF_VK(return make_shared<CommandList_VK>(commandList);)
 
 	return make_shared<CommandList_DX12>(commandList);
 }
@@ -54,7 +62,7 @@ Ultimate::CommandList::sptr Ultimate::CommandList::MakeShared(XUSG::CommandList&
 Ultimate::PipelineLayoutLib::uptr Ultimate::PipelineLayoutLib::MakeUnique()
 {
 	Device::LockApi();
-	if (Device::GetApi() == API::VULKAN) return make_unique<PipelineLayoutLib_VK>();
+	XUSG_IF_VK(return make_unique<PipelineLayoutLib_VK>();)
 
 	return make_unique<PipelineLayoutLib_DX12>();
 }
@@ -62,7 +70,7 @@ Ultimate::PipelineLayoutLib::uptr Ultimate::PipelineLayoutLib::MakeUnique()
 Ultimate::PipelineLayoutLib::sptr Ultimate::PipelineLayoutLib::MakeShared()
 {
 	Device::LockApi();
-	if (Device::GetApi() == API::VULKAN) return make_shared<PipelineLayoutLib_VK>();
+	XUSG_IF_VK(return make_shared<PipelineLayoutLib_VK>();)
 
 	return make_shared<PipelineLayoutLib_DX12>();
 }
@@ -70,7 +78,7 @@ Ultimate::PipelineLayoutLib::sptr Ultimate::PipelineLayoutLib::MakeShared()
 Ultimate::PipelineLayoutLib::uptr Ultimate::PipelineLayoutLib::MakeUnique(Device* pDevice)
 {
 	Device::LockApi();
-	if (Device::GetApi() == API::VULKAN) return make_unique<PipelineLayoutLib_VK>(pDevice);
+	XUSG_IF_VK(return make_unique<PipelineLayoutLib_VK>(pDevice);)
 
 	return make_unique<PipelineLayoutLib_DX12>(pDevice);
 }
@@ -78,7 +86,7 @@ Ultimate::PipelineLayoutLib::uptr Ultimate::PipelineLayoutLib::MakeUnique(Device
 Ultimate::PipelineLayoutLib::sptr Ultimate::PipelineLayoutLib::MakeShared(Device* pDevice)
 {
 	Device::LockApi();
-	if (Device::GetApi() == API::VULKAN) return make_shared<PipelineLayoutLib_VK>(pDevice);
+	XUSG_IF_VK(return make_shared<PipelineLayoutLib_VK>(pDevice);)
 
 	return make_shared<PipelineLayoutLib_DX12>(pDevice);
 }
@@ -86,7 +94,7 @@ Ultimate::PipelineLayoutLib::sptr Ultimate::PipelineLayoutLib::MakeShared(Device
 Ultimate::State::uptr Ultimate::State::MakeUnique()
 {
 	Device::LockApi();
-	if (Device::GetApi() == API::VULKAN) return make_unique<State_VK>();
+	XUSG_IF_VK(return make_unique<State_VK>();)
 
 	return make_unique<State_DX12>();
 }
@@ -94,7 +102,7 @@ Ultimate::State::uptr Ultimate::State::MakeUnique()
 Ultimate::State::sptr Ultimate::State::MakeShared()
 {
 	Device::LockApi();
-	if (Device::GetApi() == API::VULKAN) return make_shared<State_VK>();
+	XUSG_IF_VK(return make_shared<State_VK>();)
 
 	return make_shared<State_DX12>();
 }
@@ -102,7 +110,7 @@ Ultimate::State::sptr Ultimate::State::MakeShared()
 Ultimate::PipelineLib::uptr Ultimate::PipelineLib::MakeUnique()
 {
 	Device::LockApi();
-	if (Device::GetApi() == API::VULKAN) return make_unique<PipelineLib_VK>();
+	XUSG_IF_VK(return make_unique<PipelineLib_VK>();)
 
 	return make_unique<PipelineLib_DX12>();
 }
@@ -110,7 +118,7 @@ Ultimate::PipelineLib::uptr Ultimate::PipelineLib::MakeUnique()
 Ultimate::PipelineLib::sptr Ultimate::PipelineLib::MakeShared()
 {
 	Device::LockApi();
-	if (Device::GetApi() == API::VULKAN) return make_shared<PipelineLib_VK>();
+	XUSG_IF_VK(return make_shared<PipelineLib_VK>();)
 
 	return make_shared<PipelineLib_DX12>();
 }
@@ -118,7 +126,7 @@ Ultimate::PipelineLib::sptr Ultimate::PipelineLib::MakeShared()
 Ultimate::PipelineLib::uptr Ultimate::PipelineLib::MakeUnique(Device* pDevice)
 {
 	Device::LockApi();
-	if (Device::GetApi() == API::VULKAN) return make_unique<PipelineLib_VK>(pDevice);
+	XUSG_IF_VK(return make_unique<PipelineLib_VK>(pDevice);)
 
 	return make_unique<PipelineLib_DX12>(pDevice);
 }
@@ -126,7 +134,7 @@ Ultimate::PipelineLib::uptr Ultimate::PipelineLib::MakeUnique(Device* pDevice)
 Ultimate::PipelineLib::sptr Ultimate::PipelineLib::MakeShared(Device* pDevice)
 {
 	Device::LockApi();
-	if (Device::GetApi() == API::VULKAN) return make_shared<PipelineLib_VK>(pDevice);
+	XUSG_IF_VK(return make_shared<PipelineLib_VK>(pDevice);)
 
 	return make_shared<PipelineLib_DX12>(pDevice);
 }
@@ -134,7 +142,7 @@ Ultimate::PipelineLib::sptr Ultimate::PipelineLib::MakeShared(Device* pDevice)
 Ultimate::SamplerFeedBack::uptr Ultimate::SamplerFeedBack::MakeUnique()
 {
 	Device::LockApi();
-	if (Device::GetApi() == API::VULKAN) return make_unique<SamplerFeedBack_VK>();
+	XUSG_IF_VK(return make_unique<SamplerFeedBack_VK>();)
 
 	return make_unique<SamplerFeedBack_DX12>();
 }
@@ -142,7 +150,7 @@ Ultimate::SamplerFeedBack::uptr Ultimate::SamplerFeedBack::MakeUnique()
 Ultimate::SamplerFeedBack::sptr Ultimate::SamplerFeedBack::MakeShared()
 {
 	Device::LockApi();
-	if (Device::GetApi() == API::VULKAN) return make_shared<SamplerFeedBack_VK>();
+	XUSG_IF_VK(return make_shared<SamplerFeedBack_VK>();)
 
 	return make_shared<SamplerFeedBack_DX12>();
 }
@@ -672,7 +680,7 @@ WorkGraph::PipelineLib::sptr WorkGraph::PipelineLib::MakeShared(Device* pDevice)
 Generic::State::uptr Generic::State::MakeUnique()
 {
 	Device::LockApi();
-	if (Device::GetApi() == API::VULKAN) return make_unique<State_VK>();
+	XUSG_IF_VK(return make_unique<State_VK>();)
 
 	return make_unique<State_DX12>();
 }
@@ -680,7 +688,7 @@ Generic::State::uptr Generic::State::MakeUnique()
 Generic::State::sptr Generic::State::MakeShared()
 {
 	Device::LockApi();
-	if (Device::GetApi() == API::VULKAN) return make_shared<State_VK>();
+	XUSG_IF_VK(return make_shared<State_VK>();)
 
 	return make_shared<State_DX12>();
 }
@@ -688,7 +696,7 @@ Generic::State::sptr Generic::State::MakeShared()
 Generic::PipelineLib::uptr Generic::PipelineLib::MakeUnique()
 {
 	Device::LockApi();
-	if (Device::GetApi() == API::VULKAN) return make_unique<PipelineLib_VK>();
+	XUSG_IF_VK(return make_unique<PipelineLib_VK>();)
 
 	return make_unique<PipelineLib_DX12>();
 }
@@ -696,7 +704,7 @@ Generic::PipelineLib::uptr Generic::PipelineLib::MakeUnique()
 Generic::PipelineLib::sptr Generic::PipelineLib::MakeShared()
 {
 	Device::LockApi();
-	if (Device::GetApi() == API::VULKAN) return make_shared<PipelineLib_VK>();
+	XUSG_IF_VK(return make_shared<PipelineLib_VK>();)
 
 	return make_shared<PipelineLib_DX12>();
 }
@@ -704,7 +712,7 @@ Generic::PipelineLib::sptr Generic::PipelineLib::MakeShared()
 Generic::PipelineLib::uptr Generic::PipelineLib::MakeUnique(Device* pDevice)
 {
 	Device::LockApi();
-	if (Device::GetApi() == API::VULKAN) return make_unique<PipelineLib_VK>(pDevice);
+	XUSG_IF_VK(return make_unique<PipelineLib_VK>(pDevice);)
 
 	return make_unique<PipelineLib_DX12>(pDevice);
 }
@@ -712,7 +720,7 @@ Generic::PipelineLib::uptr Generic::PipelineLib::MakeUnique(Device* pDevice)
 Generic::PipelineLib::sptr Generic::PipelineLib::MakeShared(Device* pDevice)
 {
 	Device::LockApi();
-	if (Device::GetApi() == API::VULKAN) return make_shared<PipelineLib_VK>(pDevice);
+	XUSG_IF_VK(return make_shared<PipelineLib_VK>(pDevice);)
 
 	return make_shared<PipelineLib_DX12>(pDevice);
 }

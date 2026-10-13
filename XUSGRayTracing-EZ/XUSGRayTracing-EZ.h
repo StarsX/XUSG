@@ -30,7 +30,8 @@ namespace XUSG
 
 				virtual bool Create(RayTracing::CommandList* pCommandList,
 					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize) = 0;
-				virtual bool Create(RayTracing::Device* pDevice, void* pHandle, uint32_t samplerHeapSize,
+				// pNativeHandle is ID3D12GraphicsCommandList*.
+				virtual bool Create(RayTracing::Device* pDevice, void* pNativeHandle, uint32_t samplerHeapSize,
 					uint32_t cbvSrvUavHeapSize, const wchar_t* name = nullptr) = 0;
 				// Must be called after all acceleration structures allocated
 				// By default maxCbvsEachSpace[stage] = 14 for graphics or 12 for ray tracing and compute

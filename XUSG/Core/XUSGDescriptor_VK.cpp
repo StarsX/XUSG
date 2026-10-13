@@ -34,7 +34,7 @@ namespace
 }
 
 DescriptorHeap_VK::DescriptorHeap_VK() :
-	m_device(VK_NULL_HANDLE),
+	m_pDevice(nullptr),
 	m_buffer(VK_NULL_HANDLE),
 	m_memory(VK_NULL_HANDLE),
 	m_mapped(nullptr),
@@ -56,7 +56,8 @@ bool DescriptorHeap_VK::Create(const Device_VK* pDevice, DescriptorHeapType type
 {
 	reset();
 	assert(pDevice);
-	m_device = pDevice->GetDevice();
+	m_pDevice = pDevice;
+	const auto device = m_pDevice->GetDevice();
 	m_type = type;
 
 	const auto& props = pDevice->GetDescriptorHeapProperties();
@@ -73,10 +74,10 @@ bool DescriptorHeap_VK::Create(const Device_VK* pDevice, DescriptorHeapType type
 	info.size = m_size;
 	info.usage = VK_BUFFER_USAGE_DESCRIPTOR_HEAP_BIT_EXT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
 		VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-	XUSG_VK_CHECK(vkCreateBuffer(m_device, &info, nullptr, &m_buffer), cerr, false);
+	XUSG_VK_CHECK(vkCreateBuffer(device, &info, nullptr, &m_buffer), cerr, false);
 
 	VkMemoryRequirements requirements = {};
-	vkGetBufferMemoryRequirements(m_device, m_buffer, &requirements);
+	vkGetBufferMemoryRequirements(device, m_buffer, &requirements);
 	const auto typeIndex = pDevice->FindMemoryType(requirements.memoryTypeBits,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
@@ -89,17 +90,17 @@ bool DescriptorHeap_VK::Create(const Device_VK* pDevice, DescriptorHeapType type
 	alloc.pNext = &flags;
 	alloc.allocationSize = requirements.size;
 	alloc.memoryTypeIndex = typeIndex;
-	XUSG_VK_CHECK(vkAllocateMemory(m_device, &alloc, nullptr, &m_memory), cerr, false);
-	XUSG_VK_CHECK(vkBindBufferMemory(m_device, m_buffer, m_memory, 0), cerr, false);
-	XUSG_VK_CHECK(vkMapMemory(m_device, m_memory, 0, m_size, 0, &m_mapped), cerr, false);
+	XUSG_VK_CHECK(vkAllocateMemory(device, &alloc, nullptr, &m_memory), cerr, false);
+	XUSG_VK_CHECK(vkBindBufferMemory(device, m_buffer, m_memory, 0), cerr, false);
+	XUSG_VK_CHECK(vkMapMemory(device, m_memory, 0, m_size, 0, &m_mapped), cerr, false);
 	memset(m_mapped, 0, static_cast<size_t>(m_size));
 
 	VkBufferDeviceAddressInfo address = {};
 	address.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
 	address.buffer = m_buffer;
-	m_address = vkGetBufferDeviceAddress(m_device, &address);
+	m_address = vkGetBufferDeviceAddress(device, &address);
 
-	pDevice->SetDebugName(VK_OBJECT_TYPE_BUFFER, reinterpret_cast<uint64_t>(m_buffer), name);
+	pDevice->SetDebugName(VK_OBJECT_TYPE_BUFFER, (uint64_t)m_buffer, name);
 
 	return true;
 }
@@ -141,9 +142,13 @@ void* DescriptorHeap_VK::GetMapped() const
 
 void DescriptorHeap_VK::reset()
 {
-	if (m_mapped) vkUnmapMemory(m_device, m_memory);
-	if (m_buffer) vkDestroyBuffer(m_device, m_buffer, nullptr);
-	if (m_memory) vkFreeMemory(m_device, m_memory, nullptr);
+	if (m_pDevice)
+	{
+		const auto device = m_pDevice->GetDevice();
+		if (m_mapped) vkUnmapMemory(device, m_memory);
+		if (m_buffer != VK_NULL_HANDLE) vkDestroyBuffer(device, m_buffer, nullptr);
+		if (m_memory != VK_NULL_HANDLE) vkFreeMemory(device, m_memory, nullptr);
+	}
 
 	m_mapped = nullptr;
 	m_buffer = VK_NULL_HANDLE;
@@ -205,7 +210,7 @@ void Util::DescriptorTable_VK::SetSamplers(uint32_t start, uint32_t num, const S
 
 DescriptorTable Util::DescriptorTable_VK::CreateCbvSrvUavTable(DescriptorTableLib* pDescriptorTableLib, const XUSG::DescriptorTable& table)
 {
-	const auto p = dynamic_cast<DescriptorTableLib_VK*>(pDescriptorTableLib);
+	const auto p = AsVK(pDescriptorTableLib);
 	assert(p);
 
 	return p->CreateCbvSrvUavTable(this, table);
@@ -213,7 +218,7 @@ DescriptorTable Util::DescriptorTable_VK::CreateCbvSrvUavTable(DescriptorTableLi
 
 DescriptorTable Util::DescriptorTable_VK::GetCbvSrvUavTable(DescriptorTableLib* pDescriptorTableLib, const XUSG::DescriptorTable& table)
 {
-	const auto p = dynamic_cast<DescriptorTableLib_VK*>(pDescriptorTableLib);
+	const auto p = AsVK(pDescriptorTableLib);
 	assert(p);
 
 	return p->GetCbvSrvUavTable(this, table);
@@ -221,7 +226,7 @@ DescriptorTable Util::DescriptorTable_VK::GetCbvSrvUavTable(DescriptorTableLib* 
 
 DescriptorTable Util::DescriptorTable_VK::CreateSamplerTable(DescriptorTableLib* pDescriptorTableLib, const XUSG::DescriptorTable& table)
 {
-	const auto p = dynamic_cast<DescriptorTableLib_VK*>(pDescriptorTableLib);
+	const auto p = AsVK(pDescriptorTableLib);
 	assert(p);
 
 	return p->CreateSamplerTable(this, table);
@@ -229,7 +234,7 @@ DescriptorTable Util::DescriptorTable_VK::CreateSamplerTable(DescriptorTableLib*
 
 DescriptorTable Util::DescriptorTable_VK::GetSamplerTable(DescriptorTableLib* pDescriptorTableLib, const XUSG::DescriptorTable& table)
 {
-	const auto p = dynamic_cast<DescriptorTableLib_VK*>(pDescriptorTableLib);
+	const auto p = AsVK(pDescriptorTableLib);
 	assert(p);
 
 	return p->GetSamplerTable(this, table);
@@ -287,12 +292,11 @@ uint32_t Util::DescriptorTable_VK::GetDescriptorTableIndex(DescriptorTableLib* p
 
 DescriptorTableLib_VK::DescriptorTableLib_VK() :
 	m_pDevice(nullptr),
-	m_device(VK_NULL_HANDLE),
 	m_cbvSrvUavTables(),
 	m_samplerTables(),
 	m_descriptorHeaps(),
-	m_descriptorStrides(),
 	m_descriptorCounts(),
+	m_descriptorStrides(),
 	m_samplers()
 {
 	// Sampler presets
@@ -348,9 +352,8 @@ DescriptorTableLib_VK::~DescriptorTableLib_VK()
 
 void DescriptorTableLib_VK::SetDevice(Device* pDevice)
 {
-	m_pDevice = pDevice ? static_cast<Device_VK*>(pDevice->GetHandle()) : nullptr;
+	m_pDevice = AsVK(pDevice);
 	assert(m_pDevice);
-	m_device = m_pDevice->GetDevice();
 	m_descriptorStrides[CBV_SRV_UAV_HEAP] = m_pDevice->GetResourceDescriptorStride();
 	m_descriptorStrides[SAMPLER_HEAP] = m_pDevice->GetSamplerDescriptorStride();
 }
@@ -434,6 +437,11 @@ uint32_t DescriptorTableLib_VK::GetDescriptorStride(DescriptorHeapType type) con
 	lock_guard<mutex> lock(m_mtx);
 
 	return m_descriptorStrides[type];
+}
+
+void* DescriptorTableLib_VK::GetBackend()
+{
+	return this;
 }
 
 void DescriptorTableLib_VK::checkDescriptorHeapTypeStorage(DescriptorHeapType type, uint8_t index)
@@ -692,8 +700,9 @@ uint32_t DescriptorTableLib_VK::calculateGrowth(uint32_t newSize, DescriptorHeap
 
 bool DescriptorTableLib_VK::writeNullResource(void* pDescriptor) const
 {
-	assert(m_pDevice->HasNullDescriptor());
-	if (!m_pDevice->HasNullDescriptor()) return false;
+	const auto nullDescriptor = m_pDevice->HasNullDescriptor();
+	assert(nullDescriptor);
+	if (!nullDescriptor) return false;
 	const auto& props = m_pDevice->GetDescriptorHeapProperties();
 	const auto useImage = props.imageDescriptorSize >= props.bufferDescriptorSize;
 	VkResourceDescriptorInfoEXT info = {};
@@ -703,7 +712,7 @@ bool DescriptorTableLib_VK::writeNullResource(void* pDescriptor) const
 	VkHostAddressRangeEXT host = {};
 	host.address = pDescriptor;
 	host.size = static_cast<size_t>(useImage ? props.imageDescriptorSize : props.bufferDescriptorSize);
-	XUSG_VK_CHECK(m_pDevice->GetExtProcs().WriteResourceDescriptors(m_device, 1, &info, &host), cerr, false);
+	XUSG_VK_CHECK(m_pDevice->GetExtProcs().WriteResourceDescriptors(m_pDevice->GetDevice(), 1, &info, &host), cerr, false);
 
 	return true;
 }
@@ -745,7 +754,7 @@ bool DescriptorTableLib_VK::writeResource(const ResourceView_VK* pView, void* pD
 	VkHostAddressRangeEXT host = {};
 	host.address = pDescriptor;
 	host.size = static_cast<size_t>(descriptorSize);
-	XUSG_VK_CHECK(m_pDevice->GetExtProcs().WriteResourceDescriptors(m_device, 1, &info, &host), cerr, false);
+	XUSG_VK_CHECK(m_pDevice->GetExtProcs().WriteResourceDescriptors(m_pDevice->GetDevice(), 1, &info, &host), cerr, false);
 
 	return true;
 }
@@ -755,24 +764,59 @@ bool DescriptorTableLib_VK::writeSampler(const Sampler* pSampler, void* pDescrip
 	assert(pSampler);
 	VkSamplerCustomBorderColorCreateInfoEXT border = {};
 	border.sType = VK_STRUCTURE_TYPE_SAMPLER_CUSTOM_BORDER_COLOR_CREATE_INFO_EXT;
-	border.customBorderColor.float32[0] = pSampler->BorderColor[0];
-	border.customBorderColor.float32[1] = pSampler->BorderColor[1];
-	border.customBorderColor.float32[2] = pSampler->BorderColor[2];
-	border.customBorderColor.float32[3] = pSampler->BorderColor[3];
 
 	VkSamplerReductionModeCreateInfo reduction = {};
 	reduction.sType = VK_STRUCTURE_TYPE_SAMPLER_REDUCTION_MODE_CREATE_INFO;
 	reduction.reductionMode = GetVKReductionMode(pSampler->Filter);
 
-	const auto customBorder = m_pDevice->HasCustomBorderColor() && !IsStandardBorder(pSampler);
 	VkSamplerCreateInfo info = {};
 	info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
 	if (reduction.reductionMode != VK_SAMPLER_REDUCTION_MODE_WEIGHTED_AVERAGE) info.pNext = &reduction;
+
+	const auto uintBorder = (pSampler->Flags & SamplerFlag::UINT_BORDER_COLOR) != SamplerFlag::NONE;
+	auto customBorder = false;
+	if (uintBorder)
+	{
+		const auto r = pSampler->BorderColorU[0];
+		const auto g = pSampler->BorderColorU[1];
+		const auto b = pSampler->BorderColorU[2];
+		const auto a = pSampler->BorderColorU[3];
+		// Match vkd3d: standard UINT borders use 0/1, not 0/~0.
+		const auto black = r == 0 && g == 0 && b == 0;
+		const auto white = r == 1 && g == 1 && b == 1;
+		const auto standard = (black && (a == 0 || a == 1)) || (white && a == 1);
+		if (!standard && m_pDevice->HasCustomBorderColor())
+		{
+			customBorder = true;
+			border.customBorderColor.uint32[0] = r;
+			border.customBorderColor.uint32[1] = g;
+			border.customBorderColor.uint32[2] = b;
+			border.customBorderColor.uint32[3] = a;
+			info.borderColor = VK_BORDER_COLOR_INT_CUSTOM_EXT;
+		}
+		else
+		{
+			info.borderColor = a == 0 ? VK_BORDER_COLOR_INT_TRANSPARENT_BLACK :
+				(r || g || b) ? VK_BORDER_COLOR_INT_OPAQUE_WHITE : VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+		}
+	}
+	else if (!IsStandardBorder(pSampler) && m_pDevice->HasCustomBorderColor())
+	{
+		customBorder = true;
+		border.customBorderColor.float32[0] = pSampler->BorderColor[0];
+		border.customBorderColor.float32[1] = pSampler->BorderColor[1];
+		border.customBorderColor.float32[2] = pSampler->BorderColor[2];
+		border.customBorderColor.float32[3] = pSampler->BorderColor[3];
+		info.borderColor = VK_BORDER_COLOR_FLOAT_CUSTOM_EXT;
+	}
+	else info.borderColor = BorderColor(pSampler);
+
 	if (customBorder)
 	{
 		border.pNext = info.pNext;
 		info.pNext = &border;
 	}
+
 	info.magFilter = GetVKFilter(pSampler->Filter, false, true);
 	info.minFilter = GetVKFilter(pSampler->Filter, true, false);
 	info.mipmapMode = GetVKMipmapMode(pSampler->Filter);
@@ -780,21 +824,22 @@ bool DescriptorTableLib_VK::writeSampler(const Sampler* pSampler, void* pDescrip
 	info.addressModeV = GetVKSamplerAddressMode(pSampler->AddressV);
 	info.addressModeW = GetVKSamplerAddressMode(pSampler->AddressW);
 	info.mipLodBias = pSampler->MipLODBias;
-	info.anisotropyEnable = pSampler->MaxAnisotropy > 1;
-	info.maxAnisotropy = pSampler->MaxAnisotropy;
+	// Match vkd3d: aniso from filter type, then MaxAnisotropy < 1 disables; clamp to 16.
+	info.anisotropyEnable = IsAnisotropicSamplerFilter(pSampler->Filter) && pSampler->MaxAnisotropy >= 1;
+	info.maxAnisotropy = info.anisotropyEnable ?
+		(min)(16.0f, static_cast<float>(pSampler->MaxAnisotropy)) : 1.0f;
 	const auto filterValue = static_cast<uint8_t>(pSampler->Filter);
 	info.compareEnable = filterValue >= static_cast<uint8_t>(SamplerFilter::COMPARISON_MIN_MAG_MIP_POINT) &&
 		filterValue <= static_cast<uint8_t>(SamplerFilter::COMPARISON_ANISOTROPIC);
 	info.compareOp = GetVKCompareOp(pSampler->Comparison);
 	info.minLod = pSampler->MinLOD;
 	info.maxLod = pSampler->MaxLOD;
-	info.borderColor = BorderColor(pSampler);
 	info.unnormalizedCoordinates = (pSampler->Flags & SamplerFlag::NON_NORMALIZED_COORDINATES) != SamplerFlag::NONE;
 
 	VkHostAddressRangeEXT host = {};
 	host.address = pDescriptor;
-	host.size = m_pDevice->GetDescriptorHeapProperties().samplerDescriptorSize;
-	XUSG_VK_CHECK(m_pDevice->GetExtProcs().WriteSamplerDescriptors(m_device, 1, &info, &host), cerr, false);
+	host.size = static_cast<size_t>(m_pDevice->GetDescriptorHeapProperties().samplerDescriptorSize);
+	XUSG_VK_CHECK(m_pDevice->GetExtProcs().WriteSamplerDescriptors(m_pDevice->GetDevice(), 1, &info, &host), cerr, false);
 
 	return true;
 }

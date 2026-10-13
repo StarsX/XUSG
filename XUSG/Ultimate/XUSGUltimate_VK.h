@@ -68,7 +68,7 @@ namespace XUSG
 			void flushBarriers(VkMemoryBarrier2& memory) const;
 			void addBarrier(const ResourceBarrier& barrier, VkMemoryBarrier2& memory) const;
 			void resolveMinMax(Resource* pDstResource, uint32_t dstSubresource, uint32_t dstX, uint32_t dstY,
-				Resource* pSrcResource, uint32_t srcSubresource, const RectRange& srcRect, Format format,
+				Resource* pSrcResource, uint32_t srcSubresource, const RectRange& srcRect,
 				ResolveMode resolveMode) const;
 			bool viewCached(const CachedView& cached, const XUSG::Resource_VK* pResource, uint32_t mip,
 				uint32_t layer, VkImageAspectFlags aspect, VkImageViewType type) const;
