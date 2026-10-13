@@ -64,10 +64,14 @@ namespace XUSG
 		void Create(void* pNativeHandle);
 
 		void* GetNativeHandle();
+		void* GetAdapterNativeHandle();
 		void* GetBackend() override;
 
 	protected:
+		void queryAdapter();
+
 		com_ptr<ID3D12Device> m_device;
+		com_ptr<IDXGIAdapter> m_adapter;
 	};
 
 	class Fence_DX12 :

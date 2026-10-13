@@ -1,0 +1,137 @@
+//--------------------------------------------------------------------------------------
+// Copyright (c) XU, Tianchen. All rights reserved.
+//--------------------------------------------------------------------------------------
+
+#pragma once
+
+#include "Core/XUSG_VK.h"
+#include "XUSGRayTracing.h"
+
+namespace XUSG
+{
+	namespace RayTracing
+	{
+		struct RayTracingPipeline_VK
+		{
+			VkPipeline Handle;
+			VkPipelineBindPoint BindPoint;
+			Blob_VK Cache;
+			uint32_t Refs;
+			uint32_t XfbBuffers;
+			uint32_t HandleSize;
+			std::vector<uint8_t> Handles;
+			std::unordered_map<std::wstring, uint32_t> Groups;
+		};
+
+		class State_VK :
+			public virtual State
+		{
+		public:
+			struct KeyHeader
+			{
+				XUSG::PipelineLayout GlobalLayout;
+				uint32_t NumShaderLibs;
+				uint32_t NumHitGroups;
+				uint32_t NumLocalPipelineLayouts;
+				uint32_t MaxPayloadSize;
+				uint32_t MaxAttributeSize;
+				uint32_t MaxRecursionDepth;
+				uint32_t NodeMask;
+			};
+
+			struct KeyShaderLibHeader
+			{
+				Blob Lib;
+				uint32_t NumShaders;
+			};
+
+			struct KeyShaderLib
+			{
+				Blob Lib;
+				std::vector<const wchar_t*> Shaders;
+			};
+
+			struct KeyHitGroup
+			{
+				const wchar_t* HitGroup;
+				const wchar_t* ClosestHitShader;
+				const wchar_t* AnyHitShader;
+				const wchar_t* IntersectionShader;
+				uint8_t Type;
+			};
+
+			struct KeyLocalPipelineLayoutHeader
+			{
+				XUSG::PipelineLayout Layout;
+				uint32_t NumShaders;
+			};
+
+			struct KeyLocalPipelineLayout
+			{
+				XUSG::PipelineLayout Layout;
+				std::vector<const wchar_t*> Shaders;
+			};
+
+			State_VK();
+			virtual ~State_VK();
+
+			void SetShaderLibrary(uint32_t index, const Blob& shaderLib,
+				uint32_t numShaders = 0, const wchar_t** pShaderNames = nullptr);
+			void SetHitGroup(uint32_t index, const wchar_t* hitGroupName, const wchar_t* closestHitShaderName,
+				const wchar_t* anyHitShaderName = nullptr, const wchar_t* intersectionShaderName = nullptr,
+				HitGroupType type = HitGroupType::TRIANGLES);
+			void SetShaderConfig(uint32_t maxPayloadSize, uint32_t maxAttributeSize);
+			void SetLocalPipelineLayout(uint32_t index, const XUSG::PipelineLayout& layout,
+				uint32_t numShaders, const wchar_t** pShaderNames);
+			void SetGlobalPipelineLayout(const XUSG::PipelineLayout& layout);
+			void SetMaxRecursionDepth(uint32_t depth);
+			void SetNodeMask(uint32_t nodeMask);
+
+			Pipeline CreatePipeline(PipelineLib* pPipelineCache, const wchar_t* name = nullptr);
+			Pipeline GetPipeline(PipelineLib* pPipelineCache, const wchar_t* name = nullptr);
+
+			const std::string& GetKey();
+
+			const wchar_t* GetHitGroupName(uint32_t index);
+			uint32_t GetNumHitGroups();
+
+		protected:
+			void serialize();
+
+			KeyHeader* m_pKeyHeader;
+			std::string m_key;
+
+			std::vector<KeyShaderLib> m_keyShaderLibs;
+			std::vector<KeyHitGroup> m_keyHitGroups;
+			std::vector<KeyLocalPipelineLayout> m_keyLocalPipelineLayouts;
+
+			bool m_isSerialized;
+		};
+
+		class PipelineLib_VK :
+			public PipelineLib
+		{
+		public:
+			PipelineLib_VK();
+			PipelineLib_VK(Device* pDevice);
+			virtual ~PipelineLib_VK();
+
+			void SetDevice(Device* pDevice);
+			void SetPipeline(State* pState, const Pipeline& pipeline);
+
+			Pipeline CreatePipeline(State* pState, const wchar_t* name = nullptr);
+			Pipeline GetPipeline(State* pState, const wchar_t* name = nullptr);
+
+		protected:
+			RayTracingPipeline_VK* createPipeline(const std::string& key, const wchar_t* name);
+			RayTracingPipeline_VK* getPipeline(const std::string& key, const wchar_t* name);
+			void releasePipeline(RayTracingPipeline_VK* pPipeline);
+
+			XUSG::Device_VK* m_pDevice;
+
+			std::unordered_map<std::string, RayTracingPipeline_VK*> m_pipelines;
+
+			std::mutex m_mtx;
+		};
+	}
+}

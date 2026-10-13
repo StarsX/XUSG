@@ -354,7 +354,7 @@ namespace XUSG
 		mutable uint64_t m_sparseWaited;
 
 		// ExecuteCommandList defers until Signal (or explicit Submit) so
-		// Execute → Present → Signal collapses to one queue submit + PresentKHR.
+		// Execute -> Present -> Signal collapses to one queue submit + PresentKHR.
 		mutable std::vector<CommandList*> m_deferredLists;
 
 		mutable std::vector<VkCommandBufferSubmitInfo> m_commandInfos;

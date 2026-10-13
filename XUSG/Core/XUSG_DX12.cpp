@@ -61,9 +61,11 @@ bool Device_DX12::Evict(uint32_t numObjects, void* const* ppObjects)
 
 uint32_t Device_DX12::Create(void* pAdapter, uint32_t minFeatureLevel, const wchar_t* name)
 {
-	const auto hr = D3D12CreateDevice(static_cast<IUnknown*>(pAdapter),
+	m_adapter = static_cast<IDXGIAdapter*>(pAdapter);
+	const auto hr = D3D12CreateDevice(m_adapter.get(),
 		static_cast<D3D_FEATURE_LEVEL>(minFeatureLevel), IID_PPV_ARGS(&m_device));
 	if (name) m_device->SetName(name);
+	if (!m_adapter) queryAdapter();
 
 	return hr;
 }
@@ -76,11 +78,29 @@ uint32_t Device_DX12::GetDeviceRemovedReason() const
 void Device_DX12::Create(void* pNativeHandle)
 {
 	m_device = pNativeHandle;
+	m_adapter = nullptr;
+	queryAdapter();
 }
 
 void* Device_DX12::GetNativeHandle()
 {
 	return m_device.get();
+}
+
+void* Device_DX12::GetAdapterNativeHandle()
+{
+	return m_adapter.get();
+}
+
+void Device_DX12::queryAdapter()
+{
+	m_adapter = nullptr;
+	if (!m_device) return;
+
+	com_ptr<IDXGIDevice> dxgiDevice;
+	if (FAILED(m_device->QueryInterface(IID_PPV_ARGS(&dxgiDevice)))) return;
+
+	dxgiDevice->GetAdapter(m_adapter.put());
 }
 
 void* Device_DX12::GetBackend()

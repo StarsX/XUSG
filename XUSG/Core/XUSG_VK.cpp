@@ -436,8 +436,10 @@ Device_VK::Device_VK() :
 	m_rayTracingPipelineTraceRaysIndirect2(false),
 	m_rayTracingPositionFetch(false),
 	m_micromap(false),
+	m_micromapKhr(false),
 	m_micromapCaptureReplay(false),
 	m_micromapHostCommands(false),
+	m_indexTypeUint8(false),
 	m_rayTracingInvocationReorder(false),
 	m_pipelineLibraryGroupHandles(false),
 	m_cooperativeMatrix(false),
@@ -500,6 +502,12 @@ Device_VK::Device_VK() :
 	m_sparseTimeline(VK_NULL_HANDLE),
 	m_sparseValue(0)
 {
+	m_rtPipelineProps = {};
+	m_rtPipelineProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
+	m_rtPipelineProps.shaderGroupHandleSize = 32;
+	m_rtPipelineProps.shaderGroupHandleAlignment = 32;
+	m_rtPipelineProps.shaderGroupBaseAlignment = 64;
+	m_rtPipelineProps.maxRayRecursionDepth = 1;
 }
 
 Device_VK::~Device_VK()
@@ -561,6 +569,11 @@ void Device_VK::Create(void* pNativeHandle)
 void* Device_VK::GetNativeHandle()
 {
 	return m_device;
+}
+
+void* Device_VK::GetAdapterNativeHandle()
+{
+	return m_physicalDevice;
 }
 
 void* Device_VK::GetBackend()
@@ -1281,6 +1294,31 @@ bool Device_VK::HasRayTracingPipelineTraceRaysIndirect2() const
 	return m_rayTracingPipelineTraceRaysIndirect2;
 }
 
+const VkPhysicalDeviceRayTracingPipelinePropertiesKHR& Device_VK::GetRayTracingPipelineProperties() const
+{
+	return m_rtPipelineProps;
+}
+
+uint32_t Device_VK::GetShaderGroupHandleSize() const
+{
+	return m_rtPipelineProps.shaderGroupHandleSize;
+}
+
+uint32_t Device_VK::GetShaderGroupHandleAlignment() const
+{
+	return m_rtPipelineProps.shaderGroupHandleAlignment;
+}
+
+uint32_t Device_VK::GetShaderGroupBaseAlignment() const
+{
+	return m_rtPipelineProps.shaderGroupBaseAlignment;
+}
+
+uint32_t Device_VK::GetMaxRayRecursionDepth() const
+{
+	return m_rtPipelineProps.maxRayRecursionDepth;
+}
+
 bool Device_VK::HasRayTracingPositionFetch() const
 {
 	return m_rayTracingPositionFetch;
@@ -1291,6 +1329,11 @@ bool Device_VK::HasMicromap() const
 	return m_micromap;
 }
 
+bool Device_VK::HasOpacityMicromapKhr() const
+{
+	return m_micromapKhr;
+}
+
 bool Device_VK::HasMicromapCaptureReplay() const
 {
 	return m_micromapCaptureReplay;
@@ -1299,6 +1342,11 @@ bool Device_VK::HasMicromapCaptureReplay() const
 bool Device_VK::HasMicromapHostCommands() const
 {
 	return m_micromapHostCommands;
+}
+
+bool Device_VK::HasIndexTypeUint8() const
+{
+	return m_indexTypeUint8;
 }
 
 bool Device_VK::HasRayTracingInvocationReorder() const
@@ -2224,6 +2272,7 @@ bool Device_VK::createDevice()
 	}
 	else if (core11 && HasExtension(exts, VK_EXT_OPACITY_MICROMAP_EXTENSION_NAME))
 		opacityMicromapExtName = VK_EXT_OPACITY_MICROMAP_EXTENSION_NAME;
+	const auto indexTypeUint8Ext = HasExtension(exts, VK_KHR_INDEX_TYPE_UINT8_EXTENSION_NAME);
 	const auto invocationReorderExt = core11 &&
 		HasExtension(exts, VK_EXT_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME);
 	const char* pipelineLibraryGroupHandlesExtName = nullptr;
@@ -2326,6 +2375,7 @@ bool Device_VK::createDevice()
 	VkPhysicalDeviceRayTracingPositionFetchFeaturesKHR rayTracingPositionFetchQuery = {};
 	VkPhysicalDeviceOpacityMicromapFeaturesKHR opacityMicromapQuery = {};
 	VkPhysicalDeviceOpacityMicromapFeaturesEXT opacityMicromapExtQuery = {};
+	VkPhysicalDeviceIndexTypeUint8Features indexTypeUint8Query = {};
 	VkPhysicalDeviceRayTracingInvocationReorderFeaturesEXT invocationReorderQuery = {};
 	VkPhysicalDevicePipelineLibraryGroupHandlesFeaturesKHR pipelineLibraryGroupHandlesQuery = {};
 	VkPhysicalDeviceCooperativeMatrixFeaturesKHR cooperativeMatrixQuery = {};
@@ -2484,6 +2534,11 @@ bool Device_VK::createDevice()
 	{
 		opacityMicromapExtQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_OPACITY_MICROMAP_FEATURES_EXT;
 		linkQuery(opacityMicromapExtQuery.pNext, &opacityMicromapExtQuery);
+	}
+	if (indexTypeUint8Ext)
+	{
+		indexTypeUint8Query.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INDEX_TYPE_UINT8_FEATURES;
+		linkQuery(indexTypeUint8Query.pNext, &indexTypeUint8Query);
 	}
 	if (invocationReorderExt)
 	{
@@ -2819,6 +2874,22 @@ bool Device_VK::createDevice()
 	}
 	if (!m_rayTracingPipelineShaderGroupHandleCaptureReplay)
 		m_rayTracingPipelineShaderGroupHandleCaptureReplayMixed = false;
+	if (m_rayTracingPipeline)
+	{
+		VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingProps = {};
+		rayTracingProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
+		VkPhysicalDeviceProperties2 rayTracingProps2 = {};
+		rayTracingProps2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+		rayTracingProps2.pNext = &rayTracingProps;
+		vkGetPhysicalDeviceProperties2(m_physicalDevice, &rayTracingProps2);
+		if (rayTracingProps.shaderGroupHandleSize) m_rtPipelineProps = rayTracingProps;
+		if (!m_rtPipelineProps.shaderGroupHandleSize) m_rtPipelineProps.shaderGroupHandleSize = 32;
+		if (!m_rtPipelineProps.shaderGroupHandleAlignment) m_rtPipelineProps.shaderGroupHandleAlignment = 32;
+		if (!m_rtPipelineProps.shaderGroupBaseAlignment) m_rtPipelineProps.shaderGroupBaseAlignment = 64;
+		if (!m_rtPipelineProps.maxRayRecursionDepth) m_rtPipelineProps.maxRayRecursionDepth = 1;
+		m_rtPipelineProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
+		m_rtPipelineProps.pNext = nullptr;
+	}
 	if (rayQueryExt && m_accelerationStructure && m_spirv14 && m_shaderFloatControls)
 		m_rayQuery = rayQueryQuery.rayQuery == VK_TRUE;
 	if (rayTracingMaintenance1Ext && m_accelerationStructure)
@@ -2833,7 +2904,11 @@ bool Device_VK::createDevice()
 		m_rayTracingPositionFetch = rayTracingPositionFetchQuery.rayTracingPositionFetch == VK_TRUE;
 	if (opacityMicromapExtName && m_accelerationStructure && m_synchronization2)
 	{
-		if (opacityMicromapKhr) m_micromap = opacityMicromapQuery.micromap == VK_TRUE;
+		if (opacityMicromapKhr)
+		{
+			m_micromap = opacityMicromapQuery.micromap == VK_TRUE;
+			m_micromapKhr = m_micromap;
+		}
 		else
 		{
 			m_micromap = opacityMicromapExtQuery.micromap == VK_TRUE;
@@ -2843,9 +2918,11 @@ bool Device_VK::createDevice()
 	}
 	if (!m_micromap)
 	{
+		m_micromapKhr = false;
 		m_micromapCaptureReplay = false;
 		m_micromapHostCommands = false;
 	}
+	if (indexTypeUint8Ext) m_indexTypeUint8 = indexTypeUint8Query.indexTypeUint8 == VK_TRUE;
 	if (!m_deferredHostOperations) m_micromapHostCommands = false;
 	if (invocationReorderExt && m_rayTracingPipeline)
 		m_rayTracingInvocationReorder = invocationReorderQuery.rayTracingInvocationReorder == VK_TRUE;
@@ -2876,6 +2953,7 @@ bool Device_VK::createDevice()
 		enabled.push_back(VK_KHR_RAY_TRACING_MAINTENANCE_1_EXTENSION_NAME);
 	if (m_rayTracingPositionFetch) enabled.push_back(VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME);
 	if (m_micromap) enabled.push_back(opacityMicromapExtName);
+	if (m_indexTypeUint8) enabled.push_back(VK_KHR_INDEX_TYPE_UINT8_EXTENSION_NAME);
 	if (m_rayTracingInvocationReorder)
 		enabled.push_back(VK_EXT_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME);
 	if (m_pipelineLibraryGroupHandles) enabled.push_back(pipelineLibraryGroupHandlesExtName);
@@ -3440,6 +3518,14 @@ bool Device_VK::createDevice()
 
 	VkPhysicalDeviceOpacityMicromapFeaturesKHR opacityMicromapEnable = {};
 	VkPhysicalDeviceOpacityMicromapFeaturesEXT opacityMicromapExtEnable = {};
+	VkPhysicalDeviceIndexTypeUint8Features indexTypeUint8Enable = {};
+	if (m_indexTypeUint8)
+	{
+		indexTypeUint8Enable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INDEX_TYPE_UINT8_FEATURES;
+		indexTypeUint8Enable.pNext = featureChain;
+		indexTypeUint8Enable.indexTypeUint8 = VK_TRUE;
+		featureChain = &indexTypeUint8Enable;
+	}
 	if (m_micromap && opacityMicromapKhr)
 	{
 		opacityMicromapEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_OPACITY_MICROMAP_FEATURES_KHR;
@@ -3692,6 +3778,56 @@ bool Device_VK::createDevice()
 		m_ext.TraceRaysIndirect2 = reinterpret_cast<PFN_vkCmdTraceRaysIndirect2KHR>(
 			vkGetDeviceProcAddr(m_device, "vkCmdTraceRaysIndirect2KHR"));
 		if (!m_ext.TraceRaysIndirect2) m_rayTracingPipelineTraceRaysIndirect2 = false;
+	}
+	m_ext.CreateAccelerationStructure = nullptr;
+	m_ext.DestroyAccelerationStructure = nullptr;
+	m_ext.GetAccelerationStructureBuildSizes = nullptr;
+	m_ext.GetAccelerationStructureDeviceAddress = nullptr;
+	m_ext.CmdBuildAccelerationStructures = nullptr;
+	m_ext.CmdCopyAccelerationStructure = nullptr;
+	m_ext.CmdWriteAccelerationStructuresProperties = nullptr;
+	m_ext.CreateRayTracingPipelines = nullptr;
+	m_ext.GetRayTracingShaderGroupHandles = nullptr;
+	m_ext.CmdTraceRays = nullptr;
+	if (m_accelerationStructure)
+	{
+		m_ext.CreateAccelerationStructure = reinterpret_cast<PFN_vkCreateAccelerationStructureKHR>(
+			vkGetDeviceProcAddr(m_device, "vkCreateAccelerationStructureKHR"));
+		m_ext.DestroyAccelerationStructure = reinterpret_cast<PFN_vkDestroyAccelerationStructureKHR>(
+			vkGetDeviceProcAddr(m_device, "vkDestroyAccelerationStructureKHR"));
+		m_ext.GetAccelerationStructureBuildSizes = reinterpret_cast<PFN_vkGetAccelerationStructureBuildSizesKHR>(
+			vkGetDeviceProcAddr(m_device, "vkGetAccelerationStructureBuildSizesKHR"));
+		m_ext.GetAccelerationStructureDeviceAddress = reinterpret_cast<PFN_vkGetAccelerationStructureDeviceAddressKHR>(
+			vkGetDeviceProcAddr(m_device, "vkGetAccelerationStructureDeviceAddressKHR"));
+		m_ext.CmdBuildAccelerationStructures = reinterpret_cast<PFN_vkCmdBuildAccelerationStructuresKHR>(
+			vkGetDeviceProcAddr(m_device, "vkCmdBuildAccelerationStructuresKHR"));
+		m_ext.CmdCopyAccelerationStructure = reinterpret_cast<PFN_vkCmdCopyAccelerationStructureKHR>(
+			vkGetDeviceProcAddr(m_device, "vkCmdCopyAccelerationStructureKHR"));
+		m_ext.CmdWriteAccelerationStructuresProperties = reinterpret_cast<PFN_vkCmdWriteAccelerationStructuresPropertiesKHR>(
+			vkGetDeviceProcAddr(m_device, "vkCmdWriteAccelerationStructuresPropertiesKHR"));
+		if (!m_ext.CreateAccelerationStructure || !m_ext.DestroyAccelerationStructure ||
+			!m_ext.GetAccelerationStructureBuildSizes || !m_ext.GetAccelerationStructureDeviceAddress ||
+			!m_ext.CmdBuildAccelerationStructures || !m_ext.CmdCopyAccelerationStructure ||
+			!m_ext.CmdWriteAccelerationStructuresProperties)
+			m_accelerationStructure = false;
+	}
+	if (!m_accelerationStructure) m_rayTracingPipeline = false;
+	if (m_rayTracingPipeline)
+	{
+		m_ext.CreateRayTracingPipelines = reinterpret_cast<PFN_vkCreateRayTracingPipelinesKHR>(
+			vkGetDeviceProcAddr(m_device, "vkCreateRayTracingPipelinesKHR"));
+		m_ext.GetRayTracingShaderGroupHandles = reinterpret_cast<PFN_vkGetRayTracingShaderGroupHandlesKHR>(
+			vkGetDeviceProcAddr(m_device, "vkGetRayTracingShaderGroupHandlesKHR"));
+		m_ext.CmdTraceRays = reinterpret_cast<PFN_vkCmdTraceRaysKHR>(
+			vkGetDeviceProcAddr(m_device, "vkCmdTraceRaysKHR"));
+		if (!m_ext.CreateRayTracingPipelines || !m_ext.GetRayTracingShaderGroupHandles || !m_ext.CmdTraceRays)
+			m_rayTracingPipeline = false;
+	}
+	if (!m_rayTracingPipeline)
+	{
+		m_rayTracingPipelineTraceRaysIndirect = false;
+		m_rayTracingPipelineTraceRaysIndirect2 = false;
+		m_ext.TraceRaysIndirect2 = nullptr;
 	}
 	assert(m_ext.WriteSamplerDescriptors);
 	assert(m_ext.WriteResourceDescriptors);
@@ -4523,7 +4659,7 @@ bool SwapChain_VK::flushPresent(uint32_t userIndex)
 	begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 	XUSG_VK_CHECK(vkBeginCommandBuffer(blitCb, &begin), cerr, false);
 
-	// vkd3d blit path: UNDEFINED→DST + COLOR→SRC, BlitImage, DST→PRESENT + SRC→COLOR.
+	// vkd3d blit path: UNDEFINED->DST + COLOR->SRC, BlitImage, DST->PRESENT + SRC->COLOR.
 	VkImageMemoryBarrier2 barriers[2] = {};
 	barriers[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
 	barriers[0].srcStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT;

@@ -1239,6 +1239,10 @@ namespace XUSG
 		// Get API native handle. Cast to ID3D12Device* or VkDevice.
 		virtual void* GetNativeHandle() = 0;
 
+		// Get the adapter native handle. Cast to IDXGIAdapter* or VkPhysicalDevice.
+		// Feature queries on DX12 use ID3D12Device from GetNativeHandle.
+		virtual void* GetAdapterNativeHandle() = 0;
+
 		// Backend C++ object (Device_DX12* / Device_VK*). Not the GPU native handle.
 		// Needed because virtual inheritance forbids static_cast from Device* to *_DX12/*_VK*.
 		virtual void* GetBackend() = 0;

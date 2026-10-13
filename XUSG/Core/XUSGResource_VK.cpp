@@ -771,8 +771,9 @@ void Resource_VK::WrapImage(VkDevice device, VkImage image, VkFormat format, uin
 VkImageLayout Resource_VK::ImageLayout(ResourceState state) const
 {
 	// PRESENT aliases COMMON. Swapchain images use PRESENT_SRC; other images use
-	// the per-resource common layout (vkd3d-style) so COMMON↔SRV often needs no transition.
-	if (state == ResourceState::COMMON || state == ResourceState::PRESENT)
+	// the per-resource common layout (vkd3d-style) so COMMON<->SRV often needs no transition.
+	//if (state == ResourceState::COMMON || state == ResourceState::PRESENT)
+	if (state == ResourceState::COMMON)
 	{
 		if (m_presentable) return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
@@ -3271,7 +3272,8 @@ bool Buffer_VK::CreateResource(Device* pDevice, size_t byteWidth, ResourceFlag r
 	(void)pCastableFormats;
 	XUSG_N_RETURN(initialize(pDevice, maxThreads), false);
 	XUSG_N_RETURN(createBuffer(nullptr, 0, byteWidth, resourceFlags, memoryType), false);
-	setState(initialResourceState, 1, maxThreads);
+	const auto isRaytracingAS = (resourceFlags & ResourceFlag::ACCELERATION_STRUCTURE) == ResourceFlag::ACCELERATION_STRUCTURE;
+	setState(isRaytracingAS ? ResourceState::RAYTRACING_ACCELERATION_STRUCTURE : initialResourceState, 1, maxThreads);
 	m_format = Format::UNKNOWN;
 
 	return true;
@@ -3284,7 +3286,8 @@ bool Buffer_VK::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset
 	(void)pCastableFormats;
 	XUSG_N_RETURN(initialize(pDevice, maxThreads), false);
 	XUSG_N_RETURN(createBuffer(pHeap, heapOffset, byteWidth, resourceFlags, MemoryType::DEFAULT, pHeap == nullptr), false);
-	setState(initialResourceState, 1, maxThreads);
+	const auto isRaytracingAS = (resourceFlags & ResourceFlag::ACCELERATION_STRUCTURE) == ResourceFlag::ACCELERATION_STRUCTURE;
+	setState(isRaytracingAS ? ResourceState::RAYTRACING_ACCELERATION_STRUCTURE : initialResourceState, 1, maxThreads);
 
 	return true;
 }

@@ -742,7 +742,7 @@ void CommandList_VK::Barrier(uint32_t numBarriers, const ResourceBarrier* pBarri
 		}
 		if (pResource->IsPresentable() && barrier.StateAfter == ResourceState::COMMON)
 		{
-			// Match vkd3d WSI → PRESENT_SRC: no dst stage/access (not BOTTOM_OF_PIPE).
+			// Match vkd3d WSI -> PRESENT_SRC: no dst stage/access (not BOTTOM_OF_PIPE).
 			dstStage = VK_PIPELINE_STAGE_2_NONE;
 			dstAccess = VK_ACCESS_2_NONE;
 		}
@@ -778,7 +778,7 @@ void CommandList_VK::Barrier(uint32_t numBarriers, const ResourceBarrier* pBarri
 			image.subresourceRange.baseArrayLayer = layer;
 			image.subresourceRange.layerCount = 1;
 		}
-		// vkd3d common-layout promotion: COMMON → compatible read layout needs no transition.
+		// vkd3d common-layout promotion: COMMON -> compatible read layout needs no transition.
 		if (image.oldLayout == image.newLayout && barrier.StateBefore == ResourceState::COMMON)
 			continue;
 		if (image.oldLayout != image.newLayout)
@@ -2670,7 +2670,7 @@ bool CommandQueue_VK::SubmitCommandLists(uint32_t numCommandLists, CommandList* 
 	const Semaphore* pWaits, uint32_t numWaits, const Semaphore* pSignals, uint32_t numSignals) const
 {
 	// Explicit submit: fold deferred Execute first. Pending Present stays on the
-	// worker / queue mutex — do not sync-flush it here (avoids vk5-style gaps).
+	// worker / queue mutex - do not sync-flush it here (avoids vk5-style gaps).
 	if (!m_deferredLists.empty())
 		XUSG_N_RETURN(flushDeferred(nullptr, 0, nullptr, 0), false);
 

@@ -123,6 +123,7 @@ namespace XUSG
 		void Create(void* pNativeHandle);
 
 		void* GetNativeHandle();
+		void* GetAdapterNativeHandle();
 		void* GetBackend() override;
 
 		VkInstance GetInstance() const;
@@ -157,6 +158,16 @@ namespace XUSG
 			PFN_vkCmdPreprocessGeneratedCommandsEXT PreprocessGeneratedCommands;
 			PFN_vkCmdExecuteGeneratedCommandsEXT ExecuteGeneratedCommands;
 			PFN_vkCmdTraceRaysIndirect2KHR TraceRaysIndirect2;
+			PFN_vkCreateAccelerationStructureKHR CreateAccelerationStructure;
+			PFN_vkDestroyAccelerationStructureKHR DestroyAccelerationStructure;
+			PFN_vkGetAccelerationStructureBuildSizesKHR GetAccelerationStructureBuildSizes;
+			PFN_vkGetAccelerationStructureDeviceAddressKHR GetAccelerationStructureDeviceAddress;
+			PFN_vkCmdBuildAccelerationStructuresKHR CmdBuildAccelerationStructures;
+			PFN_vkCmdCopyAccelerationStructureKHR CmdCopyAccelerationStructure;
+			PFN_vkCmdWriteAccelerationStructuresPropertiesKHR CmdWriteAccelerationStructuresProperties;
+			PFN_vkCreateRayTracingPipelinesKHR CreateRayTracingPipelines;
+			PFN_vkGetRayTracingShaderGroupHandlesKHR GetRayTracingShaderGroupHandles;
+			PFN_vkCmdTraceRaysKHR CmdTraceRays;
 			PFN_vkWriteSamplerDescriptorsEXT WriteSamplerDescriptors;
 			PFN_vkWriteResourceDescriptorsEXT WriteResourceDescriptors;
 			PFN_vkCmdBeginConditionalRenderingEXT BeginConditionalRendering;
@@ -293,10 +304,17 @@ namespace XUSG
 		bool HasRayQuery() const;
 		bool HasRayTracingMaintenance1() const;
 		bool HasRayTracingPipelineTraceRaysIndirect2() const;
+		const VkPhysicalDeviceRayTracingPipelinePropertiesKHR& GetRayTracingPipelineProperties() const;
+		uint32_t GetShaderGroupHandleSize() const;
+		uint32_t GetShaderGroupHandleAlignment() const;
+		uint32_t GetShaderGroupBaseAlignment() const;
+		uint32_t GetMaxRayRecursionDepth() const;
 		bool HasRayTracingPositionFetch() const;
 		bool HasMicromap() const;
+		bool HasOpacityMicromapKhr() const;
 		bool HasMicromapCaptureReplay() const;
 		bool HasMicromapHostCommands() const;
+		bool HasIndexTypeUint8() const;
 		bool HasRayTracingInvocationReorder() const;
 		bool HasPipelineLibraryGroupHandles() const;
 		bool HasCooperativeMatrix() const;
@@ -483,8 +501,10 @@ namespace XUSG
 		bool				m_rayTracingPipelineTraceRaysIndirect2;
 		bool				m_rayTracingPositionFetch;
 		bool				m_micromap;
+		bool				m_micromapKhr;
 		bool				m_micromapCaptureReplay;
 		bool				m_micromapHostCommands;
+		bool				m_indexTypeUint8;
 		bool				m_rayTracingInvocationReorder;
 		bool				m_pipelineLibraryGroupHandles;
 		bool				m_cooperativeMatrix;
@@ -540,6 +560,7 @@ namespace XUSG
 		PFN_vkCmdEndRendering			m_endRendering;
 		PFN_vkCmdSetPrimitiveTopology	m_setPrimitiveTopology;
 		PFN_vkCmdBindVertexBuffers2		m_bindVertexBuffers2;
+		VkPhysicalDeviceRayTracingPipelinePropertiesKHR m_rtPipelineProps;
 		ExtProcs						m_ext;
 
 		struct QueueFamilyPool

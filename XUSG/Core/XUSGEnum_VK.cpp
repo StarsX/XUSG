@@ -328,9 +328,10 @@ VkImageViewType XUSG::GetVKImageViewType(ResourceDimension dimension, bool isArr
 
 VkImageLayout XUSG::GetVKImageLayout(ResourceState state)
 {
-	// COMMON/PRESENT for images is resolved in Resource_VK::ImageLayout (presentable →
+	// COMMON/PRESENT for images is resolved in Resource_VK::ImageLayout (presentable ->
 	// PRESENT_SRC, else per-resource common layout). Keep GENERAL here as the generic fallback.
-	if (state == ResourceState::COMMON || state == ResourceState::PRESENT) return VK_IMAGE_LAYOUT_GENERAL;
+	//if (state == ResourceState::COMMON || state == ResourceState::PRESENT) return VK_IMAGE_LAYOUT_GENERAL;
+	if (state == ResourceState::COMMON) return VK_IMAGE_LAYOUT_GENERAL;
 
 	// DX12 allows combined states (e.g. COPY_SOURCE | PIXEL_SHADER_RESOURCE). Vulkan needs one
 	// layout; exclusive intents use the optimal layout, multi-use falls back to GENERAL.

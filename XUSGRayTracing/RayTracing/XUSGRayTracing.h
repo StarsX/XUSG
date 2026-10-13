@@ -113,11 +113,13 @@ namespace XUSG
 			uintptr_t Offset;
 		};
 
+		// 8 bytes. Matches D3D12_RAYTRACING_OPACITY_MICROMAP_DESC and VkMicromapTriangleKHR.
+		// Format values are the D3D12 enum. Vulkan converts them in SetOmmDescs.
 		struct OpacityMicromapDesc
 		{
 			uint32_t ByteOffset;
-			unsigned int SubdivisionLevel : 16;
-			OpacityMicromapFormat Format : 16;
+			uint16_t SubdivisionLevel;
+			OpacityMicromapFormat Format;
 		};
 
 		struct OMMHistogramEntry
