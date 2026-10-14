@@ -5,40 +5,53 @@
 #pragma once
 
 #include "XUSG-EZ.h"
+#include "Core/XUSGCommand_DX12.h"
+#ifndef XUSG_NO_VULKAN
+#include "Core/XUSGCommand_VK.h"
+#endif
 
 namespace XUSG
 {
 	namespace EZ
 	{
-		class CommandList_DX12 :
+		template<typename Base>
+		class CommandList_Impl :
 			public virtual CommandList,
-			public virtual XUSG::CommandList_DX12
+			public virtual Base
 		{
 		public:
-			CommandList_DX12();
-			CommandList_DX12(XUSG::CommandList* pCommandList,
+			CommandList_Impl();
+			CommandList_Impl(XUSG::CommandList* pCommandList,
 				uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
+				const uint32_t samplerStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t cbvStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t srvStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t uavStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
-			virtual ~CommandList_DX12();
+			virtual ~CommandList_Impl();
 
 			bool Create(XUSG::CommandList* pCommandList,
 				uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
+				const uint32_t samplerStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t cbvStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t srvStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t uavStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
@@ -46,22 +59,25 @@ namespace XUSG
 				uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
 			bool Create(Device* pDevice, void* pNativeHandle,
 				uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
+				const uint32_t samplerStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t cbvStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t srvStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t uavStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
-				uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE,
-				const wchar_t* name = nullptr);
+				uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
 			bool Close(RenderTarget* pBackBuffer = nullptr);
 			bool Reset(CommandAllocator* pAllocator, const Pipeline& initialState);
 
-			void ClearState(const Pipeline& initialState) const { XUSG::CommandList_DX12::ClearState(initialState); }
+			void ClearState(const Pipeline& initialState) const { Base::ClearState(initialState); }
 			void Draw(
 				uint32_t vertexCountPerInstance,
 				uint32_t instanceCount,
@@ -105,18 +121,18 @@ namespace XUSG
 			void RSSetState(Graphics::RasterizerPreset preset);
 			void RSSetViewports(uint32_t numViewports, const Viewport* pViewports) const
 			{
-				XUSG::CommandList_DX12::RSSetViewports(numViewports, pViewports);
+				Base::RSSetViewports(numViewports, pViewports);
 			}
 
 			void RSSetScissorRects(uint32_t numRects, const RectRange* pRects) const
 			{
-				XUSG::CommandList_DX12::RSSetScissorRects(numRects, pRects);
+				Base::RSSetScissorRects(numRects, pRects);
 			}
 
 			void OMSetBlendState(const Graphics::Blend* pBlend, uint32_t sampleMask = UINT_MAX);
 			void OMSetBlendState(Graphics::BlendPreset preset, uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX);
-			void OMSetBlendFactor(const float blendFactor[4]) const { XUSG::CommandList_DX12::OMSetBlendFactor(blendFactor); }
-			void OMSetStencilRef(uint32_t stencilRef) const { XUSG::CommandList_DX12::OMSetStencilRef(stencilRef); }
+			void OMSetBlendFactor(const float blendFactor[4]) const { Base::OMSetBlendFactor(blendFactor); }
+			void OMSetStencilRef(uint32_t stencilRef) const { Base::OMSetStencilRef(stencilRef); }
 			void OMSetSample(uint8_t count, uint8_t quality = 0);
 			void DSSetState(const Graphics::DepthStencil* pDepthStencil);
 			void DSSetState(Graphics::DepthStencilPreset preset);
@@ -126,7 +142,7 @@ namespace XUSG
 			void SetComputeNodeMask(uint32_t nodeMask);
 			void SetGraphicsPipelineState(const Pipeline& pipelineState, const Graphics::State* pState = nullptr);
 			void SetComputePipelineState(const Pipeline& pipelineState, const Compute::State* pState = nullptr);
-			void ExecuteBundle(XUSG::CommandList* pCommandList) const { XUSG::CommandList_DX12::ExecuteBundle(pCommandList); }
+			void ExecuteBundle(XUSG::CommandList* pCommandList) const { Base::ExecuteBundle(pCommandList); }
 			void SetSamplers(Shader::Stage stage, uint32_t startBinding, uint32_t numSamplers, const Sampler* const* ppSamplers);
 			void SetSamplerStates(Shader::Stage stage, uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerPresets);
 			void SetResources(Shader::Stage stage, DescriptorType descriptorType, uint32_t startBinding,
@@ -156,43 +172,43 @@ namespace XUSG
 			void DiscardResource(Resource* pResource, uint32_t numRects, const RectRange* pRects,
 				uint32_t firstSubresource, uint32_t numSubresources)
 			{
-				XUSG::CommandList_DX12::DiscardResource(pResource, numRects,
+				Base::DiscardResource(pResource, numRects,
 					pRects, firstSubresource, numSubresources);
 			}
 
 			void BeginQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const
 			{
-				XUSG::CommandList_DX12::BeginQuery(queryHeap, type, index);
+				Base::BeginQuery(queryHeap, type, index);
 			}
 
 			void EndQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const
 			{
-				XUSG::CommandList_DX12::EndQuery(queryHeap, type, index);
+				Base::EndQuery(queryHeap, type, index);
 			}
 
 			void ResolveQueryData(const QueryHeap& queryHeap, QueryType type, uint32_t startIndex,
 				uint32_t numQueries, Resource* pDstBuffer, uint64_t alignedDstBufferOffset) const
 			{
-				XUSG::CommandList_DX12::ResolveQueryData(queryHeap, type, startIndex,
+				Base::ResolveQueryData(queryHeap, type, startIndex,
 					numQueries, pDstBuffer, alignedDstBufferOffset);
 			}
 
 			void SetPredication(Resource* pBuffer, uint64_t alignedBufferOffset, bool opEqualZero) const
 			{
-				XUSG::CommandList_DX12::SetPredication(pBuffer, alignedBufferOffset, opEqualZero);
+				Base::SetPredication(pBuffer, alignedBufferOffset, opEqualZero);
 			}
 
 			void SetMarker(uint32_t metaData, const void* pData, uint32_t size) const
 			{
-				XUSG::CommandList_DX12::SetMarker(metaData, pData, size);
+				Base::SetMarker(metaData, pData, size);
 			}
 
 			void BeginEvent(uint32_t metaData, const void* pData, uint32_t size) const
 			{
-				XUSG::CommandList_DX12::BeginEvent(metaData, pData, size);
+				Base::BeginEvent(metaData, pData, size);
 			}
 
-			void EndEvent() { XUSG::CommandList_DX12::EndEvent(); }
+			void EndEvent() { Base::EndEvent(); }
 
 			// For resize window
 			void Resize();
@@ -217,11 +233,11 @@ namespace XUSG
 			uint32_t GetGraphicsConstantParamIndex(Shader::Stage stage) const;
 			uint32_t GetComputeConstantParamIndex() const;
 
-			void* GetNativeHandle() { return XUSG::CommandList_DX12::GetNativeHandle(); }
-			void* GetDeviceNativeHandle() const { return XUSG::CommandList_DX12::GetDeviceNativeHandle(); }
-			void* GetBackend() { return XUSG::CommandList_DX12::GetBackend(); }
+			void* GetNativeHandle() { return Base::GetNativeHandle(); }
+			void* GetDeviceNativeHandle() const { return Base::GetDeviceNativeHandle(); }
+			void* GetBackend() { return Base::GetBackend(); }
 
-			Device* GetDevice() const { return XUSG::CommandList_DX12::GetDevice(); }
+			Device* GetDevice() const { return Base::GetDevice(); }
 			XUSG::CommandList* AsCommandList();
 
 		protected:
@@ -300,6 +316,8 @@ namespace XUSG
 
 			static const uint8_t CbvSrvUavTypes = 3;
 
+			virtual bool adopt(XUSG::CommandList* pCommandList) = 0;
+
 			bool init(XUSG::CommandList* pCommandList, uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize);
 			bool createGraphicsPipelineLayouts(
 				const uint32_t maxSamplers[Shader::Stage::NUM_GRAPHICS],
@@ -319,6 +337,19 @@ namespace XUSG
 				uint32_t max32BitConstants, uint32_t constantSlot, uint32_t constantSpace,
 				uint32_t slotExt, uint32_t spaceExt);
 			bool createShaders();
+			bool createBlitPipelineLayout();
+			void recordSpaceStarts(
+				const uint32_t cbvStartSpaces[Shader::Stage::NUM_STAGE],
+				const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
+				const uint32_t srvStartSpaces[Shader::Stage::NUM_STAGE],
+				const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
+				const uint32_t uavStartSpaces[Shader::Stage::NUM_STAGE],
+				const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
+				const uint32_t samplerStartSpaces[Shader::Stage::NUM_STAGE]);
+			uint32_t spaceStart(Shader::Stage stage, DescriptorType type) const;
+			void flushClears(const Resource* pResource);
+			void dispatchBlit(const Blob& shader, SamplerPreset sampler, const ResourceView& srv,
+				const ResourceView& uav, uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ);
 
 			void predraw();
 			void predispatch();
@@ -339,6 +370,7 @@ namespace XUSG
 
 			const XUSG::InputLayout* m_pInputLayout;
 			XUSG::PipelineLayout m_pipelineLayouts[NUM_PIPELINE_LAYOUT];
+			XUSG::PipelineLayout m_blitPipelineLayout;
 			XUSG::Pipeline m_pipeline;
 
 			Graphics::State::uptr m_graphicsState;
@@ -360,6 +392,7 @@ namespace XUSG
 
 			std::vector<uint32_t> m_graphicsSpaceToParamIndexMap[Shader::Stage::NUM_GRAPHICS][CbvSrvUavTypes];
 			std::vector<uint32_t> m_computeSpaceToParamIndexMap[CbvSrvUavTypes];
+			uint32_t m_spaceStarts[Shader::Stage::NUM_STAGE][static_cast<uint32_t>(DescriptorType::SAMPLER) + 1];
 
 			std::vector<SetDescriptorTable> m_graphicsSetDescriptorTables;
 			std::vector<Set32BitConstant> m_graphicsSetSingle32BitConstants;
@@ -370,5 +403,32 @@ namespace XUSG
 
 			Blob m_shaders[NUM_SHADER];
 		};
+
+		extern template class CommandList_Impl<XUSG::CommandList_DX12>;
+#ifndef XUSG_NO_VULKAN
+		extern template class CommandList_Impl<XUSG::CommandList_VK>;
+#endif
+
+		class CommandList_DX12 :
+			public virtual CommandList_Impl<XUSG::CommandList_DX12>
+		{
+		public:
+			using CommandList_Impl<XUSG::CommandList_DX12>::CommandList_Impl;
+
+		protected:
+			bool adopt(XUSG::CommandList* pCommandList) override;
+		};
+
+#ifndef XUSG_NO_VULKAN
+		class CommandList_VK :
+			public virtual CommandList_Impl<XUSG::CommandList_VK>
+		{
+		public:
+			using CommandList_Impl<XUSG::CommandList_VK>::CommandList_Impl;
+
+		protected:
+			bool adopt(XUSG::CommandList* pCommandList) override;
+		};
+#endif
 	}
 }

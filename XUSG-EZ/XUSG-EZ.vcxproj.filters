@@ -30,7 +30,7 @@
     <ClInclude Include="XUSG-EZ.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="XUSG-EZ_DX12.h">
+    <ClInclude Include="XUSG-EZ_Impl.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\XUSG\Core\XUSG.h">
@@ -48,7 +48,7 @@
     <ClInclude Include="..\XUSG\Ultimate\XUSGUltimate.h">
       <Filter>Ultimate</Filter>
     </ClInclude>
-    <ClInclude Include="XUSGUltimate-EZ_DX12.h">
+    <ClInclude Include="XUSGUltimate-EZ_Impl.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\XUSG\Ultimate\XUSGUltimate_DX12.h">
@@ -65,7 +65,7 @@
     <ClCompile Include="stdafx.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="XUSG-EZ_DX12.cpp">
+    <ClCompile Include="XUSG-EZ_Impl.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\XUSG\Core\XUSGCommand_DX12.cpp">
@@ -77,7 +77,7 @@
     <ClCompile Include="XUSG-EZ.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="XUSGUltimate-EZ_DX12.cpp">
+    <ClCompile Include="XUSGUltimate-EZ_Impl.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\XUSG\Ultimate\XUSGUltimate_DX12.cpp">

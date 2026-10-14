@@ -1,6 +1,6 @@
 # Vulkan path status
 
-Scope is XUSG core and Ultimate. Ray tracing and EZ are out of scope. The default API is `API::DIRECTX_12`. Release x64 `XUSG.dll` has been built. RenderingX Release x64 has been run on DirectX 12 and Vulkan. Win32 has not been built.
+Scope is XUSG core, Ultimate, ray tracing, and EZ. EZ command lists are `CommandList_Impl` templates, instantiated for DirectX 12 and Vulkan. Debug object names, RTV/DSV/UAV heaps, the fallback raytracing command list, the mesh-shader feature check, and work graphs stay on `CommandList_DX12` and `CommandList_VK`. The universal pipeline-layout builder is still the DirectX 12 construction on both APIs. The default API is `API::DIRECTX_12`. Release x64 `XUSG.dll` has been built. Debug x64 `XUSG-EZ.dll` and `XUSGRayTracing-EZ.dll` have been built with the Vulkan instantiations. RenderingX Release x64 has been run on DirectX 12 and Vulkan. Win32 has not been built.
 
 `assert` is compiled out in Release (`NDEBUG`). Interfaces marked unimplemented or abandoned below fail silently or return empty in Release.
 

@@ -5,6 +5,12 @@
 #pragma once
 
 #include "XUSGRayTracing-EZ.h"
+#include "XUSG-EZ_Impl.h"
+#include "XUSGUltimate-EZ_Impl.h"
+#include "RayTracing/XUSGRayTracingCommand_DX12.h"
+#ifndef XUSG_NO_VULKAN
+#include "RayTracing/XUSGRayTracingCommand_VK.h"
+#endif
 
 namespace XUSG
 {
@@ -12,26 +18,31 @@ namespace XUSG
 	{
 		namespace EZ
 		{
-			class CommandList_DXR :
+			template<typename CoreList, typename UltimateList, typename RTList>
+			class CommandList_Impl :
 				virtual public CommandList,
-				virtual public RayTracing::CommandList_DX12,
-				virtual public Ultimate::EZ::CommandList_DX12
+				virtual public RTList,
+				virtual public Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>
 			{
 			public:
-				CommandList_DXR();
-				CommandList_DXR(RayTracing::CommandList* pCommandList, uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize);
-				virtual ~CommandList_DXR();
+				CommandList_Impl();
+				CommandList_Impl(RayTracing::CommandList* pCommandList, uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize);
+				virtual ~CommandList_Impl();
 
 				bool Create(RayTracing::CommandList* pCommandList, uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize);
 				bool Create(RayTracing::Device* pDevice, void* pNativeHandle, uint32_t samplerHeapSize,
-					uint32_t cbvSrvUavHeapSize, const wchar_t* name = nullptr);
+					uint32_t cbvSrvUavHeapSize);
 				bool CreatePipelineLayouts(
+					const uint32_t samplerStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t cbvStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t srvStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t uavStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
@@ -93,7 +104,7 @@ namespace XUSG
 
 				size_t GetDispatchRaysArgReservedOffset() const { return sizeof(DX12DispatchRaysDescHeader); }
 
-				Device* GetRTDevice() const { return RayTracing::CommandList_DX12::GetRTDevice(); }
+				Device* GetRTDevice() const { return RTList::GetRTDevice(); }
 				RayTracing::CommandList* AsRTCommandList() { return dynamic_cast<RayTracing::CommandList*>(this); }
 
 			protected:
@@ -113,6 +124,32 @@ namespace XUSG
 					Resource* pBuffer;
 					uint64_t Offset;
 				};
+
+				virtual bool bindRayTracing(RayTracing::CommandList* pCommandList) = 0;
+				virtual bool supportsMeshShader() const = 0;
+
+				using UltimateEZ = Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>;
+				using UltimateEZ::createGraphicsPipelineLayouts;
+				using UltimateEZ::createMeshShaderPipelineLayouts;
+				using UltimateEZ::preexecuteIndirect;
+				using UltimateEZ::clearUAVs;
+				using UltimateEZ::COMPUTE;
+				using UltimateEZ::m_cbvSrvUavTables;
+				using UltimateEZ::m_computeSpaceToParamIndexMap;
+				using UltimateEZ::m_computeConstantParamIndex;
+				using UltimateEZ::m_pipelineLayouts;
+				using UltimateEZ::m_pipelineLayoutLib;
+				using UltimateEZ::m_pipeline;
+				using UltimateEZ::m_isComputeDirty;
+				using UltimateEZ::m_barriers;
+				using UltimateEZ::m_descriptorTableLib;
+				using UltimateEZ::m_samplerTables;
+				using UltimateEZ::m_spaceStarts;
+				using UltimateEZ::recordSpaceStarts;
+				using UltimateEZ::spaceStart;
+				using UltimateEZ::CbvSrvUavTypes;
+				using CoreList::m_pDevice;
+				using RTList::m_pDeviceRT;
 
 				bool createComputePipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
 					const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
@@ -147,6 +184,39 @@ namespace XUSG
 
 				std::unordered_set<std::string> m_argumentBufferVAs;
 			};
+
+			extern template class CommandList_Impl<XUSG::CommandList_DX12, Ultimate::CommandList_DX12, RayTracing::CommandList_DX12>;
+#ifndef XUSG_NO_VULKAN
+			extern template class CommandList_Impl<XUSG::CommandList_VK, Ultimate::CommandList_VK, RayTracing::CommandList_VK>;
+#endif
+
+			class CommandList_DX12 :
+				public virtual CommandList_Impl<XUSG::CommandList_DX12, Ultimate::CommandList_DX12, RayTracing::CommandList_DX12>,
+				public virtual Ultimate::EZ::CommandList_DX12
+			{
+			public:
+				using Impl = CommandList_Impl<XUSG::CommandList_DX12, Ultimate::CommandList_DX12, RayTracing::CommandList_DX12>;
+				using Impl::Impl;
+
+			protected:
+				bool bindRayTracing(RayTracing::CommandList* pCommandList) override;
+				bool supportsMeshShader() const override;
+			};
+
+#ifndef XUSG_NO_VULKAN
+			class CommandList_VK :
+				public virtual CommandList_Impl<XUSG::CommandList_VK, Ultimate::CommandList_VK, RayTracing::CommandList_VK>,
+				public virtual Ultimate::EZ::CommandList_VK
+			{
+			public:
+				using Impl = CommandList_Impl<XUSG::CommandList_VK, Ultimate::CommandList_VK, RayTracing::CommandList_VK>;
+				using Impl::Impl;
+
+			protected:
+				bool bindRayTracing(RayTracing::CommandList* pCommandList) override;
+				bool supportsMeshShader() const override;
+			};
+#endif
 		}
 	}
 }

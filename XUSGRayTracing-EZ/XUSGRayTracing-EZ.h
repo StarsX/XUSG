@@ -30,19 +30,29 @@ namespace XUSG
 
 				virtual bool Create(RayTracing::CommandList* pCommandList,
 					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize) = 0;
-				// pNativeHandle is ID3D12GraphicsCommandList*.
+				// pNativeHandle is ID3D12GraphicsCommandList* or VkCommandBuffer.
 				virtual bool Create(RayTracing::Device* pDevice, void* pNativeHandle, uint32_t samplerHeapSize,
-					uint32_t cbvSrvUavHeapSize, const wchar_t* name = nullptr) = 0;
+					uint32_t cbvSrvUavHeapSize) = 0;
 				// Must be called after all acceleration structures allocated
-				// By default maxCbvsEachSpace[stage] = 14 for graphics or 12 for ray tracing and compute
-				// maxSamplers[stage] = 16, maxSrvsEachSpace[stage] = 32, and maxUavsEachSpace[stage] = 16
+				// By default maxCbvsEachSpace[stage] = 14 for graphics or 12 for ray tracing and compute.
+				// maxSamplers[stage] = 16, maxSrvsEachSpace[stage] = 32, and maxUavsEachSpace[stage] = 16.
+				// maxCbvSpaces[stage], maxSrvSpaces[stage], and maxUavSpaces[stage] default to 1.
+				// Unset start spaces are 0 on DirectX 12. On Vulkan an unset start is:
+				// cbvStart = 0
+				// srvStart = cbvStart + maxCbvSpaces[stage]
+				// uavStart = srvStart + maxSrvSpaces[stage]
+				// samplerStart = uavStart + maxUavSpaces[stage]
 				virtual bool CreatePipelineLayouts(
+					const uint32_t samplerStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t cbvStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t srvStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t uavStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
