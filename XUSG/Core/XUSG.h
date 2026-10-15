@@ -1225,7 +1225,7 @@ namespace XUSG
 		virtual bool GetCommandAllocator(CommandAllocator* pCommandAllocator,
 			CommandListType type, const wchar_t* name = nullptr) = 0;
 		virtual bool GetCommandList(CommandList* pCommandList, uint32_t nodeMask, CommandListType type,
-			CommandAllocator* pCommandAllocator, const Pipeline& pipeline,
+			uint8_t numAllocators, CommandAllocator* const* ppAllocators, const Pipeline& pipeline,
 			const wchar_t* name = nullptr) = 0;
 		virtual bool GetFence(Fence* pFence, uint64_t initialValue, FenceFlag flags,
 			const wchar_t* name = nullptr) = 0;
@@ -1362,12 +1362,11 @@ namespace XUSG
 		//CommandList();
 		virtual ~CommandList() {};
 
-		virtual bool Create(Device* pDevice, uint32_t nodeMask, CommandListType type,
-			CommandAllocator* pAllocator, const Pipeline& pipeline,
-			const wchar_t* name = nullptr) = 0;
+		// ppAllocators must list every CommandAllocator that will be used with Reset.
+		virtual bool Create(Device* pDevice, uint32_t nodeMask, CommandListType type, uint8_t numAllocators,
+			CommandAllocator* const* ppAllocators, const Pipeline& pipeline, const wchar_t* name = nullptr) = 0;
 		virtual bool Close() const = 0;
-		virtual bool Reset(CommandAllocator* pAllocator,
-			const Pipeline& initialState) const = 0;
+		virtual bool Reset(uint8_t allocatorIndex, const Pipeline& initialState) const = 0;
 
 		virtual void ClearState(const Pipeline& initialState) const = 0;
 		virtual void Draw(

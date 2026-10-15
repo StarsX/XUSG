@@ -31,9 +31,9 @@ bool Device_DX12::GetCommandAllocator(CommandAllocator* pCommandAllocator,
 }
 
 bool Device_DX12::GetCommandList(CommandList* pCommandList, uint32_t nodeMask, CommandListType type,
-	CommandAllocator* pCommandAllocator, const Pipeline& pipeline, const wchar_t* name)
+	uint8_t numAllocators, CommandAllocator* const* ppAllocators, const Pipeline& pipeline, const wchar_t* name)
 {
-	return pCommandList->Create(this, nodeMask, type, pCommandAllocator, pipeline, name);
+	return pCommandList->Create(this, nodeMask, type, numAllocators, ppAllocators, pipeline, name);
 }
 
 bool Device_DX12::GetFence(Fence* pFence, uint64_t initialValue, FenceFlag flags, const wchar_t* name)

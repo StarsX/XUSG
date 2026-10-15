@@ -23,7 +23,7 @@ namespace XUSG
 			virtual ~CommandList_VK();
 
 			bool Create(Device* pDevice, uint32_t nodeMask, CommandListType type,
-				CommandAllocator* pAllocator, const Pipeline& pipeline,
+				uint8_t numAllocators, CommandAllocator* const* ppAllocators, const Pipeline& pipeline,
 				const wchar_t* name = nullptr);
 			bool CreateInterface();
 
@@ -67,6 +67,8 @@ namespace XUSG
 			void loadProcs();
 			void flushBarriers(VkMemoryBarrier2& memory) const;
 			void addBarrier(const ResourceBarrier& barrier, VkMemoryBarrier2& memory) const;
+			bool ultimateBarriersTouchBoundAttachment(uint32_t numBarriers, const ResourceBarrier* pBarriers) const;
+			void prepareUltimateBarriersOutsidePass(uint32_t numBarriers, const ResourceBarrier* pBarriers) const;
 			void resolveMinMax(Resource* pDstResource, uint32_t dstSubresource, uint32_t dstX, uint32_t dstY,
 				Resource* pSrcResource, uint32_t srcSubresource, const RectRange& srcRect,
 				ResolveMode resolveMode) const;

@@ -170,9 +170,9 @@ bool EZ::CommandList_Impl<Base>::Close(RenderTarget* pBackBuffer)
 }
 
 template<typename Base>
-bool EZ::CommandList_Impl<Base>::Reset(CommandAllocator* pAllocator, const Pipeline& initialState)
+bool EZ::CommandList_Impl<Base>::Reset(uint8_t allocatorIndex, const Pipeline& initialState)
 {
-	XUSG_N_RETURN(Base::Reset(pAllocator, initialState), false);
+	XUSG_N_RETURN(Base::Reset(allocatorIndex, initialState), false);
 
 	// Set Descriptor heaps
 	const DescriptorHeap descriptorHeaps[] =

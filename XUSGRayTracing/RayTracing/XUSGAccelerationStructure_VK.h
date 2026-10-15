@@ -18,9 +18,13 @@ namespace XUSG
 			std::vector<VkAccelerationStructureBuildRangeInfoKHR> Ranges;
 			std::vector<uint32_t> PrimitiveCounts;
 			std::vector<VkAccelerationStructureTrianglesOpacityMicromapKHR> OpacityMicromaps;
+			std::vector<VkAccelerationStructureTrianglesOpacityMicromapEXT> OpacityMicromapsExt;
 			std::vector<VkMicromapUsageKHR> Usages;
+			std::vector<VkMicromapUsageEXT> UsagesExt;
 			VkAccelerationStructureGeometryMicromapDataKHR MicromapData;
+			VkMicromapBuildInfoEXT MicromapInfo;
 			VkAccelerationStructureKHR AccelerationStructure;
+			VkMicromapEXT Micromap;
 			VkAccelerationStructureTypeKHR Type;
 			VkBuildAccelerationStructureFlagsKHR Flags;
 		};
@@ -32,6 +36,10 @@ namespace XUSG
 		void RegisterVKAccelerationStructure(VkAccelerationStructureKHR accelerationStructure, VkDeviceAddress address);
 		void UnregisterVKAccelerationStructure(VkAccelerationStructureKHR accelerationStructure);
 		VkAccelerationStructureKHR FindVKAccelerationStructure(uint64_t value);
+
+		void RegisterVKMicromap(VkMicromapEXT micromap);
+		void UnregisterVKMicromap(VkMicromapEXT micromap);
+		VkMicromapEXT FindVKMicromap(uint64_t value);
 
 		class AccelerationStructure_VK :
 			public virtual AccelerationStructure
@@ -166,8 +174,14 @@ namespace XUSG
 			static size_t AlignOmmInput(size_t byteSize);
 			static size_t AlignOmmDesc(size_t byteSize);
 
+			VkMicromapEXT GetMicromap() const;
+
 		protected:
+			bool createMicromap(VkDeviceSize size);
+			void destroyMicromap();
+
 			BuildFlag m_buildFlags;
+			VkMicromapEXT m_micromap;
 		};
 	}
 }

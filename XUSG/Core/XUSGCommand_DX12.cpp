@@ -79,14 +79,22 @@ CommandList_DX12::~CommandList_DX12()
 {
 }
 
-bool CommandList_DX12::Create(Device* pDevice, uint32_t nodeMask, CommandListType type,
-	CommandAllocator* pCommandAllocator, const Pipeline& pipeline, const wchar_t* name)
+bool CommandList_DX12::Create(Device* pDevice, uint32_t nodeMask, CommandListType type, uint8_t numAllocators,
+	CommandAllocator* const* ppAllocators, const Pipeline& pipeline, const wchar_t* name)
 {
 	const auto pDxDevice = static_cast<ID3D12Device*>(pDevice->GetNativeHandle());
-	const auto pAllocator = reinterpret_cast<ID3D12CommandAllocator*>(pCommandAllocator->GetNativeHandle());
-
 	assert(pDxDevice);
-	V_RETURN(pDxDevice->CreateCommandList(nodeMask, GetDX12CommandListType(type), pAllocator,
+	assert(numAllocators && ppAllocators);
+
+	m_commandAllocators.resize(numAllocators);
+	for (uint8_t i = 0; i < numAllocators; ++i)
+	{
+		assert(ppAllocators[i]);
+		m_commandAllocators[i] = reinterpret_cast<ID3D12CommandAllocator*>(ppAllocators[i]->GetNativeHandle());
+		assert(m_commandAllocators[i]);
+	}
+
+	V_RETURN(pDxDevice->CreateCommandList(nodeMask, GetDX12CommandListType(type), m_commandAllocators[0],
 		static_cast<ID3D12PipelineState*>(pipeline), IID_PPV_ARGS(&m_commandList)), cerr, false);
 	if (name) m_commandList->SetName(name);
 
@@ -123,10 +131,10 @@ bool CommandList_DX12::Close() const
 	return true;
 }
 
-bool CommandList_DX12::Reset(CommandAllocator* pCommandAllocator, const Pipeline& initialState) const
+bool CommandList_DX12::Reset(uint8_t allocatorIndex, const Pipeline& initialState) const
 {
-	assert(pCommandAllocator);
-	V_RETURN(m_commandList->Reset(reinterpret_cast<ID3D12CommandAllocator*>(pCommandAllocator->GetNativeHandle()),
+	assert(allocatorIndex < m_commandAllocators.size());
+	V_RETURN(m_commandList->Reset(m_commandAllocators[allocatorIndex],
 		static_cast<ID3D12PipelineState*>(initialState)), cerr, false);
 
 	return true;

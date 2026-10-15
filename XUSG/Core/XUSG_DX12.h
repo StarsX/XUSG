@@ -51,7 +51,7 @@ namespace XUSG
 		bool GetCommandAllocator(CommandAllocator* pCommandAllocator,
 			CommandListType type, const wchar_t* name = nullptr);
 		bool GetCommandList(CommandList* pCommandList, uint32_t nodeMask, CommandListType type,
-			CommandAllocator* pCommandAllocator, const Pipeline& pipeline,
+			uint8_t numAllocators, CommandAllocator* const* ppAllocators, const Pipeline& pipeline,
 			const wchar_t* name = nullptr);
 		bool GetFence(Fence* pFence, uint64_t initialValue, FenceFlag flags,
 			const wchar_t* name = nullptr);

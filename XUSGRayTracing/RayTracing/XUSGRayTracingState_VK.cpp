@@ -130,6 +130,56 @@ namespace
 			stage == VK_SHADER_STAGE_CALLABLE_BIT_KHR;
 	}
 
+	// Local root arguments follow the shader group handle in the shader record.
+	// The pipeline layout stores those bytes as push offsets, so the record offset adds the handle size.
+	VkDescriptorSetAndBindingMappingEXT ShaderRecordMapping(const VkDescriptorSetAndBindingMappingEXT& mapping,
+		uint32_t handleSize)
+	{
+		auto record = mapping;
+		switch (mapping.source)
+		{
+		case VK_DESCRIPTOR_MAPPING_SOURCE_PUSH_DATA_EXT:
+		{
+			const auto offset = mapping.sourceData.pushDataOffset + handleSize;
+			record.source = VK_DESCRIPTOR_MAPPING_SOURCE_SHADER_RECORD_DATA_EXT;
+			record.sourceData.shaderRecordDataOffset = offset;
+			break;
+		}
+		case VK_DESCRIPTOR_MAPPING_SOURCE_PUSH_ADDRESS_EXT:
+		{
+			const auto offset = mapping.sourceData.pushAddressOffset + handleSize;
+			record.source = VK_DESCRIPTOR_MAPPING_SOURCE_SHADER_RECORD_ADDRESS_EXT;
+			record.sourceData.shaderRecordAddressOffset = offset;
+			break;
+		}
+		case VK_DESCRIPTOR_MAPPING_SOURCE_HEAP_WITH_PUSH_INDEX_EXT:
+		{
+			const auto push = mapping.sourceData.pushIndex;
+			record.source = VK_DESCRIPTOR_MAPPING_SOURCE_HEAP_WITH_SHADER_RECORD_INDEX_EXT;
+			record.sourceData = {};
+			record.sourceData.shaderRecordIndex.heapOffset = push.heapOffset;
+			record.sourceData.shaderRecordIndex.shaderRecordOffset = push.pushOffset + handleSize;
+			record.sourceData.shaderRecordIndex.heapIndexStride = push.heapIndexStride;
+			record.sourceData.shaderRecordIndex.heapArrayStride = push.heapArrayStride;
+			record.sourceData.shaderRecordIndex.pEmbeddedSampler = push.pEmbeddedSampler;
+			record.sourceData.shaderRecordIndex.useCombinedImageSamplerIndex = push.useCombinedImageSamplerIndex;
+			record.sourceData.shaderRecordIndex.samplerHeapOffset = push.samplerHeapOffset;
+			record.sourceData.shaderRecordIndex.samplerShaderRecordOffset = push.useCombinedImageSamplerIndex ?
+				push.samplerPushOffset + handleSize : push.samplerPushOffset;
+			record.sourceData.shaderRecordIndex.samplerHeapIndexStride = push.samplerHeapIndexStride;
+			record.sourceData.shaderRecordIndex.samplerHeapArrayStride = push.samplerHeapArrayStride;
+			break;
+		}
+		case VK_DESCRIPTOR_MAPPING_SOURCE_HEAP_WITH_CONSTANT_OFFSET_EXT:
+			break;
+		default:
+			assert(!"Local pipeline layout mapping cannot be placed in a shader record");
+			break;
+		}
+
+		return record;
+	}
+
 	struct ShaderModules
 	{
 		VkDevice Device;
@@ -481,16 +531,67 @@ RayTracingPipeline_VK* PipelineLib_VK::createPipeline(const string& key, const w
 		pKeyShaderLibHeader = reinterpret_cast<const State_VK::KeyShaderLibHeader*>(&pShaderNames[pKeyShaderLibHeader->NumShaders]);
 	}
 
+	const auto handleSize = m_pDevice->GetShaderGroupHandleSize() ? m_pDevice->GetShaderGroupHandleSize() : 32u;
+	const auto maxStride = m_pDevice->GetRayTracingPipelineProperties().maxShaderGroupStride ?
+		m_pDevice->GetRayTracingPipelineProperties().maxShaderGroupStride : 4096u;
+	unordered_map<wstring, const PipelineLayoutObject*> localLayouts;
+	auto pKeyLocalPipelineLayoutHeader = reinterpret_cast<const State_VK::KeyLocalPipelineLayoutHeader*>(pKeyShaderLibHeader);
+	for (auto i = 0u; i < keyHeader.NumLocalPipelineLayouts; ++i)
+	{
+		const auto pLocalLayout = static_cast<const PipelineLayoutObject*>(pKeyLocalPipelineLayoutHeader->Layout);
+		const auto pShaderNames = reinterpret_cast<const wchar_t* const*>(&pKeyLocalPipelineLayoutHeader[1]);
+		if (pLocalLayout)
+		{
+			assert(handleSize + pLocalLayout->PushDataSize <= maxStride);
+			for (auto s = 0u; s < pKeyLocalPipelineLayoutHeader->NumShaders; ++s)
+			{
+				if (!pShaderNames[s]) continue;
+
+				const wstring shaderName = pShaderNames[s];
+				auto named = false;
+				for (const auto& shader : exports)
+					if (shader.Name == shaderName) named = true;
+				assert(named);
+				assert(localLayouts.find(shaderName) == localLayouts.end());
+				localLayouts[shaderName] = pLocalLayout;
+			}
+		}
+
+		pKeyLocalPipelineLayoutHeader = reinterpret_cast<const State_VK::KeyLocalPipelineLayoutHeader*>
+			(&pShaderNames[pKeyLocalPipelineLayoutHeader->NumShaders]);
+	}
+
 	const auto pLayout = static_cast<const PipelineLayoutObject*>(keyHeader.GlobalLayout);
-	const auto pMapping = pLayout && pLayout->StageMappingInfos[Shader::CS].mappingCount ?
-		&pLayout->StageMappingInfos[Shader::CS] : nullptr;
+	const vector<VkDescriptorSetAndBindingMappingEXT>* pGlobalMappings = pLayout ?
+		&pLayout->StageMappings[Shader::CS] : nullptr;
+
+	vector<vector<VkDescriptorSetAndBindingMappingEXT>> recordMappings(exports.size());
+	vector<VkShaderDescriptorSetAndBindingMappingInfoEXT> recordInfos(exports.size());
+	for (auto i = 0u; i < exports.size(); ++i)
+	{
+		auto& mappings = recordMappings[i];
+		if (pGlobalMappings)
+			mappings.insert(mappings.end(), pGlobalMappings->begin(), pGlobalMappings->end());
+
+		const auto local = localLayouts.find(exports[i].Name);
+		if (local != localLayouts.end())
+		{
+			for (const auto& mapping : local->second->StageMappings[Shader::CS])
+				mappings.push_back(ShaderRecordMapping(mapping, handleSize));
+		}
+
+		recordInfos[i] = {};
+		recordInfos[i].sType = VK_STRUCTURE_TYPE_SHADER_DESCRIPTOR_SET_AND_BINDING_MAPPING_INFO_EXT;
+		recordInfos[i].mappingCount = static_cast<uint32_t>(mappings.size());
+		recordInfos[i].pMappings = mappings.empty() ? nullptr : mappings.data();
+	}
 
 	vector<VkPipelineShaderStageCreateInfo> stages(exports.size());
 	for (auto i = 0u; i < exports.size(); ++i)
 	{
 		stages[i] = {};
 		stages[i].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		stages[i].pNext = pMapping;
+		stages[i].pNext = recordInfos[i].mappingCount ? &recordInfos[i] : nullptr;
 		stages[i].stage = exports[i].Stage;
 		stages[i].module = modules.Modules[exports[i].Library];
 		stages[i].pName = exports[i].Entry.c_str();
@@ -568,7 +669,6 @@ RayTracingPipeline_VK* PipelineLib_VK::createPipeline(const string& key, const w
 		return nullptr;
 	}
 
-	const auto handleSize = m_pDevice->GetShaderGroupHandleSize() ? m_pDevice->GetShaderGroupHandleSize() : 32u;
 	vector<uint8_t> handles(static_cast<size_t>(groups.size()) * handleSize);
 	if (!groups.empty())
 	{

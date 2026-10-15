@@ -112,7 +112,7 @@ namespace XUSG
 		bool GetCommandAllocator(CommandAllocator* pCommandAllocator,
 			CommandListType type, const wchar_t* name = nullptr);
 		bool GetCommandList(CommandList* pCommandList, uint32_t nodeMask, CommandListType type,
-			CommandAllocator* pCommandAllocator, const Pipeline& pipeline,
+			uint8_t numAllocators, CommandAllocator* const* ppAllocators, const Pipeline& pipeline,
 			const wchar_t* name = nullptr);
 		bool GetFence(Fence* pFence, uint64_t initialValue, FenceFlag flags,
 			const wchar_t* name = nullptr);
@@ -165,6 +165,12 @@ namespace XUSG
 			PFN_vkCmdBuildAccelerationStructuresKHR CmdBuildAccelerationStructures;
 			PFN_vkCmdCopyAccelerationStructureKHR CmdCopyAccelerationStructure;
 			PFN_vkCmdWriteAccelerationStructuresPropertiesKHR CmdWriteAccelerationStructuresProperties;
+			PFN_vkCreateMicromapEXT CreateMicromap;
+			PFN_vkDestroyMicromapEXT DestroyMicromap;
+			PFN_vkGetMicromapBuildSizesEXT GetMicromapBuildSizes;
+			PFN_vkCmdBuildMicromapsEXT CmdBuildMicromaps;
+			PFN_vkCmdCopyMicromapEXT CmdCopyMicromap;
+			PFN_vkCmdWriteMicromapsPropertiesEXT CmdWriteMicromapsProperties;
 			PFN_vkCreateRayTracingPipelinesKHR CreateRayTracingPipelines;
 			PFN_vkGetRayTracingShaderGroupHandlesKHR GetRayTracingShaderGroupHandles;
 			PFN_vkCmdTraceRaysKHR CmdTraceRays;
@@ -683,7 +689,9 @@ namespace XUSG
 		bool createBlitResources();
 		void destroyBlitResources();
 		bool acquire() const;
-		bool flushPresent(uint32_t userIndex);
+		bool flushPresent(uint32_t index);
+		bool flushPresentBlit(uint32_t userIndex);
+		bool flushPresentDirect(uint32_t imageIndex);
 
 		Device_VK*			m_pDevice;
 		VkQueue				m_queue;
@@ -698,6 +706,7 @@ namespace XUSG
 		mutable uint32_t	m_imageIndex;
 		mutable uint32_t	m_userIndex;
 		bool				m_allowTearing;
+		bool				m_useBlit;
 		mutable bool		m_acquired;
 		mutable VkSemaphore	m_lastAcquireSemaphore;
 		mutable VkFence		m_lastAcquireFence;

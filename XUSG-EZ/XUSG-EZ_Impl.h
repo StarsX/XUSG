@@ -75,7 +75,7 @@ namespace XUSG
 				const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
 			bool Close(RenderTarget* pBackBuffer = nullptr);
-			bool Reset(CommandAllocator* pAllocator, const Pipeline& initialState);
+			bool Reset(uint8_t allocatorIndex, const Pipeline& initialState);
 
 			void ClearState(const Pipeline& initialState) const { Base::ClearState(initialState); }
 			void Draw(

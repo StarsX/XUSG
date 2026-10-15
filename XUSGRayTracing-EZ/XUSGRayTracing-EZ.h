@@ -59,7 +59,7 @@ namespace XUSG
 					const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					uint32_t maxTLASSrvs = 0, uint32_t spaceTLAS = 0,
 					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE) = 0;
-				virtual bool Reset(CommandAllocator* pAllocator, const Pipeline& initialState) = 0;
+				virtual bool Reset(uint8_t allocatorIndex, const Pipeline& initialState) = 0;
 				virtual bool PrebuildBLAS(BottomLevelAS* pBLAS, uint32_t numGeometries, const GeometryBuffer& geometries,
 					BuildFlag flags = BuildFlag::PREFER_FAST_TRACE) = 0;
 				virtual bool PrebuildTLAS(TopLevelAS* pTLAS, uint32_t numInstances,

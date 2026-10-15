@@ -115,7 +115,7 @@ namespace XUSG
 				const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE) = 0;
 			virtual bool Close(RenderTarget* pBackBuffer = nullptr) = 0;
-			virtual bool Reset(CommandAllocator* pAllocator, const Pipeline& initialState) = 0;
+			virtual bool Reset(uint8_t allocatorIndex, const Pipeline& initialState) = 0;
 
 			virtual void ClearState(const Pipeline& initialState) const = 0;
 			virtual void Draw(

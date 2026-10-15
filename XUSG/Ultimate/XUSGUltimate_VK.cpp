@@ -196,9 +196,9 @@ CommandList_VK::~CommandList_VK()
 }
 
 bool CommandList_VK::Create(Device* pDevice, uint32_t nodeMask, CommandListType type,
-	CommandAllocator* pAllocator, const Pipeline& pipeline, const wchar_t* name)
+	uint8_t numAllocators, CommandAllocator* const* ppAllocators, const Pipeline& pipeline, const wchar_t* name)
 {
-	XUSG_N_RETURN(XUSG::CommandList_VK::Create(pDevice, nodeMask, type, pAllocator, pipeline, name), false);
+	XUSG_N_RETURN(XUSG::CommandList_VK::Create(pDevice, nodeMask, type, numAllocators, ppAllocators, pipeline, name), false);
 	loadProcs();
 
 	return true;
@@ -221,9 +221,23 @@ void CommandList_VK::Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGr
 	for (auto i = 0u; i < numBarrierGroups; ++i) count += pBarrierGroups[i].NumBarriers;
 	if (!count) return;
 
-	endRendering();
-	flushDeferredClears();
-	endPredication();
+	if (m_renderingBegun)
+	{
+		auto touch = false;
+		for (auto i = 0u; i < numBarrierGroups && !touch; ++i)
+		{
+			const auto& group = pBarrierGroups[i];
+			if (!group.NumBarriers) continue;
+			assert(group.pBarriers);
+			touch = ultimateBarriersTouchBoundAttachment(group.NumBarriers, group.pBarriers);
+		}
+		if (touch) endRendering();
+	}
+	if (!m_renderingBegun)
+	{
+		flushDeferredClears();
+		endPredication();
+	}
 
 	VkMemoryBarrier2 memory = {};
 	memory.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
@@ -247,12 +261,11 @@ void CommandList_VK::Barrier(uint32_t numBufferBarriers, ResourceBarrier* pBuffe
 {
 	if (!numBufferBarriers && !numTextureBarriers && !numGlobalBarriers) return;
 
-	endRendering();
-	flushDeferredClears();
-	endPredication();
 	if (numBufferBarriers) assert(pBufferBarriers);
 	if (numTextureBarriers) assert(pTextureBarriers);
 	if (numGlobalBarriers) assert(pGlobalBarriers);
+	// Only texture barriers can reference bound color/depth attachments.
+	prepareUltimateBarriersOutsidePass(numTextureBarriers, pTextureBarriers);
 
 	VkMemoryBarrier2 memory = {};
 	memory.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
@@ -568,6 +581,33 @@ void CommandList_VK::flushBarriers(VkMemoryBarrier2& memory) const
 	memory.dstAccessMask = 0;
 	m_buffers.clear();
 	m_images.clear();
+}
+
+bool CommandList_VK::ultimateBarriersTouchBoundAttachment(uint32_t numBarriers, const ResourceBarrier* pBarriers) const
+{
+	if (!m_renderingBegun || !numBarriers || !pBarriers) return false;
+
+	for (auto i = 0u; i < numBarriers; ++i)
+	{
+		const auto& barrier = pBarriers[i];
+		if (!barrier.pResource || IsBufferBarrier(barrier)) continue;
+
+		const auto pResource = AsVK(barrier.pResource);
+		if (pResource->IsImage() && imageBound(pResource->GetImage())) return true;
+	}
+
+	return false;
+}
+
+void CommandList_VK::prepareUltimateBarriersOutsidePass(uint32_t numBarriers, const ResourceBarrier* pBarriers) const
+{
+	if (m_renderingBegun)
+	{
+		if (!ultimateBarriersTouchBoundAttachment(numBarriers, pBarriers)) return;
+		endRendering();
+	}
+	flushDeferredClears();
+	endPredication();
 }
 
 void CommandList_VK::addBarrier(const ResourceBarrier& barrier, VkMemoryBarrier2& memory) const

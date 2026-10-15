@@ -17,6 +17,9 @@ RayTracing::CommandList_VK::CommandList_VK() :
 	m_cmdBuildAccelerationStructures(nullptr),
 	m_cmdCopyAccelerationStructure(nullptr),
 	m_cmdWriteAccelerationStructuresProperties(nullptr),
+	m_cmdBuildMicromaps(nullptr),
+	m_cmdCopyMicromap(nullptr),
+	m_cmdWriteMicromapsProperties(nullptr),
 	m_cmdTraceRays(nullptr),
 	m_pDeviceRT(nullptr)
 {
@@ -61,6 +64,9 @@ bool RayTracing::CommandList_VK::CreateInterface()
 	m_cmdBuildAccelerationStructures = ext.CmdBuildAccelerationStructures;
 	m_cmdCopyAccelerationStructure = ext.CmdCopyAccelerationStructure;
 	m_cmdWriteAccelerationStructuresProperties = ext.CmdWriteAccelerationStructuresProperties;
+	m_cmdBuildMicromaps = ext.CmdBuildMicromaps;
+	m_cmdCopyMicromap = ext.CmdCopyMicromap;
+	m_cmdWriteMicromapsProperties = ext.CmdWriteMicromapsProperties;
 	m_cmdTraceRays = ext.CmdTraceRays;
 	XUSG_N_RETURN(m_cmdBuildAccelerationStructures && m_cmdCopyAccelerationStructure &&
 		m_cmdWriteAccelerationStructuresProperties && m_cmdTraceRays, false);
@@ -68,11 +74,11 @@ bool RayTracing::CommandList_VK::CreateInterface()
 	return true;
 }
 
-bool RayTracing::CommandList_VK::Reset(CommandAllocator* pAllocator, const Pipeline& initialState) const
+bool RayTracing::CommandList_VK::Reset(uint8_t allocatorIndex, const Pipeline& initialState) const
 {
 	for (auto& pool : m_queryPools) pool.Used = 0;
 
-	return XUSG::CommandList_VK::Reset(pAllocator, initialState);
+	return XUSG::CommandList_VK::Reset(allocatorIndex, initialState);
 }
 
 RayTracing::CommandList_VK::QueryAllocation RayTracing::CommandList_VK::allocateQueries(VkQueryType type, uint32_t count) const
@@ -124,17 +130,26 @@ void RayTracing::CommandList_VK::BuildRaytracingAccelerationStructure(const Buil
 
 	recordOutside();
 	const auto pBuild = static_cast<const BuildDesc_VK*>(pDesc);
-	const VkAccelerationStructureBuildRangeInfoKHR* pRanges = pBuild->Ranges.empty() ? nullptr : pBuild->Ranges.data();
-	if (pBuild->Type == VK_ACCELERATION_STRUCTURE_TYPE_OPACITY_MICROMAP_KHR)
+	if (pBuild->Micromap != VK_NULL_HANDLE)
 	{
-		pRanges = nullptr;
-		m_cmdBuildAccelerationStructures(m_commandBuffer, 1, &pBuild->Info, &pRanges);
+		assert(m_cmdBuildMicromaps);
+		if (m_cmdBuildMicromaps) m_cmdBuildMicromaps(m_commandBuffer, 1, &pBuild->MicromapInfo);
 	}
-	else m_cmdBuildAccelerationStructures(m_commandBuffer, 1, &pBuild->Info, pRanges ? &pRanges : nullptr);
+	else
+	{
+		const VkAccelerationStructureBuildRangeInfoKHR* pRanges = pBuild->Ranges.empty() ? nullptr : pBuild->Ranges.data();
+		if (pBuild->Type == VK_ACCELERATION_STRUCTURE_TYPE_OPACITY_MICROMAP_KHR)
+		{
+			pRanges = nullptr;
+			m_cmdBuildAccelerationStructures(m_commandBuffer, 1, &pBuild->Info, &pRanges);
+		}
+		else m_cmdBuildAccelerationStructures(m_commandBuffer, 1, &pBuild->Info, pRanges ? &pRanges : nullptr);
+	}
 
 	if (!numPostbuildInfoDescs) return;
 
-	const uint64_t accelerationStructure = reinterpret_cast<uint64_t>(pBuild->AccelerationStructure);
+	const uint64_t accelerationStructure = pBuild->Micromap != VK_NULL_HANDLE ?
+		reinterpret_cast<uint64_t>(pBuild->Micromap) : reinterpret_cast<uint64_t>(pBuild->AccelerationStructure);
 	for (auto i = 0u; i < numPostbuildInfoDescs; ++i)
 		EmitRaytracingAccelerationStructurePostbuildInfo(&pPostbuildInfoDescs[i], 1, &accelerationStructure);
 }
@@ -144,36 +159,76 @@ void RayTracing::CommandList_VK::EmitRaytracingAccelerationStructurePostbuildInf
 {
 	assert(pDesc);
 	assert(numAccelerationStructures == 0 || pAccelerationStructureData);
-	assert(m_cmdWriteAccelerationStructuresProperties);
 	if (!numAccelerationStructures) return;
 
 	if (pDesc->InfoType == PostbuildInfoType::TOOLS_VISUALIZATION)
 	{
-		assert(!"Visualization postbuild info is not implemented");
+		assert(!"Visualization postbuild info is not supported");
 
 		return;
 	}
 
-	const auto queryType = GetVKAccelerationStructurePostbuildQueryType(pDesc->InfoType);
+	vector<VkAccelerationStructureKHR> accelerationStructures;
+	vector<VkMicromapEXT> micromaps;
+	accelerationStructures.reserve(numAccelerationStructures);
+	for (auto i = 0u; i < numAccelerationStructures; ++i)
+	{
+		const auto accelerationStructure = FindVKAccelerationStructure(pAccelerationStructureData[i]);
+		if (accelerationStructure != VK_NULL_HANDLE)
+		{
+			accelerationStructures.push_back(accelerationStructure);
+			continue;
+		}
+
+		const auto micromap = FindVKMicromap(pAccelerationStructureData[i]);
+		assert(micromap != VK_NULL_HANDLE);
+		micromaps.push_back(micromap);
+	}
+	assert(accelerationStructures.empty() || micromaps.empty());
+
+	VkQueryType queryType = VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR;
+	VkPipelineStageFlags2 srcStage = VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_BUILD_BIT_KHR;
+	VkAccessFlags2 srcAccess = VK_ACCESS_2_ACCELERATION_STRUCTURE_READ_BIT_KHR;
+	if (!micromaps.empty())
+	{
+		if (pDesc->InfoType == PostbuildInfoType::CURRENT_SIZE)
+		{
+			assert(!"EXT opacity micromap has no current-size query");
+
+			return;
+		}
+
+		queryType = pDesc->InfoType == PostbuildInfoType::SERIALIZATION ?
+			VK_QUERY_TYPE_MICROMAP_SERIALIZATION_SIZE_EXT : VK_QUERY_TYPE_MICROMAP_COMPACTED_SIZE_EXT;
+		srcStage = VK_PIPELINE_STAGE_2_MICROMAP_BUILD_BIT_EXT;
+		srcAccess = VK_ACCESS_2_MICROMAP_READ_BIT_EXT;
+		assert(m_cmdWriteMicromapsProperties);
+	}
+	else
+	{
+		queryType = GetVKAccelerationStructurePostbuildQueryType(pDesc->InfoType);
+		assert(m_cmdWriteAccelerationStructuresProperties);
+	}
+
 	const auto allocation = allocateQueries(queryType, numAccelerationStructures);
 	if (allocation.Pool == VK_NULL_HANDLE) return;
 
-	vector<VkAccelerationStructureKHR> accelerationStructures(numAccelerationStructures);
-	for (auto i = 0u; i < numAccelerationStructures; ++i)
-	{
-		accelerationStructures[i] = FindVKAccelerationStructure(pAccelerationStructureData[i]);
-		assert(accelerationStructures[i] != VK_NULL_HANDLE);
-	}
-
 	recordOutside();
 	vkCmdResetQueryPool(m_commandBuffer, allocation.Pool, allocation.First, numAccelerationStructures);
-	m_cmdWriteAccelerationStructuresProperties(m_commandBuffer, numAccelerationStructures,
-		accelerationStructures.data(), queryType, allocation.Pool, allocation.First);
+	if (!micromaps.empty())
+	{
+		if (m_cmdWriteMicromapsProperties)
+			m_cmdWriteMicromapsProperties(m_commandBuffer, static_cast<uint32_t>(micromaps.size()),
+				micromaps.data(), queryType, allocation.Pool, allocation.First);
+	}
+	else if (m_cmdWriteAccelerationStructuresProperties)
+		m_cmdWriteAccelerationStructuresProperties(m_commandBuffer, numAccelerationStructures,
+			accelerationStructures.data(), queryType, allocation.Pool, allocation.First);
 
 	VkMemoryBarrier2 barrier = {};
 	barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
-	barrier.srcStageMask = VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_BUILD_BIT_KHR;
-	barrier.srcAccessMask = VK_ACCESS_2_ACCELERATION_STRUCTURE_READ_BIT_KHR;
+	barrier.srcStageMask = srcStage;
+	barrier.srcAccessMask = srcAccess;
 	barrier.dstStageMask = VK_PIPELINE_STAGE_2_COPY_BIT;
 	barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
 	VkDependencyInfo dependency = {};
@@ -198,18 +253,33 @@ void RayTracing::CommandList_VK::CopyRaytracingAccelerationStructure(const Accel
 	(void)pDescriptorHeap;
 	assert(pDst);
 	assert(pSrc);
-	assert(m_cmdCopyAccelerationStructure);
-	// SERIALIZE/DESERIALIZE need vkCmdCopyAccelerationStructureToMemoryKHR /
-	// vkCmdCopyMemoryToAccelerationStructureKHR, not vkCmdCopyAccelerationStructureKHR.
 	if (mode == CopyMode::VISUALIZATION_DECODE_FOR_TOOLS ||
 		mode == CopyMode::SERIALIZE ||
 		mode == CopyMode::DESERIALIZE)
 	{
-		assert(!"Acceleration-structure copy mode is not implemented");
+		assert(!"Acceleration-structure copy mode is not supported");
 
 		return;
 	}
 
+	const auto pDstOmm = dynamic_cast<const OpacityMicromapArray_VK*>(pDst);
+	const auto pSrcOmm = dynamic_cast<const OpacityMicromapArray_VK*>(pSrc);
+	if (pDstOmm && pDstOmm->GetMicromap() != VK_NULL_HANDLE)
+	{
+		assert(pSrcOmm && pSrcOmm->GetMicromap() != VK_NULL_HANDLE);
+		assert(m_cmdCopyMicromap);
+		VkCopyMicromapInfoEXT info = {};
+		info.sType = VK_STRUCTURE_TYPE_COPY_MICROMAP_INFO_EXT;
+		info.src = pSrcOmm ? pSrcOmm->GetMicromap() : VK_NULL_HANDLE;
+		info.dst = pDstOmm->GetMicromap();
+		info.mode = mode == CopyMode::COMPACT ? VK_COPY_MICROMAP_MODE_COMPACT_EXT : VK_COPY_MICROMAP_MODE_CLONE_EXT;
+		recordOutside();
+		if (m_cmdCopyMicromap) m_cmdCopyMicromap(m_commandBuffer, &info);
+
+		return;
+	}
+
+	assert(m_cmdCopyAccelerationStructure);
 	const auto pDstVK = dynamic_cast<const AccelerationStructure_VK*>(pDst);
 	const auto pSrcVK = dynamic_cast<const AccelerationStructure_VK*>(pSrc);
 	assert(pDstVK);

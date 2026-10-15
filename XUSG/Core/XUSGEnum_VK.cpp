@@ -353,9 +353,11 @@ VkImageLayout XUSG::GetVKImageLayout(ResourceState state)
 		return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 	if (uav && !color && !depthWrite && !depthRead && !copyDst && !copySrc && !srv && !shadingRate)
 		return VK_IMAGE_LAYOUT_GENERAL;
-	if (copyDst && !color && !depthWrite && !depthRead && !uav && !copySrc && !srv && !shadingRate)
+	if (copyDst && !color && !depthWrite && !depthRead && !uav && !copySrc && !shadingRate)
 		return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-	if (copySrc && !color && !depthWrite && !depthRead && !uav && !copyDst && !srv && !shadingRate)
+	// COPY_SOURCE (| PSR): prefer TRANSFER_SRC so vkCmdCopyImage stays optimal.
+	// App state may still include PSR for DX12-style tracking / descriptor rules.
+	if (copySrc && !color && !depthWrite && !depthRead && !uav && !copyDst && !shadingRate)
 		return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 	if (srv && !color && !depthWrite && !depthRead && !uav && !copyDst && !copySrc && !shadingRate)
 		return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;

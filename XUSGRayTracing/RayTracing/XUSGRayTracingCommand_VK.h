@@ -22,7 +22,7 @@ namespace XUSG
 
 			bool CreateInterface();
 
-			bool Reset(CommandAllocator* pAllocator, const Pipeline& initialState) const;
+			bool Reset(uint8_t allocatorIndex, const Pipeline& initialState) const;
 
 			void BuildRaytracingAccelerationStructure(const BuildDesc* pDesc,
 				uint32_t numPostbuildInfoDescs, const PostbuildInfo* pPostbuildInfoDescs,
@@ -63,6 +63,9 @@ namespace XUSG
 			PFN_vkCmdBuildAccelerationStructuresKHR m_cmdBuildAccelerationStructures;
 			PFN_vkCmdCopyAccelerationStructureKHR m_cmdCopyAccelerationStructure;
 			PFN_vkCmdWriteAccelerationStructuresPropertiesKHR m_cmdWriteAccelerationStructuresProperties;
+			PFN_vkCmdBuildMicromapsEXT m_cmdBuildMicromaps;
+			PFN_vkCmdCopyMicromapEXT m_cmdCopyMicromap;
+			PFN_vkCmdWriteMicromapsPropertiesEXT m_cmdWriteMicromapsProperties;
 			PFN_vkCmdTraceRaysKHR m_cmdTraceRays;
 
 			mutable std::vector<QueryPool> m_queryPools;

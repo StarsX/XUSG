@@ -1051,6 +1051,12 @@ bool Resource_VK::createBuffer(Heap* pHeap, uint64_t heapOffset, size_t byteWidt
 	if (m_pDevice && m_pDevice->HasTransformFeedback())
 		info.usage |= VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT |
 		VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT;
+	if (m_pDevice && m_pDevice->HasMicromap() && !m_pDevice->HasOpacityMicromapKhr())
+	{
+		info.usage |= VK_BUFFER_USAGE_MICROMAP_BUILD_INPUT_READ_ONLY_BIT_EXT;
+		if ((resourceFlags & ResourceFlag::ACCELERATION_STRUCTURE) != ResourceFlag::NONE)
+			info.usage |= VK_BUFFER_USAGE_MICROMAP_STORAGE_BIT_EXT;
+	}
 	XUSG_VK_CHECK(vkCreateBuffer(device, &info, nullptr, &m_buffer), cerr, false);
 	m_ownsBuffer = true;
 	m_isImage = false;
@@ -2670,14 +2676,12 @@ bool RenderTarget_VK::CreateArray(Device* pDevice, Heap* pHeap, uint64_t heapOff
 
 bool RenderTarget_VK::CreateFromSwapChain(Device* pDevice, SwapChain* pSwapChain, uint32_t bufferIndex, uint32_t maxThreads)
 {
-	const auto swapChain = AsVK(pSwapChain);
-	assert(swapChain);
+	assert(pSwapChain);
 	m_pDevice = AsVK(pDevice);
 	assert(m_pDevice);
 	XUSG_N_RETURN(initialize(pDevice, maxThreads), false);
-	// false = user backbuffer (not WSI); Present blits to the real swapchain.
-	WrapImage(m_pDevice->GetDevice(), swapChain->GetImage(static_cast<uint8_t>(bufferIndex)),
-		swapChain->GetVkFormat(), swapChain->GetWidth(), swapChain->GetHeight(), false);
+	// GetBuffer sets presentable=true for direct WSI, false for user-BB blit (AMD).
+	XUSG_N_RETURN(pSwapChain->GetBuffer(static_cast<uint8_t>(bufferIndex), this), false);
 	m_format = GetFormatFromVK(m_vkFormat);
 	m_rtvs.resize(1);
 	m_rtvs[0].resize(1);
@@ -2779,6 +2783,7 @@ uint32_t RenderTarget_VK::GenerateMips(const CommandList* pCommandList, Resource
 	const DescriptorTable& samplerTable, uint32_t samplerSlot, uint32_t numBarriers, uint8_t baseMip, uint8_t numMips,
 	uint16_t baseSlice, uint16_t numSlices, uint32_t offsetForSliceId, uint32_t cbSlot, uint32_t threadIdx)
 {
+	// Graphics blit: baseMip == 0 may sample an external SRV into mip0.
 	if (pipelineLayout) pCommandList->SetGraphicsPipelineLayout(pipelineLayout);
 	if (samplerTable) pCommandList->SetGraphicsDescriptorTable(samplerSlot, samplerTable);
 	if (pipeline) pCommandList->SetPipelineState(pipeline);
@@ -2793,9 +2798,20 @@ uint32_t RenderTarget_VK::GenerateMips(const CommandList* pCommandList, Resource
 		if (j) for (uint16_t k = 0; k < numSlices; ++k)
 		{
 			const uint16_t n = baseSlice + k;
+			// Dest mip fully overwritten - end live pass if needed, UNDEFINED for barrier.
+			pCommandList->DiscardResource(const_cast<RenderTarget_VK*>(this), 0, nullptr,
+				CalculateSubresource(j, n), 1);
 			numBarriers = SetBarrier(pBarriers, j, ResourceState::RENDER_TARGET, numBarriers, n,
 				BarrierFlag::NONE, ResourceState::AUTO, 0, threadIdx);
 			numBarriers = SetBarrier(pBarriers, static_cast<uint8_t>(j - 1), dstState, numBarriers, n,
+				BarrierFlag::NONE, ResourceState::AUTO, 0, threadIdx);
+		}
+		else for (uint16_t k = 0; k < numSlices; ++k)
+		{
+			const uint16_t n = baseSlice + k;
+			pCommandList->DiscardResource(const_cast<RenderTarget_VK*>(this), 0, nullptr,
+				CalculateSubresource(j, n), 1);
+			numBarriers = SetBarrier(pBarriers, j, ResourceState::RENDER_TARGET, numBarriers, n,
 				BarrierFlag::NONE, ResourceState::AUTO, 0, threadIdx);
 		}
 		if (numBarriers)

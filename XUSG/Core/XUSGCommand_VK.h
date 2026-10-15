@@ -44,11 +44,10 @@ namespace XUSG
 		CommandList_VK();
 		virtual ~CommandList_VK();
 
-		bool Create(Device* pDevice, uint32_t nodeMask, CommandListType type,
-			CommandAllocator* pAllocator, const Pipeline& pipeline,
-			const wchar_t* name = nullptr);
+		bool Create(Device* pDevice, uint32_t nodeMask, CommandListType type, uint8_t numAllocators,
+			CommandAllocator* const* ppAllocators, const Pipeline& pipeline, const wchar_t* name = nullptr);
 		bool Close() const;
-		bool Reset(CommandAllocator* pAllocator, const Pipeline& initialState) const;
+		bool Reset(uint8_t allocatorIndex, const Pipeline& initialState) const;
 
 		void ClearState(const Pipeline& initialState) const;
 		void Draw(uint32_t vertexCountPerInstance, uint32_t instanceCount,
@@ -189,6 +188,7 @@ namespace XUSG
 			uint8_t stencil, const float color[4], uint32_t numRects, const RectRange* pRects) const;
 		void flushDeferredClears() const;
 		bool imageBound(VkImage image) const;
+		void prepareBarriersOutsidePass(uint32_t numBarriers, const ResourceBarrier* pBarriers) const;
 		void clearDepth(const RenderAttachment& attachment, ClearFlag clearFlags, float depth, uint8_t stencil,
 			uint32_t numRects, const RectRange* pRects) const;
 		void clearUnorderedAccessView(const Descriptor& descriptor, const VkClearColorValue& color, uint32_t numRects) const;
@@ -205,7 +205,6 @@ namespace XUSG
 		void submitBarrierBatch(VkMemoryBarrier2& memory, std::vector<VkImageMemoryBarrier2>& images) const;
 		void pipelineBarrier(const VkDependencyInfo& dependency) const;
 
-		mutable VkCommandPool		m_pool;
 		mutable VkCommandBuffer		m_commandBuffer;
 		bool						m_ownsCommandBuffer;
 
@@ -250,12 +249,16 @@ namespace XUSG
 
 		// D3D12 root-signature push budget is 256 bytes. Dirty is tracked per root
 		// parameter; flush merges adjacent byte ranges and splits on gaps.
+		// writePush skips unchanged staged bytes only while the layout is unchanged;
+		// after a layout change (or CB reset) resync forces the next binds to upload.
 		static constexpr uint32_t	MaxPushDataBytes = 256;
 		static constexpr uint32_t	MaxRootParameters = 64;
 		mutable uint8_t				m_graphicsPushData[MaxPushDataBytes];
 		mutable uint8_t				m_computePushData[MaxPushDataBytes];
 		mutable uint64_t			m_graphicsPushDirty;
 		mutable uint64_t			m_computePushDirty;
+		mutable bool				m_graphicsPushResync;
+		mutable bool				m_computePushResync;
 
 		mutable VkBuffer			m_preprocessBuffer;
 		mutable VkDeviceMemory		m_preprocessMemory;

@@ -395,3 +395,4 @@ Blend PipelineLib::SelectMax(uint8_t n)
 
 	return blend;
 }
+

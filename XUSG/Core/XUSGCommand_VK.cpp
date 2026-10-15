@@ -187,7 +187,6 @@ uint32_t CommandAllocator_VK::GetFamily() const
 //--------------------------------------------------------------------------------------
 
 CommandList_VK::CommandList_VK() :
-	m_pool(VK_NULL_HANDLE),
 	m_commandBuffer(VK_NULL_HANDLE),
 	m_ownsCommandBuffer(false),
 	m_pDevice(nullptr),
@@ -219,6 +218,8 @@ CommandList_VK::CommandList_VK() :
 	m_computePushData{},
 	m_graphicsPushDirty(0),
 	m_computePushDirty(0),
+	m_graphicsPushResync(true),
+	m_computePushResync(true),
 	m_preprocessBuffer(VK_NULL_HANDLE),
 	m_preprocessMemory(VK_NULL_HANDLE),
 	m_preprocessAddress(0),
@@ -253,11 +254,12 @@ CommandList_VK::~CommandList_VK()
 	if (m_nullXfbMemory != VK_NULL_HANDLE) vkFreeMemory(device, m_nullXfbMemory, nullptr);
 }
 
-bool CommandList_VK::Create(Device* pDevice, uint32_t nodeMask, CommandListType type,
-	CommandAllocator* pAllocator, const Pipeline& pipeline, const wchar_t* name)
+bool CommandList_VK::Create(Device* pDevice, uint32_t nodeMask, CommandListType type, uint8_t numAllocators,
+	CommandAllocator* const* ppAllocators, const Pipeline& pipeline, const wchar_t* name)
 {
 	(void)nodeMask;
 	assert(type != CommandListType::VIDEO_DECODE && type != CommandListType::VIDEO_PROCESS && type != CommandListType::VIDEO_ENCODE);
+	assert(numAllocators && ppAllocators);
 	m_pDevice = AsVK(pDevice);
 	assert(m_pDevice);
 	const auto device = m_pDevice->GetDevice();
@@ -281,18 +283,29 @@ bool CommandList_VK::Create(Device* pDevice, uint32_t nodeMask, CommandListType 
 			if (entry.Buffer != VK_NULL_HANDLE) vkFreeCommandBuffers(device, entry.Pool, 1, &entry.Buffer);
 		m_poolBuffers.clear();
 	}
-	m_pool = pAllocator ? (VkCommandPool)pAllocator->GetNativeHandle() : VK_NULL_HANDLE;
-	assert(m_pool != VK_NULL_HANDLE);
 
-	VkCommandBufferAllocateInfo info = {};
-	info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	info.commandPool = m_pool;
-	info.level = type == CommandListType::BUNDLE ? VK_COMMAND_BUFFER_LEVEL_SECONDARY : VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	info.commandBufferCount = 1;
-	XUSG_VK_CHECK(vkAllocateCommandBuffers(device, &info, &m_commandBuffer), cerr, false);
+	const auto level = type == CommandListType::BUNDLE ?
+		VK_COMMAND_BUFFER_LEVEL_SECONDARY : VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	m_poolBuffers.resize(numAllocators);
+	for (uint8_t i = 0; i < numAllocators; ++i)
+	{
+		assert(ppAllocators[i]);
+		const auto pool = (VkCommandPool)ppAllocators[i]->GetNativeHandle();
+		assert(pool != VK_NULL_HANDLE);
+
+		VkCommandBufferAllocateInfo info = {};
+		info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		info.commandPool = pool;
+		info.level = level;
+		info.commandBufferCount = 1;
+
+		VkCommandBuffer buffer = VK_NULL_HANDLE;
+		XUSG_VK_CHECK(vkAllocateCommandBuffers(device, &info, &buffer), cerr, false);
+		m_poolBuffers[i] = { pool, buffer };
+		m_pDevice->SetDebugName(VK_OBJECT_TYPE_COMMAND_BUFFER, reinterpret_cast<uintptr_t>(buffer), name);
+	}
 	m_ownsCommandBuffer = true;
-	m_poolBuffers.push_back({ m_pool, m_commandBuffer });
-	m_pDevice->SetDebugName(VK_OBJECT_TYPE_COMMAND_BUFFER, reinterpret_cast<uintptr_t>(m_commandBuffer), name);
+	m_commandBuffer = m_poolBuffers[0].Buffer;
 
 	VkCommandBufferBeginInfo begin = {};
 	begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -314,32 +327,17 @@ bool CommandList_VK::Close() const
 	return true;
 }
 
-bool CommandList_VK::Reset(CommandAllocator* pAllocator, const Pipeline& initialState) const
+bool CommandList_VK::Reset(uint8_t allocatorIndex, const Pipeline& initialState) const
 {
 	endRendering();
 	m_deferredClears.clear();
 	endPredication();
 
-	const auto pool = pAllocator ? (VkCommandPool)pAllocator->GetNativeHandle() : VK_NULL_HANDLE;
-	if (pool != VK_NULL_HANDLE && pool != m_pool)
-	{
-		VkCommandBuffer buffer = VK_NULL_HANDLE;
-		for (const auto& entry : m_poolBuffers)
-			if (entry.Pool == pool) buffer = entry.Buffer;
-		if (buffer == VK_NULL_HANDLE)
-		{
-			VkCommandBufferAllocateInfo info = {};
-			info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-			info.commandPool = pool;
-			info.level = m_type == CommandListType::BUNDLE ? VK_COMMAND_BUFFER_LEVEL_SECONDARY : VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-			info.commandBufferCount = 1;
-			XUSG_VK_CHECK(vkAllocateCommandBuffers(m_pDevice->GetDevice(), &info, &buffer), cerr, false);
-			m_poolBuffers.push_back({ pool, buffer });
-		}
-		m_pool = pool;
-		m_commandBuffer = buffer;
-	}
-	XUSG_VK_CHECK(vkResetCommandBuffer(m_commandBuffer, 0), cerr, false);
+	// Like DX12, reset the allocator (vkResetCommandPool) each frame before this.
+	// Pool reset already returns every buffer to the initial state, so a second
+	// vkResetCommandBuffer here is redundant.
+	assert(allocatorIndex < m_poolBuffers.size());
+	m_commandBuffer = m_poolBuffers[allocatorIndex].Buffer;
 
 	VkCommandBufferBeginInfo begin = {};
 	begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -691,11 +689,8 @@ void CommandList_VK::SetPipelineState(const Pipeline& pipelineState) const
 void CommandList_VK::Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers) const
 {
 	if (!numBarriers) return;
-
-	if (m_renderingBegun) endRendering();
-	flushDeferredClears();
-	endPredication();
 	assert(pBarriers);
+	prepareBarriersOutsidePass(numBarriers, pBarriers);
 
 	// Buffer, UAV and aliasing barriers share one memory barrier. Image layout
 	// transitions stay on the image. Vulkan applies every barrier in one call
@@ -706,6 +701,7 @@ void CommandList_VK::Barrier(uint32_t numBarriers, const ResourceBarrier* pBarri
 	for (auto i = 0u; i < numBarriers; ++i)
 	{
 		const auto& barrier = pBarriers[i];
+		// DX12 split BEGIN has no VK layout equivalent; apply at END_ONLY instead.
 		if ((barrier.Flags & BarrierFlag::BEGIN_ONLY) == BarrierFlag::BEGIN_ONLY) continue;
 
 		const auto same = barrier.StateBefore == barrier.StateAfter;
@@ -817,14 +813,20 @@ void CommandList_VK::SetDescriptorHeaps(uint32_t numDescriptorHeaps, const Descr
 
 void CommandList_VK::SetComputePipelineLayout(const PipelineLayout& pipelineLayout) const
 {
-	m_computeLayout = static_cast<const PipelineLayoutObject*>(pipelineLayout);
+	const auto layout = static_cast<const PipelineLayoutObject*>(pipelineLayout);
+	if (layout == m_computeLayout) return;
+	m_computeLayout = layout;
 	m_computePushDirty = 0;
+	m_computePushResync = true;
 }
 
 void CommandList_VK::SetGraphicsPipelineLayout(const PipelineLayout& pipelineLayout) const
 {
-	m_graphicsLayout = static_cast<const PipelineLayoutObject*>(pipelineLayout);
+	const auto layout = static_cast<const PipelineLayoutObject*>(pipelineLayout);
+	if (layout == m_graphicsLayout) return;
+	m_graphicsLayout = layout;
 	m_graphicsPushDirty = 0;
+	m_graphicsPushResync = true;
 }
 
 void CommandList_VK::SetComputeDescriptorTable(uint32_t index, const DescriptorTable& descriptorTable) const
@@ -1236,10 +1238,9 @@ void CommandList_VK::DiscardResource(Resource* pResource, uint32_t numRects, con
 	pVkResource->Discard(firstSubresource, numSubresources);
 	if (imageBound(pVkResource->GetImage()))
 	{
+		// End the pass so the next Barrier/OMSet can apply UNDEFINED/DONT_CARE.
+		// Do not beginRendering here - that would restart the previous attachments.
 		endRendering();
-		beginRendering();
-
-		return;
 	}
 
 	for (auto i = 0u; i < m_colorCount; ++i)
@@ -1461,8 +1462,13 @@ void CommandList_VK::ExecuteIndirect(CommandLayout* pCommandlayout, uint32_t max
 
 void CommandList_VK::Create(void* pNativeHandle, Device* pDevice)
 {
-	if (m_ownsCommandBuffer && m_commandBuffer != VK_NULL_HANDLE && m_pDevice)
-		vkFreeCommandBuffers(m_pDevice->GetDevice(), m_pool, 1, &m_commandBuffer);
+	if (m_ownsCommandBuffer && m_pDevice)
+	{
+		const auto device = m_pDevice->GetDevice();
+		for (const auto& entry : m_poolBuffers)
+			if (entry.Buffer != VK_NULL_HANDLE) vkFreeCommandBuffers(device, entry.Pool, 1, &entry.Buffer);
+		m_poolBuffers.clear();
+	}
 	m_pDevice = AsVK(pDevice);
 	assert(m_pDevice);
 
@@ -1473,14 +1479,19 @@ void CommandList_VK::Create(void* pNativeHandle, Device* pDevice)
 void CommandList_VK::Attach(const CommandList_VK& source)
 {
 	const auto device = m_pDevice ? m_pDevice->GetDevice() : VK_NULL_HANDLE;
-	if (m_ownsCommandBuffer && m_commandBuffer != VK_NULL_HANDLE) vkFreeCommandBuffers(device, m_pool, 1, &m_commandBuffer);
+	if (m_ownsCommandBuffer)
+	{
+		for (const auto& entry : m_poolBuffers)
+			if (entry.Buffer != VK_NULL_HANDLE) vkFreeCommandBuffers(device, entry.Pool, 1, &entry.Buffer);
+		m_poolBuffers.clear();
+	}
 	if (m_preprocessBuffer != VK_NULL_HANDLE) vkDestroyBuffer(device, m_preprocessBuffer, nullptr);
 	if (m_preprocessMemory != VK_NULL_HANDLE) vkFreeMemory(device, m_preprocessMemory, nullptr);
 	if (m_nullXfb != VK_NULL_HANDLE) vkDestroyBuffer(device, m_nullXfb, nullptr);
 	if (m_nullXfbMemory != VK_NULL_HANDLE) vkFreeMemory(device, m_nullXfbMemory, nullptr);
 
-	m_pool = VK_NULL_HANDLE;
 	m_commandBuffer = source.m_commandBuffer;
+	m_poolBuffers = source.m_poolBuffers;
 	m_ownsCommandBuffer = false;
 	m_pDevice = source.m_pDevice;
 	m_type = source.m_type;
@@ -1597,6 +1608,10 @@ void CommandList_VK::resetState() const
 	m_samplerHeap = nullptr;
 	m_graphicsPushDirty = 0;
 	m_computePushDirty = 0;
+	m_graphicsPushResync = true;
+	m_computePushResync = true;
+	memset(m_graphicsPushData, 0, sizeof(m_graphicsPushData));
+	memset(m_computePushData, 0, sizeof(m_computePushData));
 	m_renderWidth = 1;
 	m_renderHeight = 1;
 	m_deferredClears.clear();
@@ -1726,6 +1741,12 @@ void CommandList_VK::beginRendering() const
 		depth.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	if (m_hasDepth && (m_depth.PendingClear & PENDING_CLEAR_STENCIL))
 		stencil.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	// Read-only DSV: keep LOAD for tests, skip STORE (avoids pointless depth write traffic).
+	if (m_hasDepth && m_depth.Rendering.imageLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL)
+	{
+		depth.storeOp = VK_ATTACHMENT_STORE_OP_NONE;
+		stencil.storeOp = VK_ATTACHMENT_STORE_OP_NONE;
+	}
 	if (m_hasDepth) m_depth.PendingClear = 0;
 	const auto splitStencil = m_hasDepth && m_depth.HasStencil && depth.loadOp != stencil.loadOp;
 
@@ -1945,6 +1966,9 @@ void CommandList_VK::writePush(bool graphics, uint32_t rootIndex, uint32_t offse
 	assert(offset + size <= MaxPushDataBytes);
 	auto* buffer = graphics ? m_graphicsPushData : m_computePushData;
 	auto& dirty = graphics ? m_graphicsPushDirty : m_computePushDirty;
+	const auto resync = graphics ? m_graphicsPushResync : m_computePushResync;
+	// Skip unchanged data only when the current layout still owns the GPU push state.
+	if (!resync && memcmp(buffer + offset, pData, size) == 0) return;
 	memcpy(buffer + offset, pData, size);
 	dirty |= 1ull << rootIndex;
 }
@@ -1952,6 +1976,7 @@ void CommandList_VK::writePush(bool graphics, uint32_t rootIndex, uint32_t offse
 void CommandList_VK::flushPush(bool graphics) const
 {
 	auto& dirty = graphics ? m_graphicsPushDirty : m_computePushDirty;
+	auto& resync = graphics ? m_graphicsPushResync : m_computePushResync;
 	if (!dirty) return;
 
 	const auto* layout = graphics ? m_graphicsLayout : m_computeLayout;
@@ -2002,6 +2027,7 @@ void CommandList_VK::flushPush(bool graphics) const
 		pushData(alignedBegin, buffer + alignedBegin, alignedEnd - alignedBegin);
 	}
 	dirty = 0;
+	resync = false;
 }
 
 void CommandList_VK::setDescriptorTable(const PipelineLayoutObject* pLayout, uint32_t index, uint32_t descriptorIndex) const
@@ -2187,6 +2213,17 @@ bool CommandList_VK::imageBound(VkImage image) const
 		if (m_colors[i].Resource && m_colors[i].Resource->GetImage() == image) return true;
 
 	return m_hasDepth && m_depth.Resource && m_depth.Resource->GetImage() == image;
+}
+
+void CommandList_VK::prepareBarriersOutsidePass(uint32_t numBarriers, const ResourceBarrier* pBarriers) const
+{
+	(void)numBarriers;
+	(void)pBarriers;
+	// Without dynamicRenderingLocalRead / shader_tile_image, vkCmdPipelineBarrier2
+	// (including image layout transitions) is illegal inside vkCmdBeginRendering.
+	if (m_renderingBegun) endRendering();
+	flushDeferredClears();
+	endPredication();
 }
 
 void CommandList_VK::clearDepth(const RenderAttachment& attachment, ClearFlag clearFlags, float depth, uint8_t stencil,
@@ -2453,6 +2490,7 @@ void CommandList_VK::submitClearBarrier(Resource_VK* pResource, uint32_t regionC
 
 	if (m_buffers.empty() && m_images.empty()) return;
 
+	if (m_renderingBegun) endRendering();
 	VkDependencyInfo dependency = {};
 	dependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
 	dependency.bufferMemoryBarrierCount = static_cast<uint32_t>(m_buffers.size());
@@ -2716,7 +2754,7 @@ bool CommandQueue_VK::Signal(Fence* pFence, uint64_t value) const
 {
 	assert(pFence);
 	const Semaphore signal = { pFence, value };
-	// Submit deferred lists, then flush pending blit+PresentKHR.
+	// Submit deferred lists, then flush pending PresentKHR.
 	XUSG_N_RETURN(flushDeferred(nullptr, 0, &signal, 1), false);
 	XUSG_N_RETURN(FlushQueuePendingPresent(m_queue), false);
 

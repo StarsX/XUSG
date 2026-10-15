@@ -119,7 +119,7 @@ bool XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::Cre
 }
 
 template<typename CoreList, typename UltimateList, typename RTList>
-bool XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::Reset(CommandAllocator* pAllocator, const Pipeline& initialState)
+bool XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::Reset(uint8_t allocatorIndex, const Pipeline& initialState)
 {
 	if (!m_scratches.empty())
 	{
@@ -130,7 +130,7 @@ bool XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::Res
 
 	m_uploaders.clear();
 
-	return XUSG::EZ::CommandList_Impl<CoreList>::Reset(pAllocator, initialState);
+	return XUSG::EZ::CommandList_Impl<CoreList>::Reset(allocatorIndex, initialState);
 }
 
 template<typename CoreList, typename UltimateList, typename RTList>

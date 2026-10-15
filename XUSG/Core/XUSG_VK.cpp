@@ -530,9 +530,9 @@ bool Device_VK::GetCommandAllocator(CommandAllocator* pCommandAllocator,
 }
 
 bool Device_VK::GetCommandList(CommandList* pCommandList, uint32_t nodeMask, CommandListType type,
-	CommandAllocator* pCommandAllocator, const Pipeline& pipeline, const wchar_t* name)
+	uint8_t numAllocators, CommandAllocator* const* ppAllocators, const Pipeline& pipeline, const wchar_t* name)
 {
-	return pCommandList->Create(this, nodeMask, type, pCommandAllocator, pipeline, name);
+	return pCommandList->Create(this, nodeMask, type, numAllocators, ppAllocators, pipeline, name);
 }
 
 bool Device_VK::GetFence(Fence* pFence, uint64_t initialValue, FenceFlag flags, const wchar_t* name)
@@ -2263,9 +2263,16 @@ bool Device_VK::createDevice()
 		HasExtension(exts, VK_KHR_RAY_TRACING_MAINTENANCE_1_EXTENSION_NAME);
 	const auto rayTracingPositionFetchExt = core11 &&
 		HasExtension(exts, VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME);
+	// VK_KHR_opacity_micromap requires VK_KHR_device_address_commands; that in turn
+	// needs copy_commands2 (core in 1.3), sync2, and buffer_device_address.
+	const auto deviceAddressCommandsExt =
+		HasExtension(exts, VK_KHR_DEVICE_ADDRESS_COMMANDS_EXTENSION_NAME);
+	const auto copyCommands2Ext = HasExtension(exts, VK_KHR_COPY_COMMANDS_2_EXTENSION_NAME);
+	const auto copyCommands2 = coreDynamicRendering || copyCommands2Ext;
 	const char* opacityMicromapExtName = nullptr;
 	auto opacityMicromapKhr = false;
-	if (core11 && HasExtension(exts, VK_KHR_OPACITY_MICROMAP_EXTENSION_NAME))
+	if (core11 && HasExtension(exts, VK_KHR_OPACITY_MICROMAP_EXTENSION_NAME) &&
+		deviceAddressCommandsExt && copyCommands2)
 	{
 		opacityMicromapExtName = VK_KHR_OPACITY_MICROMAP_EXTENSION_NAME;
 		opacityMicromapKhr = true;
@@ -2373,6 +2380,7 @@ bool Device_VK::createDevice()
 	VkPhysicalDeviceRayQueryFeaturesKHR rayQueryQuery = {};
 	VkPhysicalDeviceRayTracingMaintenance1FeaturesKHR rayTracingMaintenance1Query = {};
 	VkPhysicalDeviceRayTracingPositionFetchFeaturesKHR rayTracingPositionFetchQuery = {};
+	VkPhysicalDeviceDeviceAddressCommandsFeaturesKHR deviceAddressCommandsQuery = {};
 	VkPhysicalDeviceOpacityMicromapFeaturesKHR opacityMicromapQuery = {};
 	VkPhysicalDeviceOpacityMicromapFeaturesEXT opacityMicromapExtQuery = {};
 	VkPhysicalDeviceIndexTypeUint8Features indexTypeUint8Query = {};
@@ -2527,6 +2535,9 @@ bool Device_VK::createDevice()
 	}
 	if (opacityMicromapKhr)
 	{
+		deviceAddressCommandsQuery.sType =
+			VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_ADDRESS_COMMANDS_FEATURES_KHR;
+		linkQuery(deviceAddressCommandsQuery.pNext, &deviceAddressCommandsQuery);
 		opacityMicromapQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_OPACITY_MICROMAP_FEATURES_KHR;
 		linkQuery(opacityMicromapQuery.pNext, &opacityMicromapQuery);
 	}
@@ -2765,7 +2776,7 @@ bool Device_VK::createDevice()
 	{
 		m_uniformAndStorageBuffer16BitAccess = false;
 		m_storagePushConstant16 = false;
-		m_storageInputOutput16 = false;
+		// storageInputOutput16 is independent (dxc -enable-16bit-types declares it).
 	}
 	if (!m_storageBuffer8BitAccess)
 	{
@@ -2906,7 +2917,8 @@ bool Device_VK::createDevice()
 	{
 		if (opacityMicromapKhr)
 		{
-			m_micromap = opacityMicromapQuery.micromap == VK_TRUE;
+			m_micromap = opacityMicromapQuery.micromap == VK_TRUE &&
+				deviceAddressCommandsQuery.deviceAddressCommands == VK_TRUE;
 			m_micromapKhr = m_micromap;
 		}
 		else
@@ -2952,6 +2964,12 @@ bool Device_VK::createDevice()
 	if (m_rayTracingMaintenance1 || m_rayTracingPipelineTraceRaysIndirect2)
 		enabled.push_back(VK_KHR_RAY_TRACING_MAINTENANCE_1_EXTENSION_NAME);
 	if (m_rayTracingPositionFetch) enabled.push_back(VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME);
+	if (m_micromap && opacityMicromapKhr)
+	{
+		if (!coreDynamicRendering && copyCommands2Ext)
+			enabled.push_back(VK_KHR_COPY_COMMANDS_2_EXTENSION_NAME);
+		enabled.push_back(VK_KHR_DEVICE_ADDRESS_COMMANDS_EXTENSION_NAME);
+	}
 	if (m_micromap) enabled.push_back(opacityMicromapExtName);
 	if (m_indexTypeUint8) enabled.push_back(VK_KHR_INDEX_TYPE_UINT8_EXTENSION_NAME);
 	if (m_rayTracingInvocationReorder)
@@ -3074,7 +3092,8 @@ bool Device_VK::createDevice()
 	}
 
 	VkPhysicalDeviceVulkan11Features features11 = {};
-	if (instanceVersion >= VK_API_VERSION_1_1 && (storage16On || m_shaderDrawParameters))
+	if (instanceVersion >= VK_API_VERSION_1_1 &&
+		(storage16On || m_storageInputOutput16 || m_shaderDrawParameters))
 	{
 		features11.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
 		features11.pNext = enableBase;
@@ -3516,6 +3535,7 @@ bool Device_VK::createDevice()
 		featureChain = &rayTracingPositionFetchEnable;
 	}
 
+	VkPhysicalDeviceDeviceAddressCommandsFeaturesKHR deviceAddressCommandsEnable = {};
 	VkPhysicalDeviceOpacityMicromapFeaturesKHR opacityMicromapEnable = {};
 	VkPhysicalDeviceOpacityMicromapFeaturesEXT opacityMicromapExtEnable = {};
 	VkPhysicalDeviceIndexTypeUint8Features indexTypeUint8Enable = {};
@@ -3528,6 +3548,12 @@ bool Device_VK::createDevice()
 	}
 	if (m_micromap && opacityMicromapKhr)
 	{
+		deviceAddressCommandsEnable.sType =
+			VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_ADDRESS_COMMANDS_FEATURES_KHR;
+		deviceAddressCommandsEnable.pNext = featureChain;
+		deviceAddressCommandsEnable.deviceAddressCommands = VK_TRUE;
+		featureChain = &deviceAddressCommandsEnable;
+
 		opacityMicromapEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_OPACITY_MICROMAP_FEATURES_KHR;
 		opacityMicromapEnable.pNext = featureChain;
 		opacityMicromapEnable.micromap = VK_TRUE;
@@ -3810,6 +3836,30 @@ bool Device_VK::createDevice()
 			!m_ext.CmdBuildAccelerationStructures || !m_ext.CmdCopyAccelerationStructure ||
 			!m_ext.CmdWriteAccelerationStructuresProperties)
 			m_accelerationStructure = false;
+	}
+	m_ext.CreateMicromap = nullptr;
+	m_ext.DestroyMicromap = nullptr;
+	m_ext.GetMicromapBuildSizes = nullptr;
+	m_ext.CmdBuildMicromaps = nullptr;
+	m_ext.CmdCopyMicromap = nullptr;
+	m_ext.CmdWriteMicromapsProperties = nullptr;
+	if (m_micromap && !m_micromapKhr)
+	{
+		m_ext.CreateMicromap = reinterpret_cast<PFN_vkCreateMicromapEXT>(
+			vkGetDeviceProcAddr(m_device, "vkCreateMicromapEXT"));
+		m_ext.DestroyMicromap = reinterpret_cast<PFN_vkDestroyMicromapEXT>(
+			vkGetDeviceProcAddr(m_device, "vkDestroyMicromapEXT"));
+		m_ext.GetMicromapBuildSizes = reinterpret_cast<PFN_vkGetMicromapBuildSizesEXT>(
+			vkGetDeviceProcAddr(m_device, "vkGetMicromapBuildSizesEXT"));
+		m_ext.CmdBuildMicromaps = reinterpret_cast<PFN_vkCmdBuildMicromapsEXT>(
+			vkGetDeviceProcAddr(m_device, "vkCmdBuildMicromapsEXT"));
+		m_ext.CmdCopyMicromap = reinterpret_cast<PFN_vkCmdCopyMicromapEXT>(
+			vkGetDeviceProcAddr(m_device, "vkCmdCopyMicromapEXT"));
+		m_ext.CmdWriteMicromapsProperties = reinterpret_cast<PFN_vkCmdWriteMicromapsPropertiesEXT>(
+			vkGetDeviceProcAddr(m_device, "vkCmdWriteMicromapsPropertiesEXT"));
+		if (!m_ext.CreateMicromap || !m_ext.DestroyMicromap || !m_ext.GetMicromapBuildSizes ||
+			!m_ext.CmdBuildMicromaps || !m_ext.CmdCopyMicromap || !m_ext.CmdWriteMicromapsProperties)
+			m_micromap = false;
 	}
 	if (!m_accelerationStructure) m_rayTracingPipeline = false;
 	if (m_rayTracingPipeline)
@@ -4266,6 +4316,7 @@ SwapChain_VK::SwapChain_VK() :
 	m_imageIndex(0),
 	m_userIndex(0),
 	m_allowTearing(false),
+	m_useBlit(false),
 	m_acquired(false),
 	m_lastAcquireSemaphore(VK_NULL_HANDLE),
 	m_lastAcquireFence(VK_NULL_HANDLE),
@@ -4332,12 +4383,20 @@ bool SwapChain_VK::Present(uint8_t syncInterval, PresentFlag flags)
 	(void)syncInterval;
 	(void)flags;
 
-	// Queue blit+PresentKHR for Signal (vkd3d-style).
+	// Defer PresentKHR until Signal (coalesce with Execute).
 	QueuePendingPresent pending = {};
 	pending.SwapChain = this;
-	pending.UserIndex = m_userIndex;
+	if (m_useBlit)
+	{
+		pending.UserIndex = m_userIndex;
+		m_userIndex = (m_userIndex + 1) % (max)(static_cast<uint32_t>(m_bufferCount), 1u);
+	}
+	else
+	{
+		assert(m_acquired);
+		pending.UserIndex = m_imageIndex;
+	}
 	SetQueuePendingPresent(m_queue, pending);
-	m_userIndex = (m_userIndex + 1) % (max)(static_cast<uint32_t>(m_bufferCount), 1u);
 
 	return true;
 }
@@ -4356,10 +4415,18 @@ bool SwapChain_VK::PresentEx(uint8_t syncInterval, PresentFlag flags, uint32_t d
 bool SwapChain_VK::GetBuffer(uint8_t buffer, Resource* pResource) const
 {
 	assert(pResource);
-	assert(buffer < m_userImages.size());
 	const auto resource = AsVK(pResource);
 	assert(resource);
-	resource->WrapImage(m_pDevice->GetDevice(), m_userImages[buffer], m_format, m_width, m_height, false);
+	if (m_useBlit)
+	{
+		assert(buffer < m_userImages.size());
+		resource->WrapImage(m_pDevice->GetDevice(), m_userImages[buffer], m_format, m_width, m_height, false);
+	}
+	else
+	{
+		assert(buffer < m_images.size());
+		resource->WrapImage(m_pDevice->GetDevice(), m_images[buffer], m_format, m_width, m_height, true);
+	}
 
 	return true;
 }
@@ -4378,8 +4445,19 @@ uint32_t SwapChain_VK::ResizeBuffers(uint8_t bufferCount, uint32_t width, uint32
 
 uint8_t SwapChain_VK::GetCurrentBackBufferIndex() const
 {
-	// DXGI-style user backbuffer index (no WSI acquire).
-	return static_cast<uint8_t>(m_userIndex);
+	if (m_useBlit) return static_cast<uint8_t>(m_userIndex);
+
+	// DX12-style: acquire WSI image and fold acquire wait into the next queue submit.
+	// Only arm once per acquire - re-arming after TakeQueueAcquireWait reuses a
+	// binary semaphore/fence that was already waited/signaled (validation 03873/03868/04894).
+	const auto alreadyAcquired = m_acquired;
+	if (!acquire()) return static_cast<uint8_t>(m_imageIndex);
+	assert(m_imageIndex < m_releaseSemaphores.size());
+	if (!alreadyAcquired)
+		SetQueueAcquireWait(m_queue, m_lastAcquireSemaphore, m_lastAcquireFence,
+			m_releaseSemaphores[m_imageIndex]);
+
+	return static_cast<uint8_t>(m_imageIndex);
 }
 
 void SwapChain_VK::Create(uint64_t nativeHandle)
@@ -4399,9 +4477,15 @@ void* SwapChain_VK::GetBackend()
 
 VkImage SwapChain_VK::GetImage(uint8_t buffer) const
 {
-	assert(buffer < m_userImages.size());
+	if (m_useBlit)
+	{
+		assert(buffer < m_userImages.size());
 
-	return m_userImages[buffer];
+		return m_userImages[buffer];
+	}
+	assert(buffer < m_images.size());
+
+	return m_images[buffer];
 }
 
 VkFormat SwapChain_VK::GetVkFormat() const
@@ -4438,21 +4522,29 @@ bool SwapChain_VK::createSwapchain(uint8_t bufferCount, uint32_t width, uint32_t
 	VkSurfaceCapabilitiesKHR caps = {};
 	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical, m_surface, &caps);
 
+	// AMD: vkd3d-style user BB + blit (pacing). NVIDIA/others: render to WSI like DX12.
+	VkPhysicalDeviceProperties props = {};
+	vkGetPhysicalDeviceProperties(physical, &props);
+	m_useBlit = props.vendorID == 0x1002;
+
 	VkSwapchainCreateInfoKHR info = {};
 	info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 	info.surface = m_surface;
-	// Prefer at least 3 WSI images; they are only held briefly for blit.
-	info.minImageCount = (max)(3u, (max)(static_cast<uint32_t>(bufferCount), caps.minImageCount));
+	if (m_useBlit)
+		info.minImageCount = (max)(3u, (max)(static_cast<uint32_t>(bufferCount), caps.minImageCount));
+	else
+		info.minImageCount = (max)(static_cast<uint32_t>(bufferCount), caps.minImageCount);
 	if (caps.maxImageCount) info.minImageCount = (min)(info.minImageCount, caps.maxImageCount);
 	info.imageFormat = m_format;
 	info.imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
 	info.imageExtent = { width, height };
 	info.imageArrayLayers = 1;
-	info.imageUsage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	if (m_useBlit) info.imageUsage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	info.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
 	info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-	// Unlocked: IMMEDIATE over MAILBOX (blit owns pacing).
+	// Unlocked: prefer IMMEDIATE (then MAILBOX).
 	info.presentMode = VK_PRESENT_MODE_FIFO_KHR;
 	if (m_allowTearing)
 	{
@@ -4516,8 +4608,18 @@ bool SwapChain_VK::createSwapchain(uint8_t bufferCount, uint32_t width, uint32_t
 		XUSG_VK_CHECK(vkCreateSemaphore(device, &semInfo, nullptr, &semaphore), cerr, false);
 	}
 
-	XUSG_N_RETURN(createUserImages(), false);
-	XUSG_N_RETURN(createBlitResources(), false);
+	// App creates exactly m_bufferCount RTs; direct present needs a 1:1 WSI mapping.
+	if (!m_useBlit && imageCount != m_bufferCount) m_useBlit = true;
+	if (m_useBlit)
+	{
+		XUSG_N_RETURN(createUserImages(), false);
+		XUSG_N_RETURN(createBlitResources(), false);
+	}
+	else
+	{
+		destroyUserImages();
+		destroyBlitResources();
+	}
 
 	// The window is not shown yet when the swapchain is created from OnInit.
 	// Acquiring here blocks forever inside vkAcquireNextImageKHR.
@@ -4612,16 +4714,39 @@ bool SwapChain_VK::acquire() const
 	if (m_acquired) return true;
 	if (m_acquireSlots.empty()) return false;
 
-	auto& slot = m_acquireSlots[m_acquireSlot];
 	const auto device = m_pDevice->GetDevice();
-	if (slot.Submitted)
+	const auto count = static_cast<uint32_t>(m_acquireSlots.size());
+
+	// Prefer a slot that is free or whose submit fence already signaled so
+	// GetCurrentBackBufferIndex does not stall the CPU on a still-busy slot.
+	uint32_t chosen = UINT32_MAX;
+	for (uint32_t n = 0; n < count; ++n)
 	{
-		if (vkGetFenceStatus(device, slot.Fence) != VK_SUCCESS)
-			vkWaitForFences(device, 1, &slot.Fence, VK_TRUE, UINT64_MAX);
-		vkResetFences(device, 1, &slot.Fence);
-		slot.Submitted = false;
+		const auto i = (m_acquireSlot + n) % count;
+		auto& candidate = m_acquireSlots[i];
+		if (!candidate.Submitted)
+		{
+			chosen = i;
+			break;
+		}
+		if (vkGetFenceStatus(device, candidate.Fence) == VK_SUCCESS)
+		{
+			vkResetFences(device, 1, &candidate.Fence);
+			candidate.Submitted = false;
+			chosen = i;
+			break;
+		}
+	}
+	if (chosen == UINT32_MAX)
+	{
+		chosen = m_acquireSlot;
+		auto& busy = m_acquireSlots[chosen];
+		XUSG_VK_CHECK(vkWaitForFences(device, 1, &busy.Fence, VK_TRUE, UINT64_MAX), cerr, false);
+		vkResetFences(device, 1, &busy.Fence);
+		busy.Submitted = false;
 	}
 
+	auto& slot = m_acquireSlots[chosen];
 	uint32_t index = 0;
 	const auto result = vkAcquireNextImageKHR(device, m_swapChain, UINT64_MAX, slot.Semaphore, VK_NULL_HANDLE, &index);
 	if (result == VK_ERROR_OUT_OF_DATE_KHR) return false;
@@ -4635,14 +4760,40 @@ bool SwapChain_VK::acquire() const
 	slot.Submitted = true;
 	m_lastAcquireSemaphore = slot.Semaphore;
 	m_lastAcquireFence = slot.Fence;
-	m_acquireSlot = (m_acquireSlot + 1) % static_cast<uint32_t>(m_acquireSlots.size());
+	m_acquireSlot = (chosen + 1) % count;
 	m_imageIndex = index;
 	m_acquired = true;
 
 	return true;
 }
 
-bool SwapChain_VK::flushPresent(uint32_t userIndex)
+bool SwapChain_VK::flushPresent(uint32_t index)
+{
+	return m_useBlit ? flushPresentBlit(index) : flushPresentDirect(index);
+}
+
+bool SwapChain_VK::flushPresentDirect(uint32_t imageIndex)
+{
+	assert(imageIndex < m_images.size());
+	assert(imageIndex < m_releaseSemaphores.size());
+	m_imageIndex = imageIndex;
+
+	VkPresentInfoKHR present = {};
+	present.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	present.waitSemaphoreCount = 1;
+	present.pWaitSemaphores = &m_releaseSemaphores[m_imageIndex];
+	present.swapchainCount = 1;
+	present.pSwapchains = &m_swapChain;
+	present.pImageIndices = &m_imageIndex;
+	const auto result = vkQueuePresentKHR(m_queue, &present);
+	m_acquired = false;
+	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) return true;
+	XUSG_VK_CHECK(result, cerr, false);
+
+	return true;
+}
+
+bool SwapChain_VK::flushPresentBlit(uint32_t userIndex)
 {
 	assert(userIndex < m_userImages.size());
 	if (!acquire()) return false;

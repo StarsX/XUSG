@@ -34,6 +34,7 @@ namespace
 	vector<BufferSpan> g_buffers;
 	mutex g_asMutex;
 	vector<AccelerationStructureRecord> g_accelerationStructures;
+	vector<VkMicromapEXT> g_micromaps;
 
 	struct PackedGeometry
 	{
@@ -41,7 +42,10 @@ namespace
 		uint32_t PrimitiveCount;
 		uint32_t HasOpacityMicromap;
 		Format OpacityMicromapIndexFormat;
-		VkAccelerationStructureTrianglesOpacityMicromapKHR OpacityMicromap;
+		VkDeviceAddress OpacityMicromapIndexBuffer;
+		VkDeviceSize OpacityMicromapIndexStride;
+		uint32_t OpacityMicromapBaseTriangle;
+		uint64_t OpacityMicromap;
 	};
 
 	struct PackedOmmUsage
@@ -123,17 +127,20 @@ namespace
 		return VK_INDEX_TYPE_NONE_KHR;
 	}
 
-	bool RequireOpacityMicromapKhr(const XUSG::Device_VK* pDevice)
+	bool RequireOpacityMicromap(const XUSG::Device_VK* pDevice)
 	{
 		assert(pDevice);
 		if (!pDevice) return false;
-		if (pDevice->HasMicromap() && pDevice->HasOpacityMicromapKhr()) return true;
-		if (pDevice->HasMicromap())
-			assert(!"VK_EXT_opacity_micromap path not implemented; need VK_KHR_opacity_micromap");
-		else
-			assert(!"VK_KHR_opacity_micromap is not enabled");
+		if (pDevice->HasMicromap()) return true;
+
+		assert(!"Opacity micromap is not enabled");
 
 		return false;
+	}
+
+	bool OpacityMicromapUsesExt(const XUSG::Device_VK* pDevice)
+	{
+		return pDevice && pDevice->HasMicromap() && !pDevice->HasOpacityMicromapKhr();
 	}
 
 	VkBuildAccelerationStructureFlagsKHR OpacityMicromapBuildFlags(BuildFlag buildFlags)
@@ -149,6 +156,19 @@ namespace
 		return flags;
 	}
 
+	VkBuildMicromapFlagsEXT OpacityMicromapExtBuildFlags(BuildFlag buildFlags)
+	{
+		auto flags = VkBuildMicromapFlagsEXT(0);
+		if (static_cast<bool>(buildFlags & BuildFlag::ALLOW_COMPACTION))
+			flags |= VK_BUILD_MICROMAP_ALLOW_COMPACTION_BIT_EXT;
+		if (static_cast<bool>(buildFlags & BuildFlag::PREFER_FAST_TRACE))
+			flags |= VK_BUILD_MICROMAP_PREFER_FAST_TRACE_BIT_EXT;
+		if (static_cast<bool>(buildFlags & BuildFlag::PREFER_FAST_BUILD))
+			flags |= VK_BUILD_MICROMAP_PREFER_FAST_BUILD_BIT_EXT;
+
+		return flags;
+	}
+
 	void FillBuildRanges(BuildDesc_VK& desc)
 	{
 		desc.Ranges.resize(desc.PrimitiveCounts.size());
@@ -160,11 +180,12 @@ namespace
 		for (auto i = 0u; i < desc.Geometries.size(); ++i)
 		{
 			if (desc.Geometries[i].geometryType != VK_GEOMETRY_TYPE_TRIANGLES_KHR) continue;
-			if (i >= desc.OpacityMicromaps.size()) continue;
-			if (desc.OpacityMicromaps[i].sType != VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_TRIANGLES_OPACITY_MICROMAP_KHR)
-				continue;
-
-			desc.Geometries[i].geometry.triangles.pNext = &desc.OpacityMicromaps[i];
+			if (i < desc.OpacityMicromaps.size() &&
+				desc.OpacityMicromaps[i].sType == VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_TRIANGLES_OPACITY_MICROMAP_KHR)
+				desc.Geometries[i].geometry.triangles.pNext = &desc.OpacityMicromaps[i];
+			else if (i < desc.OpacityMicromapsExt.size() &&
+				desc.OpacityMicromapsExt[i].sType == VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_TRIANGLES_OPACITY_MICROMAP_EXT)
+				desc.Geometries[i].geometry.triangles.pNext = &desc.OpacityMicromapsExt[i];
 		}
 		if (desc.Type == VK_ACCELERATION_STRUCTURE_TYPE_OPACITY_MICROMAP_KHR && !desc.Geometries.empty())
 		{
@@ -252,6 +273,35 @@ VkAccelerationStructureKHR XUSG::RayTracing::FindVKAccelerationStructure(uint64_
 	return VK_NULL_HANDLE;
 }
 
+void XUSG::RayTracing::RegisterVKMicromap(VkMicromapEXT micromap)
+{
+	if (micromap == VK_NULL_HANDLE) return;
+
+	lock_guard<mutex> lock(g_asMutex);
+	for (const auto& record : g_micromaps)
+		if (record == micromap) return;
+
+	g_micromaps.push_back(micromap);
+}
+
+void XUSG::RayTracing::UnregisterVKMicromap(VkMicromapEXT micromap)
+{
+	if (micromap == VK_NULL_HANDLE) return;
+
+	lock_guard<mutex> lock(g_asMutex);
+	for (auto i = g_micromaps.size(); i-- > 0;)
+		if (g_micromaps[i] == micromap) g_micromaps.erase(g_micromaps.begin() + i);
+}
+
+VkMicromapEXT XUSG::RayTracing::FindVKMicromap(uint64_t value)
+{
+	lock_guard<mutex> lock(g_asMutex);
+	for (const auto micromap : g_micromaps)
+		if (reinterpret_cast<uint64_t>(micromap) == value) return micromap;
+
+	return VK_NULL_HANDLE;
+}
+
 //--------------------------------------------------------------------------------------
 // Acceleration structure
 //--------------------------------------------------------------------------------------
@@ -264,6 +314,7 @@ AccelerationStructure_VK::AccelerationStructure_VK() :
 {
 	m_buildDesc.Info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
 	m_buildDesc.AccelerationStructure = VK_NULL_HANDLE;
+	m_buildDesc.Micromap = VK_NULL_HANDLE;
 	m_buildDesc.Type = VK_ACCELERATION_STRUCTURE_TYPE_GENERIC_KHR;
 	m_buildDesc.Flags = 0;
 }
@@ -477,8 +528,11 @@ bool BottomLevelAS_VK::Prebuild(Device* pDevice, uint32_t numGeometries,
 	m_buildDesc.Geometries.resize(numGeometries);
 	m_buildDesc.PrimitiveCounts.resize(numGeometries);
 	m_buildDesc.OpacityMicromaps.assign(numGeometries, {});
+	m_buildDesc.OpacityMicromapsExt.assign(numGeometries, {});
 	m_buildDesc.Usages.clear();
 	m_buildDesc.MicromapData = {};
+	m_buildDesc.Micromap = VK_NULL_HANDLE;
+	const auto micromapExt = OpacityMicromapUsesExt(pVkDevice);
 	auto hasOpacityMicromap = false;
 	for (auto i = 0u; i < numGeometries; ++i)
 	{
@@ -490,13 +544,33 @@ bool BottomLevelAS_VK::Prebuild(Device* pDevice, uint32_t numGeometries,
 		if (!pPacked[i].HasOpacityMicromap) continue;
 
 		hasOpacityMicromap = true;
-		auto& opacityMicromap = m_buildDesc.OpacityMicromaps[i];
-		opacityMicromap = pPacked[i].OpacityMicromap;
-		opacityMicromap.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_TRIANGLES_OPACITY_MICROMAP_KHR;
-		opacityMicromap.pNext = nullptr;
-		opacityMicromap.indexType = OpacityMicromapIndexType(pPacked[i].OpacityMicromapIndexFormat, pVkDevice);
+		if (micromapExt)
+		{
+			auto& opacityMicromap = m_buildDesc.OpacityMicromapsExt[i];
+			opacityMicromap.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_TRIANGLES_OPACITY_MICROMAP_EXT;
+			opacityMicromap.pNext = nullptr;
+			opacityMicromap.indexType = OpacityMicromapIndexType(pPacked[i].OpacityMicromapIndexFormat, pVkDevice);
+			opacityMicromap.indexBuffer.deviceAddress = pPacked[i].OpacityMicromapIndexBuffer;
+			opacityMicromap.indexStride = pPacked[i].OpacityMicromapIndexStride;
+			opacityMicromap.baseTriangle = pPacked[i].OpacityMicromapBaseTriangle;
+			opacityMicromap.usageCountsCount = 0;
+			opacityMicromap.pUsageCounts = nullptr;
+			opacityMicromap.ppUsageCounts = nullptr;
+			opacityMicromap.micromap = reinterpret_cast<VkMicromapEXT>(pPacked[i].OpacityMicromap);
+		}
+		else
+		{
+			auto& opacityMicromap = m_buildDesc.OpacityMicromaps[i];
+			opacityMicromap.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_TRIANGLES_OPACITY_MICROMAP_KHR;
+			opacityMicromap.pNext = nullptr;
+			opacityMicromap.indexType = OpacityMicromapIndexType(pPacked[i].OpacityMicromapIndexFormat, pVkDevice);
+			opacityMicromap.indexBuffer = pPacked[i].OpacityMicromapIndexBuffer;
+			opacityMicromap.indexStride = pPacked[i].OpacityMicromapIndexStride;
+			opacityMicromap.baseTriangle = pPacked[i].OpacityMicromapBaseTriangle;
+			opacityMicromap.micromap = reinterpret_cast<VkAccelerationStructureKHR>(pPacked[i].OpacityMicromap);
+		}
 	}
-	if (hasOpacityMicromap && !RequireOpacityMicromapKhr(pVkDevice)) return false;
+	if (hasOpacityMicromap && !RequireOpacityMicromap(pVkDevice)) return false;
 
 	m_buildDesc.Type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
 	m_buildDesc.Flags = GetVKBuildFlags(flags);
@@ -597,22 +671,23 @@ void BottomLevelAS_VK::SetGeometries(GeometryBuffer& geometries, uint32_t numGeo
 				assert(linkage.pOpacityMicromapArray);
 				packed.HasOpacityMicromap = 1;
 				packed.OpacityMicromapIndexFormat = linkage.OpacityMicromapIndexFormat;
-				packed.OpacityMicromap.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_TRIANGLES_OPACITY_MICROMAP_KHR;
-				packed.OpacityMicromap.indexBuffer = linkage.OpacityMicromapIndexBufferStart;
-				packed.OpacityMicromap.indexStride = linkage.OpacityMicromapIndexBufferStride;
-				packed.OpacityMicromap.baseTriangle = linkage.OpacityMicromapBaseLocation;
+				packed.OpacityMicromapIndexBuffer = linkage.OpacityMicromapIndexBufferStart;
+				packed.OpacityMicromapIndexStride = linkage.OpacityMicromapIndexBufferStride;
+				packed.OpacityMicromapBaseTriangle = linkage.OpacityMicromapBaseLocation;
 				if (linkage.pOpacityMicromapArray)
 				{
-					const auto pArrayVK = dynamic_cast<const AccelerationStructure_VK*>(linkage.pOpacityMicromapArray);
+					const auto pArrayVK = dynamic_cast<const OpacityMicromapArray_VK*>(linkage.pOpacityMicromapArray);
 					assert(pArrayVK);
-					if (pArrayVK) packed.OpacityMicromap.micromap = pArrayVK->GetHandle();
-					if (packed.OpacityMicromap.micromap == VK_NULL_HANDLE)
+					if (pArrayVK && pArrayVK->GetMicromap() != VK_NULL_HANDLE)
+						packed.OpacityMicromap = reinterpret_cast<uint64_t>(pArrayVK->GetMicromap());
+					else if (pArrayVK) packed.OpacityMicromap = reinterpret_cast<uint64_t>(pArrayVK->GetHandle());
+					if (!packed.OpacityMicromap)
 					{
 						const auto address = linkage.pOpacityMicromapArray->GetVirtualAddress() + linkage.OpacityMicromapArrayOffset;
-						if (address) packed.OpacityMicromap.micromap = FindVKAccelerationStructure(address);
+						if (address) packed.OpacityMicromap = reinterpret_cast<uint64_t>(FindVKAccelerationStructure(address));
 					}
 				}
-				assert(packed.OpacityMicromap.micromap != VK_NULL_HANDLE);
+				assert(packed.OpacityMicromap);
 			}
 			break;
 		default:
@@ -775,19 +850,63 @@ size_t TopLevelAS_VK::AlignInstanceDesc(size_t byteSize)
 
 OpacityMicromapArray_VK::OpacityMicromapArray_VK() :
 	AccelerationStructure_VK(),
-	m_buildFlags(BuildFlag::NONE)
+	m_buildFlags(BuildFlag::NONE),
+	m_micromap(VK_NULL_HANDLE)
 {
 }
 
 OpacityMicromapArray_VK::~OpacityMicromapArray_VK()
 {
+	destroyMicromap();
+}
+
+bool OpacityMicromapArray_VK::createMicromap(VkDeviceSize size)
+{
+	destroyMicromap();
+	if (!m_pVkDevice || !m_resource || !size) return false;
+
+	const auto& ext = m_pVkDevice->GetExtProcs();
+	assert(ext.CreateMicromap);
+	XUSG_N_RETURN(ext.CreateMicromap, false);
+
+	VkMicromapCreateInfoEXT info = {};
+	info.sType = VK_STRUCTURE_TYPE_MICROMAP_CREATE_INFO_EXT;
+	info.buffer = reinterpret_cast<VkBuffer>(m_resource->GetNativeHandle());
+	info.offset = m_byteOffset;
+	info.size = size;
+	info.type = VK_MICROMAP_TYPE_OPACITY_MICROMAP_EXT;
+	XUSG_VK_CHECK(ext.CreateMicromap(m_pVkDevice->GetDevice(), &info, nullptr, &m_micromap), cerr, false);
+	m_buildDesc.Micromap = m_micromap;
+	RegisterVKMicromap(m_micromap);
+
+	return true;
+}
+
+void OpacityMicromapArray_VK::destroyMicromap()
+{
+	if (m_micromap == VK_NULL_HANDLE) return;
+
+	UnregisterVKMicromap(m_micromap);
+	if (m_pVkDevice)
+	{
+		const auto destroy = m_pVkDevice->GetExtProcs().DestroyMicromap;
+		if (destroy) destroy(m_pVkDevice->GetDevice(), m_micromap, nullptr);
+	}
+	m_micromap = VK_NULL_HANDLE;
+	m_buildDesc.Micromap = VK_NULL_HANDLE;
+}
+
+VkMicromapEXT OpacityMicromapArray_VK::GetMicromap() const
+{
+	return m_micromap;
 }
 
 bool OpacityMicromapArray_VK::Prebuild(Device* pDevice, uint32_t numOpacityMicromaps,
 	const GeometryBuffer& ommArrayDescs, BuildFlag flags)
 {
 	const auto pVkDevice = AsVK(pDevice);
-	if (!RequireOpacityMicromapKhr(pVkDevice)) return false;
+	m_pVkDevice = pVkDevice;
+	if (!RequireOpacityMicromap(pVkDevice)) return false;
 	assert(numOpacityMicromaps == 1);
 	if (numOpacityMicromaps != 1) return false;
 	assert(ommArrayDescs.size() >= sizeof(PackedOmmArray));
@@ -798,15 +917,46 @@ bool OpacityMicromapArray_VK::Prebuild(Device* pDevice, uint32_t numOpacityMicro
 	if (packed.UsageOffset + sizeof(PackedOmmUsage) * packed.NumUsages > ommArrayDescs.size()) return false;
 
 	m_buildFlags = flags;
-	m_buildDesc.Usages.resize(packed.NumUsages);
 	const auto pUsages = reinterpret_cast<const PackedOmmUsage*>(ommArrayDescs.data() + packed.UsageOffset);
-	auto triangleCount = 0u;
-	for (auto i = 0u; i < packed.NumUsages; ++i)
+	if (OpacityMicromapUsesExt(pVkDevice))
 	{
-		m_buildDesc.Usages[i].count = pUsages[i].Count;
-		m_buildDesc.Usages[i].subdivisionLevel = pUsages[i].SubdivisionLevel;
-		m_buildDesc.Usages[i].format = GetVKOpacityMicromapFormat(static_cast<OpacityMicromapFormat>(pUsages[i].Format));
-		triangleCount += pUsages[i].Count;
+		m_buildDesc.UsagesExt.resize(packed.NumUsages);
+		for (auto i = 0u; i < packed.NumUsages; ++i)
+		{
+			m_buildDesc.UsagesExt[i].count = pUsages[i].Count;
+			m_buildDesc.UsagesExt[i].subdivisionLevel = pUsages[i].SubdivisionLevel;
+			m_buildDesc.UsagesExt[i].format = static_cast<uint32_t>(GetVKOpacityMicromapFormat(
+				static_cast<OpacityMicromapFormat>(pUsages[i].Format)));
+		}
+
+		m_buildDesc.MicromapInfo = {};
+		m_buildDesc.MicromapInfo.sType = VK_STRUCTURE_TYPE_MICROMAP_BUILD_INFO_EXT;
+		m_buildDesc.MicromapInfo.type = VK_MICROMAP_TYPE_OPACITY_MICROMAP_EXT;
+		m_buildDesc.MicromapInfo.flags = OpacityMicromapExtBuildFlags(flags);
+		m_buildDesc.MicromapInfo.mode = VK_BUILD_MICROMAP_MODE_BUILD_EXT;
+		m_buildDesc.MicromapInfo.usageCountsCount = static_cast<uint32_t>(m_buildDesc.UsagesExt.size());
+		m_buildDesc.MicromapInfo.pUsageCounts = m_buildDesc.UsagesExt.empty() ? nullptr : m_buildDesc.UsagesExt.data();
+		m_buildDesc.MicromapInfo.ppUsageCounts = nullptr;
+		m_buildDesc.MicromapInfo.data.deviceAddress = packed.Input;
+		m_buildDesc.MicromapInfo.triangleArray.deviceAddress = packed.Triangles;
+		m_buildDesc.MicromapInfo.triangleArrayStride = packed.TriangleStride;
+		m_buildDesc.Type = VK_ACCELERATION_STRUCTURE_TYPE_GENERIC_KHR;
+		m_buildDesc.Geometries.clear();
+		m_buildDesc.PrimitiveCounts.clear();
+
+		const auto& ext = pVkDevice->GetExtProcs();
+		assert(ext.GetMicromapBuildSizes);
+		XUSG_N_RETURN(ext.GetMicromapBuildSizes, false);
+
+		VkMicromapBuildSizesInfoEXT sizes = {};
+		sizes.sType = VK_STRUCTURE_TYPE_MICROMAP_BUILD_SIZES_INFO_EXT;
+		ext.GetMicromapBuildSizes(pVkDevice->GetDevice(), VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+			&m_buildDesc.MicromapInfo, &sizes);
+		m_prebuildInfo.ResultDataMaxByteSize = sizes.micromapSize;
+		m_prebuildInfo.ScratchDataByteSize = sizes.buildScratchSize;
+		m_prebuildInfo.UpdateScratchDataByteSize = 0;
+
+		return m_prebuildInfo.ResultDataMaxByteSize;
 	}
 
 	m_buildDesc.MicromapData = {};
@@ -815,6 +965,17 @@ bool OpacityMicromapArray_VK::Prebuild(Device* pDevice, uint32_t numOpacityMicro
 	m_buildDesc.MicromapData.triangleArray = packed.Triangles;
 	m_buildDesc.MicromapData.triangleArrayStride = packed.TriangleStride;
 	m_buildDesc.OpacityMicromaps.clear();
+	m_buildDesc.Micromap = VK_NULL_HANDLE;
+
+	auto triangleCount = 0u;
+	m_buildDesc.Usages.resize(packed.NumUsages);
+	for (auto i = 0u; i < packed.NumUsages; ++i)
+	{
+		m_buildDesc.Usages[i].count = pUsages[i].Count;
+		m_buildDesc.Usages[i].subdivisionLevel = pUsages[i].SubdivisionLevel;
+		m_buildDesc.Usages[i].format = GetVKOpacityMicromapFormat(static_cast<OpacityMicromapFormat>(pUsages[i].Format));
+		triangleCount += pUsages[i].Count;
+	}
 
 	VkAccelerationStructureGeometryKHR geometry = {};
 	geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
@@ -835,34 +996,71 @@ bool OpacityMicromapArray_VK::Prebuild(Device* pDevice, uint32_t numOpacityMicro
 bool OpacityMicromapArray_VK::Allocate(Device* pDevice, DescriptorTableLib* pDescriptorTableLib,
 	size_t byteWidth, MemoryFlag memoryFlags, const wchar_t* name, uint32_t maxThreads)
 {
-	return allocate(pDevice, byteWidth, pDescriptorTableLib, 0, memoryFlags, name, maxThreads);
+	m_pVkDevice = AsVK(pDevice);
+	if (!OpacityMicromapUsesExt(m_pVkDevice))
+		return allocate(pDevice, byteWidth, pDescriptorTableLib, 0, memoryFlags, name, maxThreads);
+
+	(void)pDescriptorTableLib;
+	m_resource = Buffer::MakeShared();
+	byteWidth = byteWidth ? byteWidth : GetResultDataMaxByteSize(false);
+	XUSG_N_RETURN(AllocateDestBuffer(pDevice, m_resource.get(), byteWidth, 0,
+		nullptr, 1, nullptr, memoryFlags, name, maxThreads), false);
+	m_byteOffset = 0;
+
+	return createMicromap(byteWidth);
 }
 
 void OpacityMicromapArray_VK::SetDestination(Device* pDevice, const Buffer::sptr destBuffer, uintptr_t byteOffset)
 {
-	AccelerationStructure_VK::SetDestination(pDevice, destBuffer, byteOffset, 0, nullptr);
+	m_pVkDevice = AsVK(pDevice);
+	if (!OpacityMicromapUsesExt(m_pVkDevice))
+	{
+		AccelerationStructure_VK::SetDestination(pDevice, destBuffer, byteOffset, 0, nullptr);
+
+		return;
+	}
+
+	m_resource = destBuffer;
+	m_byteOffset = byteOffset;
+	auto byteSize = GetResultDataMaxByteSize(false);
+	if (!byteSize && m_resource && m_resource->GetWidth() > m_byteOffset)
+		byteSize = static_cast<size_t>(m_resource->GetWidth() - m_byteOffset);
+	createMicromap(byteSize);
 }
 
 void OpacityMicromapArray_VK::Build(CommandList* pCommandList, const Resource* pScratch, const OpacityMicromapArray* pSource,
 	uint8_t numPostbuildInfoDescs, const PostbuildInfoType* pPostbuildInfoTypes)
 {
-	if (!RequireOpacityMicromapKhr(m_pVkDevice)) return;
+	if (!RequireOpacityMicromap(m_pVkDevice)) return;
 
-	m_buildDesc.Info.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
-	m_buildDesc.Info.srcAccelerationStructure = VK_NULL_HANDLE;
 	if (pSource && static_cast<bool>(m_buildFlags & BuildFlag::ALLOW_OMM_UPDATE))
 	{
 		static auto asserted = false;
 		if (!asserted)
 		{
 			asserted = true;
-			assert(!"VK_KHR_opacity_micromap does not allow opacity micromap updates");
+			assert(!"Opacity micromap updates are not supported");
 		}
 	}
 
-	m_buildDesc.Info.dstAccelerationStructure = GetHandle();
-	m_buildDesc.Info.scratchData.deviceAddress = pScratch ? pScratch->GetVirtualAddress() : 0;
-	FillBuildRanges(m_buildDesc);
+	if (OpacityMicromapUsesExt(m_pVkDevice))
+	{
+		m_buildDesc.Micromap = m_micromap;
+		m_buildDesc.MicromapInfo.mode = VK_BUILD_MICROMAP_MODE_BUILD_EXT;
+		m_buildDesc.MicromapInfo.dstMicromap = m_micromap;
+		m_buildDesc.MicromapInfo.usageCountsCount = static_cast<uint32_t>(m_buildDesc.UsagesExt.size());
+		m_buildDesc.MicromapInfo.pUsageCounts = m_buildDesc.UsagesExt.empty() ? nullptr : m_buildDesc.UsagesExt.data();
+		m_buildDesc.MicromapInfo.ppUsageCounts = nullptr;
+		m_buildDesc.MicromapInfo.scratchData.deviceAddress = pScratch ? pScratch->GetVirtualAddress() : 0;
+	}
+	else
+	{
+		m_buildDesc.Info.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+		m_buildDesc.Info.srcAccelerationStructure = VK_NULL_HANDLE;
+		m_buildDesc.Info.dstAccelerationStructure = GetHandle();
+		m_buildDesc.Info.scratchData.deviceAddress = pScratch ? pScratch->GetVirtualAddress() : 0;
+		FillBuildRanges(m_buildDesc);
+	}
 
 	if (numPostbuildInfoDescs)
 	{
@@ -936,9 +1134,6 @@ void OpacityMicromapArray_VK::SetOmmDescs(Device* pDevice, Buffer* pOmmDescsBuff
 	const OpacityMicromapDesc* pOmmDescs, MemoryFlag memoryFlags, const wchar_t* ommName)
 {
 	assert(numOmmDescs == 0 || pOmmDescs);
-	const auto pVkDevice = AsVK(pDevice);
-	if (pVkDevice && pVkDevice->HasMicromap() && !pVkDevice->HasOpacityMicromapKhr())
-		assert(!"VK_EXT_opacity_micromap path not implemented; need VK_KHR_opacity_micromap");
 
 	vector<VkMicromapTriangleKHR> ommDescs(numOmmDescs);
 	for (auto i = 0u; i < numOmmDescs; ++i)

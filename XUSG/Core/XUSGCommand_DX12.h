@@ -38,12 +38,10 @@ namespace XUSG
 		CommandList_DX12();
 		~CommandList_DX12();
 
-		bool Create(Device* pDevice, uint32_t nodeMask, CommandListType type,
-			CommandAllocator* pAllocator, const Pipeline& pipeline,
-			const wchar_t* name = nullptr);
+		bool Create(Device* pDevice, uint32_t nodeMask, CommandListType type, uint8_t numAllocators,
+			CommandAllocator* const* ppAllocators, const Pipeline& pipeline, const wchar_t* name = nullptr);
 		bool Close() const;
-		bool Reset(CommandAllocator* pAllocator,
-			const Pipeline& initialState) const;
+		bool Reset(uint8_t allocatorIndex, const Pipeline& initialState) const;
 
 		void ClearState(const Pipeline& initialState) const;
 		void Draw(
@@ -155,6 +153,8 @@ namespace XUSG
 		com_ptr<ID3D12DescriptorHeap>		m_rtvHeap;
 		com_ptr<ID3D12DescriptorHeap>		m_dsvHeap;
 		com_ptr<ID3D12DescriptorHeap>		m_uavHeap;
+
+		mutable std::vector<ID3D12CommandAllocator*> m_commandAllocators;
 
 		Device* m_pDevice;
 
