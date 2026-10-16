@@ -10,14 +10,28 @@ using namespace XUSG::Ultimate;
 
 namespace
 {
-	VkPipelineStageFlags2 BarrierStage(BarrierSync sync)
+	void AddMeshAndRayStages(const XUSG::Device_VK* pDevice, VkPipelineStageFlags2& stage, bool mesh, bool rayShader)
+	{
+		if (mesh && pDevice && pDevice->HasMeshShader())
+		{
+			stage |= VK_PIPELINE_STAGE_2_MESH_SHADER_BIT_EXT;
+			if (pDevice->HasTaskShader()) stage |= VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT;
+		}
+		if (rayShader && pDevice && pDevice->HasRayTracingPipeline())
+			stage |= VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR;
+	}
+
+	VkPipelineStageFlags2 BarrierStage(const XUSG::Device_VK* pDevice, BarrierSync sync)
 	{
 		VkPipelineStageFlags2 stage = VK_PIPELINE_STAGE_2_NONE;
 		if ((sync & BarrierSync::ALL) == BarrierSync::ALL) return VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
 		if ((sync & BarrierSync::DRAW) == BarrierSync::DRAW)
+		{
 			stage |= VK_PIPELINE_STAGE_2_VERTEX_INPUT_BIT | VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT |
-			VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT |
-			VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+				VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT |
+				VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+			AddMeshAndRayStages(pDevice, stage, true, false);
+		}
 		if ((sync & BarrierSync::INDEX_INPUT) == BarrierSync::INDEX_INPUT) stage |= VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT;
 		if ((sync & BarrierSync::VERTEX_SHADING) == BarrierSync::VERTEX_SHADING) stage |= VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
 		if ((sync & BarrierSync::PIXEL_SHADING) == BarrierSync::PIXEL_SHADING) stage |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
@@ -25,15 +39,23 @@ namespace
 			stage |= VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
 		if ((sync & BarrierSync::RENDER_TARGET) == BarrierSync::RENDER_TARGET) stage |= VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
 		if ((sync & BarrierSync::COMPUTE_SHADING) == BarrierSync::COMPUTE_SHADING) stage |= VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+		if ((sync & BarrierSync::RAYTRACING) == BarrierSync::RAYTRACING)
+			AddMeshAndRayStages(pDevice, stage, false, true);
 		if ((sync & BarrierSync::COPY) == BarrierSync::COPY) stage |= VK_PIPELINE_STAGE_2_COPY_BIT;
 		if ((sync & BarrierSync::RESOLVE) == BarrierSync::RESOLVE) stage |= VK_PIPELINE_STAGE_2_RESOLVE_BIT;
 		if ((sync & BarrierSync::EXECUTE_INDIRECT) == BarrierSync::EXECUTE_INDIRECT) stage |= VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT;
 		if ((sync & BarrierSync::ALL_SHADING) == BarrierSync::ALL_SHADING)
+		{
 			stage |= VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+			AddMeshAndRayStages(pDevice, stage, true, true);
+		}
 		if ((sync & BarrierSync::NON_PIXEL_SHADING) == BarrierSync::NON_PIXEL_SHADING)
+		{
 			stage |= VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_2_GEOMETRY_SHADER_BIT |
-			VK_PIPELINE_STAGE_2_TESSELLATION_CONTROL_SHADER_BIT | VK_PIPELINE_STAGE_2_TESSELLATION_EVALUATION_SHADER_BIT |
-			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+				VK_PIPELINE_STAGE_2_TESSELLATION_CONTROL_SHADER_BIT | VK_PIPELINE_STAGE_2_TESSELLATION_EVALUATION_SHADER_BIT |
+				VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+			AddMeshAndRayStages(pDevice, stage, true, true);
+		}
 		if ((sync & BarrierSync::CLEAR_UNORDERED_ACCESS_VIEW) == BarrierSync::CLEAR_UNORDERED_ACCESS_VIEW)
 			stage |= VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
 
@@ -456,8 +478,8 @@ void CommandList_VK::ResolveSubresourceRegion(Resource* pDstResource, uint32_t d
 		region.extent.height = (max)(pSrc->GetHeight() >> region.srcSubresource.mipLevel, 1u);
 	}
 
-	vkCmdResolveImage(m_commandBuffer, pSrc->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-		pDst->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+	vkCmdResolveImage(m_commandBuffer, pSrc->GetImage(), pSrc->ImageLayout(ResourceState::RESOLVE_SOURCE),
+		pDst->GetImage(), pDst->ImageLayout(ResourceState::RESOLVE_DEST), 1, &region);
 	(void)format;
 }
 
@@ -553,7 +575,7 @@ const void* CommandList_VK::renderingPNext() const
 	m_shadingRateInfo.sType = VK_STRUCTURE_TYPE_RENDERING_FRAGMENT_SHADING_RATE_ATTACHMENT_INFO_KHR;
 	m_shadingRateInfo.pNext = nullptr;
 	m_shadingRateInfo.imageView = m_shadingRate.View;
-	m_shadingRateInfo.imageLayout = VK_IMAGE_LAYOUT_FRAGMENT_SHADING_RATE_ATTACHMENT_OPTIMAL_KHR;
+	m_shadingRateInfo.imageLayout = m_pDevice->PreferredImageLayout(VK_IMAGE_LAYOUT_FRAGMENT_SHADING_RATE_ATTACHMENT_OPTIMAL_KHR);
 
 	return &m_shadingRateInfo;
 }
@@ -614,9 +636,9 @@ void CommandList_VK::addBarrier(const ResourceBarrier& barrier, VkMemoryBarrier2
 {
 	if (!barrier.pResource)
 	{
-		memory.srcStageMask |= BarrierStage(barrier.SyncBefore);
+		memory.srcStageMask |= BarrierStage(m_pDevice, barrier.SyncBefore);
 		memory.srcAccessMask |= BarrierAccessFlags(barrier.AccessBefore);
-		memory.dstStageMask |= BarrierStage(barrier.SyncAfter);
+		memory.dstStageMask |= BarrierStage(m_pDevice, barrier.SyncAfter);
 		memory.dstAccessMask |= BarrierAccessFlags(barrier.AccessAfter);
 
 		return;
@@ -628,9 +650,9 @@ void CommandList_VK::addBarrier(const ResourceBarrier& barrier, VkMemoryBarrier2
 	{
 		VkBufferMemoryBarrier2 buffer = {};
 		buffer.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
-		buffer.srcStageMask = BarrierStage(barrier.SyncBefore);
+		buffer.srcStageMask = BarrierStage(m_pDevice, barrier.SyncBefore);
 		buffer.srcAccessMask = BarrierAccessFlags(barrier.AccessBefore);
-		buffer.dstStageMask = BarrierStage(barrier.SyncAfter);
+		buffer.dstStageMask = BarrierStage(m_pDevice, barrier.SyncAfter);
 		buffer.dstAccessMask = BarrierAccessFlags(barrier.AccessAfter);
 		buffer.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 		buffer.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
@@ -644,9 +666,9 @@ void CommandList_VK::addBarrier(const ResourceBarrier& barrier, VkMemoryBarrier2
 
 	VkImageMemoryBarrier2 image = {};
 	image.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
-	image.srcStageMask = BarrierStage(barrier.SyncBefore);
+	image.srcStageMask = BarrierStage(m_pDevice, barrier.SyncBefore);
 	image.srcAccessMask = BarrierAccessFlags(barrier.AccessBefore);
-	image.dstStageMask = BarrierStage(barrier.SyncAfter);
+	image.dstStageMask = BarrierStage(m_pDevice, barrier.SyncAfter);
 	image.dstAccessMask = BarrierAccessFlags(barrier.AccessAfter);
 	image.oldLayout = XUSG::GetVKBarrierLayout(barrier.LayoutBefore);
 	image.newLayout = XUSG::GetVKBarrierLayout(barrier.LayoutAfter);
@@ -662,6 +684,8 @@ void CommandList_VK::addBarrier(const ResourceBarrier& barrier, VkMemoryBarrier2
 		image.newLayout = pResource->IsPresentable() ?
 			VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : pResource->GetCommonLayout();
 	}
+	image.oldLayout = m_pDevice->PreferredImageLayout(image.oldLayout);
+	image.newLayout = m_pDevice->PreferredImageLayout(image.newLayout);
 	image.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	image.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	image.image = pResource->GetImage();
@@ -797,7 +821,7 @@ void CommandList_VK::resolveMinMax(Resource* pDstResource, uint32_t dstSubresour
 		VkAccessFlags2 DstAccess;
 	};
 
-	const auto passLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	const auto passLayout = m_pDevice->PreferredImageLayout(VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 	const auto dsStage = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
 	const auto dsAccess = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 	const auto srcState = pSrc->GetResourceState(srcSubresource);
@@ -805,9 +829,9 @@ void CommandList_VK::resolveMinMax(Resource* pDstResource, uint32_t dstSubresour
 	LayoutPass passes[2] =
 	{
 		{ pSrc, srcMip, srcLayer, srcAspect, pSrc->ImageLayout(srcState), passLayout,
-			GetVKStage(srcState), GetVKAccess(srcState), dsStage, dsAccess },
+			GetVKStage(m_pDevice, srcState), GetVKAccess(srcState), dsStage, dsAccess },
 		{ pDst, dstMip, dstLayer, dstAspect, pDst->ImageLayout(dstState), passLayout,
-			GetVKStage(dstState), GetVKAccess(dstState), dsStage, dsAccess }
+			GetVKStage(m_pDevice, dstState), GetVKAccess(dstState), dsStage, dsAccess }
 	};
 
 	auto transition = [&]()
@@ -872,7 +896,7 @@ void CommandList_VK::resolveMinMax(Resource* pDstResource, uint32_t dstSubresour
 	{
 		passes[i].SrcStage = dsStage;
 		passes[i].SrcAccess = dsAccess;
-		passes[i].DstStage = i == 0 ? GetVKStage(srcState) : GetVKStage(dstState);
+		passes[i].DstStage = i == 0 ? GetVKStage(m_pDevice, srcState) : GetVKStage(m_pDevice, dstState);
 		passes[i].DstAccess = i == 0 ? GetVKAccess(srcState) : GetVKAccess(dstState);
 		passes[i].OldLayout = passLayout;
 		passes[i].NewLayout = i == 0 ? pSrc->ImageLayout(srcState) : pDst->ImageLayout(dstState);

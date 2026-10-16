@@ -13,6 +13,24 @@
 #include <vulkan/vulkan.h>
 #include <mutex>
 
+// Optional until the installed SDK headers include VK_KHR_unified_image_layouts.
+// Extension number 528, structure-type offset 0.
+#ifndef VK_KHR_unified_image_layouts
+#define VK_KHR_unified_image_layouts 1
+#define VK_KHR_UNIFIED_IMAGE_LAYOUTS_SPEC_VERSION 1
+#define VK_KHR_UNIFIED_IMAGE_LAYOUTS_EXTENSION_NAME "VK_KHR_unified_image_layouts"
+typedef struct VkPhysicalDeviceUnifiedImageLayoutsFeaturesKHR
+{
+	VkStructureType sType;
+	void* pNext;
+	VkBool32 unifiedImageLayouts;
+	VkBool32 unifiedImageLayoutsVideo;
+} VkPhysicalDeviceUnifiedImageLayoutsFeaturesKHR;
+#endif
+#ifndef VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_UNIFIED_IMAGE_LAYOUTS_FEATURES_KHR
+#define VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_UNIFIED_IMAGE_LAYOUTS_FEATURES_KHR static_cast<VkStructureType>(1000527000)
+#endif
+
 #define XUSG_VK_CHECK(x, o, r)	{ const auto vr = (x); if (vr < 0) { o << "VkResult " << vr << std::endl; assert(vr >= 0); return r; } }
 
 #if defined(WIN32) || defined(_WIN32)
@@ -346,6 +364,9 @@ namespace XUSG
 		VkSubgroupFeatureFlags SubgroupOperations() const;
 		bool SubgroupQuadOperationsInAllStages() const;
 		bool HasMeshShader() const;
+		bool HasTaskShader() const;
+		bool HasUnifiedImageLayouts() const;
+		VkImageLayout PreferredImageLayout(VkImageLayout layout) const;
 		bool HasFragmentShadingRate() const;
 		bool HasConditionalRendering() const;
 		bool HasTransformFeedback() const;
@@ -536,6 +557,8 @@ namespace XUSG
 		VkSubgroupFeatureFlags m_subgroupOperations;
 		bool				m_subgroupQuadOperationsInAllStages;
 		bool				m_meshShader;
+		bool				m_taskShader;
+		bool				m_unifiedImageLayouts;
 		bool				m_fragmentShadingRate;
 		bool				m_conditionalRendering;
 		bool				m_transformFeedback;

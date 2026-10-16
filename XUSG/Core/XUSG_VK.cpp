@@ -465,6 +465,8 @@ Device_VK::Device_VK() :
 	m_subgroupOperations(0),
 	m_subgroupQuadOperationsInAllStages(false),
 	m_meshShader(false),
+	m_taskShader(false),
+	m_unifiedImageLayouts(false),
 	m_fragmentShadingRate(false),
 	m_conditionalRendering(false),
 	m_transformFeedback(false),
@@ -1474,6 +1476,34 @@ bool Device_VK::HasMeshShader() const
 	return m_meshShader;
 }
 
+bool Device_VK::HasTaskShader() const
+{
+	return m_taskShader;
+}
+
+bool Device_VK::HasUnifiedImageLayouts() const
+{
+	return m_unifiedImageLayouts;
+}
+
+VkImageLayout Device_VK::PreferredImageLayout(VkImageLayout layout) const
+{
+	// GENERAL is as efficient as the specific layouts, so state changes do not
+	// change layout. UNDEFINED discards contents. PRESENT stays a present layout.
+	if (!m_unifiedImageLayouts) return layout;
+
+	switch (layout)
+	{
+	case VK_IMAGE_LAYOUT_UNDEFINED:
+	case VK_IMAGE_LAYOUT_PREINITIALIZED:
+	case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
+	case VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR:
+		return layout;
+	default:
+		return VK_IMAGE_LAYOUT_GENERAL;
+	}
+}
+
 bool Device_VK::HasFragmentShadingRate() const
 {
 	return m_fragmentShadingRate;
@@ -1918,6 +1948,8 @@ bool Device_VK::createDevice()
 
 	// Ultimate extensions. A missing extension leaves the feature off.
 	m_meshShader = HasExtension(exts, VK_EXT_MESH_SHADER_EXTENSION_NAME);
+	// Forced off. GENERAL is still uncompressed on current drivers, so optimal layouts are faster.
+	m_unifiedImageLayouts = false;
 	m_fragmentShadingRate = HasExtension(exts, VK_KHR_FRAGMENT_SHADING_RATE_EXTENSION_NAME);
 	m_sampleLocations = HasExtension(exts, VK_EXT_SAMPLE_LOCATIONS_EXTENSION_NAME) &&
 		(coreDynamicRendering || HasExtension(exts, VK_EXT_EXTENDED_DYNAMIC_STATE_2_EXTENSION_NAME)) &&
@@ -2008,6 +2040,8 @@ bool Device_VK::createDevice()
 	dynamicRenderingQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
 	VkPhysicalDeviceSynchronization2Features sync2Query = {};
 	sync2Query.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
+	VkPhysicalDeviceUnifiedImageLayoutsFeaturesKHR unifiedQuery = {};
+	unifiedQuery.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_UNIFIED_IMAGE_LAYOUTS_FEATURES_KHR;
 
 	void* queryHead = queryTail;
 	if (m_sampleLocations)
@@ -2039,6 +2073,11 @@ bool Device_VK::createDevice()
 			sync2Query.pNext = queryHead;
 			queryHead = &sync2Query;
 		}
+	}
+	if (m_unifiedImageLayouts)
+	{
+		unifiedQuery.pNext = queryHead;
+		queryHead = &unifiedQuery;
 	}
 
 	VkPhysicalDeviceFeatures2 features = {};
@@ -2073,6 +2112,7 @@ bool Device_VK::createDevice()
 	m_geometryStreams = m_transformFeedback && xfbQuery.geometryStreams == VK_TRUE;
 	if (m_meshShader && !meshQuery.meshShader) m_meshShader = false;
 	meshTask = m_meshShader && meshQuery.taskShader == VK_TRUE;
+	m_taskShader = meshTask;
 	if (m_fragmentShadingRate && !fsrQuery.pipelineFragmentShadingRate) m_fragmentShadingRate = false;
 	fsrPrimitive = m_fragmentShadingRate && fsrQuery.primitiveFragmentShadingRate == VK_TRUE;
 	fsrAttachment = m_fragmentShadingRate && fsrQuery.attachmentFragmentShadingRate == VK_TRUE;
@@ -2080,6 +2120,8 @@ bool Device_VK::createDevice()
 		m_customBorderColor = false;
 	if (m_sampleLocations && !dynamicState3.extendedDynamicState3SampleLocationsEnable) m_sampleLocations = false;
 	if (m_customBorderColor) enabled.push_back(VK_EXT_CUSTOM_BORDER_COLOR_EXTENSION_NAME);
+	if (m_unifiedImageLayouts && !unifiedQuery.unifiedImageLayouts) m_unifiedImageLayouts = false;
+	if (m_unifiedImageLayouts) enabled.push_back(VK_KHR_UNIFIED_IMAGE_LAYOUTS_EXTENSION_NAME);
 	if (m_meshShader) enabled.push_back(VK_EXT_MESH_SHADER_EXTENSION_NAME);
 	if (m_fragmentShadingRate) enabled.push_back(VK_KHR_FRAGMENT_SHADING_RATE_EXTENSION_NAME);
 	if (m_sampleLocations)
@@ -3145,6 +3187,15 @@ bool Device_VK::createDevice()
 		}
 		else dynamicStateEnable.pNext = &dynamicRendering;
 		featureChain = &dynamicStateEnable;
+	}
+
+	VkPhysicalDeviceUnifiedImageLayoutsFeaturesKHR unified = {};
+	if (m_unifiedImageLayouts)
+	{
+		unified.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_UNIFIED_IMAGE_LAYOUTS_FEATURES_KHR;
+		unified.pNext = featureChain;
+		unified.unifiedImageLayouts = VK_TRUE;
+		featureChain = &unified;
 	}
 
 	VkPhysicalDeviceMeshShaderFeaturesEXT mesh = {};
@@ -4811,13 +4862,16 @@ bool SwapChain_VK::flushPresentBlit(uint32_t userIndex)
 	XUSG_VK_CHECK(vkBeginCommandBuffer(blitCb, &begin), cerr, false);
 
 	// vkd3d blit path: UNDEFINED->DST + COLOR->SRC, BlitImage, DST->PRESENT + SRC->COLOR.
+	const auto dstLayout = m_pDevice->PreferredImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	const auto srcLayout = m_pDevice->PreferredImageLayout(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+	const auto colorLayout = m_pDevice->PreferredImageLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 	VkImageMemoryBarrier2 barriers[2] = {};
 	barriers[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
 	barriers[0].srcStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT;
 	barriers[0].dstStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT;
 	barriers[0].dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
 	barriers[0].oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	barriers[0].newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	barriers[0].newLayout = dstLayout;
 	barriers[0].image = m_images[m_imageIndex];
 	barriers[0].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	barriers[0].subresourceRange.levelCount = 1;
@@ -4827,8 +4881,8 @@ bool SwapChain_VK::flushPresentBlit(uint32_t userIndex)
 	barriers[1].srcStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT;
 	barriers[1].dstStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT;
 	barriers[1].dstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
-	barriers[1].oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	barriers[1].newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+	barriers[1].oldLayout = colorLayout;
+	barriers[1].newLayout = srcLayout;
 	barriers[1].image = m_userImages[userIndex];
 	barriers[1].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	barriers[1].subresourceRange.levelCount = 1;
@@ -4846,22 +4900,22 @@ bool SwapChain_VK::flushPresentBlit(uint32_t userIndex)
 	blit.dstSubresource = blit.srcSubresource;
 	blit.srcOffsets[1] = { static_cast<int32_t>(m_width), static_cast<int32_t>(m_height), 1 };
 	blit.dstOffsets[1] = blit.srcOffsets[1];
-	vkCmdBlitImage(blitCb, m_userImages[userIndex], VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-		m_images[m_imageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_NEAREST);
+	vkCmdBlitImage(blitCb, m_userImages[userIndex], srcLayout,
+		m_images[m_imageIndex], dstLayout, 1, &blit, VK_FILTER_NEAREST);
 
 	barriers[0].srcStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT;
 	barriers[0].srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
 	barriers[0].dstStageMask = VK_PIPELINE_STAGE_2_NONE;
 	barriers[0].dstAccessMask = VK_ACCESS_2_NONE;
-	barriers[0].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	barriers[0].oldLayout = dstLayout;
 	barriers[0].newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
 	barriers[1].srcStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT;
 	barriers[1].srcAccessMask = VK_ACCESS_2_NONE;
 	barriers[1].dstStageMask = VK_PIPELINE_STAGE_2_NONE;
 	barriers[1].dstAccessMask = VK_ACCESS_2_NONE;
-	barriers[1].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-	barriers[1].newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	barriers[1].oldLayout = srcLayout;
+	barriers[1].newLayout = colorLayout;
 	vkCmdPipelineBarrier2(blitCb, &dep);
 	XUSG_VK_CHECK(vkEndCommandBuffer(blitCb), cerr, false);
 

@@ -19,7 +19,7 @@ namespace XUSG
 	VkBufferUsageFlags GetVKBufferUsage(ResourceFlag flags);
 	VkImageAspectFlags GetVKImageAspect(Format format);
 
-	VkPipelineStageFlags2 GetVKStage(ResourceState state);
+	VkPipelineStageFlags2 GetVKStage(const Device_VK* pDevice, ResourceState state);
 	VkAccessFlags2 GetVKAccess(ResourceState state);
 
 	VkPrimitiveTopology GetVKPrimitiveTopology(PrimitiveTopology topology);

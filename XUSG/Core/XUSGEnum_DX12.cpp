@@ -756,6 +756,9 @@ D3D12_RESOURCE_STATES XUSG::GetDX12ResourceState(ResourceState resourceState)
 
 D3D12_RESOURCE_STATES XUSG::GetDX12ResourceStates(ResourceState resourceStates)
 {
+	// Composite writes / write|read are invalid (UAV stays UAV-only).
+	AssertResourceStateWriteExclusive(resourceStates);
+
 	auto states = D3D12_RESOURCE_STATE_COMMON;
 	states |= APPEND_RESOURCE_STATE(resourceStates, VERTEX_AND_CONSTANT_BUFFER);
 	states |= APPEND_RESOURCE_STATE(resourceStates, INDEX_BUFFER);

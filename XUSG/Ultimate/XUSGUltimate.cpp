@@ -284,7 +284,10 @@ void Ultimate::MapBarrierState(BarrierSync& barrierSync, BarrierAccess& barrierA
 		barrierAccess = BarrierAccess::RENDER_TARGET;
 		return;
 	case ResourceState::UNORDERED_ACCESS:
-		barrierSync = BarrierSync::ALL_SHADING;
+		barrierSync = BarrierSync::ALL_SHADING |
+			BarrierSync::BUILD_RAYTRACING_ACCELERATION_STRUCTURE |
+			BarrierSync::COPY_RAYTRACING_ACCELERATION_STRUCTURE |
+			BarrierSync::EMIT_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO;
 		barrierAccess = BarrierAccess::UNORDERED_ACCESS;
 		return;
 	case ResourceState::STREAM_OUT:
@@ -300,10 +303,7 @@ void Ultimate::MapBarrierState(BarrierSync& barrierSync, BarrierAccess& barrierA
 		barrierAccess = BarrierAccess::RESOLVE_DEST;
 		return;
 	case ResourceState::RAYTRACING_ACCELERATION_STRUCTURE:
-		barrierSync = BarrierSync::ALL_SHADING |
-			BarrierSync::BUILD_RAYTRACING_ACCELERATION_STRUCTURE |
-			BarrierSync::COPY_RAYTRACING_ACCELERATION_STRUCTURE |
-			BarrierSync::EMIT_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO;
+		barrierSync = BarrierSync::RAYTRACING;
 		barrierAccess = BarrierAccess::RAYTRACING_ACCELERATION_STRUCTURE;
 		return;
 	}
@@ -316,8 +316,9 @@ void Ultimate::MapBarrierState(BarrierSync& barrierSync, BarrierAccess& barrierA
 		barrierSync |= BarrierSync::ALL_SHADING;
 	else if ((resourceState & ResourceState::NON_PIXEL_SHADER_RESOURCE) == ResourceState::NON_PIXEL_SHADER_RESOURCE)
 		barrierSync |= BarrierSync::NON_PIXEL_SHADING;
-	else if ((resourceState & ResourceState::PIXEL_SHADER_RESOURCE) == ResourceState::PIXEL_SHADER_RESOURCE ||
-		(resourceState & ResourceState::SHADING_RATE_SOURCE) == ResourceState::SHADING_RATE_SOURCE)
+	else if ((resourceState & ResourceState::PIXEL_SHADER_RESOURCE) == ResourceState::PIXEL_SHADER_RESOURCE)
+		barrierSync |= BarrierSync::PIXEL_SHADING;
+	if ((resourceState & ResourceState::SHADING_RATE_SOURCE) == ResourceState::SHADING_RATE_SOURCE)
 		barrierSync |= BarrierSync::PIXEL_SHADING;
 
 	if ((resourceState & ResourceState::VERTEX_AND_CONSTANT_BUFFER) == ResourceState::VERTEX_AND_CONSTANT_BUFFER)
@@ -382,7 +383,10 @@ void Ultimate::MapBarrierState(BarrierSync& barrierSync, BarrierAccess& barrierA
 		barrierLayout = BarrierLayout::RENDER_TARGET;
 		return;
 	case ResourceState::UNORDERED_ACCESS:
-		barrierSync = BarrierSync::ALL_SHADING;
+		barrierSync = BarrierSync::ALL_SHADING |
+			BarrierSync::BUILD_RAYTRACING_ACCELERATION_STRUCTURE |
+			BarrierSync::COPY_RAYTRACING_ACCELERATION_STRUCTURE |
+			BarrierSync::EMIT_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO;
 		barrierAccess = BarrierAccess::UNORDERED_ACCESS;
 		barrierLayout = BarrierLayout::UNORDERED_ACCESS;
 		return;
@@ -432,15 +436,12 @@ void Ultimate::MapBarrierState(BarrierSync& barrierSync, BarrierAccess& barrierA
 		barrierLayout = BarrierLayout::RESOLVE_SOURCE;
 		return;
 	case ResourceState::RAYTRACING_ACCELERATION_STRUCTURE:
-		barrierSync = BarrierSync::ALL_SHADING |
-			BarrierSync::BUILD_RAYTRACING_ACCELERATION_STRUCTURE |
-			BarrierSync::COPY_RAYTRACING_ACCELERATION_STRUCTURE |
-			BarrierSync::EMIT_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO;
+		barrierSync = BarrierSync::RAYTRACING;
 		barrierAccess = BarrierAccess::RAYTRACING_ACCELERATION_STRUCTURE;
 		barrierLayout = BarrierLayout::UNDEFINED;
 		return;
 	case ResourceState::SHADING_RATE_SOURCE:
-		barrierSync = BarrierSync::ALL_SHADING;
+		barrierSync = BarrierSync::PIXEL_SHADING;
 		barrierAccess = BarrierAccess::SHADING_RATE_SOURCE;
 		barrierLayout = BarrierLayout::SHADING_RATE_SOURCE;
 		return;
@@ -455,8 +456,9 @@ void Ultimate::MapBarrierState(BarrierSync& barrierSync, BarrierAccess& barrierA
 		barrierSync |= BarrierSync::ALL_SHADING;
 	else if ((resourceState & ResourceState::NON_PIXEL_SHADER_RESOURCE) == ResourceState::NON_PIXEL_SHADER_RESOURCE)
 		barrierSync |= BarrierSync::NON_PIXEL_SHADING;
-	else if ((resourceState & ResourceState::PIXEL_SHADER_RESOURCE) == ResourceState::PIXEL_SHADER_RESOURCE ||
-		(resourceState & ResourceState::SHADING_RATE_SOURCE) == ResourceState::SHADING_RATE_SOURCE)
+	else if ((resourceState & ResourceState::PIXEL_SHADER_RESOURCE) == ResourceState::PIXEL_SHADER_RESOURCE)
+		barrierSync |= BarrierSync::PIXEL_SHADING;
+	if ((resourceState & ResourceState::SHADING_RATE_SOURCE) == ResourceState::SHADING_RATE_SOURCE)
 		barrierSync |= BarrierSync::PIXEL_SHADING;
 
 	if ((resourceState & ResourceState::VERTEX_AND_CONSTANT_BUFFER) == ResourceState::VERTEX_AND_CONSTANT_BUFFER)
@@ -532,7 +534,10 @@ Ultimate::BarrierSync Ultimate::GetBarrierSync(ResourceState resourceState)
 	case ResourceState::RENDER_TARGET:
 		return BarrierSync::RENDER_TARGET;
 	case ResourceState::UNORDERED_ACCESS:
-		return BarrierSync::ALL_SHADING;
+		return BarrierSync::ALL_SHADING |
+			BarrierSync::BUILD_RAYTRACING_ACCELERATION_STRUCTURE |
+			BarrierSync::COPY_RAYTRACING_ACCELERATION_STRUCTURE |
+			BarrierSync::EMIT_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO;
 	case ResourceState::STREAM_OUT:
 		return BarrierSync::VERTEX_SHADING;
 	case ResourceState::COPY_DEST:
@@ -540,10 +545,7 @@ Ultimate::BarrierSync Ultimate::GetBarrierSync(ResourceState resourceState)
 	case ResourceState::RESOLVE_DEST:
 		return BarrierSync::RESOLVE;
 	case ResourceState::RAYTRACING_ACCELERATION_STRUCTURE:
-		return BarrierSync::ALL_SHADING |
-			BarrierSync::BUILD_RAYTRACING_ACCELERATION_STRUCTURE |
-			BarrierSync::COPY_RAYTRACING_ACCELERATION_STRUCTURE |
-			BarrierSync::EMIT_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO;
+		return BarrierSync::RAYTRACING;
 	}
 
 	auto barrierSync = BarrierSync::NONE;
@@ -553,8 +555,9 @@ Ultimate::BarrierSync Ultimate::GetBarrierSync(ResourceState resourceState)
 		barrierSync |= BarrierSync::ALL_SHADING;
 	else if ((resourceState & ResourceState::NON_PIXEL_SHADER_RESOURCE) == ResourceState::NON_PIXEL_SHADER_RESOURCE)
 		barrierSync |= BarrierSync::NON_PIXEL_SHADING;
-	else if ((resourceState & ResourceState::PIXEL_SHADER_RESOURCE) == ResourceState::PIXEL_SHADER_RESOURCE ||
-		(resourceState & ResourceState::SHADING_RATE_SOURCE) == ResourceState::SHADING_RATE_SOURCE)
+	else if ((resourceState & ResourceState::PIXEL_SHADER_RESOURCE) == ResourceState::PIXEL_SHADER_RESOURCE)
+		barrierSync |= BarrierSync::PIXEL_SHADING;
+	if ((resourceState & ResourceState::SHADING_RATE_SOURCE) == ResourceState::SHADING_RATE_SOURCE)
 		barrierSync |= BarrierSync::PIXEL_SHADING;
 
 	if ((resourceState & ResourceState::INDEX_BUFFER) == ResourceState::INDEX_BUFFER)

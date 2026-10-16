@@ -1287,6 +1287,8 @@ uint32_t Texture_DX12::GenerateMips(const CommandList* pCommandList, ResourceBar
 	if (!numSlices) numSlices = GetArraySize() - baseSlice;
 	if (!numMips) numMips = GetNumMips() - baseMip;
 
+	// Chain samples the previous mip in CS; keep intermediate barriers to NPSR only.
+	const auto sampleState = ResourceState::NON_PIXEL_SHADER_RESOURCE;
 	for (uint8_t i = 0; i < numMips; ++i)
 	{
 		const uint8_t j = baseMip + i;
@@ -1303,8 +1305,8 @@ uint32_t Texture_DX12::GenerateMips(const CommandList* pCommandList, ResourceBar
 			}
 
 			subresource = CalculateSubresource(j - 1, n);
-			if ((m_states[threadIdx][subresource] & dstState) != dstState)
-				numBarriers = SetBarrier(pBarriers, dstState, numBarriers, subresource,
+			if ((m_states[threadIdx][subresource] & sampleState) != sampleState)
+				numBarriers = SetBarrier(pBarriers, sampleState, numBarriers, subresource,
 					BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
 		}
 
@@ -1900,6 +1902,9 @@ uint32_t RenderTarget_DX12::GenerateMips(const CommandList* pCommandList, Resour
 	if (!numSlices) numSlices = desc.DepthOrArraySize - baseSlice;
 	if (!numMips) numMips = desc.MipLevels - baseMip;
 
+	// Chain samples the previous mip in PS; keep intermediate barriers to PSR only.
+	// Final mip uses caller dstState (may include NPSR / ASR).
+	const auto sampleState = ResourceState::PIXEL_SHADER_RESOURCE;
 	for (uint8_t i = 0; i < numMips; ++i)
 	{
 		const uint8_t j = baseMip + i;
@@ -1912,8 +1917,8 @@ uint32_t RenderTarget_DX12::GenerateMips(const CommandList* pCommandList, Resour
 				numBarriers, n, BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
 
 			const auto subresource = D3D12CalcSubresource(j - 1, n, 0, desc.MipLevels, desc.DepthOrArraySize);
-			if ((m_states[threadIdx][subresource] & dstState) != dstState)
-				numBarriers = SetBarrier(pBarriers, dstState, numBarriers, subresource,
+			if ((m_states[threadIdx][subresource] & sampleState) != sampleState)
+				numBarriers = SetBarrier(pBarriers, sampleState, numBarriers, subresource,
 					BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
 		}
 

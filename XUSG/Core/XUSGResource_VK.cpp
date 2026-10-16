@@ -764,7 +764,9 @@ void Resource_VK::WrapImage(VkDevice device, VkImage image, VkFormat format, uin
 	m_mipLevels = 1;
 	m_presentable = presentable;
 	// Non-WSI images use COLOR_ATTACHMENT as COMMON (vkd3d user backbuffer).
-	if (!presentable) m_commonLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	if (!presentable)
+		m_commonLayout = m_pDevice ? m_pDevice->PreferredImageLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) :
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	setState(ResourceState::COMMON, 1, 1);
 }
 
@@ -780,7 +782,7 @@ VkImageLayout Resource_VK::ImageLayout(ResourceState state) const
 		return m_isImage ? m_commonLayout : VK_IMAGE_LAYOUT_GENERAL;
 	}
 
-	const auto layout = GetVKImageLayout(state);
+	auto layout = GetVKImageLayout(state);
 	if (layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
 	{
 		switch (m_vkFormat)
@@ -790,13 +792,14 @@ VkImageLayout Resource_VK::ImageLayout(ResourceState state) const
 		case VK_FORMAT_D24_UNORM_S8_UINT:
 		case VK_FORMAT_D32_SFLOAT:
 		case VK_FORMAT_D32_SFLOAT_S8_UINT:
-			return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+			layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+			break;
 		default:
 			break;
 		}
 	}
 
-	return layout;
+	return m_pDevice ? m_pDevice->PreferredImageLayout(layout) : layout;
 }
 
 uint64_t Resource_VK::GetByteSize() const
@@ -1132,6 +1135,7 @@ bool Resource_VK::createImage(Heap* pHeap, uint64_t heapOffset, uint32_t width, 
 	else if ((resourceFlags & ResourceFlag::ALLOW_DEPTH_STENCIL) != ResourceFlag::NONE)
 		m_commonLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 	else m_commonLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	m_commonLayout = m_pDevice->PreferredImageLayout(m_commonLayout);
 	if (reserved)
 	{
 		const auto sparseImage = m_pDevice && m_pDevice->SupportsSparseImage(is3D, m_sampleCount);
@@ -2355,6 +2359,8 @@ uint32_t Texture_VK::GenerateMips(const CommandList* pCommandList, ResourceBarri
 	if (!numSlices) numSlices = GetArraySize() - baseSlice;
 	if (!numMips) numMips = GetNumMips() - baseMip;
 
+	// Chain samples the previous mip in CS; keep intermediate barriers to NPSR only.
+	const auto sampleState = ResourceState::NON_PIXEL_SHADER_RESOURCE;
 	for (uint8_t i = 0; i < numMips; ++i)
 	{
 		const uint8_t j = baseMip + i;
@@ -2368,8 +2374,8 @@ uint32_t Texture_VK::GenerateMips(const CommandList* pCommandList, ResourceBarri
 				m_states[threadIdx][subresource] = ResourceState::UNORDERED_ACCESS;
 			}
 			subresource = CalculateSubresource(j - 1, n);
-			if ((m_states[threadIdx][subresource] & dstState) != dstState)
-				numBarriers = SetBarrier(pBarriers, dstState, numBarriers, subresource, BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
+			if ((m_states[threadIdx][subresource] & sampleState) != sampleState)
+				numBarriers = SetBarrier(pBarriers, sampleState, numBarriers, subresource, BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
 		}
 		pCommandList->Barrier(numBarriers, pBarriers);
 		numBarriers = 0;
@@ -2551,6 +2557,7 @@ void Texture_VK::fillImageView(ResourceView_VK& view, VkImageViewType viewType, 
 	view.ViewInfo.subresourceRange.levelCount = mipCount ? mipCount : 1;
 	view.ViewInfo.subresourceRange.baseArrayLayer = baseLayer;
 	view.ViewInfo.subresourceRange.layerCount = layerCount ? layerCount : 1;
+	layout = m_pDevice ? m_pDevice->PreferredImageLayout(layout) : layout;
 	view.Layout = layout;
 	view.VkType = type;
 	view.IsImage = true;
@@ -2574,6 +2581,7 @@ void Texture_VK::fillImageView(ResourceView_VK& view, VkImageViewType viewType, 
 	target.Subresource = subresourceIndex(baseMip, baseLayer);
 	target.HasStencil = format == VK_FORMAT_D24_UNORM_S8_UINT || format == VK_FORMAT_D32_SFLOAT_S8_UINT ||
 		format == VK_FORMAT_D16_UNORM_S8_UINT;
+	target.ReadOnly = 0;
 }
 
 //--------------------------------------------------------------------------------------
@@ -2792,6 +2800,9 @@ uint32_t RenderTarget_VK::GenerateMips(const CommandList* pCommandList, Resource
 			XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
 	if (!numSlices) numSlices = static_cast<uint16_t>(m_depthOrArray - baseSlice);
 	if (!numMips) numMips = static_cast<uint8_t>(m_mipLevels - baseMip);
+	// Chain samples the previous mip in PS; keep intermediate barriers to PSR only.
+	// Final mip uses caller dstState (may include NPSR / ASR).
+	const auto sampleState = ResourceState::PIXEL_SHADER_RESOURCE;
 	for (uint8_t i = 0; i < numMips; ++i)
 	{
 		const uint8_t j = baseMip + i;
@@ -2803,7 +2814,7 @@ uint32_t RenderTarget_VK::GenerateMips(const CommandList* pCommandList, Resource
 				CalculateSubresource(j, n), 1);
 			numBarriers = SetBarrier(pBarriers, j, ResourceState::RENDER_TARGET, numBarriers, n,
 				BarrierFlag::NONE, ResourceState::AUTO, 0, threadIdx);
-			numBarriers = SetBarrier(pBarriers, static_cast<uint8_t>(j - 1), dstState, numBarriers, n,
+			numBarriers = SetBarrier(pBarriers, static_cast<uint8_t>(j - 1), sampleState, numBarriers, n,
 				BarrierFlag::NONE, ResourceState::AUTO, 0, threadIdx);
 		}
 		else for (uint16_t k = 0; k < numSlices; ++k)
@@ -3023,6 +3034,7 @@ Descriptor DepthStencil_VK::CreateDSV(uint16_t arraySize, uint16_t firstArraySli
 		GetVKImageAspect(format == Format::UNKNOWN ? m_format : format), XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 		readOnlyDepth ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
 		VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
+	view->Target.ReadOnly = readOnlyDepth ? 1 : 0;
 
 	return view.get();
 }

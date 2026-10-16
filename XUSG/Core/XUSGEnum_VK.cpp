@@ -333,8 +333,10 @@ VkImageLayout XUSG::GetVKImageLayout(ResourceState state)
 	//if (state == ResourceState::COMMON || state == ResourceState::PRESENT) return VK_IMAGE_LAYOUT_GENERAL;
 	if (state == ResourceState::COMMON) return VK_IMAGE_LAYOUT_GENERAL;
 
-	// DX12 allows combined states (e.g. COPY_SOURCE | PIXEL_SHADER_RESOURCE). Vulkan needs one
-	// layout; exclusive intents use the optimal layout, multi-use falls back to GENERAL.
+	// Combined reads need one VK layout (optimal if exclusive, else GENERAL).
+	// Composite writes / write|read are invalid - assert only, no handling.
+	AssertResourceStateWriteExclusive(state);
+
 	const auto color = (state & ResourceState::RENDER_TARGET) != ResourceState::COMMON;
 	const auto depthWrite = (state & ResourceState::DEPTH_WRITE) != ResourceState::COMMON;
 	const auto depthRead = (state & ResourceState::DEPTH_READ) != ResourceState::COMMON;
@@ -346,18 +348,18 @@ VkImageLayout XUSG::GetVKImageLayout(ResourceState state)
 
 	if (color && !depthWrite && !depthRead && !uav && !copyDst && !copySrc && !srv && !shadingRate)
 		return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	if (depthWrite && !color && !uav && !copyDst && !copySrc && !srv && !shadingRate)
+	if (depthWrite && !depthRead && !color && !uav && !copyDst && !copySrc && !srv && !shadingRate)
 		return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 	// DEPTH_READ | PSR is valid as depth-stencil read-only (sample + test).
 	if (depthRead && !depthWrite && !color && !uav && !copyDst && !copySrc && !shadingRate)
 		return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 	if (uav && !color && !depthWrite && !depthRead && !copyDst && !copySrc && !srv && !shadingRate)
 		return VK_IMAGE_LAYOUT_GENERAL;
-	if (copyDst && !color && !depthWrite && !depthRead && !uav && !copySrc && !shadingRate)
+	// Transfer alone uses optimal layouts. Transfer | SRV has no shared optimal layout
+	// (TRANSFER_* cannot be sampled); fall through to GENERAL for the combo.
+	if (copyDst && !srv && !color && !depthWrite && !depthRead && !uav && !copySrc && !shadingRate)
 		return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-	// COPY_SOURCE (| PSR): prefer TRANSFER_SRC so vkCmdCopyImage stays optimal.
-	// App state may still include PSR for DX12-style tracking / descriptor rules.
-	if (copySrc && !color && !depthWrite && !depthRead && !uav && !copyDst && !shadingRate)
+	if (copySrc && !srv && !color && !depthWrite && !depthRead && !uav && !copyDst && !shadingRate)
 		return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 	if (srv && !color && !depthWrite && !depthRead && !uav && !copyDst && !copySrc && !shadingRate)
 		return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -482,7 +484,7 @@ VkImageAspectFlags XUSG::GetVKImageAspect(Format format)
 	}
 }
 
-VkPipelineStageFlags2 XUSG::GetVKStage(ResourceState state)
+VkPipelineStageFlags2 XUSG::GetVKStage(const Device_VK* pDevice, ResourceState state)
 {
 	VkPipelineStageFlags2 stage = VK_PIPELINE_STAGE_2_NONE;
 	if (state == ResourceState::COMMON) return VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
@@ -495,9 +497,19 @@ VkPipelineStageFlags2 XUSG::GetVKStage(ResourceState state)
 	if ((state & (ResourceState::DEPTH_WRITE | ResourceState::DEPTH_READ)) != ResourceState::COMMON)
 		stage |= VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
 	if ((state & ResourceState::NON_PIXEL_SHADER_RESOURCE) != ResourceState::COMMON)
+	{
 		stage |= VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT |
-		VK_PIPELINE_STAGE_2_GEOMETRY_SHADER_BIT | VK_PIPELINE_STAGE_2_TESSELLATION_CONTROL_SHADER_BIT |
-		VK_PIPELINE_STAGE_2_TESSELLATION_EVALUATION_SHADER_BIT;
+			VK_PIPELINE_STAGE_2_GEOMETRY_SHADER_BIT | VK_PIPELINE_STAGE_2_TESSELLATION_CONTROL_SHADER_BIT |
+			VK_PIPELINE_STAGE_2_TESSELLATION_EVALUATION_SHADER_BIT;
+		// Stage bits are valid only when the device feature was enabled.
+		if (pDevice && pDevice->HasMeshShader())
+		{
+			stage |= VK_PIPELINE_STAGE_2_MESH_SHADER_BIT_EXT;
+			if (pDevice->HasTaskShader()) stage |= VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT;
+		}
+		if (pDevice && pDevice->HasRayTracingPipeline())
+			stage |= VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR;
+	}
 	// PIXEL_SHADER_RESOURCE maps only to fragment shading (not ALL_GRAPHICS / ALL_COMMANDS).
 	if ((state & ResourceState::PIXEL_SHADER_RESOURCE) != ResourceState::COMMON)
 		stage |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;

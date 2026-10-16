@@ -158,6 +158,7 @@ namespace XUSG
 			uint32_t Subresource;
 			uint8_t SingleSubresource;
 			uint8_t HasStencil;
+			uint8_t ReadOnly;
 			uint8_t PendingClear;
 		};
 

@@ -42,6 +42,20 @@ namespace
 		return aspect;
 	}
 
+	bool SubmitsBarrier(const ResourceBarrier& barrier)
+	{
+		// DX12 split BEGIN has no VK layout. Same state is dropped, except UAV.
+		if ((barrier.Flags & BarrierFlag::BEGIN_ONLY) == BarrierFlag::BEGIN_ONLY) return false;
+		if (barrier.StateBefore == barrier.StateAfter)
+			return barrier.StateAfter == ResourceState::UNORDERED_ACCESS;
+		if (!barrier.pResource) return true;
+
+		const auto pResource = AsVK(barrier.pResource);
+		if (!pResource || !pResource->IsImage() || barrier.StateBefore != ResourceState::COMMON) return true;
+
+		return pResource->ImageLayout(barrier.StateBefore) != pResource->ImageLayout(barrier.StateAfter);
+	}
+
 	VkExtent3D MipExtent(const Resource_VK* pResource, uint32_t mip, uint32_t depth)
 	{
 		VkExtent3D extent = {};
@@ -435,8 +449,8 @@ void CommandList_VK::CopyTextureRegion(const TextureCopyLocation& dst, uint32_t 
 		region.dstSubresource.layerCount = 1;
 		region.dstOffset = { static_cast<int32_t>(dstX), static_cast<int32_t>(dstY), static_cast<int32_t>(dstZ) };
 		region.extent = extent;
-		vkCmdCopyImage(m_commandBuffer, pSrc->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			pDst->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+		vkCmdCopyImage(m_commandBuffer, pSrc->GetImage(), pSrc->ImageLayout(ResourceState::COPY_SOURCE),
+			pDst->GetImage(), pDst->ImageLayout(ResourceState::COPY_DEST), 1, &region);
 	}
 	else if (pSrc->IsImage())
 	{
@@ -448,7 +462,7 @@ void CommandList_VK::CopyTextureRegion(const TextureCopyLocation& dst, uint32_t 
 		region.imageSubresource.layerCount = 1;
 		region.imageOffset = srcOffset;
 		region.imageExtent = extent;
-		vkCmdCopyImageToBuffer(m_commandBuffer, pSrc->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		vkCmdCopyImageToBuffer(m_commandBuffer, pSrc->GetImage(), pSrc->ImageLayout(ResourceState::COPY_SOURCE),
 			pDst->GetBuffer(), 1, &region);
 	}
 	else if (pDst->IsImage())
@@ -461,7 +475,8 @@ void CommandList_VK::CopyTextureRegion(const TextureCopyLocation& dst, uint32_t 
 		region.imageSubresource.layerCount = 1;
 		region.imageOffset = { static_cast<int32_t>(dstX), static_cast<int32_t>(dstY), static_cast<int32_t>(dstZ) };
 		region.imageExtent = extent;
-		vkCmdCopyBufferToImage(m_commandBuffer, pSrc->GetBuffer(), pDst->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+		vkCmdCopyBufferToImage(m_commandBuffer, pSrc->GetBuffer(), pDst->GetImage(),
+			pDst->ImageLayout(ResourceState::COPY_DEST), 1, &region);
 	}
 	else
 	{
@@ -495,8 +510,8 @@ void CommandList_VK::CopyResource(Resource* pDstResource, Resource* pSrcResource
 			m_imageCopies[mip].dstSubresource.aspectMask = CopyAspect(pDst->GetVkFormat());
 			m_imageCopies[mip].extent = MipExtent(pSrc, mipLevel, pSrc->Is3D() ? depth : 1u);
 		}
-		vkCmdCopyImage(m_commandBuffer, pSrc->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			pDst->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mips, m_imageCopies.data());
+		vkCmdCopyImage(m_commandBuffer, pSrc->GetImage(), pSrc->ImageLayout(ResourceState::COPY_SOURCE),
+			pDst->GetImage(), pDst->ImageLayout(ResourceState::COPY_DEST), mips, m_imageCopies.data());
 	}
 	else
 	{
@@ -573,11 +588,11 @@ void CommandList_VK::CopyTiles(Resource* pTiledResource, const TiledResourceCoor
 	if (toImage)
 	{
 		vkCmdCopyBufferToImage(m_commandBuffer, pVkBuffer->GetBuffer(), pTiled->GetImage(),
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, tileRegionSize.NumTiles, m_tileCopies.data());
+			pTiled->ImageLayout(ResourceState::COPY_DEST), tileRegionSize.NumTiles, m_tileCopies.data());
 	}
 	else
 	{
-		vkCmdCopyImageToBuffer(m_commandBuffer, pTiled->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		vkCmdCopyImageToBuffer(m_commandBuffer, pTiled->GetImage(), pTiled->ImageLayout(ResourceState::COPY_SOURCE),
 			pVkBuffer->GetBuffer(), tileRegionSize.NumTiles, m_tileCopies.data());
 	}
 }
@@ -605,8 +620,8 @@ void CommandList_VK::ResolveSubresource(Resource* pDstResource, uint32_t dstSubr
 	region.dstSubresource.baseArrayLayer = dstLayer;
 	region.dstSubresource.layerCount = 1;
 	region.extent = MipExtent(pSrc, srcMip, srcDepth);
-	vkCmdResolveImage(m_commandBuffer, pSrc->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-		pDst->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+	vkCmdResolveImage(m_commandBuffer, pSrc->GetImage(), pSrc->ImageLayout(ResourceState::RESOLVE_SOURCE),
+		pDst->GetImage(), pDst->ImageLayout(ResourceState::RESOLVE_DEST), 1, &region);
 }
 
 void CommandList_VK::IASetPrimitiveTopology(PrimitiveTopology primitiveTopology) const
@@ -690,6 +705,13 @@ void CommandList_VK::Barrier(uint32_t numBarriers, const ResourceBarrier* pBarri
 {
 	if (!numBarriers) return;
 	assert(pBarriers);
+
+	// Nothing to submit: leave the current rendering pass open.
+	auto active = false;
+	for (auto i = 0u; i < numBarriers; ++i)
+		active = active || SubmitsBarrier(pBarriers[i]);
+	if (!active) return;
+
 	prepareBarriersOutsidePass(numBarriers, pBarriers);
 
 	// Buffer, UAV and aliasing barriers share one memory barrier. Image layout
@@ -701,20 +723,19 @@ void CommandList_VK::Barrier(uint32_t numBarriers, const ResourceBarrier* pBarri
 	for (auto i = 0u; i < numBarriers; ++i)
 	{
 		const auto& barrier = pBarriers[i];
-		// DX12 split BEGIN has no VK layout equivalent; apply at END_ONLY instead.
-		if ((barrier.Flags & BarrierFlag::BEGIN_ONLY) == BarrierFlag::BEGIN_ONLY) continue;
+		if (!SubmitsBarrier(barrier)) continue;
 
 		const auto same = barrier.StateBefore == barrier.StateAfter;
 		const auto uav = same ? barrier.StateAfter == ResourceState::UNORDERED_ACCESS :
 			!barrier.pResource && barrier.StateBefore == ResourceState::UNORDERED_ACCESS;
 		if (uav)
 		{
-			const auto stage = GetVKStage(ResourceState::UNORDERED_ACCESS);
+			const auto stage = GetVKStage(m_pDevice, ResourceState::UNORDERED_ACCESS);
 			const auto access = GetVKAccess(ResourceState::UNORDERED_ACCESS);
 			AddGlobalBarrier(memory, stage, access, stage, access);
 			continue;
 		}
-		if (same || !barrier.pResource)
+		if (!barrier.pResource)
 		{
 			const auto pAfter = AsVK(barrier.pResourceAfter);
 			const auto dstAccess = pAfter && pAfter->IsImage() ? VK_ACCESS_2_NONE :
@@ -725,8 +746,8 @@ void CommandList_VK::Barrier(uint32_t numBarriers, const ResourceBarrier* pBarri
 		}
 
 		const auto pResource = AsVK(barrier.pResource);
-		auto srcStage = GetVKStage(barrier.StateBefore);
-		auto dstStage = GetVKStage(barrier.StateAfter);
+		auto srcStage = GetVKStage(m_pDevice, barrier.StateBefore);
+		auto dstStage = GetVKStage(m_pDevice, barrier.StateAfter);
 		auto srcAccess = GetVKAccess(barrier.StateBefore);
 		auto dstAccess = GetVKAccess(barrier.StateAfter);
 		// PRESENT aliases COMMON. Narrow WSI transitions so the GPU is not
@@ -1567,7 +1588,7 @@ void CommandList_VK::CopyBufferToImage(Resource* pDst, uint32_t dstSubresource, 
 	region.imageSubresource.layerCount = 1;
 	region.imageExtent = MipExtent(pDstResource, mip, depth);
 	vkCmdCopyBufferToImage(m_commandBuffer, pSrcResource->GetBuffer(), pDstResource->GetImage(),
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+		pDstResource->ImageLayout(ResourceState::COPY_DEST), 1, &region);
 }
 
 void CommandList_VK::CopyImageToBuffer(Resource* pSrc, uint32_t mipLevel, uint32_t arrayLayer, Resource* pDst,
@@ -1587,7 +1608,7 @@ void CommandList_VK::CopyImageToBuffer(Resource* pSrc, uint32_t mipLevel, uint32
 	region.imageSubresource.baseArrayLayer = arrayLayer;
 	region.imageSubresource.layerCount = 1;
 	region.imageExtent = MipExtent(pSrcResource, mipLevel, depth);
-	vkCmdCopyImageToBuffer(m_commandBuffer, pSrcResource->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+	vkCmdCopyImageToBuffer(m_commandBuffer, pSrcResource->GetImage(), pSrcResource->ImageLayout(ResourceState::COPY_SOURCE),
 		pDstResource->GetBuffer(), 1, &region);
 }
 
@@ -1742,7 +1763,7 @@ void CommandList_VK::beginRendering() const
 	if (m_hasDepth && (m_depth.PendingClear & PENDING_CLEAR_STENCIL))
 		stencil.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	// Read-only DSV: keep LOAD for tests, skip STORE (avoids pointless depth write traffic).
-	if (m_hasDepth && m_depth.Rendering.imageLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL)
+	if (m_hasDepth && m_depth.ReadOnly)
 	{
 		depth.storeOp = VK_ATTACHMENT_STORE_OP_NONE;
 		stencil.storeOp = VK_ATTACHMENT_STORE_OP_NONE;
@@ -2304,7 +2325,7 @@ void CommandList_VK::clearUnorderedAccessView(const Descriptor& descriptor, cons
 		layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 	if (clearInPlace)
 	{
-		const auto srcStage = GetVKStage(state);
+		const auto srcStage = GetVKStage(m_pDevice, state);
 		const auto srcAccess = GetVKAccess(state);
 		VkDependencyInfo dependency = {};
 		dependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
@@ -2387,7 +2408,8 @@ void CommandList_VK::clearUnorderedAccessView(const Descriptor& descriptor, cons
 		auto range = pView->ViewInfo.subresourceRange;
 		if (!range.levelCount) range.levelCount = 1;
 		if (!range.layerCount) range.layerCount = 1;
-		vkCmdClearColorImage(m_commandBuffer, pResource->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &color, 1, &range);
+		vkCmdClearColorImage(m_commandBuffer, pResource->GetImage(),
+			pResource->ImageLayout(ResourceState::COPY_DEST), &color, 1, &range);
 	}
 	else
 	{
@@ -2429,6 +2451,7 @@ void CommandList_VK::loadAttachment(RenderAttachment& attachment, const Resource
 	attachment.Subresource = target.Subresource;
 	attachment.SingleSubresource = target.SingleSubresource;
 	attachment.HasStencil = target.HasStencil;
+	attachment.ReadOnly = target.ReadOnly;
 	attachment.PendingClear = 0;
 }
 
@@ -2457,9 +2480,9 @@ void CommandList_VK::submitClearBarrier(Resource_VK* pResource, uint32_t regionC
 		{
 			VkImageMemoryBarrier2 image = {};
 			image.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
-			image.srcStageMask = GetVKStage(src);
+			image.srcStageMask = GetVKStage(m_pDevice, src);
 			image.srcAccessMask = GetVKAccess(src);
-			image.dstStageMask = GetVKStage(dst);
+			image.dstStageMask = GetVKStage(m_pDevice, dst);
 			image.dstAccessMask = GetVKAccess(dst);
 			image.oldLayout = undefined ? VK_IMAGE_LAYOUT_UNDEFINED : pResource->ImageLayout(src);
 			if (undefined) image.srcAccessMask = VK_ACCESS_2_NONE;
@@ -2478,9 +2501,9 @@ void CommandList_VK::submitClearBarrier(Resource_VK* pResource, uint32_t regionC
 		{
 			VkBufferMemoryBarrier2 buffer = {};
 			buffer.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
-			buffer.srcStageMask = GetVKStage(src);
+			buffer.srcStageMask = GetVKStage(m_pDevice, src);
 			buffer.srcAccessMask = GetVKAccess(src);
-			buffer.dstStageMask = GetVKStage(dst);
+			buffer.dstStageMask = GetVKStage(m_pDevice, dst);
 			buffer.dstAccessMask = GetVKAccess(dst);
 			buffer.buffer = pResource->GetBuffer();
 			buffer.size = VK_WHOLE_SIZE;
