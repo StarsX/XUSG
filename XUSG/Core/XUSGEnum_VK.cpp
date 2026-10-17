@@ -335,7 +335,17 @@ VkImageLayout XUSG::GetVKImageLayout(ResourceState state)
 
 	// Combined reads need one VK layout (optimal if exclusive, else GENERAL).
 	// Composite writes / write|read are invalid - assert only, no handling.
-	AssertResourceStateWriteExclusive(state);
+	static const auto writeStates =
+		ResourceState::RENDER_TARGET | ResourceState::UNORDERED_ACCESS | ResourceState::DEPTH_WRITE |
+		ResourceState::COPY_DEST | ResourceState::RESOLVE_DEST | ResourceState::STREAM_OUT |
+		ResourceState::VIDEO_DECODE_WRITE | ResourceState::VIDEO_PROCESS_WRITE | ResourceState::VIDEO_ENCODE_WRITE;
+	const auto writeBits = state & writeStates;
+	if (writeBits != ResourceState::COMMON)
+	{
+		const auto w = static_cast<uint32_t>(writeBits);
+		assert((w & (w - 1)) == 0); // single write bit
+		assert((state & ~writeBits) == ResourceState::COMMON); // write is exclusive
+	}
 
 	const auto color = (state & ResourceState::RENDER_TARGET) != ResourceState::COMMON;
 	const auto depthWrite = (state & ResourceState::DEPTH_WRITE) != ResourceState::COMMON;
@@ -458,11 +468,17 @@ VkImageUsageFlags XUSG::GetVKImageUsage(ResourceFlag flags)
 VkBufferUsageFlags XUSG::GetVKBufferUsage(ResourceFlag flags)
 {
 	VkBufferUsageFlags usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-		VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT |
-		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-		VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT;
+		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 
+	const auto denySRV = (flags & ResourceFlag::DENY_SHADER_RESOURCE) != ResourceFlag::NONE;
+	const auto allowUAV = (flags & ResourceFlag::ALLOW_UNORDERED_ACCESS) != ResourceFlag::NONE;
+	if (allowUAV || !denySRV)
+		usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+
+	if ((flags & ResourceFlag::INDIRECT_BUFFER) != ResourceFlag::NONE)
+		usage |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
+	if ((flags & ResourceFlag::ACCELERATION_STRUCTURE_BUILD_INPUT) != ResourceFlag::NONE)
+		usage |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
 	if ((flags & ResourceFlag::ACCELERATION_STRUCTURE) != ResourceFlag::NONE)
 		usage |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR;
 

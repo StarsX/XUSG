@@ -7,11 +7,11 @@
 #include "XUSGAdvanced.h"
 
 XUSG_VK_BINDING(0, XUSG_VK_SPACE_UAV)
-RWStructuredBuffer<float4> g_rwSHResult : register(u0);
+RWStructuredBuffer<float4>	g_rwSHResult	: register(u0);
 XUSG_VK_BINDING(0, XUSG_VK_SPACE_SRV)
-StructuredBuffer<float4> g_roSHBuff : register(t0);
+StructuredBuffer<float4>	g_roSHBuff		: register(t0);
 XUSG_VK_BINDING(1, XUSG_VK_SPACE_SRV)
-StructuredBuffer<float> g_roWeight : register(t1);
+StructuredBuffer<float>		g_roWeight		: register(t1);
 
 [numthreads(32, 1, 1)]
 void main(uint DTid : SV_DispatchThreadID)

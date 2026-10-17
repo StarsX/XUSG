@@ -606,7 +606,7 @@
         <Profile Condition="'%(ShaderType)' == 'Compute'">cs_6_2</Profile>
       </SpirvShader>
     </ItemGroup>
-    <Exec Command="&quot;$(VULKAN_SDK)\Bin\dxc.exe&quot; -spirv -T %(SpirvShader.Profile) -E main -fspv-target-env=vulkan1.1 -Zpc -fvk-use-dx-layout -fvk-use-dx-position-w -enable-16bit-types -D XUSG_SPIRV=1 -I &quot;$(ProjectDir)Shaders&quot; -I &quot;$(ProjectDir)Advanced&quot; -Fh &quot;$(OutDir)%(SpirvShader.Filename)Spv.h&quot; -Vn %(SpirvShader.Filename)Spv &quot;%(SpirvShader.FullPath)&quot;" />
+    <Exec Command="&quot;$(VULKAN_SDK)\Bin\dxc.exe&quot; -spirv -T %(SpirvShader.Profile) -E main -fspv-target-env=vulkan1.1 -Zpc -fvk-use-dx-layout -fvk-use-dx-position-w -enable-16bit-types -I &quot;$(ProjectDir)Shaders&quot; -I &quot;$(ProjectDir)Advanced&quot; -Fh &quot;$(OutDir)%(SpirvShader.Filename)Spv.h&quot; -Vn %(SpirvShader.Filename)Spv &quot;%(SpirvShader.FullPath)&quot;" />
   </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

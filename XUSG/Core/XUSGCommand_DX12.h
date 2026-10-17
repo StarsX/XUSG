@@ -148,6 +148,8 @@ namespace XUSG
 		com_ptr<ID3D12DescriptorHeap>& GetDsvHeap();
 		com_ptr<ID3D12DescriptorHeap>& GetUavHeap();
 
+		const std::vector<ID3D12CommandAllocator*>& GetCommandAllocators() const;
+
 	protected:
 		com_ptr<ID3D12GraphicsCommandList>	m_commandList;
 		com_ptr<ID3D12DescriptorHeap>		m_rtvHeap;

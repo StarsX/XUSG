@@ -320,6 +320,7 @@ Resource_VK::Resource_VK() :
 	m_sparse(false),
 	m_hasSparseInfo(false),
 	m_resourceFormat(Format::UNKNOWN),
+	m_bufferType(BufferType::GENERIC),
 	m_metadata(VK_NULL_HANDLE),
 	m_sparseTypeBits(0),
 	m_sparseInfo{},
@@ -1015,6 +1016,44 @@ void Resource_VK::setState(ResourceState state, uint32_t subresources, uint32_t 
 	for (auto& states : m_states) states.assign(subresources ? subresources : 1, state);
 }
 
+VkBufferUsageFlags Resource_VK::getVKBufferUsage(ResourceFlag resourceFlags) const
+{
+	auto usage = GetVKBufferUsage(resourceFlags);
+	const auto allowUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) != ResourceFlag::NONE;
+	const auto denySRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) != ResourceFlag::NONE;
+
+	switch (m_bufferType)
+	{
+	case BufferType::CONSTANT:
+		usage |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+		break;
+	case BufferType::TYPED:
+		if (!denySRV) usage |= VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT;
+		if (allowUAV)
+		{
+			usage |= VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT;
+			usage &= ~VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+		}
+		break;
+	case BufferType::VERTEX:
+		usage |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+		break;
+	case BufferType::INDEX:
+		usage |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+		if (!denySRV) usage |= VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT;
+		if (allowUAV)
+		{
+			usage |= VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT;
+			usage &= ~VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+		}
+		break;
+	default:
+		break;
+	}
+
+	return usage;
+}
+
 bool Resource_VK::createBuffer(Heap* pHeap, uint64_t heapOffset, size_t byteWidth,
 	ResourceFlag resourceFlags, MemoryType memoryType, bool reserved)
 {
@@ -1040,7 +1079,7 @@ bool Resource_VK::createBuffer(Heap* pHeap, uint64_t heapOffset, size_t byteWidt
 	VkBufferCreateInfo info = {};
 	info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	info.size = size;
-	info.usage = GetVKBufferUsage(resourceFlags);
+	info.usage = getVKBufferUsage(resourceFlags);
 	info.sharingMode = sharingCount > 1 ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
 	info.queueFamilyIndexCount = sharingCount;
 	info.pQueueFamilyIndices = pSharingFamilies;
@@ -1769,6 +1808,7 @@ void Resource_VK::discardRange(const VkImageSubresourceRange& range, uint32_t& b
 
 ConstantBuffer_VK::ConstantBuffer_VK()
 {
+	m_bufferType = BufferType::CONSTANT;
 }
 
 ConstantBuffer_VK::~ConstantBuffer_VK()
@@ -3522,6 +3562,7 @@ bool StructuredBuffer_VK::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffs
 
 TypedBuffer_VK::TypedBuffer_VK()
 {
+	m_bufferType = BufferType::TYPED;
 }
 
 TypedBuffer_VK::~TypedBuffer_VK()
@@ -3580,6 +3621,7 @@ const Descriptor& TypedBuffer_VK::GetUAV(uint32_t index, Format format) const
 
 VertexBuffer_VK::VertexBuffer_VK()
 {
+	m_bufferType = BufferType::VERTEX;
 }
 
 VertexBuffer_VK::~VertexBuffer_VK()
@@ -3662,6 +3704,7 @@ void VertexBuffer_VK::createVBVs(size_t numVertices, uint32_t byteStride, uint32
 
 IndexBuffer_VK::IndexBuffer_VK()
 {
+	m_bufferType = BufferType::INDEX;
 }
 
 IndexBuffer_VK::~IndexBuffer_VK()

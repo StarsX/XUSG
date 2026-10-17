@@ -760,8 +760,25 @@ bool XUSG::RayTracing::EZ::CommandList_DX12::supportsMeshShader() const
 bool XUSG::RayTracing::EZ::CommandList_VK::bindRayTracing(RayTracing::CommandList* pCommandList)
 {
 	m_pDeviceRT = pCommandList->GetRTDevice();
+	if (!m_pDeviceRT) return false;
 
-	return m_pDeviceRT != nullptr;
+	const auto pDevice = AsVK(m_pDevice);
+	assert(pDevice);
+	assert(pDevice->HasRayTracingPipeline());
+	XUSG_N_RETURN(pDevice && pDevice->HasRayTracingPipeline(), false);
+
+	const auto& ext = pDevice->GetExtProcs();
+	m_cmdBuildAccelerationStructures = ext.CmdBuildAccelerationStructures;
+	m_cmdCopyAccelerationStructure = ext.CmdCopyAccelerationStructure;
+	m_cmdWriteAccelerationStructuresProperties = ext.CmdWriteAccelerationStructuresProperties;
+	m_cmdBuildMicromaps = ext.CmdBuildMicromaps;
+	m_cmdCopyMicromap = ext.CmdCopyMicromap;
+	m_cmdWriteMicromapsProperties = ext.CmdWriteMicromapsProperties;
+	m_cmdTraceRays = ext.CmdTraceRays;
+	XUSG_N_RETURN(m_cmdBuildAccelerationStructures && m_cmdCopyAccelerationStructure &&
+		m_cmdWriteAccelerationStructuresProperties && m_cmdTraceRays, false);
+
+	return true;
 }
 
 bool XUSG::RayTracing::EZ::CommandList_VK::supportsMeshShader() const

@@ -402,7 +402,9 @@ namespace XUSG
 		ALLOW_SIMULTANEOUS_ACCESS = (1 << 5),
 		VIDEO_DECODE_REFERENCE_ONLY = (1 << 6),
 		VIDEO_ENCODE_REFERENCE_ONLY = (1 << 7),
-		ACCELERATION_STRUCTURE = (1 << 8)
+		ACCELERATION_STRUCTURE = (1 << 8),
+		INDIRECT_BUFFER = (1 << 9),
+		ACCELERATION_STRUCTURE_BUILD_INPUT = (1 << 10)
 	};
 
 	XUSG_DEF_ENUM_FLAG_OPERATORS(ResourceFlag);
@@ -443,23 +445,6 @@ namespace XUSG
 	};
 
 	XUSG_DEF_ENUM_FLAG_OPERATORS(ResourceState);
-
-	// DX12 forbids write|write and write|read (UAV stays UAV-only; use a UAV barrier).
-	// Backends assert only - they do not handle composite writes.
-	inline void AssertResourceStateWriteExclusive(ResourceState state)
-	{
-		static const auto writeStates =
-			ResourceState::RENDER_TARGET | ResourceState::UNORDERED_ACCESS | ResourceState::DEPTH_WRITE |
-			ResourceState::COPY_DEST | ResourceState::RESOLVE_DEST | ResourceState::STREAM_OUT |
-			ResourceState::VIDEO_DECODE_WRITE | ResourceState::VIDEO_PROCESS_WRITE | ResourceState::VIDEO_ENCODE_WRITE;
-		const auto writeBits = state & writeStates;
-		if (writeBits != ResourceState::COMMON)
-		{
-			const auto w = static_cast<uint32_t>(writeBits);
-			assert((w & (w - 1)) == 0); // single write bit
-			assert((state & ~writeBits) == ResourceState::COMMON); // write is exclusive
-		}
-	}
 
 	enum class BarrierFlag : uint8_t
 	{
@@ -2454,7 +2439,7 @@ namespace XUSG
 
 		virtual bool SetShader(const Blob& shader) = 0;
 		virtual bool IsValid() const = 0;
-		virtual uint32_t GetResourceBindingPointByName(const char* name) const = 0;
+		virtual uint32_t GetResourceBindingPointByName(const char* name, uint32_t defaultVal = UINT32_MAX) const = 0;
 		virtual uint32_t GetResourceSpaceByName(const char* name, uint32_t defaultVal = UINT32_MAX) const = 0;
 
 		// Override the estimated binding slot with the reflected one. Space/set is checked, not overridden.

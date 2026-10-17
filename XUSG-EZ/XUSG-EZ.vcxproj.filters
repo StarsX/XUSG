@@ -92,6 +92,27 @@
     <ClCompile Include="..\XUSG\Core\XUSGPipelineLayout_DX12.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="..\XUSG\Core\XUSG_VK.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSG\Core\XUSGCommand_VK.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSG\Core\XUSGDescriptor_VK.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSG\Core\XUSGEnum_VK.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSG\Core\XUSGPipelineLayout_VK.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSG\Core\XUSGResource_VK.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSG\Ultimate\XUSGUltimate_VK.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Shaders\CSBlit2D.hlsl">

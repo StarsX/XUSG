@@ -169,9 +169,19 @@ namespace XUSG
 		void* GetMappedData() const;
 
 	protected:
+		enum class BufferType : uint8_t
+		{
+			GENERIC,
+			CONSTANT,
+			TYPED,
+			VERTEX,
+			INDEX
+		};
+
 		bool initialize(Device* pDevice, uint32_t maxThreads);
 		bool allocateMemory(VkMemoryRequirements requirements, MemoryType memoryType, bool hostVisible);
 		void setState(ResourceState state, uint32_t subresources, uint32_t maxThreads);
+		VkBufferUsageFlags getVKBufferUsage(ResourceFlag resourceFlags) const;
 		bool createBuffer(Heap* pHeap, uint64_t heapOffset, size_t byteWidth,
 			ResourceFlag resourceFlags, MemoryType memoryType, bool reserved = false);
 		bool createImage(Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
@@ -252,6 +262,7 @@ namespace XUSG
 		bool m_sparse;
 		bool m_hasSparseInfo;
 		Format m_resourceFormat;
+		BufferType m_bufferType;
 		VkDeviceMemory m_metadata;
 		uint32_t m_sparseTypeBits;
 		VkSparseImageMemoryRequirements m_sparseInfo;

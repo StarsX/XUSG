@@ -1517,6 +1517,7 @@ bool EZ::CommandList_DX12::adopt(XUSG::CommandList* pCommandList)
 	m_rtvHeap = pCommandListDX12->GetRtvHeap();
 	m_dsvHeap = pCommandListDX12->GetDsvHeap();
 	m_uavHeap = pCommandListDX12->GetUavHeap();
+	m_commandAllocators = pCommandListDX12->GetCommandAllocators();
 
 	const auto pDxDevice = static_cast<ID3D12Device*>(m_pDevice->GetNativeHandle());
 	m_rtvStride = pDxDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);

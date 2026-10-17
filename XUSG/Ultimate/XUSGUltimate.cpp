@@ -24,7 +24,7 @@ using namespace XUSG;
 #ifdef XUSG_NO_VULKAN
 #define XUSG_IF_VK(...)
 #else
-#define XUSG_IF_VK(...) if (Device::GetApi() == API::VULKAN) __VA_ARGS__
+#define XUSG_IF_VK(...) if (Device::GetApi() == API::VULKAN) { __VA_ARGS__ }
 #endif
 
 Ultimate::CommandList::uptr Ultimate::CommandList::MakeUnique()

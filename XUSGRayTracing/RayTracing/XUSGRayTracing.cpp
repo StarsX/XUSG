@@ -31,7 +31,7 @@ using namespace XUSG::RayTracing;
 #ifdef XUSG_NO_VULKAN
 #define XUSG_IF_VK(...)
 #else
-#define XUSG_IF_VK(...) if (XUSG::Device::GetApi() == API::VULKAN) __VA_ARGS__
+#define XUSG_IF_VK(...) if (XUSG::Device::GetApi() == API::VULKAN) { __VA_ARGS__ }
 #endif
 
 bool AccelerationStructure::AllocateDestBuffer(Device* pDevice, Buffer* pDestBuffer, size_t byteWidth,
@@ -61,8 +61,8 @@ bool AccelerationStructure::AllocateUAVBuffer(Device* pDevice, Buffer* pBuffer, 
 bool AccelerationStructure::AllocateUploadBuffer(Device* pDevice, Buffer* pBuffer,
 	size_t byteWidth, void* pData, MemoryFlag memoryFlags, const wchar_t* name)
 {
-	XUSG_N_RETURN(pBuffer->CreateResource(pDevice, byteWidth, ResourceFlag::NONE, MemoryType::UPLOAD,
-		memoryFlags, ResourceState::GENERIC_READ_RESOURCE), false);
+	XUSG_N_RETURN(pBuffer->CreateResource(pDevice, byteWidth, ResourceFlag::ACCELERATION_STRUCTURE_BUILD_INPUT,
+		MemoryType::UPLOAD, memoryFlags, ResourceState::GENERIC_READ_RESOURCE), false);
 	pBuffer->SetName(name);
 
 	void* pMappedData = pBuffer->Map();

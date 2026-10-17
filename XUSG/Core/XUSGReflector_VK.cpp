@@ -87,11 +87,11 @@ bool Reflector_VK::IsValid() const
 	return m_valid;
 }
 
-uint32_t Reflector_VK::GetResourceBindingPointByName(const char* name) const
+uint32_t Reflector_VK::GetResourceBindingPointByName(const char* name, uint32_t defaultVal) const
 {
-	if (!name) return UINT32_MAX;
+	if (!name) return defaultVal;
 	const auto binding = m_bindings.find(name);
-	if (binding == m_bindings.cend()) return UINT32_MAX;
+	if (binding == m_bindings.cend()) return defaultVal;
 
 	return binding->second.Binding;
 }

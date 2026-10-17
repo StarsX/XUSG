@@ -20,13 +20,13 @@ cbuffer cb : register(b0)
 // Buffers
 //--------------------------------------------------------------------------------------
 XUSG_VK_BINDING(0, XUSG_VK_SPACE_UAV)
-RWStructuredBuffer<float4> g_rwSHBuff : register(u0);
+RWStructuredBuffer<float4>	g_rwSHBuff	: register(u0);
 XUSG_VK_BINDING(1, XUSG_VK_SPACE_UAV)
-RWStructuredBuffer<float> g_rwWeight : register(u1);
+RWStructuredBuffer<float>	g_rwWeight	: register(u1);
 XUSG_VK_BINDING(0, XUSG_VK_SPACE_SRV)
-StructuredBuffer<float4> g_roSHBuff : register(t0);
+StructuredBuffer<float4>	g_roSHBuff	: register(t0);
 XUSG_VK_BINDING(1, XUSG_VK_SPACE_SRV)
-StructuredBuffer<float> g_roWeight : register(t1);
+StructuredBuffer<float>		g_roWeight	: register(t1);
 
 //--------------------------------------------------------------------------------------
 // Compute shader that performs group reduction of sum

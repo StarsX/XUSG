@@ -134,7 +134,8 @@ bool SphericalHarmonics_Impl::createPipelineLayouts()
 		auto sampler = 0u;
 
 		// Load shader
-		XUSG_N_RETURN(m_shaderLib->CreateShader(Shader::Stage::CS, m_baseCSIndex + SH_CUBE_MAP, CSSHCubeMap, sizeof(CSSHCubeMap), CSSHCubeMapSpv, sizeof(CSSHCubeMapSpv)), false);
+		XUSG_N_RETURN(m_shaderLib->CreateShader(Shader::Stage::CS, m_baseCSIndex + SH_CUBE_MAP,
+			CSSHCubeMap, sizeof(CSSHCubeMap), CSSHCubeMapSpv, sizeof(CSSHCubeMapSpv)), false);
 
 		// Get compute shader slots
 		const auto reflector = m_shaderLib->GetReflector(Shader::Stage::CS, m_baseCSIndex + SH_CUBE_MAP);
@@ -177,7 +178,8 @@ bool SphericalHarmonics_Impl::createPipelineLayouts()
 		auto roWeight = roSHBuff + 1;
 
 		// Load shader
-		XUSG_N_RETURN(m_shaderLib->CreateShader(Shader::Stage::CS, m_baseCSIndex + SH_SUM, CSSHSum, sizeof(CSSHSum), CSSHSumSpv, sizeof(CSSHSumSpv)), false);
+		XUSG_N_RETURN(m_shaderLib->CreateShader(Shader::Stage::CS, m_baseCSIndex + SH_SUM,
+			CSSHSum, sizeof(CSSHSum), CSSHSumSpv, sizeof(CSSHSumSpv)), false);
 
 		// Get compute shader slots
 		const auto reflector = m_shaderLib->GetReflector(Shader::Stage::CS, m_baseCSIndex + SH_SUM);
@@ -217,7 +219,8 @@ bool SphericalHarmonics_Impl::createPipelineLayouts()
 		auto roWeight = roSHBuff + 1;
 
 		// Load shader
-		XUSG_N_RETURN(m_shaderLib->CreateShader(Shader::Stage::CS, m_baseCSIndex + SH_NORMALIZE, CSSHNormalize, sizeof(CSSHNormalize), CSSHNormalizeSpv, sizeof(CSSHNormalizeSpv)), false);
+		XUSG_N_RETURN(m_shaderLib->CreateShader(Shader::Stage::CS, m_baseCSIndex + SH_NORMALIZE,
+			CSSHNormalize, sizeof(CSSHNormalize), CSSHNormalizeSpv, sizeof(CSSHNormalizeSpv)), false);
 
 		// Get compute shader slots
 		const auto reflector = m_shaderLib->GetReflector(Shader::Stage::CS, m_baseCSIndex + SH_NORMALIZE);

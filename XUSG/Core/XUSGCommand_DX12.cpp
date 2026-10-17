@@ -836,6 +836,11 @@ com_ptr<ID3D12DescriptorHeap>& CommandList_DX12::GetUavHeap()
 	return m_uavHeap;
 }
 
+const vector<ID3D12CommandAllocator*>& CommandList_DX12::GetCommandAllocators() const
+{
+	return m_commandAllocators;
+}
+
 //--------------------------------------------------------------------------------------
 
 CommandQueue_DX12::CommandQueue_DX12() :

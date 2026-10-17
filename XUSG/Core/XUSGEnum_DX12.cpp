@@ -657,7 +657,9 @@ D3D12_RESOURCE_FLAGS XUSG::GetDX12ResourceFlag(ResourceFlag resourceFlag)
 		D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS,
 		D3D12_RESOURCE_FLAG_VIDEO_DECODE_REFERENCE_ONLY,
 		D3D12_RESOURCE_FLAG_VIDEO_ENCODE_REFERENCE_ONLY,
-		D3D12_RESOURCE_FLAG_RAYTRACING_ACCELERATION_STRUCTURE
+		D3D12_RESOURCE_FLAG_RAYTRACING_ACCELERATION_STRUCTURE,
+		D3D12_RESOURCE_FLAG_NONE,
+		D3D12_RESOURCE_FLAG_NONE
 	};
 
 	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::ALLOW_RENDER_TARGET))] == D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
@@ -669,6 +671,8 @@ D3D12_RESOURCE_FLAGS XUSG::GetDX12ResourceFlag(ResourceFlag resourceFlag)
 	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::VIDEO_DECODE_REFERENCE_ONLY))] == D3D12_RESOURCE_FLAG_VIDEO_DECODE_REFERENCE_ONLY);
 	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::VIDEO_ENCODE_REFERENCE_ONLY))] == D3D12_RESOURCE_FLAG_VIDEO_ENCODE_REFERENCE_ONLY);
 	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::ACCELERATION_STRUCTURE))] == D3D12_RESOURCE_FLAG_RAYTRACING_ACCELERATION_STRUCTURE);
+	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::INDIRECT_BUFFER))] == D3D12_RESOURCE_FLAG_NONE);
+	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::ACCELERATION_STRUCTURE_BUILD_INPUT))] == D3D12_RESOURCE_FLAG_NONE);
 
 	if (resourceFlag == ResourceFlag::NONE) return D3D12_RESOURCE_FLAG_NONE;
 
@@ -757,7 +761,17 @@ D3D12_RESOURCE_STATES XUSG::GetDX12ResourceState(ResourceState resourceState)
 D3D12_RESOURCE_STATES XUSG::GetDX12ResourceStates(ResourceState resourceStates)
 {
 	// Composite writes / write|read are invalid (UAV stays UAV-only).
-	AssertResourceStateWriteExclusive(resourceStates);
+	static const auto writeStates =
+		ResourceState::RENDER_TARGET | ResourceState::UNORDERED_ACCESS | ResourceState::DEPTH_WRITE |
+		ResourceState::COPY_DEST | ResourceState::RESOLVE_DEST | ResourceState::STREAM_OUT |
+		ResourceState::VIDEO_DECODE_WRITE | ResourceState::VIDEO_PROCESS_WRITE | ResourceState::VIDEO_ENCODE_WRITE;
+	const auto writeBits = resourceStates & writeStates;
+	if (writeBits != ResourceState::COMMON)
+	{
+		const auto w = static_cast<uint32_t>(writeBits);
+		assert((w & (w - 1)) == 0); // single write bit
+		assert((resourceStates & ~writeBits) == ResourceState::COMMON); // write is exclusive
+	}
 
 	auto states = D3D12_RESOURCE_STATE_COMMON;
 	states |= APPEND_RESOURCE_STATE(resourceStates, VERTEX_AND_CONSTANT_BUFFER);

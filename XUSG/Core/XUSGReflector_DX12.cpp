@@ -300,13 +300,13 @@ static bool GetResourceBindingDescByName(ID3D12ShaderReflection* pShaderReflecti
 	return false;
 }
 
-uint32_t Reflector_DX12::GetResourceBindingPointByName(const char* name) const
+uint32_t Reflector_DX12::GetResourceBindingPointByName(const char* name, uint32_t defaultVal) const
 {
 	D3D12_SHADER_INPUT_BIND_DESC desc;
 
 	assert(IsValid());
 	if (!GetResourceBindingDescByName(m_shaderReflection.get(), m_libraryReflection.get(), name, desc))
-		return UINT32_MAX;
+		return defaultVal;
 
 	return desc.BindPoint;
 }

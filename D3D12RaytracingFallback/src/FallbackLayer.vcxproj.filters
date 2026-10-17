@@ -381,5 +381,23 @@
     <CustomBuild Include="*Lib.hlsl" />
     <CustomBuild Include="*Lib.hlsl" />
     <CustomBuild Include="*Lib.hlsl" />
+    <CustomBuild Include="NullTraverseLib.hlsl" />
+    <CustomBuild Include="StateMachineLib.hlsl" />
+    <CustomBuild Include="TraverseShaderLib.hlsl" />
+    <CustomBuild Include="NullTraverseLib.hlsl" />
+    <CustomBuild Include="StateMachineLib.hlsl" />
+    <CustomBuild Include="TraverseShaderLib.hlsl" />
+    <CustomBuild Include="NullTraverseLib.hlsl" />
+    <CustomBuild Include="StateMachineLib.hlsl" />
+    <CustomBuild Include="TraverseShaderLib.hlsl" />
+    <CustomBuild Include="*Lib.hlsl">
+      <Filter>Shaders</Filter>
+    </CustomBuild>
+    <CustomBuild Include="*Lib.hlsl">
+      <Filter>Shaders</Filter>
+    </CustomBuild>
+    <CustomBuild Include="*Lib.hlsl">
+      <Filter>Shaders</Filter>
+    </CustomBuild>
   </ItemGroup>
 </Project>

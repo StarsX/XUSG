@@ -46,7 +46,7 @@ static const float	XUSG_zFar = 1000.0f;
 
 // FXC shader model 5.0 does not accept vk:: attributes.
 // SPIR-V keeps min16 at fp32 for now. Half changes the shading result.
-#if defined(XUSG_SPIRV)
+#ifdef __spirv__
 #define XUSG_VK_BINDING(b, s) [[vk::binding(b, s)]]
 #else
 #define XUSG_VK_BINDING(b, s)

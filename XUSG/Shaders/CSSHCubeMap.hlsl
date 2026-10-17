@@ -21,17 +21,17 @@ cbuffer cb : register(b0)
 // Buffers and texture
 //--------------------------------------------------------------------------------------
 XUSG_VK_BINDING(0, XUSG_VK_SPACE_UAV)
-RWStructuredBuffer<float4> g_rwSHBuff : register(u0);
+RWStructuredBuffer<float4>	g_rwSHBuff	: register(u0);
 XUSG_VK_BINDING(1, XUSG_VK_SPACE_UAV)
-RWStructuredBuffer<float> g_rwWeight : register(u1);
+RWStructuredBuffer<float>	g_rwWeight	: register(u1);
 XUSG_VK_BINDING(0, XUSG_VK_SPACE_SRV)
-TextureCube<float3> g_txCubeMap : register(t0);
+TextureCube<float3>			g_txCubeMap	: register(t0);
 
 //--------------------------------------------------------------------------------------
 // Texture sampler
 //--------------------------------------------------------------------------------------
 XUSG_VK_BINDING(0, XUSG_VK_SPACE_SAMPLER)
-SamplerState g_sampler : register(s0);
+SamplerState				g_sampler	: register(s0);
 
 //--------------------------------------------------------------------------------------
 // Compute shader that performs spherical-harmonics transform from a cube map
