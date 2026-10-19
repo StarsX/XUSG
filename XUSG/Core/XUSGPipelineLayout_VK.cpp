@@ -135,7 +135,7 @@ namespace
 		RdatBytesRef RootSignature;
 	};
 
-	VkSpirvResourceTypeFlagsEXT ResourceMask(DescriptorType type)
+	VkSpirvResourceTypeFlagsEXT ResourceMask(DescriptorType type, bool accelerationStructure)
 	{
 		switch (type)
 		{
@@ -144,7 +144,8 @@ namespace
 			// descriptor-heap rules classify those buffers as read-write storage.
 			return VK_SPIRV_RESOURCE_TYPE_SAMPLED_IMAGE_BIT_EXT | VK_SPIRV_RESOURCE_TYPE_READ_ONLY_IMAGE_BIT_EXT |
 				VK_SPIRV_RESOURCE_TYPE_READ_ONLY_STORAGE_BUFFER_BIT_EXT | VK_SPIRV_RESOURCE_TYPE_READ_WRITE_STORAGE_BUFFER_BIT_EXT |
-				VK_SPIRV_RESOURCE_TYPE_UNIFORM_BUFFER_BIT_EXT;
+				VK_SPIRV_RESOURCE_TYPE_UNIFORM_BUFFER_BIT_EXT |
+				(accelerationStructure ? VK_SPIRV_RESOURCE_TYPE_ACCELERATION_STRUCTURE_BIT_EXT : 0);
 		case DescriptorType::UAV:
 			return VK_SPIRV_RESOURCE_TYPE_READ_WRITE_IMAGE_BIT_EXT | VK_SPIRV_RESOURCE_TYPE_READ_WRITE_STORAGE_BUFFER_BIT_EXT;
 		case DescriptorType::CBV:
@@ -154,7 +155,8 @@ namespace
 		case DescriptorType::SAMPLER:
 			return VK_SPIRV_RESOURCE_TYPE_SAMPLER_BIT_EXT;
 		case DescriptorType::ROOT_SRV:
-			return VK_SPIRV_RESOURCE_TYPE_READ_ONLY_STORAGE_BUFFER_BIT_EXT;
+			return VK_SPIRV_RESOURCE_TYPE_READ_ONLY_STORAGE_BUFFER_BIT_EXT |
+				(accelerationStructure ? VK_SPIRV_RESOURCE_TYPE_ACCELERATION_STRUCTURE_BIT_EXT : 0);
 		case DescriptorType::ROOT_UAV:
 			return VK_SPIRV_RESOURCE_TYPE_READ_WRITE_STORAGE_BUFFER_BIT_EXT;
 		default:
@@ -1029,7 +1031,8 @@ void PipelineLayoutLib_VK::appendMapping(PipelineLayoutObject& layout, Descripto
 	uint32_t binding, uint32_t count, VkDescriptorMappingSourceEXT source, const VkDescriptorMappingSourceDataEXT& data,
 	Shader::Stage stage)
 {
-	const auto mask = ResourceMask(type);
+	const auto accelerationStructure = m_pDevice && m_pDevice->HasAccelerationStructure();
+	const auto mask = ResourceMask(type, accelerationStructure);
 	const VkSpirvResourceTypeFlagsEXT bits[] =
 	{
 		VK_SPIRV_RESOURCE_TYPE_SAMPLER_BIT_EXT,

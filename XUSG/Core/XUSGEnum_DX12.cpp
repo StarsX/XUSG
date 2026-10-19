@@ -659,6 +659,15 @@ D3D12_RESOURCE_FLAGS XUSG::GetDX12ResourceFlag(ResourceFlag resourceFlag)
 		D3D12_RESOURCE_FLAG_VIDEO_ENCODE_REFERENCE_ONLY,
 		D3D12_RESOURCE_FLAG_RAYTRACING_ACCELERATION_STRUCTURE,
 		D3D12_RESOURCE_FLAG_NONE,
+		D3D12_RESOURCE_FLAG_NONE,
+		D3D12_RESOURCE_FLAG_NONE,
+		D3D12_RESOURCE_FLAG_NONE,
+		D3D12_RESOURCE_FLAG_NONE,
+		D3D12_RESOURCE_FLAG_NONE,
+		D3D12_RESOURCE_FLAG_NONE,
+		D3D12_RESOURCE_FLAG_NONE,
+		D3D12_RESOURCE_FLAG_NONE,
+		D3D12_RESOURCE_FLAG_NONE,
 		D3D12_RESOURCE_FLAG_NONE
 	};
 
@@ -671,8 +680,17 @@ D3D12_RESOURCE_FLAGS XUSG::GetDX12ResourceFlag(ResourceFlag resourceFlag)
 	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::VIDEO_DECODE_REFERENCE_ONLY))] == D3D12_RESOURCE_FLAG_VIDEO_DECODE_REFERENCE_ONLY);
 	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::VIDEO_ENCODE_REFERENCE_ONLY))] == D3D12_RESOURCE_FLAG_VIDEO_ENCODE_REFERENCE_ONLY);
 	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::ACCELERATION_STRUCTURE))] == D3D12_RESOURCE_FLAG_RAYTRACING_ACCELERATION_STRUCTURE);
+	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::CONSTANT_BUFFER))] == D3D12_RESOURCE_FLAG_NONE);
+	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::VERTEX_BUFFER))] == D3D12_RESOURCE_FLAG_NONE);
+	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::INDEX_BUFFER))] == D3D12_RESOURCE_FLAG_NONE);
+	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::TYPED_BUFFER))] == D3D12_RESOURCE_FLAG_NONE);
 	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::INDIRECT_BUFFER))] == D3D12_RESOURCE_FLAG_NONE);
 	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::ACCELERATION_STRUCTURE_BUILD_INPUT))] == D3D12_RESOURCE_FLAG_NONE);
+	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::SHADER_TABLE))] == D3D12_RESOURCE_FLAG_NONE);
+	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::PREDICATION))] == D3D12_RESOURCE_FLAG_NONE);
+	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::MICROMAP_BUILD_INPUT))] == D3D12_RESOURCE_FLAG_NONE);
+	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::STREAM_OUT_BUFFER))] == D3D12_RESOURCE_FLAG_NONE);
+	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::STREAM_OUT_COUNTER))] == D3D12_RESOURCE_FLAG_NONE);
 
 	if (resourceFlag == ResourceFlag::NONE) return D3D12_RESOURCE_FLAG_NONE;
 

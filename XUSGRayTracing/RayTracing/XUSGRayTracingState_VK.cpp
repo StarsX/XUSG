@@ -488,10 +488,14 @@ RayTracingPipeline_VK* PipelineLib_VK::createPipeline(const string& key, const w
 
 		if (pData && size)
 		{
+			vector<uint32_t> stripped;
+			const uint32_t* pCode = nullptr;
+			size_t codeSize = 0;
+			DropUnsupportedStorageInputOutput16(m_pDevice, pData, size, stripped, pCode, codeSize);
 			VkShaderModuleCreateInfo info = {};
 			info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-			info.codeSize = size;
-			info.pCode = static_cast<const uint32_t*>(pData);
+			info.codeSize = codeSize;
+			info.pCode = pCode;
 			if (vkCreateShaderModule(device, &info, nullptr, &modules.Modules[i]) < 0)
 				modules.Modules[i] = VK_NULL_HANDLE;
 		}
@@ -688,6 +692,7 @@ RayTracingPipeline_VK* PipelineLib_VK::createPipeline(const string& key, const w
 	pipeline->BindPoint = VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
 	pipeline->Refs = 1;
 	pipeline->XfbBuffers = 0;
+	pipeline->DynamicVertexStride = false;
 	pipeline->HandleSize = handleSize;
 	pipeline->Handles = move(handles);
 	pipeline->Groups = move(groupIndex);

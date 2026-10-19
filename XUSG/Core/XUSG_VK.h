@@ -84,6 +84,7 @@ namespace XUSG
 		Blob_VK Cache;
 		uint32_t Refs;
 		uint32_t XfbBuffers;
+		bool DynamicVertexStride;
 	};
 
 	void RetainVKPipeline(Pipeline_VK* pPipeline);
@@ -797,5 +798,44 @@ namespace XUSG
 	{
 		assert(!p || const_cast<SwapChain*>(p)->GetBackend());
 		return static_cast<const SwapChain_VK*>(p ? const_cast<SwapChain*>(p)->GetBackend() : nullptr);
+	}
+
+	// StorageInputOutput16 is only for 16-bit shader inputs and outputs.
+	// Drop that capability when the device bit is off.
+	inline void DropUnsupportedStorageInputOutput16(const Device_VK* pDevice, const void* pCode, size_t codeSize,
+		std::vector<uint32_t>& storage, const uint32_t*& pOut, size_t& outSize)
+	{
+		pOut = static_cast<const uint32_t*>(pCode);
+		outSize = codeSize;
+		if (!pDevice || pDevice->HasStorageInputOutput16() || !pCode || codeSize < sizeof(uint32_t) * 6) return;
+
+		const auto* words = static_cast<const uint32_t*>(pCode);
+		const auto count = static_cast<uint32_t>(codeSize / sizeof(uint32_t));
+		if (words[0] != 0x07230203u) return;
+
+		constexpr uint32_t opCapability = 17;
+		constexpr uint32_t storageInputOutput16 = 4436;
+		storage.clear();
+		storage.reserve(count);
+		storage.insert(storage.end(), words, words + 5);
+		auto dropped = false;
+		for (auto i = 5u; i < count;)
+		{
+			const auto wordCount = words[i] >> 16;
+			const auto op = words[i] & 0xffffu;
+			if (!wordCount || i + wordCount > count)
+			{
+				storage.insert(storage.end(), words + i, words + count);
+				break;
+			}
+			const auto drop = op == opCapability && wordCount >= 2 && words[i + 1] == storageInputOutput16;
+			if (drop) dropped = true;
+			else storage.insert(storage.end(), words + i, words + i + wordCount);
+			i += wordCount;
+		}
+		if (!dropped) return;
+
+		pOut = storage.data();
+		outSize = storage.size() * sizeof(uint32_t);
 	}
 }

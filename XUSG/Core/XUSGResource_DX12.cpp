@@ -3431,6 +3431,7 @@ bool TypedBuffer_DX12::Create(Device* pDevice, size_t numElements, uint32_t byte
 
 	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
 	const auto hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
+	if (hasSRV || hasUAV) resourceFlags |= ResourceFlag::TYPED_BUFFER;
 
 	numSRVs = hasSRV ? numSRVs : 0;
 	numUAVs = hasUAV ? numUAVs : 0;
@@ -3506,6 +3507,7 @@ bool TypedBuffer_DX12::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset,
 
 	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
 	const auto hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
+	if (hasSRV || hasUAV) resourceFlags |= ResourceFlag::TYPED_BUFFER;
 
 	numSRVs = hasSRV ? numSRVs : 0;
 	numUAVs = hasUAV ? numUAVs : 0;
@@ -3604,6 +3606,7 @@ bool VertexBuffer_DX12::Create(Device* pDevice, size_t numVertices, uint32_t byt
 	uint32_t numUAVs, const uintptr_t* firstUavElements, MemoryFlag memoryFlags,
 	const wchar_t* name, const uintptr_t* counterByteOffsets, uint32_t maxThreads)
 {
+	resourceFlags |= ResourceFlag::VERTEX_BUFFER;
 	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
 	const auto hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
 
@@ -3622,6 +3625,7 @@ bool VertexBuffer_DX12::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset
 	uint32_t numSRVs, const uintptr_t* firstSrvElements, uint32_t numUAVs, const uintptr_t* firstUavElements,
 	const wchar_t* name, const uintptr_t* counterByteOffsets, uint32_t maxThreads)
 {
+	resourceFlags |= ResourceFlag::VERTEX_BUFFER;
 	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
 	const auto hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
 
@@ -3640,6 +3644,7 @@ bool VertexBuffer_DX12::CreateAsRaw(Device* pDevice, size_t numVertices, uint32_
 	uint32_t numUAVs, const uintptr_t* firstUavElements, MemoryFlag memoryFlags,
 	const wchar_t* name, const uintptr_t* counterByteOffsets, uint32_t maxThreads)
 {
+	resourceFlags |= ResourceFlag::VERTEX_BUFFER;
 	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
 	const auto hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
 
@@ -3658,6 +3663,7 @@ bool VertexBuffer_DX12::CreateAsRaw(Device* pDevice, Heap* pHeap, uint64_t heapO
 	uint32_t numSRVs, const uintptr_t* firstSrvElements, uint32_t numUAVs, const uintptr_t* firstUavElements,
 	const wchar_t* name, const uintptr_t* counterByteOffsets, uint32_t maxThreads)
 {
+	resourceFlags |= ResourceFlag::VERTEX_BUFFER;
 	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
 	const auto hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
 
@@ -3717,11 +3723,9 @@ bool IndexBuffer_DX12::Create(Device* pDevice, size_t byteWidth, Format format,
 	const wchar_t* name, uint16_t srvComponentMapping,
 	const uintptr_t* counterByteOffsets, uint32_t maxThreads)
 {
-	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
-	const auto hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
-
 	assert(format == Format::R32_UINT || format == Format::R16_UINT);
 	const uint32_t byteStride = format == Format::R32_UINT ? sizeof(uint32_t) : sizeof(uint16_t);
+	resourceFlags |= ResourceFlag::INDEX_BUFFER;
 
 	XUSG_N_RETURN(TypedBuffer_DX12::Create(pDevice, byteWidth / byteStride, byteStride, format,
 		resourceFlags, memoryType, numSRVs, firstSrvElements, numUAVs, firstUavElements, memoryFlags,
@@ -3746,11 +3750,9 @@ bool IndexBuffer_DX12::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset,
 	const wchar_t* name, uint16_t srvComponentMapping,
 	const uintptr_t* counterByteOffsets, uint32_t maxThreads)
 {
-	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
-	const auto hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
-
 	assert(format == Format::R32_UINT || format == Format::R16_UINT);
 	const uint32_t byteStride = format == Format::R32_UINT ? sizeof(uint32_t) : sizeof(uint16_t);
+	resourceFlags |= ResourceFlag::INDEX_BUFFER;
 
 	XUSG_N_RETURN(TypedBuffer_DX12::Create(pDevice, pHeap, heapOffset, byteWidth / byteStride,
 		byteStride, format, resourceFlags, numSRVs, firstSrvElements, numUAVs, firstUavElements,

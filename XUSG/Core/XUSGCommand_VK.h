@@ -205,6 +205,8 @@ namespace XUSG
 		void submitClearBarrier(Resource_VK* pResource, uint32_t regionCount, bool toCopy) const;
 		void submitBarrierBatch(VkMemoryBarrier2& memory, std::vector<VkImageMemoryBarrier2>& images) const;
 		void pipelineBarrier(const VkDependencyInfo& dependency) const;
+		void ensureVertexBindingStride() const;
+		void transitionUndefinedAttachment(const RenderAttachment& attachment, bool depth) const;
 
 		mutable VkCommandBuffer		m_commandBuffer;
 		bool						m_ownsCommandBuffer;
@@ -222,6 +224,7 @@ namespace XUSG
 		PFN_vkCmdEndRendering				m_endRendering;
 		PFN_vkCmdSetPrimitiveTopology		m_setPrimitiveTopology;
 		PFN_vkCmdBindVertexBuffers2			m_bindVertexBuffers2;
+		mutable bool						m_vertexStrideBound;
 		PFN_vkCmdBindIndexBuffer2			m_bindIndexBuffer2;
 		PFN_vkCmdBeginDebugUtilsLabelEXT	m_beginLabel;
 		PFN_vkCmdEndDebugUtilsLabelEXT		m_endLabel;

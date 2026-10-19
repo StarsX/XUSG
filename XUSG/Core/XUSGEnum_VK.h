@@ -16,11 +16,11 @@ namespace XUSG
 	VkImageViewType GetVKImageViewType(ResourceDimension dimension, bool isArray, bool isCube, bool multisample);
 	VkImageLayout GetVKImageLayout(ResourceState state);
 	VkImageUsageFlags GetVKImageUsage(ResourceFlag flags);
-	VkBufferUsageFlags GetVKBufferUsage(ResourceFlag flags);
+	VkBufferUsageFlags GetVKBufferUsage(const Device_VK* pDevice, ResourceFlag flags);
 	VkImageAspectFlags GetVKImageAspect(Format format);
 
 	VkPipelineStageFlags2 GetVKStage(const Device_VK* pDevice, ResourceState state);
-	VkAccessFlags2 GetVKAccess(ResourceState state);
+	VkAccessFlags2 GetVKAccess(const Device_VK* pDevice, ResourceState state);
 
 	VkPrimitiveTopology GetVKPrimitiveTopology(PrimitiveTopology topology);
 	VkPrimitiveTopology GetVKPrimitiveTopology(PrimitiveTopologyType type);

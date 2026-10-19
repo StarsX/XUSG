@@ -18,6 +18,7 @@ namespace XUSG
 			Blob_VK Cache;
 			uint32_t Refs;
 			uint32_t XfbBuffers;
+			bool DynamicVertexStride;
 			uint32_t HandleSize;
 			std::vector<uint8_t> Handles;
 			std::unordered_map<std::wstring, uint32_t> Groups;

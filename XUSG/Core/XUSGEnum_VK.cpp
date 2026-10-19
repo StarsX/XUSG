@@ -465,22 +465,70 @@ VkImageUsageFlags XUSG::GetVKImageUsage(ResourceFlag flags)
 	return usage;
 }
 
-VkBufferUsageFlags XUSG::GetVKBufferUsage(ResourceFlag flags)
+VkBufferUsageFlags XUSG::GetVKBufferUsage(const Device_VK* pDevice, ResourceFlag flags)
 {
 	VkBufferUsageFlags usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
 		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 
 	const auto denySRV = (flags & ResourceFlag::DENY_SHADER_RESOURCE) != ResourceFlag::NONE;
 	const auto allowUAV = (flags & ResourceFlag::ALLOW_UNORDERED_ACCESS) != ResourceFlag::NONE;
-	if (allowUAV || !denySRV)
-		usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+	if (allowUAV || !denySRV) usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 
-	if ((flags & ResourceFlag::INDIRECT_BUFFER) != ResourceFlag::NONE)
-		usage |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
+	if ((flags & ResourceFlag::CONSTANT_BUFFER) != ResourceFlag::NONE) usage |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+	if ((flags & ResourceFlag::VERTEX_BUFFER) != ResourceFlag::NONE) usage |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+	if ((flags & ResourceFlag::INDEX_BUFFER) != ResourceFlag::NONE) usage |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+	if ((flags & ResourceFlag::TYPED_BUFFER) != ResourceFlag::NONE)
+	{
+		if (!denySRV) usage |= VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT;
+		if (allowUAV)
+		{
+			usage |= VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT;
+			usage &= ~VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+		}
+	}
+	if ((flags & ResourceFlag::INDIRECT_BUFFER) != ResourceFlag::NONE) usage |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
 	if ((flags & ResourceFlag::ACCELERATION_STRUCTURE_BUILD_INPUT) != ResourceFlag::NONE)
+	{
+		assert(pDevice && pDevice->HasAccelerationStructure());
 		usage |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+	}
 	if ((flags & ResourceFlag::ACCELERATION_STRUCTURE) != ResourceFlag::NONE)
+	{
+		assert(pDevice && pDevice->HasAccelerationStructure());
 		usage |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR;
+		if (pDevice && pDevice->HasMicromap() && !pDevice->HasOpacityMicromapKhr())
+			usage |= VK_BUFFER_USAGE_MICROMAP_STORAGE_BIT_EXT;
+	}
+	if ((flags & ResourceFlag::SHADER_TABLE) != ResourceFlag::NONE)
+	{
+		assert(pDevice && pDevice->HasRayTracingPipeline());
+		if (pDevice && pDevice->HasRayTracingPipeline())
+			usage |= VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR;
+	}
+	if ((flags & ResourceFlag::PREDICATION) != ResourceFlag::NONE)
+	{
+		assert(pDevice && pDevice->HasConditionalRendering());
+		if (pDevice && pDevice->HasConditionalRendering())
+			usage |= VK_BUFFER_USAGE_CONDITIONAL_RENDERING_BIT_EXT;
+	}
+	if ((flags & ResourceFlag::MICROMAP_BUILD_INPUT) != ResourceFlag::NONE)
+	{
+		assert(pDevice && pDevice->HasMicromap());
+		if (pDevice && pDevice->HasMicromap() && !pDevice->HasOpacityMicromapKhr())
+			usage |= VK_BUFFER_USAGE_MICROMAP_BUILD_INPUT_READ_ONLY_BIT_EXT;
+	}
+	if ((flags & ResourceFlag::STREAM_OUT_BUFFER) != ResourceFlag::NONE)
+	{
+		assert(pDevice && pDevice->HasTransformFeedback());
+		if (pDevice && pDevice->HasTransformFeedback())
+			usage |= VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT;
+	}
+	if ((flags & ResourceFlag::STREAM_OUT_COUNTER) != ResourceFlag::NONE)
+	{
+		assert(pDevice && pDevice->HasTransformFeedback());
+		if (pDevice && pDevice->HasTransformFeedback())
+			usage |= VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT;
+	}
 
 	return usage;
 }
@@ -538,11 +586,18 @@ VkPipelineStageFlags2 XUSG::GetVKStage(const Device_VK* pDevice, ResourceState s
 		stage |= VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT;
 	if ((state & ResourceState::STREAM_OUT) != ResourceState::COMMON)
 		stage |= VK_PIPELINE_STAGE_2_TRANSFORM_FEEDBACK_BIT_EXT;
+	if ((state & ResourceState::RAYTRACING_ACCELERATION_STRUCTURE) != ResourceState::COMMON)
+	{
+		assert(pDevice && pDevice->HasAccelerationStructure());
+		stage |= VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_BUILD_BIT_KHR;
+		if (pDevice && pDevice->HasRayTracingPipeline())
+			stage |= VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR;
+	}
 
 	return stage ? stage : VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
 }
 
-VkAccessFlags2 XUSG::GetVKAccess(ResourceState state)
+VkAccessFlags2 XUSG::GetVKAccess(const Device_VK* pDevice, ResourceState state)
 {
 	VkAccessFlags2 access = VK_ACCESS_2_NONE;
 	if (state == ResourceState::COMMON) return VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT;
@@ -570,6 +625,12 @@ VkAccessFlags2 XUSG::GetVKAccess(ResourceState state)
 		access |= VK_ACCESS_2_TRANSFORM_FEEDBACK_WRITE_BIT_EXT |
 		VK_ACCESS_2_TRANSFORM_FEEDBACK_COUNTER_READ_BIT_EXT |
 		VK_ACCESS_2_TRANSFORM_FEEDBACK_COUNTER_WRITE_BIT_EXT;
+	if ((state & ResourceState::RAYTRACING_ACCELERATION_STRUCTURE) != ResourceState::COMMON)
+	{
+		assert(pDevice && pDevice->HasAccelerationStructure());
+		access |= VK_ACCESS_2_ACCELERATION_STRUCTURE_READ_BIT_KHR |
+			VK_ACCESS_2_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
+	}
 
 	return access;
 }

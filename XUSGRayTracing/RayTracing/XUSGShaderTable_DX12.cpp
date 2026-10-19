@@ -81,7 +81,7 @@ bool ShaderTable_DX12::Create(XUSG::Device* pDevice, uint32_t numShaderRecords,
 
 	m_resource = Buffer::MakeShared();
 	const auto byteWidth = Align(m_byteStride * numShaderRecords);
-	XUSG_N_RETURN(m_resource->CreateResource(pDevice, byteWidth, ResourceFlag::NONE, MemoryType::UPLOAD,
+	XUSG_N_RETURN(m_resource->CreateResource(pDevice, byteWidth, ResourceFlag::SHADER_TABLE, MemoryType::UPLOAD,
 		memoryFlags, ResourceState::GENERIC_READ_RESOURCE), false);
 	m_resource->SetName(name);
 

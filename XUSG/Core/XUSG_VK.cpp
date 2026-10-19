@@ -2192,7 +2192,20 @@ bool Device_VK::createDevice()
 
 	const auto imageStride = static_cast<uint32_t>(m_heapProps.imageDescriptorSize);
 	const auto bufferStride = static_cast<uint32_t>(m_heapProps.bufferDescriptorSize);
+	// Texel-buffer descriptors can be larger than bufferDescriptorSize.
+	// vkWriteResourceDescriptorsEXT rejects a host range smaller than
+	// vkGetPhysicalDeviceDescriptorSizeEXT for that descriptor type.
+	auto uniformTexel = 0u;
+	auto storageTexel = 0u;
+	const auto getDescriptorSize = reinterpret_cast<PFN_vkGetPhysicalDeviceDescriptorSizeEXT>(
+		vkGetInstanceProcAddr(m_instance, "vkGetPhysicalDeviceDescriptorSizeEXT"));
+	if (getDescriptorSize)
+	{
+		uniformTexel = static_cast<uint32_t>(getDescriptorSize(m_physicalDevice, VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER));
+		storageTexel = static_cast<uint32_t>(getDescriptorSize(m_physicalDevice, VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER));
+	}
 	m_resourceStride = (max)(imageStride, bufferStride);
+	m_resourceStride = (max)(m_resourceStride, (max)(uniformTexel, storageTexel));
 	m_samplerStride = static_cast<uint32_t>(m_heapProps.samplerDescriptorSize);
 	if (!m_resourceStride || !m_samplerStride) return false;
 
@@ -2359,6 +2372,20 @@ bool Device_VK::createDevice()
 		m_storagePushConstant16 = supported11.storagePushConstant16 == VK_TRUE;
 		m_storageInputOutput16 = supported11.storageInputOutput16 == VK_TRUE;
 		m_shaderDrawParameters = supported11.shaderDrawParameters == VK_TRUE;
+	}
+	// The promoted 1.1 query and the extension query do not always agree.
+	if (storage16Ext)
+	{
+		VkPhysicalDevice16BitStorageFeatures storage16 = {};
+		storage16.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES;
+		VkPhysicalDeviceFeatures2 storage16Features = {};
+		storage16Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+		storage16Features.pNext = &storage16;
+		vkGetPhysicalDeviceFeatures2(m_physicalDevice, &storage16Features);
+		if (storage16.storageBuffer16BitAccess) m_storageBuffer16BitAccess = true;
+		if (storage16.uniformAndStorageBuffer16BitAccess) m_uniformAndStorageBuffer16BitAccess = true;
+		if (storage16.storagePushConstant16) m_storagePushConstant16 = true;
+		if (storage16.storageInputOutput16) m_storageInputOutput16 = true;
 	}
 	if (instanceVersion >= VK_API_VERSION_1_2)
 	{
@@ -2818,7 +2845,7 @@ bool Device_VK::createDevice()
 	{
 		m_uniformAndStorageBuffer16BitAccess = false;
 		m_storagePushConstant16 = false;
-		// storageInputOutput16 is independent (dxc -enable-16bit-types declares it).
+		// storageInputOutput16 is independent of the buffer 16-bit bits.
 	}
 	if (!m_storageBuffer8BitAccess)
 	{

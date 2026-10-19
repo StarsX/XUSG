@@ -209,6 +209,7 @@ CommandList_VK::CommandList_VK() :
 	m_endRendering(nullptr),
 	m_setPrimitiveTopology(nullptr),
 	m_bindVertexBuffers2(nullptr),
+	m_vertexStrideBound(false),
 	m_bindIndexBuffer2(nullptr),
 	m_beginLabel(nullptr),
 	m_endLabel(nullptr),
@@ -376,6 +377,7 @@ void CommandList_VK::Draw(uint32_t vertexCountPerInstance, uint32_t instanceCoun
 {
 	if (m_type == CommandListType::DIRECT) beginRendering();
 	flushPush(true);
+	ensureVertexBindingStride();
 	vkCmdDraw(m_commandBuffer, vertexCountPerInstance, instanceCount, startVertexLocation, startInstanceLocation);
 }
 
@@ -384,6 +386,7 @@ void CommandList_VK::DrawIndexed(uint32_t indexCountPerInstance, uint32_t instan
 {
 	if (m_type == CommandListType::DIRECT) beginRendering();
 	flushPush(true);
+	ensureVertexBindingStride();
 	vkCmdDrawIndexed(m_commandBuffer, indexCountPerInstance, instanceCount,
 		startIndexLocation, baseVertexLocation, startInstanceLocation);
 }
@@ -731,7 +734,7 @@ void CommandList_VK::Barrier(uint32_t numBarriers, const ResourceBarrier* pBarri
 		if (uav)
 		{
 			const auto stage = GetVKStage(m_pDevice, ResourceState::UNORDERED_ACCESS);
-			const auto access = GetVKAccess(ResourceState::UNORDERED_ACCESS);
+			const auto access = GetVKAccess(m_pDevice, ResourceState::UNORDERED_ACCESS);
 			AddGlobalBarrier(memory, stage, access, stage, access);
 			continue;
 		}
@@ -748,8 +751,8 @@ void CommandList_VK::Barrier(uint32_t numBarriers, const ResourceBarrier* pBarri
 		const auto pResource = AsVK(barrier.pResource);
 		auto srcStage = GetVKStage(m_pDevice, barrier.StateBefore);
 		auto dstStage = GetVKStage(m_pDevice, barrier.StateAfter);
-		auto srcAccess = GetVKAccess(barrier.StateBefore);
-		auto dstAccess = GetVKAccess(barrier.StateAfter);
+		auto srcAccess = GetVKAccess(m_pDevice, barrier.StateBefore);
+		auto dstAccess = GetVKAccess(m_pDevice, barrier.StateAfter);
 		// PRESENT aliases COMMON. Narrow WSI transitions so the GPU is not
 		// stalled on ALL_COMMANDS / MEMORY_* for every presentable barrier.
 		if (pResource->IsPresentable() && barrier.StateBefore == ResourceState::COMMON)
@@ -796,7 +799,11 @@ void CommandList_VK::Barrier(uint32_t numBarriers, const ResourceBarrier* pBarri
 			image.subresourceRange.layerCount = 1;
 		}
 		// vkd3d common-layout promotion: COMMON -> compatible read layout needs no transition.
-		if (image.oldLayout == image.newLayout && barrier.StateBefore == ResourceState::COMMON)
+		// An image still at UNDEFINED must take that first transition even when the
+		// tracked states share one Vulkan layout.
+		const auto undefined = barrier.Subresource == XUSG_BARRIER_ALL_SUBRESOURCES ?
+			pResource->HasUndefinedLayout() : pResource->IsUndefinedLayout(barrier.Subresource);
+		if (image.oldLayout == image.newLayout && barrier.StateBefore == ResourceState::COMMON && !undefined)
 			continue;
 		if (image.oldLayout != image.newLayout)
 		{
@@ -1007,8 +1014,13 @@ void CommandList_VK::IASetVertexBuffers(uint32_t startSlot, uint32_t numViews, c
 		}
 	}
 
-	if (m_bindVertexBuffers2)
+	const auto dynamicStride = m_bindVertexBuffers2 && (!m_pipeline ||
+		m_pipeline->BindPoint != VK_PIPELINE_BIND_POINT_GRAPHICS || m_pipeline->DynamicVertexStride);
+	if (dynamicStride)
+	{
 		m_bindVertexBuffers2(m_commandBuffer, startSlot, numViews, buffers, offsets, sizes, strides);
+		m_vertexStrideBound = true;
+	}
 	else vkCmdBindVertexBuffers(m_commandBuffer, startSlot, numViews, buffers, offsets);
 }
 
@@ -1520,6 +1532,7 @@ void CommandList_VK::Attach(const CommandList_VK& source)
 	m_endRendering = source.m_endRendering;
 	m_setPrimitiveTopology = source.m_setPrimitiveTopology;
 	m_bindVertexBuffers2 = source.m_bindVertexBuffers2;
+	m_vertexStrideBound = source.m_vertexStrideBound;
 	m_beginLabel = source.m_beginLabel;
 	m_endLabel = source.m_endLabel;
 	m_insertLabel = source.m_insertLabel;
@@ -1619,6 +1632,7 @@ void CommandList_VK::resetState() const
 	m_predicateEqualZero = false;
 	m_predicationActive = false;
 	m_renderingBegun = false;
+	m_vertexStrideBound = false;
 	m_hasDepth = false;
 	m_colorCount = 0;
 	m_depth = {};
@@ -1715,9 +1729,57 @@ bool CommandList_VK::hasPendingClear() const
 	return m_hasDepth && m_depth.PendingClear;
 }
 
+void CommandList_VK::ensureVertexBindingStride() const
+{
+	if (!m_bindVertexBuffers2 || m_vertexStrideBound || !m_pipeline || !m_pipeline->DynamicVertexStride) return;
+
+	VkBuffer buffer = VK_NULL_HANDLE;
+	VkDeviceSize zero = 0;
+	m_bindVertexBuffers2(m_commandBuffer, 0, 1, &buffer, &zero, &zero, &zero);
+	m_vertexStrideBound = true;
+}
+
+void CommandList_VK::transitionUndefinedAttachment(const RenderAttachment& attachment, bool depth) const
+{
+	const auto resource = attachment.Resource;
+	if (!resource || !attachment.Rendering.imageView || !resource->IsUndefinedLayout(attachment.Subresource)) return;
+
+	VkImageMemoryBarrier2 image = {};
+	image.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+	image.srcStageMask = VK_PIPELINE_STAGE_2_NONE;
+	image.srcAccessMask = VK_ACCESS_2_NONE;
+	image.dstStageMask = depth ?
+		(VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT) :
+		VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+	image.dstAccessMask = depth ?
+		(VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT) :
+		(VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT);
+	image.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	image.newLayout = attachment.Rendering.imageLayout;
+	image.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	image.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	image.image = resource->GetImage();
+	image.subresourceRange.aspectMask = GetVKImageAspect(GetFormatFromVK(resource->GetVkFormat()));
+	image.subresourceRange.baseMipLevel = attachment.BaseMip;
+	image.subresourceRange.levelCount = attachment.MipCount ? attachment.MipCount : 1u;
+	image.subresourceRange.baseArrayLayer = attachment.BaseLayer;
+	image.subresourceRange.layerCount = attachment.Layers ? attachment.Layers : 1u;
+
+	vector<VkImageMemoryBarrier2> images;
+	resource->AppendImageBarrier(image, images);
+	if (images.empty()) return;
+
+	VkMemoryBarrier2 memory = {};
+	memory.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
+	submitBarrierBatch(memory, images);
+}
+
 void CommandList_VK::beginRendering() const
 {
 	if (m_renderingBegun) return;
+
+	for (auto i = 0u; i < m_colorCount; ++i) transitionUndefinedAttachment(m_colors[i], false);
+	if (m_hasDepth) transitionUndefinedAttachment(m_depth, true);
 
 	DeferredClear matched[MaxRenderTargetCount + 1];
 	auto matchedCount = 0u;
@@ -2326,7 +2388,7 @@ void CommandList_VK::clearUnorderedAccessView(const Descriptor& descriptor, cons
 	if (clearInPlace)
 	{
 		const auto srcStage = GetVKStage(m_pDevice, state);
-		const auto srcAccess = GetVKAccess(state);
+		const auto srcAccess = GetVKAccess(m_pDevice, state);
 		VkDependencyInfo dependency = {};
 		dependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
 		VkImageMemoryBarrier2 image = {};
@@ -2481,9 +2543,9 @@ void CommandList_VK::submitClearBarrier(Resource_VK* pResource, uint32_t regionC
 			VkImageMemoryBarrier2 image = {};
 			image.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
 			image.srcStageMask = GetVKStage(m_pDevice, src);
-			image.srcAccessMask = GetVKAccess(src);
+			image.srcAccessMask = GetVKAccess(m_pDevice, src);
 			image.dstStageMask = GetVKStage(m_pDevice, dst);
-			image.dstAccessMask = GetVKAccess(dst);
+			image.dstAccessMask = GetVKAccess(m_pDevice, dst);
 			image.oldLayout = undefined ? VK_IMAGE_LAYOUT_UNDEFINED : pResource->ImageLayout(src);
 			if (undefined) image.srcAccessMask = VK_ACCESS_2_NONE;
 			image.newLayout = pResource->ImageLayout(dst);
@@ -2502,9 +2564,9 @@ void CommandList_VK::submitClearBarrier(Resource_VK* pResource, uint32_t regionC
 			VkBufferMemoryBarrier2 buffer = {};
 			buffer.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
 			buffer.srcStageMask = GetVKStage(m_pDevice, src);
-			buffer.srcAccessMask = GetVKAccess(src);
+			buffer.srcAccessMask = GetVKAccess(m_pDevice, src);
 			buffer.dstStageMask = GetVKStage(m_pDevice, dst);
-			buffer.dstAccessMask = GetVKAccess(dst);
+			buffer.dstAccessMask = GetVKAccess(m_pDevice, dst);
 			buffer.buffer = pResource->GetBuffer();
 			buffer.size = VK_WHOLE_SIZE;
 			m_buffers.push_back(buffer);

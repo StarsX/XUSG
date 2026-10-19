@@ -320,7 +320,6 @@ Resource_VK::Resource_VK() :
 	m_sparse(false),
 	m_hasSparseInfo(false),
 	m_resourceFormat(Format::UNKNOWN),
-	m_bufferType(BufferType::GENERIC),
 	m_metadata(VK_NULL_HANDLE),
 	m_sparseTypeBits(0),
 	m_sparseInfo{},
@@ -1016,44 +1015,6 @@ void Resource_VK::setState(ResourceState state, uint32_t subresources, uint32_t 
 	for (auto& states : m_states) states.assign(subresources ? subresources : 1, state);
 }
 
-VkBufferUsageFlags Resource_VK::getVKBufferUsage(ResourceFlag resourceFlags) const
-{
-	auto usage = GetVKBufferUsage(resourceFlags);
-	const auto allowUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) != ResourceFlag::NONE;
-	const auto denySRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) != ResourceFlag::NONE;
-
-	switch (m_bufferType)
-	{
-	case BufferType::CONSTANT:
-		usage |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-		break;
-	case BufferType::TYPED:
-		if (!denySRV) usage |= VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT;
-		if (allowUAV)
-		{
-			usage |= VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT;
-			usage &= ~VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-		}
-		break;
-	case BufferType::VERTEX:
-		usage |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-		break;
-	case BufferType::INDEX:
-		usage |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-		if (!denySRV) usage |= VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT;
-		if (allowUAV)
-		{
-			usage |= VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT;
-			usage &= ~VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-		}
-		break;
-	default:
-		break;
-	}
-
-	return usage;
-}
-
 bool Resource_VK::createBuffer(Heap* pHeap, uint64_t heapOffset, size_t byteWidth,
 	ResourceFlag resourceFlags, MemoryType memoryType, bool reserved)
 {
@@ -1079,7 +1040,7 @@ bool Resource_VK::createBuffer(Heap* pHeap, uint64_t heapOffset, size_t byteWidt
 	VkBufferCreateInfo info = {};
 	info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	info.size = size;
-	info.usage = getVKBufferUsage(resourceFlags);
+	info.usage = GetVKBufferUsage(m_pDevice, resourceFlags);
 	info.sharingMode = sharingCount > 1 ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
 	info.queueFamilyIndexCount = sharingCount;
 	info.pQueueFamilyIndices = pSharingFamilies;
@@ -1087,17 +1048,6 @@ bool Resource_VK::createBuffer(Heap* pHeap, uint64_t heapOffset, size_t byteWidt
 	{
 		info.flags |= VK_BUFFER_CREATE_SPARSE_BINDING_BIT | VK_BUFFER_CREATE_SPARSE_RESIDENCY_BIT;
 		if (m_pDevice->SupportsSparseAliased()) info.flags |= VK_BUFFER_CREATE_SPARSE_ALIASED_BIT;
-	}
-	if (m_pDevice && m_pDevice->HasConditionalRendering())
-		info.usage |= VK_BUFFER_USAGE_CONDITIONAL_RENDERING_BIT_EXT;
-	if (m_pDevice && m_pDevice->HasTransformFeedback())
-		info.usage |= VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT |
-		VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT;
-	if (m_pDevice && m_pDevice->HasMicromap() && !m_pDevice->HasOpacityMicromapKhr())
-	{
-		info.usage |= VK_BUFFER_USAGE_MICROMAP_BUILD_INPUT_READ_ONLY_BIT_EXT;
-		if ((resourceFlags & ResourceFlag::ACCELERATION_STRUCTURE) != ResourceFlag::NONE)
-			info.usage |= VK_BUFFER_USAGE_MICROMAP_STORAGE_BIT_EXT;
 	}
 	XUSG_VK_CHECK(vkCreateBuffer(device, &info, nullptr, &m_buffer), cerr, false);
 	m_ownsBuffer = true;
@@ -1808,7 +1758,6 @@ void Resource_VK::discardRange(const VkImageSubresourceRange& range, uint32_t& b
 
 ConstantBuffer_VK::ConstantBuffer_VK()
 {
-	m_bufferType = BufferType::CONSTANT;
 }
 
 ConstantBuffer_VK::~ConstantBuffer_VK()
@@ -1893,7 +1842,7 @@ bool ConstantBuffer_VK::CreateResource(Device* pDevice, size_t byteWidth, Memory
 {
 	(void)memoryFlags;
 	XUSG_N_RETURN(initialize(pDevice, 1), false);
-	XUSG_N_RETURN(createBuffer(nullptr, 0, byteWidth, ResourceFlag::NONE, memoryType), false);
+	XUSG_N_RETURN(createBuffer(nullptr, 0, byteWidth, ResourceFlag::CONSTANT_BUFFER, memoryType), false);
 	setState(initialResourceState, 1, 1);
 
 	return true;
@@ -1903,7 +1852,7 @@ bool ConstantBuffer_VK::CreateResource(Device* pDevice, Heap* pHeap, uint64_t he
 	ResourceState initialResourceState)
 {
 	XUSG_N_RETURN(initialize(pDevice, 1), false);
-	XUSG_N_RETURN(createBuffer(pHeap, heapOffset, byteWidth, ResourceFlag::NONE, MemoryType::DEFAULT, pHeap == nullptr), false);
+	XUSG_N_RETURN(createBuffer(pHeap, heapOffset, byteWidth, ResourceFlag::CONSTANT_BUFFER, MemoryType::DEFAULT, pHeap == nullptr), false);
 	setState(initialResourceState, 1, 1);
 
 	return true;
@@ -3313,6 +3262,11 @@ bool Buffer_VK::Create(Device* pDevice, size_t byteWidth, ResourceFlag resourceF
 	XUSG_N_RETURN(CreateResource(pDevice, byteWidth, resourceFlags, memoryType, memoryFlags,
 		ResourceState::COMMON, 0, nullptr, maxThreads), false);
 	SetName(name);
+	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
+	const auto hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
+
+	numSRVs = hasSRV ? numSRVs : 0;
+	numUAVs = hasUAV ? numUAVs : 0;
 	const auto stride = 4u;
 	createViews(byteWidth / stride, stride, Format::R32_TYPELESS, numSRVs, firstSrvElements,
 		numUAVs, firstUavElements, counterByteOffsets, XUSG_DEFAULT_SRV_COMPONENT_MAPPING);
@@ -3326,6 +3280,11 @@ bool Buffer_VK::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, size_t
 {
 	XUSG_N_RETURN(CreateResource(pDevice, pHeap, heapOffset, byteWidth, resourceFlags, ResourceState::COMMON, 0, nullptr, maxThreads), false);
 	SetName(name);
+	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
+	const auto hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
+
+	numSRVs = hasSRV ? numSRVs : 0;
+	numUAVs = hasUAV ? numUAVs : 0;
 	createViews(byteWidth / 4, 4, Format::R32_TYPELESS, numSRVs, firstSrvElements, numUAVs, firstUavElements, counterByteOffsets,
 		XUSG_DEFAULT_SRV_COMPONENT_MAPPING);
 
@@ -3539,6 +3498,11 @@ bool StructuredBuffer_VK::Create(Device* pDevice, size_t numElements, uint32_t b
 	XUSG_N_RETURN(CreateResource(pDevice, numElements * byteStride, resourceFlags, memoryType), false);
 	SetName(name);
 	(void)maxThreads;
+	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
+	const auto hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
+
+	numSRVs = hasSRV ? numSRVs : 0;
+	numUAVs = hasUAV ? numUAVs : 0;
 
 	return createViews(numElements, byteStride, Format::UNKNOWN, numSRVs, firstSrvElements, numUAVs, firstUavElements,
 		counterByteOffsets, XUSG_DEFAULT_SRV_COMPONENT_MAPPING);
@@ -3551,6 +3515,11 @@ bool StructuredBuffer_VK::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffs
 	XUSG_N_RETURN(CreateResource(pDevice, pHeap, heapOffset, numElements * byteStride, resourceFlags), false);
 	SetName(name);
 	(void)maxThreads;
+	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
+	const auto hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
+
+	numSRVs = hasSRV ? numSRVs : 0;
+	numUAVs = hasUAV ? numUAVs : 0;
 
 	return createViews(numElements, byteStride, Format::UNKNOWN, numSRVs, firstSrvElements, numUAVs, firstUavElements,
 		counterByteOffsets, XUSG_DEFAULT_SRV_COMPONENT_MAPPING);
@@ -3562,7 +3531,6 @@ bool StructuredBuffer_VK::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffs
 
 TypedBuffer_VK::TypedBuffer_VK()
 {
-	m_bufferType = BufferType::TYPED;
 }
 
 TypedBuffer_VK::~TypedBuffer_VK()
@@ -3577,6 +3545,12 @@ bool TypedBuffer_VK::Create(Device* pDevice, size_t numElements, uint32_t byteSt
 	(void)memoryFlags;
 	(void)numUavFormats;
 	(void)uavFormats;
+	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
+	const auto hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
+	if (hasSRV || hasUAV) resourceFlags |= ResourceFlag::TYPED_BUFFER;
+
+	numSRVs = hasSRV ? numSRVs : 0;
+	numUAVs = hasUAV ? numUAVs : 0;
 	XUSG_N_RETURN(CreateResource(pDevice, numElements * byteStride, resourceFlags, memoryType, MemoryFlag::NONE,
 		ResourceState::COMMON, 0, nullptr, maxThreads), false);
 	SetName(name);
@@ -3594,6 +3568,12 @@ bool TypedBuffer_VK::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, s
 	(void)numUavFormats;
 	(void)uavFormats;
 	(void)maxThreads;
+	const auto hasSRV = (resourceFlags & ResourceFlag::DENY_SHADER_RESOURCE) == ResourceFlag::NONE;
+	const auto hasUAV = (resourceFlags & ResourceFlag::ALLOW_UNORDERED_ACCESS) == ResourceFlag::ALLOW_UNORDERED_ACCESS;
+	if (hasSRV || hasUAV) resourceFlags |= ResourceFlag::TYPED_BUFFER;
+
+	numSRVs = hasSRV ? numSRVs : 0;
+	numUAVs = hasUAV ? numUAVs : 0;
 	XUSG_N_RETURN(CreateResource(pDevice, pHeap, heapOffset, numElements * byteStride, resourceFlags), false);
 	SetName(name);
 	m_format = format;
@@ -3621,7 +3601,6 @@ const Descriptor& TypedBuffer_VK::GetUAV(uint32_t index, Format format) const
 
 VertexBuffer_VK::VertexBuffer_VK()
 {
-	m_bufferType = BufferType::VERTEX;
 }
 
 VertexBuffer_VK::~VertexBuffer_VK()
@@ -3633,6 +3612,7 @@ bool VertexBuffer_VK::Create(Device* pDevice, size_t numVertices, uint32_t byteS
 	uint32_t numUAVs, const uintptr_t* firstUavElements, MemoryFlag memoryFlags, const wchar_t* name,
 	const uintptr_t* counterByteOffsets, uint32_t maxThreads)
 {
+	resourceFlags |= ResourceFlag::VERTEX_BUFFER;
 	XUSG_N_RETURN(StructuredBuffer_VK::Create(pDevice, numVertices, byteStride, resourceFlags, memoryType, numSRVs, firstSrvElements,
 		numUAVs, firstUavElements, memoryFlags, name, counterByteOffsets, maxThreads), false);
 	createVBVs(numVertices, byteStride, numVBVs, firstVertices);
@@ -3644,6 +3624,7 @@ bool VertexBuffer_VK::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, 
 	ResourceFlag resourceFlags, uint32_t numVBVs, const uintptr_t* firstVertices, uint32_t numSRVs, const uintptr_t* firstSrvElements,
 	uint32_t numUAVs, const uintptr_t* firstUavElements, const wchar_t* name, const uintptr_t* counterByteOffsets, uint32_t maxThreads)
 {
+	resourceFlags |= ResourceFlag::VERTEX_BUFFER;
 	XUSG_N_RETURN(StructuredBuffer_VK::Create(pDevice, pHeap, heapOffset, numVertices, byteStride, resourceFlags, numSRVs,
 		firstSrvElements, numUAVs, firstUavElements, name, counterByteOffsets, maxThreads), false);
 	createVBVs(numVertices, byteStride, numVBVs, firstVertices);
@@ -3656,6 +3637,7 @@ bool VertexBuffer_VK::CreateAsRaw(Device* pDevice, size_t numVertices, uint32_t 
 	uint32_t numUAVs, const uintptr_t* firstUavElements, MemoryFlag memoryFlags, const wchar_t* name,
 	const uintptr_t* counterByteOffsets, uint32_t maxThreads)
 {
+	resourceFlags |= ResourceFlag::VERTEX_BUFFER;
 	XUSG_N_RETURN(Buffer_VK::Create(pDevice, numVertices * byteStride, resourceFlags, memoryType, numSRVs, firstSrvElements,
 		numUAVs, firstUavElements, memoryFlags, name, counterByteOffsets, maxThreads), false);
 	createVBVs(numVertices, byteStride, numVBVs, firstVertices);
@@ -3667,6 +3649,7 @@ bool VertexBuffer_VK::CreateAsRaw(Device* pDevice, Heap* pHeap, uint64_t heapOff
 	ResourceFlag resourceFlags, uint32_t numVBVs, const uintptr_t* firstVertices, uint32_t numSRVs, const uintptr_t* firstSrvElements,
 	uint32_t numUAVs, const uintptr_t* firstUavElements, const wchar_t* name, const uintptr_t* counterByteOffsets, uint32_t maxThreads)
 {
+	resourceFlags |= ResourceFlag::VERTEX_BUFFER;
 	XUSG_N_RETURN(Buffer_VK::Create(pDevice, pHeap, heapOffset, numVertices * byteStride, resourceFlags, numSRVs, firstSrvElements,
 		numUAVs, firstUavElements, name, counterByteOffsets, maxThreads), false);
 	createVBVs(numVertices, byteStride, numVBVs, firstVertices);
@@ -3704,7 +3687,6 @@ void VertexBuffer_VK::createVBVs(size_t numVertices, uint32_t byteStride, uint32
 
 IndexBuffer_VK::IndexBuffer_VK()
 {
-	m_bufferType = BufferType::INDEX;
 }
 
 IndexBuffer_VK::~IndexBuffer_VK()
@@ -3717,6 +3699,7 @@ bool IndexBuffer_VK::Create(Device* pDevice, size_t byteWidth, Format format, Re
 	const uintptr_t* counterByteOffsets, uint32_t maxThreads)
 {
 	const auto stride = format == Format::R16_UINT ? 2u : 4u;
+	resourceFlags |= ResourceFlag::INDEX_BUFFER;
 	XUSG_N_RETURN(TypedBuffer_VK::Create(pDevice, byteWidth / stride, stride, format, resourceFlags, memoryType, numSRVs, firstSrvElements,
 		numUAVs, firstUavElements, memoryFlags, name, srvComponentMapping, counterByteOffsets, 0, nullptr, maxThreads), false);
 	m_ibvs.resize(numIBVs);
@@ -3737,6 +3720,7 @@ bool IndexBuffer_VK::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, s
 	const uintptr_t* counterByteOffsets, uint32_t maxThreads)
 {
 	const auto stride = format == Format::R16_UINT ? 2u : 4u;
+	resourceFlags |= ResourceFlag::INDEX_BUFFER;
 	XUSG_N_RETURN(TypedBuffer_VK::Create(pDevice, pHeap, heapOffset, byteWidth / stride, stride, format, resourceFlags, numSRVs,
 		firstSrvElements, numUAVs, firstUavElements, name, srvComponentMapping, counterByteOffsets, 0, nullptr, maxThreads), false);
 	m_ibvs.resize(numIBVs);

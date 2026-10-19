@@ -340,19 +340,24 @@ const Graphics::DepthStencil* PipelineLib_VK::GetDepthStencil(DepthStencilPreset
 
 namespace
 {
-	VkShaderModule CreateShaderModule(VkDevice device, const Blob& blob)
+	VkShaderModule CreateShaderModule(const Device_VK* pDevice, const Blob& blob)
 	{
 		const void* pData = nullptr;
 		size_t size = 0;
 		GetVKBlobData(blob, &pData, &size);
-		if (!pData || !size) return VK_NULL_HANDLE;
+		if (!pDevice || !pData || !size) return VK_NULL_HANDLE;
+
+		vector<uint32_t> stripped;
+		const uint32_t* pCode = nullptr;
+		size_t codeSize = 0;
+		DropUnsupportedStorageInputOutput16(pDevice, pData, size, stripped, pCode, codeSize);
 
 		VkShaderModuleCreateInfo info = {};
 		info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-		info.codeSize = size;
-		info.pCode = static_cast<const uint32_t*>(pData);
+		info.codeSize = codeSize;
+		info.pCode = pCode;
 		VkShaderModule module = VK_NULL_HANDLE;
-		if (vkCreateShaderModule(device, &info, nullptr, &module) < 0) return VK_NULL_HANDLE;
+		if (vkCreateShaderModule(pDevice->GetDevice(), &info, nullptr, &module) < 0) return VK_NULL_HANDLE;
 
 		return module;
 	}
@@ -603,7 +608,7 @@ Pipeline_VK* XUSG::CreateVKGraphicsPipeline(const Device_VK* pDevice, const Grap
 		const auto stage = static_cast<Shader::Stage>(i);
 		if (stage == Shader::CS || !desc.pShaders || !desc.pShaders[i]) continue;
 
-		modules[stageCount] = CreateShaderModule(device, desc.pShaders[i]);
+		modules[stageCount] = CreateShaderModule(pDevice, desc.pShaders[i]);
 		if (desc.pEntryPoints && desc.pEntryPoints[i]) entries[stageCount] = desc.pEntryPoints[i];
 		else entries[stageCount] = "main";
 		stages[stageCount].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -813,7 +818,9 @@ Pipeline_VK* XUSG::CreateVKGraphicsPipeline(const Device_VK* pDevice, const Grap
 		VK_DYNAMIC_STATE_PRIMITIVE_TOPOLOGY
 	};
 	auto dynamicCount = 5u;
-	if (pDevice->GetBindVertexBuffers2()) dynamics[dynamicCount++] = VK_DYNAMIC_STATE_VERTEX_INPUT_BINDING_STRIDE;
+	const auto dynamicVertexStride = pDevice->GetBindVertexBuffers2() && !bindings.empty();
+	if (dynamicVertexStride)
+		dynamics[dynamicCount++] = VK_DYNAMIC_STATE_VERTEX_INPUT_BINDING_STRIDE;
 	if (hasSampleLocations)
 	{
 		dynamics[dynamicCount++] = VK_DYNAMIC_STATE_SAMPLE_LOCATIONS_EXT;
@@ -885,6 +892,7 @@ Pipeline_VK* XUSG::CreateVKGraphicsPipeline(const Device_VK* pDevice, const Grap
 	pipeline->BindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 	pipeline->Refs = 1;
 	pipeline->XfbBuffers = xfbBuffers;
+	pipeline->DynamicVertexStride = dynamicVertexStride;
 	pDevice->SetDebugName(VK_OBJECT_TYPE_PIPELINE, (uint64_t)handle, desc.Name);
 
 	return pipeline;
@@ -895,7 +903,7 @@ Pipeline_VK* XUSG::CreateVKComputePipeline(const Device_VK* pDevice, const Pipel
 {
 	assert(pDevice);
 	const auto device = pDevice->GetDevice();
-	const auto module = CreateShaderModule(device, shader);
+	const auto module = CreateShaderModule(pDevice, shader);
 	const string entry = entryPoint ? entryPoint : "main";
 
 	VkPipelineShaderStageCreateInfo stage = {};
@@ -930,6 +938,8 @@ Pipeline_VK* XUSG::CreateVKComputePipeline(const Device_VK* pDevice, const Pipel
 	pipeline->Handle = handle;
 	pipeline->BindPoint = VK_PIPELINE_BIND_POINT_COMPUTE;
 	pipeline->Refs = 1;
+	pipeline->XfbBuffers = 0;
+	pipeline->DynamicVertexStride = false;
 	pDevice->SetDebugName(VK_OBJECT_TYPE_PIPELINE, (uint64_t)handle, name);
 
 	return pipeline;

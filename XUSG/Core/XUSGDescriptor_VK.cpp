@@ -711,7 +711,7 @@ bool DescriptorTableLib_VK::writeNullResource(void* pDescriptor) const
 
 	VkHostAddressRangeEXT host = {};
 	host.address = pDescriptor;
-	host.size = static_cast<size_t>(useImage ? props.imageDescriptorSize : props.bufferDescriptorSize);
+	host.size = m_pDevice->GetResourceDescriptorStride();
 	XUSG_VK_CHECK(m_pDevice->GetExtProcs().WriteResourceDescriptors(m_pDevice->GetDevice(), 1, &info, &host), cerr, false);
 
 	return true;
@@ -728,7 +728,6 @@ bool DescriptorTableLib_VK::writeResource(const ResourceView_VK* pView, void* pD
 		return false;
 	}
 
-	const auto& props = m_pDevice->GetDescriptorHeapProperties();
 	VkDeviceAddressRangeEXT range = {};
 	range.address = pView->Address;
 	range.size = pView->Range;
@@ -750,10 +749,9 @@ bool DescriptorTableLib_VK::writeResource(const ResourceView_VK* pView, void* pD
 	else if (pView->IsTexelBuffer) info.data.pTexelBuffer = &texel;
 	else info.data.pAddressRange = &range;
 
-	const auto descriptorSize = pView->IsImage ? props.imageDescriptorSize : props.bufferDescriptorSize;
 	VkHostAddressRangeEXT host = {};
 	host.address = pDescriptor;
-	host.size = static_cast<size_t>(descriptorSize);
+	host.size = m_pDevice->GetResourceDescriptorStride();
 	XUSG_VK_CHECK(m_pDevice->GetExtProcs().WriteResourceDescriptors(m_pDevice->GetDevice(), 1, &info, &host), cerr, false);
 
 	return true;
