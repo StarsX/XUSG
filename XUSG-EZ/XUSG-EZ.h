@@ -37,15 +37,15 @@ namespace XUSG
 		// Resource view generation helpers coupled for XUSG resources
 		XUSG_INTERFACE ResourceView GetCBV(const ConstantBuffer* pResource, uint32_t index = 0);
 		XUSG_INTERFACE ResourceView GetSRV(const Buffer* pResource, uint32_t index = 0,
-			ResourceState dstState = ResourceState::ALL_SHADER_RESOURCE);
+			ResourceState dstState = ResourceState::PIXEL_SHADER_RESOURCE);
 		XUSG_INTERFACE ResourceView GetSRV(const VertexBuffer* pResource, uint32_t index = 0,
 			ResourceState dstState = ResourceState::ALL_SHADER_RESOURCE | ResourceState::VERTEX_AND_CONSTANT_BUFFER);
 		XUSG_INTERFACE ResourceView GetSRV(const IndexBuffer* pResource, uint32_t index = 0,
 			ResourceState dstState = ResourceState::ALL_SHADER_RESOURCE | ResourceState::INDEX_BUFFER);
 		XUSG_INTERFACE ResourceView GetSRV(const Texture* pResource, uint8_t firstLevel = 0,
-			bool singleLevel = false, ResourceState dstState = ResourceState::ALL_SHADER_RESOURCE);
+			bool singleLevel = false, ResourceState dstState = ResourceState::PIXEL_SHADER_RESOURCE);
 		XUSG_INTERFACE ResourceView GetSRV(const Texture3D* pResource, uint8_t firstLevel = 0,
-			bool singleLevel = false, ResourceState dstState = ResourceState::ALL_SHADER_RESOURCE);
+			bool singleLevel = false, ResourceState dstState = ResourceState::PIXEL_SHADER_RESOURCE);
 		XUSG_INTERFACE ResourceView GetUAV(const Buffer* pResource, uint32_t index = 0);
 		XUSG_INTERFACE ResourceView GetUAV(const Texture* pResource, uint8_t level = 0, Format format = Format::UNKNOWN);
 		XUSG_INTERFACE ResourceView GetUAV(const Texture3D* pResource, uint8_t level = 0, Format format = Format::UNKNOWN);

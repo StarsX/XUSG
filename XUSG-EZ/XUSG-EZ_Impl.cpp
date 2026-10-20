@@ -537,9 +537,13 @@ void EZ::CommandList_Impl<Base>::SetResources(Shader::Stage stage, DescriptorTyp
 	for (auto i = 0u; i < numResources; ++i) m_descriptors[i] = pResourceViews[i].View;
 	descriptorTable->SetDescriptors(startBinding, numResources, m_descriptors.data());
 
-	// Set barriers
+	// Set barriers. Non-PS SRV reads also need NON_PIXEL_SHADER_RESOURCE.
 	if (descriptorType == DescriptorType::SRV || descriptorType == DescriptorType::UAV)
-		setBarriers(numResources, pResourceViews);
+	{
+		const auto state = descriptorType == DescriptorType::SRV && stage != Shader::Stage::PS ?
+			ResourceState::NON_PIXEL_SHADER_RESOURCE : ResourceState::COMMON;
+		setBarriers(numResources, pResourceViews, state);
+	}
 }
 
 template<typename Base>
@@ -1235,7 +1239,7 @@ void EZ::CommandList_Impl<Base>::dispatchBlit(const Blob& shader, SamplerPreset 
 	const ResourceView& uav, uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ)
 {
 	flushClears(srv.View->pResource);
-	setBarriers(1, &srv);
+	setBarriers(1, &srv, ResourceState::NON_PIXEL_SHADER_RESOURCE);
 	setBarriers(1, &uav);
 	Base::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
 	m_barriers.clear();
@@ -1466,7 +1470,7 @@ void EZ::CommandList_Impl<Base>::clearUAVs()
 }
 
 template<typename Base>
-void EZ::CommandList_Impl<Base>::setBarriers(uint32_t numResources, const ResourceView* pResourceViews)
+void EZ::CommandList_Impl<Base>::setBarriers(uint32_t numResources, const ResourceView* pResourceViews, ResourceState state)
 {
 	// Estimate barrier count
 	auto numBarriersEst = 0u;
@@ -1483,7 +1487,7 @@ void EZ::CommandList_Impl<Base>::setBarriers(uint32_t numResources, const Resour
 		m_barriers.resize(startIdx + numBarriersEst);
 		auto numBarriers = 0u;
 		for (auto i = 0u; i < numResources; ++i)
-			numBarriers = generateBarriers(&m_barriers[startIdx], pResourceViews[i], numBarriers);
+			numBarriers = generateBarriers(&m_barriers[startIdx], pResourceViews[i], numBarriers, BarrierFlag::NONE, state);
 
 		// Shrink the size of barrier list
 		if (numBarriers < numBarriersEst) m_barriers.resize(startIdx + numBarriers);
@@ -1492,12 +1496,12 @@ void EZ::CommandList_Impl<Base>::setBarriers(uint32_t numResources, const Resour
 
 template<typename Base>
 uint32_t EZ::CommandList_Impl<Base>::generateBarriers(ResourceBarrier* pBarriers,
-	const ResourceView& resrouceView, uint32_t numBarriers, BarrierFlag flags)
+	const ResourceView& resrouceView, uint32_t numBarriers, BarrierFlag flags, ResourceState state)
 {
 	assert(resrouceView.View->pResource || resrouceView.Subresources.empty());
 	for (const auto& subresource : resrouceView.Subresources)
 		numBarriers = resrouceView.View->pResource->SetBarrier(pBarriers,
-			resrouceView.DstState, numBarriers, subresource, flags);
+			resrouceView.DstState | state, numBarriers, subresource, flags);
 
 	if (resrouceView.View->pCounterResource)
 	{

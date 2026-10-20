@@ -357,10 +357,12 @@ namespace XUSG
 			void clearDSVs();
 			void clearRTVs();
 			void clearUAVs();
-			void setBarriers(uint32_t numResources, const ResourceView* pResourceViews);
+			void setBarriers(uint32_t numResources, const ResourceView* pResourceViews,
+				ResourceState state = ResourceState::COMMON);
 
 			static uint32_t generateBarriers(ResourceBarrier* pBarriers, const ResourceView& resrouceView,
-				uint32_t numBarriers = 0, BarrierFlag flags = BarrierFlag::NONE);
+				uint32_t numBarriers = 0, BarrierFlag flags = BarrierFlag::NONE,
+				ResourceState state = ResourceState::COMMON);
 
 			ShaderLib::uptr m_shaderLib;
 			Graphics::PipelineLib::uptr	m_graphicsPipelineLib;
