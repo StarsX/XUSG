@@ -208,70 +208,11 @@ namespace XUSG
 		void ensureVertexBindingStride() const;
 		void transitionUndefinedAttachment(const RenderAttachment& attachment, bool depth) const;
 
-		mutable VkCommandBuffer		m_commandBuffer;
-		bool						m_ownsCommandBuffer;
-
 		struct PoolBuffer
 		{
 			VkCommandPool Pool;
 			VkCommandBuffer Buffer;
 		};
-		mutable std::vector<PoolBuffer> m_poolBuffers;
-		Device_VK*		m_pDevice;
-		CommandListType	m_type;
-
-		PFN_vkCmdBeginRendering				m_beginRendering;
-		PFN_vkCmdEndRendering				m_endRendering;
-		PFN_vkCmdSetPrimitiveTopology		m_setPrimitiveTopology;
-		PFN_vkCmdBindVertexBuffers2			m_bindVertexBuffers2;
-		mutable bool						m_vertexStrideBound;
-		PFN_vkCmdBindIndexBuffer2			m_bindIndexBuffer2;
-		PFN_vkCmdBeginDebugUtilsLabelEXT	m_beginLabel;
-		PFN_vkCmdEndDebugUtilsLabelEXT		m_endLabel;
-		PFN_vkCmdInsertDebugUtilsLabelEXT	m_insertLabel;
-
-		mutable VkBuffer			m_predicateBuffer;
-		mutable VkDeviceSize		m_predicateOffset;
-		mutable bool				m_predicateEqualZero;
-		mutable bool				m_predicationActive;
-		mutable bool				m_renderingBegun;
-		static constexpr uint32_t	MaxRenderTargetCount = 8;
-		static constexpr uint32_t	MaxStreamOutCount = 4;
-
-		mutable bool				m_hasDepth;
-		mutable uint32_t			m_colorCount;
-		mutable RenderAttachment	m_colors[MaxRenderTargetCount];
-		mutable RenderAttachment	m_depth;
-		mutable uint32_t			m_renderWidth;
-		mutable uint32_t			m_renderHeight;
-
-		mutable const PipelineLayoutObject* m_graphicsLayout;
-		mutable const PipelineLayoutObject* m_computeLayout;
-		mutable const Pipeline_VK*	m_pipeline;
-		mutable DescriptorHeap		m_resourceHeap;
-		mutable DescriptorHeap		m_samplerHeap;
-
-		// D3D12 root-signature push budget is 256 bytes. Dirty is tracked per root
-		// parameter; flush merges adjacent byte ranges and splits on gaps.
-		// writePush skips unchanged staged bytes only while the layout is unchanged;
-		// after a layout change (or CB reset) resync forces the next binds to upload.
-		static constexpr uint32_t	MaxPushDataBytes = 256;
-		static constexpr uint32_t	MaxRootParameters = 64;
-		mutable uint8_t				m_graphicsPushData[MaxPushDataBytes];
-		mutable uint8_t				m_computePushData[MaxPushDataBytes];
-		mutable uint64_t			m_graphicsPushDirty;
-		mutable uint64_t			m_computePushDirty;
-		mutable bool				m_graphicsPushResync;
-		mutable bool				m_computePushResync;
-
-		mutable VkBuffer			m_preprocessBuffer;
-		mutable VkDeviceMemory		m_preprocessMemory;
-		mutable VkDeviceAddress		m_preprocessAddress;
-		mutable VkDeviceSize		m_preprocessSize;
-		mutable VkIndirectCommandsLayoutEXT	m_preprocessLayout;
-		mutable VkPipeline			m_preprocessPipeline;
-		mutable uint32_t			m_preprocessSequences;
-		mutable VkDeviceSize		m_preprocessRequired;
 
 		struct DeferredClear
 		{
@@ -283,27 +224,96 @@ namespace XUSG
 			float Color[4];
 		};
 
-		mutable std::vector<VkClearRect>			m_clearRects;
-		mutable std::vector<VkImageCopy>			m_imageCopies;
-		mutable std::vector<VkBufferImageCopy>		m_tileCopies;
-		mutable std::vector<VkBufferMemoryBarrier2>	m_buffers;
-		mutable std::vector<VkImageMemoryBarrier2>	m_images;
-		mutable std::vector<VkPipelineStageFlags>	m_legacySrcStages;
-		mutable std::vector<VkPipelineStageFlags>	m_legacyDstStages;
-		mutable std::vector<VkMemoryBarrier>		m_legacyMemories;
-		mutable std::vector<VkBufferMemoryBarrier>	m_legacyBuffers;
-		mutable std::vector<VkImageMemoryBarrier>	m_legacyImages;
-		mutable std::vector<ClearSubresource>		m_clearRegions;
-		mutable std::vector<DeferredClear>			m_deferredClears;
+		static constexpr uint32_t	MaxRenderTargetCount = 8;
+		static constexpr uint32_t	MaxStreamOutCount = 4;
+		// D3D12 root-signature push budget is 256 bytes. Dirty is tracked per root
+		// parameter; flush merges adjacent byte ranges and splits on gaps.
+		// writePush skips unchanged staged bytes only while the layout is unchanged;
+		// after a layout change (or CB reset) resync forces the next binds to upload.
+		static constexpr uint32_t	MaxPushDataBytes = 256;
+		static constexpr uint32_t	MaxRootParameters = 64;
 
-		mutable VkBuffer		m_soBuffers[MaxStreamOutCount];
-		mutable VkDeviceSize	m_soOffsets[MaxStreamOutCount];
-		mutable VkDeviceSize	m_soSizes[MaxStreamOutCount];
-		mutable VkBuffer		m_soCounters[MaxStreamOutCount];
-		mutable VkDeviceSize	m_soCounterOffsets[MaxStreamOutCount];
-		mutable uint32_t		m_xfbActive;
-		mutable VkBuffer		m_nullXfb;
-		mutable VkDeviceMemory	m_nullXfbMemory;
+		// Shared by every wrapper. The last release frees the Vulkan objects.
+		struct State
+		{
+			~State();
+
+			VkCommandBuffer			m_commandBuffer = VK_NULL_HANDLE;
+			bool					m_ownsCommandBuffer = false;
+			std::vector<PoolBuffer>	m_poolBuffers;
+			Device_VK*				m_pDevice = nullptr;
+			CommandListType			m_type = CommandListType::DIRECT;
+
+			PFN_vkCmdBeginRendering				m_beginRendering = nullptr;
+			PFN_vkCmdEndRendering				m_endRendering = nullptr;
+			PFN_vkCmdSetPrimitiveTopology		m_setPrimitiveTopology = nullptr;
+			PFN_vkCmdBindVertexBuffers2			m_bindVertexBuffers2 = nullptr;
+			bool								m_vertexStrideBound = false;
+			PFN_vkCmdBindIndexBuffer2			m_bindIndexBuffer2 = nullptr;
+			PFN_vkCmdBeginDebugUtilsLabelEXT	m_beginLabel = nullptr;
+			PFN_vkCmdEndDebugUtilsLabelEXT		m_endLabel = nullptr;
+			PFN_vkCmdInsertDebugUtilsLabelEXT	m_insertLabel = nullptr;
+
+			VkBuffer			m_predicateBuffer = VK_NULL_HANDLE;
+			VkDeviceSize		m_predicateOffset = 0;
+			bool				m_predicateEqualZero = false;
+			bool				m_predicationActive = false;
+			bool				m_renderingBegun = false;
+
+			bool				m_hasDepth = false;
+			uint32_t			m_colorCount = 0;
+			RenderAttachment	m_colors[MaxRenderTargetCount] = {};
+			RenderAttachment	m_depth = {};
+			uint32_t			m_renderWidth = 1;
+			uint32_t			m_renderHeight = 1;
+
+			const PipelineLayoutObject*	m_graphicsLayout = nullptr;
+			const PipelineLayoutObject*	m_computeLayout = nullptr;
+			const Pipeline_VK*			m_pipeline = nullptr;
+			DescriptorHeap				m_resourceHeap = nullptr;
+			DescriptorHeap				m_samplerHeap = nullptr;
+
+			uint8_t		m_graphicsPushData[MaxPushDataBytes] = {};
+			uint8_t		m_computePushData[MaxPushDataBytes] = {};
+			uint64_t	m_graphicsPushDirty = 0;
+			uint64_t	m_computePushDirty = 0;
+			bool		m_graphicsPushResync = true;
+			bool		m_computePushResync = true;
+
+			VkBuffer					m_preprocessBuffer = VK_NULL_HANDLE;
+			VkDeviceMemory				m_preprocessMemory = VK_NULL_HANDLE;
+			VkDeviceAddress				m_preprocessAddress = 0;
+			VkDeviceSize				m_preprocessSize = 0;
+			VkIndirectCommandsLayoutEXT	m_preprocessLayout = VK_NULL_HANDLE;
+			VkPipeline					m_preprocessPipeline = VK_NULL_HANDLE;
+			uint32_t					m_preprocessSequences = 0;
+			VkDeviceSize				m_preprocessRequired = 0;
+
+			std::vector<VkClearRect>			m_clearRects;
+			std::vector<VkImageCopy>			m_imageCopies;
+			std::vector<VkBufferImageCopy>		m_tileCopies;
+			std::vector<VkBufferMemoryBarrier2>	m_buffers;
+			std::vector<VkImageMemoryBarrier2>	m_images;
+			std::vector<VkPipelineStageFlags>	m_legacySrcStages;
+			std::vector<VkPipelineStageFlags>	m_legacyDstStages;
+			std::vector<VkMemoryBarrier>		m_legacyMemories;
+			std::vector<VkBufferMemoryBarrier>	m_legacyBuffers;
+			std::vector<VkImageMemoryBarrier>	m_legacyImages;
+			std::vector<ClearSubresource>		m_clearRegions;
+			std::vector<DeferredClear>			m_deferredClears;
+
+			VkBuffer		m_soBuffers[MaxStreamOutCount] = {};
+			VkDeviceSize	m_soOffsets[MaxStreamOutCount] = {};
+			VkDeviceSize	m_soSizes[MaxStreamOutCount] = {};
+			VkBuffer		m_soCounters[MaxStreamOutCount] = {};
+			VkDeviceSize	m_soCounterOffsets[MaxStreamOutCount] = {};
+			uint32_t		m_xfbActive = 0;
+			VkBuffer		m_nullXfb = VK_NULL_HANDLE;
+			VkDeviceMemory	m_nullXfbMemory = VK_NULL_HANDLE;
+		};
+
+		Device_VK*				m_pDevice;
+		std::shared_ptr<State>	m_state;
 	};
 
 	class CommandQueue_VK :

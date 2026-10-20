@@ -12,29 +12,22 @@ using namespace std;
 using namespace XUSG;
 using namespace XUSG::RayTracing;
 
+RayTracing::CommandList_VK::RTState::~RTState()
+{
+	const auto device = m_pDevice ? m_pDevice->GetDevice() : VK_NULL_HANDLE;
+	for (auto& pool : m_queryPools)
+		if (pool.Pool != VK_NULL_HANDLE) vkDestroyQueryPool(device, pool.Pool, nullptr);
+}
+
 RayTracing::CommandList_VK::CommandList_VK() :
 	Ultimate::CommandList_VK(),
-	m_cmdBuildAccelerationStructures(nullptr),
-	m_cmdCopyAccelerationStructure(nullptr),
-	m_cmdWriteAccelerationStructuresProperties(nullptr),
-	m_cmdBuildMicromaps(nullptr),
-	m_cmdCopyMicromap(nullptr),
-	m_cmdWriteMicromapsProperties(nullptr),
-	m_cmdTraceRays(nullptr),
+	m_rt(make_shared<RTState>()),
 	m_pDeviceRT(nullptr)
 {
 }
 
 RayTracing::CommandList_VK::~CommandList_VK()
 {
-	if (!m_pDevice) return;
-
-	const auto pDevice = AsVK(m_pDevice);
-	if (!pDevice) return;
-
-	const auto device = pDevice->GetDevice();
-	for (auto& pool : m_queryPools)
-		if (pool.Pool != VK_NULL_HANDLE) vkDestroyQueryPool(device, pool.Pool, nullptr);
 }
 
 RayTracing::CommandList_VK::CommandList_VK(XUSG::CommandList* pCommandList, RayTracing::Device* pDevice) :
@@ -44,6 +37,10 @@ RayTracing::CommandList_VK::CommandList_VK(XUSG::CommandList* pCommandList, RayT
 	assert(p);
 
 	Attach(*p);
+	if (const auto pUltimate = dynamic_cast<Ultimate::CommandList_VK*>(pCommandList))
+		AttachUltimate(*pUltimate);
+	if (const auto pRT = dynamic_cast<CommandList_VK*>(pCommandList))
+		AttachRayTracing(*pRT);
 	m_pDevice = AsVK(pDevice);
 	CreateInterface();
 }
@@ -56,34 +53,43 @@ bool RayTracing::CommandList_VK::CreateInterface()
 	assert(m_pDeviceRT);
 
 	const auto pDevice = AsVK(m_pDevice);
+	m_rt->m_pDevice = pDevice;
 	assert(pDevice);
 	assert(pDevice->HasRayTracingPipeline());
 	XUSG_N_RETURN(pDevice && pDevice->HasRayTracingPipeline(), false);
 
 	const auto& ext = pDevice->GetExtProcs();
-	m_cmdBuildAccelerationStructures = ext.CmdBuildAccelerationStructures;
-	m_cmdCopyAccelerationStructure = ext.CmdCopyAccelerationStructure;
-	m_cmdWriteAccelerationStructuresProperties = ext.CmdWriteAccelerationStructuresProperties;
-	m_cmdBuildMicromaps = ext.CmdBuildMicromaps;
-	m_cmdCopyMicromap = ext.CmdCopyMicromap;
-	m_cmdWriteMicromapsProperties = ext.CmdWriteMicromapsProperties;
-	m_cmdTraceRays = ext.CmdTraceRays;
-	XUSG_N_RETURN(m_cmdBuildAccelerationStructures && m_cmdCopyAccelerationStructure &&
-		m_cmdWriteAccelerationStructuresProperties && m_cmdTraceRays, false);
+	m_rt->m_cmdBuildAccelerationStructures = ext.CmdBuildAccelerationStructures;
+	m_rt->m_cmdCopyAccelerationStructure = ext.CmdCopyAccelerationStructure;
+	m_rt->m_cmdWriteAccelerationStructuresProperties = ext.CmdWriteAccelerationStructuresProperties;
+	m_rt->m_cmdBuildMicromaps = ext.CmdBuildMicromaps;
+	m_rt->m_cmdCopyMicromap = ext.CmdCopyMicromap;
+	m_rt->m_cmdWriteMicromapsProperties = ext.CmdWriteMicromapsProperties;
+	m_rt->m_cmdTraceRays = ext.CmdTraceRays;
+	XUSG_N_RETURN(m_rt->m_cmdBuildAccelerationStructures && m_rt->m_cmdCopyAccelerationStructure &&
+		m_rt->m_cmdWriteAccelerationStructuresProperties && m_rt->m_cmdTraceRays, false);
 
 	return true;
 }
 
+void RayTracing::CommandList_VK::AttachRayTracing(const CommandList_VK& source)
+{
+	if (this == &source) return;
+
+	m_rt = source.m_rt;
+	m_pDeviceRT = source.m_pDeviceRT;
+}
+
 bool RayTracing::CommandList_VK::Reset(uint8_t allocatorIndex, const Pipeline& initialState) const
 {
-	for (auto& pool : m_queryPools) pool.Used = 0;
+	for (auto& pool : m_rt->m_queryPools) pool.Used = 0;
 
 	return XUSG::CommandList_VK::Reset(allocatorIndex, initialState);
 }
 
 RayTracing::CommandList_VK::QueryAllocation RayTracing::CommandList_VK::allocateQueries(VkQueryType type, uint32_t count) const
 {
-	for (auto& pool : m_queryPools)
+	for (auto& pool : m_rt->m_queryPools)
 	{
 		if (pool.Type != type || pool.Pool == VK_NULL_HANDLE) continue;
 		if (pool.Count - pool.Used < count) continue;
@@ -115,7 +121,7 @@ RayTracing::CommandList_VK::QueryAllocation RayTracing::CommandList_VK::allocate
 		return { VK_NULL_HANDLE, 0 };
 	}
 
-	m_queryPools.push_back(created);
+	m_rt->m_queryPools.push_back(created);
 
 	return { created.Pool, 0 };
 }
@@ -126,14 +132,14 @@ void RayTracing::CommandList_VK::BuildRaytracingAccelerationStructure(const Buil
 	(void)pDescriptorHeap;
 	assert(pDesc);
 	assert(numPostbuildInfoDescs == 0 || pPostbuildInfoDescs);
-	assert(m_cmdBuildAccelerationStructures);
+	assert(m_rt->m_cmdBuildAccelerationStructures);
 
 	recordOutside();
 	const auto pBuild = static_cast<const BuildDesc_VK*>(pDesc);
 	if (pBuild->Micromap != VK_NULL_HANDLE)
 	{
-		assert(m_cmdBuildMicromaps);
-		if (m_cmdBuildMicromaps) m_cmdBuildMicromaps(m_commandBuffer, 1, &pBuild->MicromapInfo);
+		assert(m_rt->m_cmdBuildMicromaps);
+		if (m_rt->m_cmdBuildMicromaps) m_rt->m_cmdBuildMicromaps(m_state->m_commandBuffer, 1, &pBuild->MicromapInfo);
 	}
 	else
 	{
@@ -141,9 +147,9 @@ void RayTracing::CommandList_VK::BuildRaytracingAccelerationStructure(const Buil
 		if (pBuild->Type == VK_ACCELERATION_STRUCTURE_TYPE_OPACITY_MICROMAP_KHR)
 		{
 			pRanges = nullptr;
-			m_cmdBuildAccelerationStructures(m_commandBuffer, 1, &pBuild->Info, &pRanges);
+			m_rt->m_cmdBuildAccelerationStructures(m_state->m_commandBuffer, 1, &pBuild->Info, &pRanges);
 		}
-		else m_cmdBuildAccelerationStructures(m_commandBuffer, 1, &pBuild->Info, pRanges ? &pRanges : nullptr);
+		else m_rt->m_cmdBuildAccelerationStructures(m_state->m_commandBuffer, 1, &pBuild->Info, pRanges ? &pRanges : nullptr);
 	}
 
 	if (!numPostbuildInfoDescs) return;
@@ -202,27 +208,27 @@ void RayTracing::CommandList_VK::EmitRaytracingAccelerationStructurePostbuildInf
 			VK_QUERY_TYPE_MICROMAP_SERIALIZATION_SIZE_EXT : VK_QUERY_TYPE_MICROMAP_COMPACTED_SIZE_EXT;
 		srcStage = VK_PIPELINE_STAGE_2_MICROMAP_BUILD_BIT_EXT;
 		srcAccess = VK_ACCESS_2_MICROMAP_READ_BIT_EXT;
-		assert(m_cmdWriteMicromapsProperties);
+		assert(m_rt->m_cmdWriteMicromapsProperties);
 	}
 	else
 	{
 		queryType = GetVKAccelerationStructurePostbuildQueryType(pDesc->InfoType);
-		assert(m_cmdWriteAccelerationStructuresProperties);
+		assert(m_rt->m_cmdWriteAccelerationStructuresProperties);
 	}
 
 	const auto allocation = allocateQueries(queryType, numAccelerationStructures);
 	if (allocation.Pool == VK_NULL_HANDLE) return;
 
 	recordOutside();
-	vkCmdResetQueryPool(m_commandBuffer, allocation.Pool, allocation.First, numAccelerationStructures);
+	vkCmdResetQueryPool(m_state->m_commandBuffer, allocation.Pool, allocation.First, numAccelerationStructures);
 	if (!micromaps.empty())
 	{
-		if (m_cmdWriteMicromapsProperties)
-			m_cmdWriteMicromapsProperties(m_commandBuffer, static_cast<uint32_t>(micromaps.size()),
+		if (m_rt->m_cmdWriteMicromapsProperties)
+			m_rt->m_cmdWriteMicromapsProperties(m_state->m_commandBuffer, static_cast<uint32_t>(micromaps.size()),
 				micromaps.data(), queryType, allocation.Pool, allocation.First);
 	}
-	else if (m_cmdWriteAccelerationStructuresProperties)
-		m_cmdWriteAccelerationStructuresProperties(m_commandBuffer, numAccelerationStructures,
+	else if (m_rt->m_cmdWriteAccelerationStructuresProperties)
+		m_rt->m_cmdWriteAccelerationStructuresProperties(m_state->m_commandBuffer, numAccelerationStructures,
 			accelerationStructures.data(), queryType, allocation.Pool, allocation.First);
 
 	VkMemoryBarrier2 barrier = {};
@@ -243,7 +249,7 @@ void RayTracing::CommandList_VK::EmitRaytracingAccelerationStructurePostbuildInf
 	assert(found);
 	if (!found) return;
 
-	vkCmdCopyQueryPoolResults(m_commandBuffer, allocation.Pool, allocation.First, numAccelerationStructures,
+	vkCmdCopyQueryPoolResults(m_state->m_commandBuffer, allocation.Pool, allocation.First, numAccelerationStructures,
 		buffer, offset, sizeof(uint64_t), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
 }
 
@@ -267,19 +273,19 @@ void RayTracing::CommandList_VK::CopyRaytracingAccelerationStructure(const Accel
 	if (pDstOmm && pDstOmm->GetMicromap() != VK_NULL_HANDLE)
 	{
 		assert(pSrcOmm && pSrcOmm->GetMicromap() != VK_NULL_HANDLE);
-		assert(m_cmdCopyMicromap);
+		assert(m_rt->m_cmdCopyMicromap);
 		VkCopyMicromapInfoEXT info = {};
 		info.sType = VK_STRUCTURE_TYPE_COPY_MICROMAP_INFO_EXT;
 		info.src = pSrcOmm ? pSrcOmm->GetMicromap() : VK_NULL_HANDLE;
 		info.dst = pDstOmm->GetMicromap();
 		info.mode = mode == CopyMode::COMPACT ? VK_COPY_MICROMAP_MODE_COMPACT_EXT : VK_COPY_MICROMAP_MODE_CLONE_EXT;
 		recordOutside();
-		if (m_cmdCopyMicromap) m_cmdCopyMicromap(m_commandBuffer, &info);
+		if (m_rt->m_cmdCopyMicromap) m_rt->m_cmdCopyMicromap(m_state->m_commandBuffer, &info);
 
 		return;
 	}
 
-	assert(m_cmdCopyAccelerationStructure);
+	assert(m_rt->m_cmdCopyAccelerationStructure);
 	const auto pDstVK = dynamic_cast<const AccelerationStructure_VK*>(pDst);
 	const auto pSrcVK = dynamic_cast<const AccelerationStructure_VK*>(pSrc);
 	assert(pDstVK);
@@ -292,7 +298,7 @@ void RayTracing::CommandList_VK::CopyRaytracingAccelerationStructure(const Accel
 	info.mode = GetVKAccelerationStructureCopyMode(mode);
 
 	recordOutside();
-	m_cmdCopyAccelerationStructure(m_commandBuffer, &info);
+	m_rt->m_cmdCopyAccelerationStructure(m_state->m_commandBuffer, &info);
 }
 
 void RayTracing::CommandList_VK::SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps)
@@ -307,17 +313,17 @@ void RayTracing::CommandList_VK::SetTopLevelAccelerationStructure(uint32_t index
 
 void RayTracing::CommandList_VK::SetTopLevelAccelerationStructure(uint32_t index, uint64_t topLevelASPtr) const
 {
-	assert(m_computeLayout);
-	setRootAddress(m_computeLayout, index, topLevelASPtr);
+	assert(m_state->m_computeLayout);
+	setRootAddress(m_state->m_computeLayout, index, topLevelASPtr);
 }
 
 void RayTracing::CommandList_VK::SetRayTracingPipeline(const Pipeline& pipeline) const
 {
 	const auto pPipeline = static_cast<const Pipeline_VK*>(pipeline);
 	recordOutside();
-	m_pipeline = pPipeline;
+	m_state->m_pipeline = pPipeline;
 	if (pPipeline && pPipeline->Handle != VK_NULL_HANDLE)
-		vkCmdBindPipeline(m_commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pPipeline->Handle);
+		vkCmdBindPipeline(m_state->m_commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pPipeline->Handle);
 }
 
 void RayTracing::CommandList_VK::DispatchRays(uint32_t width, uint32_t height, uint32_t depth,
@@ -326,7 +332,7 @@ void RayTracing::CommandList_VK::DispatchRays(uint32_t width, uint32_t height, u
 	const ShaderTable* pMiss,
 	const ShaderTable* pCallable) const
 {
-	assert(m_cmdTraceRays);
+	assert(m_rt->m_cmdTraceRays);
 	auto region = [](const ShaderTable* pTable, bool rayGen)
 	{
 		VkStridedDeviceAddressRegionKHR shader = {};
@@ -346,7 +352,7 @@ void RayTracing::CommandList_VK::DispatchRays(uint32_t width, uint32_t height, u
 
 	recordOutside();
 	flushPush(false);
-	m_cmdTraceRays(m_commandBuffer, &rayGen, &miss, &hit, &callable, width, height, depth);
+	m_rt->m_cmdTraceRays(m_state->m_commandBuffer, &rayGen, &miss, &hit, &callable, width, height, depth);
 }
 
 RayTracing::Device* RayTracing::CommandList_VK::GetRTDevice() const

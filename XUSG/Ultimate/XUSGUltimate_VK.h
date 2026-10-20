@@ -26,6 +26,7 @@ namespace XUSG
 				uint8_t numAllocators, CommandAllocator* const* ppAllocators, const Pipeline& pipeline,
 				const wchar_t* name = nullptr);
 			bool CreateInterface();
+			void AttachUltimate(const CommandList_VK& source);
 
 			using XUSG::CommandList_VK::Barrier;
 			void Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups) const;
@@ -77,13 +78,20 @@ namespace XUSG
 			bool cachedView(CachedView& cached, const XUSG::Resource_VK* pResource, uint32_t mip,
 				uint32_t layer, VkImageAspectFlags aspect, VkImageViewType type) const;
 
-			PFN_vkCmdSetFragmentShadingRateKHR	m_setShadingRate;
-			PFN_vkCmdDrawMeshTasksEXT			m_drawMesh;
+			struct UltimateState
+			{
+				~UltimateState();
 
-			mutable CachedView	m_shadingRate;
-			mutable CachedView	m_resolveSrc;
-			mutable CachedView	m_resolveDst;
-			mutable VkRenderingFragmentShadingRateAttachmentInfoKHR m_shadingRateInfo;
+				Device_VK*								m_pDevice = nullptr;
+				PFN_vkCmdSetFragmentShadingRateKHR		m_setShadingRate = nullptr;
+				PFN_vkCmdDrawMeshTasksEXT				m_drawMesh = nullptr;
+				CachedView	m_shadingRate = {};
+				CachedView	m_resolveSrc = {};
+				CachedView	m_resolveDst = {};
+				VkRenderingFragmentShadingRateAttachmentInfoKHR m_shadingRateInfo = {};
+			};
+
+			std::shared_ptr<UltimateState> m_ultimate;
 		};
 
 		class PipelineLayoutLib_VK :

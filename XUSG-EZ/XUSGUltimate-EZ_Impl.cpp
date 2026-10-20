@@ -909,9 +909,15 @@ bool XUSG::Ultimate::EZ::CommandList_DX12::hasWorkGraph() const
 }
 
 #ifndef XUSG_NO_VULKAN
-bool XUSG::Ultimate::EZ::CommandList_VK::adoptUltimate(Ultimate::CommandList*)
+bool XUSG::Ultimate::EZ::CommandList_VK::adoptUltimate(Ultimate::CommandList* pCommandList)
 {
-	return true;
+	if (pCommandList != static_cast<Ultimate::CommandList*>(this))
+	{
+		const auto pUltimate = dynamic_cast<Ultimate::CommandList_VK*>(pCommandList);
+		if (pUltimate) AttachUltimate(*pUltimate);
+	}
+
+	return CreateInterface();
 }
 
 bool XUSG::Ultimate::EZ::CommandList_VK::hasMeshShader() const

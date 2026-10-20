@@ -21,6 +21,7 @@ namespace XUSG
 			virtual ~CommandList_VK();
 
 			bool CreateInterface();
+			void AttachRayTracing(const CommandList_VK& source);
 
 			bool Reset(uint8_t allocatorIndex, const Pipeline& initialState) const;
 
@@ -60,16 +61,22 @@ namespace XUSG
 
 			QueryAllocation allocateQueries(VkQueryType type, uint32_t count) const;
 
-			PFN_vkCmdBuildAccelerationStructuresKHR m_cmdBuildAccelerationStructures;
-			PFN_vkCmdCopyAccelerationStructureKHR m_cmdCopyAccelerationStructure;
-			PFN_vkCmdWriteAccelerationStructuresPropertiesKHR m_cmdWriteAccelerationStructuresProperties;
-			PFN_vkCmdBuildMicromapsEXT m_cmdBuildMicromaps;
-			PFN_vkCmdCopyMicromapEXT m_cmdCopyMicromap;
-			PFN_vkCmdWriteMicromapsPropertiesEXT m_cmdWriteMicromapsProperties;
-			PFN_vkCmdTraceRaysKHR m_cmdTraceRays;
+			struct RTState
+			{
+				~RTState();
 
-			mutable std::vector<QueryPool> m_queryPools;
+				XUSG::Device_VK* m_pDevice = nullptr;
+				PFN_vkCmdBuildAccelerationStructuresKHR m_cmdBuildAccelerationStructures = nullptr;
+				PFN_vkCmdCopyAccelerationStructureKHR m_cmdCopyAccelerationStructure = nullptr;
+				PFN_vkCmdWriteAccelerationStructuresPropertiesKHR m_cmdWriteAccelerationStructuresProperties = nullptr;
+				PFN_vkCmdBuildMicromapsEXT m_cmdBuildMicromaps = nullptr;
+				PFN_vkCmdCopyMicromapEXT m_cmdCopyMicromap = nullptr;
+				PFN_vkCmdWriteMicromapsPropertiesEXT m_cmdWriteMicromapsProperties = nullptr;
+				PFN_vkCmdTraceRaysKHR m_cmdTraceRays = nullptr;
+				std::vector<QueryPool> m_queryPools;
+			};
 
+			std::shared_ptr<RTState> m_rt;
 			Device* m_pDeviceRT;
 		};
 

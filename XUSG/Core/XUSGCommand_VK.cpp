@@ -200,62 +200,7 @@ uint32_t CommandAllocator_VK::GetFamily() const
 
 //--------------------------------------------------------------------------------------
 
-CommandList_VK::CommandList_VK() :
-	m_commandBuffer(VK_NULL_HANDLE),
-	m_ownsCommandBuffer(false),
-	m_pDevice(nullptr),
-	m_type(CommandListType::DIRECT),
-	m_beginRendering(nullptr),
-	m_endRendering(nullptr),
-	m_setPrimitiveTopology(nullptr),
-	m_bindVertexBuffers2(nullptr),
-	m_vertexStrideBound(false),
-	m_bindIndexBuffer2(nullptr),
-	m_beginLabel(nullptr),
-	m_endLabel(nullptr),
-	m_insertLabel(nullptr),
-	m_predicateBuffer(VK_NULL_HANDLE),
-	m_predicateOffset(0),
-	m_predicateEqualZero(false),
-	m_predicationActive(false),
-	m_renderingBegun(false),
-	m_hasDepth(false),
-	m_colorCount(0),
-	m_colors(),
-	m_renderWidth(1),
-	m_renderHeight(1),
-	m_graphicsLayout(nullptr),
-	m_computeLayout(nullptr),
-	m_pipeline(nullptr),
-	m_resourceHeap(nullptr),
-	m_samplerHeap(nullptr),
-	m_graphicsPushData{},
-	m_computePushData{},
-	m_graphicsPushDirty(0),
-	m_computePushDirty(0),
-	m_graphicsPushResync(true),
-	m_computePushResync(true),
-	m_preprocessBuffer(VK_NULL_HANDLE),
-	m_preprocessMemory(VK_NULL_HANDLE),
-	m_preprocessAddress(0),
-	m_preprocessSize(0),
-	m_preprocessLayout(VK_NULL_HANDLE),
-	m_preprocessPipeline(VK_NULL_HANDLE),
-	m_preprocessSequences(0),
-	m_preprocessRequired(0),
-	m_soBuffers{},
-	m_soOffsets{},
-	m_soSizes{},
-	m_soCounters{},
-	m_soCounterOffsets{},
-	m_xfbActive(0),
-	m_nullXfb(VK_NULL_HANDLE),
-	m_nullXfbMemory(VK_NULL_HANDLE)
-{
-	m_depth = {};
-}
-
-CommandList_VK::~CommandList_VK()
+CommandList_VK::State::~State()
 {
 	const auto device = m_pDevice ? m_pDevice->GetDevice() : VK_NULL_HANDLE;
 	if (m_ownsCommandBuffer)
@@ -269,39 +214,51 @@ CommandList_VK::~CommandList_VK()
 	if (m_nullXfbMemory != VK_NULL_HANDLE) vkFreeMemory(device, m_nullXfbMemory, nullptr);
 }
 
+CommandList_VK::CommandList_VK() :
+	m_pDevice(nullptr),
+	m_state(make_shared<State>())
+{
+}
+
+CommandList_VK::~CommandList_VK()
+{
+}
+
 bool CommandList_VK::Create(Device* pDevice, uint32_t nodeMask, CommandListType type, uint8_t numAllocators,
 	CommandAllocator* const* ppAllocators, const Pipeline& pipeline, const wchar_t* name)
 {
 	(void)nodeMask;
 	assert(type != CommandListType::VIDEO_DECODE && type != CommandListType::VIDEO_PROCESS && type != CommandListType::VIDEO_ENCODE);
 	assert(numAllocators && ppAllocators);
+	if (m_state.use_count() > 1) m_state = make_shared<State>();
 	m_pDevice = AsVK(pDevice);
+	m_state->m_pDevice = m_pDevice;
 	assert(m_pDevice);
 	const auto device = m_pDevice->GetDevice();
-	m_type = type;
-	m_beginRendering = m_pDevice->GetBeginRendering();
-	m_endRendering = m_pDevice->GetEndRendering();
-	m_setPrimitiveTopology = m_pDevice->GetSetPrimitiveTopology();
-	m_bindVertexBuffers2 = m_pDevice->GetBindVertexBuffers2();
-	m_bindIndexBuffer2 = reinterpret_cast<PFN_vkCmdBindIndexBuffer2>(vkGetDeviceProcAddr(device, "vkCmdBindIndexBuffer2KHR"));
+	m_state->m_type = type;
+	m_state->m_beginRendering = m_pDevice->GetBeginRendering();
+	m_state->m_endRendering = m_pDevice->GetEndRendering();
+	m_state->m_setPrimitiveTopology = m_pDevice->GetSetPrimitiveTopology();
+	m_state->m_bindVertexBuffers2 = m_pDevice->GetBindVertexBuffers2();
+	m_state->m_bindIndexBuffer2 = reinterpret_cast<PFN_vkCmdBindIndexBuffer2>(vkGetDeviceProcAddr(device, "vkCmdBindIndexBuffer2KHR"));
 	if (m_pDevice->HasDebugUtils())
 	{
 		const auto instance = m_pDevice->GetInstance();
-		m_beginLabel = reinterpret_cast<PFN_vkCmdBeginDebugUtilsLabelEXT>(vkGetInstanceProcAddr(instance, "vkCmdBeginDebugUtilsLabelEXT"));
-		m_endLabel = reinterpret_cast<PFN_vkCmdEndDebugUtilsLabelEXT>(vkGetInstanceProcAddr(instance, "vkCmdEndDebugUtilsLabelEXT"));
-		m_insertLabel = reinterpret_cast<PFN_vkCmdInsertDebugUtilsLabelEXT>(vkGetInstanceProcAddr(instance, "vkCmdInsertDebugUtilsLabelEXT"));
+		m_state->m_beginLabel = reinterpret_cast<PFN_vkCmdBeginDebugUtilsLabelEXT>(vkGetInstanceProcAddr(instance, "vkCmdBeginDebugUtilsLabelEXT"));
+		m_state->m_endLabel = reinterpret_cast<PFN_vkCmdEndDebugUtilsLabelEXT>(vkGetInstanceProcAddr(instance, "vkCmdEndDebugUtilsLabelEXT"));
+		m_state->m_insertLabel = reinterpret_cast<PFN_vkCmdInsertDebugUtilsLabelEXT>(vkGetInstanceProcAddr(instance, "vkCmdInsertDebugUtilsLabelEXT"));
 	}
 
-	if (m_ownsCommandBuffer)
+	if (m_state->m_ownsCommandBuffer)
 	{
-		for (const auto& entry : m_poolBuffers)
+		for (const auto& entry : m_state->m_poolBuffers)
 			if (entry.Buffer != VK_NULL_HANDLE) vkFreeCommandBuffers(device, entry.Pool, 1, &entry.Buffer);
-		m_poolBuffers.clear();
+		m_state->m_poolBuffers.clear();
 	}
 
 	const auto level = type == CommandListType::BUNDLE ?
 		VK_COMMAND_BUFFER_LEVEL_SECONDARY : VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	m_poolBuffers.resize(numAllocators);
+	m_state->m_poolBuffers.resize(numAllocators);
 	for (uint8_t i = 0; i < numAllocators; ++i)
 	{
 		assert(ppAllocators[i]);
@@ -316,16 +273,16 @@ bool CommandList_VK::Create(Device* pDevice, uint32_t nodeMask, CommandListType 
 
 		VkCommandBuffer buffer = VK_NULL_HANDLE;
 		XUSG_VK_CHECK(vkAllocateCommandBuffers(device, &info, &buffer), cerr, false);
-		m_poolBuffers[i] = { pool, buffer };
+		m_state->m_poolBuffers[i] = { pool, buffer };
 		m_pDevice->SetDebugName(VK_OBJECT_TYPE_COMMAND_BUFFER, reinterpret_cast<uintptr_t>(buffer), name);
 	}
-	m_ownsCommandBuffer = true;
-	m_commandBuffer = m_poolBuffers[0].Buffer;
+	m_state->m_ownsCommandBuffer = true;
+	m_state->m_commandBuffer = m_state->m_poolBuffers[0].Buffer;
 
 	VkCommandBufferBeginInfo begin = {};
 	begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-	XUSG_VK_CHECK(vkBeginCommandBuffer(m_commandBuffer, &begin), cerr, false);
+	XUSG_VK_CHECK(vkBeginCommandBuffer(m_state->m_commandBuffer, &begin), cerr, false);
 	resetState();
 	if (pipeline) SetPipelineState(pipeline);
 
@@ -337,7 +294,7 @@ bool CommandList_VK::Close() const
 	endRendering();
 	flushDeferredClears();
 	endPredication();
-	XUSG_VK_CHECK(vkEndCommandBuffer(m_commandBuffer), cerr, false);
+	XUSG_VK_CHECK(vkEndCommandBuffer(m_state->m_commandBuffer), cerr, false);
 
 	return true;
 }
@@ -345,19 +302,19 @@ bool CommandList_VK::Close() const
 bool CommandList_VK::Reset(uint8_t allocatorIndex, const Pipeline& initialState) const
 {
 	endRendering();
-	m_deferredClears.clear();
+	m_state->m_deferredClears.clear();
 	endPredication();
 
 	// Like DX12, reset the allocator (vkResetCommandPool) each frame before this.
 	// Pool reset already returns every buffer to the initial state, so a second
 	// vkResetCommandBuffer here is redundant.
-	assert(allocatorIndex < m_poolBuffers.size());
-	m_commandBuffer = m_poolBuffers[allocatorIndex].Buffer;
+	assert(allocatorIndex < m_state->m_poolBuffers.size());
+	m_state->m_commandBuffer = m_state->m_poolBuffers[allocatorIndex].Buffer;
 
 	VkCommandBufferBeginInfo begin = {};
 	begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-	XUSG_VK_CHECK(vkBeginCommandBuffer(m_commandBuffer, &begin), cerr, false);
+	XUSG_VK_CHECK(vkBeginCommandBuffer(m_state->m_commandBuffer, &begin), cerr, false);
 	resetState();
 	if (initialState) SetPipelineState(initialState);
 
@@ -375,19 +332,19 @@ void CommandList_VK::ClearState(const Pipeline& initialState) const
 void CommandList_VK::Draw(uint32_t vertexCountPerInstance, uint32_t instanceCount,
 	uint32_t startVertexLocation, uint32_t startInstanceLocation) const
 {
-	if (m_type == CommandListType::DIRECT) beginRendering();
+	if (m_state->m_type == CommandListType::DIRECT) beginRendering();
 	flushPush(true);
 	ensureVertexBindingStride();
-	vkCmdDraw(m_commandBuffer, vertexCountPerInstance, instanceCount, startVertexLocation, startInstanceLocation);
+	vkCmdDraw(m_state->m_commandBuffer, vertexCountPerInstance, instanceCount, startVertexLocation, startInstanceLocation);
 }
 
 void CommandList_VK::DrawIndexed(uint32_t indexCountPerInstance, uint32_t instanceCount,
 	uint32_t startIndexLocation, int32_t baseVertexLocation, uint32_t startInstanceLocation) const
 {
-	if (m_type == CommandListType::DIRECT) beginRendering();
+	if (m_state->m_type == CommandListType::DIRECT) beginRendering();
 	flushPush(true);
 	ensureVertexBindingStride();
-	vkCmdDrawIndexed(m_commandBuffer, indexCountPerInstance, instanceCount,
+	vkCmdDrawIndexed(m_state->m_commandBuffer, indexCountPerInstance, instanceCount,
 		startIndexLocation, baseVertexLocation, startInstanceLocation);
 }
 
@@ -395,7 +352,7 @@ void CommandList_VK::Dispatch(uint32_t threadGroupCountX, uint32_t threadGroupCo
 {
 	recordOutside();
 	flushPush(false);
-	vkCmdDispatch(m_commandBuffer, threadGroupCountX, threadGroupCountY, threadGroupCountZ);
+	vkCmdDispatch(m_state->m_commandBuffer, threadGroupCountX, threadGroupCountY, threadGroupCountZ);
 }
 
 void CommandList_VK::CopyBufferRegion(Resource* pDstBuffer, uint64_t dstOffset,
@@ -408,7 +365,7 @@ void CommandList_VK::CopyBufferRegion(Resource* pDstBuffer, uint64_t dstOffset,
 	region.srcOffset = srcOffset;
 	region.dstOffset = dstOffset;
 	region.size = numBytes;
-	vkCmdCopyBuffer(m_commandBuffer, (VkBuffer)(pSrcBuffer->GetNativeHandle()), (VkBuffer)pDstBuffer->GetNativeHandle(), 1, &region);
+	vkCmdCopyBuffer(m_state->m_commandBuffer, (VkBuffer)(pSrcBuffer->GetNativeHandle()), (VkBuffer)pDstBuffer->GetNativeHandle(), 1, &region);
 }
 
 void CommandList_VK::CopyTextureRegion(const TextureCopyLocation& dst, uint32_t dstX, uint32_t dstY, uint32_t dstZ,
@@ -452,7 +409,7 @@ void CommandList_VK::CopyTextureRegion(const TextureCopyLocation& dst, uint32_t 
 		region.dstSubresource.layerCount = 1;
 		region.dstOffset = { static_cast<int32_t>(dstX), static_cast<int32_t>(dstY), static_cast<int32_t>(dstZ) };
 		region.extent = extent;
-		vkCmdCopyImage(m_commandBuffer, pSrc->GetImage(), pSrc->ImageLayout(ResourceState::COPY_SOURCE),
+		vkCmdCopyImage(m_state->m_commandBuffer, pSrc->GetImage(), pSrc->ImageLayout(ResourceState::COPY_SOURCE),
 			pDst->GetImage(), pDst->ImageLayout(ResourceState::COPY_DEST), 1, &region);
 	}
 	else if (pSrc->IsImage())
@@ -465,7 +422,7 @@ void CommandList_VK::CopyTextureRegion(const TextureCopyLocation& dst, uint32_t 
 		region.imageSubresource.layerCount = 1;
 		region.imageOffset = srcOffset;
 		region.imageExtent = extent;
-		vkCmdCopyImageToBuffer(m_commandBuffer, pSrc->GetImage(), pSrc->ImageLayout(ResourceState::COPY_SOURCE),
+		vkCmdCopyImageToBuffer(m_state->m_commandBuffer, pSrc->GetImage(), pSrc->ImageLayout(ResourceState::COPY_SOURCE),
 			pDst->GetBuffer(), 1, &region);
 	}
 	else if (pDst->IsImage())
@@ -478,14 +435,14 @@ void CommandList_VK::CopyTextureRegion(const TextureCopyLocation& dst, uint32_t 
 		region.imageSubresource.layerCount = 1;
 		region.imageOffset = { static_cast<int32_t>(dstX), static_cast<int32_t>(dstY), static_cast<int32_t>(dstZ) };
 		region.imageExtent = extent;
-		vkCmdCopyBufferToImage(m_commandBuffer, pSrc->GetBuffer(), pDst->GetImage(),
+		vkCmdCopyBufferToImage(m_state->m_commandBuffer, pSrc->GetBuffer(), pDst->GetImage(),
 			pDst->ImageLayout(ResourceState::COPY_DEST), 1, &region);
 	}
 	else
 	{
 		VkBufferCopy region = {};
 		region.size = static_cast<VkDeviceSize>(extent.width) * extent.height * extent.depth;
-		vkCmdCopyBuffer(m_commandBuffer, pSrc->GetBuffer(), pDst->GetBuffer(), 1, &region);
+		vkCmdCopyBuffer(m_state->m_commandBuffer, pSrc->GetBuffer(), pDst->GetBuffer(), 1, &region);
 	}
 }
 
@@ -500,27 +457,27 @@ void CommandList_VK::CopyResource(Resource* pDstResource, Resource* pSrcResource
 	{
 		const auto mips = (max)(pSrc->GetMipLevels(), 1u);
 		const auto layers = pSrc->Is3D() ? 1u : (max)(pSrc->GetDepthOrArray(), 1u);
-		if (m_imageCopies.size() < mips) m_imageCopies.resize(mips);
+		if (m_state->m_imageCopies.size() < mips) m_state->m_imageCopies.resize(mips);
 		for (auto mip = 0u; mip < mips; ++mip)
 		{
 			uint32_t mipLevel = 0, layer = 0, depth = 1;
 			DecodeSubresource(pSrc, mip, mipLevel, layer, depth);
-			m_imageCopies[mip] = {};
-			m_imageCopies[mip].srcSubresource.aspectMask = CopyAspect(pSrc->GetVkFormat());
-			m_imageCopies[mip].srcSubresource.mipLevel = mipLevel;
-			m_imageCopies[mip].srcSubresource.layerCount = layers;
-			m_imageCopies[mip].dstSubresource = m_imageCopies[mip].srcSubresource;
-			m_imageCopies[mip].dstSubresource.aspectMask = CopyAspect(pDst->GetVkFormat());
-			m_imageCopies[mip].extent = MipExtent(pSrc, mipLevel, pSrc->Is3D() ? depth : 1u);
+			m_state->m_imageCopies[mip] = {};
+			m_state->m_imageCopies[mip].srcSubresource.aspectMask = CopyAspect(pSrc->GetVkFormat());
+			m_state->m_imageCopies[mip].srcSubresource.mipLevel = mipLevel;
+			m_state->m_imageCopies[mip].srcSubresource.layerCount = layers;
+			m_state->m_imageCopies[mip].dstSubresource = m_state->m_imageCopies[mip].srcSubresource;
+			m_state->m_imageCopies[mip].dstSubresource.aspectMask = CopyAspect(pDst->GetVkFormat());
+			m_state->m_imageCopies[mip].extent = MipExtent(pSrc, mipLevel, pSrc->Is3D() ? depth : 1u);
 		}
-		vkCmdCopyImage(m_commandBuffer, pSrc->GetImage(), pSrc->ImageLayout(ResourceState::COPY_SOURCE),
-			pDst->GetImage(), pDst->ImageLayout(ResourceState::COPY_DEST), mips, m_imageCopies.data());
+		vkCmdCopyImage(m_state->m_commandBuffer, pSrc->GetImage(), pSrc->ImageLayout(ResourceState::COPY_SOURCE),
+			pDst->GetImage(), pDst->ImageLayout(ResourceState::COPY_DEST), mips, m_state->m_imageCopies.data());
 	}
 	else
 	{
 		VkBufferCopy region = {};
 		region.size = (min)(pSrc->GetByteSize(), pDst->GetByteSize());
-		vkCmdCopyBuffer(m_commandBuffer, pSrc->GetBuffer(), pDst->GetBuffer(), 1, &region);
+		vkCmdCopyBuffer(m_state->m_commandBuffer, pSrc->GetBuffer(), pDst->GetBuffer(), 1, &region);
 	}
 }
 
@@ -567,22 +524,22 @@ void CommandList_VK::CopyTiles(Resource* pTiledResource, const TiledResourceCoor
 		{
 			region.srcOffset = bufferStartByteOffset;
 			region.dstOffset = tiledOffset;
-			vkCmdCopyBuffer(m_commandBuffer, pVkBuffer->GetBuffer(), pTiled->GetBuffer(), 1, &region);
+			vkCmdCopyBuffer(m_state->m_commandBuffer, pVkBuffer->GetBuffer(), pTiled->GetBuffer(), 1, &region);
 		}
 		else
 		{
 			region.srcOffset = tiledOffset;
 			region.dstOffset = bufferStartByteOffset;
-			vkCmdCopyBuffer(m_commandBuffer, pTiled->GetBuffer(), pVkBuffer->GetBuffer(), 1, &region);
+			vkCmdCopyBuffer(m_state->m_commandBuffer, pTiled->GetBuffer(), pVkBuffer->GetBuffer(), 1, &region);
 		}
 
 		return;
 	}
 
-	if (m_tileCopies.size() < tileRegionSize.NumTiles) m_tileCopies.resize(tileRegionSize.NumTiles);
+	if (m_state->m_tileCopies.size() < tileRegionSize.NumTiles) m_state->m_tileCopies.resize(tileRegionSize.NumTiles);
 	for (auto i = 0u; i < tileRegionSize.NumTiles; ++i)
 	{
-		if (pTiled->ImageTileCopy(*pTileRegionStartCoord, tileRegionSize, i, bufferStartByteOffset, m_tileCopies[i])) continue;
+		if (pTiled->ImageTileCopy(*pTileRegionStartCoord, tileRegionSize, i, bufferStartByteOffset, m_state->m_tileCopies[i])) continue;
 
 		assert(!"CopyTiles packed mip tail is not a linear image copy");
 		return;
@@ -590,13 +547,13 @@ void CommandList_VK::CopyTiles(Resource* pTiledResource, const TiledResourceCoor
 
 	if (toImage)
 	{
-		vkCmdCopyBufferToImage(m_commandBuffer, pVkBuffer->GetBuffer(), pTiled->GetImage(),
-			pTiled->ImageLayout(ResourceState::COPY_DEST), tileRegionSize.NumTiles, m_tileCopies.data());
+		vkCmdCopyBufferToImage(m_state->m_commandBuffer, pVkBuffer->GetBuffer(), pTiled->GetImage(),
+			pTiled->ImageLayout(ResourceState::COPY_DEST), tileRegionSize.NumTiles, m_state->m_tileCopies.data());
 	}
 	else
 	{
-		vkCmdCopyImageToBuffer(m_commandBuffer, pTiled->GetImage(), pTiled->ImageLayout(ResourceState::COPY_SOURCE),
-			pVkBuffer->GetBuffer(), tileRegionSize.NumTiles, m_tileCopies.data());
+		vkCmdCopyImageToBuffer(m_state->m_commandBuffer, pTiled->GetImage(), pTiled->ImageLayout(ResourceState::COPY_SOURCE),
+			pVkBuffer->GetBuffer(), tileRegionSize.NumTiles, m_state->m_tileCopies.data());
 	}
 }
 
@@ -623,14 +580,14 @@ void CommandList_VK::ResolveSubresource(Resource* pDstResource, uint32_t dstSubr
 	region.dstSubresource.baseArrayLayer = dstLayer;
 	region.dstSubresource.layerCount = 1;
 	region.extent = MipExtent(pSrc, srcMip, srcDepth);
-	vkCmdResolveImage(m_commandBuffer, pSrc->GetImage(), pSrc->ImageLayout(ResourceState::RESOLVE_SOURCE),
+	vkCmdResolveImage(m_state->m_commandBuffer, pSrc->GetImage(), pSrc->ImageLayout(ResourceState::RESOLVE_SOURCE),
 		pDst->GetImage(), pDst->ImageLayout(ResourceState::RESOLVE_DEST), 1, &region);
 }
 
 void CommandList_VK::IASetPrimitiveTopology(PrimitiveTopology primitiveTopology) const
 {
-	assert(m_setPrimitiveTopology);
-	m_setPrimitiveTopology(m_commandBuffer, GetVKPrimitiveTopology(primitiveTopology));
+	assert(m_state->m_setPrimitiveTopology);
+	m_state->m_setPrimitiveTopology(m_state->m_commandBuffer, GetVKPrimitiveTopology(primitiveTopology));
 }
 
 void CommandList_VK::RSSetViewports(uint32_t numViewports, const Viewport* pViewports) const
@@ -649,11 +606,11 @@ void CommandList_VK::RSSetViewports(uint32_t numViewports, const Viewport* pView
 		viewports[i].height = -pViewports[i].Height;
 		viewports[i].minDepth = pViewports[i].MinDepth;
 		viewports[i].maxDepth = pViewports[i].MaxDepth;
-		m_renderWidth = (max)(m_renderWidth, static_cast<uint32_t>(pViewports[i].TopLeftX + pViewports[i].Width));
-		m_renderHeight = (max)(m_renderHeight, static_cast<uint32_t>(pViewports[i].TopLeftY + pViewports[i].Height));
+		m_state->m_renderWidth = (max)(m_state->m_renderWidth, static_cast<uint32_t>(pViewports[i].TopLeftX + pViewports[i].Width));
+		m_state->m_renderHeight = (max)(m_state->m_renderHeight, static_cast<uint32_t>(pViewports[i].TopLeftY + pViewports[i].Height));
 	}
 
-	if (numViewports) vkCmdSetViewport(m_commandBuffer, 0, numViewports, viewports);
+	if (numViewports) vkCmdSetViewport(m_state->m_commandBuffer, 0, numViewports, viewports);
 }
 
 void CommandList_VK::RSSetScissorRects(uint32_t numRects, const RectRange* pRects) const
@@ -670,37 +627,37 @@ void CommandList_VK::RSSetScissorRects(uint32_t numRects, const RectRange* pRect
 		scissors[i].extent.height = static_cast<uint32_t>(pRects[i].Bottom - pRects[i].Top);
 	}
 
-	if (numRects) vkCmdSetScissor(m_commandBuffer, 0, numRects, scissors);
+	if (numRects) vkCmdSetScissor(m_state->m_commandBuffer, 0, numRects, scissors);
 }
 
 void CommandList_VK::OMSetBlendFactor(const float blendFactor[4]) const
 {
-	vkCmdSetBlendConstants(m_commandBuffer, blendFactor);
+	vkCmdSetBlendConstants(m_state->m_commandBuffer, blendFactor);
 }
 
 void CommandList_VK::OMSetStencilRef(uint32_t stencilRef) const
 {
-	vkCmdSetStencilReference(m_commandBuffer, VK_STENCIL_FACE_FRONT_AND_BACK, stencilRef);
+	vkCmdSetStencilReference(m_state->m_commandBuffer, VK_STENCIL_FACE_FRONT_AND_BACK, stencilRef);
 }
 
 void CommandList_VK::SetPipelineState(const Pipeline& pipelineState) const
 {
 	const auto next = static_cast<const Pipeline_VK*>(pipelineState);
-	if (m_pipeline == next) return;
+	if (m_state->m_pipeline == next) return;
 
-	const auto resumePredication = m_predicationActive && m_renderingBegun &&
-		(m_xfbActive || (next && next->XfbBuffers));
-	if (m_xfbActive)
+	const auto resumePredication = m_state->m_predicationActive && m_state->m_renderingBegun &&
+		(m_state->m_xfbActive || (next && next->XfbBuffers));
+	if (m_state->m_xfbActive)
 	{
 		endPredication();
 		endTransformFeedback();
 	}
 	else if (resumePredication) endPredication();
 
-	m_pipeline = next;
-	if (m_pipeline && m_pipeline->Handle != VK_NULL_HANDLE)
-		vkCmdBindPipeline(m_commandBuffer, m_pipeline->BindPoint, m_pipeline->Handle);
-	if (m_renderingBegun) beginTransformFeedback();
+	m_state->m_pipeline = next;
+	if (m_state->m_pipeline && m_state->m_pipeline->Handle != VK_NULL_HANDLE)
+		vkCmdBindPipeline(m_state->m_commandBuffer, m_state->m_pipeline->BindPoint, m_state->m_pipeline->Handle);
+	if (m_state->m_renderingBegun) beginTransformFeedback();
 	if (resumePredication) beginPredication();
 }
 
@@ -722,7 +679,7 @@ void CommandList_VK::Barrier(uint32_t numBarriers, const ResourceBarrier* pBarri
 	// at once, so an overlapping layout change has to be submitted first.
 	VkMemoryBarrier2 memory = {};
 	memory.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
-	m_images.clear();
+	m_state->m_images.clear();
 	for (auto i = 0u; i < numBarriers; ++i)
 	{
 		const auto& barrier = pBarriers[i];
@@ -807,19 +764,19 @@ void CommandList_VK::Barrier(uint32_t numBarriers, const ResourceBarrier* pBarri
 			continue;
 		if (image.oldLayout != image.newLayout)
 		{
-			for (const auto& queued : m_images)
+			for (const auto& queued : m_state->m_images)
 			{
 				if (ImageBarrierOverlaps(image, queued) && queued.oldLayout != queued.newLayout)
 				{
-					submitBarrierBatch(memory, m_images);
+					submitBarrierBatch(memory, m_state->m_images);
 					break;
 				}
 			}
 		}
-		pResource->AppendImageBarrier(image, m_images);
+		pResource->AppendImageBarrier(image, m_state->m_images);
 	}
 
-	submitBarrierBatch(memory, m_images);
+	submitBarrierBatch(memory, m_state->m_images);
 }
 
 void CommandList_VK::ExecuteBundle(CommandList* pCommandList) const
@@ -829,7 +786,7 @@ void CommandList_VK::ExecuteBundle(CommandList* pCommandList) const
 	endPredication();
 	assert(pCommandList);
 	const auto buffer = static_cast<VkCommandBuffer>(pCommandList->GetNativeHandle());
-	vkCmdExecuteCommands(m_commandBuffer, 1, &buffer);
+	vkCmdExecuteCommands(m_state->m_commandBuffer, 1, &buffer);
 }
 
 void CommandList_VK::SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps) const
@@ -842,133 +799,133 @@ void CommandList_VK::SetDescriptorHeaps(uint32_t numDescriptorHeaps, const Descr
 void CommandList_VK::SetComputePipelineLayout(const PipelineLayout& pipelineLayout) const
 {
 	const auto layout = static_cast<const PipelineLayoutObject*>(pipelineLayout);
-	if (layout == m_computeLayout) return;
-	m_computeLayout = layout;
-	m_computePushDirty = 0;
-	m_computePushResync = true;
+	if (layout == m_state->m_computeLayout) return;
+	m_state->m_computeLayout = layout;
+	m_state->m_computePushDirty = 0;
+	m_state->m_computePushResync = true;
 }
 
 void CommandList_VK::SetGraphicsPipelineLayout(const PipelineLayout& pipelineLayout) const
 {
 	const auto layout = static_cast<const PipelineLayoutObject*>(pipelineLayout);
-	if (layout == m_graphicsLayout) return;
-	m_graphicsLayout = layout;
-	m_graphicsPushDirty = 0;
-	m_graphicsPushResync = true;
+	if (layout == m_state->m_graphicsLayout) return;
+	m_state->m_graphicsLayout = layout;
+	m_state->m_graphicsPushDirty = 0;
+	m_state->m_graphicsPushResync = true;
 }
 
 void CommandList_VK::SetComputeDescriptorTable(uint32_t index, const DescriptorTable& descriptorTable) const
 {
 	const auto& table = reinterpret_cast<const DescriptorTableProperty_VK&>(descriptorTable);
-	setDescriptorTable(m_computeLayout, index, table.DescriptorIndex);
+	setDescriptorTable(m_state->m_computeLayout, index, table.DescriptorIndex);
 }
 
 void CommandList_VK::SetGraphicsDescriptorTable(uint32_t index, const DescriptorTable& descriptorTable) const
 {
 	const auto& table = reinterpret_cast<const DescriptorTableProperty_VK&>(descriptorTable);
-	setDescriptorTable(m_graphicsLayout, index, table.DescriptorIndex);
+	setDescriptorTable(m_state->m_graphicsLayout, index, table.DescriptorIndex);
 }
 
 void CommandList_VK::SetComputeDescriptorTable(uint32_t index, const DescriptorHeap& descriptorHeap, int32_t offset) const
 {
 	const auto heap = static_cast<const DescriptorHeap_VK*>(descriptorHeap);
 	const auto stride = heap ? heap->GetStride() : 1u;
-	setDescriptorTable(m_computeLayout, index, static_cast<uint32_t>(offset / stride));
+	setDescriptorTable(m_state->m_computeLayout, index, static_cast<uint32_t>(offset / stride));
 }
 
 void CommandList_VK::SetGraphicsDescriptorTable(uint32_t index, const DescriptorHeap& descriptorHeap, int32_t offset) const
 {
 	const auto heap = static_cast<const DescriptorHeap_VK*>(descriptorHeap);
 	const auto stride = heap ? heap->GetStride() : 1u;
-	setDescriptorTable(m_graphicsLayout, index, static_cast<uint32_t>(offset / stride));
+	setDescriptorTable(m_state->m_graphicsLayout, index, static_cast<uint32_t>(offset / stride));
 }
 
 void CommandList_VK::SetCompute32BitConstant(uint32_t index, uint32_t srcData, uint32_t destOffsetIn32BitValues) const
 {
-	setConstants(m_computeLayout, index, 1, &srcData, destOffsetIn32BitValues);
+	setConstants(m_state->m_computeLayout, index, 1, &srcData, destOffsetIn32BitValues);
 }
 
 void CommandList_VK::SetGraphics32BitConstant(uint32_t index, uint32_t srcData, uint32_t destOffsetIn32BitValues) const
 {
-	setConstants(m_graphicsLayout, index, 1, &srcData, destOffsetIn32BitValues);
+	setConstants(m_state->m_graphicsLayout, index, 1, &srcData, destOffsetIn32BitValues);
 }
 
 void CommandList_VK::SetCompute32BitConstants(uint32_t index, uint32_t num32BitValuesToSet,
 	const void* pSrcData, uint32_t destOffsetIn32BitValues) const
 {
-	setConstants(m_computeLayout, index, num32BitValuesToSet, pSrcData, destOffsetIn32BitValues);
+	setConstants(m_state->m_computeLayout, index, num32BitValuesToSet, pSrcData, destOffsetIn32BitValues);
 }
 
 void CommandList_VK::SetGraphics32BitConstants(uint32_t index, uint32_t num32BitValuesToSet,
 	const void* pSrcData, uint32_t destOffsetIn32BitValues) const
 {
-	setConstants(m_graphicsLayout, index, num32BitValuesToSet, pSrcData, destOffsetIn32BitValues);
+	setConstants(m_state->m_graphicsLayout, index, num32BitValuesToSet, pSrcData, destOffsetIn32BitValues);
 }
 
 void CommandList_VK::SetComputeRootConstantBufferView(uint32_t index, const Resource* pResource, int32_t offset) const
 {
 	assert(pResource);
-	setRootAddress(m_computeLayout, index, pResource->GetVirtualAddress(offset));
+	setRootAddress(m_state->m_computeLayout, index, pResource->GetVirtualAddress(offset));
 }
 
 void CommandList_VK::SetGraphicsRootConstantBufferView(uint32_t index, const Resource* pResource, int32_t offset) const
 {
 	assert(pResource);
-	setRootAddress(m_graphicsLayout, index, pResource->GetVirtualAddress(offset));
+	setRootAddress(m_state->m_graphicsLayout, index, pResource->GetVirtualAddress(offset));
 }
 
 void CommandList_VK::SetComputeRootShaderResourceView(uint32_t index, const Resource* pResource, int32_t offset) const
 {
 	assert(pResource);
-	setRootAddress(m_computeLayout, index, pResource->GetVirtualAddress(offset));
+	setRootAddress(m_state->m_computeLayout, index, pResource->GetVirtualAddress(offset));
 }
 
 void CommandList_VK::SetGraphicsRootShaderResourceView(uint32_t index, const Resource* pResource, int32_t offset) const
 {
 	assert(pResource);
-	setRootAddress(m_graphicsLayout, index, pResource->GetVirtualAddress(offset));
+	setRootAddress(m_state->m_graphicsLayout, index, pResource->GetVirtualAddress(offset));
 }
 
 void CommandList_VK::SetComputeRootUnorderedAccessView(uint32_t index, const Resource* pResource, int32_t offset) const
 {
 	assert(pResource);
-	setRootAddress(m_computeLayout, index, pResource->GetVirtualAddress(offset));
+	setRootAddress(m_state->m_computeLayout, index, pResource->GetVirtualAddress(offset));
 }
 
 void CommandList_VK::SetGraphicsRootUnorderedAccessView(uint32_t index, const Resource* pResource, int32_t offset) const
 {
 	assert(pResource);
-	setRootAddress(m_graphicsLayout, index, pResource->GetVirtualAddress(offset));
+	setRootAddress(m_state->m_graphicsLayout, index, pResource->GetVirtualAddress(offset));
 }
 
 void CommandList_VK::SetComputeRootConstantBufferView(uint32_t index, uint64_t address) const
 {
-	setRootAddress(m_computeLayout, index, address);
+	setRootAddress(m_state->m_computeLayout, index, address);
 }
 
 void CommandList_VK::SetGraphicsRootConstantBufferView(uint32_t index, uint64_t address) const
 {
-	setRootAddress(m_graphicsLayout, index, address);
+	setRootAddress(m_state->m_graphicsLayout, index, address);
 }
 
 void CommandList_VK::SetComputeRootShaderResourceView(uint32_t index, uint64_t address) const
 {
-	setRootAddress(m_computeLayout, index, address);
+	setRootAddress(m_state->m_computeLayout, index, address);
 }
 
 void CommandList_VK::SetGraphicsRootShaderResourceView(uint32_t index, uint64_t address) const
 {
-	setRootAddress(m_graphicsLayout, index, address);
+	setRootAddress(m_state->m_graphicsLayout, index, address);
 }
 
 void CommandList_VK::SetComputeRootUnorderedAccessView(uint32_t index, uint64_t address) const
 {
-	setRootAddress(m_computeLayout, index, address);
+	setRootAddress(m_state->m_computeLayout, index, address);
 }
 
 void CommandList_VK::SetGraphicsRootUnorderedAccessView(uint32_t index, uint64_t address) const
 {
-	setRootAddress(m_graphicsLayout, index, address);
+	setRootAddress(m_state->m_graphicsLayout, index, address);
 }
 
 void CommandList_VK::IASetIndexBuffer(const IndexBufferView& view) const
@@ -977,9 +934,9 @@ void CommandList_VK::IASetIndexBuffer(const IndexBufferView& view) const
 	assert(buffer != VK_NULL_HANDLE);
 
 	const auto size = view.ByteSize ? static_cast<VkDeviceSize>(view.ByteSize) : VK_WHOLE_SIZE;
-	if (m_bindIndexBuffer2)
-		m_bindIndexBuffer2(m_commandBuffer, buffer, view.ByteOffset, size, GetVKIndexType(view.Format));
-	else vkCmdBindIndexBuffer(m_commandBuffer, buffer, view.ByteOffset, GetVKIndexType(view.Format));
+	if (m_state->m_bindIndexBuffer2)
+		m_state->m_bindIndexBuffer2(m_state->m_commandBuffer, buffer, view.ByteOffset, size, GetVKIndexType(view.Format));
+	else vkCmdBindIndexBuffer(m_state->m_commandBuffer, buffer, view.ByteOffset, GetVKIndexType(view.Format));
 }
 
 void CommandList_VK::IASetVertexBuffers(uint32_t startSlot, uint32_t numViews, const VertexBufferView* pViews) const
@@ -1014,14 +971,14 @@ void CommandList_VK::IASetVertexBuffers(uint32_t startSlot, uint32_t numViews, c
 		}
 	}
 
-	const auto dynamicStride = m_bindVertexBuffers2 && (!m_pipeline ||
-		m_pipeline->BindPoint != VK_PIPELINE_BIND_POINT_GRAPHICS || m_pipeline->DynamicVertexStride);
+	const auto dynamicStride = m_state->m_bindVertexBuffers2 && (!m_state->m_pipeline ||
+		m_state->m_pipeline->BindPoint != VK_PIPELINE_BIND_POINT_GRAPHICS || m_state->m_pipeline->DynamicVertexStride);
 	if (dynamicStride)
 	{
-		m_bindVertexBuffers2(m_commandBuffer, startSlot, numViews, buffers, offsets, sizes, strides);
-		m_vertexStrideBound = true;
+		m_state->m_bindVertexBuffers2(m_state->m_commandBuffer, startSlot, numViews, buffers, offsets, sizes, strides);
+		m_state->m_vertexStrideBound = true;
 	}
-	else vkCmdBindVertexBuffers(m_commandBuffer, startSlot, numViews, buffers, offsets);
+	else vkCmdBindVertexBuffers(m_state->m_commandBuffer, startSlot, numViews, buffers, offsets);
 }
 
 void CommandList_VK::SOSetTargets(uint32_t startSlot, uint32_t numViews, const StreamOutBufferView* pViews) const
@@ -1032,8 +989,8 @@ void CommandList_VK::SOSetTargets(uint32_t startSlot, uint32_t numViews, const S
 	assert(transformFeedback);
 	if (!transformFeedback) return;
 
-	const auto resumePredication = m_xfbActive && m_predicationActive;
-	if (m_xfbActive)
+	const auto resumePredication = m_state->m_xfbActive && m_state->m_predicationActive;
+	if (m_state->m_xfbActive)
 	{
 		endPredication();
 		endTransformFeedback();
@@ -1046,11 +1003,11 @@ void CommandList_VK::SOSetTargets(uint32_t startSlot, uint32_t numViews, const S
 		const auto resource = AsVK(view.pResource);
 		if (!resource || !view.ByteSize)
 		{
-			m_soBuffers[slot] = VK_NULL_HANDLE;
-			m_soOffsets[slot] = 0;
-			m_soSizes[slot] = 0;
-			m_soCounters[slot] = VK_NULL_HANDLE;
-			m_soCounterOffsets[slot] = 0;
+			m_state->m_soBuffers[slot] = VK_NULL_HANDLE;
+			m_state->m_soOffsets[slot] = 0;
+			m_state->m_soSizes[slot] = 0;
+			m_state->m_soCounters[slot] = VK_NULL_HANDLE;
+			m_state->m_soCounterOffsets[slot] = 0;
 			continue;
 		}
 
@@ -1061,21 +1018,21 @@ void CommandList_VK::SOSetTargets(uint32_t startSlot, uint32_t numViews, const S
 		assert((view.BufferFilledSizeByteOffset & 3) == 0);
 		if (resource->GetBuffer() == VK_NULL_HANDLE || !counter || counter->GetBuffer() == VK_NULL_HANDLE)
 		{
-			m_soBuffers[slot] = VK_NULL_HANDLE;
-			m_soOffsets[slot] = 0;
-			m_soSizes[slot] = 0;
-			m_soCounters[slot] = VK_NULL_HANDLE;
-			m_soCounterOffsets[slot] = 0;
+			m_state->m_soBuffers[slot] = VK_NULL_HANDLE;
+			m_state->m_soOffsets[slot] = 0;
+			m_state->m_soSizes[slot] = 0;
+			m_state->m_soCounters[slot] = VK_NULL_HANDLE;
+			m_state->m_soCounterOffsets[slot] = 0;
 			continue;
 		}
-		m_soBuffers[slot] = resource->GetBuffer();
-		m_soOffsets[slot] = view.ByteOffset;
-		m_soSizes[slot] = view.ByteSize;
-		m_soCounters[slot] = counter ? counter->GetBuffer() : VK_NULL_HANDLE;
-		m_soCounterOffsets[slot] = view.BufferFilledSizeByteOffset;
+		m_state->m_soBuffers[slot] = resource->GetBuffer();
+		m_state->m_soOffsets[slot] = view.ByteOffset;
+		m_state->m_soSizes[slot] = view.ByteSize;
+		m_state->m_soCounters[slot] = counter ? counter->GetBuffer() : VK_NULL_HANDLE;
+		m_state->m_soCounterOffsets[slot] = view.BufferFilledSizeByteOffset;
 	}
 
-	if (m_renderingBegun) beginTransformFeedback();
+	if (m_state->m_renderingBegun) beginTransformFeedback();
 	if (resumePredication) beginPredication();
 }
 
@@ -1086,59 +1043,59 @@ void CommandList_VK::OMSetRenderTargets(uint32_t numRenderTargetDescriptors,
 	assert(numRenderTargetDescriptors == 0 || pRenderTargetViews);
 	if (sameRenderTargets(numRenderTargetDescriptors, pRenderTargetViews, pDepthStencilView)) return;
 
-	if (!m_renderingBegun && hasPendingClear())
+	if (!m_state->m_renderingBegun && hasPendingClear())
 	{
 		beginRendering();
 		endRendering();
 	}
 	else endRendering();
 
-	m_colorCount = numRenderTargetDescriptors;
-	m_hasDepth = false;
+	m_state->m_colorCount = numRenderTargetDescriptors;
+	m_state->m_hasDepth = false;
 	for (auto i = 0u; i < numRenderTargetDescriptors; ++i)
 	{
 		const auto pView = static_cast<const ResourceView_VK*>(pRenderTargetViews[i]);
 		assert(pView && pView->Type == ResourceViewType::RTV);
-		loadAttachment(m_colors[i], pView);
-		m_renderWidth = (max)(m_renderWidth, m_colors[i].Width);
-		m_renderHeight = (max)(m_renderHeight, m_colors[i].Height);
+		loadAttachment(m_state->m_colors[i], pView);
+		m_state->m_renderWidth = (max)(m_state->m_renderWidth, m_state->m_colors[i].Width);
+		m_state->m_renderHeight = (max)(m_state->m_renderHeight, m_state->m_colors[i].Height);
 	}
 
 	if (pDepthStencilView && *pDepthStencilView)
 	{
 		const auto pView = static_cast<const ResourceView_VK*>(*pDepthStencilView);
 		assert(pView->Type == ResourceViewType::DSV);
-		m_hasDepth = true;
-		loadAttachment(m_depth, pView);
-		m_renderWidth = (max)(m_renderWidth, m_depth.Width);
-		m_renderHeight = (max)(m_renderHeight, m_depth.Height);
+		m_state->m_hasDepth = true;
+		loadAttachment(m_state->m_depth, pView);
+		m_state->m_renderWidth = (max)(m_state->m_renderWidth, m_state->m_depth.Width);
+		m_state->m_renderHeight = (max)(m_state->m_renderHeight, m_state->m_depth.Height);
 	}
 }
 
 void CommandList_VK::ClearDepthStencilView(ClearFlag clearFlags, float depth, uint8_t stencil,
 	uint32_t numRects, const RectRange* pRects) const
 {
-	if (!m_hasDepth) return;
+	if (!m_state->m_hasDepth) return;
 
-	if (!numRects && !m_renderingBegun && m_predicateBuffer == VK_NULL_HANDLE)
+	if (!numRects && !m_state->m_renderingBegun && m_state->m_predicateBuffer == VK_NULL_HANDLE)
 	{
 		if ((clearFlags & ClearFlag::DEPTH) != ClearFlag::NONE)
 		{
-			m_depth.PendingClear |= PENDING_CLEAR_DEPTH;
-			m_depth.Rendering.clearValue.depthStencil.depth = depth;
+			m_state->m_depth.PendingClear |= PENDING_CLEAR_DEPTH;
+			m_state->m_depth.Rendering.clearValue.depthStencil.depth = depth;
 		}
 		if ((clearFlags & ClearFlag::STENCIL) != ClearFlag::NONE)
 		{
-			m_depth.PendingClear |= PENDING_CLEAR_STENCIL;
-			m_depth.Rendering.clearValue.depthStencil.stencil = stencil;
+			m_state->m_depth.PendingClear |= PENDING_CLEAR_STENCIL;
+			m_state->m_depth.Rendering.clearValue.depthStencil.stencil = stencil;
 		}
 
 		return;
 	}
 
-	if (m_type == CommandListType::DIRECT) beginRendering();
-	assert(m_renderingBegun);
-	clearDepth(m_depth, clearFlags, depth, stencil, numRects, pRects);
+	if (m_state->m_type == CommandListType::DIRECT) beginRendering();
+	assert(m_state->m_renderingBegun);
+	clearDepth(m_state->m_depth, clearFlags, depth, stencil, numRects, pRects);
 }
 
 void CommandList_VK::ClearDepthStencilView(const Descriptor& depthStencilView, ClearFlag clearFlags, float depth,
@@ -1152,7 +1109,7 @@ void CommandList_VK::ClearDepthStencilView(const Descriptor& depthStencilView, C
 	}
 
 	const auto pView = static_cast<const ResourceView_VK*>(depthStencilView);
-	if (m_hasDepth && pView->Target.Rendering.imageView == m_depth.Rendering.imageView)
+	if (m_state->m_hasDepth && pView->Target.Rendering.imageView == m_state->m_depth.Rendering.imageView)
 	{
 		ClearDepthStencilView(clearFlags, depth, stencil, numRects, pRects);
 
@@ -1171,12 +1128,12 @@ void CommandList_VK::ClearDepthStencilView(const Descriptor& depthStencilView, C
 		clear.Flags = clearFlags;
 		clear.DepthValue = depth;
 		clear.Stencil = stencil;
-		m_deferredClears.push_back(clear);
+		m_state->m_deferredClears.push_back(clear);
 
 		return;
 	}
 
-	const auto resumePass = m_renderingBegun;
+	const auto resumePass = m_state->m_renderingBegun;
 	endRendering();
 	beginPredication();
 	clearOutside(attachment, true, clearFlags, depth, stencil, nullptr, numRects, pRects);
@@ -1186,19 +1143,19 @@ void CommandList_VK::ClearDepthStencilView(const Descriptor& depthStencilView, C
 void CommandList_VK::ClearRenderTargetView(const float colorRGBA[4], uint8_t renderTargetViewIndex,
 	uint32_t numRects, const RectRange* pRects) const
 {
-	if (renderTargetViewIndex >= m_colorCount) return;
+	if (renderTargetViewIndex >= m_state->m_colorCount) return;
 
-	if (!numRects && !m_renderingBegun && m_predicateBuffer == VK_NULL_HANDLE)
+	if (!numRects && !m_state->m_renderingBegun && m_state->m_predicateBuffer == VK_NULL_HANDLE)
 	{
-		auto& attachment = m_colors[renderTargetViewIndex];
+		auto& attachment = m_state->m_colors[renderTargetViewIndex];
 		attachment.PendingClear |= PENDING_CLEAR_COLOR;
 		memcpy(attachment.Rendering.clearValue.color.float32, colorRGBA, sizeof(float) * 4);
 
 		return;
 	}
 
-	if (m_type == CommandListType::DIRECT) beginRendering();
-	assert(m_renderingBegun);
+	if (m_state->m_type == CommandListType::DIRECT) beginRendering();
+	assert(m_state->m_renderingBegun);
 	clearColor(renderTargetViewIndex, colorRGBA, numRects, pRects);
 }
 
@@ -1207,9 +1164,9 @@ void CommandList_VK::ClearRenderTargetView(const Descriptor& renderTargetView, c
 {
 	assert(renderTargetView);
 	const auto pView = static_cast<const ResourceView_VK*>(renderTargetView);
-	for (auto i = 0u; i < m_colorCount; ++i)
+	for (auto i = 0u; i < m_state->m_colorCount; ++i)
 	{
-		if (m_colors[i].Rendering.imageView == pView->Target.Rendering.imageView)
+		if (m_state->m_colors[i].Rendering.imageView == pView->Target.Rendering.imageView)
 		{
 			ClearRenderTargetView(colorRGBA, static_cast<uint8_t>(i), numRects, pRects);
 
@@ -1227,12 +1184,12 @@ void CommandList_VK::ClearRenderTargetView(const Descriptor& renderTargetView, c
 		clear.Attachment = attachment;
 		clear.Depth = false;
 		memcpy(clear.Color, colorRGBA, sizeof(float) * 4);
-		m_deferredClears.push_back(clear);
+		m_state->m_deferredClears.push_back(clear);
 
 		return;
 	}
 
-	const auto resumePass = m_renderingBegun;
+	const auto resumePass = m_state->m_renderingBegun;
 	endRendering();
 	beginPredication();
 	clearOutside(attachment, false, ClearFlag::NONE, 0.0f, 0, colorRGBA, numRects, pRects);
@@ -1276,9 +1233,9 @@ void CommandList_VK::DiscardResource(Resource* pResource, uint32_t numRects, con
 		endRendering();
 	}
 
-	for (auto i = 0u; i < m_colorCount; ++i)
-		if (m_colors[i].Resource == pVkResource) m_colors[i].PendingClear = 0;
-	if (m_depth.Resource == pVkResource) m_depth.PendingClear = 0;
+	for (auto i = 0u; i < m_state->m_colorCount; ++i)
+		if (m_state->m_colors[i].Resource == pVkResource) m_state->m_colors[i].PendingClear = 0;
+	if (m_state->m_depth.Resource == pVkResource) m_state->m_depth.PendingClear = 0;
 }
 
 void CommandList_VK::BeginQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const
@@ -1299,20 +1256,20 @@ void CommandList_VK::BeginQuery(const QueryHeap& queryHeap, QueryType type, uint
 		const auto begin = m_pDevice->GetExtProcs().BeginQueryIndexed;
 		assert(begin);
 		if (!begin) return;
-		begin(m_commandBuffer, (VkQueryPool)queryHeap, index, 0, stream);
+		begin(m_state->m_commandBuffer, (VkQueryPool)queryHeap, index, 0, stream);
 
 		return;
 	}
 
 	const auto flags = type == QueryType::OCCLUSION ? VK_QUERY_CONTROL_PRECISE_BIT : 0u;
-	vkCmdBeginQuery(m_commandBuffer, (VkQueryPool)queryHeap, index, flags);
+	vkCmdBeginQuery(m_state->m_commandBuffer, (VkQueryPool)queryHeap, index, flags);
 }
 
 void CommandList_VK::EndQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const
 {
 	if (type == QueryType::TIMESTAMP)
 	{
-		vkCmdWriteTimestamp2(m_commandBuffer, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, (VkQueryPool)queryHeap, index);
+		vkCmdWriteTimestamp2(m_state->m_commandBuffer, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, (VkQueryPool)queryHeap, index);
 
 		return;
 	}
@@ -1322,12 +1279,12 @@ void CommandList_VK::EndQuery(const QueryHeap& queryHeap, QueryType type, uint32
 		const auto end = m_pDevice->GetExtProcs().EndQueryIndexed;
 		assert(end);
 		if (!end) return;
-		end(m_commandBuffer, (VkQueryPool)queryHeap, index, StreamOutIndex(type));
+		end(m_state->m_commandBuffer, (VkQueryPool)queryHeap, index, StreamOutIndex(type));
 
 		return;
 	}
 
-	vkCmdEndQuery(m_commandBuffer, (VkQueryPool)queryHeap, index);
+	vkCmdEndQuery(m_state->m_commandBuffer, (VkQueryPool)queryHeap, index);
 }
 
 void CommandList_VK::ResolveQueryData(const QueryHeap& queryHeap, QueryType type, uint32_t startIndex,
@@ -1336,7 +1293,7 @@ void CommandList_VK::ResolveQueryData(const QueryHeap& queryHeap, QueryType type
 	assert(pDstBuffer);
 	recordOutside();
 	const auto stride = IsStreamOutQuery(type) ? sizeof(uint64_t) * 2 : sizeof(uint64_t);
-	vkCmdCopyQueryPoolResults(m_commandBuffer, (VkQueryPool)queryHeap, startIndex, numQueries,
+	vkCmdCopyQueryPoolResults(m_state->m_commandBuffer, (VkQueryPool)queryHeap, startIndex, numQueries,
 		(VkBuffer)pDstBuffer->GetNativeHandle(), alignedDstBufferOffset, stride,
 		VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
 }
@@ -1344,7 +1301,7 @@ void CommandList_VK::ResolveQueryData(const QueryHeap& queryHeap, QueryType type
 void CommandList_VK::SetPredication(Resource* pBuffer, uint64_t alignedBufferOffset, bool opEqualZero) const
 {
 	endPredication();
-	m_predicateBuffer = VK_NULL_HANDLE;
+	m_state->m_predicateBuffer = VK_NULL_HANDLE;
 	if (!pBuffer) return;
 
 	const auto conditionalRendering = m_pDevice && m_pDevice->HasConditionalRendering();
@@ -1353,39 +1310,39 @@ void CommandList_VK::SetPredication(Resource* pBuffer, uint64_t alignedBufferOff
 	assert((alignedBufferOffset % 4) == 0);
 	const auto buffer = pBuffer ? (VkBuffer)pBuffer->GetNativeHandle() : VK_NULL_HANDLE;
 	assert(buffer != VK_NULL_HANDLE);
-	m_predicateBuffer = buffer;
-	m_predicateOffset = alignedBufferOffset;
-	m_predicateEqualZero = opEqualZero;
+	m_state->m_predicateBuffer = buffer;
+	m_state->m_predicateOffset = alignedBufferOffset;
+	m_state->m_predicateEqualZero = opEqualZero;
 	beginPredication();
 }
 
 void CommandList_VK::SetMarker(uint32_t metaData, const void* pData, uint32_t size) const
 {
 	(void)metaData;
-	if (!m_insertLabel) return;
+	if (!m_state->m_insertLabel) return;
 
 	char stack[256];
 	VkDebugUtilsLabelEXT label = {};
 	label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
 	label.pLabelName = DebugLabel(pData, size, stack, static_cast<uint32_t>(sizeof(stack)));
-	m_insertLabel(m_commandBuffer, &label);
+	m_state->m_insertLabel(m_state->m_commandBuffer, &label);
 }
 
 void CommandList_VK::BeginEvent(uint32_t metaData, const void* pData, uint32_t size) const
 {
 	(void)metaData;
-	if (!m_beginLabel) return;
+	if (!m_state->m_beginLabel) return;
 
 	char stack[256];
 	VkDebugUtilsLabelEXT label = {};
 	label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
 	label.pLabelName = DebugLabel(pData, size, stack, static_cast<uint32_t>(sizeof(stack)));
-	m_beginLabel(m_commandBuffer, &label);
+	m_state->m_beginLabel(m_state->m_commandBuffer, &label);
 }
 
 void CommandList_VK::EndEvent() const
 {
-	if (m_endLabel) m_endLabel(m_commandBuffer);
+	if (m_state->m_endLabel) m_state->m_endLabel(m_state->m_commandBuffer);
 }
 
 void CommandList_VK::ExecuteIndirect(CommandLayout* pCommandlayout, uint32_t maxCommandCount,
@@ -1412,7 +1369,7 @@ void CommandList_VK::ExecuteIndirect(CommandLayout* pCommandlayout, uint32_t max
 	}
 	else
 	{
-		if (m_type == CommandListType::DIRECT) beginRendering();
+		if (m_state->m_type == CommandListType::DIRECT) beginRendering();
 		flushPush(true);
 	}
 
@@ -1420,9 +1377,9 @@ void CommandList_VK::ExecuteIndirect(CommandLayout* pCommandlayout, uint32_t max
 	{
 		const auto traceRaysIndirect2 = m_pDevice->HasRayTracingPipelineTraceRaysIndirect2();
 		assert(traceRaysIndirect2);
-		assert(m_pipeline && m_pipeline->BindPoint == VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR);
-		if (!traceRaysIndirect2 || !m_pipeline ||
-			m_pipeline->BindPoint != VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR)
+		assert(m_state->m_pipeline && m_state->m_pipeline->BindPoint == VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR);
+		if (!traceRaysIndirect2 || !m_state->m_pipeline ||
+			m_state->m_pipeline->BindPoint != VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR)
 			return;
 
 		// vkd3d-proton emits one vkCmdTraceRaysIndirect2KHR when the signature has no state changes.
@@ -1436,7 +1393,7 @@ void CommandList_VK::ExecuteIndirect(CommandLayout* pCommandlayout, uint32_t max
 			const auto stride = static_cast<VkDeviceAddress>((max)(layout->GetByteStride(), 1u));
 			for (auto i = 0u; i < maxCommandCount; ++i)
 			{
-				trace(m_commandBuffer, address);
+				trace(m_state->m_commandBuffer, address);
 				address += stride;
 			}
 
@@ -1449,10 +1406,10 @@ void CommandList_VK::ExecuteIndirect(CommandLayout* pCommandlayout, uint32_t max
 			return;
 		}
 	}
-	const auto pipeline = m_pipeline ? m_pipeline->Handle : VK_NULL_HANDLE;
+	const auto pipeline = m_state->m_pipeline ? m_state->m_pipeline->Handle : VK_NULL_HANDLE;
 	const auto commandsLayout = layout->GetLayout();
-	auto bytes = m_preprocessRequired;
-	if (m_preprocessLayout != commandsLayout || m_preprocessPipeline != pipeline || m_preprocessSequences != maxCommandCount)
+	auto bytes = m_state->m_preprocessRequired;
+	if (m_state->m_preprocessLayout != commandsLayout || m_state->m_preprocessPipeline != pipeline || m_state->m_preprocessSequences != maxCommandCount)
 	{
 		VkGeneratedCommandsPipelineInfoEXT pipelineInfo = {};
 		pipelineInfo.sType = VK_STRUCTURE_TYPE_GENERATED_COMMANDS_PIPELINE_INFO_EXT;
@@ -1465,17 +1422,17 @@ void CommandList_VK::ExecuteIndirect(CommandLayout* pCommandlayout, uint32_t max
 		VkMemoryRequirements2 requirements = {};
 		requirements.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2;
 		ext.GetGeneratedCommandsMemoryRequirements(m_pDevice->GetDevice(), &requirementsInfo, &requirements);
-		m_preprocessLayout = commandsLayout;
-		m_preprocessPipeline = pipeline;
-		m_preprocessSequences = maxCommandCount;
-		m_preprocessRequired = requirements.memoryRequirements.size;
-		bytes = m_preprocessRequired;
+		m_state->m_preprocessLayout = commandsLayout;
+		m_state->m_preprocessPipeline = pipeline;
+		m_state->m_preprocessSequences = maxCommandCount;
+		m_state->m_preprocessRequired = requirements.memoryRequirements.size;
+		bytes = m_state->m_preprocessRequired;
 	}
 	if (bytes) ensurePreprocess(bytes);
 
 	VkGeneratedCommandsPipelineInfoEXT pipelineInfo = {};
 	pipelineInfo.sType = VK_STRUCTURE_TYPE_GENERATED_COMMANDS_PIPELINE_INFO_EXT;
-	pipelineInfo.pipeline = m_pipeline ? m_pipeline->Handle : VK_NULL_HANDLE;
+	pipelineInfo.pipeline = m_state->m_pipeline ? m_state->m_pipeline->Handle : VK_NULL_HANDLE;
 
 	VkGeneratedCommandsInfoEXT info = {};
 	info.sType = VK_STRUCTURE_TYPE_GENERATED_COMMANDS_INFO_EXT;
@@ -1484,82 +1441,44 @@ void CommandList_VK::ExecuteIndirect(CommandLayout* pCommandlayout, uint32_t max
 	info.indirectCommandsLayout = layout->GetLayout();
 	info.indirectAddress = pArgumentBuffer->GetVirtualAddress(static_cast<int>(argumentBufferOffset));
 	info.indirectAddressSize = static_cast<VkDeviceSize>(maxCommandCount) * (max)(layout->GetByteStride(), 1u);
-	info.preprocessAddress = bytes ? m_preprocessAddress : 0;
-	info.preprocessSize = bytes ? m_preprocessSize : 0;
+	info.preprocessAddress = bytes ? m_state->m_preprocessAddress : 0;
+	info.preprocessSize = bytes ? m_state->m_preprocessSize : 0;
 	info.maxSequenceCount = maxCommandCount;
 	if (pCountBuffer) info.sequenceCountAddress = pCountBuffer->GetVirtualAddress(static_cast<int>(countBufferOffset));
 	info.maxDrawCount = maxCommandCount;
-	ext.PreprocessGeneratedCommands(m_commandBuffer, &info, m_commandBuffer);
-	ext.ExecuteGeneratedCommands(m_commandBuffer, VK_TRUE, &info);
+	ext.PreprocessGeneratedCommands(m_state->m_commandBuffer, &info, m_state->m_commandBuffer);
+	ext.ExecuteGeneratedCommands(m_state->m_commandBuffer, VK_TRUE, &info);
 }
 
 void CommandList_VK::Create(void* pNativeHandle, Device* pDevice)
 {
-	if (m_ownsCommandBuffer && m_pDevice)
+	if (m_state.use_count() > 1) m_state = make_shared<State>();
+	else if (m_state->m_ownsCommandBuffer && m_pDevice)
 	{
 		const auto device = m_pDevice->GetDevice();
-		for (const auto& entry : m_poolBuffers)
+		for (const auto& entry : m_state->m_poolBuffers)
 			if (entry.Buffer != VK_NULL_HANDLE) vkFreeCommandBuffers(device, entry.Pool, 1, &entry.Buffer);
-		m_poolBuffers.clear();
+		m_state->m_poolBuffers.clear();
 	}
 	m_pDevice = AsVK(pDevice);
+	m_state->m_pDevice = m_pDevice;
 	assert(m_pDevice);
 
-	m_commandBuffer = static_cast<VkCommandBuffer>(pNativeHandle);
-	m_ownsCommandBuffer = false;
+	m_state->m_commandBuffer = static_cast<VkCommandBuffer>(pNativeHandle);
+	m_state->m_ownsCommandBuffer = false;
 }
 
 void CommandList_VK::Attach(const CommandList_VK& source)
 {
-	const auto device = m_pDevice ? m_pDevice->GetDevice() : VK_NULL_HANDLE;
-	if (m_ownsCommandBuffer)
-	{
-		for (const auto& entry : m_poolBuffers)
-			if (entry.Buffer != VK_NULL_HANDLE) vkFreeCommandBuffers(device, entry.Pool, 1, &entry.Buffer);
-		m_poolBuffers.clear();
-	}
-	if (m_preprocessBuffer != VK_NULL_HANDLE) vkDestroyBuffer(device, m_preprocessBuffer, nullptr);
-	if (m_preprocessMemory != VK_NULL_HANDLE) vkFreeMemory(device, m_preprocessMemory, nullptr);
-	if (m_nullXfb != VK_NULL_HANDLE) vkDestroyBuffer(device, m_nullXfb, nullptr);
-	if (m_nullXfbMemory != VK_NULL_HANDLE) vkFreeMemory(device, m_nullXfbMemory, nullptr);
+	if (this == &source) return;
 
-	m_commandBuffer = source.m_commandBuffer;
-	m_poolBuffers = source.m_poolBuffers;
-	m_ownsCommandBuffer = false;
+	m_state = source.m_state;
 	m_pDevice = source.m_pDevice;
-	m_type = source.m_type;
-	m_beginRendering = source.m_beginRendering;
-	m_endRendering = source.m_endRendering;
-	m_setPrimitiveTopology = source.m_setPrimitiveTopology;
-	m_bindVertexBuffers2 = source.m_bindVertexBuffers2;
-	m_vertexStrideBound = source.m_vertexStrideBound;
-	m_beginLabel = source.m_beginLabel;
-	m_endLabel = source.m_endLabel;
-	m_insertLabel = source.m_insertLabel;
-	m_preprocessBuffer = VK_NULL_HANDLE;
-	m_preprocessMemory = VK_NULL_HANDLE;
-	m_preprocessAddress = 0;
-	m_preprocessSize = 0;
-	m_preprocessLayout = VK_NULL_HANDLE;
-	m_preprocessPipeline = VK_NULL_HANDLE;
-	m_preprocessSequences = 0;
-	m_preprocessRequired = 0;
-	m_xfbActive = 0;
-	m_nullXfb = VK_NULL_HANDLE;
-	m_nullXfbMemory = VK_NULL_HANDLE;
-	for (auto i = 0u; i < MaxStreamOutCount; ++i)
-	{
-		m_soBuffers[i] = VK_NULL_HANDLE;
-		m_soOffsets[i] = 0;
-		m_soSizes[i] = 0;
-		m_soCounters[i] = VK_NULL_HANDLE;
-		m_soCounterOffsets[i] = 0;
-	}
 }
 
 void* CommandList_VK::GetNativeHandle()
 {
-	return m_commandBuffer;
+	return m_state->m_commandBuffer;
 }
 
 void* CommandList_VK::GetDeviceNativeHandle() const
@@ -1579,7 +1498,7 @@ Device* CommandList_VK::GetDevice() const
 
 VkCommandBuffer CommandList_VK::GetCommandBuffer() const
 {
-	return m_commandBuffer;
+	return m_state->m_commandBuffer;
 }
 
 void CommandList_VK::CopyBufferToImage(Resource* pDst, uint32_t dstSubresource, Resource* pSrc,
@@ -1600,7 +1519,7 @@ void CommandList_VK::CopyBufferToImage(Resource* pDst, uint32_t dstSubresource, 
 	region.imageSubresource.baseArrayLayer = layer;
 	region.imageSubresource.layerCount = 1;
 	region.imageExtent = MipExtent(pDstResource, mip, depth);
-	vkCmdCopyBufferToImage(m_commandBuffer, pSrcResource->GetBuffer(), pDstResource->GetImage(),
+	vkCmdCopyBufferToImage(m_state->m_commandBuffer, pSrcResource->GetBuffer(), pDstResource->GetImage(),
 		pDstResource->ImageLayout(ResourceState::COPY_DEST), 1, &region);
 }
 
@@ -1621,122 +1540,122 @@ void CommandList_VK::CopyImageToBuffer(Resource* pSrc, uint32_t mipLevel, uint32
 	region.imageSubresource.baseArrayLayer = arrayLayer;
 	region.imageSubresource.layerCount = 1;
 	region.imageExtent = MipExtent(pSrcResource, mipLevel, depth);
-	vkCmdCopyImageToBuffer(m_commandBuffer, pSrcResource->GetImage(), pSrcResource->ImageLayout(ResourceState::COPY_SOURCE),
+	vkCmdCopyImageToBuffer(m_state->m_commandBuffer, pSrcResource->GetImage(), pSrcResource->ImageLayout(ResourceState::COPY_SOURCE),
 		pDstResource->GetBuffer(), 1, &region);
 }
 
 void CommandList_VK::resetState() const
 {
-	m_predicateBuffer = VK_NULL_HANDLE;
-	m_predicateOffset = 0;
-	m_predicateEqualZero = false;
-	m_predicationActive = false;
-	m_renderingBegun = false;
-	m_vertexStrideBound = false;
-	m_hasDepth = false;
-	m_colorCount = 0;
-	m_depth = {};
-	m_graphicsLayout = nullptr;
-	m_computeLayout = nullptr;
-	m_pipeline = nullptr;
-	m_resourceHeap = nullptr;
-	m_samplerHeap = nullptr;
-	m_graphicsPushDirty = 0;
-	m_computePushDirty = 0;
-	m_graphicsPushResync = true;
-	m_computePushResync = true;
-	memset(m_graphicsPushData, 0, sizeof(m_graphicsPushData));
-	memset(m_computePushData, 0, sizeof(m_computePushData));
-	m_renderWidth = 1;
-	m_renderHeight = 1;
-	m_deferredClears.clear();
-	m_xfbActive = 0;
+	m_state->m_predicateBuffer = VK_NULL_HANDLE;
+	m_state->m_predicateOffset = 0;
+	m_state->m_predicateEqualZero = false;
+	m_state->m_predicationActive = false;
+	m_state->m_renderingBegun = false;
+	m_state->m_vertexStrideBound = false;
+	m_state->m_hasDepth = false;
+	m_state->m_colorCount = 0;
+	m_state->m_depth = {};
+	m_state->m_graphicsLayout = nullptr;
+	m_state->m_computeLayout = nullptr;
+	m_state->m_pipeline = nullptr;
+	m_state->m_resourceHeap = nullptr;
+	m_state->m_samplerHeap = nullptr;
+	m_state->m_graphicsPushDirty = 0;
+	m_state->m_computePushDirty = 0;
+	m_state->m_graphicsPushResync = true;
+	m_state->m_computePushResync = true;
+	memset(m_state->m_graphicsPushData, 0, sizeof(m_state->m_graphicsPushData));
+	memset(m_state->m_computePushData, 0, sizeof(m_state->m_computePushData));
+	m_state->m_renderWidth = 1;
+	m_state->m_renderHeight = 1;
+	m_state->m_deferredClears.clear();
+	m_state->m_xfbActive = 0;
 	for (auto i = 0u; i < MaxStreamOutCount; ++i)
 	{
-		m_soBuffers[i] = VK_NULL_HANDLE;
-		m_soOffsets[i] = 0;
-		m_soSizes[i] = 0;
-		m_soCounters[i] = VK_NULL_HANDLE;
-		m_soCounterOffsets[i] = 0;
+		m_state->m_soBuffers[i] = VK_NULL_HANDLE;
+		m_state->m_soOffsets[i] = 0;
+		m_state->m_soSizes[i] = 0;
+		m_state->m_soCounters[i] = VK_NULL_HANDLE;
+		m_state->m_soCounterOffsets[i] = 0;
 	}
-	if ((m_type == CommandListType::DIRECT || m_type == CommandListType::BUNDLE) &&
+	if ((m_state->m_type == CommandListType::DIRECT || m_state->m_type == CommandListType::BUNDLE) &&
 		m_pDevice && m_pDevice->HasSampleLocations())
-		m_pDevice->GetExtProcs().SetSampleLocationsEnable(m_commandBuffer, VK_FALSE);
+		m_pDevice->GetExtProcs().SetSampleLocationsEnable(m_state->m_commandBuffer, VK_FALSE);
 }
 
 void CommandList_VK::endPredication() const
 {
-	if (!m_predicationActive) return;
+	if (!m_state->m_predicationActive) return;
 
 	const auto end = m_pDevice->GetExtProcs().EndConditionalRendering;
 	assert(end);
-	end(m_commandBuffer);
-	m_predicationActive = false;
+	end(m_state->m_commandBuffer);
+	m_state->m_predicationActive = false;
 }
 
 void CommandList_VK::beginPredication() const
 {
-	if (m_predicateBuffer == VK_NULL_HANDLE || m_predicationActive) return;
+	if (m_state->m_predicateBuffer == VK_NULL_HANDLE || m_state->m_predicationActive) return;
 
 	const auto begin = m_pDevice->GetExtProcs().BeginConditionalRendering;
 	assert(begin);
 	VkConditionalRenderingBeginInfoEXT info = {};
 	info.sType = VK_STRUCTURE_TYPE_CONDITIONAL_RENDERING_BEGIN_INFO_EXT;
-	info.buffer = m_predicateBuffer;
-	info.offset = m_predicateOffset;
-	info.flags = m_predicateEqualZero ? VK_CONDITIONAL_RENDERING_INVERTED_BIT_EXT : 0;
-	begin(m_commandBuffer, &info);
-	m_predicationActive = true;
+	info.buffer = m_state->m_predicateBuffer;
+	info.offset = m_state->m_predicateOffset;
+	info.flags = m_state->m_predicateEqualZero ? VK_CONDITIONAL_RENDERING_INVERTED_BIT_EXT : 0;
+	begin(m_state->m_commandBuffer, &info);
+	m_state->m_predicationActive = true;
 }
 
 void CommandList_VK::endRendering() const
 {
-	if (!m_renderingBegun) return;
+	if (!m_state->m_renderingBegun) return;
 
 	// Conditional rendering must sit entirely inside or entirely outside the pass.
 	// Leave it off here. The next draw or copy turns it back on, so a barrier or
 	// render-target rebind does not open an extra predication segment.
 	endPredication();
 	endTransformFeedback();
-	assert(m_endRendering);
-	m_endRendering(m_commandBuffer);
-	m_renderingBegun = false;
+	assert(m_state->m_endRendering);
+	m_state->m_endRendering(m_state->m_commandBuffer);
+	m_state->m_renderingBegun = false;
 }
 
 bool CommandList_VK::sameRenderTargets(uint32_t numRenderTargetDescriptors, const Descriptor* pRenderTargetViews,
 	const Descriptor* pDepthStencilView) const
 {
-	if (m_colorCount != numRenderTargetDescriptors) return false;
+	if (m_state->m_colorCount != numRenderTargetDescriptors) return false;
 
 	for (auto i = 0u; i < numRenderTargetDescriptors; ++i)
 	{
 		const auto pView = static_cast<const ResourceView_VK*>(pRenderTargetViews[i]);
-		if (!pView || m_colors[i].Rendering.imageView != pView->Target.Rendering.imageView) return false;
+		if (!pView || m_state->m_colors[i].Rendering.imageView != pView->Target.Rendering.imageView) return false;
 	}
 
 	const auto pDepth = pDepthStencilView && *pDepthStencilView ?
 		static_cast<const ResourceView_VK*>(*pDepthStencilView) : nullptr;
-	if (!pDepth) return !m_hasDepth;
+	if (!pDepth) return !m_state->m_hasDepth;
 
-	return m_hasDepth && m_depth.Rendering.imageView == pDepth->Target.Rendering.imageView;
+	return m_state->m_hasDepth && m_state->m_depth.Rendering.imageView == pDepth->Target.Rendering.imageView;
 }
 
 bool CommandList_VK::hasPendingClear() const
 {
-	for (auto i = 0u; i < m_colorCount; ++i)
-		if (m_colors[i].PendingClear) return true;
+	for (auto i = 0u; i < m_state->m_colorCount; ++i)
+		if (m_state->m_colors[i].PendingClear) return true;
 
-	return m_hasDepth && m_depth.PendingClear;
+	return m_state->m_hasDepth && m_state->m_depth.PendingClear;
 }
 
 void CommandList_VK::ensureVertexBindingStride() const
 {
-	if (!m_bindVertexBuffers2 || m_vertexStrideBound || !m_pipeline || !m_pipeline->DynamicVertexStride) return;
+	if (!m_state->m_bindVertexBuffers2 || m_state->m_vertexStrideBound || !m_state->m_pipeline || !m_state->m_pipeline->DynamicVertexStride) return;
 
 	VkBuffer buffer = VK_NULL_HANDLE;
 	VkDeviceSize zero = 0;
-	m_bindVertexBuffers2(m_commandBuffer, 0, 1, &buffer, &zero, &zero, &zero);
-	m_vertexStrideBound = true;
+	m_state->m_bindVertexBuffers2(m_state->m_commandBuffer, 0, 1, &buffer, &zero, &zero, &zero);
+	m_state->m_vertexStrideBound = true;
 }
 
 void CommandList_VK::transitionUndefinedAttachment(const RenderAttachment& attachment, bool depth) const
@@ -1776,101 +1695,101 @@ void CommandList_VK::transitionUndefinedAttachment(const RenderAttachment& attac
 
 void CommandList_VK::beginRendering() const
 {
-	if (m_renderingBegun) return;
+	if (m_state->m_renderingBegun) return;
 
-	for (auto i = 0u; i < m_colorCount; ++i) transitionUndefinedAttachment(m_colors[i], false);
-	if (m_hasDepth) transitionUndefinedAttachment(m_depth, true);
+	for (auto i = 0u; i < m_state->m_colorCount; ++i) transitionUndefinedAttachment(m_state->m_colors[i], false);
+	if (m_state->m_hasDepth) transitionUndefinedAttachment(m_state->m_depth, true);
 
 	DeferredClear matched[MaxRenderTargetCount + 1];
 	auto matchedCount = 0u;
 	auto pending = 0u;
-	for (auto i = 0u; i < m_deferredClears.size(); ++i)
+	for (auto i = 0u; i < m_state->m_deferredClears.size(); ++i)
 	{
-		const auto& clear = m_deferredClears[i];
+		const auto& clear = m_state->m_deferredClears[i];
 		auto hit = false;
 		if (!clear.Depth)
 		{
-			for (auto color = 0u; color < m_colorCount; ++color)
-				hit = hit || m_colors[color].Rendering.imageView == clear.Attachment.Rendering.imageView;
+			for (auto color = 0u; color < m_state->m_colorCount; ++color)
+				hit = hit || m_state->m_colors[color].Rendering.imageView == clear.Attachment.Rendering.imageView;
 		}
-		else hit = m_hasDepth && m_depth.Rendering.imageView == clear.Attachment.Rendering.imageView;
+		else hit = m_state->m_hasDepth && m_state->m_depth.Rendering.imageView == clear.Attachment.Rendering.imageView;
 
 		if (hit && matchedCount < MaxRenderTargetCount + 1) matched[matchedCount++] = clear;
-		else m_deferredClears[pending++] = clear;
+		else m_state->m_deferredClears[pending++] = clear;
 	}
-	m_deferredClears.resize(pending);
+	m_state->m_deferredClears.resize(pending);
 	flushDeferredClears();
 
 	endPredication();
 
 	VkRenderingAttachmentInfo colors[MaxRenderTargetCount];
-	for (auto i = 0u; i < m_colorCount; ++i)
+	for (auto i = 0u; i < m_state->m_colorCount; ++i)
 	{
-		colors[i] = m_colors[i].Rendering;
-		colors[i].loadOp = attachmentLoadOp(m_colors[i]);
-		if (m_colors[i].PendingClear)
+		colors[i] = m_state->m_colors[i].Rendering;
+		colors[i].loadOp = attachmentLoadOp(m_state->m_colors[i]);
+		if (m_state->m_colors[i].PendingClear)
 		{
 			colors[i].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-			colors[i].clearValue = m_colors[i].Rendering.clearValue;
-			m_colors[i].PendingClear = 0;
+			colors[i].clearValue = m_state->m_colors[i].Rendering.clearValue;
+			m_state->m_colors[i].PendingClear = 0;
 		}
 	}
 
-	VkRenderingAttachmentInfo depth = m_depth.Rendering;
-	VkRenderingAttachmentInfo stencil = m_depth.Rendering;
-	depth.loadOp = m_hasDepth ? attachmentLoadOp(m_depth) : VK_ATTACHMENT_LOAD_OP_LOAD;
+	VkRenderingAttachmentInfo depth = m_state->m_depth.Rendering;
+	VkRenderingAttachmentInfo stencil = m_state->m_depth.Rendering;
+	depth.loadOp = m_state->m_hasDepth ? attachmentLoadOp(m_state->m_depth) : VK_ATTACHMENT_LOAD_OP_LOAD;
 	stencil.loadOp = depth.loadOp;
-	if (m_hasDepth && (m_depth.PendingClear & PENDING_CLEAR_DEPTH))
+	if (m_state->m_hasDepth && (m_state->m_depth.PendingClear & PENDING_CLEAR_DEPTH))
 		depth.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	if (m_hasDepth && (m_depth.PendingClear & PENDING_CLEAR_STENCIL))
+	if (m_state->m_hasDepth && (m_state->m_depth.PendingClear & PENDING_CLEAR_STENCIL))
 		stencil.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	// Read-only DSV: keep LOAD for tests, skip STORE (avoids pointless depth write traffic).
-	if (m_hasDepth && m_depth.ReadOnly)
+	if (m_state->m_hasDepth && m_state->m_depth.ReadOnly)
 	{
 		depth.storeOp = VK_ATTACHMENT_STORE_OP_NONE;
 		stencil.storeOp = VK_ATTACHMENT_STORE_OP_NONE;
 	}
-	if (m_hasDepth) m_depth.PendingClear = 0;
-	const auto splitStencil = m_hasDepth && m_depth.HasStencil && depth.loadOp != stencil.loadOp;
+	if (m_state->m_hasDepth) m_state->m_depth.PendingClear = 0;
+	const auto splitStencil = m_state->m_hasDepth && m_state->m_depth.HasStencil && depth.loadOp != stencil.loadOp;
 
-	auto width = m_renderWidth;
-	auto height = m_renderHeight;
+	auto width = m_state->m_renderWidth;
+	auto height = m_state->m_renderHeight;
 	auto layers = 1u;
-	if (m_colorCount)
+	if (m_state->m_colorCount)
 	{
-		width = m_colors[0].Width;
-		height = m_colors[0].Height;
-		layers = m_colors[0].Layers;
+		width = m_state->m_colors[0].Width;
+		height = m_state->m_colors[0].Height;
+		layers = m_state->m_colors[0].Layers;
 	}
-	else if (m_hasDepth)
+	else if (m_state->m_hasDepth)
 	{
-		width = m_depth.Width;
-		height = m_depth.Height;
-		layers = m_depth.Layers;
+		width = m_state->m_depth.Width;
+		height = m_state->m_depth.Height;
+		layers = m_state->m_depth.Layers;
 	}
 
 	VkRenderingInfo info = {};
 	info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
 	info.renderArea.extent = { width ? width : 1u, height ? height : 1u };
 	info.layerCount = layers ? layers : 1u;
-	info.colorAttachmentCount = m_colorCount;
-	info.pColorAttachments = m_colorCount ? colors : nullptr;
+	info.colorAttachmentCount = m_state->m_colorCount;
+	info.pColorAttachments = m_state->m_colorCount ? colors : nullptr;
 	info.pNext = renderingPNext();
-	info.pDepthAttachment = m_hasDepth ? &depth : nullptr;
-	info.pStencilAttachment = !m_hasDepth || !m_depth.HasStencil ? nullptr : splitStencil ? &stencil : &depth;
-	assert(m_beginRendering);
-	m_beginRendering(m_commandBuffer, &info);
-	m_renderingBegun = true;
+	info.pDepthAttachment = m_state->m_hasDepth ? &depth : nullptr;
+	info.pStencilAttachment = !m_state->m_hasDepth || !m_state->m_depth.HasStencil ? nullptr : splitStencil ? &stencil : &depth;
+	assert(m_state->m_beginRendering);
+	m_state->m_beginRendering(m_state->m_commandBuffer, &info);
+	m_state->m_renderingBegun = true;
 	beginTransformFeedback();
 	beginPredication();
 	for (auto i = 0u; i < matchedCount; ++i)
 	{
 		if (matched[i].Depth)
-			clearDepth(m_depth, matched[i].Flags, matched[i].DepthValue, matched[i].Stencil, 0, nullptr);
+			clearDepth(m_state->m_depth, matched[i].Flags, matched[i].DepthValue, matched[i].Stencil, 0, nullptr);
 		else
 		{
-			for (auto color = 0u; color < m_colorCount; ++color)
-				if (m_colors[color].Rendering.imageView == matched[i].Attachment.Rendering.imageView)
+			for (auto color = 0u; color < m_state->m_colorCount; ++color)
+				if (m_state->m_colors[color].Rendering.imageView == matched[i].Attachment.Rendering.imageView)
 					clearColor(color, matched[i].Color, 0, nullptr);
 		}
 	}
@@ -1878,46 +1797,46 @@ void CommandList_VK::beginRendering() const
 
 void CommandList_VK::beginTransformFeedback() const
 {
-	if (m_xfbActive || !m_renderingBegun || !m_pipeline || !m_pipeline->XfbBuffers) return;
+	if (m_state->m_xfbActive || !m_state->m_renderingBegun || !m_state->m_pipeline || !m_state->m_pipeline->XfbBuffers) return;
 	const auto transformFeedback = m_pDevice && m_pDevice->HasTransformFeedback();
 	assert(transformFeedback);
 	if (!transformFeedback) return;
 
-	const auto count = (min)(m_pipeline->XfbBuffers, MaxStreamOutCount);
+	const auto count = (min)(m_state->m_pipeline->XfbBuffers, MaxStreamOutCount);
 	VkBuffer buffers[MaxStreamOutCount];
 	VkDeviceSize offsets[MaxStreamOutCount];
 	VkDeviceSize sizes[MaxStreamOutCount];
 	for (auto i = 0u; i < count; ++i)
 	{
-		if (m_soBuffers[i])
+		if (m_state->m_soBuffers[i])
 		{
-			buffers[i] = m_soBuffers[i];
-			offsets[i] = m_soOffsets[i];
-			sizes[i] = m_soSizes[i];
+			buffers[i] = m_state->m_soBuffers[i];
+			offsets[i] = m_state->m_soOffsets[i];
+			sizes[i] = m_state->m_soSizes[i];
 		}
 		else
 		{
 			if (!ensureNullTransformFeedback()) return;
-			buffers[i] = m_nullXfb;
+			buffers[i] = m_state->m_nullXfb;
 			offsets[i] = 0;
 			sizes[i] = 4;
 		}
 	}
 
 	const auto& ext = m_pDevice->GetExtProcs();
-	ext.BindTransformFeedbackBuffers(m_commandBuffer, 0, count, buffers, offsets, sizes);
-	ext.BeginTransformFeedback(m_commandBuffer, 0, count, m_soCounters, m_soCounterOffsets);
-	m_xfbActive = count;
+	ext.BindTransformFeedbackBuffers(m_state->m_commandBuffer, 0, count, buffers, offsets, sizes);
+	ext.BeginTransformFeedback(m_state->m_commandBuffer, 0, count, m_state->m_soCounters, m_state->m_soCounterOffsets);
+	m_state->m_xfbActive = count;
 }
 
 void CommandList_VK::endTransformFeedback() const
 {
-	if (!m_xfbActive) return;
+	if (!m_state->m_xfbActive) return;
 
-	const auto count = m_xfbActive;
-	m_xfbActive = 0;
+	const auto count = m_state->m_xfbActive;
+	m_state->m_xfbActive = 0;
 	const auto& ext = m_pDevice->GetExtProcs();
-	ext.EndTransformFeedback(m_commandBuffer, 0, count, m_soCounters, m_soCounterOffsets);
+	ext.EndTransformFeedback(m_state->m_commandBuffer, 0, count, m_state->m_soCounters, m_state->m_soCounterOffsets);
 
 	VkMemoryBarrier2 barrier = {};
 	barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
@@ -1934,33 +1853,33 @@ void CommandList_VK::endTransformFeedback() const
 
 bool CommandList_VK::ensureNullTransformFeedback() const
 {
-	if (m_nullXfb != VK_NULL_HANDLE) return true;
+	if (m_state->m_nullXfb != VK_NULL_HANDLE) return true;
 
 	VkBufferCreateInfo info = {};
 	info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	info.size = 4;
 	info.usage = VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT;
-	m_nullXfb = VK_NULL_HANDLE;
+	m_state->m_nullXfb = VK_NULL_HANDLE;
 	const auto device = m_pDevice->GetDevice();
-	const auto created = vkCreateBuffer(device, &info, nullptr, &m_nullXfb);
+	const auto created = vkCreateBuffer(device, &info, nullptr, &m_state->m_nullXfb);
 	if (created < 0)
 	{
 		cerr << "VkResult " << created << endl;
-		m_nullXfb = VK_NULL_HANDLE;
+		m_state->m_nullXfb = VK_NULL_HANDLE;
 		assert(created >= 0);
 
 		return false;
 	}
 
 	VkMemoryRequirements requirements = {};
-	vkGetBufferMemoryRequirements(device, m_nullXfb, &requirements);
+	vkGetBufferMemoryRequirements(device, m_state->m_nullXfb, &requirements);
 	auto memoryType = m_pDevice->FindMemoryType(requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	if (memoryType == UINT32_MAX)
 		memoryType = m_pDevice->FindMemoryType(requirements.memoryTypeBits, 0);
 	if (memoryType == UINT32_MAX)
 	{
-		vkDestroyBuffer(device, m_nullXfb, nullptr);
-		m_nullXfb = VK_NULL_HANDLE;
+		vkDestroyBuffer(device, m_state->m_nullXfb, nullptr);
+		m_state->m_nullXfb = VK_NULL_HANDLE;
 		assert(!"No memory type for a null transform-feedback buffer");
 
 		return false;
@@ -1970,25 +1889,25 @@ bool CommandList_VK::ensureNullTransformFeedback() const
 	alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	alloc.allocationSize = requirements.size;
 	alloc.memoryTypeIndex = memoryType;
-	const auto allocated = vkAllocateMemory(device, &alloc, nullptr, &m_nullXfbMemory);
+	const auto allocated = vkAllocateMemory(device, &alloc, nullptr, &m_state->m_nullXfbMemory);
 	if (allocated < 0)
 	{
 		cerr << "VkResult " << allocated << endl;
-		vkDestroyBuffer(device, m_nullXfb, nullptr);
-		m_nullXfb = VK_NULL_HANDLE;
+		vkDestroyBuffer(device, m_state->m_nullXfb, nullptr);
+		m_state->m_nullXfb = VK_NULL_HANDLE;
 		assert(allocated >= 0);
 
 		return false;
 	}
 
-	const auto bound = vkBindBufferMemory(device, m_nullXfb, m_nullXfbMemory, 0);
+	const auto bound = vkBindBufferMemory(device, m_state->m_nullXfb, m_state->m_nullXfbMemory, 0);
 	if (bound < 0)
 	{
 		cerr << "VkResult " << bound << endl;
-		vkDestroyBuffer(device, m_nullXfb, nullptr);
-		vkFreeMemory(device, m_nullXfbMemory, nullptr);
-		m_nullXfb = VK_NULL_HANDLE;
-		m_nullXfbMemory = VK_NULL_HANDLE;
+		vkDestroyBuffer(device, m_state->m_nullXfb, nullptr);
+		vkFreeMemory(device, m_state->m_nullXfbMemory, nullptr);
+		m_state->m_nullXfb = VK_NULL_HANDLE;
+		m_state->m_nullXfbMemory = VK_NULL_HANDLE;
 		assert(bound >= 0);
 
 		return false;
@@ -2022,13 +1941,13 @@ void CommandList_VK::bindHeap(DescriptorHeap heap) const
 	const auto& ext = m_pDevice->GetExtProcs();
 	if (pHeap->GetType() == SAMPLER_HEAP)
 	{
-		ext.BindSamplerHeap(m_commandBuffer, &info);
-		m_samplerHeap = heap;
+		ext.BindSamplerHeap(m_state->m_commandBuffer, &info);
+		m_state->m_samplerHeap = heap;
 	}
 	else
 	{
-		ext.BindResourceHeap(m_commandBuffer, &info);
-		m_resourceHeap = heap;
+		ext.BindResourceHeap(m_state->m_commandBuffer, &info);
+		m_state->m_resourceHeap = heap;
 	}
 }
 
@@ -2039,7 +1958,7 @@ void CommandList_VK::pushData(uint32_t offset, const void* pData, uint32_t size)
 	info.offset = offset;
 	info.data.address = pData;
 	info.data.size = size;
-	m_pDevice->GetExtProcs().PushData(m_commandBuffer, &info);
+	m_pDevice->GetExtProcs().PushData(m_state->m_commandBuffer, &info);
 }
 
 void CommandList_VK::writePush(bool graphics, uint32_t rootIndex, uint32_t offset, const void* pData, uint32_t size) const
@@ -2047,9 +1966,9 @@ void CommandList_VK::writePush(bool graphics, uint32_t rootIndex, uint32_t offse
 	assert(pData && size);
 	assert(rootIndex < MaxRootParameters);
 	assert(offset + size <= MaxPushDataBytes);
-	auto* buffer = graphics ? m_graphicsPushData : m_computePushData;
-	auto& dirty = graphics ? m_graphicsPushDirty : m_computePushDirty;
-	const auto resync = graphics ? m_graphicsPushResync : m_computePushResync;
+	auto* buffer = graphics ? m_state->m_graphicsPushData : m_state->m_computePushData;
+	auto& dirty = graphics ? m_state->m_graphicsPushDirty : m_state->m_computePushDirty;
+	const auto resync = graphics ? m_state->m_graphicsPushResync : m_state->m_computePushResync;
 	// Skip unchanged data only when the current layout still owns the GPU push state.
 	if (!resync && memcmp(buffer + offset, pData, size) == 0) return;
 	memcpy(buffer + offset, pData, size);
@@ -2058,11 +1977,11 @@ void CommandList_VK::writePush(bool graphics, uint32_t rootIndex, uint32_t offse
 
 void CommandList_VK::flushPush(bool graphics) const
 {
-	auto& dirty = graphics ? m_graphicsPushDirty : m_computePushDirty;
-	auto& resync = graphics ? m_graphicsPushResync : m_computePushResync;
+	auto& dirty = graphics ? m_state->m_graphicsPushDirty : m_state->m_computePushDirty;
+	auto& resync = graphics ? m_state->m_graphicsPushResync : m_state->m_computePushResync;
 	if (!dirty) return;
 
-	const auto* layout = graphics ? m_graphicsLayout : m_computeLayout;
+	const auto* layout = graphics ? m_state->m_graphicsLayout : m_state->m_computeLayout;
 	if (!layout)
 	{
 		dirty = 0;
@@ -2070,7 +1989,7 @@ void CommandList_VK::flushPush(bool graphics) const
 		return;
 	}
 
-	const auto* buffer = graphics ? m_graphicsPushData : m_computePushData;
+	const auto* buffer = graphics ? m_state->m_graphicsPushData : m_state->m_computePushData;
 	const auto& roots = layout->RootParameters;
 	const auto count = static_cast<uint32_t>(roots.size());
 	assert(count <= MaxRootParameters);
@@ -2118,7 +2037,7 @@ void CommandList_VK::setDescriptorTable(const PipelineLayoutObject* pLayout, uin
 	assert(pLayout);
 	assert(index < pLayout->RootParameters.size());
 	const auto value = descriptorIndex;
-	const auto graphics = pLayout == m_graphicsLayout;
+	const auto graphics = pLayout == m_state->m_graphicsLayout;
 	writePush(graphics, index, pLayout->RootParameters[index].PushByteOffset, &value, sizeof(value));
 }
 
@@ -2128,7 +2047,7 @@ void CommandList_VK::setConstants(const PipelineLayoutObject* pLayout, uint32_t 
 	assert(pLayout);
 	assert(index < pLayout->RootParameters.size());
 	const auto offset = pLayout->RootParameters[index].PushByteOffset + destOffsetIn32BitValues * static_cast<uint32_t>(sizeof(uint32_t));
-	const auto graphics = pLayout == m_graphicsLayout;
+	const auto graphics = pLayout == m_state->m_graphicsLayout;
 	writePush(graphics, index, offset, pData, num32BitValues * static_cast<uint32_t>(sizeof(uint32_t)));
 }
 
@@ -2136,20 +2055,20 @@ void CommandList_VK::setRootAddress(const PipelineLayoutObject* pLayout, uint32_
 {
 	assert(pLayout);
 	assert(index < pLayout->RootParameters.size());
-	const auto graphics = pLayout == m_graphicsLayout;
+	const auto graphics = pLayout == m_state->m_graphicsLayout;
 	writePush(graphics, index, pLayout->RootParameters[index].PushByteOffset, &address, sizeof(address));
 }
 
 bool CommandList_VK::ensurePreprocess(VkDeviceSize size) const
 {
-	if (!size || (m_preprocessBuffer != VK_NULL_HANDLE && m_preprocessSize >= size)) return true;
+	if (!size || (m_state->m_preprocessBuffer != VK_NULL_HANDLE && m_state->m_preprocessSize >= size)) return true;
 
 	const auto device = m_pDevice->GetDevice();
-	const auto allocate = m_preprocessSize ? (max)(size, m_preprocessSize * 2) : size;
-	if (m_preprocessBuffer != VK_NULL_HANDLE) vkDestroyBuffer(device, m_preprocessBuffer, nullptr);
-	if (m_preprocessMemory != VK_NULL_HANDLE) vkFreeMemory(device, m_preprocessMemory, nullptr);
-	m_preprocessBuffer = VK_NULL_HANDLE;
-	m_preprocessMemory = VK_NULL_HANDLE;
+	const auto allocate = m_state->m_preprocessSize ? (max)(size, m_state->m_preprocessSize * 2) : size;
+	if (m_state->m_preprocessBuffer != VK_NULL_HANDLE) vkDestroyBuffer(device, m_state->m_preprocessBuffer, nullptr);
+	if (m_state->m_preprocessMemory != VK_NULL_HANDLE) vkFreeMemory(device, m_state->m_preprocessMemory, nullptr);
+	m_state->m_preprocessBuffer = VK_NULL_HANDLE;
+	m_state->m_preprocessMemory = VK_NULL_HANDLE;
 
 	VkBufferUsageFlags2CreateInfo usage = {};
 	usage.sType = VK_STRUCTURE_TYPE_BUFFER_USAGE_FLAGS_2_CREATE_INFO;
@@ -2159,10 +2078,10 @@ bool CommandList_VK::ensurePreprocess(VkDeviceSize size) const
 	info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	info.pNext = &usage;
 	info.size = allocate;
-	XUSG_VK_CHECK(vkCreateBuffer(device, &info, nullptr, &m_preprocessBuffer), cerr, false);
+	XUSG_VK_CHECK(vkCreateBuffer(device, &info, nullptr, &m_state->m_preprocessBuffer), cerr, false);
 
 	VkMemoryRequirements requirements = {};
-	vkGetBufferMemoryRequirements(device, m_preprocessBuffer, &requirements);
+	vkGetBufferMemoryRequirements(device, m_state->m_preprocessBuffer, &requirements);
 	VkMemoryAllocateFlagsInfo flags = {};
 	flags.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
 	flags.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
@@ -2171,14 +2090,14 @@ bool CommandList_VK::ensurePreprocess(VkDeviceSize size) const
 	alloc.pNext = &flags;
 	alloc.allocationSize = requirements.size;
 	alloc.memoryTypeIndex = m_pDevice->FindMemoryType(requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	XUSG_VK_CHECK(vkAllocateMemory(device, &alloc, nullptr, &m_preprocessMemory), cerr, false);
-	XUSG_VK_CHECK(vkBindBufferMemory(device, m_preprocessBuffer, m_preprocessMemory, 0), cerr, false);
+	XUSG_VK_CHECK(vkAllocateMemory(device, &alloc, nullptr, &m_state->m_preprocessMemory), cerr, false);
+	XUSG_VK_CHECK(vkBindBufferMemory(device, m_state->m_preprocessBuffer, m_state->m_preprocessMemory, 0), cerr, false);
 
 	VkBufferDeviceAddressInfo address = {};
 	address.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
-	address.buffer = m_preprocessBuffer;
-	m_preprocessAddress = vkGetBufferDeviceAddress(device, &address);
-	m_preprocessSize = allocate;
+	address.buffer = m_state->m_preprocessBuffer;
+	m_state->m_preprocessAddress = vkGetBufferDeviceAddress(device, &address);
+	m_state->m_preprocessSize = allocate;
 
 	return true;
 }
@@ -2191,34 +2110,34 @@ void CommandList_VK::clearColor(uint32_t attachment, const float color[4], uint3
 	memcpy(clear.clearValue.color.float32, color, sizeof(float) * 4);
 
 	const auto rectCount = numRects ? numRects : 1u;
-	if (m_clearRects.size() < rectCount) m_clearRects.resize(rectCount);
+	if (m_state->m_clearRects.size() < rectCount) m_state->m_clearRects.resize(rectCount);
 	if (!numRects)
 	{
-		m_clearRects[0].rect.offset = {};
-		m_clearRects[0].rect.extent = { m_colors[attachment].Width, m_colors[attachment].Height };
-		m_clearRects[0].baseArrayLayer = 0;
-		m_clearRects[0].layerCount = m_colors[attachment].Layers;
+		m_state->m_clearRects[0].rect.offset = {};
+		m_state->m_clearRects[0].rect.extent = { m_state->m_colors[attachment].Width, m_state->m_colors[attachment].Height };
+		m_state->m_clearRects[0].baseArrayLayer = 0;
+		m_state->m_clearRects[0].layerCount = m_state->m_colors[attachment].Layers;
 	}
 	else
 	{
 		for (auto i = 0u; i < numRects; ++i)
 		{
-			m_clearRects[i].rect.offset = { static_cast<int32_t>(pRects[i].Left), static_cast<int32_t>(pRects[i].Top) };
-			m_clearRects[i].rect.extent.width = static_cast<uint32_t>(pRects[i].Right - pRects[i].Left);
-			m_clearRects[i].rect.extent.height = static_cast<uint32_t>(pRects[i].Bottom - pRects[i].Top);
-			m_clearRects[i].baseArrayLayer = 0;
-			m_clearRects[i].layerCount = m_colors[attachment].Layers;
+			m_state->m_clearRects[i].rect.offset = { static_cast<int32_t>(pRects[i].Left), static_cast<int32_t>(pRects[i].Top) };
+			m_state->m_clearRects[i].rect.extent.width = static_cast<uint32_t>(pRects[i].Right - pRects[i].Left);
+			m_state->m_clearRects[i].rect.extent.height = static_cast<uint32_t>(pRects[i].Bottom - pRects[i].Top);
+			m_state->m_clearRects[i].baseArrayLayer = 0;
+			m_state->m_clearRects[i].layerCount = m_state->m_colors[attachment].Layers;
 		}
 	}
 
-	vkCmdClearAttachments(m_commandBuffer, 1, &clear, rectCount, m_clearRects.data());
+	vkCmdClearAttachments(m_state->m_commandBuffer, 1, &clear, rectCount, m_state->m_clearRects.data());
 }
 
 void CommandList_VK::clearOutside(const RenderAttachment& attachment, bool depth, ClearFlag flags, float depthValue,
 	uint8_t stencil, const float color[4], uint32_t numRects, const RectRange* pRects) const
 {
-	assert(!m_renderingBegun);
-	const auto restart = m_predicationActive;
+	assert(!m_state->m_renderingBegun);
+	const auto restart = m_state->m_predicationActive;
 	endPredication();
 
 	VkRenderingAttachmentInfo renderingAttachment = attachment.Rendering;
@@ -2240,8 +2159,8 @@ void CommandList_VK::clearOutside(const RenderAttachment& attachment, bool depth
 		info.pStencilAttachment = attachment.HasStencil && (flags & ClearFlag::STENCIL) != ClearFlag::NONE ? &renderingAttachment : nullptr;
 	}
 
-	assert(m_beginRendering && m_endRendering);
-	m_beginRendering(m_commandBuffer, &info);
+	assert(m_state->m_beginRendering && m_state->m_endRendering);
+	m_state->m_beginRendering(m_state->m_commandBuffer, &info);
 	if (restart) beginPredication();
 	if (depth) clearDepth(attachment, flags, depthValue, stencil, numRects, pRects);
 	else
@@ -2250,38 +2169,38 @@ void CommandList_VK::clearOutside(const RenderAttachment& attachment, bool depth
 		clear.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		if (color) memcpy(clear.clearValue.color.float32, color, sizeof(float) * 4);
 		const auto rectCount = numRects ? numRects : 1u;
-		if (m_clearRects.size() < rectCount) m_clearRects.resize(rectCount);
+		if (m_state->m_clearRects.size() < rectCount) m_state->m_clearRects.resize(rectCount);
 		if (!numRects)
 		{
-			m_clearRects[0].rect.offset = {};
-			m_clearRects[0].rect.extent = { attachment.Width, attachment.Height };
-			m_clearRects[0].baseArrayLayer = 0;
-			m_clearRects[0].layerCount = attachment.Layers ? attachment.Layers : 1u;
+			m_state->m_clearRects[0].rect.offset = {};
+			m_state->m_clearRects[0].rect.extent = { attachment.Width, attachment.Height };
+			m_state->m_clearRects[0].baseArrayLayer = 0;
+			m_state->m_clearRects[0].layerCount = attachment.Layers ? attachment.Layers : 1u;
 		}
 		else
 		{
 			for (auto i = 0u; i < numRects; ++i)
 			{
-				m_clearRects[i].rect.offset = { static_cast<int32_t>(pRects[i].Left), static_cast<int32_t>(pRects[i].Top) };
-				m_clearRects[i].rect.extent.width = static_cast<uint32_t>(pRects[i].Right - pRects[i].Left);
-				m_clearRects[i].rect.extent.height = static_cast<uint32_t>(pRects[i].Bottom - pRects[i].Top);
-				m_clearRects[i].baseArrayLayer = 0;
-				m_clearRects[i].layerCount = attachment.Layers ? attachment.Layers : 1u;
+				m_state->m_clearRects[i].rect.offset = { static_cast<int32_t>(pRects[i].Left), static_cast<int32_t>(pRects[i].Top) };
+				m_state->m_clearRects[i].rect.extent.width = static_cast<uint32_t>(pRects[i].Right - pRects[i].Left);
+				m_state->m_clearRects[i].rect.extent.height = static_cast<uint32_t>(pRects[i].Bottom - pRects[i].Top);
+				m_state->m_clearRects[i].baseArrayLayer = 0;
+				m_state->m_clearRects[i].layerCount = attachment.Layers ? attachment.Layers : 1u;
 			}
 		}
-		vkCmdClearAttachments(m_commandBuffer, 1, &clear, rectCount, m_clearRects.data());
+		vkCmdClearAttachments(m_state->m_commandBuffer, 1, &clear, rectCount, m_state->m_clearRects.data());
 	}
 	if (restart) endPredication();
-	m_endRendering(m_commandBuffer);
+	m_state->m_endRendering(m_state->m_commandBuffer);
 	if (restart) beginPredication();
 }
 
 void CommandList_VK::flushDeferredClears() const
 {
-	if (m_deferredClears.empty() || m_renderingBegun) return;
+	if (m_state->m_deferredClears.empty() || m_state->m_renderingBegun) return;
 
-	const auto clears = m_deferredClears;
-	m_deferredClears.clear();
+	const auto clears = m_state->m_deferredClears;
+	m_state->m_deferredClears.clear();
 	beginPredication();
 	for (const auto& clear : clears)
 		clearOutside(clear.Attachment, clear.Depth, clear.Flags, clear.DepthValue, clear.Stencil, clear.Color, 0, nullptr);
@@ -2290,12 +2209,12 @@ void CommandList_VK::flushDeferredClears() const
 
 bool CommandList_VK::imageBound(VkImage image) const
 {
-	if (!m_renderingBegun || image == VK_NULL_HANDLE) return false;
+	if (!m_state->m_renderingBegun || image == VK_NULL_HANDLE) return false;
 
-	for (auto i = 0u; i < m_colorCount; ++i)
-		if (m_colors[i].Resource && m_colors[i].Resource->GetImage() == image) return true;
+	for (auto i = 0u; i < m_state->m_colorCount; ++i)
+		if (m_state->m_colors[i].Resource && m_state->m_colors[i].Resource->GetImage() == image) return true;
 
-	return m_hasDepth && m_depth.Resource && m_depth.Resource->GetImage() == image;
+	return m_state->m_hasDepth && m_state->m_depth.Resource && m_state->m_depth.Resource->GetImage() == image;
 }
 
 void CommandList_VK::prepareBarriersOutsidePass(uint32_t numBarriers, const ResourceBarrier* pBarriers) const
@@ -2304,7 +2223,7 @@ void CommandList_VK::prepareBarriersOutsidePass(uint32_t numBarriers, const Reso
 	(void)pBarriers;
 	// Without dynamicRenderingLocalRead / shader_tile_image, vkCmdPipelineBarrier2
 	// (including image layout transitions) is illegal inside vkCmdBeginRendering.
-	if (m_renderingBegun) endRendering();
+	if (m_state->m_renderingBegun) endRendering();
 	flushDeferredClears();
 	endPredication();
 }
@@ -2320,27 +2239,27 @@ void CommandList_VK::clearDepth(const RenderAttachment& attachment, ClearFlag cl
 	if (!clear.aspectMask) return;
 
 	const auto rectCount = numRects ? numRects : 1u;
-	if (m_clearRects.size() < rectCount) m_clearRects.resize(rectCount);
+	if (m_state->m_clearRects.size() < rectCount) m_state->m_clearRects.resize(rectCount);
 	if (!numRects)
 	{
-		m_clearRects[0].rect.offset = {};
-		m_clearRects[0].rect.extent = { attachment.Width, attachment.Height };
-		m_clearRects[0].baseArrayLayer = 0;
-		m_clearRects[0].layerCount = attachment.Layers;
+		m_state->m_clearRects[0].rect.offset = {};
+		m_state->m_clearRects[0].rect.extent = { attachment.Width, attachment.Height };
+		m_state->m_clearRects[0].baseArrayLayer = 0;
+		m_state->m_clearRects[0].layerCount = attachment.Layers;
 	}
 	else
 	{
 		for (auto i = 0u; i < numRects; ++i)
 		{
-			m_clearRects[i].rect.offset = { static_cast<int32_t>(pRects[i].Left), static_cast<int32_t>(pRects[i].Top) };
-			m_clearRects[i].rect.extent.width = static_cast<uint32_t>(pRects[i].Right - pRects[i].Left);
-			m_clearRects[i].rect.extent.height = static_cast<uint32_t>(pRects[i].Bottom - pRects[i].Top);
-			m_clearRects[i].baseArrayLayer = 0;
-			m_clearRects[i].layerCount = attachment.Layers;
+			m_state->m_clearRects[i].rect.offset = { static_cast<int32_t>(pRects[i].Left), static_cast<int32_t>(pRects[i].Top) };
+			m_state->m_clearRects[i].rect.extent.width = static_cast<uint32_t>(pRects[i].Right - pRects[i].Left);
+			m_state->m_clearRects[i].rect.extent.height = static_cast<uint32_t>(pRects[i].Bottom - pRects[i].Top);
+			m_state->m_clearRects[i].baseArrayLayer = 0;
+			m_state->m_clearRects[i].layerCount = attachment.Layers;
 		}
 	}
 
-	vkCmdClearAttachments(m_commandBuffer, 1, &clear, rectCount, m_clearRects.data());
+	vkCmdClearAttachments(m_state->m_commandBuffer, 1, &clear, rectCount, m_state->m_clearRects.data());
 }
 
 void CommandList_VK::clearUnorderedAccessView(const Descriptor& descriptor, const VkClearColorValue& color, uint32_t numRects) const
@@ -2354,12 +2273,12 @@ void CommandList_VK::clearUnorderedAccessView(const Descriptor& descriptor, cons
 	assert(pResource);
 
 	auto regionCount = 1u;
-	if (m_clearRegions.empty()) m_clearRegions.resize(1);
-	if (!pView->IsImage) m_clearRegions[0] = { 0, ResourceState::COMMON };
+	if (m_state->m_clearRegions.empty()) m_state->m_clearRegions.resize(1);
+	if (!pView->IsImage) m_state->m_clearRegions[0] = { 0, ResourceState::COMMON };
 	else if (pResource->Is3D())
 	{
-		if (m_clearRegions.empty()) m_clearRegions.resize(1);
-		m_clearRegions[0] = { pView->ViewInfo.subresourceRange.baseMipLevel, ResourceState::COMMON };
+		if (m_state->m_clearRegions.empty()) m_state->m_clearRegions.resize(1);
+		m_state->m_clearRegions[0] = { pView->ViewInfo.subresourceRange.baseMipLevel, ResourceState::COMMON };
 	}
 	else
 	{
@@ -2368,20 +2287,20 @@ void CommandList_VK::clearUnorderedAccessView(const Descriptor& descriptor, cons
 		const auto levels = range.levelCount ? range.levelCount : 1u;
 		const auto layers = range.layerCount ? range.layerCount : 1u;
 		regionCount = levels * layers;
-		if (m_clearRegions.size() < regionCount) m_clearRegions.resize(regionCount);
+		if (m_state->m_clearRegions.size() < regionCount) m_state->m_clearRegions.resize(regionCount);
 		auto index = 0u;
 		for (auto layer = 0u; layer < layers; ++layer)
 			for (auto level = 0u; level < levels; ++level)
-				m_clearRegions[index++] = { range.baseMipLevel + level + (range.baseArrayLayer + layer) * mips, ResourceState::COMMON };
+				m_state->m_clearRegions[index++] = { range.baseMipLevel + level + (range.baseArrayLayer + layer) * mips, ResourceState::COMMON };
 	}
 
 	for (auto i = 0u; i < regionCount; ++i)
-		m_clearRegions[i].State = pResource->GetResourceState(m_clearRegions[i].Subresource);
+		m_state->m_clearRegions[i].State = pResource->GetResourceState(m_state->m_clearRegions[i].Subresource);
 	auto sameState = true;
 	for (auto i = 1u; i < regionCount; ++i)
-		sameState = sameState && m_clearRegions[i].State == m_clearRegions[0].State;
+		sameState = sameState && m_state->m_clearRegions[i].State == m_state->m_clearRegions[0].State;
 
-	const auto state = m_clearRegions[0].State;
+	const auto state = m_state->m_clearRegions[0].State;
 	const auto layout = pView->IsImage ? pResource->ImageLayout(state) : VK_IMAGE_LAYOUT_UNDEFINED;
 	const auto clearInPlace = sameState && (!pView->IsImage || layout == VK_IMAGE_LAYOUT_GENERAL ||
 		layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
@@ -2412,7 +2331,7 @@ void CommandList_VK::clearUnorderedAccessView(const Descriptor& descriptor, cons
 			dependency.imageMemoryBarrierCount = 1;
 			dependency.pImageMemoryBarriers = &image;
 			pipelineBarrier(dependency);
-			vkCmdClearColorImage(m_commandBuffer, pResource->GetImage(), layout, &color, 1, &range);
+			vkCmdClearColorImage(m_state->m_commandBuffer, pResource->GetImage(), layout, &color, 1, &range);
 			image.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
 			image.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
 			image.dstStageMask = srcStage;
@@ -2447,7 +2366,7 @@ void CommandList_VK::clearUnorderedAccessView(const Descriptor& descriptor, cons
 			const auto components = (min)(stride / 4, 4u);
 			for (auto i = 1u; i < components; ++i)
 				assert(color.uint32[i] == color.uint32[0] && "ClearUnorderedAccessView buffer pattern is wider than 4 bytes");
-			vkCmdFillBuffer(m_commandBuffer, pResource->GetBuffer(), offset, pView->Range, color.uint32[0]);
+			vkCmdFillBuffer(m_state->m_commandBuffer, pResource->GetBuffer(), offset, pView->Range, color.uint32[0]);
 			buffer.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
 			buffer.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
 			buffer.dstStageMask = srcStage;
@@ -2461,7 +2380,7 @@ void CommandList_VK::clearUnorderedAccessView(const Descriptor& descriptor, cons
 	for (auto i = 0u; i < regionCount; ++i)
 	{
 		ResourceBarrier barrier;
-		pResource->SetBarrier(&barrier, ResourceState::COPY_DEST, 0, m_clearRegions[i].Subresource);
+		pResource->SetBarrier(&barrier, ResourceState::COPY_DEST, 0, m_state->m_clearRegions[i].Subresource);
 	}
 	submitClearBarrier(pResource, regionCount, true);
 
@@ -2470,7 +2389,7 @@ void CommandList_VK::clearUnorderedAccessView(const Descriptor& descriptor, cons
 		auto range = pView->ViewInfo.subresourceRange;
 		if (!range.levelCount) range.levelCount = 1;
 		if (!range.layerCount) range.layerCount = 1;
-		vkCmdClearColorImage(m_commandBuffer, pResource->GetImage(),
+		vkCmdClearColorImage(m_state->m_commandBuffer, pResource->GetImage(),
 			pResource->ImageLayout(ResourceState::COPY_DEST), &color, 1, &range);
 	}
 	else
@@ -2488,13 +2407,13 @@ void CommandList_VK::clearUnorderedAccessView(const Descriptor& descriptor, cons
 		const auto components = (min)(stride / 4, 4u);
 		for (auto i = 1u; i < components; ++i)
 			assert(color.uint32[i] == color.uint32[0] && "ClearUnorderedAccessView buffer pattern is wider than 4 bytes");
-		vkCmdFillBuffer(m_commandBuffer, pResource->GetBuffer(), offset, pView->Range, color.uint32[0]);
+		vkCmdFillBuffer(m_state->m_commandBuffer, pResource->GetBuffer(), offset, pView->Range, color.uint32[0]);
 	}
 
 	for (auto i = 0u; i < regionCount; ++i)
 	{
 		ResourceBarrier barrier;
-		pResource->SetBarrier(&barrier, m_clearRegions[i].State, 0, m_clearRegions[i].Subresource);
+		pResource->SetBarrier(&barrier, m_state->m_clearRegions[i].State, 0, m_state->m_clearRegions[i].Subresource);
 	}
 	submitClearBarrier(pResource, regionCount, false);
 }
@@ -2528,11 +2447,11 @@ VkAttachmentLoadOp CommandList_VK::attachmentLoadOp(const RenderAttachment& atta
 
 void CommandList_VK::submitClearBarrier(Resource_VK* pResource, uint32_t regionCount, bool toCopy) const
 {
-	m_buffers.clear();
-	m_images.clear();
+	m_state->m_buffers.clear();
+	m_state->m_images.clear();
 	for (auto i = 0u; i < regionCount; ++i)
 	{
-		const auto& region = m_clearRegions[i];
+		const auto& region = m_state->m_clearRegions[i];
 		const auto src = toCopy ? region.State : ResourceState::COPY_DEST;
 		const auto dst = toCopy ? ResourceState::COPY_DEST : region.State;
 		const auto undefined = pResource->IsImage() && pResource->IsUndefinedLayout(region.Subresource);
@@ -2557,7 +2476,7 @@ void CommandList_VK::submitClearBarrier(Resource_VK* pResource, uint32_t regionC
 			image.subresourceRange.levelCount = 1;
 			image.subresourceRange.baseArrayLayer = layer;
 			image.subresourceRange.layerCount = 1;
-			pResource->AppendImageBarrier(image, m_images);
+			pResource->AppendImageBarrier(image, m_state->m_images);
 		}
 		else
 		{
@@ -2569,19 +2488,19 @@ void CommandList_VK::submitClearBarrier(Resource_VK* pResource, uint32_t regionC
 			buffer.dstAccessMask = GetVKAccess(m_pDevice, dst);
 			buffer.buffer = pResource->GetBuffer();
 			buffer.size = VK_WHOLE_SIZE;
-			m_buffers.push_back(buffer);
+			m_state->m_buffers.push_back(buffer);
 		}
 	}
 
-	if (m_buffers.empty() && m_images.empty()) return;
+	if (m_state->m_buffers.empty() && m_state->m_images.empty()) return;
 
-	if (m_renderingBegun) endRendering();
+	if (m_state->m_renderingBegun) endRendering();
 	VkDependencyInfo dependency = {};
 	dependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-	dependency.bufferMemoryBarrierCount = static_cast<uint32_t>(m_buffers.size());
-	dependency.pBufferMemoryBarriers = m_buffers.empty() ? nullptr : m_buffers.data();
-	dependency.imageMemoryBarrierCount = static_cast<uint32_t>(m_images.size());
-	dependency.pImageMemoryBarriers = m_images.empty() ? nullptr : m_images.data();
+	dependency.bufferMemoryBarrierCount = static_cast<uint32_t>(m_state->m_buffers.size());
+	dependency.pBufferMemoryBarriers = m_state->m_buffers.empty() ? nullptr : m_state->m_buffers.data();
+	dependency.imageMemoryBarrierCount = static_cast<uint32_t>(m_state->m_images.size());
+	dependency.pImageMemoryBarriers = m_state->m_images.empty() ? nullptr : m_state->m_images.data();
 	pipelineBarrier(dependency);
 }
 
@@ -2614,24 +2533,24 @@ void CommandList_VK::pipelineBarrier(const VkDependencyInfo& dependency) const
 	if (!memoryCount && !bufferCount && !imageCount) return;
 	if (m_pDevice && m_pDevice->HasSynchronization2())
 	{
-		vkCmdPipelineBarrier2(m_commandBuffer, &dependency);
+		vkCmdPipelineBarrier2(m_state->m_commandBuffer, &dependency);
 
 		return;
 	}
 
-	m_legacySrcStages.clear();
-	m_legacyDstStages.clear();
+	m_state->m_legacySrcStages.clear();
+	m_state->m_legacyDstStages.clear();
 	for (auto i = 0u; i < memoryCount; ++i)
 	{
 		VkPipelineStageFlags source = 0;
 		VkPipelineStageFlags dest = 0;
 		LegacyStages(dependency.pMemoryBarriers[i].srcStageMask, dependency.pMemoryBarriers[i].dstStageMask, source, dest);
 		auto found = false;
-		for (auto group = 0u; group < m_legacySrcStages.size(); ++group)
-			found = found || (m_legacySrcStages[group] == source && m_legacyDstStages[group] == dest);
+		for (auto group = 0u; group < m_state->m_legacySrcStages.size(); ++group)
+			found = found || (m_state->m_legacySrcStages[group] == source && m_state->m_legacyDstStages[group] == dest);
 		if (found) continue;
-		m_legacySrcStages.push_back(source);
-		m_legacyDstStages.push_back(dest);
+		m_state->m_legacySrcStages.push_back(source);
+		m_state->m_legacyDstStages.push_back(dest);
 	}
 	for (auto i = 0u; i < bufferCount; ++i)
 	{
@@ -2639,11 +2558,11 @@ void CommandList_VK::pipelineBarrier(const VkDependencyInfo& dependency) const
 		VkPipelineStageFlags dest = 0;
 		LegacyStages(dependency.pBufferMemoryBarriers[i].srcStageMask, dependency.pBufferMemoryBarriers[i].dstStageMask, source, dest);
 		auto found = false;
-		for (auto group = 0u; group < m_legacySrcStages.size(); ++group)
-			found = found || (m_legacySrcStages[group] == source && m_legacyDstStages[group] == dest);
+		for (auto group = 0u; group < m_state->m_legacySrcStages.size(); ++group)
+			found = found || (m_state->m_legacySrcStages[group] == source && m_state->m_legacyDstStages[group] == dest);
 		if (found) continue;
-		m_legacySrcStages.push_back(source);
-		m_legacyDstStages.push_back(dest);
+		m_state->m_legacySrcStages.push_back(source);
+		m_state->m_legacyDstStages.push_back(dest);
 	}
 	for (auto i = 0u; i < imageCount; ++i)
 	{
@@ -2651,20 +2570,20 @@ void CommandList_VK::pipelineBarrier(const VkDependencyInfo& dependency) const
 		VkPipelineStageFlags dest = 0;
 		LegacyStages(dependency.pImageMemoryBarriers[i].srcStageMask, dependency.pImageMemoryBarriers[i].dstStageMask, source, dest);
 		auto found = false;
-		for (auto group = 0u; group < m_legacySrcStages.size(); ++group)
-			found = found || (m_legacySrcStages[group] == source && m_legacyDstStages[group] == dest);
+		for (auto group = 0u; group < m_state->m_legacySrcStages.size(); ++group)
+			found = found || (m_state->m_legacySrcStages[group] == source && m_state->m_legacyDstStages[group] == dest);
 		if (found) continue;
-		m_legacySrcStages.push_back(source);
-		m_legacyDstStages.push_back(dest);
+		m_state->m_legacySrcStages.push_back(source);
+		m_state->m_legacyDstStages.push_back(dest);
 	}
 
-	for (auto group = 0u; group < m_legacySrcStages.size(); ++group)
+	for (auto group = 0u; group < m_state->m_legacySrcStages.size(); ++group)
 	{
-		const auto source = m_legacySrcStages[group];
-		const auto dest = m_legacyDstStages[group];
-		m_legacyMemories.clear();
-		m_legacyBuffers.clear();
-		m_legacyImages.clear();
+		const auto source = m_state->m_legacySrcStages[group];
+		const auto dest = m_state->m_legacyDstStages[group];
+		m_state->m_legacyMemories.clear();
+		m_state->m_legacyBuffers.clear();
+		m_state->m_legacyImages.clear();
 		for (auto i = 0u; i < memoryCount; ++i)
 		{
 			const auto& barrier = dependency.pMemoryBarriers[i];
@@ -2677,7 +2596,7 @@ void CommandList_VK::pipelineBarrier(const VkDependencyInfo& dependency) const
 			memory.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
 			memory.srcAccessMask = static_cast<VkAccessFlags>(barrier.srcAccessMask);
 			memory.dstAccessMask = static_cast<VkAccessFlags>(barrier.dstAccessMask);
-			m_legacyMemories.push_back(memory);
+			m_state->m_legacyMemories.push_back(memory);
 		}
 		for (auto i = 0u; i < bufferCount; ++i)
 		{
@@ -2696,7 +2615,7 @@ void CommandList_VK::pipelineBarrier(const VkDependencyInfo& dependency) const
 			buffer.buffer = barrier.buffer;
 			buffer.offset = barrier.offset;
 			buffer.size = barrier.size;
-			m_legacyBuffers.push_back(buffer);
+			m_state->m_legacyBuffers.push_back(buffer);
 		}
 		for (auto i = 0u; i < imageCount; ++i)
 		{
@@ -2716,13 +2635,13 @@ void CommandList_VK::pipelineBarrier(const VkDependencyInfo& dependency) const
 			image.dstQueueFamilyIndex = barrier.dstQueueFamilyIndex;
 			image.image = barrier.image;
 			image.subresourceRange = barrier.subresourceRange;
-			m_legacyImages.push_back(image);
+			m_state->m_legacyImages.push_back(image);
 		}
 
-		vkCmdPipelineBarrier(m_commandBuffer, source, dest, 0,
-			static_cast<uint32_t>(m_legacyMemories.size()), m_legacyMemories.empty() ? nullptr : m_legacyMemories.data(),
-			static_cast<uint32_t>(m_legacyBuffers.size()), m_legacyBuffers.empty() ? nullptr : m_legacyBuffers.data(),
-			static_cast<uint32_t>(m_legacyImages.size()), m_legacyImages.empty() ? nullptr : m_legacyImages.data());
+		vkCmdPipelineBarrier(m_state->m_commandBuffer, source, dest, 0,
+			static_cast<uint32_t>(m_state->m_legacyMemories.size()), m_state->m_legacyMemories.empty() ? nullptr : m_state->m_legacyMemories.data(),
+			static_cast<uint32_t>(m_state->m_legacyBuffers.size()), m_state->m_legacyBuffers.empty() ? nullptr : m_state->m_legacyBuffers.data(),
+			static_cast<uint32_t>(m_state->m_legacyImages.size()), m_state->m_legacyImages.empty() ? nullptr : m_state->m_legacyImages.data());
 	}
 }
 
