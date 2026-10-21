@@ -74,13 +74,13 @@ namespace XUSG
 				virtual void SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions) const = 0;
 				virtual void ResolveSubresourceRegion(Resource* pDstResource, uint32_t dstSubresource,
 					uint32_t dstX, uint32_t dstY, Resource* pSrcResource, uint32_t srcSubresource,
-					const RectRange& srcRect, Format format, ResolveMode resolveMode) = 0;
+					const RectRange& srcRect, Format format, ResolveMode resolveMode) const = 0;
 
 				virtual void RSSetShadingRate(ShadingRate baseShadingRate, const ShadingRateCombiner* pCombiners) const = 0;
 				virtual void RSSetShadingRateImage(Resource* pShadingRateImage) = 0;
 
 				using XUSG::EZ::CommandList::SetGraphicsPipelineState;
-				virtual void SetGraphicsPipelineState(const Pipeline& pipelineState, const State* pState = nullptr) = 0;
+				virtual void SetGraphicsPipelineState(const Pipeline& pipelineState, State* pState = nullptr) = 0;
 				virtual void OMSetBlendState(const Graphics::Blend* pBlend, uint32_t sampleMask = UINT_MAX) = 0;
 				virtual void OMSetBlendState(Graphics::BlendPreset preset, uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX) = 0;
 				virtual void OMSetSample(uint8_t count, uint8_t quality = 0) = 0;
@@ -126,7 +126,7 @@ namespace XUSG
 				virtual WorkGraph::NodeID WGGetNodeID(uint32_t nodeIndex) = 0;
 				virtual WorkGraph::NodeID WGGetEntrypointID(uint32_t entryPointIndex) = 0;
 
-				virtual Ultimate::CommandList* AsUltimateCommandList() = 0;
+				virtual Ultimate::CommandList* AsUltimateCommandList() const = 0;
 
 				static uptr MakeUnique();
 				static sptr MakeShared();

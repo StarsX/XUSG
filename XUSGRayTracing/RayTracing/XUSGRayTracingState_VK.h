@@ -96,6 +96,8 @@ namespace XUSG
 			const wchar_t* GetHitGroupName(uint32_t index);
 			uint32_t GetNumHitGroups();
 
+			void* GetBackend() override;
+
 		protected:
 			void serialize();
 
@@ -134,5 +136,11 @@ namespace XUSG
 
 			std::mutex m_mtx;
 		};
+
+		inline State_VK* AsVK(State* p)
+		{
+			assert(!p || p->GetBackend());
+			return static_cast<State_VK*>(p ? p->GetBackend() : nullptr);
+		}
 	}
 }

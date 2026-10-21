@@ -72,15 +72,15 @@ namespace XUSG
 					uintptr_t byteOffset, uint32_t uavIndex);
 				void SetTLASDestination(TopLevelAS* pTLAS, const Buffer::sptr destBuffer,
 					uintptr_t byteOffset, uint32_t uavIndex, uint32_t srvIndex);
-				void SetOmmArrayDestination(OpacityMicromapArray* pOmmArray, const Buffer::sptr destBuffer, uintptr_t byteOffset);
-				void BuildBLAS(BottomLevelAS* pBLAS, const BottomLevelAS* pSource = nullptr,
+				void SetOmmArrayDestination(OpacityMicromapArray* pOmmArray, const Buffer::sptr destBuffer, uintptr_t byteOffset) const;
+				void BuildBLAS(BottomLevelAS* pBLAS, BottomLevelAS* pSource = nullptr,
 					uint8_t numPostbuildInfoDescs = 0, const PostbuildInfoType* pPostbuildInfoTypes = nullptr);
-				void BuildTLAS(TopLevelAS* pTLAS, Resource* pInstanceDescs, const TopLevelAS* pSource = nullptr,
+				void BuildTLAS(TopLevelAS* pTLAS, Resource* pInstanceDescs, TopLevelAS* pSource = nullptr,
 					uint8_t numPostbuildInfoDescs = 0, const PostbuildInfoType* pPostbuildInfoTypes = nullptr);
-				void BuildOmmArray(OpacityMicromapArray* pOmmArray, const OpacityMicromapArray* pSource = nullptr,
+				void BuildOmmArray(OpacityMicromapArray* pOmmArray, OpacityMicromapArray* pSource = nullptr,
 					uint8_t numPostbuildInfoDescs = 0, const PostbuildInfoType* pPostbuildInfoTypes = nullptr);
-				void CopyRaytracingAccelerationStructure(const AccelerationStructure* pDst,
-					const AccelerationStructure* pSrc, CopyMode mode);
+				void CopyRaytracingAccelerationStructure(AccelerationStructure* pDst,
+					AccelerationStructure* pSrc, CopyMode mode);
 				void SetTopLevelAccelerationStructure(uint32_t index, const TopLevelAS* pTopLevelAS) const;
 				void RTSetShaderLibrary(uint32_t index, const Blob& shaderLib,
 					uint32_t numShaders = 0, const wchar_t** pShaderNames = nullptr);
@@ -105,7 +105,10 @@ namespace XUSG
 				size_t GetDispatchRaysArgReservedOffset() const { return sizeof(DX12DispatchRaysDescHeader); }
 
 				Device* GetRTDevice() const { return RTList::GetRTDevice(); }
-				RayTracing::CommandList* AsRTCommandList() { return dynamic_cast<RayTracing::CommandList*>(this); }
+				RayTracing::CommandList* AsRTCommandList() const
+				{
+					return const_cast<RayTracing::CommandList*>(dynamic_cast<const RayTracing::CommandList*>(this));
+				}
 
 			protected:
 				//using ShaderTablePtr = ShaderTable*;

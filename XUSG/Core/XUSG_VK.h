@@ -141,8 +141,8 @@ namespace XUSG
 
 		void Create(void* pNativeHandle);
 
-		void* GetNativeHandle();
-		void* GetAdapterNativeHandle();
+		void* GetNativeHandle() const;
+		void* GetAdapterNativeHandle() const;
 		void* GetBackend() override;
 
 		VkInstance GetInstance() const;
@@ -770,34 +770,16 @@ namespace XUSG
 		return static_cast<Device_VK*>(p ? p->GetBackend() : nullptr);
 	}
 
-	inline const Device_VK* AsVK(const Device* p)
-	{
-		assert(!p || const_cast<Device*>(p)->GetBackend());
-		return static_cast<const Device_VK*>(p ? const_cast<Device*>(p)->GetBackend() : nullptr);
-	}
-
 	inline CommandLayout_VK* AsVK(CommandLayout* p)
 	{
 		assert(!p || p->GetBackend());
 		return static_cast<CommandLayout_VK*>(p ? p->GetBackend() : nullptr);
 	}
 
-	inline const CommandLayout_VK* AsVK(const CommandLayout* p)
-	{
-		assert(!p || const_cast<CommandLayout*>(p)->GetBackend());
-		return static_cast<const CommandLayout_VK*>(p ? const_cast<CommandLayout*>(p)->GetBackend() : nullptr);
-	}
-
 	inline SwapChain_VK* AsVK(SwapChain* p)
 	{
 		assert(!p || p->GetBackend());
 		return static_cast<SwapChain_VK*>(p ? p->GetBackend() : nullptr);
-	}
-
-	inline const SwapChain_VK* AsVK(const SwapChain* p)
-	{
-		assert(!p || const_cast<SwapChain*>(p)->GetBackend());
-		return static_cast<const SwapChain_VK*>(p ? const_cast<SwapChain*>(p)->GetBackend() : nullptr);
 	}
 
 	// StorageInputOutput16 is only for 16-bit shader inputs and outputs.

@@ -82,12 +82,12 @@ void Device_DX12::Create(void* pNativeHandle)
 	queryAdapter();
 }
 
-void* Device_DX12::GetNativeHandle()
+void* Device_DX12::GetNativeHandle() const
 {
 	return m_device.get();
 }
 
-void* Device_DX12::GetAdapterNativeHandle()
+void* Device_DX12::GetAdapterNativeHandle() const
 {
 	return m_adapter.get();
 }

@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "Ultimate/XUSGUltimate_DX12.h"
 #include "XUSGRayTracing.h"
 
 namespace XUSG
@@ -19,15 +20,21 @@ namespace XUSG
 			CommandList_DX12(XUSG::CommandList* pCommandList, Device* pDevice);
 			virtual ~CommandList_DX12();
 
-			bool CreateInterface();
+			bool Create(XUSG::Device* pDevice, uint32_t nodeMask, CommandListType type,
+				uint8_t numAllocators, CommandAllocator* const* ppAllocators, const Pipeline& pipeline,
+				const wchar_t* name = nullptr) override;
+			bool Create(Device* pDevice, uint32_t nodeMask, CommandListType type,
+				uint8_t numAllocators, CommandAllocator* const* ppAllocators, const Pipeline& pipeline,
+				const wchar_t* name = nullptr) override;
+			void Create(void* pNativeHandle, Device* pDevice);
 
 			void BuildRaytracingAccelerationStructure(const BuildDesc* pDesc,
 				uint32_t numPostbuildInfoDescs, const PostbuildInfo* pPostbuildInfoDescs,
 				const DescriptorHeap* pDescriptorHeap = nullptr);
 			void EmitRaytracingAccelerationStructurePostbuildInfo(const PostbuildInfo* pDesc,
 				uint32_t numAccelerationStructures, const uint64_t* pAccelerationStructureData) const;
-			void CopyRaytracingAccelerationStructure(const AccelerationStructure* pDst,
-				const AccelerationStructure* pSrc, CopyMode mode,
+			void CopyRaytracingAccelerationStructure(AccelerationStructure* pDst,
+				AccelerationStructure* pSrc, CopyMode mode,
 				const DescriptorHeap* pDescriptorHeap = nullptr);
 
 			void SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps);
@@ -39,8 +46,11 @@ namespace XUSG
 				const ShaderTable* pCallable = nullptr) const;
 
 			Device* GetRTDevice() const;
+			void* GetRTBackend() override;
 
 		protected:
+			bool createInterface();
+
 			com_ptr<ID3D12RaytracingFallbackCommandList> m_commandListRT;
 
 			Device* m_pDeviceRT;

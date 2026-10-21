@@ -20,7 +20,13 @@ namespace XUSG
 			CommandList_VK(XUSG::CommandList* pCommandList, Device* pDevice);
 			virtual ~CommandList_VK();
 
-			bool CreateInterface();
+			bool Create(XUSG::Device* pDevice, uint32_t nodeMask, CommandListType type,
+				uint8_t numAllocators, CommandAllocator* const* ppAllocators, const Pipeline& pipeline,
+				const wchar_t* name = nullptr) override;
+			bool Create(Device* pDevice, uint32_t nodeMask, CommandListType type,
+				uint8_t numAllocators, CommandAllocator* const* ppAllocators, const Pipeline& pipeline,
+				const wchar_t* name = nullptr) override;
+			void Create(void* pNativeHandle, Device* pDevice);
 			void AttachRayTracing(const CommandList_VK& source);
 
 			bool Reset(uint8_t allocatorIndex, const Pipeline& initialState) const;
@@ -30,8 +36,8 @@ namespace XUSG
 				const DescriptorHeap* pDescriptorHeap = nullptr);
 			void EmitRaytracingAccelerationStructurePostbuildInfo(const PostbuildInfo* pDesc,
 				uint32_t numAccelerationStructures, const uint64_t* pAccelerationStructureData) const;
-			void CopyRaytracingAccelerationStructure(const AccelerationStructure* pDst,
-				const AccelerationStructure* pSrc, CopyMode mode,
+			void CopyRaytracingAccelerationStructure(AccelerationStructure* pDst,
+				AccelerationStructure* pSrc, CopyMode mode,
 				const DescriptorHeap* pDescriptorHeap = nullptr);
 
 			void SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps);
@@ -43,8 +49,11 @@ namespace XUSG
 				const ShaderTable* pCallable = nullptr) const;
 
 			Device* GetRTDevice() const;
+			void* GetRTBackend() override;
 
 		protected:
+			bool createInterface();
+
 			struct QueryPool
 			{
 				VkQueryPool Pool;
@@ -79,6 +88,12 @@ namespace XUSG
 			std::shared_ptr<RTState> m_rt;
 			Device* m_pDeviceRT;
 		};
+
+		inline CommandList_VK* AsVK(CommandList* p)
+		{
+			assert(!p || p->GetRTBackend());
+			return static_cast<CommandList_VK*>(p ? p->GetRTBackend() : nullptr);
+		}
 
 		VkQueryType GetVKAccelerationStructurePostbuildQueryType(PostbuildInfoType type);
 		VkCopyAccelerationStructureModeKHR GetVKAccelerationStructureCopyMode(CopyMode mode);

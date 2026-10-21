@@ -885,21 +885,9 @@ namespace XUSG
 		return static_cast<Resource_VK*>(p ? p->GetBackend() : nullptr);
 	}
 
-	inline const Resource_VK* AsVK(const Resource* p)
-	{
-		assert(!p || const_cast<Resource*>(p)->GetBackend());
-		return static_cast<const Resource_VK*>(p ? const_cast<Resource*>(p)->GetBackend() : nullptr);
-	}
-
 	inline Heap_VK* AsVK(Heap* p)
 	{
 		assert(!p || p->GetBackend());
 		return static_cast<Heap_VK*>(p ? p->GetBackend() : nullptr);
-	}
-
-	inline const Heap_VK* AsVK(const Heap* p)
-	{
-		assert(!p || const_cast<Heap*>(p)->GetBackend());
-		return static_cast<const Heap_VK*>(p ? const_cast<Heap*>(p)->GetBackend() : nullptr);
 	}
 }

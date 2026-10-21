@@ -356,7 +356,7 @@ void CommandList_VK::Dispatch(uint32_t threadGroupCountX, uint32_t threadGroupCo
 }
 
 void CommandList_VK::CopyBufferRegion(Resource* pDstBuffer, uint64_t dstOffset,
-	Resource* pSrcBuffer, uint64_t srcOffset, uint64_t numBytes) const
+	const Resource* pSrcBuffer, uint64_t srcOffset, uint64_t numBytes) const
 {
 	recordOutside();
 	assert(pDstBuffer);
@@ -1288,7 +1288,7 @@ void CommandList_VK::EndQuery(const QueryHeap& queryHeap, QueryType type, uint32
 }
 
 void CommandList_VK::ResolveQueryData(const QueryHeap& queryHeap, QueryType type, uint32_t startIndex,
-	uint32_t numQueries, Resource* pDstBuffer, uint64_t alignedDstBufferOffset) const
+	uint32_t numQueries, const Resource* pDstBuffer, uint64_t alignedDstBufferOffset) const
 {
 	assert(pDstBuffer);
 	recordOutside();
@@ -1298,7 +1298,7 @@ void CommandList_VK::ResolveQueryData(const QueryHeap& queryHeap, QueryType type
 		VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
 }
 
-void CommandList_VK::SetPredication(Resource* pBuffer, uint64_t alignedBufferOffset, bool opEqualZero) const
+void CommandList_VK::SetPredication(const Resource* pBuffer, uint64_t alignedBufferOffset, bool opEqualZero) const
 {
 	endPredication();
 	m_state->m_predicateBuffer = VK_NULL_HANDLE;
@@ -1346,8 +1346,8 @@ void CommandList_VK::EndEvent() const
 }
 
 void CommandList_VK::ExecuteIndirect(CommandLayout* pCommandlayout, uint32_t maxCommandCount,
-	Resource* pArgumentBuffer, uint64_t argumentBufferOffset,
-	Resource* pCountBuffer, uint64_t countBufferOffset) const
+	const Resource* pArgumentBuffer, uint64_t argumentBufferOffset,
+	const Resource* pCountBuffer, uint64_t countBufferOffset) const
 {
 	assert(m_pDevice);
 	assert(pArgumentBuffer);
@@ -1489,6 +1489,11 @@ void* CommandList_VK::GetDeviceNativeHandle() const
 void* CommandList_VK::GetBackend()
 {
 	return this;
+}
+
+void* CommandList_VK::GetUltimateBackend()
+{
+	return nullptr;
 }
 
 Device* CommandList_VK::GetDevice() const
@@ -2842,7 +2847,7 @@ void CommandQueue_VK::Create(void* pNativeHandle, Device* pDevice)
 	m_registered = false;
 }
 
-void* CommandQueue_VK::GetNativeHandle()
+void* CommandQueue_VK::GetNativeHandle() const
 {
 	return m_queue;
 }

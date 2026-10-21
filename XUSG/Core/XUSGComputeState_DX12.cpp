@@ -52,12 +52,12 @@ void State_DX12::SetFlags(PipelineFlag flag)
 	m_pKey->Flags = flag;
 }
 
-Pipeline State_DX12::CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name) const
+Pipeline State_DX12::CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name)
 {
 	return pPipelineLib->CreatePipeline(this, name);
 }
 
-Pipeline State_DX12::GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name) const
+Pipeline State_DX12::GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name)
 {
 	return pPipelineLib->GetPipeline(this, name);
 }
@@ -121,7 +121,7 @@ void PipelineLib_DX12::SetDevice(Device* pDevice)
 	assert(m_device);
 }
 
-void PipelineLib_DX12::SetPipeline(const State* pState, const Pipeline& pipeline)
+void PipelineLib_DX12::SetPipeline(State* pState, const Pipeline& pipeline)
 {
 	const auto p = AsDX12(pState);
 	assert(p);
@@ -131,7 +131,7 @@ void PipelineLib_DX12::SetPipeline(const State* pState, const Pipeline& pipeline
 	m_pipelines[p->GetKey()] = pipeline;
 }
 
-Pipeline PipelineLib_DX12::CreatePipeline(const State* pState, const wchar_t* name)
+Pipeline PipelineLib_DX12::CreatePipeline(State* pState, const wchar_t* name)
 {
 	const auto p = AsDX12(pState);
 	assert(p);
@@ -141,7 +141,7 @@ Pipeline PipelineLib_DX12::CreatePipeline(const State* pState, const wchar_t* na
 	return createPipeline(p->GetKey(), name);
 }
 
-Pipeline PipelineLib_DX12::GetPipeline(const State* pState, const wchar_t* name)
+Pipeline PipelineLib_DX12::GetPipeline(State* pState, const wchar_t* name)
 {
 	const auto p = AsDX12(pState);
 	assert(p);

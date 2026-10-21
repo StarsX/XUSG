@@ -1248,13 +1248,13 @@ namespace XUSG
 		virtual void Create(void* pNativeHandle) = 0;
 
 		// Get API native handle. Cast to ID3D12Device* or VkDevice.
-		virtual void* GetNativeHandle() = 0;
+		virtual void* GetNativeHandle() const = 0;
 
 		// Get the adapter native handle. Cast to IDXGIAdapter* or VkPhysicalDevice.
 		// Feature queries on DX12 use ID3D12Device from GetNativeHandle.
-		virtual void* GetAdapterNativeHandle() = 0;
+		virtual void* GetAdapterNativeHandle() const = 0;
 
-		// Backend C++ object (Device_DX12* / Device_VK*). Not the GPU native handle.
+		// Backend C++ object (Device_DX12* / Device_VK*, not available to users), internal use only.
 		// Needed because virtual inheritance forbids static_cast from Device* to *_DX12/*_VK*.
 		virtual void* GetBackend() = 0;
 
@@ -1324,7 +1324,7 @@ namespace XUSG
 		// Get API native handle. Cast to ID3D12CommandSignature* or VkIndirectCommandsLayoutEXT.
 		virtual uint64_t GetNativeHandle() const = 0;
 
-		// Backend C++ object (CommandLayout_DX12* / CommandLayout_VK*). Not the GPU native handle.
+		// Backend C++ object (CommandLayout_DX12* / CommandLayout_VK*, not available to users), internal use only.
 		virtual void* GetBackend() = 0;
 
 		using uptr = std::unique_ptr<CommandLayout>;
@@ -1396,7 +1396,7 @@ namespace XUSG
 			uint32_t threadGroupCountY,
 			uint32_t threadGroupCountZ) const = 0;
 		virtual void CopyBufferRegion(Resource* pDstBuffer, uint64_t dstOffset,
-			Resource* pSrcBuffer, uint64_t srcOffset, uint64_t numBytes) const = 0;
+			const Resource* pSrcBuffer, uint64_t srcOffset, uint64_t numBytes) const = 0;
 		virtual void CopyTextureRegion(const TextureCopyLocation& dst,
 			uint32_t dstX, uint32_t dstY, uint32_t dstZ,
 			const TextureCopyLocation& src, const BoxRange* pSrcBox = nullptr) const = 0;
@@ -1470,14 +1470,14 @@ namespace XUSG
 		virtual void BeginQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const = 0;
 		virtual void EndQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const = 0;
 		virtual void ResolveQueryData(const QueryHeap& queryHeap, QueryType type, uint32_t startIndex,
-			uint32_t numQueries, Resource* pDstBuffer, uint64_t alignedDstBufferOffset) const = 0;
-		virtual void SetPredication(Resource* pBuffer, uint64_t alignedBufferOffset, bool opEqualZero)const = 0;
+			uint32_t numQueries, const Resource* pDstBuffer, uint64_t alignedDstBufferOffset) const = 0;
+		virtual void SetPredication(const Resource* pBuffer, uint64_t alignedBufferOffset, bool opEqualZero) const = 0;
 		virtual void SetMarker(uint32_t metaData, const void* pData, uint32_t size) const = 0;
 		virtual void BeginEvent(uint32_t metaData, const void* pData, uint32_t size) const = 0;
 		virtual void EndEvent() const = 0;
 		virtual void ExecuteIndirect(CommandLayout* pCommandlayout, uint32_t maxCommandCount,
-			Resource* pArgumentBuffer, uint64_t argumentBufferOffset = 0,
-			Resource* pCountBuffer = nullptr, uint64_t countBufferOffset = 0) const = 0;
+			const Resource* pArgumentBuffer, uint64_t argumentBufferOffset = 0,
+			const Resource* pCountBuffer = nullptr, uint64_t countBufferOffset = 0) const = 0;
 
 		// Create from API native handle. pNativeHandle is ID3D12GraphicsCommandList* or VkCommandBuffer.
 		virtual void Create(void* pNativeHandle, Device* pDevice) = 0;
@@ -1488,7 +1488,7 @@ namespace XUSG
 		// Get API native handle of the device for this command list. Cast to ID3D12Device* or VkDevice.
 		virtual void* GetDeviceNativeHandle() const = 0;
 
-		// Backend C++ object (CommandList_DX12* / CommandList_VK*). Not the GPU native handle.
+		// Backend C++ object (CommandList_DX12* / CommandList_VK*, not available to users), internal use only.
 		virtual void* GetBackend() = 0;
 
 		virtual Device* GetDevice() const = 0;
@@ -1536,7 +1536,7 @@ namespace XUSG
 		virtual void Create(void* pNativeHandle, Device* pDevice) = 0;
 
 		// Get API native handle. Cast to ID3D12CommandQueue* or VkQueue.
-		virtual void* GetNativeHandle() = 0;
+		virtual void* GetNativeHandle() const = 0;
 
 		// Get API native handle of the device for this command queue. Cast to ID3D12Device* or VkDevice.
 		virtual void* GetDeviceNativeHandle() const = 0;
@@ -1581,7 +1581,7 @@ namespace XUSG
 		// Get API native handle. Cast to IDXGISwapChain3* or VkSwapchainKHR.
 		virtual uint64_t GetNativeHandle() const = 0;
 
-		// Backend C++ object (SwapChain_DX12* / SwapChain_VK*). Not the GPU native handle.
+		// Backend C++ object (SwapChain_DX12* / SwapChain_VK*, not available to users), internal use only.
 		virtual void* GetBackend() = 0;
 
 		using uptr = std::unique_ptr<SwapChain>;
@@ -1616,7 +1616,7 @@ namespace XUSG
 		// Get API native handle. Cast to ID3D12Heap* or VkDeviceMemory.
 		virtual uint64_t GetNativeHandle() const = 0;
 
-		// Backend C++ object (Heap_DX12* / Heap_VK*). Not the GPU native handle.
+		// Backend C++ object (Heap_DX12* / Heap_VK*, not available to users), internal use only.
 		virtual void* GetBackend() = 0;
 
 		using uptr = std::unique_ptr<Heap>;
@@ -1666,7 +1666,7 @@ namespace XUSG
 		// Get API native handle. Cast to ID3D12Resource*, VkImage, or VkBuffer.
 		virtual uint64_t GetNativeHandle() const = 0;
 
-		// Backend C++ object (Resource_DX12* / Resource_VK*). Not the GPU native handle.
+		// Backend C++ object (Resource_DX12* / Resource_VK*, not available to users), internal use only.
 		// Needed because virtual inheritance forbids static_cast from Resource* to *_DX12/*_VK*.
 		virtual void* GetBackend() = 0;
 
@@ -2387,7 +2387,7 @@ namespace XUSG
 
 		virtual uint32_t GetDescriptorStride(DescriptorHeapType type) const = 0;
 
-		// Backend C++ object (DescriptorTableLib_DX12* / DescriptorTableLib_VK*).
+		// Backend C++ object (DescriptorTableLib_DX12* / DescriptorTableLib_VK*, not available to users), internal use only.
 		virtual void* GetBackend() = 0;
 
 		static Sampler SamplerPointWrap();
@@ -2527,7 +2527,7 @@ namespace XUSG
 			virtual const std::vector<std::string>& GetDescriptorTableLayoutKeys() const = 0;
 			virtual std::string& GetPipelineLayoutKey(PipelineLayoutLib* pPipelineLayoutLib) = 0;
 
-			// Backend C++ object (PipelineLayout_DX12* / PipelineLayout_VK*).
+			// Backend C++ object (PipelineLayout_DX12* / PipelineLayout_VK*, not available to users), internal use only.
 			virtual void* GetBackend() = 0;
 
 			using uptr = std::unique_ptr<PipelineLayout>;
@@ -2535,8 +2535,8 @@ namespace XUSG
 
 			static uptr MakeUnique();
 			static sptr MakeShared();
-			static uptr CloneUnique(const PipelineLayout* pSrc);
-			static sptr CloneShared(const PipelineLayout* pSrc);
+			static uptr CloneUnique(PipelineLayout* pSrc);
+			static sptr CloneShared(PipelineLayout* pSrc);
 		};
 	}
 
@@ -2561,6 +2561,9 @@ namespace XUSG
 
 		virtual DescriptorTableLayout CreateDescriptorTableLayout(uint32_t index, const Util::PipelineLayout* pUtil) = 0;
 		virtual DescriptorTableLayout GetDescriptorTableLayout(uint32_t index, const Util::PipelineLayout* pUtil) = 0;
+
+		// Backend C++ object (PipelineLayoutLib_DX12* / PipelineLayoutLib_VK*, not available to users), internal use only.
+		virtual void* GetBackend() = 0;
 
 		using uptr = std::unique_ptr<PipelineLayoutLib>;
 		using sptr = std::shared_ptr<PipelineLayoutLib>;
@@ -2761,8 +2764,8 @@ namespace XUSG
 			virtual void OMSetDSVFormat(Format format) = 0;
 			virtual void OMSetSample(uint8_t count, uint8_t quality = 0) = 0;
 
-			virtual Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
-			virtual Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
+			virtual Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) = 0;
+			virtual Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) = 0;
 
 			virtual PipelineLayout GetPipelineLayout() const = 0;
 			virtual Blob GetShader(Shader::Stage stage) const = 0;
@@ -2789,7 +2792,7 @@ namespace XUSG
 			// pInputElements should be a pointer to std::vector<[API]_INPUT_ELEMENT_DESC>
 			virtual void GetHandleDesc(void* pHandleDesc, void* pInputElements) const = 0;
 
-			// Backend C++ object (Graphics::State_DX12* / State_VK*).
+			// Backend C++ object (Graphics::State_DX12* / State_VK*, not available to users), internal use only.
 			virtual void* GetBackend() = 0;
 
 			using uptr = std::unique_ptr<State>;
@@ -2807,14 +2810,14 @@ namespace XUSG
 			virtual ~PipelineLib() {};
 
 			virtual void SetDevice(Device* pDevice) = 0;
-			virtual void SetPipeline(const State* pState, const Pipeline& pipeline) = 0;
+			virtual void SetPipeline(State* pState, const Pipeline& pipeline) = 0;
 
 			virtual void SetInputLayout(uint32_t index, uint32_t numElements, const InputElement* pElements) = 0;
 			virtual const InputLayout* GetInputLayout(uint32_t index) const = 0;
 			virtual const InputLayout* CreateInputLayout(uint32_t numElements, const InputElement* pElements) = 0;
 
-			virtual Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr) = 0;
-			virtual Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr) = 0;
+			virtual Pipeline CreatePipeline(State* pState, const wchar_t* name = nullptr) = 0;
+			virtual Pipeline GetPipeline(State* pState, const wchar_t* name = nullptr) = 0;
 
 			virtual const Blend* GetBlend(BlendPreset preset, uint8_t numColorRTs = 1) = 0;
 			virtual const Rasterizer* GetRasterizer(RasterizerPreset preset) = 0;
@@ -2931,8 +2934,8 @@ namespace XUSG
 			virtual void SetNodeMask(uint32_t nodeMask) = 0;
 			virtual void SetFlags(PipelineFlag flag) = 0;
 
-			virtual Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
-			virtual Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
+			virtual Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) = 0;
+			virtual Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) = 0;
 
 			virtual PipelineLayout GetPipelineLayout() const = 0;
 			virtual Blob GetShader() const = 0;
@@ -2943,7 +2946,7 @@ namespace XUSG
 			// Get API native desc of this PSO handle
 			virtual void GetHandleDesc(void* pHandleDesc) const = 0;
 
-			// Backend C++ object (Compute::State_DX12* / State_VK*).
+			// Backend C++ object (Compute::State_DX12* / State_VK*, not available to users), internal use only.
 			virtual void* GetBackend() = 0;
 
 			using uptr = std::unique_ptr<State>;
@@ -2961,10 +2964,10 @@ namespace XUSG
 			virtual ~PipelineLib() {};
 
 			virtual void SetDevice(Device* pDevice) = 0;
-			virtual void SetPipeline(const State* pState, const Pipeline& pipeline) = 0;
+			virtual void SetPipeline(State* pState, const Pipeline& pipeline) = 0;
 
-			virtual Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr) = 0;
-			virtual Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr) = 0;
+			virtual Pipeline CreatePipeline(State* pState, const wchar_t* name = nullptr) = 0;
+			virtual Pipeline GetPipeline(State* pState, const wchar_t* name = nullptr) = 0;
 
 			using uptr = std::unique_ptr<PipelineLib>;
 			using sptr = std::shared_ptr<PipelineLib>;

@@ -34,6 +34,8 @@ namespace XUSG
 			uint64_t GetVirtualAddress() const;
 			uint64_t GetResourcePointer() const;
 
+			void* GetBackend() override;
+
 			static bool AllocateDestBuffer(Device* pDevice, Buffer* pDestBuffer, size_t byteWidth,
 				uint32_t numSRVs = 1, const uintptr_t* firstSrvElements = nullptr,
 				uint32_t numUAVs = 1, const uintptr_t* firstUavElements = nullptr,
@@ -73,7 +75,7 @@ namespace XUSG
 				MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr, uint32_t maxThreads = 1);
 
 			void Build(CommandList* pCommandList, const Resource* pScratch,
-				const BottomLevelAS* pSource = nullptr, uint8_t numPostbuildInfoDescs = 0,
+				BottomLevelAS* pSource = nullptr, uint8_t numPostbuildInfoDescs = 0,
 				const PostbuildInfoType* pPostbuildInfoTypes = nullptr);
 
 			static void SetGeometries(GeometryBuffer& geometries, uint32_t numGeometries, GeometryDesc* pGeometries);
@@ -98,7 +100,7 @@ namespace XUSG
 				uint32_t uavIndex, uint32_t srvIndex, DescriptorTableLib* pDescriptorTableLib);
 			void Build(CommandList* pCommandList, const Resource* pScratch,
 				const Resource* pInstanceDescs, const DescriptorHeap& descriptorHeap,
-				const TopLevelAS* pSource = nullptr, uint8_t numPostbuildInfoDescs = 0,
+				TopLevelAS* pSource = nullptr, uint8_t numPostbuildInfoDescs = 0,
 				const PostbuildInfoType* pPostbuildInfoTypes = nullptr);
 
 			const Descriptor& GetSRV() const;
@@ -128,7 +130,7 @@ namespace XUSG
 
 			void SetDestination(Device* pDevice, const Buffer::sptr destBuffer, uintptr_t byteOffset);
 			void Build(CommandList* pCommandList, const Resource* pScratch,
-				const OpacityMicromapArray* pSource = nullptr, uint8_t numPostbuildInfoDescs = 0,
+				OpacityMicromapArray* pSource = nullptr, uint8_t numPostbuildInfoDescs = 0,
 				const PostbuildInfoType* pPostbuildInfoTypes = nullptr);
 
 			static void SetOmmArray(GeometryBuffer& ommArrayDescs, uint32_t numOmmArrays, const Desc* pOmmArrayDescs);
@@ -139,5 +141,11 @@ namespace XUSG
 			static size_t AlignOmmInput(size_t byteSize);
 			static size_t AlignOmmDesc(size_t byteSize);
 		};
+
+		inline AccelerationStructure_DX12* AsDX12(AccelerationStructure* p)
+		{
+			assert(!p || p->GetBackend());
+			return static_cast<AccelerationStructure_DX12*>(p ? p->GetBackend() : nullptr);
+		}
 	}
 }

@@ -17,7 +17,36 @@ Device_VK::~Device_VK()
 {
 }
 
-bool Device_VK::CreateInterface(uint8_t flags)
+uint32_t Device_VK::Create(void* pAdapter, uint32_t minFeatureLevel, const wchar_t* name)
+{
+	return Create(pAdapter, minFeatureLevel, 0, name);
+}
+
+uint32_t Device_VK::Create(void* pAdapter, uint32_t minFeatureLevel, uint8_t flags, const wchar_t* name)
+{
+	const auto result = XUSG::Device_VK::Create(pAdapter, minFeatureLevel, name);
+	if (result < 0) return result;
+
+	return createInterface(flags) ? result : static_cast<uint32_t>(VK_ERROR_INITIALIZATION_FAILED);
+}
+
+void Device_VK::Create(void* pNativeHandle)
+{
+	XUSG::Device_VK::Create(pNativeHandle);
+	createInterface();
+}
+
+void* Device_VK::GetRTHandle() const
+{
+	return GetDevice();
+}
+
+void* Device_VK::GetRTBackend()
+{
+	return this;
+}
+
+bool Device_VK::createInterface(uint8_t flags)
 {
 	(void)flags;
 	if (!HasAccelerationStructure() && !HasRayTracingPipeline())
@@ -31,11 +60,6 @@ bool Device_VK::CreateInterface(uint8_t flags)
 	CacheShaderRecordAlignment(props.shaderGroupHandleSize, props.shaderGroupHandleAlignment, props.shaderGroupBaseAlignment);
 
 	return true;
-}
-
-void* Device_VK::GetRTHandle() const
-{
-	return GetDevice();
 }
 
 VkBuildAccelerationStructureFlagsKHR XUSG::RayTracing::GetVKBuildFlag(BuildFlag buildFlag)

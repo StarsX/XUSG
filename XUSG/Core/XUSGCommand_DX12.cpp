@@ -165,7 +165,7 @@ void CommandList_DX12::Dispatch(uint32_t threadGroupCountX, uint32_t threadGroup
 }
 
 void CommandList_DX12::CopyBufferRegion(Resource* pDstBuffer, uint64_t dstOffset,
-	Resource* pSrcBuffer, uint64_t srcOffset, uint64_t numBytes) const
+	const Resource* pSrcBuffer, uint64_t srcOffset, uint64_t numBytes) const
 {
 	assert(pDstBuffer);
 	assert(pSrcBuffer);
@@ -722,14 +722,14 @@ void CommandList_DX12::EndQuery(const QueryHeap& queryHeap, QueryType type, uint
 }
 
 void CommandList_DX12::ResolveQueryData(const QueryHeap& queryHeap, QueryType type, uint32_t startIndex,
-	uint32_t numQueries, Resource* pDstBuffer, uint64_t alignedDstBufferOffset) const
+	uint32_t numQueries, const Resource* pDstBuffer, uint64_t alignedDstBufferOffset) const
 {
 	assert(pDstBuffer);
 	m_commandList->ResolveQueryData(reinterpret_cast<ID3D12QueryHeap*>(queryHeap), GetDX12QueryType(type),
 		startIndex, numQueries, reinterpret_cast<ID3D12Resource*>(pDstBuffer->GetNativeHandle()), alignedDstBufferOffset);
 }
 
-void CommandList_DX12::SetPredication(Resource* pBuffer, uint64_t alignedBufferOffset, bool opEqualZero) const
+void CommandList_DX12::SetPredication(const Resource* pBuffer, uint64_t alignedBufferOffset, bool opEqualZero) const
 {
 	assert(pBuffer);
 	m_commandList->SetPredication(reinterpret_cast<ID3D12Resource*>(pBuffer->GetNativeHandle()), alignedBufferOffset,
@@ -752,8 +752,8 @@ void CommandList_DX12::EndEvent() const
 }
 
 void CommandList_DX12::ExecuteIndirect(CommandLayout* pCommandlayout, uint32_t maxCommandCount,
-	Resource* pArgumentBuffer, uint64_t argumentBufferOffset,
-	Resource* pCountBuffer, uint64_t countBufferOffset) const
+	const Resource* pArgumentBuffer, uint64_t argumentBufferOffset,
+	const Resource* pCountBuffer, uint64_t countBufferOffset) const
 {
 	assert(pCommandlayout);
 	assert(pArgumentBuffer);
@@ -1018,7 +1018,7 @@ void CommandQueue_DX12::Create(void* pNativeHandle, Device* pDevice)
 	m_pDevice = pDevice;
 }
 
-void* CommandQueue_DX12::GetNativeHandle()
+void* CommandQueue_DX12::GetNativeHandle() const
 {
 	return m_commandQueue.get();
 }

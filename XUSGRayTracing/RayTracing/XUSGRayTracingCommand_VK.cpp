@@ -33,7 +33,7 @@ RayTracing::CommandList_VK::~CommandList_VK()
 RayTracing::CommandList_VK::CommandList_VK(XUSG::CommandList* pCommandList, RayTracing::Device* pDevice) :
 	CommandList_VK()
 {
-	const auto p = AsVK(pCommandList);
+	const auto p = XUSG::AsVK(pCommandList);
 	assert(p);
 
 	Attach(*p);
@@ -41,35 +41,35 @@ RayTracing::CommandList_VK::CommandList_VK(XUSG::CommandList* pCommandList, RayT
 		AttachUltimate(*pUltimate);
 	if (const auto pRT = dynamic_cast<CommandList_VK*>(pCommandList))
 		AttachRayTracing(*pRT);
-	m_pDevice = AsVK(pDevice);
-	CreateInterface();
+	m_pDevice = XUSG::AsVK(pDevice);
+	m_pDeviceRT = pDevice;
+	createInterface();
 }
 
-bool RayTracing::CommandList_VK::CreateInterface()
+bool RayTracing::CommandList_VK::Create(XUSG::Device* pDevice, uint32_t nodeMask, CommandListType type,
+	uint8_t numAllocators, CommandAllocator* const* ppAllocators, const Pipeline& pipeline, const wchar_t* name)
 {
-	Ultimate::CommandList_VK::CreateInterface();
+	const auto pDeviceRT = dynamic_cast<Device*>(pDevice);
+	assert(pDeviceRT);
 
-	m_pDeviceRT = dynamic_cast<RayTracing::Device*>(m_pDevice);
-	assert(m_pDeviceRT);
+	return Create(pDeviceRT, nodeMask, type, numAllocators, ppAllocators, pipeline, name);
+}
 
-	const auto pDevice = AsVK(m_pDevice);
-	m_rt->m_pDevice = pDevice;
-	assert(pDevice);
-	assert(pDevice->HasRayTracingPipeline());
-	XUSG_N_RETURN(pDevice && pDevice->HasRayTracingPipeline(), false);
+bool RayTracing::CommandList_VK::Create(Device* pDevice, uint32_t nodeMask, CommandListType type,
+	uint8_t numAllocators, CommandAllocator* const* ppAllocators, const Pipeline& pipeline, const wchar_t* name)
+{
+	XUSG_N_RETURN(Ultimate::CommandList_VK::Create(pDevice, nodeMask, type, numAllocators, ppAllocators, pipeline, name), false);
+	m_pDeviceRT = pDevice;
 
-	const auto& ext = pDevice->GetExtProcs();
-	m_rt->m_cmdBuildAccelerationStructures = ext.CmdBuildAccelerationStructures;
-	m_rt->m_cmdCopyAccelerationStructure = ext.CmdCopyAccelerationStructure;
-	m_rt->m_cmdWriteAccelerationStructuresProperties = ext.CmdWriteAccelerationStructuresProperties;
-	m_rt->m_cmdBuildMicromaps = ext.CmdBuildMicromaps;
-	m_rt->m_cmdCopyMicromap = ext.CmdCopyMicromap;
-	m_rt->m_cmdWriteMicromapsProperties = ext.CmdWriteMicromapsProperties;
-	m_rt->m_cmdTraceRays = ext.CmdTraceRays;
-	XUSG_N_RETURN(m_rt->m_cmdBuildAccelerationStructures && m_rt->m_cmdCopyAccelerationStructure &&
-		m_rt->m_cmdWriteAccelerationStructuresProperties && m_rt->m_cmdTraceRays, false);
+	return createInterface();
+}
 
-	return true;
+void RayTracing::CommandList_VK::Create(void* pNativeHandle, Device* pDevice)
+{
+	XUSG::CommandList_VK::Create(pNativeHandle, pDevice);
+	Ultimate::CommandList_VK::createInterface();
+	m_pDeviceRT = pDevice;
+	createInterface();
 }
 
 void RayTracing::CommandList_VK::AttachRayTracing(const CommandList_VK& source)
@@ -85,45 +85,6 @@ bool RayTracing::CommandList_VK::Reset(uint8_t allocatorIndex, const Pipeline& i
 	for (auto& pool : m_rt->m_queryPools) pool.Used = 0;
 
 	return XUSG::CommandList_VK::Reset(allocatorIndex, initialState);
-}
-
-RayTracing::CommandList_VK::QueryAllocation RayTracing::CommandList_VK::allocateQueries(VkQueryType type, uint32_t count) const
-{
-	for (auto& pool : m_rt->m_queryPools)
-	{
-		if (pool.Type != type || pool.Pool == VK_NULL_HANDLE) continue;
-		if (pool.Count - pool.Used < count) continue;
-
-		QueryAllocation allocation = { pool.Pool, pool.Used };
-		pool.Used += count;
-
-		return allocation;
-	}
-
-	const auto pDevice = AsVK(m_pDevice);
-	assert(pDevice);
-	QueryPool created = {};
-	created.Type = type;
-	created.Count = count;
-	created.Used = count;
-	created.Pool = VK_NULL_HANDLE;
-
-	VkQueryPoolCreateInfo info = {};
-	info.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
-	info.queryType = type;
-	info.queryCount = count;
-	const auto result = vkCreateQueryPool(pDevice->GetDevice(), &info, nullptr, &created.Pool);
-	if (result < 0)
-	{
-		cerr << "VkResult " << result << endl;
-		assert(!"Failed to create an acceleration-structure query pool");
-
-		return { VK_NULL_HANDLE, 0 };
-	}
-
-	m_rt->m_queryPools.push_back(created);
-
-	return { created.Pool, 0 };
 }
 
 void RayTracing::CommandList_VK::BuildRaytracingAccelerationStructure(const BuildDesc* pDesc, uint32_t numPostbuildInfoDescs,
@@ -253,8 +214,8 @@ void RayTracing::CommandList_VK::EmitRaytracingAccelerationStructurePostbuildInf
 		buffer, offset, sizeof(uint64_t), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
 }
 
-void RayTracing::CommandList_VK::CopyRaytracingAccelerationStructure(const AccelerationStructure* pDst,
-	const AccelerationStructure* pSrc, CopyMode mode, const DescriptorHeap* pDescriptorHeap)
+void RayTracing::CommandList_VK::CopyRaytracingAccelerationStructure(AccelerationStructure* pDst,
+	AccelerationStructure* pSrc, CopyMode mode, const DescriptorHeap* pDescriptorHeap)
 {
 	(void)pDescriptorHeap;
 	assert(pDst);
@@ -268,16 +229,18 @@ void RayTracing::CommandList_VK::CopyRaytracingAccelerationStructure(const Accel
 		return;
 	}
 
-	const auto pDstOmm = dynamic_cast<const OpacityMicromapArray_VK*>(pDst);
-	const auto pSrcOmm = dynamic_cast<const OpacityMicromapArray_VK*>(pSrc);
-	if (pDstOmm && pDstOmm->GetMicromap() != VK_NULL_HANDLE)
+	const auto pDstVK = AsVK(pDst);
+	const auto pSrcVK = AsVK(pSrc);
+	assert(pDstVK);
+	assert(pSrcVK);
+	if (pDstVK->GetMicromap() != VK_NULL_HANDLE)
 	{
-		assert(pSrcOmm && pSrcOmm->GetMicromap() != VK_NULL_HANDLE);
+		assert(pSrcVK->GetMicromap() != VK_NULL_HANDLE);
 		assert(m_rt->m_cmdCopyMicromap);
 		VkCopyMicromapInfoEXT info = {};
 		info.sType = VK_STRUCTURE_TYPE_COPY_MICROMAP_INFO_EXT;
-		info.src = pSrcOmm ? pSrcOmm->GetMicromap() : VK_NULL_HANDLE;
-		info.dst = pDstOmm->GetMicromap();
+		info.src = pSrcVK->GetMicromap();
+		info.dst = pDstVK->GetMicromap();
 		info.mode = mode == CopyMode::COMPACT ? VK_COPY_MICROMAP_MODE_COMPACT_EXT : VK_COPY_MICROMAP_MODE_CLONE_EXT;
 		recordOutside();
 		if (m_rt->m_cmdCopyMicromap) m_rt->m_cmdCopyMicromap(m_state->m_commandBuffer, &info);
@@ -286,15 +249,11 @@ void RayTracing::CommandList_VK::CopyRaytracingAccelerationStructure(const Accel
 	}
 
 	assert(m_rt->m_cmdCopyAccelerationStructure);
-	const auto pDstVK = dynamic_cast<const AccelerationStructure_VK*>(pDst);
-	const auto pSrcVK = dynamic_cast<const AccelerationStructure_VK*>(pSrc);
-	assert(pDstVK);
-	assert(pSrcVK);
 
 	VkCopyAccelerationStructureInfoKHR info = {};
 	info.sType = VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_INFO_KHR;
-	info.src = pSrcVK->GetHandle();
-	info.dst = pDstVK->GetHandle();
+	info.src = pSrcVK->GetNativeHandle();
+	info.dst = pDstVK->GetNativeHandle();
 	info.mode = GetVKAccelerationStructureCopyMode(mode);
 
 	recordOutside();
@@ -358,6 +317,76 @@ void RayTracing::CommandList_VK::DispatchRays(uint32_t width, uint32_t height, u
 RayTracing::Device* RayTracing::CommandList_VK::GetRTDevice() const
 {
 	return m_pDeviceRT;
+}
+
+void* RayTracing::CommandList_VK::GetRTBackend()
+{
+	return this;
+}
+
+bool RayTracing::CommandList_VK::createInterface()
+{
+	Ultimate::CommandList_VK::createInterface();
+
+	assert(m_pDeviceRT);
+
+	const auto pDevice = m_pDevice;
+	m_rt->m_pDevice = pDevice;
+	assert(pDevice);
+	assert(pDevice->HasRayTracingPipeline());
+	XUSG_N_RETURN(pDevice && pDevice->HasRayTracingPipeline(), false);
+
+	const auto& ext = pDevice->GetExtProcs();
+	m_rt->m_cmdBuildAccelerationStructures = ext.CmdBuildAccelerationStructures;
+	m_rt->m_cmdCopyAccelerationStructure = ext.CmdCopyAccelerationStructure;
+	m_rt->m_cmdWriteAccelerationStructuresProperties = ext.CmdWriteAccelerationStructuresProperties;
+	m_rt->m_cmdBuildMicromaps = ext.CmdBuildMicromaps;
+	m_rt->m_cmdCopyMicromap = ext.CmdCopyMicromap;
+	m_rt->m_cmdWriteMicromapsProperties = ext.CmdWriteMicromapsProperties;
+	m_rt->m_cmdTraceRays = ext.CmdTraceRays;
+	XUSG_N_RETURN(m_rt->m_cmdBuildAccelerationStructures && m_rt->m_cmdCopyAccelerationStructure &&
+		m_rt->m_cmdWriteAccelerationStructuresProperties && m_rt->m_cmdTraceRays, false);
+
+	return true;
+}
+
+RayTracing::CommandList_VK::QueryAllocation RayTracing::CommandList_VK::allocateQueries(VkQueryType type, uint32_t count) const
+{
+	for (auto& pool : m_rt->m_queryPools)
+	{
+		if (pool.Type != type || pool.Pool == VK_NULL_HANDLE) continue;
+		if (pool.Count - pool.Used < count) continue;
+
+		QueryAllocation allocation = { pool.Pool, pool.Used };
+		pool.Used += count;
+
+		return allocation;
+	}
+
+	const auto pDevice = AsVK(m_pDevice);
+	assert(pDevice);
+	QueryPool created = {};
+	created.Type = type;
+	created.Count = count;
+	created.Used = count;
+	created.Pool = VK_NULL_HANDLE;
+
+	VkQueryPoolCreateInfo info = {};
+	info.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+	info.queryType = type;
+	info.queryCount = count;
+	const auto result = vkCreateQueryPool(pDevice->GetDevice(), &info, nullptr, &created.Pool);
+	if (result < 0)
+	{
+		cerr << "VkResult " << result << endl;
+		assert(!"Failed to create an acceleration-structure query pool");
+
+		return { VK_NULL_HANDLE, 0 };
+	}
+
+	m_rt->m_queryPools.push_back(created);
+
+	return { created.Pool, 0 };
 }
 
 VkQueryType XUSG::RayTracing::GetVKAccelerationStructurePostbuildQueryType(PostbuildInfoType type)

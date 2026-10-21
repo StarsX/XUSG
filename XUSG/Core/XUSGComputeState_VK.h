@@ -26,8 +26,8 @@ namespace XUSG
 			void SetNodeMask(uint32_t nodeMask);
 			void SetFlags(PipelineFlag flag);
 
-			Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const;
-			Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const;
+			Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr);
+			Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr);
 
 			const std::string& GetKey() const;
 
@@ -53,10 +53,10 @@ namespace XUSG
 			virtual ~PipelineLib_VK();
 
 			void SetDevice(Device* pDevice);
-			void SetPipeline(const State* pState, const Pipeline& pipeline);
+			void SetPipeline(State* pState, const Pipeline& pipeline);
 
-			Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr);
-			Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr);
+			Pipeline CreatePipeline(State* pState, const wchar_t* name = nullptr);
+			Pipeline GetPipeline(State* pState, const wchar_t* name = nullptr);
 
 		protected:
 			Pipeline createPipeline(const std::string& key, const wchar_t* name);
@@ -73,12 +73,6 @@ namespace XUSG
 		{
 			assert(!p || p->GetBackend());
 			return static_cast<State_VK*>(p ? p->GetBackend() : nullptr);
-		}
-
-		inline const State_VK* AsVK(const State* p)
-		{
-			assert(!p || const_cast<State*>(p)->GetBackend());
-			return static_cast<const State_VK*>(p ? const_cast<State*>(p)->GetBackend() : nullptr);
 		}
 	}
 }

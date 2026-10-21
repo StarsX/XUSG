@@ -114,7 +114,7 @@ namespace XUSG
 				const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE) = 0;
-			virtual bool Close(RenderTarget* pBackBuffer = nullptr) = 0;
+			virtual bool Close(RenderTarget* pBackBuffer = nullptr) const = 0;
 			virtual bool Reset(uint8_t allocatorIndex, const Pipeline& initialState) = 0;
 
 			virtual void ClearState(const Pipeline& initialState) const = 0;
@@ -146,15 +146,15 @@ namespace XUSG
 				Resource* pCountBuffer = nullptr,
 				uint64_t countBufferOffset = 0) = 0;
 			virtual void CopyBufferRegion(Resource* pDstBuffer, uint64_t dstOffset,
-				Resource* pSrcBuffer, uint64_t srcOffset, uint64_t numBytes) = 0;
+				Resource* pSrcBuffer, uint64_t srcOffset, uint64_t numBytes) const = 0;
 			virtual void CopyTextureRegion(TextureCopyLocation& dst, uint32_t dstX, uint32_t dstY, uint32_t dstZ,
-				TextureCopyLocation& src, const BoxRange* pSrcBox = nullptr) = 0;
-			virtual void CopyResource(Resource* pDstResource, Resource* pSrcResource) = 0;
+				TextureCopyLocation& src, const BoxRange* pSrcBox = nullptr) const = 0;
+			virtual void CopyResource(Resource* pDstResource, Resource* pSrcResource) const = 0;
 			virtual void CopyTiles(Resource* pTiledResource, const TiledResourceCoord* pTileRegionStartCoord,
 				const TileRegionSize& tileRegionSize, Resource* pBuffer, uint64_t bufferStartOffsetInBytes,
-				TileCopyFlag flags = TileCopyFlag::NONE) = 0;
+				TileCopyFlag flags = TileCopyFlag::NONE) const = 0;
 			virtual void ResolveSubresource(Resource* pDstResource, uint32_t dstSubresource,
-				Resource* pSrcResource, uint32_t srcSubresource, Format format) = 0;
+				Resource* pSrcResource, uint32_t srcSubresource, Format format) const = 0;
 			virtual void IASetInputLayout(const InputLayout* pLayout) = 0;
 			virtual void IASetIndexBufferStripCutValue(IBStripCutValue ibStripCutValue) = 0;
 			virtual void RSSetState(const Graphics::Rasterizer* pRasterizer) = 0;
@@ -173,8 +173,8 @@ namespace XUSG
 			virtual void SetGraphicsNodeMask(uint32_t nodeMask) = 0;
 			virtual void SetComputeShader(const Blob& shader) = 0;
 			virtual void SetComputeNodeMask(uint32_t nodeMask) = 0;
-			virtual void SetGraphicsPipelineState(const Pipeline& pipelineState, const Graphics::State* pState = nullptr) = 0;
-			virtual void SetComputePipelineState(const Pipeline& pipelineState, const Compute::State* pState = nullptr) = 0;
+			virtual void SetGraphicsPipelineState(const Pipeline& pipelineState, Graphics::State* pState = nullptr) = 0;
+			virtual void SetComputePipelineState(const Pipeline& pipelineState, Compute::State* pState = nullptr) = 0;
 			virtual void ExecuteBundle(XUSG::CommandList* pCommandList) const = 0;
 			virtual void SetSamplers(Shader::Stage stage, uint32_t startBinding,
 				uint32_t numSamplers, const Sampler* const* pSamplers) = 0;
@@ -183,11 +183,11 @@ namespace XUSG
 			virtual void SetResources(Shader::Stage stage, DescriptorType descriptorType, uint32_t startBinding,
 				uint32_t numResources, const ResourceView* pResourceViews, uint32_t space = 0) = 0;
 			virtual void SetGraphicsDescriptorTable(Shader::Stage stage, DescriptorType descriptorType, const DescriptorTable& descriptorTable, uint32_t space) = 0;
-			virtual void SetComputeDescriptorTable(DescriptorType descriptorType, const DescriptorTable& descriptorTable, uint32_t space) = 0;
+			virtual void SetComputeDescriptorTable(DescriptorType descriptorType, const DescriptorTable& descriptorTable, uint32_t space) const = 0;
 			virtual void SetGraphics32BitConstant(Shader::Stage stage, uint32_t srcData, uint32_t destOffsetIn32BitValues = 0) = 0;
-			virtual void SetCompute32BitConstant(uint32_t srcData, uint32_t destOffsetIn32BitValues = 0) = 0;
+			virtual void SetCompute32BitConstant(uint32_t srcData, uint32_t destOffsetIn32BitValues = 0) const = 0;
 			virtual void SetGraphics32BitConstants(Shader::Stage stage, uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues = 0) = 0;
-			virtual void SetCompute32BitConstants(uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues = 0) = 0;
+			virtual void SetCompute32BitConstants(uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues = 0) const = 0;
 
 			virtual void IASetPrimitiveTopology(PrimitiveTopology primitiveTopology) = 0;
 			virtual void IASetIndexBuffer(const IndexBufferView& view) = 0;
@@ -206,7 +206,7 @@ namespace XUSG
 			virtual void ClearUnorderedAccessViewFloat(const ResourceView& unorderedAccessView, const float values[4],
 				uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
 			virtual void DiscardResource(Resource* pResource, uint32_t numRects, const RectRange* pRects,
-				uint32_t firstSubresource, uint32_t numSubresources) = 0;
+				uint32_t firstSubresource, uint32_t numSubresources) const = 0;
 			virtual void BeginQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const = 0;
 			virtual void EndQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const = 0;
 			virtual void ResolveQueryData(const QueryHeap& queryHeap, QueryType type, uint32_t startIndex,
@@ -214,7 +214,7 @@ namespace XUSG
 			virtual void SetPredication(Resource* pBuffer, uint64_t alignedBufferOffset, bool opEqualZero) const = 0;
 			virtual void SetMarker(uint32_t metaData, const void* pData, uint32_t size) const = 0;
 			virtual void BeginEvent(uint32_t metaData, const void* pData, uint32_t size) const = 0;
-			virtual void EndEvent() = 0;
+			virtual void EndEvent() const = 0;
 
 			virtual void Resize() = 0;
 
@@ -244,11 +244,11 @@ namespace XUSG
 			// Get API native handle of the device for this command list. Cast to ID3D12Device*.
 			virtual void* GetDeviceNativeHandle() const = 0;
 
-			// Backend C++ object (XUSG::CommandList_DX12*). Not the GPU native handle.
-			virtual void* GetBackend() = 0;
+			// Backend C++ object (CommandList_DX12* / CommandList_VK*, not available to users), internal use only.
+			virtual void* GetBackend() const = 0;
 
 			virtual Device* GetDevice() const = 0;
-			virtual XUSG::CommandList* AsCommandList() = 0;
+			virtual XUSG::CommandList* AsCommandList() const = 0;
 
 			using uptr = std::unique_ptr<CommandList>;
 			using sptr = std::shared_ptr<CommandList>;

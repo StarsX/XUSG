@@ -61,12 +61,6 @@ namespace XUSG
 			assert(!p || p->GetBackend());
 			return static_cast<PipelineLayout_DX12*>(p ? p->GetBackend() : nullptr);
 		}
-
-		inline const PipelineLayout_DX12* AsDX12(const PipelineLayout* p)
-		{
-			assert(!p || const_cast<PipelineLayout*>(p)->GetBackend());
-			return static_cast<const PipelineLayout_DX12*>(p ? const_cast<PipelineLayout*>(p)->GetBackend() : nullptr);
-		}
 	}
 
 	class PipelineLayoutLib_DX12 :
@@ -98,6 +92,8 @@ namespace XUSG
 
 		D3D_ROOT_SIGNATURE_VERSION GetRootSignatureHighestVersion() const;
 
+		void* GetBackend() override;
+
 	protected:
 		virtual PipelineLayout createPipelineLayout(const std::string& key, const wchar_t* name, uint32_t nodeMask);
 		virtual PipelineLayout createRootSignature(const std::string& key, const Blob& blobSignature,
@@ -118,4 +114,10 @@ namespace XUSG
 
 		std::mutex m_mtx;
 	};
+
+	inline PipelineLayoutLib_DX12* AsDX12(PipelineLayoutLib* p)
+	{
+		assert(!p || p->GetBackend());
+		return static_cast<PipelineLayoutLib_DX12*>(p ? p->GetBackend() : nullptr);
+	}
 }

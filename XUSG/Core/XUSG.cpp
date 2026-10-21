@@ -640,7 +640,7 @@ Util::PipelineLayout::sptr Util::PipelineLayout::MakeShared()
 	return make_shared<PipelineLayout_DX12>();
 }
 
-Util::PipelineLayout::uptr Util::PipelineLayout::CloneUnique(const PipelineLayout* pSrc)
+Util::PipelineLayout::uptr Util::PipelineLayout::CloneUnique(PipelineLayout* pSrc)
 {
 #ifndef XUSG_NO_VULKAN
 	if (Device::GetApi() == API::VULKAN)
@@ -662,7 +662,7 @@ Util::PipelineLayout::uptr Util::PipelineLayout::CloneUnique(const PipelineLayou
 	return dst;
 }
 
-Util::PipelineLayout::sptr Util::PipelineLayout::CloneShared(const PipelineLayout* pSrc)
+Util::PipelineLayout::sptr Util::PipelineLayout::CloneShared(PipelineLayout* pSrc)
 {
 #ifndef XUSG_NO_VULKAN
 	if (Device::GetApi() == API::VULKAN)

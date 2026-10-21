@@ -224,7 +224,7 @@ uint32_t Ultimate::SetBarrier(ResourceBarrier* pTextureBarriers, Texture* pTextu
 	return numBarriers;
 }
 
-void Ultimate::GetLinearAlgebraMatrixInfo(Device* pDevice, LinearAlgebraMatrixInfo& matrixInfo)
+void Ultimate::GetLinearAlgebraMatrixInfo(const Device* pDevice, LinearAlgebraMatrixInfo& matrixInfo)
 {
 	if (Device::GetApi() == API::VULKAN)
 	{

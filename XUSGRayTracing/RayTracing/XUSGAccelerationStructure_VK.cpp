@@ -407,9 +407,19 @@ uint64_t AccelerationStructure_VK::GetResourcePointer() const
 	return GetVirtualAddress();
 }
 
-VkAccelerationStructureKHR AccelerationStructure_VK::GetHandle() const
+void* AccelerationStructure_VK::GetBackend()
+{
+	return this;
+}
+
+VkAccelerationStructureKHR AccelerationStructure_VK::GetNativeHandle() const
 {
 	return m_buildDesc.AccelerationStructure;
+}
+
+VkMicromapEXT AccelerationStructure_VK::GetMicromap() const
+{
+	return m_buildDesc.Micromap;
 }
 
 bool AccelerationStructure_VK::AllocateDestBuffer(Device* pDevice, Buffer* pResource, size_t byteWidth,
@@ -590,20 +600,20 @@ bool BottomLevelAS_VK::Allocate(Device* pDevice, DescriptorTableLib* pDescriptor
 	return allocate(pDevice, byteWidth, pDescriptorTableLib, 0, memoryFlags, name, maxThreads);
 }
 
-void BottomLevelAS_VK::Build(CommandList* pCommandList, const Resource* pScratch, const BottomLevelAS* pSource,
+void BottomLevelAS_VK::Build(CommandList* pCommandList, const Resource* pScratch, BottomLevelAS* pSource,
 	uint8_t numPostbuildInfoDescs, const PostbuildInfoType* pPostbuildInfoTypes)
 {
 	m_buildDesc.Info.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
 	m_buildDesc.Info.srcAccelerationStructure = VK_NULL_HANDLE;
 	if (pSource && (m_buildDesc.Flags & VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR))
 	{
-		const auto pSourceVK = dynamic_cast<const AccelerationStructure_VK*>(pSource);
+		const auto pSourceVK = AsVK(pSource);
 		assert(pSourceVK);
-		m_buildDesc.Info.srcAccelerationStructure = pSourceVK ? pSourceVK->GetHandle() : VK_NULL_HANDLE;
+		m_buildDesc.Info.srcAccelerationStructure = pSourceVK ? pSourceVK->GetNativeHandle() : VK_NULL_HANDLE;
 		m_buildDesc.Info.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR;
 	}
 
-	m_buildDesc.Info.dstAccelerationStructure = GetHandle();
+	m_buildDesc.Info.dstAccelerationStructure = GetNativeHandle();
 	m_buildDesc.Info.scratchData.deviceAddress = pScratch ? pScratch->GetVirtualAddress() : 0;
 	FillBuildRanges(m_buildDesc);
 
@@ -676,11 +686,11 @@ void BottomLevelAS_VK::SetGeometries(GeometryBuffer& geometries, uint32_t numGeo
 				packed.OpacityMicromapBaseTriangle = linkage.OpacityMicromapBaseLocation;
 				if (linkage.pOpacityMicromapArray)
 				{
-					const auto pArrayVK = dynamic_cast<const OpacityMicromapArray_VK*>(linkage.pOpacityMicromapArray);
+					const auto pArrayVK = AsVK(linkage.pOpacityMicromapArray);
 					assert(pArrayVK);
 					if (pArrayVK && pArrayVK->GetMicromap() != VK_NULL_HANDLE)
 						packed.OpacityMicromap = reinterpret_cast<uint64_t>(pArrayVK->GetMicromap());
-					else if (pArrayVK) packed.OpacityMicromap = reinterpret_cast<uint64_t>(pArrayVK->GetHandle());
+					else if (pArrayVK) packed.OpacityMicromap = reinterpret_cast<uint64_t>(pArrayVK->GetNativeHandle());
 					if (!packed.OpacityMicromap)
 					{
 						const auto address = linkage.pOpacityMicromapArray->GetVirtualAddress() + linkage.OpacityMicromapArrayOffset;
@@ -758,7 +768,7 @@ void TopLevelAS_VK::SetDestination(Device* pDevice, const Buffer::sptr destBuffe
 
 void TopLevelAS_VK::Build(CommandList* pCommandList, const Resource* pScratch,
 	const Resource* pInstanceDescs, const DescriptorHeap& descriptorHeap,
-	const TopLevelAS* pSource, uint8_t numPostbuildInfoDescs,
+	TopLevelAS* pSource, uint8_t numPostbuildInfoDescs,
 	const PostbuildInfoType* pPostbuildInfoTypes)
 {
 	(void)descriptorHeap;
@@ -766,15 +776,15 @@ void TopLevelAS_VK::Build(CommandList* pCommandList, const Resource* pScratch,
 	m_buildDesc.Info.srcAccelerationStructure = VK_NULL_HANDLE;
 	if (pSource && (m_buildDesc.Flags & VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR))
 	{
-		const auto pSourceVK = dynamic_cast<const AccelerationStructure_VK*>(pSource);
+		const auto pSourceVK = AsVK(pSource);
 		assert(pSourceVK);
-		m_buildDesc.Info.srcAccelerationStructure = pSourceVK ? pSourceVK->GetHandle() : VK_NULL_HANDLE;
+		m_buildDesc.Info.srcAccelerationStructure = pSourceVK ? pSourceVK->GetNativeHandle() : VK_NULL_HANDLE;
 		m_buildDesc.Info.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR;
 	}
 
 	if (!m_buildDesc.Geometries.empty())
 		m_buildDesc.Geometries[0].geometry.instances.data.deviceAddress = pInstanceDescs ? pInstanceDescs->GetVirtualAddress() : 0;
-	m_buildDesc.Info.dstAccelerationStructure = GetHandle();
+	m_buildDesc.Info.dstAccelerationStructure = GetNativeHandle();
 	m_buildDesc.Info.scratchData.deviceAddress = pScratch ? pScratch->GetVirtualAddress() : 0;
 	FillBuildRanges(m_buildDesc);
 
@@ -894,11 +904,6 @@ void OpacityMicromapArray_VK::destroyMicromap()
 	}
 	m_micromap = VK_NULL_HANDLE;
 	m_buildDesc.Micromap = VK_NULL_HANDLE;
-}
-
-VkMicromapEXT OpacityMicromapArray_VK::GetMicromap() const
-{
-	return m_micromap;
 }
 
 bool OpacityMicromapArray_VK::Prebuild(Device* pDevice, uint32_t numOpacityMicromaps,
@@ -1028,7 +1033,7 @@ void OpacityMicromapArray_VK::SetDestination(Device* pDevice, const Buffer::sptr
 	createMicromap(byteSize);
 }
 
-void OpacityMicromapArray_VK::Build(CommandList* pCommandList, const Resource* pScratch, const OpacityMicromapArray* pSource,
+void OpacityMicromapArray_VK::Build(CommandList* pCommandList, const Resource* pScratch, OpacityMicromapArray* pSource,
 	uint8_t numPostbuildInfoDescs, const PostbuildInfoType* pPostbuildInfoTypes)
 {
 	if (!RequireOpacityMicromap(m_pVkDevice)) return;
@@ -1057,7 +1062,7 @@ void OpacityMicromapArray_VK::Build(CommandList* pCommandList, const Resource* p
 	{
 		m_buildDesc.Info.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
 		m_buildDesc.Info.srcAccelerationStructure = VK_NULL_HANDLE;
-		m_buildDesc.Info.dstAccelerationStructure = GetHandle();
+		m_buildDesc.Info.dstAccelerationStructure = GetNativeHandle();
 		m_buildDesc.Info.scratchData.deviceAddress = pScratch ? pScratch->GetVirtualAddress() : 0;
 		FillBuildRanges(m_buildDesc);
 	}

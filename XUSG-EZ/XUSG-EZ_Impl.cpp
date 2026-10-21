@@ -157,7 +157,7 @@ bool EZ::CommandList_Impl<Base>::Create(Device* pDevice, void* pNativeHandle,
 }
 
 template<typename Base>
-bool EZ::CommandList_Impl<Base>::Close(RenderTarget* pBackBuffer)
+bool EZ::CommandList_Impl<Base>::Close(RenderTarget* pBackBuffer) const
 {
 	if (pBackBuffer)
 	{
@@ -240,7 +240,7 @@ void EZ::CommandList_Impl<Base>::DispatchIndirect(CommandLayout* pCommandlayout,
 
 template<typename Base>
 void EZ::CommandList_Impl<Base>::CopyBufferRegion(Resource* pDstBuffer, uint64_t dstOffset,
-	Resource* pSrcBuffer, uint64_t srcOffset, uint64_t numBytes)
+	Resource* pSrcBuffer, uint64_t srcOffset, uint64_t numBytes) const
 {
 	// Generate barriers for each resource
 	ResourceBarrier barriers[2];
@@ -253,7 +253,7 @@ void EZ::CommandList_Impl<Base>::CopyBufferRegion(Resource* pDstBuffer, uint64_t
 
 template<typename Base>
 void EZ::CommandList_Impl<Base>::CopyTextureRegion(TextureCopyLocation& dst, uint32_t dstX, uint32_t dstY, uint32_t dstZ,
-	TextureCopyLocation& src, const BoxRange* pSrcBox)
+	TextureCopyLocation& src, const BoxRange* pSrcBox) const
 {
 	// Generate barriers for each resource
 	ResourceBarrier barriers[2];
@@ -265,7 +265,7 @@ void EZ::CommandList_Impl<Base>::CopyTextureRegion(TextureCopyLocation& dst, uin
 }
 
 template<typename Base>
-void EZ::CommandList_Impl<Base>::CopyResource(Resource* pDstResource, Resource* pSrcResource)
+void EZ::CommandList_Impl<Base>::CopyResource(Resource* pDstResource, Resource* pSrcResource) const
 {
 	// Generate barriers for each resource
 	ResourceBarrier barriers[2];
@@ -278,7 +278,7 @@ void EZ::CommandList_Impl<Base>::CopyResource(Resource* pDstResource, Resource* 
 
 template<typename Base>
 void EZ::CommandList_Impl<Base>::CopyTiles(Resource* pTiledResource, const TiledResourceCoord* pTileRegionStartCoord,
-	const TileRegionSize& tileRegionSize, Resource* pBuffer, uint64_t bufferStartOffsetInBytes, TileCopyFlag flags)
+	const TileRegionSize& tileRegionSize, Resource* pBuffer, uint64_t bufferStartOffsetInBytes, TileCopyFlag flags) const
 {
 	ResourceBarrier barrier;
 	const auto numBarriers = pTiledResource->SetBarrier(&barrier, ResourceState::COPY_DEST);
@@ -290,7 +290,7 @@ void EZ::CommandList_Impl<Base>::CopyTiles(Resource* pTiledResource, const Tiled
 
 template<typename Base>
 void EZ::CommandList_Impl<Base>::ResolveSubresource(Resource* pDstResource, uint32_t dstSubresource,
-	Resource* pSrcResource, uint32_t srcSubresource, Format format)
+	Resource* pSrcResource, uint32_t srcSubresource, Format format) const
 {
 	assert(pDstResource);
 	assert(pSrcResource);
@@ -410,7 +410,7 @@ void EZ::CommandList_Impl<Base>::SetComputeNodeMask(uint32_t nodeMask)
 }
 
 template<typename Base>
-void EZ::CommandList_Impl<Base>::SetGraphicsPipelineState(const Pipeline& pipelineState, const Graphics::State* pState)
+void EZ::CommandList_Impl<Base>::SetGraphicsPipelineState(const Pipeline& pipelineState, Graphics::State* pState)
 {
 	assert(pipelineState || pState);
 	Pipeline pipeline;
@@ -438,7 +438,7 @@ void EZ::CommandList_Impl<Base>::SetGraphicsPipelineState(const Pipeline& pipeli
 }
 
 template<typename Base>
-void EZ::CommandList_Impl<Base>::SetComputePipelineState(const Pipeline& pipelineState, const Compute::State* pState)
+void EZ::CommandList_Impl<Base>::SetComputePipelineState(const Pipeline& pipelineState, Compute::State* pState)
 {
 	assert(pipelineState || pState);
 	Pipeline pipeline;
@@ -555,7 +555,7 @@ void EZ::CommandList_Impl<Base>::SetGraphicsDescriptorTable(Shader::Stage stage,
 }
 
 template<typename Base>
-void EZ::CommandList_Impl<Base>::SetComputeDescriptorTable(DescriptorType descriptorType, const DescriptorTable& descriptorTable, uint32_t space)
+void EZ::CommandList_Impl<Base>::SetComputeDescriptorTable(DescriptorType descriptorType, const DescriptorTable& descriptorTable, uint32_t space) const
 {
 	const auto spaceIndex = space - spaceStart(Shader::Stage::CS, descriptorType);
 	Base::SetComputeDescriptorTable(m_computeSpaceToParamIndexMap[static_cast<uint32_t>(descriptorType)][spaceIndex], descriptorTable);
@@ -570,7 +570,7 @@ void EZ::CommandList_Impl<Base>::SetGraphics32BitConstant(Shader::Stage stage, u
 }
 
 template<typename Base>
-void EZ::CommandList_Impl<Base>::SetCompute32BitConstant(uint32_t srcData, uint32_t destOffsetIn32BitValues)
+void EZ::CommandList_Impl<Base>::SetCompute32BitConstant(uint32_t srcData, uint32_t destOffsetIn32BitValues) const
 {
 	Base::SetCompute32BitConstant(m_computeConstantParamIndex, srcData, destOffsetIn32BitValues);
 }
@@ -585,7 +585,7 @@ void EZ::CommandList_Impl<Base>::SetGraphics32BitConstants(Shader::Stage stage, 
 }
 
 template<typename Base>
-void EZ::CommandList_Impl<Base>::SetCompute32BitConstants(uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues)
+void EZ::CommandList_Impl<Base>::SetCompute32BitConstants(uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues) const
 {
 	Base::SetCompute32BitConstants(m_computeConstantParamIndex, num32BitValuesToSet, pSrcData, destOffsetIn32BitValues);
 }
@@ -900,12 +900,12 @@ uint32_t EZ::CommandList_Impl<Base>::GetComputeConstantParamIndex() const
 }
 
 template<typename Base>
-CommandList* EZ::CommandList_Impl<Base>::AsCommandList()
+CommandList* EZ::CommandList_Impl<Base>::AsCommandList() const
 {
-	const auto pCommandList = dynamic_cast<XUSG::CommandList*>(this);
+	const auto pCommandList = dynamic_cast<const XUSG::CommandList*>(this);
 	assert(pCommandList);
 
-	return pCommandList;
+	return const_cast<XUSG::CommandList*>(pCommandList);
 }
 
 template<typename Base>

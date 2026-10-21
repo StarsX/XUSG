@@ -336,7 +336,7 @@ void PipelineLib_VK::SetDevice(Device* pDevice)
 	assert(m_pDevice);
 }
 
-void PipelineLib_VK::SetPipeline(const State* pState, const Pipeline& pipeline)
+void PipelineLib_VK::SetPipeline(State* pState, const Pipeline& pipeline)
 {
 	lock_guard<mutex> lock(m_mtx);
 	const auto p = AsVK(pState);
@@ -364,7 +364,7 @@ const InputLayout* PipelineLib_VK::CreateInputLayout(uint32_t numElements, const
 	return m_inputLayoutLib.CreateLayout(numElements, pElements);
 }
 
-Pipeline PipelineLib_VK::CreatePipeline(const State* pState, const wchar_t* name)
+Pipeline PipelineLib_VK::CreatePipeline(State* pState, const wchar_t* name)
 {
 	const auto p = AsVK(pState);
 	assert(p);
@@ -373,7 +373,7 @@ Pipeline PipelineLib_VK::CreatePipeline(const State* pState, const wchar_t* name
 	return createPipeline(p->GetKey(), name);
 }
 
-Pipeline PipelineLib_VK::GetPipeline(const State* pState, const wchar_t* name)
+Pipeline PipelineLib_VK::GetPipeline(State* pState, const wchar_t* name)
 {
 	const auto p = AsVK(pState);
 	assert(p);

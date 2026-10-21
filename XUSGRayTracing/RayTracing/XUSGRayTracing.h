@@ -139,9 +139,18 @@ namespace XUSG
 			//Device();
 			virtual ~Device() {};
 
-			virtual bool CreateInterface(uint8_t flags = 0) = 0;
+			// Same as XUSG::Device::Create, then initializes the ray-tracing interface.
+			// flags is for the DX12 fallback layer; Vulkan ignores it.
+			virtual uint32_t Create(void* pAdapter, uint32_t minFeatureLevel, const wchar_t* name = nullptr) = 0;
+			virtual uint32_t Create(void* pAdapter, uint32_t minFeatureLevel, uint8_t flags,
+				const wchar_t* name = nullptr) = 0;
+			virtual void Create(void* pNativeHandle) = 0;
 
 			virtual void* GetRTHandle() const = 0;
+
+			// Concrete RT backend (Device_DX12* / Device_VK*). Distinct from
+			// XUSG::Device::GetBackend(), which returns the core Device_* subobject.
+			virtual void* GetRTBackend() = 0;
 
 			using uptr = std::unique_ptr<Device>;
 			using sptr = std::shared_ptr<Device>;
@@ -181,6 +190,9 @@ namespace XUSG
 
 			virtual uint64_t GetVirtualAddress() const = 0;
 			virtual uint64_t GetResourcePointer() const = 0;
+
+			// Backend C++ object (AccelerationStructure_DX12* / AccelerationStructure_VK*, not available to users), internal use only.
+			virtual void* GetBackend() = 0;
 
 			static bool AllocateDestBuffer(Device* pDevice, Buffer* pDestBuffer, size_t byteWidth,
 				uint32_t numSRVs = 1, const uintptr_t* firstSrvElements = nullptr,
@@ -262,7 +274,7 @@ namespace XUSG
 				BuildFlag flags = BuildFlag::PREFER_FAST_TRACE) = 0;
 
 			virtual void Build(CommandList* pCommandList, const Resource* pScratch,
-				const BottomLevelAS* pSource = nullptr, uint8_t numPostbuildInfoDescs = 0,
+				BottomLevelAS* pSource = nullptr, uint8_t numPostbuildInfoDescs = 0,
 				const PostbuildInfoType* pPostbuildInfoTypes = nullptr) = 0;
 
 			static void SetTriangleGeometry(TriangleGeometry& triangles, Format vertexFormat,
@@ -315,7 +327,7 @@ namespace XUSG
 				uint32_t uavIndex, uint32_t srvIndex, DescriptorTableLib* pDescriptorTableLib) = 0;
 			virtual void Build(CommandList* pCommandList, const Resource* pScratch,
 				const Resource* pInstanceDescs, const DescriptorHeap& descriptorHeap,
-				const TopLevelAS* pSource = nullptr, uint8_t numPostbuildInfoDescs = 0,
+				TopLevelAS* pSource = nullptr, uint8_t numPostbuildInfoDescs = 0,
 				const PostbuildInfoType* pPostbuildInfoTypes = nullptr) = 0;
 
 			virtual const Descriptor& GetSRV() const = 0;
@@ -362,7 +374,7 @@ namespace XUSG
 
 			virtual void SetDestination(Device* pDevice, const Buffer::sptr destBuffer, uintptr_t byteOffset) = 0;
 			virtual void Build(CommandList* pCommandList, const Resource* pScratch,
-				const OpacityMicromapArray* pSource = nullptr, uint8_t numPostbuildInfoDescs = 0,
+				OpacityMicromapArray* pSource = nullptr, uint8_t numPostbuildInfoDescs = 0,
 				const PostbuildInfoType* pPostbuildInfoTypes = nullptr) = 0;
 
 			static void SetOmmArray(GeometryBuffer& ommArrayDescs, uint32_t numOpacityMicromaps,
@@ -453,15 +465,16 @@ namespace XUSG
 			//CommandList();
 			virtual ~CommandList() {}
 
-			virtual bool CreateInterface() = 0;
+			virtual bool Create(Device* pDevice, uint32_t nodeMask, CommandListType type, uint8_t numAllocators,
+				CommandAllocator* const* ppAllocators, const Pipeline& pipeline, const wchar_t* name = nullptr) = 0;
 
 			virtual void BuildRaytracingAccelerationStructure(const BuildDesc* pDesc,
 				uint32_t numPostbuildInfoDescs, const PostbuildInfo* pPostbuildInfoDescs,
 				const DescriptorHeap* pDescriptorHeap = nullptr) = 0;
 			virtual void EmitRaytracingAccelerationStructurePostbuildInfo(const PostbuildInfo* pDesc,
 				uint32_t numAccelerationStructures, const uint64_t* pAccelerationStructureData) const = 0;
-			virtual void CopyRaytracingAccelerationStructure(const AccelerationStructure* pDst,
-				const AccelerationStructure* pSrc, CopyMode mode,
+			virtual void CopyRaytracingAccelerationStructure(AccelerationStructure* pDst,
+				AccelerationStructure* pSrc, CopyMode mode,
 				const DescriptorHeap* pDescriptorHeap = nullptr) = 0;
 
 			virtual void SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps) = 0;
@@ -473,6 +486,10 @@ namespace XUSG
 				const ShaderTable* pCallable = nullptr) const = 0;
 
 			virtual Device* GetRTDevice() const = 0;
+
+			// Concrete RT backend (CommandList_DX12* / CommandList_VK*). Distinct from
+			// XUSG::CommandList::GetBackend(), which returns the core CommandList_* subobject.
+			virtual void* GetRTBackend() = 0;
 
 			using uptr = std::unique_ptr<CommandList>;
 			using sptr = std::shared_ptr<CommandList>;
@@ -533,6 +550,9 @@ namespace XUSG
 
 			virtual const wchar_t* GetHitGroupName(uint32_t index) = 0;
 			virtual uint32_t GetNumHitGroups() = 0;
+
+			// Backend C++ object (RayTracing::State_DX12* / State_VK*, not available to users), internal use only.
+			virtual void* GetBackend() = 0;
 
 			using uptr = std::unique_ptr<State>;
 			using sptr = std::shared_ptr<State>;

@@ -234,13 +234,22 @@ CommandList_VK::CommandList_VK(XUSG::CommandList& commandList) :
 	const auto pCommandList = AsVK(&commandList);
 	assert(pCommandList);
 	Attach(*pCommandList);
-	if (const auto pUltimate = dynamic_cast<CommandList_VK*>(&commandList))
+	if (const auto pUltimate = static_cast<CommandList_VK*>(pCommandList->GetUltimateBackend()))
 		AttachUltimate(*pUltimate);
-	CreateInterface();
+	createInterface();
 }
 
 CommandList_VK::~CommandList_VK()
 {
+}
+
+bool CommandList_VK::Create(Device* pDevice, uint32_t nodeMask, CommandListType type,
+	uint8_t numAllocators, CommandAllocator* const* ppAllocators, const Pipeline& pipeline, const wchar_t* name)
+{
+	if (m_ultimate.use_count() > 1) m_ultimate = make_shared<UltimateState>();
+	XUSG_N_RETURN(XUSG::CommandList_VK::Create(pDevice, nodeMask, type, numAllocators, ppAllocators, pipeline, name), false);
+
+	return createInterface();
 }
 
 void CommandList_VK::AttachUltimate(const CommandList_VK& source)
@@ -250,22 +259,9 @@ void CommandList_VK::AttachUltimate(const CommandList_VK& source)
 	m_ultimate = source.m_ultimate;
 }
 
-bool CommandList_VK::Create(Device* pDevice, uint32_t nodeMask, CommandListType type,
-	uint8_t numAllocators, CommandAllocator* const* ppAllocators, const Pipeline& pipeline, const wchar_t* name)
+void* CommandList_VK::GetUltimateBackend()
 {
-	if (m_ultimate.use_count() > 1) m_ultimate = make_shared<UltimateState>();
-	XUSG_N_RETURN(XUSG::CommandList_VK::Create(pDevice, nodeMask, type, numAllocators, ppAllocators, pipeline, name), false);
-	loadProcs();
-
-	return true;
-}
-
-bool CommandList_VK::CreateInterface()
-{
-	if (m_state->m_commandBuffer == VK_NULL_HANDLE || !m_pDevice || m_pDevice->GetDevice() == VK_NULL_HANDLE) return false;
-	loadProcs();
-
-	return true;
+	return this;
 }
 
 void CommandList_VK::Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups) const
@@ -602,6 +598,14 @@ void CommandList_VK::ConvertLinearAlgebraMatrix(const LinearAlgebraMatrixConvers
 	(void)numConversions;
 }
 
+bool CommandList_VK::createInterface()
+{
+	if (m_state->m_commandBuffer == VK_NULL_HANDLE || !m_pDevice || m_pDevice->GetDevice() == VK_NULL_HANDLE) return false;
+	loadProcs();
+
+	return true;
+}
+
 const void* CommandList_VK::renderingPNext() const
 {
 	if (m_ultimate->m_shadingRate.View == VK_NULL_HANDLE) return nullptr;
@@ -638,33 +642,6 @@ void CommandList_VK::flushBarriers(VkMemoryBarrier2& memory) const
 	memory.dstAccessMask = 0;
 	m_state->m_buffers.clear();
 	m_state->m_images.clear();
-}
-
-bool CommandList_VK::ultimateBarriersTouchBoundAttachment(uint32_t numBarriers, const ResourceBarrier* pBarriers) const
-{
-	if (!m_state->m_renderingBegun || !numBarriers || !pBarriers) return false;
-
-	for (auto i = 0u; i < numBarriers; ++i)
-	{
-		const auto& barrier = pBarriers[i];
-		if (!barrier.pResource || IsBufferBarrier(barrier)) continue;
-
-		const auto pResource = AsVK(barrier.pResource);
-		if (pResource->IsImage() && imageBound(pResource->GetImage())) return true;
-	}
-
-	return false;
-}
-
-void CommandList_VK::prepareUltimateBarriersOutsidePass(uint32_t numBarriers, const ResourceBarrier* pBarriers) const
-{
-	if (m_state->m_renderingBegun)
-	{
-		if (!ultimateBarriersTouchBoundAttachment(numBarriers, pBarriers)) return;
-		endRendering();
-	}
-	flushDeferredClears();
-	endPredication();
 }
 
 void CommandList_VK::addBarrier(const ResourceBarrier& barrier, VkMemoryBarrier2& memory) const
@@ -741,6 +718,33 @@ void CommandList_VK::addBarrier(const ResourceBarrier& barrier, VkMemoryBarrier2
 		}
 	}
 	pResource->AppendImageBarrier(image, m_state->m_images);
+}
+
+bool CommandList_VK::ultimateBarriersTouchBoundAttachment(uint32_t numBarriers, const ResourceBarrier* pBarriers) const
+{
+	if (!m_state->m_renderingBegun || !numBarriers || !pBarriers) return false;
+
+	for (auto i = 0u; i < numBarriers; ++i)
+	{
+		const auto& barrier = pBarriers[i];
+		if (!barrier.pResource || IsBufferBarrier(barrier)) continue;
+
+		const auto pResource = AsVK(barrier.pResource);
+		if (pResource->IsImage() && imageBound(pResource->GetImage())) return true;
+	}
+
+	return false;
+}
+
+void CommandList_VK::prepareUltimateBarriersOutsidePass(uint32_t numBarriers, const ResourceBarrier* pBarriers) const
+{
+	if (m_state->m_renderingBegun)
+	{
+		if (!ultimateBarriersTouchBoundAttachment(numBarriers, pBarriers)) return;
+		endRendering();
+	}
+	flushDeferredClears();
+	endPredication();
 }
 
 void CommandList_VK::resolveMinMax(Resource* pDstResource, uint32_t dstSubresource, uint32_t dstX, uint32_t dstY,

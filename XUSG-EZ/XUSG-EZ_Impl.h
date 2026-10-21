@@ -74,7 +74,7 @@ namespace XUSG
 				const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
-			bool Close(RenderTarget* pBackBuffer = nullptr);
+			bool Close(RenderTarget* pBackBuffer = nullptr) const;
 			bool Reset(uint8_t allocatorIndex, const Pipeline& initialState);
 
 			void ClearState(const Pipeline& initialState) const { Base::ClearState(initialState); }
@@ -106,15 +106,15 @@ namespace XUSG
 				Resource* pCountBuffer = nullptr,
 				uint64_t countBufferOffset = 0);
 			void CopyBufferRegion(Resource* pDstBuffer, uint64_t dstOffset,
-				Resource* pSrcBuffer, uint64_t srcOffset, uint64_t numBytes);
+				Resource* pSrcBuffer, uint64_t srcOffset, uint64_t numBytes) const;
 			void CopyTextureRegion(TextureCopyLocation& dst, uint32_t dstX, uint32_t dstY, uint32_t dstZ,
-				TextureCopyLocation& src, const BoxRange* pSrcBox = nullptr);
-			void CopyResource(Resource* pDstResource, Resource* pSrcResource);
+				TextureCopyLocation& src, const BoxRange* pSrcBox = nullptr) const;
+			void CopyResource(Resource* pDstResource, Resource* pSrcResource) const;
 			void CopyTiles(Resource* pTiledResource, const TiledResourceCoord* pTileRegionStartCoord,
 				const TileRegionSize& tileRegionSize, Resource* pBuffer, uint64_t bufferStartOffsetInBytes,
-				TileCopyFlag flags = TileCopyFlag::NONE);
+				TileCopyFlag flags = TileCopyFlag::NONE) const;
 			void ResolveSubresource(Resource* pDstResource, uint32_t dstSubresource,
-				Resource* pSrcResource, uint32_t srcSubresource, Format format);
+				Resource* pSrcResource, uint32_t srcSubresource, Format format) const;
 			void IASetInputLayout(const InputLayout* pLayout);
 			void IASetIndexBufferStripCutValue(IBStripCutValue ibStripCutValue);
 			void RSSetState(const Graphics::Rasterizer* pRasterizer);
@@ -140,19 +140,19 @@ namespace XUSG
 			void SetGraphicsNodeMask(uint32_t nodeMask);
 			void SetComputeShader(const Blob& shader);
 			void SetComputeNodeMask(uint32_t nodeMask);
-			void SetGraphicsPipelineState(const Pipeline& pipelineState, const Graphics::State* pState = nullptr);
-			void SetComputePipelineState(const Pipeline& pipelineState, const Compute::State* pState = nullptr);
+			void SetGraphicsPipelineState(const Pipeline& pipelineState, Graphics::State* pState = nullptr);
+			void SetComputePipelineState(const Pipeline& pipelineState, Compute::State* pState = nullptr);
 			void ExecuteBundle(XUSG::CommandList* pCommandList) const { Base::ExecuteBundle(pCommandList); }
 			void SetSamplers(Shader::Stage stage, uint32_t startBinding, uint32_t numSamplers, const Sampler* const* ppSamplers);
 			void SetSamplerStates(Shader::Stage stage, uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerPresets);
 			void SetResources(Shader::Stage stage, DescriptorType descriptorType, uint32_t startBinding,
 				uint32_t numResources, const ResourceView* pResourceViews, uint32_t space = 0);
 			void SetGraphicsDescriptorTable(Shader::Stage stage, DescriptorType descriptorType, const DescriptorTable& descriptorTable, uint32_t space);
-			void SetComputeDescriptorTable(DescriptorType descriptorType, const DescriptorTable& descriptorTable, uint32_t space);
+			void SetComputeDescriptorTable(DescriptorType descriptorType, const DescriptorTable& descriptorTable, uint32_t space) const;
 			void SetGraphics32BitConstant(Shader::Stage stage, uint32_t srcData, uint32_t destOffsetIn32BitValues = 0);
-			void SetCompute32BitConstant(uint32_t srcData, uint32_t destOffsetIn32BitValues = 0);
+			void SetCompute32BitConstant(uint32_t srcData, uint32_t destOffsetIn32BitValues = 0) const;
 			void SetGraphics32BitConstants(Shader::Stage stage, uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues = 0);
-			void SetCompute32BitConstants(uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues = 0);
+			void SetCompute32BitConstants(uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues = 0) const;
 			void IASetPrimitiveTopology(PrimitiveTopology primitiveTopology);
 			void IASetIndexBuffer(const IndexBufferView& view);
 			void IASetVertexBuffers(uint32_t startSlot, uint32_t numViews, const VertexBufferView* pViews);
@@ -170,7 +170,7 @@ namespace XUSG
 			void ClearUnorderedAccessViewFloat(const ResourceView& unorderedAccessView, const float values[4],
 				uint32_t numRects = 0, const RectRange* pRects = nullptr);
 			void DiscardResource(Resource* pResource, uint32_t numRects, const RectRange* pRects,
-				uint32_t firstSubresource, uint32_t numSubresources)
+				uint32_t firstSubresource, uint32_t numSubresources) const
 			{
 				Base::DiscardResource(pResource, numRects,
 					pRects, firstSubresource, numSubresources);
@@ -208,7 +208,7 @@ namespace XUSG
 				Base::BeginEvent(metaData, pData, size);
 			}
 
-			void EndEvent() { Base::EndEvent(); }
+			void EndEvent() const { Base::EndEvent(); }
 
 			// For resize window
 			void Resize();
@@ -235,10 +235,10 @@ namespace XUSG
 
 			void* GetNativeHandle() { return Base::GetNativeHandle(); }
 			void* GetDeviceNativeHandle() const { return Base::GetDeviceNativeHandle(); }
-			void* GetBackend() { return Base::GetBackend(); }
+			void* GetBackend() const { return static_cast<void*>(const_cast<Base*>(static_cast<const Base*>(this))); }
 
 			Device* GetDevice() const { return Base::GetDevice(); }
-			XUSG::CommandList* AsCommandList();
+			XUSG::CommandList* AsCommandList() const;
 
 		protected:
 			enum PipelineLayoutIndex

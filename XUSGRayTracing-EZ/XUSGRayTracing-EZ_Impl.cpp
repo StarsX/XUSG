@@ -64,7 +64,7 @@ bool XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::Cre
 	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize)
 {
 	m_pDeviceRT = pDevice;
-	CoreList::Create(pNativeHandle, pDevice);
+	RTList::Create(pNativeHandle, pDevice);
 
 	return Create(this, samplerHeapSize, cbvSrvUavHeapSize);
 }
@@ -315,13 +315,13 @@ void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::Set
 
 template<typename CoreList, typename UltimateList, typename RTList>
 void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::SetOmmArrayDestination(OpacityMicromapArray* pOmmArray,
-	const Buffer::sptr destBuffer, uintptr_t byteOffset)
+	const Buffer::sptr destBuffer, uintptr_t byteOffset) const
 {
 	pOmmArray->SetDestination(m_pDeviceRT, destBuffer, byteOffset);
 }
 
 template<typename CoreList, typename UltimateList, typename RTList>
-void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::BuildBLAS(BottomLevelAS* pBLAS, const BottomLevelAS* pSource,
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::BuildBLAS(BottomLevelAS* pBLAS, BottomLevelAS* pSource,
 	uint8_t numPostbuildInfoDescs, const PostbuildInfoType* pPostbuildInfoTypes)
 {
 	assert(pBLAS);
@@ -339,7 +339,7 @@ void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::Bui
 }
 
 template<typename CoreList, typename UltimateList, typename RTList>
-void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::BuildTLAS(TopLevelAS* pTLAS, Resource* pInstanceDescs, const TopLevelAS* pSource,
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::BuildTLAS(TopLevelAS* pTLAS, Resource* pInstanceDescs, TopLevelAS* pSource,
 	uint8_t numPostbuildInfoDescs, const PostbuildInfoType* pPostbuildInfoTypes)
 {
 	assert(pTLAS);
@@ -369,7 +369,7 @@ void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::Bui
 }
 
 template<typename CoreList, typename UltimateList, typename RTList>
-void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::BuildOmmArray(OpacityMicromapArray* pOmmArray, const OpacityMicromapArray* pSource,
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::BuildOmmArray(OpacityMicromapArray* pOmmArray, OpacityMicromapArray* pSource,
 	uint8_t numPostbuildInfoDescs, const PostbuildInfoType* pPostbuildInfoTypes)
 {
 	assert(pOmmArray);
@@ -387,8 +387,8 @@ void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::Bui
 }
 
 template<typename CoreList, typename UltimateList, typename RTList>
-void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::CopyRaytracingAccelerationStructure(const AccelerationStructure* pDst,
-	const AccelerationStructure* pSrc, CopyMode mode)
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::CopyRaytracingAccelerationStructure(AccelerationStructure* pDst,
+	AccelerationStructure* pSrc, CopyMode mode)
 {
 	RTList::CopyRaytracingAccelerationStructure(pDst, pSrc, mode);
 
@@ -761,11 +761,11 @@ bool XUSG::RayTracing::EZ::CommandList_VK::bindRayTracing(RayTracing::CommandLis
 {
 	if (pCommandList != static_cast<RayTracing::CommandList*>(this))
 	{
-		const auto pRT = dynamic_cast<RayTracing::CommandList_VK*>(pCommandList);
+		const auto pRT = AsVK(pCommandList);
 		if (pRT) AttachRayTracing(*pRT);
 	}
 
-	return CreateInterface();
+	return createInterface();
 }
 
 bool XUSG::RayTracing::EZ::CommandList_VK::supportsMeshShader() const

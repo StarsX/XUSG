@@ -21,7 +21,36 @@ Device_DX12::~Device_DX12()
 {
 }
 
-bool Device_DX12::CreateInterface(uint8_t flags)
+uint32_t Device_DX12::Create(void* pAdapter, uint32_t minFeatureLevel, const wchar_t* name)
+{
+	return Create(pAdapter, minFeatureLevel, 0, name);
+}
+
+uint32_t Device_DX12::Create(void* pAdapter, uint32_t minFeatureLevel, uint8_t flags, const wchar_t* name)
+{
+	const auto hr = XUSG::Device_DX12::Create(pAdapter, minFeatureLevel, name);
+	if (FAILED(hr)) return hr;
+
+	return createInterface(flags) ? hr : static_cast<uint32_t>(E_FAIL);
+}
+
+void Device_DX12::Create(void* pNativeHandle)
+{
+	XUSG::Device_DX12::Create(pNativeHandle);
+	createInterface();
+}
+
+void* Device_DX12::GetRTHandle() const
+{
+	return m_deviceRT.get();
+}
+
+void* Device_DX12::GetRTBackend()
+{
+	return this;
+}
+
+bool Device_DX12::createInterface(uint8_t flags)
 {
 	const auto hr = D3D12CreateRaytracingFallbackDevice(m_device.get(), flags, 0, IID_PPV_ARGS(&m_deviceRT));
 	if (FAILED(hr))
@@ -32,11 +61,6 @@ bool Device_DX12::CreateInterface(uint8_t flags)
 	}
 
 	return true;
-}
-
-void* Device_DX12::GetRTHandle() const
-{
-	return m_deviceRT.get();
 }
 
 D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS XUSG::RayTracing::GetDXRBuildFlag(BuildFlag buildFlag)

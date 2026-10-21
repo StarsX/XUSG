@@ -568,12 +568,12 @@ void Device_VK::Create(void* pNativeHandle)
 	m_device = static_cast<VkDevice>(pNativeHandle);
 }
 
-void* Device_VK::GetNativeHandle()
+void* Device_VK::GetNativeHandle() const
 {
 	return m_device;
 }
 
-void* Device_VK::GetAdapterNativeHandle()
+void* Device_VK::GetAdapterNativeHandle() const
 {
 	return m_physicalDevice;
 }

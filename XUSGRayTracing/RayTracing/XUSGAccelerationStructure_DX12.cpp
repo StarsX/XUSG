@@ -111,6 +111,11 @@ uint64_t AccelerationStructure_DX12::GetResourcePointer() const
 	return m_pointer.GpuVA;
 }
 
+void* AccelerationStructure_DX12::GetBackend()
+{
+	return this;
+}
+
 bool AccelerationStructure_DX12::AllocateDestBuffer(Device* pDevice, Buffer* pResource, size_t byteWidth,
 	uint32_t numSRVs, const uintptr_t* firstSrvElements, uint32_t numUAVs, const uintptr_t* firstUavElements,
 	MemoryFlag memoryFlags, const wchar_t* name, uint32_t maxThreads)
@@ -216,7 +221,7 @@ bool BottomLevelAS_DX12::Allocate(Device* pDevice, DescriptorTableLib* pDescript
 	return allocate(pDevice, byteWidth, pDescriptorTableLib, 0, memoryFlags, name, maxThreads);
 }
 
-void BottomLevelAS_DX12::Build(CommandList* pCommandList, const Resource* pScratch, const BottomLevelAS* pSource,
+void BottomLevelAS_DX12::Build(CommandList* pCommandList, const Resource* pScratch, BottomLevelAS* pSource,
 	uint8_t numPostbuildInfoDescs, const PostbuildInfoType* pPostbuildInfoTypes)
 {
 	// Complete Acceleration Structure desc
@@ -395,7 +400,7 @@ void TopLevelAS_DX12::SetDestination(Device* pDevice, const Buffer::sptr destBuf
 
 void TopLevelAS_DX12::Build(CommandList* pCommandList, const Resource* pScratch,
 	const Resource* pInstanceDescs, const DescriptorHeap& descriptorHeap,
-	const TopLevelAS* pSource, uint8_t numPostbuildInfoDescs,
+	TopLevelAS* pSource, uint8_t numPostbuildInfoDescs,
 	const PostbuildInfoType* pPostbuildInfoTypes)
 {
 	// Complete Acceleration Structure desc
@@ -529,7 +534,7 @@ void OpacityMicromapArray_DX12::SetDestination(Device* pDevice, const Buffer::sp
 	AccelerationStructure_DX12::SetDestination(pDevice, destBuffer, byteOffset, 0, nullptr);
 }
 
-void OpacityMicromapArray_DX12::Build(CommandList* pCommandList, const Resource* pScratch, const OpacityMicromapArray* pSource,
+void OpacityMicromapArray_DX12::Build(CommandList* pCommandList, const Resource* pScratch, OpacityMicromapArray* pSource,
 	uint8_t numPostbuildInfoDescs, const PostbuildInfoType* pPostbuildInfoTypes)
 {
 	// Complete Acceleration Structure desc

@@ -648,6 +648,11 @@ DescriptorTableLayout PipelineLayoutLib_VK::GetDescriptorTableLayout(uint32_t in
 	return keys.size() > index ? getDescriptorTableLayout(keys[index]) : nullptr;
 }
 
+void* PipelineLayoutLib_VK::GetBackend()
+{
+	return this;
+}
+
 PipelineLayout PipelineLayoutLib_VK::createPipelineLayout(const string& key, const wchar_t* name, uint32_t nodeMask)
 {
 	(void)nodeMask;

@@ -25,7 +25,7 @@ RayTracing::PipelineLayout_DX12::~PipelineLayout_DX12()
 XUSG::PipelineLayout RayTracing::PipelineLayout_DX12::CreatePipelineLayout(Device* pDevice,
 	PipelineLayoutLib* pPipelineLayoutLib, PipelineLayoutFlag flags, const wchar_t* name)
 {
-	const auto pLayoutLib = dynamic_cast<PipelineLayoutLib_DX12*>(pPipelineLayoutLib);
+	const auto pLayoutLib = AsDX12(pPipelineLayoutLib);
 	assert(pLayoutLib);
 
 	static auto highestVersion = pLayoutLib->GetRootSignatureHighestVersion();

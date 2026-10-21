@@ -2799,7 +2799,7 @@ uint32_t RenderTarget_VK::GenerateMips(const CommandList* pCommandList, Resource
 		{
 			const uint16_t n = baseSlice + k;
 			// Dest mip fully overwritten - end live pass if needed, UNDEFINED for barrier.
-			pCommandList->DiscardResource(const_cast<RenderTarget_VK*>(this), 0, nullptr,
+			pCommandList->DiscardResource(this, 0, nullptr,
 				CalculateSubresource(j, n), 1);
 			numBarriers = SetBarrier(pBarriers, j, ResourceState::RENDER_TARGET, numBarriers, n,
 				BarrierFlag::NONE, ResourceState::AUTO, 0, threadIdx);
@@ -2809,7 +2809,7 @@ uint32_t RenderTarget_VK::GenerateMips(const CommandList* pCommandList, Resource
 		else for (uint16_t k = 0; k < numSlices; ++k)
 		{
 			const uint16_t n = baseSlice + k;
-			pCommandList->DiscardResource(const_cast<RenderTarget_VK*>(this), 0, nullptr,
+			pCommandList->DiscardResource(this, 0, nullptr,
 				CalculateSubresource(j, n), 1);
 			numBarriers = SetBarrier(pBarriers, j, ResourceState::RENDER_TARGET, numBarriers, n,
 				BarrierFlag::NONE, ResourceState::AUTO, 0, threadIdx);

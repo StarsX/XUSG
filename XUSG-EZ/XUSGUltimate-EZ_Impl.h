@@ -86,7 +86,7 @@ namespace XUSG
 
 				void ResolveSubresourceRegion(Resource* pDstResource, uint32_t dstSubresource,
 					uint32_t dstX, uint32_t dstY, Resource* pSrcResource, uint32_t srcSubresource,
-					const RectRange& srcRect, Format format, ResolveMode resolveMode);
+					const RectRange& srcRect, Format format, ResolveMode resolveMode) const;
 
 				void RSSetShadingRate(ShadingRate baseShadingRate, const ShadingRateCombiner* pCombiners) const
 				{
@@ -96,7 +96,7 @@ namespace XUSG
 				void RSSetShadingRateImage(Resource* pShadingRateImage);
 
 				using XUSG::EZ::CommandList_Impl<CoreList>::SetGraphicsPipelineState;
-				void SetGraphicsPipelineState(const Pipeline& pipelineState, const State* pState = nullptr);
+				void SetGraphicsPipelineState(const Pipeline& pipelineState, State* pState = nullptr);
 				void OMSetBlendState(const Graphics::Blend* pBlend, uint32_t sampleMask = UINT_MAX);
 				void OMSetBlendState(Graphics::BlendPreset preset, uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX);
 				void OMSetSample(uint8_t count, uint8_t quality = 0);
@@ -142,7 +142,7 @@ namespace XUSG
 				WorkGraph::NodeID WGGetNodeID(uint32_t nodeIndex);
 				WorkGraph::NodeID WGGetEntrypointID(uint32_t entryPointIndex);
 
-				Ultimate::CommandList* AsUltimateCommandList();
+				Ultimate::CommandList* AsUltimateCommandList() const;
 
 			protected:
 				enum StageIndex : uint8_t

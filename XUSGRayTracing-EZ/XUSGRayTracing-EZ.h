@@ -83,15 +83,15 @@ namespace XUSG
 					uintptr_t byteOffset, uint32_t uavIndex) = 0;
 				virtual void SetTLASDestination(TopLevelAS* pTLAS, const Buffer::sptr destBuffer,
 					uintptr_t byteOffset, uint32_t uavIndex, uint32_t srvIndex) = 0;
-				virtual void SetOmmArrayDestination(OpacityMicromapArray* pOmmArray, const Buffer::sptr destBuffer, uintptr_t byteOffset) = 0;
-				virtual void BuildBLAS(BottomLevelAS* pBLAS, const BottomLevelAS* pSource = nullptr,
+				virtual void SetOmmArrayDestination(OpacityMicromapArray* pOmmArray, const Buffer::sptr destBuffer, uintptr_t byteOffset) const = 0;
+				virtual void BuildBLAS(BottomLevelAS* pBLAS, BottomLevelAS* pSource = nullptr,
 					uint8_t numPostbuildInfoDescs = 0, const PostbuildInfoType* pPostbuildInfoTypes = nullptr) = 0;
-				virtual void BuildTLAS(TopLevelAS* pTLAS, Resource* pInstanceDescs, const TopLevelAS* pSource = nullptr,
+				virtual void BuildTLAS(TopLevelAS* pTLAS, Resource* pInstanceDescs, TopLevelAS* pSource = nullptr,
 					uint8_t numPostbuildInfoDescs = 0, const PostbuildInfoType* pPostbuildInfoTypes = nullptr) = 0;
-				virtual void BuildOmmArray(OpacityMicromapArray* pOmmArray, const OpacityMicromapArray* pSource = nullptr,
+				virtual void BuildOmmArray(OpacityMicromapArray* pOmmArray, OpacityMicromapArray* pSource = nullptr,
 					uint8_t numPostbuildInfoDescs = 0, const PostbuildInfoType* pPostbuildInfoTypes = nullptr) = 0;
-				virtual void CopyRaytracingAccelerationStructure(const AccelerationStructure* pDst,
-					const AccelerationStructure* pSrc, CopyMode mode) = 0;
+				virtual void CopyRaytracingAccelerationStructure(AccelerationStructure* pDst,
+					AccelerationStructure* pSrc, CopyMode mode) = 0;
 				virtual void SetTopLevelAccelerationStructure(uint32_t binding, const TopLevelAS* pTopLevelAS) const = 0;
 				virtual void RTSetShaderLibrary(uint32_t index, const Blob& shaderLib,
 					uint32_t numShaders = 0, const wchar_t** pShaderNames = nullptr) = 0;
@@ -116,7 +116,7 @@ namespace XUSG
 				virtual size_t GetDispatchRaysArgReservedOffset() const = 0;
 
 				virtual Device* GetRTDevice() const = 0;
-				virtual RayTracing::CommandList* AsRTCommandList() = 0;
+				virtual RayTracing::CommandList* AsRTCommandList() const = 0;
 
 				static uptr MakeUnique();
 				static sptr MakeShared();

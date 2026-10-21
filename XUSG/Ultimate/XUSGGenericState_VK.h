@@ -99,14 +99,14 @@ namespace XUSG
 			virtual ~PipelineLib_VK();
 
 			void SetDevice(Device* pDevice);
-			void SetPipeline(const State* pState, const Pipeline& pipeline);
+			void SetPipeline(State* pState, const Pipeline& pipeline);
 
 			void SetInputLayout(uint32_t index, uint32_t numElements, const InputElement* pElements);
 			const InputLayout* GetInputLayout(uint32_t index) const;
 			const InputLayout* CreateInputLayout(uint32_t numElements, const InputElement* pElements);
 
-			Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr);
-			Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr);
+			Pipeline CreatePipeline(State* pState, const wchar_t* name = nullptr);
+			Pipeline GetPipeline(State* pState, const wchar_t* name = nullptr);
 
 			ProgramIdentifier GetProgramIdentifier(const Pipeline& stateObject, const wchar_t* programName) const;
 
@@ -138,12 +138,6 @@ namespace XUSG
 		{
 			assert(!p || p->GetBackend());
 			return static_cast<State_VK*>(p ? p->GetBackend() : nullptr);
-		}
-
-		inline const State_VK* AsVK(const State* p)
-		{
-			assert(!p || const_cast<State*>(p)->GetBackend());
-			return static_cast<const State_VK*>(p ? const_cast<State*>(p)->GetBackend() : nullptr);
 		}
 	}
 }

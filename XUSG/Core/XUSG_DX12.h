@@ -63,8 +63,8 @@ namespace XUSG
 
 		void Create(void* pNativeHandle);
 
-		void* GetNativeHandle();
-		void* GetAdapterNativeHandle();
+		void* GetNativeHandle() const;
+		void* GetAdapterNativeHandle() const;
 		void* GetBackend() override;
 
 	protected:
@@ -160,33 +160,15 @@ namespace XUSG
 		return static_cast<Device_DX12*>(p ? p->GetBackend() : nullptr);
 	}
 
-	inline const Device_DX12* AsDX12(const Device* p)
-	{
-		assert(!p || const_cast<Device*>(p)->GetBackend());
-		return static_cast<const Device_DX12*>(p ? const_cast<Device*>(p)->GetBackend() : nullptr);
-	}
-
 	inline CommandLayout_DX12* AsDX12(CommandLayout* p)
 	{
 		assert(!p || p->GetBackend());
 		return static_cast<CommandLayout_DX12*>(p ? p->GetBackend() : nullptr);
 	}
 
-	inline const CommandLayout_DX12* AsDX12(const CommandLayout* p)
-	{
-		assert(!p || const_cast<CommandLayout*>(p)->GetBackend());
-		return static_cast<const CommandLayout_DX12*>(p ? const_cast<CommandLayout*>(p)->GetBackend() : nullptr);
-	}
-
 	inline SwapChain_DX12* AsDX12(SwapChain* p)
 	{
 		assert(!p || p->GetBackend());
 		return static_cast<SwapChain_DX12*>(p ? p->GetBackend() : nullptr);
-	}
-
-	inline const SwapChain_DX12* AsDX12(const SwapChain* p)
-	{
-		assert(!p || const_cast<SwapChain*>(p)->GetBackend());
-		return static_cast<const SwapChain_DX12*>(p ? const_cast<SwapChain*>(p)->GetBackend() : nullptr);
 	}
 }

@@ -363,6 +363,11 @@ D3D_ROOT_SIGNATURE_VERSION PipelineLayoutLib_DX12::GetRootSignatureHighestVersio
 	return featureData.HighestVersion;
 }
 
+void* PipelineLayoutLib_DX12::GetBackend()
+{
+	return this;
+}
+
 PipelineLayout PipelineLayoutLib_DX12::createPipelineLayout(const string& key, const wchar_t* name, uint32_t nodeMask)
 {
 	static const auto highestVersion = GetRootSignatureHighestVersion();

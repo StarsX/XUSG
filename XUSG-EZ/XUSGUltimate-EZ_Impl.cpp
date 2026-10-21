@@ -143,7 +143,7 @@ bool XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::Create(Device
 template<typename CoreList, typename UltimateList>
 void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::ResolveSubresourceRegion(Resource* pDstResource, uint32_t dstSubresource,
 	uint32_t dstX, uint32_t dstY, Resource* pSrcResource, uint32_t srcSubresource,
-	const RectRange& srcRect, Format format, ResolveMode resolveMode)
+	const RectRange& srcRect, Format format, ResolveMode resolveMode) const
 {
 	assert(pDstResource);
 	assert(pSrcResource);
@@ -178,7 +178,7 @@ void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::RSSetShadingR
 }
 
 template<typename CoreList, typename UltimateList>
-void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::SetGraphicsPipelineState(const Pipeline& pipelineState, const State* pState)
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::SetGraphicsPipelineState(const Pipeline& pipelineState, State* pState)
 {
 	assert(pipelineState || pState);
 	Pipeline pipeline;
@@ -501,12 +501,12 @@ XUSG::WorkGraph::NodeID XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateL
 }
 
 template<typename CoreList, typename UltimateList>
-Ultimate::CommandList* XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::AsUltimateCommandList()
+Ultimate::CommandList* XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::AsUltimateCommandList() const
 {
-	const auto pCommandList = dynamic_cast<Ultimate::CommandList*>(this);
+	const auto pCommandList = dynamic_cast<const Ultimate::CommandList*>(this);
 	assert(pCommandList);
 
-	return pCommandList;
+	return const_cast<Ultimate::CommandList*>(pCommandList);
 }
 
 template<typename CoreList, typename UltimateList>
@@ -917,7 +917,7 @@ bool XUSG::Ultimate::EZ::CommandList_VK::adoptUltimate(Ultimate::CommandList* pC
 		if (pUltimate) AttachUltimate(*pUltimate);
 	}
 
-	return CreateInterface();
+	return createInterface();
 }
 
 bool XUSG::Ultimate::EZ::CommandList_VK::hasMeshShader() const

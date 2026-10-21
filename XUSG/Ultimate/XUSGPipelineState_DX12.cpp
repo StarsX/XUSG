@@ -161,12 +161,12 @@ void State_DX12::SetViewInstances(uint8_t n, const ViewInstance* viewInstances, 
 	for (auto i = 0u; i < n; ++i) SetViewInstance(i, viewInstances[i]);
 }
 
-Pipeline State_DX12::CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name) const
+Pipeline State_DX12::CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name)
 {
 	return pPipelineLib->CreatePipeline(this, name);
 }
 
-Pipeline State_DX12::GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name) const
+Pipeline State_DX12::GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name)
 {
 	return pPipelineLib->GetPipeline(this, name);
 }
@@ -388,7 +388,7 @@ void PipelineLib_DX12::SetDevice(Device* pDevice)
 	assert(m_device);
 }
 
-void PipelineLib_DX12::SetPipeline(const State* pState, const Pipeline& pipeline)
+void PipelineLib_DX12::SetPipeline(State* pState, const Pipeline& pipeline)
 {
 	const auto p = AsDX12(pState);
 	assert(p);
@@ -413,7 +413,7 @@ const InputLayout* PipelineLib_DX12::CreateInputLayout(uint32_t numElements, con
 	return m_inputLayoutLib.CreateLayout(numElements, pElements);
 }
 
-Pipeline PipelineLib_DX12::CreatePipeline(const State* pState, const wchar_t* name)
+Pipeline PipelineLib_DX12::CreatePipeline(State* pState, const wchar_t* name)
 {
 	const auto p = AsDX12(pState);
 	assert(p);
@@ -423,7 +423,7 @@ Pipeline PipelineLib_DX12::CreatePipeline(const State* pState, const wchar_t* na
 	return createPipeline(p->GetKey(), name);
 }
 
-Pipeline PipelineLib_DX12::GetPipeline(const State* pState, const wchar_t* name)
+Pipeline PipelineLib_DX12::GetPipeline(State* pState, const wchar_t* name)
 {
 	const auto p = AsDX12(pState);
 	assert(p);

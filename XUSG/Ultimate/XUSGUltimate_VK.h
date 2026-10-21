@@ -25,8 +25,8 @@ namespace XUSG
 			bool Create(Device* pDevice, uint32_t nodeMask, CommandListType type,
 				uint8_t numAllocators, CommandAllocator* const* ppAllocators, const Pipeline& pipeline,
 				const wchar_t* name = nullptr);
-			bool CreateInterface();
 			void AttachUltimate(const CommandList_VK& source);
+			void* GetUltimateBackend() override;
 
 			using XUSG::CommandList_VK::Barrier;
 			void Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups) const;
@@ -64,6 +64,7 @@ namespace XUSG
 				VkImageView View;
 			};
 
+			bool createInterface();
 			const void* renderingPNext() const;
 			void loadProcs();
 			void flushBarriers(VkMemoryBarrier2& memory) const;

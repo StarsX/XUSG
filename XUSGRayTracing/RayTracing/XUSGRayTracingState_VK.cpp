@@ -307,6 +307,11 @@ uint32_t State_VK::GetNumHitGroups()
 	return m_pKeyHeader->NumHitGroups;
 }
 
+void* State_VK::GetBackend()
+{
+	return this;
+}
+
 void State_VK::serialize()
 {
 	m_pKeyHeader->NumShaderLibs = static_cast<uint32_t>(m_keyShaderLibs.size());
@@ -389,7 +394,7 @@ void PipelineLib_VK::SetDevice(RayTracing::Device* pDevice)
 
 void PipelineLib_VK::SetPipeline(State* pState, const Pipeline& pipeline)
 {
-	const auto p = dynamic_cast<State_VK*>(pState);
+	const auto p = AsVK(pState);
 	assert(p);
 
 	lock_guard<mutex> lock(m_mtx);
@@ -407,7 +412,7 @@ void PipelineLib_VK::SetPipeline(State* pState, const Pipeline& pipeline)
 
 Pipeline PipelineLib_VK::CreatePipeline(State* pState, const wchar_t* name)
 {
-	const auto p = dynamic_cast<State_VK*>(pState);
+	const auto p = AsVK(pState);
 	assert(p);
 
 	lock_guard<mutex> lock(m_mtx);
@@ -417,7 +422,7 @@ Pipeline PipelineLib_VK::CreatePipeline(State* pState, const wchar_t* name)
 
 Pipeline PipelineLib_VK::GetPipeline(State* pState, const wchar_t* name)
 {
-	const auto p = dynamic_cast<State_VK*>(pState);
+	const auto p = AsVK(pState);
 	assert(p);
 
 	lock_guard<mutex> lock(m_mtx);

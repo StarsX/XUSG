@@ -121,10 +121,4 @@ namespace XUSG
 		assert(!p || p->GetBackend());
 		return static_cast<DescriptorTableLib_DX12*>(p ? p->GetBackend() : nullptr);
 	}
-
-	inline const DescriptorTableLib_DX12* AsDX12(const DescriptorTableLib* p)
-	{
-		assert(!p || const_cast<DescriptorTableLib*>(p)->GetBackend());
-		return static_cast<const DescriptorTableLib_DX12*>(p ? const_cast<DescriptorTableLib*>(p)->GetBackend() : nullptr);
-	}
 }

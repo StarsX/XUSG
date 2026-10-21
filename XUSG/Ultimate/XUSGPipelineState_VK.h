@@ -50,8 +50,8 @@ namespace XUSG
 			void SetViewInstance(uint8_t i, const ViewInstance& viewInstance);
 			void SetViewInstances(uint8_t n, const ViewInstance* viewInstances, ViewInstanceFlag flags);
 
-			Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const;
-			Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const;
+			Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr);
+			Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr);
 
 			PipelineLayout GetPipelineLayout() const;
 			Blob GetShader(Shader::Stage stage) const;
@@ -94,14 +94,14 @@ namespace XUSG
 			virtual ~PipelineLib_VK();
 
 			void SetDevice(Device* pDevice);
-			void SetPipeline(const State* pState, const Pipeline& pipeline);
+			void SetPipeline(State* pState, const Pipeline& pipeline);
 
 			void SetInputLayout(uint32_t index, uint32_t numElements, const InputElement* pElements);
 			const InputLayout* GetInputLayout(uint32_t index) const;
 			const InputLayout* CreateInputLayout(uint32_t numElements, const InputElement* pElements);
 
-			Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr);
-			Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr);
+			Pipeline CreatePipeline(State* pState, const wchar_t* name = nullptr);
+			Pipeline GetPipeline(State* pState, const wchar_t* name = nullptr);
 
 			const Graphics::Blend* GetBlend(Graphics::BlendPreset preset, uint8_t numColorRTs = 1);
 			const Graphics::Rasterizer* GetRasterizer(Graphics::RasterizerPreset preset);
@@ -131,12 +131,6 @@ namespace XUSG
 		{
 			assert(!p || p->GetBackend());
 			return static_cast<State_VK*>(p ? p->GetBackend() : nullptr);
-		}
-
-		inline const State_VK* AsVK(const State* p)
-		{
-			assert(!p || const_cast<State*>(p)->GetBackend());
-			return static_cast<const State_VK*>(p ? const_cast<State*>(p)->GetBackend() : nullptr);
 		}
 	}
 }

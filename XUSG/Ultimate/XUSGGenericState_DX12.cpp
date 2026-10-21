@@ -415,7 +415,7 @@ void PipelineLib_DX12::SetDevice(Device* pDevice)
 	assert(m_device);
 }
 
-void PipelineLib_DX12::SetPipeline(const State* pState, const Pipeline& pipeline)
+void PipelineLib_DX12::SetPipeline(State* pState, const Pipeline& pipeline)
 {
 	const auto p = AsDX12(pState);
 	assert(p);
@@ -440,7 +440,7 @@ const InputLayout* PipelineLib_DX12::CreateInputLayout(uint32_t numElements, con
 	return m_inputLayoutLib.CreateLayout(numElements, pElements);
 }
 
-Pipeline PipelineLib_DX12::CreatePipeline(const State* pState, const wchar_t* name)
+Pipeline PipelineLib_DX12::CreatePipeline(State* pState, const wchar_t* name)
 {
 	const auto p = AsDX12(pState);
 	assert(p);
@@ -450,7 +450,7 @@ Pipeline PipelineLib_DX12::CreatePipeline(const State* pState, const wchar_t* na
 	return createStateObject(p->GetKey(), name).get();
 }
 
-Pipeline PipelineLib_DX12::GetPipeline(const State* pState, const wchar_t* name)
+Pipeline PipelineLib_DX12::GetPipeline(State* pState, const wchar_t* name)
 {
 	const auto p = AsDX12(pState);
 	assert(p);

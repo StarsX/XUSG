@@ -22,7 +22,10 @@ namespace XUSG
 			CommandList_DX12(XUSG::CommandList& commandList);
 			~CommandList_DX12();
 
-			bool CreateInterface();
+			bool Create(Device* pDevice, uint32_t nodeMask, CommandListType type,
+				uint8_t numAllocators, CommandAllocator* const* ppAllocators, const Pipeline& pipeline,
+				const wchar_t* name = nullptr);
+			void Create(void* pNativeHandle, Device* pDevice);
 
 			using XUSG::CommandList_DX12::Barrier;
 			void Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups) const;
@@ -54,6 +57,7 @@ namespace XUSG
 			com_ptr<ID3D12GraphicsCommandList6>& GetGraphicsCommandList();
 
 		protected:
+			bool createInterface();
 			void createAgilityInterface() const;
 
 			com_ptr<ID3D12GraphicsCommandList6>		m_commandListU;
@@ -137,7 +141,7 @@ namespace XUSG
 
 		ProgramIdentifier GetDX12ProgramIdentifier(const Pipeline& stateObject, const wchar_t* programName);
 
-		void GetDX12LinearAlgebraMatrixInfo(Device* pDevice, LinearAlgebraMatrixInfo& matrixInfo);
+		void GetDX12LinearAlgebraMatrixInfo(const Device* pDevice, LinearAlgebraMatrixInfo& matrixInfo);
 
 		D3D12_BARRIER_SYNC GetDX12BarrierSync(BarrierSync barrierSync);
 		D3D12_BARRIER_SYNC GetDX12BarrierSyncs(BarrierSync barrierSync);

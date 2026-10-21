@@ -60,7 +60,7 @@ namespace XUSG
 			uint32_t threadGroupCountY,
 			uint32_t threadGroupCountZ) const;
 		void CopyBufferRegion(Resource* pDstBuffer, uint64_t dstOffset,
-			Resource* pSrcBuffer, uint64_t srcOffset, uint64_t numBytes) const;
+			const Resource* pSrcBuffer, uint64_t srcOffset, uint64_t numBytes) const;
 		void CopyTextureRegion(const TextureCopyLocation& dst,
 			uint32_t dstX, uint32_t dstY, uint32_t dstZ,
 			const TextureCopyLocation& src, const BoxRange* pSrcBox = nullptr) const;
@@ -125,14 +125,14 @@ namespace XUSG
 		void BeginQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const;
 		void EndQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const;
 		void ResolveQueryData(const QueryHeap& queryHeap, QueryType type, uint32_t startIndex,
-			uint32_t numQueries, Resource* pDstBuffer, uint64_t alignedDstBufferOffset) const;
-		void SetPredication(Resource* pBuffer, uint64_t alignedBufferOffset, bool opEqualZero)const;
+			uint32_t numQueries, const Resource* pDstBuffer, uint64_t alignedDstBufferOffset) const;
+		void SetPredication(const Resource* pBuffer, uint64_t alignedBufferOffset, bool opEqualZero) const;
 		void SetMarker(uint32_t metaData, const void* pData, uint32_t size) const;
 		void BeginEvent(uint32_t metaData, const void* pData, uint32_t size) const;
 		void EndEvent() const;
 		void ExecuteIndirect(CommandLayout* pCommandlayout, uint32_t maxCommandCount,
-			Resource* pArgumentBuffer, uint64_t argumentBufferOffset = 0,
-			Resource* pCountBuffer = nullptr, uint64_t countBufferOffset = 0) const;
+			const Resource* pArgumentBuffer, uint64_t argumentBufferOffset = 0,
+			const Resource* pCountBuffer = nullptr, uint64_t countBufferOffset = 0) const;
 
 		void Create(void* pNativeHandle, Device* pDevice);
 
@@ -200,7 +200,7 @@ namespace XUSG
 
 		void Create(void* pNativeHandle, Device* pDevice);
 
-		void* GetNativeHandle();
+		void* GetNativeHandle() const;
 		void* GetDeviceNativeHandle() const;
 
 		Device* GetDevice() const;
@@ -223,11 +223,5 @@ namespace XUSG
 	{
 		assert(!p || p->GetBackend());
 		return static_cast<CommandList_DX12*>(p ? p->GetBackend() : nullptr);
-	}
-
-	inline const CommandList_DX12* AsDX12(const CommandList* p)
-	{
-		assert(!p || const_cast<CommandList*>(p)->GetBackend());
-		return static_cast<const CommandList_DX12*>(p ? const_cast<CommandList*>(p)->GetBackend() : nullptr);
 	}
 }

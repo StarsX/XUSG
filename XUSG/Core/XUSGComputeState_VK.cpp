@@ -50,12 +50,12 @@ void State_VK::SetFlags(PipelineFlag flag)
 	m_pKey->Flags = flag;
 }
 
-Pipeline State_VK::CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name) const
+Pipeline State_VK::CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name)
 {
 	return pPipelineLib->CreatePipeline(this, name);
 }
 
-Pipeline State_VK::GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name) const
+Pipeline State_VK::GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name)
 {
 	return pPipelineLib->GetPipeline(this, name);
 }
@@ -121,7 +121,7 @@ void PipelineLib_VK::SetDevice(Device* pDevice)
 	assert(m_pDevice);
 }
 
-void PipelineLib_VK::SetPipeline(const State* pState, const Pipeline& pipeline)
+void PipelineLib_VK::SetPipeline(State* pState, const Pipeline& pipeline)
 {
 	lock_guard<mutex> lock(m_mtx);
 	const auto p = AsVK(pState);
@@ -134,7 +134,7 @@ void PipelineLib_VK::SetPipeline(const State* pState, const Pipeline& pipeline)
 	m_pipelines[key] = incoming;
 }
 
-Pipeline PipelineLib_VK::CreatePipeline(const State* pState, const wchar_t* name)
+Pipeline PipelineLib_VK::CreatePipeline(State* pState, const wchar_t* name)
 {
 	const auto p = AsVK(pState);
 	assert(p);
@@ -143,7 +143,7 @@ Pipeline PipelineLib_VK::CreatePipeline(const State* pState, const wchar_t* name
 	return createPipeline(p->GetKey(), name);
 }
 
-Pipeline PipelineLib_VK::GetPipeline(const State* pState, const wchar_t* name)
+Pipeline PipelineLib_VK::GetPipeline(State* pState, const wchar_t* name)
 {
 	const auto p = AsVK(pState);
 	assert(p);

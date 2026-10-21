@@ -168,11 +168,5 @@ namespace XUSG
 			assert(!p || p->GetBackend());
 			return static_cast<State_DX12*>(p ? p->GetBackend() : nullptr);
 		}
-
-		inline const State_DX12* AsDX12(const State* p)
-		{
-			assert(!p || const_cast<State*>(p)->GetBackend());
-			return static_cast<const State_DX12*>(p ? const_cast<State*>(p)->GetBackend() : nullptr);
-		}
 	}
 }

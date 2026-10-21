@@ -33,8 +33,8 @@ namespace XUSG
 			void SetNodeMask(uint32_t nodeMask);
 			void SetFlags(PipelineFlag flag);
 
-			Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const;
-			Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const;
+			Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr);
+			Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr);
 
 			const std::string& GetKey() const;
 
@@ -60,10 +60,10 @@ namespace XUSG
 			virtual ~PipelineLib_DX12();
 
 			void SetDevice(Device* pDevice);
-			void SetPipeline(const State* pState, const Pipeline& pipeline);
+			void SetPipeline(State* pState, const Pipeline& pipeline);
 
-			Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr);
-			Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr);
+			Pipeline CreatePipeline(State* pState, const wchar_t* name = nullptr);
+			Pipeline GetPipeline(State* pState, const wchar_t* name = nullptr);
 
 			static void GetHandleDesc(void* pHandleDesc, const std::string& key);
 
@@ -82,12 +82,6 @@ namespace XUSG
 		{
 			assert(!p || p->GetBackend());
 			return static_cast<State_DX12*>(p ? p->GetBackend() : nullptr);
-		}
-
-		inline const State_DX12* AsDX12(const State* p)
-		{
-			assert(!p || const_cast<State*>(p)->GetBackend());
-			return static_cast<const State_DX12*>(p ? const_cast<State*>(p)->GetBackend() : nullptr);
 		}
 	}
 }

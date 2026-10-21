@@ -40,26 +40,25 @@ CommandList_DX12::CommandList_DX12(XUSG::CommandList& commandList) :
 	assert(pCommandList);
 
 	m_commandList = pCommandList->GetGraphicsCommandList();
-	CreateInterface();
+	createInterface();
 }
 
 CommandList_DX12::~CommandList_DX12()
 {
 }
 
-bool CommandList_DX12::CreateInterface()
+bool CommandList_DX12::Create(Device* pDevice, uint32_t nodeMask, CommandListType type,
+	uint8_t numAllocators, CommandAllocator* const* ppAllocators, const Pipeline& pipeline, const wchar_t* name)
 {
-	if (!m_commandList) return false;
-	const auto hr = m_commandList->QueryInterface(IID_PPV_ARGS(&m_commandListU));
+	XUSG_N_RETURN(XUSG::CommandList_DX12::Create(pDevice, nodeMask, type, numAllocators, ppAllocators, pipeline, name), false);
 
-	if (FAILED(hr))
-	{
-		OutputDebugString(L"Couldn't get DirectX ultimate interface for the command list.\n");
+	return createInterface();
+}
 
-		return false;
-	}
-
-	return true;
+void CommandList_DX12::Create(void* pNativeHandle, Device* pDevice)
+{
+	XUSG::CommandList_DX12::Create(pNativeHandle, pDevice);
+	createInterface();
 }
 
 void CommandList_DX12::Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups) const
@@ -507,6 +506,21 @@ XUSG::com_ptr<ID3D12GraphicsCommandList6>& CommandList_DX12::GetGraphicsCommandL
 	return m_commandListU;
 }
 
+bool CommandList_DX12::createInterface()
+{
+	if (!m_commandList) return false;
+	const auto hr = m_commandList->QueryInterface(IID_PPV_ARGS(&m_commandListU));
+
+	if (FAILED(hr))
+	{
+		OutputDebugString(L"Couldn't get DirectX ultimate interface for the command list.\n");
+
+		return false;
+	}
+
+	return true;
+}
+
 void CommandList_DX12::createAgilityInterface() const
 {
 	if (m_commandListA == nullptr)
@@ -788,7 +802,7 @@ public:
 		_Inout_  D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_DEST_INFO * pDesc) = 0;
 };
 
-void XUSG::Ultimate::GetDX12LinearAlgebraMatrixInfo(Device* pDevice, LinearAlgebraMatrixInfo& matrixInfo)
+void XUSG::Ultimate::GetDX12LinearAlgebraMatrixInfo(const Device* pDevice, LinearAlgebraMatrixInfo& matrixInfo)
 {
 	auto destInfo = GetDX12LinearAlgebraConversionDestInfo(matrixInfo);
 

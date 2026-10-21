@@ -750,21 +750,9 @@ namespace XUSG
 		return static_cast<Resource_DX12*>(p ? p->GetBackend() : nullptr);
 	}
 
-	inline const Resource_DX12* AsDX12(const Resource* p)
-	{
-		assert(!p || const_cast<Resource*>(p)->GetBackend());
-		return static_cast<const Resource_DX12*>(p ? const_cast<Resource*>(p)->GetBackend() : nullptr);
-	}
-
 	inline Heap_DX12* AsDX12(Heap* p)
 	{
 		assert(!p || p->GetBackend());
 		return static_cast<Heap_DX12*>(p ? p->GetBackend() : nullptr);
-	}
-
-	inline const Heap_DX12* AsDX12(const Heap* p)
-	{
-		assert(!p || const_cast<Heap*>(p)->GetBackend());
-		return static_cast<const Heap_DX12*>(p ? const_cast<Heap*>(p)->GetBackend() : nullptr);
 	}
 }
