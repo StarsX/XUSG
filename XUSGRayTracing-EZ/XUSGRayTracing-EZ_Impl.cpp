@@ -333,9 +333,10 @@ void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::Bui
 
 	pBLAS->Build(this, pScratch, pSource, numPostbuildInfoDescs, pPostbuildInfoTypes);
 
-	// Set barrier command
-	const ResourceBarrier barrier = { nullptr, ResourceState::UNORDERED_ACCESS };
-	CoreList::Barrier(1, &barrier);
+	ResourceBarrier barriers[2];
+	auto numBarriers = pBLAS->SetBarrier(barriers);
+	numBarriers = pScratch->SetBarrier(barriers, ResourceState::UNORDERED_ACCESS, numBarriers);
+	CoreList::Barrier(numBarriers, barriers);
 }
 
 template<typename CoreList, typename UltimateList, typename RTList>
@@ -363,9 +364,10 @@ void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::Bui
 
 	pTLAS->Build(this, pScratch, pInstanceDescs, descriptorHeap, pSource, numPostbuildInfoDescs, pPostbuildInfoTypes);
 
-	// Set barrier command
-	const ResourceBarrier barrier = { nullptr, ResourceState::UNORDERED_ACCESS };
-	CoreList::Barrier(1, &barrier);
+	ResourceBarrier barriers[2];
+	numBarriers = pTLAS->SetBarrier(barriers);
+	numBarriers = pScratch->SetBarrier(barriers, ResourceState::UNORDERED_ACCESS, numBarriers);
+	CoreList::Barrier(numBarriers, barriers);
 }
 
 template<typename CoreList, typename UltimateList, typename RTList>
@@ -381,9 +383,10 @@ void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::Bui
 
 	pOmmArray->Build(this, pScratch, pSource, numPostbuildInfoDescs, pPostbuildInfoTypes);
 
-	// Set barrier command
-	const ResourceBarrier barrier = { nullptr, ResourceState::UNORDERED_ACCESS };
-	CoreList::Barrier(1, &barrier);
+	ResourceBarrier barriers[2];
+	auto numBarriers = pOmmArray->SetBarrier(barriers);
+	numBarriers = pScratch->SetBarrier(barriers, ResourceState::UNORDERED_ACCESS, numBarriers);
+	CoreList::Barrier(numBarriers, barriers);
 }
 
 template<typename CoreList, typename UltimateList, typename RTList>
@@ -392,8 +395,8 @@ void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::Cop
 {
 	RTList::CopyRaytracingAccelerationStructure(pDst, pSrc, mode);
 
-	const ResourceBarrier barrier = { nullptr, ResourceState::UNORDERED_ACCESS };
-	CoreList::Barrier(1, &barrier);
+	ResourceBarrier barrier;
+	CoreList::Barrier(pDst->SetBarrier(&barrier), &barrier);
 }
 
 template<typename CoreList, typename UltimateList, typename RTList>

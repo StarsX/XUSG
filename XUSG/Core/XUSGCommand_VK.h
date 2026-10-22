@@ -207,7 +207,8 @@ namespace XUSG
 		};
 
 		void submitClearBarrier(Resource_VK* pResource, uint32_t regionCount, bool toCopy) const;
-		void submitBarrierBatch(VkMemoryBarrier2& memory, std::vector<VkImageMemoryBarrier2>& images) const;
+		void submitBarrierBatch(VkMemoryBarrier2& memory, std::vector<VkBufferMemoryBarrier2>& buffers,
+			std::vector<VkImageMemoryBarrier2>& images) const;
 		void pipelineBarrier(const VkDependencyInfo& dependency) const;
 		void ensureVertexBindingStride() const;
 		void transitionUndefinedAttachment(const RenderAttachment& attachment, bool depth) const;

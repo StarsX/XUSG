@@ -28,6 +28,8 @@ namespace XUSG
 				const wchar_t* name = nullptr) override;
 			void Create(void* pNativeHandle, Device* pDevice);
 
+			void Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers) const override;
+
 			void BuildRaytracingAccelerationStructure(const BuildDesc* pDesc,
 				uint32_t numPostbuildInfoDescs, const PostbuildInfo* pPostbuildInfoDescs,
 				const DescriptorHeap* pDescriptorHeap = nullptr);

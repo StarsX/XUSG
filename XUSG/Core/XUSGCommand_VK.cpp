@@ -42,18 +42,44 @@ namespace
 		return aspect;
 	}
 
+	bool HasRaytracingAS(ResourceState state)
+	{
+		return (state & ResourceState::RAYTRACING_ACCELERATION_STRUCTURE) != ResourceState::COMMON;
+	}
+
 	bool SubmitsBarrier(const ResourceBarrier& barrier)
 	{
-		// DX12 split BEGIN has no VK layout. Same state is dropped, except UAV.
+		// DX12 split BEGIN has no VK layout. Same state is dropped, except UAV / AS sync.
 		if ((barrier.Flags & BarrierFlag::BEGIN_ONLY) == BarrierFlag::BEGIN_ONLY) return false;
 		if (barrier.StateBefore == barrier.StateAfter)
-			return barrier.StateAfter == ResourceState::UNORDERED_ACCESS;
+			return barrier.StateAfter == ResourceState::UNORDERED_ACCESS ||
+				HasRaytracingAS(barrier.StateAfter);
 		if (!barrier.pResource) return true;
 
 		const auto pResource = AsVK(barrier.pResource);
 		if (!pResource || !pResource->IsImage() || barrier.StateBefore != ResourceState::COMMON) return true;
 
 		return pResource->ImageLayout(barrier.StateBefore) != pResource->ImageLayout(barrier.StateAfter);
+	}
+
+	void AddBufferBarrier(vector<VkBufferMemoryBarrier2>& buffers, const Resource_VK* pResource,
+		VkPipelineStageFlags2 srcStage, VkAccessFlags2 srcAccess,
+		VkPipelineStageFlags2 dstStage, VkAccessFlags2 dstAccess)
+	{
+		assert(pResource && !pResource->IsImage());
+
+		VkBufferMemoryBarrier2 buffer = {};
+		buffer.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
+		buffer.srcStageMask = srcStage;
+		buffer.srcAccessMask = srcAccess;
+		buffer.dstStageMask = dstStage;
+		buffer.dstAccessMask = dstAccess;
+		buffer.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		buffer.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		buffer.buffer = pResource->GetBuffer();
+		buffer.offset = 0;
+		buffer.size = VK_WHOLE_SIZE;
+		buffers.push_back(buffer);
 	}
 
 	VkExtent3D MipExtent(const Resource_VK* pResource, uint32_t mip, uint32_t depth)
@@ -674,25 +700,34 @@ void CommandList_VK::Barrier(uint32_t numBarriers, const ResourceBarrier* pBarri
 
 	prepareBarriersOutsidePass(numBarriers, pBarriers);
 
-	// Buffer, UAV and aliasing barriers share one memory barrier. Image layout
-	// transitions stay on the image. Vulkan applies every barrier in one call
-	// at once, so an overlapping layout change has to be submitted first.
+	// Null-resource / image UAV sync share a memory barrier. Buffer sync and
+	// transitions use VkBufferMemoryBarrier2. Image layout transitions stay on
+	// the image. Vulkan applies every barrier in one call at once, so an
+	// overlapping layout change has to be submitted first.
 	VkMemoryBarrier2 memory = {};
 	memory.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
+	m_state->m_buffers.clear();
 	m_state->m_images.clear();
 	for (auto i = 0u; i < numBarriers; ++i)
 	{
 		const auto& barrier = pBarriers[i];
 		if (!SubmitsBarrier(barrier)) continue;
 
-		const auto same = barrier.StateBefore == barrier.StateAfter;
-		const auto uav = same ? barrier.StateAfter == ResourceState::UNORDERED_ACCESS :
-			!barrier.pResource && barrier.StateBefore == ResourceState::UNORDERED_ACCESS;
-		if (uav)
+		const auto isSame = barrier.StateBefore == barrier.StateAfter;
+		const auto asSync = barrier.pResource ? isSame && HasRaytracingAS(barrier.StateAfter) :
+			HasRaytracingAS(barrier.StateBefore);
+		const auto uavSync = barrier.pResource ? isSame && barrier.StateAfter == ResourceState::UNORDERED_ACCESS :
+			barrier.StateBefore == ResourceState::UNORDERED_ACCESS;
+		if (asSync || uavSync)
 		{
-			const auto stage = GetVKStage(m_pDevice, ResourceState::UNORDERED_ACCESS);
-			const auto access = GetVKAccess(m_pDevice, ResourceState::UNORDERED_ACCESS);
-			AddGlobalBarrier(memory, stage, access, stage, access);
+			const auto state = asSync ? ResourceState::RAYTRACING_ACCELERATION_STRUCTURE :
+				ResourceState::UNORDERED_ACCESS;
+			const auto stage = GetVKStage(m_pDevice, state);
+			const auto access = GetVKAccess(m_pDevice, state);
+			const auto pResource = barrier.pResource ? AsVK(barrier.pResource) : nullptr;
+			if (pResource && !pResource->IsImage())
+				AddBufferBarrier(m_state->m_buffers, pResource, stage, access, stage, access);
+			else AddGlobalBarrier(memory, stage, access, stage, access);
 			continue;
 		}
 		if (!barrier.pResource)
@@ -725,7 +760,7 @@ void CommandList_VK::Barrier(uint32_t numBarriers, const ResourceBarrier* pBarri
 		}
 		if (!pResource->IsImage())
 		{
-			AddGlobalBarrier(memory, srcStage, srcAccess, dstStage, dstAccess);
+			AddBufferBarrier(m_state->m_buffers, pResource, srcStage, srcAccess, dstStage, dstAccess);
 			continue;
 		}
 
@@ -768,7 +803,7 @@ void CommandList_VK::Barrier(uint32_t numBarriers, const ResourceBarrier* pBarri
 			{
 				if (ImageBarrierOverlaps(image, queued) && queued.oldLayout != queued.newLayout)
 				{
-					submitBarrierBatch(memory, m_state->m_images);
+					submitBarrierBatch(memory, m_state->m_buffers, m_state->m_images);
 					break;
 				}
 			}
@@ -776,7 +811,7 @@ void CommandList_VK::Barrier(uint32_t numBarriers, const ResourceBarrier* pBarri
 		pResource->AppendImageBarrier(image, m_state->m_images);
 	}
 
-	submitBarrierBatch(memory, m_state->m_images);
+	submitBarrierBatch(memory, m_state->m_buffers, m_state->m_images);
 }
 
 void CommandList_VK::ExecuteBundle(CommandList* pCommandList) const
@@ -1695,7 +1730,8 @@ void CommandList_VK::transitionUndefinedAttachment(const RenderAttachment& attac
 
 	VkMemoryBarrier2 memory = {};
 	memory.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
-	submitBarrierBatch(memory, images);
+	vector<VkBufferMemoryBarrier2> buffers;
+	submitBarrierBatch(memory, buffers, images);
 }
 
 void CommandList_VK::beginRendering() const
@@ -2509,9 +2545,10 @@ void CommandList_VK::submitClearBarrier(Resource_VK* pResource, uint32_t regionC
 	pipelineBarrier(dependency);
 }
 
-void CommandList_VK::submitBarrierBatch(VkMemoryBarrier2& memory, vector<VkImageMemoryBarrier2>& images) const
+void CommandList_VK::submitBarrierBatch(VkMemoryBarrier2& memory, vector<VkBufferMemoryBarrier2>& buffers,
+	vector<VkImageMemoryBarrier2>& images) const
 {
-	if (!memory.srcStageMask && !memory.dstStageMask && images.empty()) return;
+	if (!memory.srcStageMask && !memory.dstStageMask && buffers.empty() && images.empty()) return;
 
 	VkDependencyInfo dependency = {};
 	dependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
@@ -2520,6 +2557,8 @@ void CommandList_VK::submitBarrierBatch(VkMemoryBarrier2& memory, vector<VkImage
 		dependency.memoryBarrierCount = 1;
 		dependency.pMemoryBarriers = &memory;
 	}
+	dependency.bufferMemoryBarrierCount = static_cast<uint32_t>(buffers.size());
+	dependency.pBufferMemoryBarriers = buffers.empty() ? nullptr : buffers.data();
 	dependency.imageMemoryBarrierCount = static_cast<uint32_t>(images.size());
 	dependency.pImageMemoryBarriers = images.empty() ? nullptr : images.data();
 	pipelineBarrier(dependency);
@@ -2527,6 +2566,7 @@ void CommandList_VK::submitBarrierBatch(VkMemoryBarrier2& memory, vector<VkImage
 	memory.srcAccessMask = 0;
 	memory.dstStageMask = 0;
 	memory.dstAccessMask = 0;
+	buffers.clear();
 	images.clear();
 }
 

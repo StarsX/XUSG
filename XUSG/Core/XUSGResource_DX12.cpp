@@ -168,6 +168,9 @@ uint32_t Resource_DX12::SetBarrier(ResourceBarrier* pBarriers, ResourceState dst
 	if (!m_states.empty())
 	{
 		const auto& state = m_states[threadIdx][subresource == XUSG_BARRIER_ALL_SUBRESOURCES ? 0 : subresource];
+		if ((dstState & ResourceState::RAYTRACING_ACCELERATION_STRUCTURE) != ResourceState::COMMON &&
+			state != ResourceState::RAYTRACING_ACCELERATION_STRUCTURE)
+			dstState = (dstState & ~ResourceState::RAYTRACING_ACCELERATION_STRUCTURE) | ResourceState::UNORDERED_ACCESS;
 		if ((state & dstState) != dstState || dstState == ResourceState::UNORDERED_ACCESS || dstState == ResourceState::COMMON)
 		{
 			srcState = Transition(dstState, subresource, flags, srcState, threadIdx);

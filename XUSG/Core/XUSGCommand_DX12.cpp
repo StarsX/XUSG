@@ -314,13 +314,22 @@ void CommandList_DX12::Barrier(uint32_t numBarriers, const ResourceBarrier* pBar
 				const auto pResource = reinterpret_cast<ID3D12Resource*>(barrier.pResource->GetNativeHandle());
 
 				if (barrier.StateBefore == barrier.StateAfter)
-					m_barriers[i] = barrier.StateAfter == ResourceState::UNORDERED_ACCESS ?
+				{
+					const auto isUavBarrier = barrier.StateAfter == ResourceState::UNORDERED_ACCESS ||
+						(barrier.StateAfter & ResourceState::RAYTRACING_ACCELERATION_STRUCTURE) != ResourceState::COMMON;
+					m_barriers[i] = isUavBarrier ?
 						CD3DX12_RESOURCE_BARRIER::UAV(pResource) : CD3DX12_RESOURCE_BARRIER::Aliasing(pResource, pResourceAfter);
+				}
 				else m_barriers[i] = CD3DX12_RESOURCE_BARRIER::Transition(pResource, GetDX12ResourceStates(barrier.StateBefore),
 					GetDX12ResourceStates(barrier.StateAfter), barrier.Subresource, GetDX12BarrierFlags(barrier.Flags));
 			}
-			else m_barriers[i] = barrier.StateBefore == ResourceState::UNORDERED_ACCESS ?
-				CD3DX12_RESOURCE_BARRIER::UAV(nullptr) : CD3DX12_RESOURCE_BARRIER::Aliasing(nullptr, pResourceAfter);
+			else
+			{
+				const auto isUavBarrier = barrier.StateBefore == ResourceState::UNORDERED_ACCESS ||
+					(barrier.StateBefore & ResourceState::RAYTRACING_ACCELERATION_STRUCTURE) != ResourceState::COMMON;
+				m_barriers[i] = isUavBarrier ?
+					CD3DX12_RESOURCE_BARRIER::UAV(nullptr) : CD3DX12_RESOURCE_BARRIER::Aliasing(nullptr, pResourceAfter);
+			}
 		}
 
 		m_commandList->ResourceBarrier(numBarriers, m_barriers.data());

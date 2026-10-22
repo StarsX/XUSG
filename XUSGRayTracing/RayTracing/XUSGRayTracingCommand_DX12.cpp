@@ -61,6 +61,30 @@ void RayTracing::CommandList_DX12::Create(void* pNativeHandle, Device* pDevice)
 	createInterface();
 }
 
+void RayTracing::CommandList_DX12::Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers) const
+{
+	if (numBarriers)
+	{
+		assert(pBarriers);
+		vector<ResourceBarrier> barriers(pBarriers, pBarriers + numBarriers);
+		for (auto& barrier : barriers)
+		{
+			if (!barrier.pResource ||
+				barrier.pResource->GetResourceState() == ResourceState::RAYTRACING_ACCELERATION_STRUCTURE)
+				continue;
+
+			if ((barrier.StateBefore & ResourceState::RAYTRACING_ACCELERATION_STRUCTURE) != ResourceState::COMMON)
+				barrier.StateBefore = (barrier.StateBefore & ~ResourceState::RAYTRACING_ACCELERATION_STRUCTURE) |
+					ResourceState::UNORDERED_ACCESS;
+			if ((barrier.StateAfter & ResourceState::RAYTRACING_ACCELERATION_STRUCTURE) != ResourceState::COMMON)
+				barrier.StateAfter = (barrier.StateAfter & ~ResourceState::RAYTRACING_ACCELERATION_STRUCTURE) |
+					ResourceState::UNORDERED_ACCESS;
+		}
+
+		XUSG::CommandList_DX12::Barrier(numBarriers, barriers.data());
+	}
+}
+
 void RayTracing::CommandList_DX12::BuildRaytracingAccelerationStructure(const BuildDesc* pDesc, uint32_t numPostbuildInfoDescs,
 	const PostbuildInfo* pPostbuildInfoDescs, const DescriptorHeap* pDescriptorHeap)
 {

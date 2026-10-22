@@ -74,7 +74,8 @@ bool AccelerationStructure::AllocateUploadBuffer(Device* pDevice, Buffer* pBuffe
 
 uint32_t AccelerationStructure::SetBarrier(ResourceBarrier* pBarriers, Resource* pResource, uint32_t numBarriers)
 {
-	pBarriers[numBarriers++] = { pResource, ResourceState::UNORDERED_ACCESS, ResourceState::UNORDERED_ACCESS };
+	pBarriers[numBarriers++] = { pResource, ResourceState::RAYTRACING_ACCELERATION_STRUCTURE,
+		ResourceState::RAYTRACING_ACCELERATION_STRUCTURE };
 
 	return numBarriers;
 }
