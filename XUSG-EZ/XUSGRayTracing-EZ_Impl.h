@@ -91,12 +91,15 @@ namespace XUSG
 				void RTSetMaxRecursionDepth(uint32_t depth);
 				void RTSetPipelineState(const Pipeline& pipelineState, RayTracing::State* pState = nullptr);
 				void DispatchRays(uint32_t width, uint32_t height, uint32_t depth, const wchar_t* rayGenShaderName,
-					const wchar_t* const* pMissShaderNames, uint32_t numMissShaders);
+					const wchar_t* const* pMissShaderNames, uint32_t numMissShaders,
+					const wchar_t* const* pCallableShaderNames = nullptr, uint32_t numCallableShaders = 0);
 				void DispatchRaysIndirect(CommandLayout* pCommandlayout,
 					uint32_t maxCommandCount,
 					const wchar_t* rayGenShaderName,
 					const wchar_t* const* pMissShaderNames,
 					uint32_t numMissShaders,
+					const wchar_t* const* pCallableShaderNames,
+					uint32_t numCallableShaders,
 					Resource* pArgumentBuffer,
 					uint64_t argumentBufferOffset = 0,
 					Resource* pCountBuffer = nullptr,
@@ -160,8 +163,9 @@ namespace XUSG
 					uint32_t max32BitConstants, uint32_t constantSlot, uint32_t constantSpace,
 					uint32_t maxTLASSrvs, uint32_t spaceTLAS, uint32_t slotExt, uint32_t spaceExt);
 
-				void predispatchRays(CShaderTablePtr& pRayGen, CShaderTablePtr& pHitGroup, CShaderTablePtr& pMiss,
-					const wchar_t* rayGenShaderName, const wchar_t* const* pMissShaderNames, uint32_t numMissShaders);
+				void predispatchRays(CShaderTablePtr& pRayGen, CShaderTablePtr& pHitGroup, CShaderTablePtr& pMiss, CShaderTablePtr& pCallable,
+					const wchar_t* rayGenShaderName, const wchar_t* const* pMissShaderNames, uint32_t numMissShaders,
+					const wchar_t* const* pCallableShaderNames, uint32_t numCallableShaders);
 
 				Resource* needScratch(size_t size);
 
@@ -184,6 +188,8 @@ namespace XUSG
 				std::unordered_map<std::string, ShaderTable::uptr> m_rayGenTables;
 				std::unordered_map<std::string, ShaderTable::uptr> m_hitGroupTables;
 				std::unordered_map<std::string, ShaderTable::uptr> m_missTables;
+				std::unordered_map<std::string, ShaderTable::uptr> m_callableTables;
+				const ShaderTable* m_pHitGroup;
 
 				std::unordered_set<std::string> m_argumentBufferVAs;
 			};

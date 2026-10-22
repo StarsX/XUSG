@@ -30,7 +30,8 @@ XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::CommandL
 	m_scratches(0),
 	m_isRTStateDirty(false),
 	m_rayTracingState(nullptr),
-	m_tlasBindingToParamIndexMap(0)
+	m_tlasBindingToParamIndexMap(0),
+	m_pHitGroup(nullptr)
 {
 }
 
@@ -468,27 +469,33 @@ void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::RTS
 
 template<typename CoreList, typename UltimateList, typename RTList>
 void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::DispatchRays(uint32_t width, uint32_t height, uint32_t depth,
-	const wchar_t* rayGenShaderName, const wchar_t* const* pMissShaderNames, uint32_t numMissShaders)
+	const wchar_t* rayGenShaderName, const wchar_t* const* pMissShaderNames, uint32_t numMissShaders,
+	const wchar_t* const* pCallableShaderNames, uint32_t numCallableShaders)
 {
 	CShaderTablePtr pRayGen = nullptr;
 	CShaderTablePtr pHitGroup = nullptr;
 	CShaderTablePtr pMiss = nullptr;
+	CShaderTablePtr pCallable = nullptr;
 
-	predispatchRays(pRayGen, pHitGroup, pMiss, rayGenShaderName, pMissShaderNames, numMissShaders);
-	RTList::DispatchRays(width, height, depth, pRayGen, pHitGroup, pMiss);
+	predispatchRays(pRayGen, pHitGroup, pMiss, pCallable, rayGenShaderName, pMissShaderNames, numMissShaders,
+		pCallableShaderNames, numCallableShaders);
+	RTList::DispatchRays(width, height, depth, pRayGen, pHitGroup, pMiss, pCallable);
 }
 
 template<typename CoreList, typename UltimateList, typename RTList>
 void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::DispatchRaysIndirect(CommandLayout* pCommandlayout, uint32_t maxCommandCount,
 	const wchar_t* rayGenShaderName, const wchar_t* const* pMissShaderNames, uint32_t numMissShaders,
+	const wchar_t* const* pCallableShaderNames, uint32_t numCallableShaders,
 	Resource* pArgumentBuffer, uint64_t argumentBufferOffset, Resource* pCountBuffer, uint64_t countBufferOffset)
 {
 	CShaderTablePtr pRayGen = nullptr;
 	CShaderTablePtr pHitGroup = nullptr;
 	CShaderTablePtr pMiss = nullptr;
+	CShaderTablePtr pCallable = nullptr;
 
 	preexecuteIndirect(pArgumentBuffer, pCountBuffer);
-	predispatchRays(pRayGen, pHitGroup, pMiss, rayGenShaderName, pMissShaderNames, numMissShaders);
+	predispatchRays(pRayGen, pHitGroup, pMiss, pCallable, rayGenShaderName, pMissShaderNames, numMissShaders,
+		pCallableShaderNames, numCallableShaders);
 
 	// Populate arg-buffer header with shader tables
 	string key(sizeof(ArgumentBufferVA), '\0');
@@ -516,6 +523,9 @@ void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::Dis
 		pDispatchDescHeader->MissShaderTable.StartAddress = pMiss ? pMiss->GetVirtualAddress() : 0;
 		pDispatchDescHeader->MissShaderTable.SizeInBytes = pMiss ? pMiss->GetByteSize() : 0;
 		pDispatchDescHeader->MissShaderTable.StrideInBytes = pMiss ? pMiss->GetByteStride() : 0;
+		pDispatchDescHeader->CallableShaderTable.StartAddress = pCallable ? pCallable->GetVirtualAddress() : 0;
+		pDispatchDescHeader->CallableShaderTable.SizeInBytes = pCallable ? pCallable->GetByteSize() : 0;
+		pDispatchDescHeader->CallableShaderTable.StrideInBytes = pCallable ? pCallable->GetByteStride() : 0;
 		uploader->Unmap();
 
 		CopyBufferRegion(pArgumentBuffer, argumentBufferOffset, uploader.get(), 0, sizeof(DX12DispatchRaysDescHeader));
@@ -610,8 +620,9 @@ bool XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::cre
 }
 
 template<typename CoreList, typename UltimateList, typename RTList>
-void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::predispatchRays(CShaderTablePtr& pRayGen, CShaderTablePtr& pHitGroup, CShaderTablePtr& pMiss,
-	const wchar_t* rayGenShaderName, const wchar_t* const* pMissShaderNames, uint32_t numMissShaders)
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::predispatchRays(CShaderTablePtr& pRayGen, CShaderTablePtr& pHitGroup, CShaderTablePtr& pMiss, CShaderTablePtr& pCallable,
+	const wchar_t* rayGenShaderName, const wchar_t* const* pMissShaderNames, uint32_t numMissShaders,
+	const wchar_t* const* pCallableShaderNames, uint32_t numCallableShaders)
 {
 	// Set barrier command
 	CoreList::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
@@ -632,24 +643,28 @@ void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::pre
 			{
 				RTList::SetRayTracingPipeline(pipeline);
 				m_pipeline = pipeline;
-
-				// Get hit-group table; the hit-group has been bound on the pipeline
-				const auto numHitGroups = m_rayTracingState->GetNumHitGroups();
-				string key(sizeof(void*) * numHitGroups, '\0');
-				const auto pShaderIDs = reinterpret_cast<const void**>(&key[0]);
-				for (auto i = 0u; i < numHitGroups; ++i) // Set hit-group shader IDs into the key
-				{
-					const auto hitGroupName = m_rayTracingState->GetHitGroupName(i);
-					pShaderIDs[i] = ShaderRecord::GetShaderIdentifier(pipeline, hitGroupName);
-				}
-				pHitGroup = getShaderTable(key, m_hitGroupTables, numHitGroups);
 			}
+
+			// Get hit-group table; the hit-group has been bound on the pipeline
+			const auto numHitGroups = m_rayTracingState->GetNumHitGroups();
+			const auto numRecords = numHitGroups ? numHitGroups : 1u;
+			string key(sizeof(void*) * numRecords, '\0');
+			const auto pShaderIDs = reinterpret_cast<const void**>(&key[0]);
+			for (auto i = 0u; i < numHitGroups; ++i) // Set hit-group shader IDs into the key
+			{
+				const auto hitGroupName = m_rayTracingState->GetHitGroupName(i);
+				if (hitGroupName)
+					pShaderIDs[i] = ShaderRecord::GetShaderIdentifier(pipeline, hitGroupName);
+			}
+			m_pHitGroup = getShaderTable(key, m_hitGroupTables, numRecords);
 			// Different from other types of state objects, m_rayTracingState cannot be reused
 			// for the next different pipeline, so we need to remake it
 			m_rayTracingState = State::MakeUnique();
 			m_isRTStateDirty = false;
 		}
 	}
+
+	pHitGroup = m_pHitGroup;
 
 	// Get ray-generation shader table; the ray-generation shader is independent of the pipeline
 	if (rayGenShaderName)
@@ -661,16 +676,29 @@ void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::pre
 	}
 
 	// Get miss shader tables; the miss shaders are independent of the pipeline
-	if (pMissShaderNames)
+	if (numMissShaders)
 	{
 		string key(sizeof(void*) * numMissShaders, '\0');
 		const auto pShaderIDs = reinterpret_cast<const void**>(&key[0]);
-		for (auto i = 0u; i < numMissShaders; ++i) // Set hit-group shader IDs into the key
+		for (auto i = 0u; i < numMissShaders; ++i) // Set miss shader IDs into the key
 		{
-			assert(pMissShaderNames[i]);
-			pShaderIDs[i] = ShaderRecord::GetShaderIdentifier(m_pipeline, pMissShaderNames[i]);
+			if (pMissShaderNames && pMissShaderNames[i])
+				pShaderIDs[i] = ShaderRecord::GetShaderIdentifier(m_pipeline, pMissShaderNames[i]);
 		}
 		pMiss = getShaderTable(key, m_missTables, numMissShaders);
+	}
+
+	// Get callable shader tables; the callable shaders are independent of the pipeline
+	if (numCallableShaders)
+	{
+		string key(sizeof(void*) * numCallableShaders, '\0');
+		const auto pShaderIDs = reinterpret_cast<const void**>(&key[0]);
+		for (auto i = 0u; i < numCallableShaders; ++i) // Set callable shader IDs into the key
+		{
+			if (pCallableShaderNames && pCallableShaderNames[i])
+				pShaderIDs[i] = ShaderRecord::GetShaderIdentifier(m_pipeline, pCallableShaderNames[i]);
+		}
+		pCallable = getShaderTable(key, m_callableTables, numCallableShaders);
 	}
 
 	// Create and set sampler table

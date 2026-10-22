@@ -45,7 +45,10 @@ ShaderRecord_VK::~ShaderRecord_VK()
 void ShaderRecord_VK::CopyTo(void* dest) const
 {
 	const auto byteDest = static_cast<uint8_t*>(dest);
-	memcpy(dest, m_shaderIdentifier.Ptr, m_shaderIdentifier.Size);
+	if (m_shaderIdentifier.Ptr)
+		memcpy(dest, m_shaderIdentifier.Ptr, m_shaderIdentifier.Size);
+	else if (m_shaderIdentifier.Size)
+		memset(dest, 0, m_shaderIdentifier.Size);
 
 	if (m_localDescriptorArgs.Ptr)
 		memcpy(byteDest + m_shaderIdentifier.Size, m_localDescriptorArgs.Ptr, m_localDescriptorArgs.Size);

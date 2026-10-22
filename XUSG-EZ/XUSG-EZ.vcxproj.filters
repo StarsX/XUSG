@@ -22,6 +22,9 @@
     <Filter Include="Shaders">
       <UniqueIdentifier>{88dafc03-bd29-459a-afbe-6667daab9db8}</UniqueIdentifier>
     </Filter>
+    <Filter Include="RayTracing">
+      <UniqueIdentifier>{f214bb17-b429-4fe1-898a-85abac998d6a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -59,6 +62,57 @@
     </ClInclude>
     <ClInclude Include="..\XUSG\Core\XUSGPipelineLayout_DX12.h">
       <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSGRayTracing\RayTracing\XUSGRayTracingCommand_DX12.h">
+      <Filter>RayTracing</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSGRayTracing\RayTracing\XUSGRayTracing.h">
+      <Filter>RayTracing</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Core\XUSG_VK.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Core\XUSGCommand_VK.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Core\XUSGDescriptor_VK.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Core\XUSGEnum_VK.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Core\XUSGPipelineLayout_VK.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Core\XUSGResource_VK.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Ultimate\XUSGUltimate_VK.h">
+      <Filter>Ultimate</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSGRayTracing\RayTracing\XUSGAccelerationStructure_VK.h">
+      <Filter>RayTracing</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSGRayTracing\RayTracing\XUSGRayTracing_VK.h">
+      <Filter>RayTracing</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSGRayTracing\RayTracing\XUSGRayTracingCommand_VK.h">
+      <Filter>RayTracing</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSGRayTracing\RayTracing\XUSGRayTracingPipelineLayout_VK.h">
+      <Filter>RayTracing</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSGRayTracing\RayTracing\XUSGRayTracingState_VK.h">
+      <Filter>RayTracing</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSGRayTracing\RayTracing\XUSGShaderTable_VK.h">
+      <Filter>RayTracing</Filter>
+    </ClInclude>
+    <ClInclude Include="XUSGRayTracing-EZ.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="XUSGRayTracing-EZ_Impl.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -110,8 +164,35 @@
     <ClCompile Include="..\XUSG\Core\XUSGResource_VK.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="..\XUSGRayTracing\RayTracing\XUSGRayTracingCommand_DX12.cpp">
+      <Filter>RayTracing</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSGRayTracing\RayTracing\XUSGAccelerationStructure_VK.cpp">
+      <Filter>RayTracing</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSGRayTracing\RayTracing\XUSGRayTracing_VK.cpp">
+      <Filter>RayTracing</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSGRayTracing\RayTracing\XUSGRayTracingCommand_VK.cpp">
+      <Filter>RayTracing</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSGRayTracing\RayTracing\XUSGRayTracingPipelineLayout_VK.cpp">
+      <Filter>RayTracing</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSGRayTracing\RayTracing\XUSGRayTracingState_VK.cpp">
+      <Filter>RayTracing</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSGRayTracing\RayTracing\XUSGShaderTable_VK.cpp">
+      <Filter>RayTracing</Filter>
+    </ClCompile>
     <ClCompile Include="..\XUSG\Ultimate\XUSGUltimate_VK.cpp">
-      <Filter>Core</Filter>
+      <Filter>Ultimate</Filter>
+    </ClCompile>
+    <ClCompile Include="XUSGRayTracing-EZ.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="XUSGRayTracing-EZ_Impl.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
