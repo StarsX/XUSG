@@ -41,7 +41,7 @@ namespace XUSG
 
 			const std::vector<std::string>& GetDescriptorTableLayoutKeys() const;
 			std::string& GetPipelineLayoutKey(PipelineLayoutLib* pPipelineLayoutLib);
-			void* GetBackend() override;
+			void* GetBackend();
 
 			static const uint8_t DescriptorTableLayoutCountOffset = sizeof(uint16_t);
 			static const uint8_t DescriptorTableLayoutOffset = DescriptorTableLayoutCountOffset + sizeof(uint16_t);
@@ -56,11 +56,7 @@ namespace XUSG
 			bool m_isTableLayoutsCompleted;
 		};
 
-		inline PipelineLayout_DX12* AsDX12(PipelineLayout* p)
-		{
-			assert(!p || p->GetBackend());
-			return static_cast<PipelineLayout_DX12*>(p ? p->GetBackend() : nullptr);
-		}
+		PipelineLayout_DX12* AsDX12(PipelineLayout* p);
 	}
 
 	class PipelineLayoutLib_DX12 :
@@ -92,7 +88,7 @@ namespace XUSG
 
 		D3D_ROOT_SIGNATURE_VERSION GetRootSignatureHighestVersion() const;
 
-		void* GetBackend() override;
+		void* GetBackend();
 
 	protected:
 		virtual PipelineLayout createPipelineLayout(const std::string& key, const wchar_t* name, uint32_t nodeMask);
@@ -115,9 +111,5 @@ namespace XUSG
 		std::mutex m_mtx;
 	};
 
-	inline PipelineLayoutLib_DX12* AsDX12(PipelineLayoutLib* p)
-	{
-		assert(!p || p->GetBackend());
-		return static_cast<PipelineLayoutLib_DX12*>(p ? p->GetBackend() : nullptr);
-	}
+	PipelineLayoutLib_DX12* AsDX12(PipelineLayoutLib* p);
 }

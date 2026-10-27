@@ -71,9 +71,9 @@ namespace XUSG
 		void OMSetBlendFactor(const float blendFactor[4]) const;
 		void OMSetStencilRef(uint32_t stencilRef) const;
 		void SetPipelineState(const Pipeline& pipelineState) const;
-		void Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers) const;
+		void Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers);
 		void ExecuteBundle(CommandList* pCommandList) const;
-		void SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps) const;
+		void SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps);
 		void SetComputePipelineLayout(const PipelineLayout& pipelineLayout) const;
 		void SetGraphicsPipelineLayout(const PipelineLayout& pipelineLayout) const;
 		void SetComputeDescriptorTable(uint32_t index, const DescriptorTable& descriptorTable) const;
@@ -104,19 +104,19 @@ namespace XUSG
 		void OMSetRenderTargets(uint32_t numRenderTargetDescriptors, const Descriptor* pRenderTargetViews,
 			const Descriptor* pDepthStencilView) const;
 		void ClearDepthStencilView(ClearFlag clearFlags, float depth, uint8_t stencil = 0,
-			uint32_t numRects = 0, const RectRange* pRects = nullptr) const;
+			uint32_t numRects = 0, const RectRange* pRects = nullptr);
 		void ClearDepthStencilView(const Descriptor& depthStencilView, ClearFlag clearFlags, float depth,
-			uint8_t stencil = 0, uint32_t numRects = 0, const RectRange* pRects = nullptr) const;
+			uint8_t stencil = 0, uint32_t numRects = 0, const RectRange* pRects = nullptr);
 		void ClearRenderTargetView(const float colorRGBA[4], uint8_t renderTargetViewIndex,
-			uint32_t numRects = 0, const RectRange* pRects = nullptr) const;
+			uint32_t numRects = 0, const RectRange* pRects = nullptr);
 		void ClearRenderTargetView(const Descriptor& renderTargetView, const float colorRGBA[4],
-			uint32_t numRects = 0, const RectRange* pRects = nullptr) const;
+			uint32_t numRects = 0, const RectRange* pRects = nullptr);
 		void ClearUnorderedAccessViewUint(const DescriptorTable& descriptorTable, const Descriptor& descriptor,
-			const uint32_t values[4], uint32_t numRects, const RectRange* pRects) const;
+			const uint32_t values[4], uint32_t numRects, const RectRange* pRects);
 		void ClearUnorderedAccessViewFloat(const DescriptorTable& descriptorTable, const Descriptor& descriptor,
-			const float values[4], uint32_t numRects, const RectRange* pRects) const;
+			const float values[4], uint32_t numRects, const RectRange* pRects);
 		void DiscardResource(Resource* pResource, uint32_t numRects, const RectRange* pRects,
-			uint32_t firstSubresource, uint32_t numSubresources) const;
+			uint32_t firstSubresource, uint32_t numSubresources);
 		void BeginQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const;
 		void EndQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const;
 		void ResolveQueryData(const QueryHeap& queryHeap, QueryType type, uint32_t startIndex,
@@ -134,7 +134,7 @@ namespace XUSG
 
 		void* GetNativeHandle();
 		void* GetDeviceNativeHandle() const;
-		void* GetBackend() override;
+		void* GetBackend();
 
 		// Ultimate::CommandList_VK* when this object is the Ultimate wrap; nullptr for core-only lists.
 		// Distinct from GetBackend(), which always returns the XUSG::CommandList_VK* subobject.
@@ -333,20 +333,20 @@ namespace XUSG
 
 		bool SubmitCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists,
 			const Semaphore* pWaits = nullptr, uint32_t numWaits = 0,
-			const Semaphore* pSignals = nullptr, uint32_t numSignals = 0) const;
+			const Semaphore* pSignals = nullptr, uint32_t numSignals = 0);
 		bool SubmitCommandList(CommandList* pCommandList,
 			const Semaphore* pWaits = nullptr, uint32_t numWaits = 0,
-			const Semaphore* pSignals = nullptr, uint32_t numSignals = 0) const;
-		bool Wait(Fence* pFence, uint64_t value) const;
-		bool Signal(Fence* pFence, uint64_t value) const;
+			const Semaphore* pSignals = nullptr, uint32_t numSignals = 0);
+		bool Wait(Fence* pFence, uint64_t value);
+		bool Signal(Fence* pFence, uint64_t value);
 
-		void ExecuteCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists) const;
-		void ExecuteCommandList(CommandList* pCommandList) const;
+		void ExecuteCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists);
+		void ExecuteCommandList(CommandList* pCommandList);
 		void UpdateTileMappings(Resource* pResource, uint32_t numResourceRegions,
 			const TiledResourceCoord* pResourceRegionStartCoords, const TileRegionSize* pResourceRegionSizes,
 			Heap* pHeap, uint32_t numHeapRanges, const TileRangeFlag* pHeapRangeFlags,
 			const uint32_t* pHeapRangeStartOffsets, const uint32_t* pHeapRangeTileCounts,
-			TileMappingFlag flags = TileMappingFlag::NONE) const;
+			TileMappingFlag flags = TileMappingFlag::NONE);
 		void CopyTileMappings(Resource* pDstResource, const TiledResourceCoord* pDstRegionStartCoord,
 			Resource* pSrcResource, const TiledResourceCoord* pSrcRegionStartCoordinate,
 			const TileRegionSize& regionSize, TileMappingFlag flags = TileMappingFlag::NONE) const;
@@ -360,10 +360,10 @@ namespace XUSG
 
 	protected:
 		bool submit(uint32_t numCommandLists, CommandList* const* ppCommandLists,
-			const Semaphore* pWaits, uint32_t numWaits, const Semaphore* pSignals, uint32_t numSignals) const;
+			const Semaphore* pWaits, uint32_t numWaits, const Semaphore* pSignals, uint32_t numSignals);
 		bool flushDeferred(const Semaphore* pWaits, uint32_t numWaits,
-			const Semaphore* pSignals, uint32_t numSignals) const;
-		bool consumeSparseWait(VkSemaphoreSubmitInfo& wait) const;
+			const Semaphore* pSignals, uint32_t numSignals);
+		bool consumeSparseWait(VkSemaphoreSubmitInfo& wait);
 		VkQueue sparseQueue() const;
 
 		Device_VK*		m_pDevice;
@@ -373,26 +373,22 @@ namespace XUSG
 		bool			m_registered;
 		bool			m_ownsSlot;
 		bool			m_sparseQueue;
-		mutable uint64_t m_sparseWaited;
+		uint64_t		m_sparseWaited;
 
 		// ExecuteCommandList defers until Signal (or explicit Submit) so
 		// Execute -> Present -> Signal collapses to one queue submit + PresentKHR.
-		mutable std::vector<CommandList*> m_deferredLists;
+		std::vector<CommandList*> m_deferredLists;
 
-		mutable std::vector<VkCommandBufferSubmitInfo> m_commandInfos;
-		mutable std::vector<VkSemaphoreSubmitInfo> m_waitInfos;
-		mutable std::vector<VkSemaphoreSubmitInfo> m_signalInfos;
-		mutable std::vector<VkSemaphore> m_waitSemaphores;
-		mutable std::vector<VkPipelineStageFlags> m_waitStages;
-		mutable std::vector<uint64_t> m_waitValues;
-		mutable std::vector<VkCommandBuffer> m_submitBuffers;
-		mutable std::vector<VkSemaphore> m_signalSemaphores;
-		mutable std::vector<uint64_t> m_signalValues;
+		std::vector<VkCommandBufferSubmitInfo> m_commandInfos;
+		std::vector<VkSemaphoreSubmitInfo> m_waitInfos;
+		std::vector<VkSemaphoreSubmitInfo> m_signalInfos;
+		std::vector<VkSemaphore> m_waitSemaphores;
+		std::vector<VkPipelineStageFlags> m_waitStages;
+		std::vector<uint64_t> m_waitValues;
+		std::vector<VkCommandBuffer> m_submitBuffers;
+		std::vector<VkSemaphore> m_signalSemaphores;
+		std::vector<uint64_t> m_signalValues;
 	};
 
-	inline CommandList_VK* AsVK(CommandList* p)
-	{
-		assert(!p || p->GetBackend());
-		return static_cast<CommandList_VK*>(p ? p->GetBackend() : nullptr);
-	}
+	CommandList_VK* AsVK(CommandList* p);
 }

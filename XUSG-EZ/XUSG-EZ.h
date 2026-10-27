@@ -114,7 +114,7 @@ namespace XUSG
 				const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE) = 0;
-			virtual bool Close(RenderTarget* pBackBuffer = nullptr) const = 0;
+			virtual bool Close(RenderTarget* pBackBuffer = nullptr) = 0;
 			virtual bool Reset(uint8_t allocatorIndex, const Pipeline& initialState) = 0;
 
 			virtual void ClearState(const Pipeline& initialState) const = 0;
@@ -146,15 +146,15 @@ namespace XUSG
 				Resource* pCountBuffer = nullptr,
 				uint64_t countBufferOffset = 0) = 0;
 			virtual void CopyBufferRegion(Resource* pDstBuffer, uint64_t dstOffset,
-				Resource* pSrcBuffer, uint64_t srcOffset, uint64_t numBytes) const = 0;
+				Resource* pSrcBuffer, uint64_t srcOffset, uint64_t numBytes) = 0;
 			virtual void CopyTextureRegion(TextureCopyLocation& dst, uint32_t dstX, uint32_t dstY, uint32_t dstZ,
-				TextureCopyLocation& src, const BoxRange* pSrcBox = nullptr) const = 0;
-			virtual void CopyResource(Resource* pDstResource, Resource* pSrcResource) const = 0;
+				TextureCopyLocation& src, const BoxRange* pSrcBox = nullptr) = 0;
+			virtual void CopyResource(Resource* pDstResource, Resource* pSrcResource) = 0;
 			virtual void CopyTiles(Resource* pTiledResource, const TiledResourceCoord* pTileRegionStartCoord,
 				const TileRegionSize& tileRegionSize, Resource* pBuffer, uint64_t bufferStartOffsetInBytes,
-				TileCopyFlag flags = TileCopyFlag::NONE) const = 0;
+				TileCopyFlag flags = TileCopyFlag::NONE) = 0;
 			virtual void ResolveSubresource(Resource* pDstResource, uint32_t dstSubresource,
-				Resource* pSrcResource, uint32_t srcSubresource, Format format) const = 0;
+				Resource* pSrcResource, uint32_t srcSubresource, Format format) = 0;
 			virtual void IASetInputLayout(const InputLayout* pLayout) = 0;
 			virtual void IASetIndexBufferStripCutValue(IBStripCutValue ibStripCutValue) = 0;
 			virtual void RSSetState(const Graphics::Rasterizer* pRasterizer) = 0;
@@ -206,7 +206,7 @@ namespace XUSG
 			virtual void ClearUnorderedAccessViewFloat(const ResourceView& unorderedAccessView, const float values[4],
 				uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
 			virtual void DiscardResource(Resource* pResource, uint32_t numRects, const RectRange* pRects,
-				uint32_t firstSubresource, uint32_t numSubresources) const = 0;
+				uint32_t firstSubresource, uint32_t numSubresources) = 0;
 			virtual void BeginQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const = 0;
 			virtual void EndQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const = 0;
 			virtual void ResolveQueryData(const QueryHeap& queryHeap, QueryType type, uint32_t startIndex,
@@ -245,10 +245,10 @@ namespace XUSG
 			virtual void* GetDeviceNativeHandle() const = 0;
 
 			// Backend C++ object (CommandList_DX12* / CommandList_VK*, not available to users), internal use only.
-			virtual void* GetBackend() const = 0;
+			virtual void* GetBackend() = 0;
 
 			virtual Device* GetDevice() const = 0;
-			virtual XUSG::CommandList* AsCommandList() const = 0;
+			virtual XUSG::CommandList* AsCommandList() = 0;
 
 			using uptr = std::unique_ptr<CommandList>;
 			using sptr = std::shared_ptr<CommandList>;

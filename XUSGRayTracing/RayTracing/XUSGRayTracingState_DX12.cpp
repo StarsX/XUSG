@@ -372,3 +372,9 @@ com_ptr<ID3D12RaytracingFallbackStateObject> PipelineLib_DX12::getStateObject(co
 
 	return pStateObject->second;
 }
+
+State_DX12* XUSG::RayTracing::AsDX12(State* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<State_DX12*>(p ? p->GetBackend() : nullptr);
+}

@@ -354,7 +354,7 @@ void PipelineLib_VK::SetInputLayout(uint32_t index, uint32_t numElements, const 
 	m_inputLayoutLib.SetLayout(index, numElements, pElements);
 }
 
-const InputLayout* PipelineLib_VK::GetInputLayout(uint32_t index) const
+const InputLayout* PipelineLib_VK::GetInputLayout(uint32_t index)
 {
 	return m_inputLayoutLib.GetLayout(index);
 }
@@ -469,4 +469,10 @@ Pipeline PipelineLib_VK::getPipeline(const string& key, const wchar_t* name)
 	if (pipeline == m_pipelines.cend()) return createPipeline(key, name);
 
 	return pipeline->second;
+}
+
+State_VK* XUSG::Generic::AsVK(State* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<State_VK*>(p ? p->GetBackend() : nullptr);
 }

@@ -23,8 +23,8 @@ namespace XUSG
 
 		Blob CreateShader(Shader::Stage stage, uint32_t index, const wchar_t* fileName);
 		Blob CreateShader(Shader::Stage stage, uint32_t index, const void* pData, size_t size);
-		Blob GetShader(Shader::Stage stage, uint32_t index) const;
-		Reflector::sptr GetReflector(Shader::Stage stage, uint32_t index) const;
+		Blob GetShader(Shader::Stage stage, uint32_t index);
+		Reflector::sptr GetReflector(Shader::Stage stage, uint32_t index);
 
 	protected:
 		void setShader(Shader::Stage stage, uint32_t index, const Blob& shader);
@@ -36,6 +36,6 @@ namespace XUSG
 		std::vector<std::unique_ptr<Blob_VK>> m_shaders[Shader::NUM_STAGE];
 		std::vector<Reflector::sptr> m_reflectors[Shader::NUM_STAGE];
 
-		mutable std::mutex m_mtx;
+		std::mutex m_mtx;
 	};
 }

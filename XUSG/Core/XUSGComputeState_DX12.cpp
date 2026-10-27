@@ -200,3 +200,9 @@ Pipeline PipelineLib_DX12::getPipeline(const string& key, const wchar_t* name)
 
 	return pPipeline->second.get();
 }
+
+State_DX12* XUSG::Compute::AsDX12(State* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<State_DX12*>(p ? p->GetBackend() : nullptr);
+}

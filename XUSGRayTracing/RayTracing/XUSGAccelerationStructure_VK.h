@@ -65,7 +65,7 @@ namespace XUSG
 			uint64_t GetVirtualAddress() const;
 			uint64_t GetResourcePointer() const;
 
-			void* GetBackend() override;
+			void* GetBackend();
 
 			VkAccelerationStructureKHR GetNativeHandle() const;
 			VkMicromapEXT GetMicromap() const;
@@ -185,15 +185,7 @@ namespace XUSG
 			VkMicromapEXT m_micromap;
 		};
 
-		inline AccelerationStructure_VK* AsVK(AccelerationStructure* p)
-		{
-			assert(!p || p->GetBackend());
-			return static_cast<AccelerationStructure_VK*>(p ? p->GetBackend() : nullptr);
-		}
-
-		inline OpacityMicromapArray_VK* AsVK(OpacityMicromapArray* p)
-		{
-			return static_cast<OpacityMicromapArray_VK*>(AsVK(static_cast<AccelerationStructure*>(p)));
-		}
+		AccelerationStructure_VK* AsVK(AccelerationStructure* p);
+		OpacityMicromapArray_VK* AsVK(OpacityMicromapArray* p);
 	}
 }

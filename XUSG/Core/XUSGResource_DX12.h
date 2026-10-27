@@ -42,7 +42,7 @@ namespace XUSG
 		void SetName(const wchar_t* name);
 
 		uint64_t GetNativeHandle() const;
-		void* GetBackend() override;
+		void* GetBackend();
 
 		com_ptr<ID3D12Heap>& GetHeap();
 
@@ -85,13 +85,13 @@ namespace XUSG
 		void Unmap(const Range* pWrittenRange = nullptr);
 		void GetTiling(uint32_t* pTotalNumTiles, PackedMipInfo* pPackedMipInfo = nullptr,
 			TileShape* pStandardTileShapeForNonPackedMips = nullptr, uint32_t* pNumSubresourceTilings = nullptr,
-			uint32_t firstSubresourceTiling = 0, SubresourceTiling* pSubresourceTilingsForNonPackedMips = nullptr) const;
+			uint32_t firstSubresourceTiling = 0, SubresourceTiling* pSubresourceTilingsForNonPackedMips = nullptr);
 
 		void Create(uint64_t nativeHandle, Device* pDevice, uint32_t maxThreads = 1);
 		void SetName(const wchar_t* name);
 
 		uint64_t GetNativeHandle() const;
-		void* GetBackend() override;
+		void* GetBackend();
 
 		com_ptr<ID3D12Resource>& GetResource();
 
@@ -243,18 +243,18 @@ namespace XUSG
 			uint32_t numBarriers = 0, uint16_t arraySlice = 0, BarrierFlag flags = BarrierFlag::NONE,
 			ResourceState srcState = ResourceState::AUTO, uint8_t plane = 0, uint32_t threadIdx = 0);
 
-		void Blit(const CommandList* pCommandList, uint32_t groupSizeX, uint32_t groupSizeY,
+		void Blit(CommandList* pCommandList, uint32_t groupSizeX, uint32_t groupSizeY,
 			uint32_t groupSizeZ, const DescriptorTable& uavSrvTable, uint32_t uavSrvSlot = 0,
 			uint8_t mipLevel = 0, const DescriptorTable& srvTable = XUSG_NULL, uint32_t srvSlot = 0,
 			const DescriptorTable& samplerTable = XUSG_NULL, uint32_t samplerSlot = 1,
 			const Pipeline& pipeline = nullptr) const;
 
-		uint32_t Blit(const CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
+		uint32_t Blit(CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
 			uint32_t groupSizeY, uint32_t groupSizeZ, uint8_t mipLevel, int8_t srcMipLevel,
 			ResourceState srcState, const DescriptorTable& uavSrvTable, uint32_t uavSrvSlot = 0,
 			uint32_t numBarriers = 0, const DescriptorTable& srvTable = XUSG_NULL, uint32_t srvSlot = 0,
 			uint16_t baseSlice = 0, uint16_t numSlices = 0, uint32_t threadIdx = 0);
-		uint32_t GenerateMips(const CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
+		uint32_t GenerateMips(CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
 			uint32_t groupSizeY, uint32_t groupSizeZ, ResourceState dstState, const PipelineLayout& pipelineLayout,
 			const Pipeline& pipeline, const DescriptorTable* pUavSrvTables, uint32_t uavSrvSlot = 0,
 			const DescriptorTable& samplerTable = XUSG_NULL, uint32_t samplerSlot = 1, uint32_t numBarriers = 0,
@@ -354,19 +354,19 @@ namespace XUSG
 			uint8_t mipLevel = 0, bool multisamples = false);
 
 		using Texture_DX12::Blit;
-		void Blit(const CommandList* pCommandList, const DescriptorTable& srcSrvTable,
+		void Blit(CommandList* pCommandList, const DescriptorTable& srcSrvTable,
 			uint32_t srcSlot = 0, uint8_t mipLevel = 0, uint16_t baseSlice = 0,
 			uint16_t numSlices = 0, const DescriptorTable& samplerTable = XUSG_NULL,
 			uint32_t samplerSlot = 1, const Pipeline& pipeline = nullptr,
 			uint32_t offsetForSliceId = 0, uint32_t cbSlot = 2) const;
 
-		uint32_t Blit(const CommandList* pCommandList, ResourceBarrier* pBarriers, uint8_t mipLevel,
+		uint32_t Blit(CommandList* pCommandList, ResourceBarrier* pBarriers, uint8_t mipLevel,
 			int8_t srcMipLevel, ResourceState srcState, const DescriptorTable& srcSrvTable,
 			uint32_t srcSlot = 0, uint32_t numBarriers = 0, uint16_t baseSlice = 0, uint16_t numSlices = 0,
 			uint32_t offsetForSliceId = 0, uint32_t cbSlot = 2, uint32_t threadIdx = 0);
 
 		using Texture_DX12::GenerateMips;
-		uint32_t GenerateMips(const CommandList* pCommandList, ResourceBarrier* pBarriers, ResourceState dstState,
+		uint32_t GenerateMips(CommandList* pCommandList, ResourceBarrier* pBarriers, ResourceState dstState,
 			const PipelineLayout& pipelineLayout, const Pipeline& pipeline, const DescriptorTable* pSrcSrvTables,
 			uint32_t srcSlot = 0, const DescriptorTable& samplerTable = XUSG_NULL, uint32_t samplerSlot = 1,
 			uint32_t numBarriers = 0, uint8_t baseMip = 1, uint8_t numMips = 0, uint16_t baseSlice = 0,
@@ -750,9 +750,5 @@ namespace XUSG
 		return static_cast<Resource_DX12*>(p ? p->GetBackend() : nullptr);
 	}
 
-	inline Heap_DX12* AsDX12(Heap* p)
-	{
-		assert(!p || p->GetBackend());
-		return static_cast<Heap_DX12*>(p ? p->GetBackend() : nullptr);
-	}
+	Heap_DX12* AsDX12(Heap* p);
 }

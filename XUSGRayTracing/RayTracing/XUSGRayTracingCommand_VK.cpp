@@ -122,7 +122,7 @@ void RayTracing::CommandList_VK::BuildRaytracingAccelerationStructure(const Buil
 }
 
 void RayTracing::CommandList_VK::EmitRaytracingAccelerationStructurePostbuildInfo(const PostbuildInfo* pDesc,
-	uint32_t numAccelerationStructures, const uint64_t* pAccelerationStructureData) const
+	uint32_t numAccelerationStructures, const uint64_t* pAccelerationStructureData)
 {
 	assert(pDesc);
 	assert(numAccelerationStructures == 0 || pAccelerationStructureData);
@@ -350,7 +350,7 @@ bool RayTracing::CommandList_VK::createInterface()
 	return true;
 }
 
-RayTracing::CommandList_VK::QueryAllocation RayTracing::CommandList_VK::allocateQueries(VkQueryType type, uint32_t count) const
+RayTracing::CommandList_VK::QueryAllocation RayTracing::CommandList_VK::allocateQueries(VkQueryType type, uint32_t count)
 {
 	for (auto& pool : m_rt->m_queryPools)
 	{
@@ -387,6 +387,12 @@ RayTracing::CommandList_VK::QueryAllocation RayTracing::CommandList_VK::allocate
 	m_rt->m_queryPools.push_back(created);
 
 	return { created.Pool, 0 };
+}
+
+RayTracing::CommandList_VK* XUSG::RayTracing::AsVK(RayTracing::CommandList* p)
+{
+	assert(!p || p->GetRTBackend());
+	return static_cast<RayTracing::CommandList_VK*>(p ? p->GetRTBackend() : nullptr);
 }
 
 VkQueryType XUSG::RayTracing::GetVKAccelerationStructurePostbuildQueryType(PostbuildInfoType type)

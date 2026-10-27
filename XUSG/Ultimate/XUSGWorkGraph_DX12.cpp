@@ -584,3 +584,9 @@ com_ptr<ID3D12WorkGraphProperties> PipelineLib_DX12::getWorkGraphProperties(cons
 
 	return properties;
 }
+
+State_DX12* XUSG::WorkGraph::AsDX12(State* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<State_DX12*>(p ? p->GetBackend() : nullptr);
+}

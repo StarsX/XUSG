@@ -71,7 +71,7 @@ namespace XUSG
 		void SetName(const wchar_t* name);
 
 		uint64_t GetNativeHandle() const;
-		void* GetBackend() override;
+		void* GetBackend();
 
 		VkDeviceMemory GetMemory() const;
 		uint32_t GetMemoryType() const;
@@ -118,7 +118,7 @@ namespace XUSG
 		void Unmap(const Range* pWrittenRange = nullptr);
 		void GetTiling(uint32_t* pTotalNumTiles, PackedMipInfo* pPackedMipInfo = nullptr,
 			TileShape* pStandardTileShapeForNonPackedMips = nullptr, uint32_t* pNumSubresourceTilings = nullptr,
-			uint32_t firstSubresourceTiling = 0, SubresourceTiling* pSubresourceTilingsForNonPackedMips = nullptr) const;
+			uint32_t firstSubresourceTiling = 0, SubresourceTiling* pSubresourceTilingsForNonPackedMips = nullptr);
 
 		struct SparseTileBind
 		{
@@ -129,20 +129,20 @@ namespace XUSG
 
 		bool IsSparse() const;
 		bool ImageTileCopy(const TiledResourceCoord& coord, const TileRegionSize& region, uint32_t index,
-			VkDeviceSize bufferOffset, VkBufferImageCopy& copy) const;
-		bool BufferTileCopy(uint32_t startTile, uint32_t numTiles, VkDeviceSize& offset, VkDeviceSize& size) const;
+			VkDeviceSize bufferOffset, VkBufferImageCopy& copy);
+		bool BufferTileCopy(uint32_t startTile, uint32_t numTiles, VkDeviceSize& offset, VkDeviceSize& size);
 		void BindTileMappings(VkQueue queue, uint32_t numResourceRegions,
 			const TiledResourceCoord* pResourceRegionStartCoords, const TileRegionSize* pResourceRegionSizes,
 			Heap* pHeap, uint32_t numHeapRanges, const TileRangeFlag* pHeapRangeFlags,
 			const uint32_t* pHeapRangeStartOffsets, const uint32_t* pHeapRangeTileCounts);
-		void CopyBoundTiles(VkQueue queue, const TiledResourceCoord& dstCoord, const Resource_VK* pSrc,
+		void CopyBoundTiles(VkQueue queue, const TiledResourceCoord& dstCoord, Resource_VK* pSrc,
 			const TiledResourceCoord& srcCoord, const TileRegionSize& region);
 
 		void Create(uint64_t nativeHandle, Device* pDevice, uint32_t maxThreads = 1);
 		void SetName(const wchar_t* name);
 
 		uint64_t GetNativeHandle() const;
-		void* GetBackend() override;
+		void* GetBackend();
 
 		bool Is3D() const;
 		bool IsImage() const;
@@ -181,9 +181,9 @@ namespace XUSG
 			uint8_t numCastableFormats = 0, const Format* pCastableFormats = nullptr, bool reserved = false);
 		bool finishSparseImage();
 		void releaseSparseMetadata();
-		void ensureTiling() const;
+		void ensureTiling();
 		bool tileIndex(const TiledResourceCoord& coord, const TileRegionSize& region, uint32_t indexInRegion,
-			uint32_t& tile) const;
+			uint32_t& tile);
 		void bindTiles(VkQueue queue, const std::vector<SparseTileBind>& binds);
 		std::shared_ptr<ResourceView_VK> storeView(ResourceViewType type, VkDescriptorType vkType, bool image, bool texel);
 		uint32_t subresourceCount() const;
@@ -257,14 +257,14 @@ namespace XUSG
 		uint32_t m_sparseTypeBits;
 		VkSparseImageMemoryRequirements m_sparseInfo;
 
-		mutable bool m_tilingReady;
-		mutable uint32_t m_totalTiles;
-		mutable bool m_singleMipTail;
-		mutable PackedMipInfo m_packed;
-		mutable TileShape m_tileShape;
-		mutable std::vector<TileSubresource> m_subresources;
-		mutable std::vector<uint32_t> m_nonPacked;
-		mutable std::vector<SparseTile> m_tiles;
+		bool m_tilingReady;
+		uint32_t m_totalTiles;
+		bool m_singleMipTail;
+		PackedMipInfo m_packed;
+		TileShape m_tileShape;
+		std::vector<TileSubresource> m_subresources;
+		std::vector<uint32_t> m_nonPacked;
+		std::vector<SparseTile> m_tiles;
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -396,17 +396,17 @@ namespace XUSG
 			uint32_t numBarriers = 0, uint16_t arraySlice = 0, BarrierFlag flags = BarrierFlag::NONE,
 			ResourceState srcState = ResourceState::AUTO, uint8_t plane = 0, uint32_t threadIdx = 0);
 
-		void Blit(const CommandList* pCommandList, uint32_t groupSizeX, uint32_t groupSizeY,
+		void Blit(CommandList* pCommandList, uint32_t groupSizeX, uint32_t groupSizeY,
 			uint32_t groupSizeZ, const DescriptorTable& uavSrvTable, uint32_t uavSrvSlot = 0,
 			uint8_t mipLevel = 0, const DescriptorTable& srvTable = XUSG_NULL, uint32_t srvSlot = 0,
 			const DescriptorTable& samplerTable = XUSG_NULL, uint32_t samplerSlot = 1,
 			const Pipeline& pipeline = nullptr) const;
-		uint32_t Blit(const CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
+		uint32_t Blit(CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
 			uint32_t groupSizeY, uint32_t groupSizeZ, uint8_t mipLevel, int8_t srcMipLevel,
 			ResourceState srcState, const DescriptorTable& uavSrvTable, uint32_t uavSrvSlot = 0,
 			uint32_t numBarriers = 0, const DescriptorTable& srvTable = XUSG_NULL, uint32_t srvSlot = 0,
 			uint16_t baseSlice = 0, uint16_t numSlices = 0, uint32_t threadIdx = 0);
-		uint32_t GenerateMips(const CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
+		uint32_t GenerateMips(CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
 			uint32_t groupSizeY, uint32_t groupSizeZ, ResourceState dstState, const PipelineLayout& pipelineLayout,
 			const Pipeline& pipeline, const DescriptorTable* pUavSrvTables, uint32_t uavSrvSlot = 0,
 			const DescriptorTable& samplerTable = XUSG_NULL, uint32_t samplerSlot = 1, uint32_t numBarriers = 0,
@@ -510,17 +510,17 @@ namespace XUSG
 			Format format = Format::UNKNOWN, uint8_t mipLevel = 0, bool multisamples = false);
 
 		using Texture_VK::Blit;
-		void Blit(const CommandList* pCommandList, const DescriptorTable& srcSrvTable,
+		void Blit(CommandList* pCommandList, const DescriptorTable& srcSrvTable,
 			uint32_t srcSlot = 0, uint8_t mipLevel = 0, uint16_t baseSlice = 0,
 			uint16_t numSlices = 0, const DescriptorTable& samplerTable = XUSG_NULL,
 			uint32_t samplerSlot = 1, const Pipeline& pipeline = nullptr,
 			uint32_t offsetForSliceId = 0, uint32_t cbSlot = 2) const;
-		uint32_t Blit(const CommandList* pCommandList, ResourceBarrier* pBarriers, uint8_t mipLevel,
+		uint32_t Blit(CommandList* pCommandList, ResourceBarrier* pBarriers, uint8_t mipLevel,
 			int8_t srcMipLevel, ResourceState srcState, const DescriptorTable& srcSrvTable,
 			uint32_t srcSlot = 0, uint32_t numBarriers = 0, uint16_t baseSlice = 0, uint16_t numSlices = 0,
 			uint32_t offsetForSliceId = 0, uint32_t cbSlot = 2, uint32_t threadIdx = 0);
 		using Texture_VK::GenerateMips;
-		uint32_t GenerateMips(const CommandList* pCommandList, ResourceBarrier* pBarriers, ResourceState dstState,
+		uint32_t GenerateMips(CommandList* pCommandList, ResourceBarrier* pBarriers, ResourceState dstState,
 			const PipelineLayout& pipelineLayout, const Pipeline& pipeline, const DescriptorTable* pSrcSrvTables,
 			uint32_t srcSlot = 0, const DescriptorTable& samplerTable = XUSG_NULL, uint32_t samplerSlot = 1,
 			uint32_t numBarriers = 0, uint8_t baseMip = 1, uint8_t numMips = 0, uint16_t baseSlice = 0,
@@ -885,9 +885,5 @@ namespace XUSG
 		return static_cast<Resource_VK*>(p ? p->GetBackend() : nullptr);
 	}
 
-	inline Heap_VK* AsVK(Heap* p)
-	{
-		assert(!p || p->GetBackend());
-		return static_cast<Heap_VK*>(p ? p->GetBackend() : nullptr);
-	}
+	Heap_VK* AsVK(Heap* p);
 }

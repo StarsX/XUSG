@@ -61,7 +61,7 @@ void RayTracing::CommandList_DX12::Create(void* pNativeHandle, Device* pDevice)
 	createInterface();
 }
 
-void RayTracing::CommandList_DX12::Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers) const
+void RayTracing::CommandList_DX12::Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers)
 {
 	if (numBarriers)
 	{
@@ -107,7 +107,7 @@ void RayTracing::CommandList_DX12::BuildRaytracingAccelerationStructure(const Bu
 }
 
 void RayTracing::CommandList_DX12::EmitRaytracingAccelerationStructurePostbuildInfo(const PostbuildInfo* pDesc,
-	uint32_t numAccelerationStructures, const uint64_t* pAccelerationStructureData) const
+	uint32_t numAccelerationStructures, const uint64_t* pAccelerationStructureData)
 {
 	assert(pDesc);
 	D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_DESC desc;

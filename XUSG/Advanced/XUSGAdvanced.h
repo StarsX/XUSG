@@ -422,10 +422,10 @@ namespace XUSG
 #if XUSG_TEMPORAL_AA
 		virtual void SetTemporalBias(const DirectX::XMFLOAT2& temporalBias) = 0;
 #endif
-		virtual void SetPipelineLayout(const CommandList* pCommandList, PipelineLayoutIndex layout) const = 0;
-		virtual void SetPipeline(const CommandList* pCommandList, PipelineIndex pipeline) const = 0;
-		virtual void SetPipeline(const CommandList* pCommandList, SubsetFlags subsetFlag, PipelineLayoutIndex layout) const = 0;
-		virtual void Render(const CommandList* pCommandList, SubsetFlags subsetFlags, uint8_t matrixTableIndex,
+		virtual void SetPipelineLayout(CommandList* pCommandList, PipelineLayoutIndex layout) const = 0;
+		virtual void SetPipeline(CommandList* pCommandList, PipelineIndex pipeline) const = 0;
+		virtual void SetPipeline(CommandList* pCommandList, SubsetFlags subsetFlag, PipelineLayoutIndex layout) const = 0;
+		virtual void Render(CommandList* pCommandList, SubsetFlags subsetFlags, uint8_t matrixTableIndex,
 			PipelineLayoutIndex layout = NUM_PIPELINE_LAYOUT, const DescriptorTable* pCbvPerFrameTable = nullptr,
 			uint32_t numInstances = 1) const = 0;
 
@@ -494,10 +494,10 @@ namespace XUSG
 		virtual void Update(uint8_t frameIndex, double time) = 0;
 		virtual void Update(uint8_t frameIndex, double time, DirectX::FXMMATRIX* pWorld, bool isTemporal = true) = 0;
 		virtual void SetMatrices(DirectX::FXMMATRIX* pWorld = nullptr, bool isTemporal = true) = 0;
-		virtual void SetSkinningPipeline(const CommandList* pCommandList) const = 0;
-		virtual void Skinning(const CommandList* pCommandList, uint32_t& numBarriers,
+		virtual void SetSkinningPipeline(CommandList* pCommandList) const = 0;
+		virtual void Skinning(CommandList* pCommandList, uint32_t& numBarriers,
 			ResourceBarrier* pBarriers, bool reset = false) const = 0;
-		virtual void RenderTransformed(const CommandList* pCommandList, PipelineLayoutIndex layout,
+		virtual void RenderTransformed(CommandList* pCommandList, PipelineLayoutIndex layout,
 			SubsetFlags subsetMask = SUBSET_FULL, const DescriptorTable* pCbvPerFrameTable = nullptr,
 			uint32_t numInstances = 1) const = 0;
 
@@ -547,7 +547,7 @@ namespace XUSG
 		virtual bool CreateDescriptorTables() = 0;
 
 		virtual void Update(uint8_t frameIndex, DirectX::FXMMATRIX* pWorld = nullptr, bool isTemporal = true) = 0;
-		virtual void Render(const CommandList* pCommandList, uint32_t mesh, PipelineLayoutIndex layout,
+		virtual void Render(CommandList* pCommandList, uint32_t mesh, PipelineLayoutIndex layout,
 			SubsetFlags subsetMask = SUBSET_FULL, const DescriptorTable* pCbvPerFrameTable = nullptr,
 			uint32_t numInstances = 1) const = 0;
 
@@ -622,7 +622,7 @@ namespace XUSG
 		virtual void Update(uint8_t frameIndex, const DirectX::XMFLOAT4X4& view,
 			const DirectX::XMFLOAT4X4& proj, const DirectX::XMFLOAT4& lightPt) = 0;
 
-		virtual void SetViewport(const CommandList* pCommandList, uint8_t i) const = 0;
+		virtual void SetViewport(CommandList* pCommandList, uint8_t i) const = 0;
 		virtual void GetShadowMatrices(DirectX::XMMATRIX* pShadows) const = 0;
 
 		virtual DepthStencil* GetShadowMap() const = 0;
@@ -652,7 +652,7 @@ namespace XUSG
 			const DescriptorTableLib::sptr& descriptorTableLib,
 			uint8_t baseCSIndex, uint8_t descriptorHeapIndex = 0) = 0;
 
-		virtual void Transform(const CommandList* pCommandList, Resource* pRadiance,
+		virtual void Transform(CommandList* pCommandList, Resource* pRadiance,
 			const DescriptorTable& srvTable, uint8_t order = 3) = 0;
 
 		virtual StructuredBuffer::sptr GetSHCoefficients() const = 0;
@@ -688,12 +688,12 @@ namespace XUSG
 
 		virtual void Update(uint8_t frameIndex, DirectX::FXMMATRIX* pViewProj, DirectX::FXMMATRIX* pWorld = nullptr) = 0;
 		virtual void SetGlobalCBVTables(DescriptorTable cbvImmutable, DescriptorTable cbvPerFrameTable) = 0;
-		virtual void RenderSky(const CommandList* pCommandList) const = 0;
-		virtual void RenderWater(const CommandList* pCommandList, uint8_t numRTVs, const Descriptor* pRTVs,
+		virtual void RenderSky(CommandList* pCommandList) const = 0;
+		virtual void RenderWater(CommandList* pCommandList, uint8_t numRTVs, const Descriptor* pRTVs,
 			const Descriptor& dsv, uint32_t& numBarriers, ResourceBarrier* pBarriers) = 0;
 
 		virtual Descriptor GetSkySRV() const = 0;
-		virtual DescriptorTable GetSHCoeffSRVTable(const CommandList* pCommandList) = 0;
+		virtual DescriptorTable GetSHCoeffSRVTable(CommandList* pCommandList) = 0;
 
 		using uptr = std::unique_ptr<Nature>;
 		using sptr = std::shared_ptr<Nature>;
@@ -760,18 +760,18 @@ namespace XUSG
 		virtual void Update(uint8_t frameIndex, double time, float timeStep) = 0;
 		virtual void Update(uint8_t frameIndex, double time, float timeStep, DirectX::CXMMATRIX view,
 			DirectX::CXMMATRIX proj, DirectX::CXMVECTOR eyePt, bool enableJitter = true) = 0;
-		virtual void Render(const CommandList* pCommandList) = 0;
-		virtual void SkinCharacters(const CommandList* pCommandList, uint32_t& numBarriers,
+		virtual void Render(CommandList* pCommandList) = 0;
+		virtual void SkinCharacters(CommandList* pCommandList, uint32_t& numBarriers,
 			ResourceBarrier* pBarriers, bool reset = false) = 0;
-		virtual void RenderDepth(const CommandList* pCommandList, uint32_t& numBarriers,
+		virtual void RenderDepth(CommandList* pCommandList, uint32_t& numBarriers,
 			ResourceBarrier* pBarriers, BarrierFlag barrierFlag) = 0;
-		virtual void RenderShadowMap(const CommandList* pCommandList, uint32_t& numBarriers,
+		virtual void RenderShadowMap(CommandList* pCommandList, uint32_t& numBarriers,
 			ResourceBarrier* pBarriers, BarrierFlag barrierFlag) = 0;
-		virtual void RenderGBuffersOpaque(const CommandList* pCommandList, uint32_t& numBarriers,
+		virtual void RenderGBuffersOpaque(CommandList* pCommandList, uint32_t& numBarriers,
 			ResourceBarrier* pBarriers, const BarrierFlag barrierFlags[NUM_GB_FIXED]) = 0;
-		virtual void RenderGBuffersAlpha(const CommandList* pCommandList, uint32_t& numBarriers,
+		virtual void RenderGBuffersAlpha(CommandList* pCommandList, uint32_t& numBarriers,
 			ResourceBarrier* pBarriers, const BarrierFlag barrierFlags[NUM_GB_RTV]) = 0;
-		virtual void RenderGBuffers(const CommandList* pCommandList, uint32_t& numBarriers,
+		virtual void RenderGBuffers(CommandList* pCommandList, uint32_t& numBarriers,
 			ResourceBarrier* pBarriers, const BarrierFlag barrierFlags[NUM_GB_RTV]) = 0;
 		virtual void SetViewProjMatrix(DirectX::CXMMATRIX view, DirectX::CXMMATRIX proj, bool enableJitter) = 0;
 		virtual void SetEyePoint(DirectX::CXMVECTOR eyePt) = 0;
@@ -825,14 +825,14 @@ namespace XUSG
 
 		virtual void Update(const DescriptorTable& cbvImmutable, const DescriptorTable& cbvPerFrameTable,
 			uint8_t frameIndex, float timeStep) = 0;
-		virtual void Render(const CommandList* pCommandList, RenderTarget* pDst, Texture* pSrc,
+		virtual void Render(CommandList* pCommandList, RenderTarget* pDst, Texture* pSrc,
 			const DescriptorTable& srvTable, bool clearRT = false) const = 0;
-		virtual void ScreenRender(const CommandList* pCommandList, PipelineIndex pipelineIndex,
+		virtual void ScreenRender(CommandList* pCommandList, PipelineIndex pipelineIndex,
 			const DescriptorTable& srvTable, bool hasImmutableCB, bool hasPerFrameCB) const = 0;
-		virtual void LumAdaption(const CommandList* pCommandList, const DescriptorTable& uavSrvTable) const = 0;
-		virtual void Antialias(const CommandList* pCommandList, uint8_t numRTVs, RenderTarget** ppDsts,
+		virtual void LumAdaption(CommandList* pCommandList, const DescriptorTable& uavSrvTable) const = 0;
+		virtual void Antialias(CommandList* pCommandList, uint8_t numRTVs, RenderTarget** ppDsts,
 			uint8_t numSRVs, Texture** ppSrcs, const DescriptorTable& srvTable) const = 0;
-		virtual void Unsharp(const CommandList* pCommandList, uint8_t numRTVs,
+		virtual void Unsharp(CommandList* pCommandList, uint8_t numRTVs,
 			const Descriptor* pRTVs, const DescriptorTable& srvTable) const = 0;
 
 		virtual DescriptorTable CreateTAASrvTable(const Descriptor& srvCurrent, const Descriptor& srvPrevious,

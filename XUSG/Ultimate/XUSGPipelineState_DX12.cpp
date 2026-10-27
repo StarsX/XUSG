@@ -403,7 +403,7 @@ void PipelineLib_DX12::SetInputLayout(uint32_t index, uint32_t numElements, cons
 	m_inputLayoutLib.SetLayout(index, numElements, pElements);
 }
 
-const InputLayout* PipelineLib_DX12::GetInputLayout(uint32_t index) const
+const InputLayout* PipelineLib_DX12::GetInputLayout(uint32_t index)
 {
 	return m_inputLayoutLib.GetLayout(index);
 }
@@ -1284,4 +1284,10 @@ void PipelineLib_DX12::getStream(CD3DX12_PIPELINE_STATE_STREAM5* pStream, void* 
 	}
 	viewInstancing.pViewInstanceLocations = viewInstances;
 	viewInstancing.Flags = GetDX12ViewInstanceFlags(pDesc->ViewInstanceFlags);
+}
+
+State_DX12* XUSG::Ultimate::AsDX12(State* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<State_DX12*>(p ? p->GetBackend() : nullptr);
 }

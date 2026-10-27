@@ -19,7 +19,7 @@ namespace XUSG
 		public:
 			State_VK();
 			virtual ~State_VK();
-			void* GetBackend() override;
+			void* GetBackend();
 
 			void SetPipelineLayout(const PipelineLayout& layout);
 			void SetShaderLibrary(uint8_t index, const Blob& shaderLib);
@@ -102,7 +102,7 @@ namespace XUSG
 			void SetPipeline(State* pState, const Pipeline& pipeline);
 
 			void SetInputLayout(uint32_t index, uint32_t numElements, const InputElement* pElements);
-			const InputLayout* GetInputLayout(uint32_t index) const;
+			const InputLayout* GetInputLayout(uint32_t index);
 			const InputLayout* CreateInputLayout(uint32_t numElements, const InputElement* pElements);
 
 			Pipeline CreatePipeline(State* pState, const wchar_t* name = nullptr);
@@ -134,10 +134,6 @@ namespace XUSG
 			std::mutex m_mtx;
 		};
 
-		inline State_VK* AsVK(State* p)
-		{
-			assert(!p || p->GetBackend());
-			return static_cast<State_VK*>(p ? p->GetBackend() : nullptr);
-		}
+		State_VK* AsVK(State* p);
 	}
 }

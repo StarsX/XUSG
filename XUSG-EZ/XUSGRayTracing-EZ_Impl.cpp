@@ -26,10 +26,10 @@ XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::CommandL
 	UltimateList(),
 	Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>(),
 	m_rayTracingPipelineLib(nullptr),
-	m_scratchSize(0),
-	m_scratches(0),
-	m_isRTStateDirty(false),
 	m_rayTracingState(nullptr),
+	m_scratchSize(0),
+	m_isRTStateDirty(false),
+	m_scratches(0),
 	m_tlasBindingToParamIndexMap(0),
 	m_pHitGroup(nullptr)
 {
@@ -533,6 +533,24 @@ void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::Dis
 	
 	CoreList::ExecuteIndirect(pCommandlayout, maxCommandCount,
 		pArgumentBuffer, argumentBufferOffset, pCountBuffer, countBufferOffset);
+}
+
+template<typename CoreList, typename UltimateList, typename RTList>
+size_t XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::GetDispatchRaysArgReservedOffset() const
+{
+	return sizeof(DX12DispatchRaysDescHeader);
+}
+
+template<typename CoreList, typename UltimateList, typename RTList>
+RayTracing::Device* XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::GetRTDevice() const
+{
+	return RTList::GetRTDevice();
+}
+
+template<typename CoreList, typename UltimateList, typename RTList>
+RayTracing::CommandList* XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::AsRTCommandList()
+{
+	return static_cast<RayTracing::CommandList*>(static_cast<RTList*>(this));
 }
 
 template<typename CoreList, typename UltimateList, typename RTList>

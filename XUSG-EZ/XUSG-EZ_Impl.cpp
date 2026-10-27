@@ -27,24 +27,24 @@ EZ::CommandList_Impl<Base>::CommandList_Impl() :
 	m_computePipelineLib(nullptr),
 	m_pipelineLayoutLib(nullptr),
 	m_descriptorTableLib(nullptr),
+	m_graphicsState(nullptr),
+	m_computeState(nullptr),
+	m_samplerTables(),
 	m_pInputLayout(nullptr),
 	m_pipelineLayouts(),
 	m_blitPipelineLayout(nullptr),
 	m_pipeline(nullptr),
-	m_graphicsState(nullptr),
-	m_computeState(nullptr),
 	m_isGraphicsDirty(false),
 	m_isComputeDirty(false),
 	m_descriptors(0),
 	m_cbvSrvUavTables(),
-	m_samplerTables(),
 	m_barriers(0),
 	m_clearDSVs(0),
 	m_clearRTVs(0),
 	m_graphicsSpaceToParamIndexMap(),
 	m_computeSpaceToParamIndexMap(),
-	m_spaceStarts(),
 	m_graphicsSetDescriptorTables(),
+	m_spaceStarts(),
 	m_graphicsConstantParamIndices(),
 	m_computeConstantParamIndex(0),
 	m_shaders()
@@ -157,7 +157,7 @@ bool EZ::CommandList_Impl<Base>::Create(Device* pDevice, void* pNativeHandle,
 }
 
 template<typename Base>
-bool EZ::CommandList_Impl<Base>::Close(RenderTarget* pBackBuffer) const
+bool EZ::CommandList_Impl<Base>::Close(RenderTarget* pBackBuffer)
 {
 	if (pBackBuffer)
 	{
@@ -191,6 +191,12 @@ bool EZ::CommandList_Impl<Base>::Reset(uint8_t allocatorIndex, const Pipeline& i
 	m_clearDSVs.clear();
 
 	return true;
+}
+
+template<typename Base>
+void EZ::CommandList_Impl<Base>::ClearState(const Pipeline& initialState) const
+{
+	Base::ClearState(initialState);
 }
 
 template<typename Base>
@@ -240,7 +246,7 @@ void EZ::CommandList_Impl<Base>::DispatchIndirect(CommandLayout* pCommandlayout,
 
 template<typename Base>
 void EZ::CommandList_Impl<Base>::CopyBufferRegion(Resource* pDstBuffer, uint64_t dstOffset,
-	Resource* pSrcBuffer, uint64_t srcOffset, uint64_t numBytes) const
+	Resource* pSrcBuffer, uint64_t srcOffset, uint64_t numBytes)
 {
 	// Generate barriers for each resource
 	ResourceBarrier barriers[2];
@@ -253,7 +259,7 @@ void EZ::CommandList_Impl<Base>::CopyBufferRegion(Resource* pDstBuffer, uint64_t
 
 template<typename Base>
 void EZ::CommandList_Impl<Base>::CopyTextureRegion(TextureCopyLocation& dst, uint32_t dstX, uint32_t dstY, uint32_t dstZ,
-	TextureCopyLocation& src, const BoxRange* pSrcBox) const
+	TextureCopyLocation& src, const BoxRange* pSrcBox)
 {
 	// Generate barriers for each resource
 	ResourceBarrier barriers[2];
@@ -265,7 +271,7 @@ void EZ::CommandList_Impl<Base>::CopyTextureRegion(TextureCopyLocation& dst, uin
 }
 
 template<typename Base>
-void EZ::CommandList_Impl<Base>::CopyResource(Resource* pDstResource, Resource* pSrcResource) const
+void EZ::CommandList_Impl<Base>::CopyResource(Resource* pDstResource, Resource* pSrcResource)
 {
 	// Generate barriers for each resource
 	ResourceBarrier barriers[2];
@@ -278,7 +284,7 @@ void EZ::CommandList_Impl<Base>::CopyResource(Resource* pDstResource, Resource* 
 
 template<typename Base>
 void EZ::CommandList_Impl<Base>::CopyTiles(Resource* pTiledResource, const TiledResourceCoord* pTileRegionStartCoord,
-	const TileRegionSize& tileRegionSize, Resource* pBuffer, uint64_t bufferStartOffsetInBytes, TileCopyFlag flags) const
+	const TileRegionSize& tileRegionSize, Resource* pBuffer, uint64_t bufferStartOffsetInBytes, TileCopyFlag flags)
 {
 	ResourceBarrier barrier;
 	const auto numBarriers = pTiledResource->SetBarrier(&barrier, ResourceState::COPY_DEST);
@@ -290,7 +296,7 @@ void EZ::CommandList_Impl<Base>::CopyTiles(Resource* pTiledResource, const Tiled
 
 template<typename Base>
 void EZ::CommandList_Impl<Base>::ResolveSubresource(Resource* pDstResource, uint32_t dstSubresource,
-	Resource* pSrcResource, uint32_t srcSubresource, Format format) const
+	Resource* pSrcResource, uint32_t srcSubresource, Format format)
 {
 	assert(pDstResource);
 	assert(pSrcResource);
@@ -337,6 +343,18 @@ void EZ::CommandList_Impl<Base>::RSSetState(Graphics::RasterizerPreset preset)
 }
 
 template<typename Base>
+void EZ::CommandList_Impl<Base>::RSSetViewports(uint32_t numViewports, const Viewport* pViewports) const
+{
+	Base::RSSetViewports(numViewports, pViewports);
+}
+
+template<typename Base>
+void EZ::CommandList_Impl<Base>::RSSetScissorRects(uint32_t numRects, const RectRange* pRects) const
+{
+	Base::RSSetScissorRects(numRects, pRects);
+}
+
+template<typename Base>
 void EZ::CommandList_Impl<Base>::OMSetBlendState(const Graphics::Blend* pBlend, uint32_t sampleMask)
 {
 	assert(m_graphicsState);
@@ -350,6 +368,18 @@ void EZ::CommandList_Impl<Base>::OMSetBlendState(Graphics::BlendPreset preset, u
 	assert(m_graphicsState);
 	m_graphicsState->OMSetBlendState(preset, m_graphicsPipelineLib.get(), numColorRTs, sampleMask);
 	m_isGraphicsDirty = true;
+}
+
+template<typename Base>
+void EZ::CommandList_Impl<Base>::OMSetBlendFactor(const float blendFactor[4]) const
+{
+	Base::OMSetBlendFactor(blendFactor);
+}
+
+template<typename Base>
+void EZ::CommandList_Impl<Base>::OMSetStencilRef(uint32_t stencilRef) const
+{
+	Base::OMSetStencilRef(stencilRef);
 }
 
 template<typename Base>
@@ -463,6 +493,12 @@ void EZ::CommandList_Impl<Base>::SetComputePipelineState(const Pipeline& pipelin
 		}
 		m_isComputeDirty = false;
 	}
+}
+
+template<typename Base>
+void EZ::CommandList_Impl<Base>::ExecuteBundle(XUSG::CommandList* pCommandList) const
+{
+	Base::ExecuteBundle(pCommandList);
 }
 
 template<typename Base>
@@ -767,6 +803,56 @@ void EZ::CommandList_Impl<Base>::ClearUnorderedAccessViewFloat(const ResourceVie
 }
 
 template<typename Base>
+void EZ::CommandList_Impl<Base>::DiscardResource(Resource* pResource, uint32_t numRects, const RectRange* pRects,
+	uint32_t firstSubresource, uint32_t numSubresources)
+{
+	Base::DiscardResource(pResource, numRects, pRects, firstSubresource, numSubresources);
+}
+
+template<typename Base>
+void EZ::CommandList_Impl<Base>::BeginQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const
+{
+	Base::BeginQuery(queryHeap, type, index);
+}
+
+template<typename Base>
+void EZ::CommandList_Impl<Base>::EndQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const
+{
+	Base::EndQuery(queryHeap, type, index);
+}
+
+template<typename Base>
+void EZ::CommandList_Impl<Base>::ResolveQueryData(const QueryHeap& queryHeap, QueryType type, uint32_t startIndex,
+	uint32_t numQueries, Resource* pDstBuffer, uint64_t alignedDstBufferOffset) const
+{
+	Base::ResolveQueryData(queryHeap, type, startIndex, numQueries, pDstBuffer, alignedDstBufferOffset);
+}
+
+template<typename Base>
+void EZ::CommandList_Impl<Base>::SetPredication(Resource* pBuffer, uint64_t alignedBufferOffset, bool opEqualZero) const
+{
+	Base::SetPredication(pBuffer, alignedBufferOffset, opEqualZero);
+}
+
+template<typename Base>
+void EZ::CommandList_Impl<Base>::SetMarker(uint32_t metaData, const void* pData, uint32_t size) const
+{
+	Base::SetMarker(metaData, pData, size);
+}
+
+template<typename Base>
+void EZ::CommandList_Impl<Base>::BeginEvent(uint32_t metaData, const void* pData, uint32_t size) const
+{
+	Base::BeginEvent(metaData, pData, size);
+}
+
+template<typename Base>
+void EZ::CommandList_Impl<Base>::EndEvent() const
+{
+	Base::EndEvent();
+}
+
+template<typename Base>
 void EZ::CommandList_Impl<Base>::Resize()
 {
 	m_descriptorTableLib->ResetDescriptorHeap(CBV_SRV_UAV_HEAP);
@@ -900,12 +986,33 @@ uint32_t EZ::CommandList_Impl<Base>::GetComputeConstantParamIndex() const
 }
 
 template<typename Base>
-CommandList* EZ::CommandList_Impl<Base>::AsCommandList() const
+void* EZ::CommandList_Impl<Base>::GetNativeHandle()
 {
-	const auto pCommandList = dynamic_cast<const XUSG::CommandList*>(this);
-	assert(pCommandList);
+	return Base::GetNativeHandle();
+}
 
-	return const_cast<XUSG::CommandList*>(pCommandList);
+template<typename Base>
+void* EZ::CommandList_Impl<Base>::GetDeviceNativeHandle() const
+{
+	return Base::GetDeviceNativeHandle();
+}
+
+template<typename Base>
+void* EZ::CommandList_Impl<Base>::GetBackend()
+{
+	return static_cast<void*>(static_cast<Base*>(this));
+}
+
+template<typename Base>
+Device* EZ::CommandList_Impl<Base>::GetDevice() const
+{
+	return Base::GetDevice();
+}
+
+template<typename Base>
+CommandList* EZ::CommandList_Impl<Base>::AsCommandList()
+{
+	return static_cast<XUSG::CommandList*>(static_cast<Base*>(this));
 }
 
 template<typename Base>

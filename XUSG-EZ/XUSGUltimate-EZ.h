@@ -74,7 +74,7 @@ namespace XUSG
 				virtual void SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions) const = 0;
 				virtual void ResolveSubresourceRegion(Resource* pDstResource, uint32_t dstSubresource,
 					uint32_t dstX, uint32_t dstY, Resource* pSrcResource, uint32_t srcSubresource,
-					const RectRange& srcRect, Format format, ResolveMode resolveMode) const = 0;
+					const RectRange& srcRect, Format format, ResolveMode resolveMode) = 0;
 
 				virtual void RSSetShadingRate(ShadingRate baseShadingRate, const ShadingRateCombiner* pCombiners) const = 0;
 				virtual void RSSetShadingRateImage(Resource* pShadingRateImage) = 0;
@@ -126,7 +126,7 @@ namespace XUSG
 				virtual WorkGraph::NodeID WGGetNodeID(uint32_t nodeIndex) = 0;
 				virtual WorkGraph::NodeID WGGetEntrypointID(uint32_t entryPointIndex) = 0;
 
-				virtual Ultimate::CommandList* AsUltimateCommandList() const = 0;
+				virtual Ultimate::CommandList* AsUltimateCommandList() = 0;
 
 				static uptr MakeUnique();
 				static sptr MakeShared();

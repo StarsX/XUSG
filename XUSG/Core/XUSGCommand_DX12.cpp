@@ -298,7 +298,7 @@ void CommandList_DX12::SetPipelineState(const Pipeline& pipelineState) const
 	m_commandList->SetPipelineState(static_cast<ID3D12PipelineState*>(pipelineState));
 }
 
-void CommandList_DX12::Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers) const
+void CommandList_DX12::Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers)
 {
 	if (numBarriers)
 	{
@@ -342,7 +342,7 @@ void CommandList_DX12::ExecuteBundle(CommandList* pCommandList) const
 	m_commandList->ExecuteBundle(static_cast<ID3D12GraphicsCommandList*>(pCommandList->GetNativeHandle()));
 }
 
-void CommandList_DX12::SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps) const
+void CommandList_DX12::SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps)
 {
 	assert(numDescriptorHeaps == 0 || pDescriptorHeaps);
 	assert(numDescriptorHeaps <= size(m_descriptorHeapStarts));
@@ -568,13 +568,13 @@ void CommandList_DX12::OMSetRenderTargets(uint32_t numRenderTargetDescriptors,
 }
 
 void CommandList_DX12::ClearDepthStencilView(ClearFlag clearFlags, float depth,
-	uint8_t stencil, uint32_t numRects, const RectRange* pRects) const
+	uint8_t stencil, uint32_t numRects, const RectRange* pRects)
 {
 	ClearDepthStencilView(nullptr, clearFlags, depth, stencil, numRects, pRects);
 }
 
 void CommandList_DX12::ClearDepthStencilView(const Descriptor& depthStencilView, ClearFlag clearFlags, float depth,
-	uint8_t stencil, uint32_t numRects, const RectRange* pRects) const
+	uint8_t stencil, uint32_t numRects, const RectRange* pRects)
 {
 	const auto pDxDevice = static_cast<ID3D12Device*>(m_pDevice->GetNativeHandle());
 
@@ -605,7 +605,7 @@ void CommandList_DX12::ClearDepthStencilView(const Descriptor& depthStencilView,
 }
 
 void CommandList_DX12::ClearRenderTargetView(const float colorRGBA[4], uint8_t renderTargetViewIndex,
-	uint32_t numRects, const RectRange* pRects) const
+	uint32_t numRects, const RectRange* pRects)
 {
 	const CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart(),
 		renderTargetViewIndex, m_rtvStride);
@@ -624,7 +624,7 @@ void CommandList_DX12::ClearRenderTargetView(const float colorRGBA[4], uint8_t r
 }
 
 void CommandList_DX12::ClearRenderTargetView(const Descriptor& renderTargetView, const float colorRGBA[4],
-	uint32_t numRects, const RectRange* pRects) const
+	uint32_t numRects, const RectRange* pRects)
 {
 	const auto pDxDevice = static_cast<ID3D12Device*>(m_pDevice->GetNativeHandle());
 
@@ -641,7 +641,7 @@ void CommandList_DX12::ClearRenderTargetView(const Descriptor& renderTargetView,
 }
 
 void CommandList_DX12::ClearUnorderedAccessViewUint(const DescriptorTable& descriptorTable, const Descriptor& descriptor,
-	const uint32_t values[4], uint32_t numRects, const RectRange* pRects) const
+	const uint32_t values[4], uint32_t numRects, const RectRange* pRects)
 {
 	const auto pDxDevice = static_cast<ID3D12Device*>(m_pDevice->GetNativeHandle());
 
@@ -671,7 +671,7 @@ void CommandList_DX12::ClearUnorderedAccessViewUint(const DescriptorTable& descr
 }
 
 void CommandList_DX12::ClearUnorderedAccessViewFloat(const DescriptorTable& descriptorTable, const Descriptor& descriptor,
-	const float values[4], uint32_t numRects, const RectRange* pRects) const
+	const float values[4], uint32_t numRects, const RectRange* pRects)
 {
 	const auto pDxDevice = static_cast<ID3D12Device*>(m_pDevice->GetNativeHandle());
 
@@ -701,7 +701,7 @@ void CommandList_DX12::ClearUnorderedAccessViewFloat(const DescriptorTable& desc
 }
 
 void CommandList_DX12::DiscardResource(Resource* pResource, uint32_t numRects, const RectRange* pRects,
-	uint32_t firstSubresource, uint32_t numSubresources) const
+	uint32_t firstSubresource, uint32_t numSubresources)
 {
 	assert(pResource);
 	assert(numRects == 0 || pRects);
@@ -882,7 +882,7 @@ bool CommandQueue_DX12::Create(Device* pDevice, CommandListType type,
 }
 
 bool CommandQueue_DX12::SubmitCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists,
-	const Semaphore* pWaits, uint32_t numWaits, const Semaphore* pSignals, uint32_t numSignals) const
+	const Semaphore* pWaits, uint32_t numWaits, const Semaphore* pSignals, uint32_t numSignals)
 {
 	for (auto i = 0u; i < numWaits; ++i)
 		XUSG_N_RETURN(Wait(pWaits[i].Fence, pWaits[i].Value), false);
@@ -894,7 +894,7 @@ bool CommandQueue_DX12::SubmitCommandLists(uint32_t numCommandLists, CommandList
 }
 
 bool CommandQueue_DX12::SubmitCommandList(CommandList* pCommandList,
-	const Semaphore* pWaits, uint32_t numWaits, const Semaphore* pSignals, uint32_t numSignals) const
+	const Semaphore* pWaits, uint32_t numWaits, const Semaphore* pSignals, uint32_t numSignals)
 {
 	for (auto i = 0u; i < numWaits; ++i)
 		XUSG_N_RETURN(Wait(pWaits[i].Fence, pWaits[i].Value), false);
@@ -905,21 +905,21 @@ bool CommandQueue_DX12::SubmitCommandList(CommandList* pCommandList,
 	return true;
 }
 
-bool CommandQueue_DX12::Wait(Fence* pFence, uint64_t value) const
+bool CommandQueue_DX12::Wait(Fence* pFence, uint64_t value)
 {
 	V_RETURN(m_commandQueue->Wait(reinterpret_cast<ID3D12Fence*>(pFence->GetNativeHandle()), value), cerr, false);
 
 	return true;
 }
 
-bool CommandQueue_DX12::Signal(Fence* pFence, uint64_t value) const
+bool CommandQueue_DX12::Signal(Fence* pFence, uint64_t value)
 {
 	V_RETURN(m_commandQueue->Signal(reinterpret_cast<ID3D12Fence*>(pFence->GetNativeHandle()), value), cerr, false);
 
 	return true;
 }
 
-void CommandQueue_DX12::ExecuteCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists) const
+void CommandQueue_DX12::ExecuteCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists)
 {
 	if (m_pCommandLists.size() < numCommandLists) m_pCommandLists.resize(numCommandLists);
 	for (auto i = 0u; i < numCommandLists; ++i)
@@ -928,7 +928,7 @@ void CommandQueue_DX12::ExecuteCommandLists(uint32_t numCommandLists, CommandLis
 	m_commandQueue->ExecuteCommandLists(numCommandLists, m_pCommandLists.data());
 }
 
-void CommandQueue_DX12::ExecuteCommandList(CommandList* pCommandList) const
+void CommandQueue_DX12::ExecuteCommandList(CommandList* pCommandList)
 {
 	const auto pDxCommandList = static_cast<ID3D12CommandList*>(pCommandList->GetNativeHandle());
 
@@ -939,7 +939,7 @@ void CommandQueue_DX12::UpdateTileMappings(Resource* pResource, uint32_t numReso
 	const TiledResourceCoord* pResourceRegionStartCoords, const TileRegionSize* pResourceRegionSizes,
 	Heap* pHeap, uint32_t numHeapRanges, const TileRangeFlag* pHeapRangeFlags,
 	const uint32_t* pHeapRangeStartOffsets, const uint32_t* pHeapRangeTileCounts,
-	TileMappingFlag flags) const
+	TileMappingFlag flags)
 {
 	assert(pResource);
 	assert(numResourceRegions == 0 || pResourceRegionStartCoords);
@@ -1048,4 +1048,10 @@ Device* CommandQueue_DX12::GetDevice() const
 com_ptr<ID3D12CommandQueue>& CommandQueue_DX12::GetCommandQueue()
 {
 	return m_commandQueue;
+}
+
+CommandList_DX12* XUSG::AsDX12(CommandList* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<CommandList_DX12*>(p ? p->GetBackend() : nullptr);
 }

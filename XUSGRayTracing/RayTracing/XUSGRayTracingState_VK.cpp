@@ -717,3 +717,9 @@ RayTracingPipeline_VK* PipelineLib_VK::getPipeline(const string& key, const wcha
 
 	return pipeline->second;
 }
+
+State_VK* XUSG::RayTracing::AsVK(State* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<State_VK*>(p ? p->GetBackend() : nullptr);
+}

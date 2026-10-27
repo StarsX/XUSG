@@ -619,7 +619,7 @@ void Device_VK::GetSharingFamilies(uint32_t& count, const uint32_t*& pFamilies) 
 	pFamilies = m_sharingFamilies;
 }
 
-bool Device_VK::AcquireQueue(CommandListType type, uint32_t& family, uint32_t& queueIndex) const
+bool Device_VK::AcquireQueue(CommandListType type, uint32_t& family, uint32_t& queueIndex)
 {
 	auto& pool = m_queuePools[m_typePool[QueueTypeIndex(type)]];
 	assert(pool.Count);
@@ -636,7 +636,7 @@ bool Device_VK::AcquireQueue(CommandListType type, uint32_t& family, uint32_t& q
 	return true;
 }
 
-void Device_VK::ReleaseQueue(uint32_t family, uint32_t queueIndex) const
+void Device_VK::ReleaseQueue(uint32_t family, uint32_t queueIndex)
 {
 	lock_guard<mutex> lock(m_queueMutex);
 	for (auto i = 0u; i < m_poolCount; ++i)
@@ -1614,7 +1614,7 @@ bool Device_VK::GetSparseQueue(VkQueue& queue) const
 	return false;
 }
 
-bool Device_VK::QueueSparseBind(VkQueue queue, VkBindSparseInfo bind) const
+bool Device_VK::QueueSparseBind(VkQueue queue, VkBindSparseInfo bind)
 {
 	assert(queue != VK_NULL_HANDLE);
 	if (queue == VK_NULL_HANDLE) return false;
@@ -1688,7 +1688,7 @@ bool Device_VK::SubmitQueue(VkQueue queue, const VkSubmitInfo2& info, VkFence fe
 		pCommandBuffers, pSignalSemaphores, pSignalValues);
 }
 
-void Device_VK::ReadSparseTimeline(VkSemaphore& semaphore, uint64_t& value) const
+void Device_VK::ReadSparseTimeline(VkSemaphore& semaphore, uint64_t& value)
 {
 	lock_guard<mutex> lock(m_queueMutex);
 	semaphore = m_sparseTimeline;
@@ -4393,14 +4393,14 @@ SwapChain_VK::SwapChain_VK() :
 	m_bufferCount(0),
 	m_imageIndex(0),
 	m_userIndex(0),
+	m_acquireSlot(0),
+	m_blitSlot(0),
 	m_allowTearing(false),
 	m_useBlit(false),
 	m_acquired(false),
 	m_lastAcquireSemaphore(VK_NULL_HANDLE),
 	m_lastAcquireFence(VK_NULL_HANDLE),
-	m_acquireSlot(0),
-	m_blitPool(VK_NULL_HANDLE),
-	m_blitSlot(0)
+	m_blitPool(VK_NULL_HANDLE)
 {
 }
 
@@ -4521,7 +4521,7 @@ uint32_t SwapChain_VK::ResizeBuffers(uint8_t bufferCount, uint32_t width, uint32
 	return VK_SUCCESS;
 }
 
-uint8_t SwapChain_VK::GetCurrentBackBufferIndex() const
+uint8_t SwapChain_VK::GetCurrentBackBufferIndex()
 {
 	if (m_useBlit) return static_cast<uint8_t>(m_userIndex);
 
@@ -4787,7 +4787,7 @@ void SwapChain_VK::destroyBlitResources()
 	m_blitSlot = 0;
 }
 
-bool SwapChain_VK::acquire() const
+bool SwapChain_VK::acquire()
 {
 	if (m_acquired) return true;
 	if (m_acquireSlots.empty()) return false;
@@ -5011,4 +5011,59 @@ void XUSG::ReleaseVKPipeline(VkDevice device, Pipeline_VK* pPipeline)
 	if (--pPipeline->Refs) return;
 	if (pPipeline->Handle != VK_NULL_HANDLE) vkDestroyPipeline(device, pPipeline->Handle, nullptr);
 	delete pPipeline;
+}
+
+Device_VK* XUSG::AsVK(Device* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<Device_VK*>(p ? p->GetBackend() : nullptr);
+}
+
+CommandLayout_VK* XUSG::AsVK(CommandLayout* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<CommandLayout_VK*>(p ? p->GetBackend() : nullptr);
+}
+
+SwapChain_VK* XUSG::AsVK(SwapChain* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<SwapChain_VK*>(p ? p->GetBackend() : nullptr);
+}
+
+void XUSG::DropUnsupportedStorageInputOutput16(const Device_VK* pDevice, const void* pCode, size_t codeSize,
+	vector<uint32_t>& storage, const uint32_t*& pOut, size_t& outSize)
+{
+	pOut = static_cast<const uint32_t*>(pCode);
+	outSize = codeSize;
+	if (!pDevice || pDevice->HasStorageInputOutput16() || !pCode || codeSize < sizeof(uint32_t) * 6) return;
+
+	const auto* words = static_cast<const uint32_t*>(pCode);
+	const auto count = static_cast<uint32_t>(codeSize / sizeof(uint32_t));
+	if (words[0] != 0x07230203u) return;
+
+	constexpr uint32_t opCapability = 17;
+	constexpr uint32_t storageInputOutput16 = 4436;
+	storage.clear();
+	storage.reserve(count);
+	storage.insert(storage.end(), words, words + 5);
+	auto dropped = false;
+	for (auto i = 5u; i < count;)
+	{
+		const auto wordCount = words[i] >> 16;
+		const auto op = words[i] & 0xffffu;
+		if (!wordCount || i + wordCount > count)
+		{
+			storage.insert(storage.end(), words + i, words + count);
+			break;
+		}
+		const auto drop = op == opCapability && wordCount >= 2 && words[i + 1] == storageInputOutput16;
+		if (drop) dropped = true;
+		else storage.insert(storage.end(), words + i, words + i + wordCount);
+		i += wordCount;
+	}
+	if (!dropped) return;
+
+	pOut = storage.data();
+	outSize = storage.size() * sizeof(uint32_t);
 }

@@ -76,9 +76,9 @@ namespace XUSG
 		void OMSetBlendFactor(const float blendFactor[4]) const;
 		void OMSetStencilRef(uint32_t stencilRef) const;
 		void SetPipelineState(const Pipeline& pipelineState) const;
-		void Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers) const;
+		void Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers);
 		void ExecuteBundle(CommandList* pCommandList) const;
-		void SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps) const;
+		void SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps);
 		void SetComputePipelineLayout(const PipelineLayout& pipelineLayout) const;
 		void SetGraphicsPipelineLayout(const PipelineLayout& pipelineLayout) const;
 		void SetComputeDescriptorTable(uint32_t index, const DescriptorTable& descriptorTable) const;
@@ -109,19 +109,19 @@ namespace XUSG
 		void OMSetRenderTargets(uint32_t numRenderTargetDescriptors, const Descriptor* pRenderTargetViews,
 			const Descriptor* pDepthStencilView = nullptr) const;
 		void ClearDepthStencilView(ClearFlag clearFlags, float depth, uint8_t stencil = 0,
-			uint32_t numRects = 0, const RectRange* pRects = nullptr) const;
+			uint32_t numRects = 0, const RectRange* pRects = nullptr);
 		void ClearDepthStencilView(const Descriptor& depthStencilView, ClearFlag clearFlags,
-			float depth, uint8_t stencil = 0, uint32_t numRects = 0, const RectRange* pRects = nullptr) const;
+			float depth, uint8_t stencil = 0, uint32_t numRects = 0, const RectRange* pRects = nullptr);
 		void ClearRenderTargetView(const float colorRGBA[4], uint8_t renderTargetViewIndex,
-			uint32_t numRects = 0, const RectRange* pRects = nullptr) const;
+			uint32_t numRects = 0, const RectRange* pRects = nullptr);
 		void ClearRenderTargetView(const Descriptor& renderTargetView, const float colorRGBA[4],
-			uint32_t numRects = 0, const RectRange* pRects = nullptr) const;
+			uint32_t numRects = 0, const RectRange* pRects = nullptr);
 		void ClearUnorderedAccessViewUint(const DescriptorTable& descriptorTable, const Descriptor& descriptor,
-			const uint32_t values[4], uint32_t numRects = 0, const RectRange* pRects = nullptr) const;
+			const uint32_t values[4], uint32_t numRects = 0, const RectRange* pRects = nullptr);
 		void ClearUnorderedAccessViewFloat(const DescriptorTable& descriptorTable, const Descriptor& descriptor,
-			const float values[4], uint32_t numRects = 0, const RectRange* pRects = nullptr) const;
+			const float values[4], uint32_t numRects = 0, const RectRange* pRects = nullptr);
 		void DiscardResource(Resource* pResource, uint32_t numRects, const RectRange* pRects,
-			uint32_t firstSubresource, uint32_t numSubresources) const;
+			uint32_t firstSubresource, uint32_t numSubresources);
 		void BeginQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const;
 		void EndQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const;
 		void ResolveQueryData(const QueryHeap& queryHeap, QueryType type, uint32_t startIndex,
@@ -138,7 +138,7 @@ namespace XUSG
 
 		void* GetNativeHandle();
 		void* GetDeviceNativeHandle() const;
-		void* GetBackend() override;
+		void* GetBackend();
 
 		Device* GetDevice() const;
 
@@ -156,14 +156,14 @@ namespace XUSG
 		com_ptr<ID3D12DescriptorHeap>		m_dsvHeap;
 		com_ptr<ID3D12DescriptorHeap>		m_uavHeap;
 
-		mutable std::vector<ID3D12CommandAllocator*> m_commandAllocators;
+		std::vector<ID3D12CommandAllocator*> m_commandAllocators;
 
 		Device* m_pDevice;
 
-		mutable std::vector<D3D12_RESOURCE_BARRIER>	m_barriers;
-		mutable std::vector<D3D12_RECT>				m_rects;
+		std::vector<D3D12_RESOURCE_BARRIER>	m_barriers;
+		std::vector<D3D12_RECT>				m_rects;
 
-		mutable uint64_t					m_descriptorHeapStarts[NUM_DESCRIPTOR_HEAP];
+		uint64_t							m_descriptorHeapStarts[NUM_DESCRIPTOR_HEAP];
 		uint32_t							m_rtvStride;
 		uint32_t							m_dsvStride;
 	};
@@ -180,20 +180,20 @@ namespace XUSG
 
 		bool SubmitCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists,
 			const Semaphore* pWaits = nullptr, uint32_t numWaits = 0,
-			const Semaphore* pSignals = nullptr, uint32_t numSignals = 0) const;
+			const Semaphore* pSignals = nullptr, uint32_t numSignals = 0);
 		bool SubmitCommandList(CommandList* pCommandList,
 			const Semaphore* pWaits = nullptr, uint32_t numWaits = 0,
-			const Semaphore* pSignals = nullptr, uint32_t numSignals = 0) const;
-		bool Wait(Fence* pFence, uint64_t value) const;
-		bool Signal(Fence* pFence, uint64_t value) const;
+			const Semaphore* pSignals = nullptr, uint32_t numSignals = 0);
+		bool Wait(Fence* pFence, uint64_t value);
+		bool Signal(Fence* pFence, uint64_t value);
 
-		void ExecuteCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists) const;
-		void ExecuteCommandList(CommandList* pCommandList) const;
+		void ExecuteCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists);
+		void ExecuteCommandList(CommandList* pCommandList);
 		void UpdateTileMappings(Resource* pResource, uint32_t numResourceRegions,
 			const TiledResourceCoord* pResourceRegionStartCoords, const TileRegionSize* pResourceRegionSizes,
 			Heap* pHeap, uint32_t numHeapRanges, const TileRangeFlag* pHeapRangeFlags,
 			const uint32_t* pHeapRangeStartOffsets, const uint32_t* pHeapRangeTileCounts,
-			TileMappingFlag flags = TileMappingFlag::NONE) const;
+			TileMappingFlag flags = TileMappingFlag::NONE);
 		void CopyTileMappings(Resource* pDstResource, const TiledResourceCoord* pDstRegionStartCoord,
 			Resource* pSrcResource, const TiledResourceCoord* pSrcRegionStartCoordinate,
 			const TileRegionSize& regionSize, TileMappingFlag Flags = TileMappingFlag::NONE) const;
@@ -210,18 +210,14 @@ namespace XUSG
 	protected:
 		com_ptr<ID3D12CommandQueue> m_commandQueue;
 
-		mutable std::vector<ID3D12CommandList*> m_pCommandLists;
+		std::vector<ID3D12CommandList*> m_pCommandLists;
 
 		Device* m_pDevice;
 
-		mutable std::vector<D3D12_TILED_RESOURCE_COORDINATE> m_resourceRegionStartCoords;
-		mutable std::vector<D3D12_TILE_REGION_SIZE> m_resourceRegionSizes;
-		mutable std::vector<D3D12_TILE_RANGE_FLAGS> m_heapRangeFlags;
+		std::vector<D3D12_TILED_RESOURCE_COORDINATE> m_resourceRegionStartCoords;
+		std::vector<D3D12_TILE_REGION_SIZE> m_resourceRegionSizes;
+		std::vector<D3D12_TILE_RANGE_FLAGS> m_heapRangeFlags;
 	};
 
-	inline CommandList_DX12* AsDX12(CommandList* p)
-	{
-		assert(!p || p->GetBackend());
-		return static_cast<CommandList_DX12*>(p ? p->GetBackend() : nullptr);
-	}
+	CommandList_DX12* AsDX12(CommandList* p);
 }

@@ -1168,3 +1168,14 @@ size_t OpacityMicromapArray_VK::AlignOmmDesc(size_t byteSize)
 {
 	return XUSG::Align(byteSize, 4);
 }
+
+AccelerationStructure_VK* XUSG::RayTracing::AsVK(AccelerationStructure* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<AccelerationStructure_VK*>(p ? p->GetBackend() : nullptr);
+}
+
+OpacityMicromapArray_VK* XUSG::RayTracing::AsVK(OpacityMicromapArray* p)
+{
+	return static_cast<OpacityMicromapArray_VK*>(AsVK(static_cast<AccelerationStructure*>(p)));
+}

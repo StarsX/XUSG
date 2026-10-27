@@ -41,7 +41,7 @@ namespace XUSG
 
 			const std::vector<std::string>& GetDescriptorTableLayoutKeys() const;
 			std::string& GetPipelineLayoutKey(PipelineLayoutLib* pPipelineLayoutLib);
-			void* GetBackend() override;
+			void* GetBackend();
 
 			static const uint8_t DescriptorTableLayoutCountOffset = sizeof(uint16_t);
 			static const uint8_t DescriptorTableLayoutOffset = DescriptorTableLayoutCountOffset + sizeof(uint16_t);
@@ -56,11 +56,7 @@ namespace XUSG
 			bool m_isTableLayoutsCompleted;
 		};
 
-		inline PipelineLayout_VK* AsVK(PipelineLayout* p)
-		{
-			assert(!p || p->GetBackend());
-			return static_cast<PipelineLayout_VK*>(p ? p->GetBackend() : nullptr);
-		}
+		PipelineLayout_VK* AsVK(PipelineLayout* p);
 	}
 
 	class PipelineLayoutLib_VK :
@@ -86,7 +82,7 @@ namespace XUSG
 		DescriptorTableLayout CreateDescriptorTableLayout(uint32_t index, const Util::PipelineLayout* pUtil);
 		DescriptorTableLayout GetDescriptorTableLayout(uint32_t index, const Util::PipelineLayout* pUtil);
 
-		void* GetBackend() override;
+		void* GetBackend();
 
 	protected:
 		PipelineLayout createPipelineLayout(const std::string& key, const wchar_t* name, uint32_t nodeMask);
@@ -121,9 +117,5 @@ namespace XUSG
 		std::mutex m_mtx;
 	};
 
-	inline PipelineLayoutLib_VK* AsVK(PipelineLayoutLib* p)
-	{
-		assert(!p || p->GetBackend());
-		return static_cast<PipelineLayoutLib_VK*>(p ? p->GetBackend() : nullptr);
-	}
+	PipelineLayoutLib_VK* AsVK(PipelineLayoutLib* p);
 }

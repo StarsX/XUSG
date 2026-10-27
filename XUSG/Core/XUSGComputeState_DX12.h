@@ -25,7 +25,7 @@ namespace XUSG
 		public:
 			State_DX12();
 			virtual ~State_DX12();
-			void* GetBackend() override;
+			void* GetBackend();
 
 			void SetPipelineLayout(const PipelineLayout& layout);
 			void SetShader(const Blob& shader);
@@ -78,10 +78,6 @@ namespace XUSG
 			std::mutex m_mtx;
 		};
 
-		inline State_DX12* AsDX12(State* p)
-		{
-			assert(!p || p->GetBackend());
-			return static_cast<State_DX12*>(p ? p->GetBackend() : nullptr);
-		}
+		State_DX12* AsDX12(State* p);
 	}
 }

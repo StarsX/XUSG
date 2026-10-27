@@ -417,7 +417,7 @@ DescriptorTable DescriptorTableLib_VK::GetSamplerTable(const Util::DescriptorTab
 	return getSamplerTable(pUtil->GetKey(), table);
 }
 
-DescriptorHeap DescriptorTableLib_VK::GetDescriptorHeap(DescriptorHeapType type, uint8_t index) const
+DescriptorHeap DescriptorTableLib_VK::GetDescriptorHeap(DescriptorHeapType type, uint8_t index)
 {
 	lock_guard<mutex> lock(m_mtx);
 
@@ -432,7 +432,7 @@ const Sampler* DescriptorTableLib_VK::GetSampler(SamplerPreset preset)
 	return m_samplers[preset].get();
 }
 
-uint32_t DescriptorTableLib_VK::GetDescriptorStride(DescriptorHeapType type) const
+uint32_t DescriptorTableLib_VK::GetDescriptorStride(DescriptorHeapType type)
 {
 	lock_guard<mutex> lock(m_mtx);
 
@@ -840,4 +840,10 @@ bool DescriptorTableLib_VK::writeSampler(const Sampler* pSampler, void* pDescrip
 	XUSG_VK_CHECK(m_pDevice->GetExtProcs().WriteSamplerDescriptors(m_pDevice->GetDevice(), 1, &info, &host), cerr, false);
 
 	return true;
+}
+
+DescriptorTableLib_VK* XUSG::AsVK(DescriptorTableLib* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<DescriptorTableLib_VK*>(p ? p->GetBackend() : nullptr);
 }

@@ -430,7 +430,7 @@ void PipelineLib_DX12::SetInputLayout(uint32_t index, uint32_t numElements, cons
 	m_inputLayoutLib.SetLayout(index, numElements, pElements);
 }
 
-const InputLayout* PipelineLib_DX12::GetInputLayout(uint32_t index) const
+const InputLayout* PipelineLib_DX12::GetInputLayout(uint32_t index)
 {
 	return m_inputLayoutLib.GetLayout(index);
 }
@@ -743,4 +743,10 @@ com_ptr<ID3D12StateObject> PipelineLib_DX12::getStateObject(const string& key, c
 	if (pStateObject == m_stateObjects.cend()) return createStateObject(key, name);
 
 	return pStateObject->second;
+}
+
+State_DX12* XUSG::Generic::AsDX12(State* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<State_DX12*>(p ? p->GetBackend() : nullptr);
 }

@@ -12,30 +12,8 @@
 
 namespace XUSG
 {
-	inline std::string HrToString(uint32_t hr)
-	{
-		char s_str[64] = {};
-		sprintf_s(s_str, "HRESULT of 0x%08X", hr);
-
-		return std::string(s_str);
-	}
-
-	inline std::wstring GetDebugObjectName(ID3D12Object* pObject)
-	{
-		if (!pObject) return {};
-
-		UINT size = 0;
-		const auto hr = pObject->GetPrivateData(WKPDID_D3DDebugObjectNameW, &size, nullptr);
-		if ((FAILED(hr) && hr != DXGI_ERROR_MORE_DATA) || !size) return {};
-
-		std::wstring name((size + sizeof(wchar_t) - 1) / sizeof(wchar_t), L'\0');
-		if (FAILED(pObject->GetPrivateData(WKPDID_D3DDebugObjectNameW, &size, name.data()))) return {};
-
-		name.resize(size / sizeof(wchar_t));
-		while (!name.empty() && name.back() == L'\0') name.pop_back();
-
-		return name;
-	}
+	std::string HrToString(uint32_t hr);
+	std::wstring GetDebugObjectName(ID3D12Object* pObject);
 
 	// Device
 	class Device_DX12 :
@@ -65,7 +43,7 @@ namespace XUSG
 
 		void* GetNativeHandle() const;
 		void* GetAdapterNativeHandle() const;
-		void* GetBackend() override;
+		void* GetBackend();
 
 	protected:
 		void queryAdapter();
@@ -110,7 +88,7 @@ namespace XUSG
 		void Create(uint64_t nativeHandle, Device* pDevice);
 
 		uint64_t GetNativeHandle() const;
-		void* GetBackend() override;
+		void* GetBackend();
 
 	protected:
 		com_ptr<ID3D12CommandSignature> m_commandSignature;
@@ -135,12 +113,12 @@ namespace XUSG
 		uint32_t ResizeBuffers(uint8_t bufferCount, uint32_t width, uint32_t height,
 			Format format, SwapChainFlag flags = SwapChainFlag::NONE);
 
-		uint8_t GetCurrentBackBufferIndex() const;
+		uint8_t GetCurrentBackBufferIndex();
 
 		void Create(uint64_t nativeHandle);
 
 		uint64_t GetNativeHandle() const;
-		void* GetBackend() override;
+		void* GetBackend();
 
 	protected:
 		com_ptr<IDXGISwapChain3> m_swapChain;
@@ -154,21 +132,7 @@ namespace XUSG
 
 	void GetDX12BlobData(const Blob& blob, const void** ppData, size_t* pSize);
 
-	inline Device_DX12* AsDX12(Device* p)
-	{
-		assert(!p || p->GetBackend());
-		return static_cast<Device_DX12*>(p ? p->GetBackend() : nullptr);
-	}
-
-	inline CommandLayout_DX12* AsDX12(CommandLayout* p)
-	{
-		assert(!p || p->GetBackend());
-		return static_cast<CommandLayout_DX12*>(p ? p->GetBackend() : nullptr);
-	}
-
-	inline SwapChain_DX12* AsDX12(SwapChain* p)
-	{
-		assert(!p || p->GetBackend());
-		return static_cast<SwapChain_DX12*>(p ? p->GetBackend() : nullptr);
-	}
+	Device_DX12* AsDX12(Device* p);
+	CommandLayout_DX12* AsDX12(CommandLayout* p);
+	SwapChain_DX12* AsDX12(SwapChain* p);
 }

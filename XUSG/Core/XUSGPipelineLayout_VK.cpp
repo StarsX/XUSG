@@ -1158,3 +1158,15 @@ uint32_t PipelineLayoutLib_VK::alignPush(uint32_t offset, uint32_t alignment) co
 {
 	return (offset + alignment - 1u) & ~(alignment - 1u);
 }
+
+Util::PipelineLayout_VK* XUSG::Util::AsVK(PipelineLayout* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<Util::PipelineLayout_VK*>(p ? p->GetBackend() : nullptr);
+}
+
+PipelineLayoutLib_VK* XUSG::AsVK(PipelineLayoutLib* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<PipelineLayoutLib_VK*>(p ? p->GetBackend() : nullptr);
+}

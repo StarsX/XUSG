@@ -283,10 +283,10 @@ namespace XUSG
 			virtual ~CommandList() {};
 
 			using XUSG::CommandList::Barrier;
-			virtual void Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups) const = 0;
+			virtual void Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups) = 0;
 			virtual void Barrier(uint32_t numBufferBarriers, ResourceBarrier* pBufferBarriers,
 				uint32_t numTextureBarriers, ResourceBarrier* pTextureBarriers,
-				uint32_t numGlobalBarriers, ResourceBarrier* pGlobalBarriers) const = 0;
+				uint32_t numGlobalBarriers, ResourceBarrier* pGlobalBarriers) = 0;
 			virtual void SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions) const = 0;
 			virtual void ResolveSubresourceRegion(Resource* pDstResource, uint32_t dstSubresource,
 				uint32_t dstX, uint32_t dstY, Resource* pSrcResource, uint32_t srcSubresource,
@@ -303,11 +303,11 @@ namespace XUSG
 			virtual void SetProgram(ProgramType type, ProgramIdentifier identifier, WorkGraphFlag flags = WorkGraphFlag::NONE,
 				uint64_t backingMemoryAddress = 0, uint64_t backingMemoryByteSize = 0,
 				uint64_t localRootArgTableAddress = 0, uint64_t localRootArgTableByteSize = 0,
-				uint64_t localRootArgTableByteStride = 0) const = 0;
-			virtual void DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride = 0) const = 0;
-			virtual void DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes = false) const = 0;
+				uint64_t localRootArgTableByteStride = 0) = 0;
+			virtual void DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride = 0) = 0;
+			virtual void DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes = false) = 0;
 
-			virtual void ConvertLinearAlgebraMatrix(const LinearAlgebraMatrixConversionInfo* pConversions, uint32_t numConversions) const = 0;
+			virtual void ConvertLinearAlgebraMatrix(const LinearAlgebraMatrixConversionInfo* pConversions, uint32_t numConversions) = 0;
 
 			using uptr = std::unique_ptr<CommandList>;
 			using sptr = std::shared_ptr<CommandList>;
@@ -432,7 +432,7 @@ namespace XUSG
 			virtual void SetPipeline(State* pState, const Pipeline& pipeline) = 0;
 
 			virtual void SetInputLayout(uint32_t index, uint32_t numElements, const InputElement* pElements) = 0;
-			virtual const InputLayout* GetInputLayout(uint32_t index) const = 0;
+			virtual const InputLayout* GetInputLayout(uint32_t index) = 0;
 			virtual const InputLayout* CreateInputLayout(uint32_t numElements, const InputElement* pElements) = 0;
 
 			virtual Pipeline CreatePipeline(State* pState, const wchar_t* name = nullptr) = 0;
@@ -744,7 +744,7 @@ namespace XUSG
 			virtual void SetPipeline(State* pState, const Pipeline& pipeline) = 0;
 
 			virtual void SetInputLayout(uint32_t index, uint32_t numElements, const InputElement* pElements) = 0;
-			virtual const InputLayout* GetInputLayout(uint32_t index) const = 0;
+			virtual const InputLayout* GetInputLayout(uint32_t index) = 0;
 			virtual const InputLayout* CreateInputLayout(uint32_t numElements, const InputElement* pElements) = 0;
 
 			virtual Pipeline CreatePipeline(State* pState, const wchar_t* name = nullptr) = 0;

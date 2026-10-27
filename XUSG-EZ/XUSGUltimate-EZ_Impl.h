@@ -79,19 +79,13 @@ namespace XUSG
 					const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
 
-				void SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions) const
-				{
-					UltimateList::SetSamplePositions(numSamplesPerPixel, numPixels, pPositions);
-				}
+				void SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions) const;
 
 				void ResolveSubresourceRegion(Resource* pDstResource, uint32_t dstSubresource,
 					uint32_t dstX, uint32_t dstY, Resource* pSrcResource, uint32_t srcSubresource,
-					const RectRange& srcRect, Format format, ResolveMode resolveMode) const;
+					const RectRange& srcRect, Format format, ResolveMode resolveMode);
 
-				void RSSetShadingRate(ShadingRate baseShadingRate, const ShadingRateCombiner* pCombiners) const
-				{
-					UltimateList::RSSetShadingRate(baseShadingRate, pCombiners);
-				}
+				void RSSetShadingRate(ShadingRate baseShadingRate, const ShadingRateCombiner* pCombiners) const;
 
 				void RSSetShadingRateImage(Resource* pShadingRateImage);
 
@@ -142,7 +136,7 @@ namespace XUSG
 				WorkGraph::NodeID WGGetNodeID(uint32_t nodeIndex);
 				WorkGraph::NodeID WGGetEntrypointID(uint32_t entryPointIndex);
 
-				Ultimate::CommandList* AsUltimateCommandList() const;
+				Ultimate::CommandList* AsUltimateCommandList();
 
 			protected:
 				enum StageIndex : uint8_t
@@ -230,13 +224,15 @@ namespace XUSG
 
 				PipelineLib::uptr		m_meshShaderPipelineLib;
 				WorkGraph::PipelineLib::uptr m_workGraphPipelineLib;
+				State::uptr				m_meshShaderState;
+				WorkGraph::State::uptr  m_workGraphState;
 
 				XUSG::PipelineLayout	m_pipelineLayout;
 
-				State::uptr				m_meshShaderState;
-				WorkGraph::State::uptr  m_workGraphState;
 				std::wstring			m_workGraphName;
+
 				const WorkGraphProperty* m_workGraphProperty;
+
 				bool					m_isWGStateDirty;
 
 				std::unordered_map<Pipeline, std::vector<WorkGraphProperty>> m_workGraphProperties;
@@ -259,9 +255,9 @@ namespace XUSG
 				using CommandList_Impl<XUSG::CommandList_DX12, Ultimate::CommandList_DX12>::CommandList_Impl;
 
 			protected:
-				bool adoptUltimate(Ultimate::CommandList* pCommandList) override;
-				bool hasMeshShader() const override;
-				bool hasWorkGraph() const override;
+				bool adoptUltimate(Ultimate::CommandList* pCommandList);
+				bool hasMeshShader() const;
+				bool hasWorkGraph() const;
 			};
 
 #ifndef XUSG_NO_VULKAN
@@ -273,9 +269,9 @@ namespace XUSG
 				using CommandList_Impl<XUSG::CommandList_VK, Ultimate::CommandList_VK>::CommandList_Impl;
 
 			protected:
-				bool adoptUltimate(Ultimate::CommandList* pCommandList) override;
-				bool hasMeshShader() const override;
-				bool hasWorkGraph() const override;
+				bool adoptUltimate(Ultimate::CommandList* pCommandList);
+				bool hasMeshShader() const;
+				bool hasWorkGraph() const;
 			};
 #endif
 		}

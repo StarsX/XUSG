@@ -99,7 +99,7 @@ bool SphericalHarmonics_Impl::Init(Device* pDevice, const ShaderLib::sptr& shade
 	return true;
 }
 
-void SphericalHarmonics_Impl::Transform(const CommandList* pCommandList, Resource* pRadiance,
+void SphericalHarmonics_Impl::Transform(CommandList* pCommandList, Resource* pRadiance,
 	const DescriptorTable& srvTable, uint8_t order)
 {
 	shCubeMap(pCommandList, pRadiance, srvTable, order);
@@ -308,7 +308,7 @@ bool SphericalHarmonics_Impl::createDescriptorTables()
 	return true;
 }
 
-void SphericalHarmonics_Impl::shCubeMap(const CommandList* pCommandList,
+void SphericalHarmonics_Impl::shCubeMap(CommandList* pCommandList,
 	Resource* pRadiance, const DescriptorTable& srvTable, uint8_t order)
 {
 	assert(order <= SH_MAX_ORDER);
@@ -336,7 +336,7 @@ void SphericalHarmonics_Impl::shCubeMap(const CommandList* pCommandList,
 	pCommandList->Dispatch(XUSG_DIV_UP(m_numSHTexels, SH_GROUP_SIZE), 1, 1);
 }
 
-void SphericalHarmonics_Impl::shSum(const CommandList* pCommandList, uint8_t order)
+void SphericalHarmonics_Impl::shSum(CommandList* pCommandList, uint8_t order)
 {
 	assert(order <= SH_MAX_ORDER);
 	ResourceBarrier barriers[4];
@@ -373,7 +373,7 @@ void SphericalHarmonics_Impl::shSum(const CommandList* pCommandList, uint8_t ord
 	}
 }
 
-void SphericalHarmonics_Impl::shNormalize(const CommandList* pCommandList, uint8_t order)
+void SphericalHarmonics_Impl::shNormalize(CommandList* pCommandList, uint8_t order)
 {
 	assert(order <= SH_MAX_ORDER);
 

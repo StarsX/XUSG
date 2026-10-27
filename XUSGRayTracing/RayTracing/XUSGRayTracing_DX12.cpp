@@ -63,6 +63,12 @@ bool Device_DX12::createInterface(uint8_t flags)
 	return true;
 }
 
+Device_DX12* XUSG::RayTracing::AsDX12(Device* p)
+{
+	assert(!p || p->GetRTBackend());
+	return static_cast<Device_DX12*>(p ? p->GetRTBackend() : nullptr);
+}
+
 D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS XUSG::RayTracing::GetDXRBuildFlag(BuildFlag buildFlag)
 {
 	static const D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS buildFlags[] =

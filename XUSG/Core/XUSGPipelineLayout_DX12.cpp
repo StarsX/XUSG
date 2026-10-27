@@ -487,3 +487,15 @@ D3D12_SHADER_VISIBILITY PipelineLayoutLib_DX12::getShaderVisibility(Shader::Stag
 
 	return visibilities[stage];
 }
+
+Util::PipelineLayout_DX12* XUSG::Util::AsDX12(PipelineLayout* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<Util::PipelineLayout_DX12*>(p ? p->GetBackend() : nullptr);
+}
+
+PipelineLayoutLib_DX12* XUSG::AsDX12(PipelineLayoutLib* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<PipelineLayoutLib_DX12*>(p ? p->GetBackend() : nullptr);
+}

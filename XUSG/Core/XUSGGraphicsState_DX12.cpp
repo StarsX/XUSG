@@ -367,7 +367,7 @@ void PipelineLib_DX12::SetInputLayout(uint32_t index, uint32_t numElements, cons
 	m_inputLayoutLib.SetLayout(index, numElements, pElements);
 }
 
-const InputLayout* PipelineLib_DX12::GetInputLayout(uint32_t index) const
+const InputLayout* PipelineLib_DX12::GetInputLayout(uint32_t index)
 {
 	return m_inputLayoutLib.GetLayout(index);
 }
@@ -603,4 +603,10 @@ Pipeline PipelineLib_DX12::getPipeline(const string& key, const wchar_t* name)
 	if (pPipeline == m_pipelines.cend()) return createPipeline(key, name);
 
 	return pPipeline->second.get();
+}
+
+State_DX12* XUSG::Graphics::AsDX12(State* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<State_DX12*>(p ? p->GetBackend() : nullptr);
 }

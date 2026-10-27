@@ -24,17 +24,13 @@ namespace XUSG
 			void Create(void* pNativeHandle);
 
 			void* GetRTHandle() const;
-			void* GetRTBackend() override;
+			void* GetRTBackend();
 
 		protected:
 			bool createInterface(uint8_t flags = 0);
 		};
 
-		inline Device_VK* AsVK(Device* p)
-		{
-			assert(!p || p->GetRTBackend());
-			return static_cast<Device_VK*>(p ? p->GetRTBackend() : nullptr);
-		}
+		Device_VK* AsVK(Device* p);
 
 		VkBuildAccelerationStructureFlagsKHR GetVKBuildFlag(BuildFlag buildFlag);
 		VkBuildAccelerationStructureFlagsKHR GetVKBuildFlags(BuildFlag buildFlags);

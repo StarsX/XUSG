@@ -143,7 +143,7 @@ namespace XUSG
 
 		void* GetNativeHandle() const;
 		void* GetAdapterNativeHandle() const;
-		void* GetBackend() override;
+		void* GetBackend();
 
 		VkInstance GetInstance() const;
 		VkPhysicalDevice GetPhysicalDevice() const;
@@ -152,8 +152,8 @@ namespace XUSG
 		uint32_t GetGraphicsFamily() const;
 		uint32_t GetQueueFamily(CommandListType type) const;
 		void GetSharingFamilies(uint32_t& count, const uint32_t*& pFamilies) const;
-		bool AcquireQueue(CommandListType type, uint32_t& family, uint32_t& queueIndex) const;
-		void ReleaseQueue(uint32_t family, uint32_t queueIndex) const;
+		bool AcquireQueue(CommandListType type, uint32_t& family, uint32_t& queueIndex);
+		void ReleaseQueue(uint32_t family, uint32_t queueIndex);
 
 		uint32_t GetResourceDescriptorStride() const;
 		uint32_t GetSamplerDescriptorStride() const;
@@ -382,11 +382,11 @@ namespace XUSG
 		bool SupportsSparseImage(bool is3D, uint32_t sampleCount) const;
 		bool SupportsSparseAliased() const;
 		bool GetSparseQueue(VkQueue& queue) const;
-		bool QueueSparseBind(VkQueue queue, VkBindSparseInfo bind) const;
+		bool QueueSparseBind(VkQueue queue, VkBindSparseInfo bind);
 		bool SubmitQueue(VkQueue queue, const VkSubmitInfo2& info, VkFence fence,
 			VkSemaphore* pWaitSemaphores, VkPipelineStageFlags* pWaitStages, uint64_t* pWaitValues,
 			VkCommandBuffer* pCommandBuffers, VkSemaphore* pSignalSemaphores, uint64_t* pSignalValues) const;
-		void ReadSparseTimeline(VkSemaphore& semaphore, uint64_t& value) const;
+		void ReadSparseTimeline(VkSemaphore& semaphore, uint64_t& value);
 		bool EmulatesD24S8() const;
 
 		uint32_t FindMemoryType(uint32_t typeBits, VkMemoryPropertyFlags properties) const;
@@ -597,7 +597,7 @@ namespace XUSG
 		{
 			uint32_t Family;
 			uint32_t Count;
-			mutable uint32_t Used[4];
+			uint32_t Used[4];
 		};
 
 		QueueFamilyPool		m_queuePools[3];
@@ -605,9 +605,9 @@ namespace XUSG
 		uint32_t			m_typePool[3];
 		uint32_t			m_sharingFamilies[3];
 		uint32_t			m_sharingCount;
-		mutable VkSemaphore	m_sparseTimeline;
-		mutable uint64_t	m_sparseValue;
-		mutable std::mutex	m_queueMutex;
+		VkSemaphore			m_sparseTimeline;
+		uint64_t			m_sparseValue;
+		std::mutex			m_queueMutex;
 	};
 
 	class Fence_VK :
@@ -649,7 +649,7 @@ namespace XUSG
 		void Create(uint64_t nativeHandle, Device* pDevice);
 
 		uint64_t GetNativeHandle() const;
-		void* GetBackend() override;
+		void* GetBackend();
 
 		VkIndirectCommandsLayoutEXT GetLayout() const;
 		VkShaderStageFlags GetShaderStages() const;
@@ -692,12 +692,12 @@ namespace XUSG
 		uint32_t ResizeBuffers(uint8_t bufferCount, uint32_t width, uint32_t height,
 			Format format, SwapChainFlag flags = SwapChainFlag::NONE);
 
-		uint8_t GetCurrentBackBufferIndex() const;
+		uint8_t GetCurrentBackBufferIndex();
 
 		void Create(uint64_t nativeHandle);
 
 		uint64_t GetNativeHandle() const;
-		void* GetBackend() override;
+		void* GetBackend();
 
 		VkImage GetImage(uint8_t buffer) const;
 		VkFormat GetVkFormat() const;
@@ -712,7 +712,7 @@ namespace XUSG
 		void destroyUserImages();
 		bool createBlitResources();
 		void destroyBlitResources();
-		bool acquire() const;
+		bool acquire();
 		bool flushPresent(uint32_t index);
 		bool flushPresentBlit(uint32_t userIndex);
 		bool flushPresentDirect(uint32_t imageIndex);
@@ -727,13 +727,16 @@ namespace XUSG
 		uint32_t			m_width;
 		uint32_t			m_height;
 		uint8_t				m_bufferCount;
-		mutable uint32_t	m_imageIndex;
-		mutable uint32_t	m_userIndex;
+		uint32_t			m_imageIndex;
+		uint32_t			m_userIndex;
+		uint32_t			m_acquireSlot;
+		uint32_t			m_blitSlot;
 		bool				m_allowTearing;
 		bool				m_useBlit;
-		mutable bool		m_acquired;
-		mutable VkSemaphore	m_lastAcquireSemaphore;
-		mutable VkFence		m_lastAcquireFence;
+		bool				m_acquired;
+		VkSemaphore			m_lastAcquireSemaphore;
+		VkFence				m_lastAcquireFence;
+		VkCommandPool		m_blitPool;
 
 		struct AcquireSlot
 		{
@@ -742,17 +745,12 @@ namespace XUSG
 			bool Submitted;
 		};
 
-		mutable std::vector<AcquireSlot> m_acquireSlots;
-		mutable uint32_t	m_acquireSlot;
-		std::vector<VkSemaphore> m_releaseSemaphores;
-
-		std::vector<VkImage> m_images;
-		std::vector<VkImage> m_userImages;
-		std::vector<VkDeviceMemory> m_userMemory;
-
-		VkCommandPool		m_blitPool;
+		std::vector<AcquireSlot>	m_acquireSlots;
+		std::vector<VkSemaphore>	m_releaseSemaphores;
+		std::vector<VkImage>		m_images;
+		std::vector<VkImage>		m_userImages;
+		std::vector<VkDeviceMemory>	m_userMemory;
 		std::vector<VkCommandBuffer> m_blitBuffers;
-		uint32_t			m_blitSlot;
 	};
 
 	void GetVKBlobData(const Blob& blob, const void** ppData, size_t* pSize);
@@ -764,60 +762,12 @@ namespace XUSG
 
 	// Virtual inheritance blocks static_cast from Device*/CommandLayout* to *_VK*.
 	// GetBackend() returns the concrete subobject; AsVK recovers it without RTTI.
-	inline Device_VK* AsVK(Device* p)
-	{
-		assert(!p || p->GetBackend());
-		return static_cast<Device_VK*>(p ? p->GetBackend() : nullptr);
-	}
-
-	inline CommandLayout_VK* AsVK(CommandLayout* p)
-	{
-		assert(!p || p->GetBackend());
-		return static_cast<CommandLayout_VK*>(p ? p->GetBackend() : nullptr);
-	}
-
-	inline SwapChain_VK* AsVK(SwapChain* p)
-	{
-		assert(!p || p->GetBackend());
-		return static_cast<SwapChain_VK*>(p ? p->GetBackend() : nullptr);
-	}
+	Device_VK* AsVK(Device* p);
+	CommandLayout_VK* AsVK(CommandLayout* p);
+	SwapChain_VK* AsVK(SwapChain* p);
 
 	// StorageInputOutput16 is only for 16-bit shader inputs and outputs.
 	// Drop that capability when the device bit is off.
-	inline void DropUnsupportedStorageInputOutput16(const Device_VK* pDevice, const void* pCode, size_t codeSize,
-		std::vector<uint32_t>& storage, const uint32_t*& pOut, size_t& outSize)
-	{
-		pOut = static_cast<const uint32_t*>(pCode);
-		outSize = codeSize;
-		if (!pDevice || pDevice->HasStorageInputOutput16() || !pCode || codeSize < sizeof(uint32_t) * 6) return;
-
-		const auto* words = static_cast<const uint32_t*>(pCode);
-		const auto count = static_cast<uint32_t>(codeSize / sizeof(uint32_t));
-		if (words[0] != 0x07230203u) return;
-
-		constexpr uint32_t opCapability = 17;
-		constexpr uint32_t storageInputOutput16 = 4436;
-		storage.clear();
-		storage.reserve(count);
-		storage.insert(storage.end(), words, words + 5);
-		auto dropped = false;
-		for (auto i = 5u; i < count;)
-		{
-			const auto wordCount = words[i] >> 16;
-			const auto op = words[i] & 0xffffu;
-			if (!wordCount || i + wordCount > count)
-			{
-				storage.insert(storage.end(), words + i, words + count);
-				break;
-			}
-			const auto drop = op == opCapability && wordCount >= 2 && words[i + 1] == storageInputOutput16;
-			if (drop) dropped = true;
-			else storage.insert(storage.end(), words + i, words + i + wordCount);
-			i += wordCount;
-		}
-		if (!dropped) return;
-
-		pOut = storage.data();
-		outSize = storage.size() * sizeof(uint32_t);
-	}
+	void DropUnsupportedStorageInputOutput16(const Device_VK* pDevice, const void* pCode, size_t codeSize,
+		std::vector<uint32_t>& storage, const uint32_t*& pOut, size_t& outSize);
 }

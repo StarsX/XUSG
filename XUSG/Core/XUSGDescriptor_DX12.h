@@ -77,12 +77,12 @@ namespace XUSG
 		DescriptorTable CreateSamplerTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table = XUSG_NULL);
 		DescriptorTable GetSamplerTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table = XUSG_NULL);
 
-		DescriptorHeap GetDescriptorHeap(DescriptorHeapType type, uint8_t index = 0) const;
+		DescriptorHeap GetDescriptorHeap(DescriptorHeapType type, uint8_t index = 0);
 
 		const Sampler* GetSampler(SamplerPreset preset);
 
-		uint32_t GetDescriptorStride(DescriptorHeapType type) const;
-		void* GetBackend() override;
+		uint32_t GetDescriptorStride(DescriptorHeapType type);
+		void* GetBackend();
 
 	protected:
 		void checkDescriptorHeapTypeStorage(DescriptorHeapType type, uint8_t index);
@@ -113,12 +113,8 @@ namespace XUSG
 
 		std::wstring m_name;
 
-		mutable std::mutex m_mtx;
+		std::mutex m_mtx;
 	};
 
-	inline DescriptorTableLib_DX12* AsDX12(DescriptorTableLib* p)
-	{
-		assert(!p || p->GetBackend());
-		return static_cast<DescriptorTableLib_DX12*>(p ? p->GetBackend() : nullptr);
-	}
+	DescriptorTableLib_DX12* AsDX12(DescriptorTableLib* p);
 }

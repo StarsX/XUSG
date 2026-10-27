@@ -10,6 +10,31 @@
 using namespace std;
 using namespace XUSG;
 
+string XUSG::HrToString(uint32_t hr)
+{
+	char s_str[64] = {};
+	sprintf_s(s_str, "HRESULT of 0x%08X", hr);
+
+	return string(s_str);
+}
+
+wstring XUSG::GetDebugObjectName(ID3D12Object* pObject)
+{
+	if (!pObject) return {};
+
+	UINT size = 0;
+	const auto hr = pObject->GetPrivateData(WKPDID_D3DDebugObjectNameW, &size, nullptr);
+	if ((FAILED(hr) && hr != DXGI_ERROR_MORE_DATA) || !size) return {};
+
+	wstring name((size + sizeof(wchar_t) - 1) / sizeof(wchar_t), L'\0');
+	if (FAILED(pObject->GetPrivateData(WKPDID_D3DDebugObjectNameW, &size, name.data()))) return {};
+
+	name.resize(size / sizeof(wchar_t));
+	while (!name.empty() && name.back() == L'\0') name.pop_back();
+
+	return name;
+}
+
 Device_DX12::Device_DX12()
 {
 }
@@ -356,7 +381,7 @@ uint32_t SwapChain_DX12::ResizeBuffers(uint8_t bufferCount, uint32_t width,
 		GetDXGIFormat(format), GetDXGISwapChainFlags(flags));
 }
 
-uint8_t SwapChain_DX12::GetCurrentBackBufferIndex() const
+uint8_t SwapChain_DX12::GetCurrentBackBufferIndex()
 {
 	return m_swapChain->GetCurrentBackBufferIndex();
 }
@@ -389,4 +414,22 @@ Blob XUSG::GetDX12PipelineCache(Pipeline pipeline)
 	V_RETURN(static_cast<ID3D12PipelineState*>(pipeline)->GetCachedBlob(blob.put()), cerr, nullptr);
 
 	return blob.get();
+}
+
+Device_DX12* XUSG::AsDX12(Device* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<Device_DX12*>(p ? p->GetBackend() : nullptr);
+}
+
+CommandLayout_DX12* XUSG::AsDX12(CommandLayout* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<CommandLayout_DX12*>(p ? p->GetBackend() : nullptr);
+}
+
+SwapChain_DX12* XUSG::AsDX12(SwapChain* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<SwapChain_DX12*>(p ? p->GetBackend() : nullptr);
 }

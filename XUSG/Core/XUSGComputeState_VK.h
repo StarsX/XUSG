@@ -18,7 +18,7 @@ namespace XUSG
 		public:
 			State_VK();
 			virtual ~State_VK();
-			void* GetBackend() override;
+			void* GetBackend();
 
 			void SetPipelineLayout(const PipelineLayout& layout);
 			void SetShader(const Blob& shader);
@@ -69,10 +69,6 @@ namespace XUSG
 			std::mutex m_mtx;
 		};
 
-		inline State_VK* AsVK(State* p)
-		{
-			assert(!p || p->GetBackend());
-			return static_cast<State_VK*>(p ? p->GetBackend() : nullptr);
-		}
+		State_VK* AsVK(State* p);
 	}
 }

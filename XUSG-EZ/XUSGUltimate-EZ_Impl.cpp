@@ -22,9 +22,9 @@ XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::CommandList_Impl()
 	CoreList(),
 	XUSG::EZ::CommandList_Impl<CoreList>(),
 	m_meshShaderPipelineLib(nullptr),
-	m_pipelineLayout(nullptr),
 	m_meshShaderState(nullptr),
 	m_workGraphState(nullptr),
+	m_pipelineLayout(nullptr),
 	m_workGraphProperty(nullptr),
 	m_isWGStateDirty(false),
 	m_meshShaderConstantParamIndices()
@@ -141,9 +141,15 @@ bool XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::Create(Device
 }
 
 template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions) const
+{
+	UltimateList::SetSamplePositions(numSamplesPerPixel, numPixels, pPositions);
+}
+
+template<typename CoreList, typename UltimateList>
 void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::ResolveSubresourceRegion(Resource* pDstResource, uint32_t dstSubresource,
 	uint32_t dstX, uint32_t dstY, Resource* pSrcResource, uint32_t srcSubresource,
-	const RectRange& srcRect, Format format, ResolveMode resolveMode) const
+	const RectRange& srcRect, Format format, ResolveMode resolveMode)
 {
 	assert(pDstResource);
 	assert(pSrcResource);
@@ -156,6 +162,12 @@ void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::ResolveSubres
 
 	UltimateList::ResolveSubresourceRegion(pDstResource, dstSubresource,
 		dstX, dstY, pSrcResource, srcSubresource, srcRect, format, resolveMode);
+}
+
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::RSSetShadingRate(ShadingRate baseShadingRate, const ShadingRateCombiner* pCombiners) const
+{
+	UltimateList::RSSetShadingRate(baseShadingRate, pCombiners);
 }
 
 template<typename CoreList, typename UltimateList>
@@ -501,12 +513,9 @@ XUSG::WorkGraph::NodeID XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateL
 }
 
 template<typename CoreList, typename UltimateList>
-Ultimate::CommandList* XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::AsUltimateCommandList() const
+Ultimate::CommandList* XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::AsUltimateCommandList()
 {
-	const auto pCommandList = dynamic_cast<const Ultimate::CommandList*>(this);
-	assert(pCommandList);
-
-	return const_cast<Ultimate::CommandList*>(pCommandList);
+	return static_cast<Ultimate::CommandList*>(static_cast<UltimateList*>(this));
 }
 
 template<typename CoreList, typename UltimateList>
@@ -875,7 +884,7 @@ const XUSG::Shader::Stage& XUSG::Ultimate::EZ::CommandList_Impl<CoreList, Ultima
 }
 
 template<typename CoreList, typename UltimateList>
-XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::StageIndex XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::getShaderStageIndex(Shader::Stage stage) const
+typename XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::StageIndex XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::getShaderStageIndex(Shader::Stage stage) const
 {
 	switch (stage)
 	{

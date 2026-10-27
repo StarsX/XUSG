@@ -445,7 +445,7 @@ void Resource_VK::Unmap(const Range* pWrittenRange)
 
 void Resource_VK::GetTiling(uint32_t* pTotalNumTiles, PackedMipInfo* pPackedMipInfo,
 	TileShape* pStandardTileShapeForNonPackedMips, uint32_t* pNumSubresourceTilings,
-	uint32_t firstSubresourceTiling, SubresourceTiling* pSubresourceTilingsForNonPackedMips) const
+	uint32_t firstSubresourceTiling, SubresourceTiling* pSubresourceTilingsForNonPackedMips)
 {
 	ensureTiling();
 	if (pTotalNumTiles) *pTotalNumTiles = m_totalTiles;
@@ -482,7 +482,7 @@ bool Resource_VK::IsSparse() const
 }
 
 bool Resource_VK::ImageTileCopy(const TiledResourceCoord& coord, const TileRegionSize& region, uint32_t index,
-	VkDeviceSize bufferOffset, VkBufferImageCopy& copy) const
+	VkDeviceSize bufferOffset, VkBufferImageCopy& copy)
 {
 	uint32_t tile = 0;
 	if (!tileIndex(coord, region, index, tile) || tile >= m_tiles.size()) return false;
@@ -504,7 +504,7 @@ bool Resource_VK::ImageTileCopy(const TiledResourceCoord& coord, const TileRegio
 	return copy.imageExtent.width && copy.imageExtent.height && copy.imageExtent.depth;
 }
 
-bool Resource_VK::BufferTileCopy(uint32_t startTile, uint32_t numTiles, VkDeviceSize& offset, VkDeviceSize& size) const
+bool Resource_VK::BufferTileCopy(uint32_t startTile, uint32_t numTiles, VkDeviceSize& offset, VkDeviceSize& size)
 {
 	ensureTiling();
 	if (!numTiles || m_tiles.empty() || startTile >= m_tiles.size()) return false;
@@ -636,7 +636,7 @@ void Resource_VK::BindTileMappings(VkQueue queue, uint32_t numResourceRegions,
 	bindTiles(queue, binds);
 }
 
-void Resource_VK::CopyBoundTiles(VkQueue queue, const TiledResourceCoord& dstCoord, const Resource_VK* pSrc,
+void Resource_VK::CopyBoundTiles(VkQueue queue, const TiledResourceCoord& dstCoord, Resource_VK* pSrc,
 	const TiledResourceCoord& srcCoord, const TileRegionSize& region)
 {
 	assert(pSrc);
@@ -1299,7 +1299,7 @@ void Resource_VK::releaseSparseMetadata()
 	m_metadata = VK_NULL_HANDLE;
 }
 
-void Resource_VK::ensureTiling() const
+void Resource_VK::ensureTiling()
 {
 	if (m_tilingReady) return;
 
@@ -1505,7 +1505,7 @@ void Resource_VK::ensureTiling() const
 }
 
 bool Resource_VK::tileIndex(const TiledResourceCoord& coord, const TileRegionSize& region, uint32_t indexInRegion,
-	uint32_t& tile) const
+	uint32_t& tile)
 {
 	ensureTiling();
 	if (coord.Subresource >= m_subresources.size()) return false;
@@ -2285,7 +2285,7 @@ uint32_t Texture_VK::SetBarrier(ResourceBarrier* pBarriers, uint8_t mipLevel, Re
 	return SetBarrier(pBarriers, dstState, numBarriers, CalculateSubresource(mipLevel, arraySlice, plane), flags, srcState, threadIdx);
 }
 
-void Texture_VK::Blit(const CommandList* pCommandList, uint32_t groupSizeX, uint32_t groupSizeY,
+void Texture_VK::Blit(CommandList* pCommandList, uint32_t groupSizeX, uint32_t groupSizeY,
 	uint32_t groupSizeZ, const DescriptorTable& uavSrvTable, uint32_t uavSrvSlot, uint8_t mipLevel,
 	const DescriptorTable& srvTable, uint32_t srvSlot, const DescriptorTable& samplerTable,
 	uint32_t samplerSlot, const Pipeline& pipeline) const
@@ -2301,7 +2301,7 @@ void Texture_VK::Blit(const CommandList* pCommandList, uint32_t groupSizeX, uint
 		XUSG_DIV_UP(m_depthOrArray, groupSizeZ));
 }
 
-uint32_t Texture_VK::Blit(const CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
+uint32_t Texture_VK::Blit(CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
 	uint32_t groupSizeY, uint32_t groupSizeZ, uint8_t mipLevel, int8_t srcMipLevel, ResourceState srcState,
 	const DescriptorTable& uavSrvTable, uint32_t uavSrvSlot, uint32_t numBarriers, const DescriptorTable& srvTable,
 	uint32_t srvSlot, uint16_t baseSlice, uint16_t numSlices, uint32_t threadIdx)
@@ -2333,7 +2333,7 @@ uint32_t Texture_VK::Blit(const CommandList* pCommandList, ResourceBarrier* pBar
 	return numBarriers;
 }
 
-uint32_t Texture_VK::GenerateMips(const CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
+uint32_t Texture_VK::GenerateMips(CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
 	uint32_t groupSizeY, uint32_t groupSizeZ, ResourceState dstState, const PipelineLayout& pipelineLayout,
 	const Pipeline& pipeline, const DescriptorTable* pUavSrvTables, uint32_t uavSrvSlot, const DescriptorTable& samplerTable,
 	uint32_t samplerSlot, uint32_t numBarriers, const DescriptorTable* pSrvTables, uint32_t srvSlot, uint8_t baseMip,
@@ -2721,7 +2721,7 @@ Descriptor RenderTarget_VK::CreateRTV(uint16_t arraySize, uint16_t firstArraySli
 	return view.get();
 }
 
-void RenderTarget_VK::Blit(const CommandList* pCommandList, const DescriptorTable& srcSrvTable, uint32_t srcSlot,
+void RenderTarget_VK::Blit(CommandList* pCommandList, const DescriptorTable& srcSrvTable, uint32_t srcSlot,
 	uint8_t mipLevel, uint16_t baseSlice, uint16_t numSlices, const DescriptorTable& samplerTable, uint32_t samplerSlot,
 	const Pipeline& pipeline, uint32_t offsetForSliceId, uint32_t cbSlot) const
 {
@@ -2750,7 +2750,7 @@ void RenderTarget_VK::Blit(const CommandList* pCommandList, const DescriptorTabl
 	}
 }
 
-uint32_t RenderTarget_VK::Blit(const CommandList* pCommandList, ResourceBarrier* pBarriers, uint8_t mipLevel, int8_t srcMipLevel,
+uint32_t RenderTarget_VK::Blit(CommandList* pCommandList, ResourceBarrier* pBarriers, uint8_t mipLevel, int8_t srcMipLevel,
 	ResourceState srcState, const DescriptorTable& srcSrvTable, uint32_t srcSlot, uint32_t numBarriers, uint16_t baseSlice,
 	uint16_t numSlices, uint32_t offsetForSliceId, uint32_t cbSlot, uint32_t threadIdx)
 {
@@ -2775,7 +2775,7 @@ uint32_t RenderTarget_VK::Blit(const CommandList* pCommandList, ResourceBarrier*
 	return numBarriers;
 }
 
-uint32_t RenderTarget_VK::GenerateMips(const CommandList* pCommandList, ResourceBarrier* pBarriers, ResourceState dstState,
+uint32_t RenderTarget_VK::GenerateMips(CommandList* pCommandList, ResourceBarrier* pBarriers, ResourceState dstState,
 	const PipelineLayout& pipelineLayout, const Pipeline& pipeline, const DescriptorTable* pSrcSrvTables, uint32_t srcSlot,
 	const DescriptorTable& samplerTable, uint32_t samplerSlot, uint32_t numBarriers, uint8_t baseMip, uint8_t numMips,
 	uint16_t baseSlice, uint16_t numSlices, uint32_t offsetForSliceId, uint32_t cbSlot, uint32_t threadIdx)
@@ -3746,4 +3746,10 @@ void IndexBuffer_VK::CreateIBV(IndexBufferView& ibv, Format format, uint32_t byt
 const IndexBufferView& IndexBuffer_VK::GetIBV(uint32_t index) const
 {
 	return m_ibvs[index];
+}
+
+Heap_VK* XUSG::AsVK(Heap* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<Heap_VK*>(p ? p->GetBackend() : nullptr);
 }

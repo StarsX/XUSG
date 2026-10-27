@@ -62,6 +62,12 @@ bool Device_VK::createInterface(uint8_t flags)
 	return true;
 }
 
+Device_VK* XUSG::RayTracing::AsVK(Device* p)
+{
+	assert(!p || p->GetRTBackend());
+	return static_cast<Device_VK*>(p ? p->GetRTBackend() : nullptr);
+}
+
 VkBuildAccelerationStructureFlagsKHR XUSG::RayTracing::GetVKBuildFlag(BuildFlag buildFlag)
 {
 	static const VkBuildAccelerationStructureFlagsKHR buildFlags[] =

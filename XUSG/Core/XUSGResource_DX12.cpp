@@ -242,7 +242,7 @@ void Resource_DX12::Unmap(const Range* pWrittenRange)
 
 void Resource_DX12::GetTiling(uint32_t* pTotalNumTiles, PackedMipInfo* pPackedMipInfo,
 	TileShape* pStandardTileShapeForNonPackedMips, uint32_t* pNumSubresourceTilings,
-	uint32_t firstSubresourceTiling, SubresourceTiling* pSubresourceTilingsForNonPackedMips) const
+	uint32_t firstSubresourceTiling, SubresourceTiling* pSubresourceTilingsForNonPackedMips)
 {
 	D3D12_PACKED_MIP_INFO packedMipDesc = {};
 	D3D12_TILE_SHAPE standardTileShapeForNonPackedMips = {};
@@ -1216,7 +1216,7 @@ uint32_t Texture_DX12::SetBarrier(ResourceBarrier* pBarriers, uint8_t mipLevel, 
 	return SetBarrier(pBarriers, dstState, numBarriers, subresource, flags, srcState, threadIdx);
 }
 
-void Texture_DX12::Blit(const CommandList* pCommandList, uint32_t groupSizeX, uint32_t groupSizeY,
+void Texture_DX12::Blit(CommandList* pCommandList, uint32_t groupSizeX, uint32_t groupSizeY,
 	uint32_t groupSizeZ, const DescriptorTable& uavSrvTable, uint32_t uavSrvSlot, uint8_t mipLevel,
 	const DescriptorTable& srvTable, uint32_t srvSlot, const DescriptorTable& samplerTable,
 	uint32_t samplerSlot, const Pipeline& pipeline) const
@@ -1237,7 +1237,7 @@ void Texture_DX12::Blit(const CommandList* pCommandList, uint32_t groupSizeX, ui
 		XUSG_DIV_UP(desc.DepthOrArraySize, groupSizeZ));
 }
 
-uint32_t Texture_DX12::Blit(const CommandList* pCommandList, ResourceBarrier* pBarriers,
+uint32_t Texture_DX12::Blit(CommandList* pCommandList, ResourceBarrier* pBarriers,
 	uint32_t groupSizeX, uint32_t groupSizeY, uint32_t groupSizeZ, uint8_t mipLevel,
 	int8_t srcMipLevel, ResourceState srcState, const DescriptorTable& uavSrvTable,
 	uint32_t uavSrvSlot, uint32_t numBarriers, const DescriptorTable& srvTable,
@@ -1273,7 +1273,7 @@ uint32_t Texture_DX12::Blit(const CommandList* pCommandList, ResourceBarrier* pB
 	return numBarriers;
 }
 
-uint32_t Texture_DX12::GenerateMips(const CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
+uint32_t Texture_DX12::GenerateMips(CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
 	uint32_t groupSizeY, uint32_t groupSizeZ, ResourceState dstState, const PipelineLayout& pipelineLayout,
 	const Pipeline& pipeline, const DescriptorTable* pUavSrvTables, uint32_t uavSrvSlot, const DescriptorTable& samplerTable,
 	uint32_t samplerSlot, uint32_t numBarriers, const DescriptorTable* pSrvTables, uint32_t srvSlot, uint8_t baseMip,
@@ -1813,7 +1813,7 @@ Descriptor RenderTarget_DX12::CreateRTV(uint16_t arraySize, uint16_t firstArrayS
 	return resourceView.get();
 }
 
-void RenderTarget_DX12::Blit(const CommandList* pCommandList, const DescriptorTable& srcSrvTable,
+void RenderTarget_DX12::Blit(CommandList* pCommandList, const DescriptorTable& srcSrvTable,
 	uint32_t srcSlot, uint8_t mipLevel, uint16_t baseSlice, uint16_t numSlices,
 	const DescriptorTable& samplerTable, uint32_t samplerSlot, const Pipeline& pipeline,
 	uint32_t offsetForSliceId, uint32_t cbSlot) const
@@ -1852,7 +1852,7 @@ void RenderTarget_DX12::Blit(const CommandList* pCommandList, const DescriptorTa
 	}
 }
 
-uint32_t RenderTarget_DX12::Blit(const CommandList* pCommandList, ResourceBarrier* pBarriers, uint8_t mipLevel,
+uint32_t RenderTarget_DX12::Blit(CommandList* pCommandList, ResourceBarrier* pBarriers, uint8_t mipLevel,
 	int8_t srcMipLevel, ResourceState srcState, const DescriptorTable& srcSrvTable, uint32_t srcSlot,
 	uint32_t numBarriers, uint16_t baseSlice, uint16_t numSlices,
 	uint32_t offsetForSliceId, uint32_t cbSlot, uint32_t threadIdx)
@@ -1884,7 +1884,7 @@ uint32_t RenderTarget_DX12::Blit(const CommandList* pCommandList, ResourceBarrie
 	return numBarriers;
 }
 
-uint32_t RenderTarget_DX12::GenerateMips(const CommandList* pCommandList, ResourceBarrier* pBarriers,
+uint32_t RenderTarget_DX12::GenerateMips(CommandList* pCommandList, ResourceBarrier* pBarriers,
 	ResourceState dstState, const PipelineLayout& pipelineLayout, const Pipeline& pipeline,
 	const DescriptorTable* pSrcSrvTables, uint32_t srcSlot, const DescriptorTable& samplerTable,
 	uint32_t samplerSlot, uint32_t numBarriers, uint8_t baseMip, uint8_t numMips,
@@ -3786,4 +3786,10 @@ const IndexBufferView& IndexBuffer_DX12::GetIBV(uint32_t index) const
 {
 	assert(m_ibvs.size() > index);
 	return m_ibvs[index];
+}
+
+Heap_DX12* XUSG::AsDX12(Heap* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<Heap_DX12*>(p ? p->GetBackend() : nullptr);
 }

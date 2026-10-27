@@ -105,13 +105,10 @@ namespace XUSG
 					Resource* pCountBuffer = nullptr,
 					uint64_t countBufferOffset = 0);
 
-				size_t GetDispatchRaysArgReservedOffset() const { return sizeof(DX12DispatchRaysDescHeader); }
+				size_t GetDispatchRaysArgReservedOffset() const;
 
-				Device* GetRTDevice() const { return RTList::GetRTDevice(); }
-				RayTracing::CommandList* AsRTCommandList() const
-				{
-					return const_cast<RayTracing::CommandList*>(dynamic_cast<const RayTracing::CommandList*>(this));
-				}
+				Device* GetRTDevice() const;
+				RayTracing::CommandList* AsRTCommandList();
 
 			protected:
 				//using ShaderTablePtr = ShaderTable*;
@@ -174,21 +171,21 @@ namespace XUSG
 					uint32_t numShaderIDs);
 
 				RayTracing::PipelineLib::uptr m_rayTracingPipelineLib;
+				RayTracing::State::uptr m_rayTracingState;
 
 				size_t m_scratchSize;
-				std::vector<Buffer::uptr> m_scratches;
 
-				RayTracing::State::uptr m_rayTracingState;
 				bool m_isRTStateDirty;
 
-				std::vector<uint32_t> m_tlasBindingToParamIndexMap;
-
+				std::vector<Buffer::uptr> m_scratches;
 				std::vector<Buffer::uptr> m_uploaders;
+				std::vector<uint32_t> m_tlasBindingToParamIndexMap;
 
 				std::unordered_map<std::string, ShaderTable::uptr> m_rayGenTables;
 				std::unordered_map<std::string, ShaderTable::uptr> m_hitGroupTables;
 				std::unordered_map<std::string, ShaderTable::uptr> m_missTables;
 				std::unordered_map<std::string, ShaderTable::uptr> m_callableTables;
+
 				const ShaderTable* m_pHitGroup;
 
 				std::unordered_set<std::string> m_argumentBufferVAs;
@@ -208,8 +205,8 @@ namespace XUSG
 				using Impl::Impl;
 
 			protected:
-				bool bindRayTracing(RayTracing::CommandList* pCommandList) override;
-				bool supportsMeshShader() const override;
+				bool bindRayTracing(RayTracing::CommandList* pCommandList);
+				bool supportsMeshShader() const;
 			};
 
 #ifndef XUSG_NO_VULKAN
@@ -222,8 +219,8 @@ namespace XUSG
 				using Impl::Impl;
 
 			protected:
-				bool bindRayTracing(RayTracing::CommandList* pCommandList) override;
-				bool supportsMeshShader() const override;
+				bool bindRayTracing(RayTracing::CommandList* pCommandList);
+				bool supportsMeshShader() const;
 			};
 #endif
 		}

@@ -26,13 +26,13 @@ namespace XUSG
 				uint8_t numAllocators, CommandAllocator* const* ppAllocators, const Pipeline& pipeline,
 				const wchar_t* name = nullptr);
 			void AttachUltimate(const CommandList_VK& source);
-			void* GetUltimateBackend() override;
+			void* GetUltimateBackend();
 
 			using XUSG::CommandList_VK::Barrier;
-			void Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups) const;
+			void Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups);
 			void Barrier(uint32_t numBufferBarriers, ResourceBarrier* pBufferBarriers,
 				uint32_t numTextureBarriers, ResourceBarrier* pTextureBarriers,
-				uint32_t numGlobalBarriers, ResourceBarrier* pGlobalBarriers) const;
+				uint32_t numGlobalBarriers, ResourceBarrier* pGlobalBarriers);
 			void SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions) const;
 			void ResolveSubresourceRegion(Resource* pDstResource, uint32_t dstSubresource,
 				uint32_t dstX, uint32_t dstY, Resource* pSrcResource, uint32_t srcSubresource,
@@ -46,11 +46,11 @@ namespace XUSG
 			void SetProgram(ProgramType type, ProgramIdentifier identifier, WorkGraphFlag flags = WorkGraphFlag::NONE,
 				uint64_t backingMemoryAddress = 0, uint64_t backingMemoryByteSize = 0,
 				uint64_t localRootArgTableAddress = 0, uint64_t localRootArgTableByteSize = 0,
-				uint64_t localRootArgTableByteStride = 0) const;
-			void DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride = 0) const;
-			void DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes = false) const;
+				uint64_t localRootArgTableByteStride = 0);
+			void DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride = 0);
+			void DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes = false);
 
-			void ConvertLinearAlgebraMatrix(const LinearAlgebraMatrixConversionInfo* pConversions, uint32_t numConversions) const;
+			void ConvertLinearAlgebraMatrix(const LinearAlgebraMatrixConversionInfo* pConversions, uint32_t numConversions);
 
 		protected:
 			struct CachedView

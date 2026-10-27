@@ -1412,9 +1412,9 @@ namespace XUSG
 		virtual void OMSetBlendFactor(const float blendFactor[4]) const = 0;
 		virtual void OMSetStencilRef(uint32_t stencilRef) const = 0;
 		virtual void SetPipelineState(const Pipeline& pipelineState) const = 0;
-		virtual void Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers) const = 0;
+		virtual void Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers) = 0;
 		virtual void ExecuteBundle(CommandList* pCommandList) const = 0;
-		virtual void SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps) const = 0;
+		virtual void SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps) = 0;
 		// Graphics and compute share one root-parameter binding state.
 		// Do not switch sides after setting only part of the bindings.
 		// A switch invalidates the bindings already set; set that side again before the next draw or dispatch.
@@ -1449,24 +1449,24 @@ namespace XUSG
 			const Descriptor* pDepthStencilView = nullptr) const = 0;
 		// Clear the currently bound DSV
 		virtual void ClearDepthStencilView(ClearFlag clearFlags, float depth, uint8_t stencil = 0,
-			uint32_t numRects = 0, const RectRange* pRects = nullptr) const = 0;
+			uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
 		// Set depthStencilView = nullptr to clear the currently bound DSV
 		virtual void ClearDepthStencilView(const Descriptor& depthStencilView, ClearFlag clearFlags,
-			float depth, uint8_t stencil = 0, uint32_t numRects = 0, const RectRange* pRects = nullptr) const = 0;
+			float depth, uint8_t stencil = 0, uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
 		// Clear the currently bound RTV, renderTargetViewIndex is the currently bound index
 		virtual void ClearRenderTargetView(const float colorRGBA[4], uint8_t renderTargetViewIndex,
-			uint32_t numRects = 0, const RectRange* pRects = nullptr) const = 0;
+			uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
 		virtual void ClearRenderTargetView(const Descriptor& renderTargetView, const float colorRGBA[4],
-			uint32_t numRects = 0, const RectRange* pRects = nullptr) const = 0;
+			uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
 		virtual void ClearUnorderedAccessViewUint(const DescriptorTable& descriptorTable, const Descriptor& descriptor,
-			const uint32_t values[4], uint32_t numRects = 0, const RectRange* pRects = nullptr) const = 0;
+			const uint32_t values[4], uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
 		virtual void ClearUnorderedAccessViewFloat(const DescriptorTable& descriptorTable, const Descriptor& descriptor,
-			const float values[4], uint32_t numRects = 0, const RectRange* pRects = nullptr) const = 0;
+			const float values[4], uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
 		// Vulkan marks discarded image subresources. The next image barrier uses an undefined
 		// old layout, and the next render-target or depth load uses DONT_CARE.
 		// Rectangle discards and buffer discards are not supported on Vulkan.
 		virtual void DiscardResource(Resource* pResource, uint32_t numRects, const RectRange* pRects,
-			uint32_t firstSubresource, uint32_t numSubresources) const = 0;
+			uint32_t firstSubresource, uint32_t numSubresources) = 0;
 		virtual void BeginQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const = 0;
 		virtual void EndQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const = 0;
 		virtual void ResolveQueryData(const QueryHeap& queryHeap, QueryType type, uint32_t startIndex,
@@ -1514,20 +1514,20 @@ namespace XUSG
 
 		virtual bool SubmitCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists,
 			const Semaphore* pWaits = nullptr, uint32_t numWaits = 0,
-			const Semaphore* pSignals = nullptr, uint32_t numSignals = 0) const = 0;
+			const Semaphore* pSignals = nullptr, uint32_t numSignals = 0) = 0;
 		virtual bool SubmitCommandList(CommandList* pCommandList,
 			const Semaphore* pWaits = nullptr, uint32_t numWaits = 0,
-			const Semaphore* pSignals = nullptr, uint32_t numSignals = 0) const = 0;
-		virtual bool Wait(Fence* pFence, uint64_t value) const = 0;
-		virtual bool Signal(Fence* pFence, uint64_t value) const = 0;
+			const Semaphore* pSignals = nullptr, uint32_t numSignals = 0) = 0;
+		virtual bool Wait(Fence* pFence, uint64_t value) = 0;
+		virtual bool Signal(Fence* pFence, uint64_t value) = 0;
 
-		virtual void ExecuteCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists) const = 0;
-		virtual void ExecuteCommandList(CommandList* pCommandList) const = 0;
+		virtual void ExecuteCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists) = 0;
+		virtual void ExecuteCommandList(CommandList* pCommandList) = 0;
 		virtual void UpdateTileMappings(Resource* pResource, uint32_t numResourceRegions,
 			const TiledResourceCoord* pResourceRegionStartCoords, const TileRegionSize* pResourceRegionSizes,
 			Heap* pHeap, uint32_t numHeapRanges, const TileRangeFlag* pHeapRangeFlags,
 			const uint32_t* pHeapRangeStartOffsets, const uint32_t* pHeapRangeTileCounts,
-			TileMappingFlag flags = TileMappingFlag::NONE) const = 0;
+			TileMappingFlag flags = TileMappingFlag::NONE) = 0;
 		virtual void CopyTileMappings(Resource* pDstResource, const TiledResourceCoord* pDstRegionStartCoord,
 			Resource* pSrcResource, const TiledResourceCoord* pSrcRegionStartCoordinate,
 			const TileRegionSize& regionSize, TileMappingFlag Flags = TileMappingFlag::NONE) const = 0;
@@ -1573,7 +1573,7 @@ namespace XUSG
 		virtual uint32_t ResizeBuffers(uint8_t bufferCount, uint32_t width, uint32_t height,
 			Format format, SwapChainFlag flags = SwapChainFlag::NONE) = 0;
 
-		virtual uint8_t GetCurrentBackBufferIndex() const = 0;
+		virtual uint8_t GetCurrentBackBufferIndex() = 0;
 
 		// Create from API native handle. nativeHandle is IDXGISwapChain3* or VkSwapchainKHR.
 		virtual void Create(uint64_t nativeHandle) = 0;
@@ -1655,7 +1655,7 @@ namespace XUSG
 		virtual void Unmap(const Range* pWrittenRange = nullptr) = 0;
 		virtual void GetTiling(uint32_t* pTotalNumTiles, PackedMipInfo* pPackedMipInfo = nullptr,
 			TileShape* pStandardTileShapeForNonPackedMips = nullptr, uint32_t* pNumSubresourceTilings = nullptr,
-			uint32_t firstSubresourceTiling = 0, SubresourceTiling* pSubresourceTilingsForNonPackedMips = nullptr) const = 0;
+			uint32_t firstSubresourceTiling = 0, SubresourceTiling* pSubresourceTilingsForNonPackedMips = nullptr) = 0;
 
 		// Create from API native handle. nativeHandle is ID3D12Resource* or VkImage.
 		// The Vulkan wrap stores this handle as an image. A VkBuffer is not accepted here.
@@ -1811,18 +1811,18 @@ namespace XUSG
 			uint32_t numBarriers = 0, uint16_t arraySlice = 0, BarrierFlag flags = BarrierFlag::NONE,
 			ResourceState srcState = ResourceState::AUTO, uint8_t plane = 0, uint32_t threadIdx = 0) = 0;
 
-		virtual void Blit(const CommandList* pCommandList, uint32_t groupSizeX, uint32_t groupSizeY,
+		virtual void Blit(CommandList* pCommandList, uint32_t groupSizeX, uint32_t groupSizeY,
 			uint32_t groupSizeZ, const DescriptorTable& uavSrvTable, uint32_t uavSrvSlot = 0,
 			uint8_t mipLevel = 0, const DescriptorTable& srvTable = XUSG_NULL, uint32_t srvSlot = 0,
 			const DescriptorTable& samplerTable = XUSG_NULL, uint32_t samplerSlot = 1,
 			const Pipeline& pipeline = nullptr) const = 0;
 
-		virtual uint32_t Blit(const CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
+		virtual uint32_t Blit(CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
 			uint32_t groupSizeY, uint32_t groupSizeZ, uint8_t mipLevel, int8_t srcMipLevel,
 			ResourceState srcState, const DescriptorTable& uavSrvTable, uint32_t uavSrvSlot = 0,
 			uint32_t numBarriers = 0, const DescriptorTable& srvTable = XUSG_NULL, uint32_t srvSlot = 0,
 			uint16_t baseSlice = 0, uint16_t numSlices = 0, uint32_t threadIdx = 0) = 0;
-		virtual uint32_t GenerateMips(const CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
+		virtual uint32_t GenerateMips(CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
 			uint32_t groupSizeY, uint32_t groupSizeZ, ResourceState dstState, const PipelineLayout& pipelineLayout,
 			const Pipeline& pipeline, const DescriptorTable* pUavSrvTables, uint32_t uavSrvSlot = 0,
 			const DescriptorTable& samplerTable = XUSG_NULL, uint32_t samplerSlot = 1, uint32_t numBarriers = 0,
@@ -1924,19 +1924,19 @@ namespace XUSG
 			Format format = Format::UNKNOWN, uint8_t mipLevel = 0, bool multisamples = false) = 0;
 
 		using Texture::Blit;
-		virtual void Blit(const CommandList* pCommandList, const DescriptorTable& srcSrvTable,
+		virtual void Blit(CommandList* pCommandList, const DescriptorTable& srcSrvTable,
 			uint32_t srcSlot = 0, uint8_t mipLevel = 0, uint16_t baseSlice = 0,
 			uint16_t numSlices = 0, const DescriptorTable& samplerTable = XUSG_NULL,
 			uint32_t samplerSlot = 1, const Pipeline& pipeline = nullptr,
 			uint32_t offsetForSliceId = 0, uint32_t cbSlot = 2) const = 0;
 
-		virtual uint32_t Blit(const CommandList* pCommandList, ResourceBarrier* pBarriers, uint8_t mipLevel,
+		virtual uint32_t Blit(CommandList* pCommandList, ResourceBarrier* pBarriers, uint8_t mipLevel,
 			int8_t srcMipLevel, ResourceState srcState, const DescriptorTable& srcSrvTable,
 			uint32_t srcSlot = 0, uint32_t numBarriers = 0, uint16_t baseSlice = 0, uint16_t numSlices = 0,
 			uint32_t offsetForSliceId = 0, uint32_t cbSlot = 2, uint32_t threadIdx = 0) = 0;
 
 		using Texture::GenerateMips;
-		virtual uint32_t GenerateMips(const CommandList* pCommandList, ResourceBarrier* pBarriers, ResourceState dstState,
+		virtual uint32_t GenerateMips(CommandList* pCommandList, ResourceBarrier* pBarriers, ResourceState dstState,
 			const PipelineLayout& pipelineLayout, const Pipeline& pipeline, const DescriptorTable* pSrcSrvTables,
 			uint32_t srcSlot = 0, const DescriptorTable& samplerTable = XUSG_NULL, uint32_t samplerSlot = 1,
 			uint32_t numBarriers = 0, uint8_t baseMip = 1, uint8_t numMips = 0, uint16_t baseSlice = 0,
@@ -2381,11 +2381,11 @@ namespace XUSG
 		virtual DescriptorTable CreateSamplerTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table = XUSG_NULL) = 0;
 		virtual DescriptorTable GetSamplerTable(const Util::DescriptorTable* pUtil, const DescriptorTable& table = XUSG_NULL) = 0;
 
-		virtual DescriptorHeap GetDescriptorHeap(DescriptorHeapType type, uint8_t index = 0) const = 0;
+		virtual DescriptorHeap GetDescriptorHeap(DescriptorHeapType type, uint8_t index = 0) = 0;
 
 		virtual const Sampler* GetSampler(SamplerPreset preset) = 0;
 
-		virtual uint32_t GetDescriptorStride(DescriptorHeapType type) const = 0;
+		virtual uint32_t GetDescriptorStride(DescriptorHeapType type) = 0;
 
 		// Backend C++ object (DescriptorTableLib_DX12* / DescriptorTableLib_VK*, not available to users), internal use only.
 		virtual void* GetBackend() = 0;
@@ -2476,8 +2476,8 @@ namespace XUSG
 
 		virtual Blob CreateShader(Shader::Stage stage, uint32_t index, const wchar_t* fileName) = 0;
 		virtual Blob CreateShader(Shader::Stage stage, uint32_t index, const void* pData, size_t size) = 0;
-		virtual Blob GetShader(Shader::Stage stage, uint32_t index) const = 0;
-		virtual Reflector::sptr GetReflector(Shader::Stage stage, uint32_t index) const = 0;
+		virtual Blob GetShader(Shader::Stage stage, uint32_t index) = 0;
+		virtual Reflector::sptr GetReflector(Shader::Stage stage, uint32_t index) = 0;
 
 		bool CreateShader(Shader::Stage stage, uint32_t index,
 			const void* pDxbc, size_t dxbcSize, const void* pSpirv, size_t spirvSize);
@@ -2813,7 +2813,7 @@ namespace XUSG
 			virtual void SetPipeline(State* pState, const Pipeline& pipeline) = 0;
 
 			virtual void SetInputLayout(uint32_t index, uint32_t numElements, const InputElement* pElements) = 0;
-			virtual const InputLayout* GetInputLayout(uint32_t index) const = 0;
+			virtual const InputLayout* GetInputLayout(uint32_t index) = 0;
 			virtual const InputLayout* CreateInputLayout(uint32_t numElements, const InputElement* pElements) = 0;
 
 			virtual Pipeline CreatePipeline(State* pState, const wchar_t* name = nullptr) = 0;

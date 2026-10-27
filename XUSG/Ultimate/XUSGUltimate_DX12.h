@@ -28,10 +28,10 @@ namespace XUSG
 			void Create(void* pNativeHandle, Device* pDevice);
 
 			using XUSG::CommandList_DX12::Barrier;
-			void Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups) const;
+			void Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups);
 			void Barrier(uint32_t numBufferBarriers, ResourceBarrier* pBufferBarriers,
 				uint32_t numTextureBarriers, ResourceBarrier* pTextureBarriers,
-				uint32_t numGlobalBarriers, ResourceBarrier* pGlobalBarriers) const;
+				uint32_t numGlobalBarriers, ResourceBarrier* pGlobalBarriers);
 			void SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions) const;
 			void ResolveSubresourceRegion(Resource* pDstResource, uint32_t dstSubresource,
 				uint32_t dstX, uint32_t dstY, Resource* pSrcResource, uint32_t srcSubresource,
@@ -48,30 +48,30 @@ namespace XUSG
 			void SetProgram(ProgramType type, ProgramIdentifier identifier, WorkGraphFlag flags = WorkGraphFlag::NONE,
 				uint64_t backingMemoryAddress = 0, uint64_t backingMemoryByteSize = 0,
 				uint64_t localRootArgTableAddress = 0, uint64_t localRootArgTableByteSize = 0,
-				uint64_t localRootArgTableByteStride = 0) const;
-			void DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride = 0) const;
-			void DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes = false) const;
+				uint64_t localRootArgTableByteStride = 0);
+			void DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride = 0);
+			void DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes = false);
 
-			void ConvertLinearAlgebraMatrix(const LinearAlgebraMatrixConversionInfo* pConversions, uint32_t numConversions) const;
+			void ConvertLinearAlgebraMatrix(const LinearAlgebraMatrixConversionInfo* pConversions, uint32_t numConversions);
 
 			com_ptr<ID3D12GraphicsCommandList6>& GetGraphicsCommandList();
 
 		protected:
 			bool createInterface();
-			void createAgilityInterface() const;
+			void createAgilityInterface();
 
 			com_ptr<ID3D12GraphicsCommandList6>		m_commandListU;
-			mutable com_ptr<ID3D12GraphicsCommandList11>	m_commandListA;
+			com_ptr<ID3D12GraphicsCommandList11>	m_commandListA;
 
-			mutable std::vector<D3D12_BARRIER_GROUP>		m_barrierGroups;
-			mutable std::vector<D3D12_GLOBAL_BARRIER>		m_globalBarriers;
-			mutable std::vector<D3D12_TEXTURE_BARRIER>		m_textureBarriers;
-			mutable std::vector<D3D12_BUFFER_BARRIER>		m_bufferBarriers;
-			mutable std::vector<uint32_t>					m_barrierGroupBarrierStarts;
+			std::vector<D3D12_BARRIER_GROUP>		m_barrierGroups;
+			std::vector<D3D12_GLOBAL_BARRIER>		m_globalBarriers;
+			std::vector<D3D12_TEXTURE_BARRIER>		m_textureBarriers;
+			std::vector<D3D12_BUFFER_BARRIER>		m_bufferBarriers;
+			std::vector<uint32_t>					m_barrierGroupBarrierStarts;
 
-			mutable std::vector<D3D12_NODE_CPU_INPUT>		m_nodeInputs;
+			std::vector<D3D12_NODE_CPU_INPUT>		m_nodeInputs;
 
-			mutable std::vector<D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_INFO> m_matrixConversions;
+			std::vector<D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_INFO> m_matrixConversions;
 		};
 
 		//--------------------------------------------------------------------------------------

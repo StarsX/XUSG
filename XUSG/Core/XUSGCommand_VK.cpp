@@ -687,7 +687,7 @@ void CommandList_VK::SetPipelineState(const Pipeline& pipelineState) const
 	if (resumePredication) beginPredication();
 }
 
-void CommandList_VK::Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers) const
+void CommandList_VK::Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers)
 {
 	if (!numBarriers) return;
 	assert(pBarriers);
@@ -824,7 +824,7 @@ void CommandList_VK::ExecuteBundle(CommandList* pCommandList) const
 	vkCmdExecuteCommands(m_state->m_commandBuffer, 1, &buffer);
 }
 
-void CommandList_VK::SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps) const
+void CommandList_VK::SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps)
 {
 	assert(numDescriptorHeaps == 0 || pDescriptorHeaps);
 	for (auto i = 0u; i < numDescriptorHeaps; ++i)
@@ -1108,7 +1108,7 @@ void CommandList_VK::OMSetRenderTargets(uint32_t numRenderTargetDescriptors,
 }
 
 void CommandList_VK::ClearDepthStencilView(ClearFlag clearFlags, float depth, uint8_t stencil,
-	uint32_t numRects, const RectRange* pRects) const
+	uint32_t numRects, const RectRange* pRects)
 {
 	if (!m_state->m_hasDepth) return;
 
@@ -1134,7 +1134,7 @@ void CommandList_VK::ClearDepthStencilView(ClearFlag clearFlags, float depth, ui
 }
 
 void CommandList_VK::ClearDepthStencilView(const Descriptor& depthStencilView, ClearFlag clearFlags, float depth,
-	uint8_t stencil, uint32_t numRects, const RectRange* pRects) const
+	uint8_t stencil, uint32_t numRects, const RectRange* pRects)
 {
 	if (!depthStencilView)
 	{
@@ -1176,7 +1176,7 @@ void CommandList_VK::ClearDepthStencilView(const Descriptor& depthStencilView, C
 }
 
 void CommandList_VK::ClearRenderTargetView(const float colorRGBA[4], uint8_t renderTargetViewIndex,
-	uint32_t numRects, const RectRange* pRects) const
+	uint32_t numRects, const RectRange* pRects)
 {
 	if (renderTargetViewIndex >= m_state->m_colorCount) return;
 
@@ -1195,7 +1195,7 @@ void CommandList_VK::ClearRenderTargetView(const float colorRGBA[4], uint8_t ren
 }
 
 void CommandList_VK::ClearRenderTargetView(const Descriptor& renderTargetView, const float colorRGBA[4],
-	uint32_t numRects, const RectRange* pRects) const
+	uint32_t numRects, const RectRange* pRects)
 {
 	assert(renderTargetView);
 	const auto pView = static_cast<const ResourceView_VK*>(renderTargetView);
@@ -1232,7 +1232,7 @@ void CommandList_VK::ClearRenderTargetView(const Descriptor& renderTargetView, c
 }
 
 void CommandList_VK::ClearUnorderedAccessViewUint(const DescriptorTable& descriptorTable, const Descriptor& descriptor,
-	const uint32_t values[4], uint32_t numRects, const RectRange* pRects) const
+	const uint32_t values[4], uint32_t numRects, const RectRange* pRects)
 {
 	(void)descriptorTable;
 	(void)pRects;
@@ -1242,7 +1242,7 @@ void CommandList_VK::ClearUnorderedAccessViewUint(const DescriptorTable& descrip
 }
 
 void CommandList_VK::ClearUnorderedAccessViewFloat(const DescriptorTable& descriptorTable, const Descriptor& descriptor,
-	const float values[4], uint32_t numRects, const RectRange* pRects) const
+	const float values[4], uint32_t numRects, const RectRange* pRects)
 {
 	(void)descriptorTable;
 	(void)pRects;
@@ -1252,7 +1252,7 @@ void CommandList_VK::ClearUnorderedAccessViewFloat(const DescriptorTable& descri
 }
 
 void CommandList_VK::DiscardResource(Resource* pResource, uint32_t numRects, const RectRange* pRects,
-	uint32_t firstSubresource, uint32_t numSubresources) const
+	uint32_t firstSubresource, uint32_t numSubresources)
 {
 	assert(pResource);
 	assert(numRects == 0 && "DiscardResource rectangles are not supported on Vulkan");
@@ -2754,7 +2754,7 @@ bool CommandQueue_VK::Create(Device* pDevice, CommandListType type, CommandQueue
 }
 
 bool CommandQueue_VK::SubmitCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists,
-	const Semaphore* pWaits, uint32_t numWaits, const Semaphore* pSignals, uint32_t numSignals) const
+	const Semaphore* pWaits, uint32_t numWaits, const Semaphore* pSignals, uint32_t numSignals)
 {
 	// Explicit submit: fold deferred Execute first. Pending Present stays on the
 	// worker / queue mutex - do not sync-flush it here (avoids vk5-style gaps).
@@ -2765,7 +2765,7 @@ bool CommandQueue_VK::SubmitCommandLists(uint32_t numCommandLists, CommandList* 
 }
 
 bool CommandQueue_VK::SubmitCommandList(CommandList* pCommandList,
-	const Semaphore* pWaits, uint32_t numWaits, const Semaphore* pSignals, uint32_t numSignals) const
+	const Semaphore* pWaits, uint32_t numWaits, const Semaphore* pSignals, uint32_t numSignals)
 {
 	if (!m_deferredLists.empty())
 		XUSG_N_RETURN(flushDeferred(nullptr, 0, nullptr, 0), false);
@@ -2773,7 +2773,7 @@ bool CommandQueue_VK::SubmitCommandList(CommandList* pCommandList,
 	return submit(1, &pCommandList, pWaits, numWaits, pSignals, numSignals);
 }
 
-bool CommandQueue_VK::Wait(Fence* pFence, uint64_t value) const
+bool CommandQueue_VK::Wait(Fence* pFence, uint64_t value)
 {
 	assert(pFence);
 	VkSemaphoreSubmitInfo waits[2] = {};
@@ -2799,7 +2799,7 @@ bool CommandQueue_VK::Wait(Fence* pFence, uint64_t value) const
 	return true;
 }
 
-bool CommandQueue_VK::Signal(Fence* pFence, uint64_t value) const
+bool CommandQueue_VK::Signal(Fence* pFence, uint64_t value)
 {
 	assert(pFence);
 	const Semaphore signal = { pFence, value };
@@ -2810,21 +2810,21 @@ bool CommandQueue_VK::Signal(Fence* pFence, uint64_t value) const
 	return true;
 }
 
-void CommandQueue_VK::ExecuteCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists) const
+void CommandQueue_VK::ExecuteCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists)
 {
 	assert(ppCommandLists);
 	for (auto i = 0u; i < numCommandLists; ++i)
 		m_deferredLists.push_back(ppCommandLists[i]);
 }
 
-void CommandQueue_VK::ExecuteCommandList(CommandList* pCommandList) const
+void CommandQueue_VK::ExecuteCommandList(CommandList* pCommandList)
 {
 	assert(pCommandList);
 	m_deferredLists.push_back(pCommandList);
 }
 
 bool CommandQueue_VK::flushDeferred(const Semaphore* pWaits, uint32_t numWaits,
-	const Semaphore* pSignals, uint32_t numSignals) const
+	const Semaphore* pSignals, uint32_t numSignals)
 {
 	if (m_deferredLists.empty() && numSignals == 0 && numWaits == 0 && !HasQueuePendingPresent(m_queue))
 		return true;
@@ -2840,7 +2840,7 @@ bool CommandQueue_VK::flushDeferred(const Semaphore* pWaits, uint32_t numWaits,
 void CommandQueue_VK::UpdateTileMappings(Resource* pResource, uint32_t numResourceRegions,
 	const TiledResourceCoord* pResourceRegionStartCoords, const TileRegionSize* pResourceRegionSizes,
 	Heap* pHeap, uint32_t numHeapRanges, const TileRangeFlag* pHeapRangeFlags,
-	const uint32_t* pHeapRangeStartOffsets, const uint32_t* pHeapRangeTileCounts, TileMappingFlag flags) const
+	const uint32_t* pHeapRangeStartOffsets, const uint32_t* pHeapRangeTileCounts, TileMappingFlag flags)
 {
 	(void)flags;
 	assert(pResource);
@@ -2903,7 +2903,7 @@ Device* CommandQueue_VK::GetDevice() const
 }
 
 bool CommandQueue_VK::submit(uint32_t numCommandLists, CommandList* const* ppCommandLists,
-	const Semaphore* pWaits, uint32_t numWaits, const Semaphore* pSignals, uint32_t numSignals) const
+	const Semaphore* pWaits, uint32_t numWaits, const Semaphore* pSignals, uint32_t numSignals)
 {
 	if (m_commandInfos.size() < numCommandLists) m_commandInfos.resize(numCommandLists);
 	for (auto i = 0u; i < numCommandLists; ++i)
@@ -2989,7 +2989,7 @@ bool CommandQueue_VK::submit(uint32_t numCommandLists, CommandList* const* ppCom
 	return true;
 }
 
-bool CommandQueue_VK::consumeSparseWait(VkSemaphoreSubmitInfo& wait) const
+bool CommandQueue_VK::consumeSparseWait(VkSemaphoreSubmitInfo& wait)
 {
 	if (!m_pDevice) return false;
 
@@ -3018,4 +3018,10 @@ VkQueue CommandQueue_VK::sparseQueue() const
 	assert(!"No queue supports sparse binding");
 
 	return VK_NULL_HANDLE;
+}
+
+CommandList_VK* XUSG::AsVK(CommandList* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<CommandList_VK*>(p ? p->GetBackend() : nullptr);
 }

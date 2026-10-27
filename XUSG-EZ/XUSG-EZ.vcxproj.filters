@@ -140,6 +140,9 @@
     <ClCompile Include="..\XUSG\Core\XUSGResource_DX12.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="..\XUSG\Core\XUSG_DX12.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
     <ClCompile Include="XUSGUltimate-EZ.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

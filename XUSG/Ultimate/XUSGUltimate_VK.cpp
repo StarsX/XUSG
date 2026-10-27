@@ -264,7 +264,7 @@ void* CommandList_VK::GetUltimateBackend()
 	return this;
 }
 
-void CommandList_VK::Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups) const
+void CommandList_VK::Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups)
 {
 	if (!numBarrierGroups) return;
 	assert(pBarrierGroups);
@@ -309,7 +309,7 @@ void CommandList_VK::Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGr
 
 void CommandList_VK::Barrier(uint32_t numBufferBarriers, ResourceBarrier* pBufferBarriers,
 	uint32_t numTextureBarriers, ResourceBarrier* pTextureBarriers,
-	uint32_t numGlobalBarriers, ResourceBarrier* pGlobalBarriers) const
+	uint32_t numGlobalBarriers, ResourceBarrier* pGlobalBarriers)
 {
 	if (!numBufferBarriers && !numTextureBarriers && !numGlobalBarriers) return;
 
@@ -563,7 +563,7 @@ void CommandList_VK::SetStateObject(const Pipeline& stateObject) const
 
 void CommandList_VK::SetProgram(ProgramType type, ProgramIdentifier identifier, WorkGraphFlag flags,
 	uint64_t backingMemoryAddress, uint64_t backingMemoryByteSize, uint64_t localRootArgTableAddress,
-	uint64_t localRootArgTableByteSize, uint64_t localRootArgTableByteStride) const
+	uint64_t localRootArgTableByteSize, uint64_t localRootArgTableByteStride)
 {
 	assert(!"SetProgram is not implemented on Vulkan");
 	(void)type;
@@ -576,7 +576,7 @@ void CommandList_VK::SetProgram(ProgramType type, ProgramIdentifier identifier, 
 	(void)localRootArgTableByteStride;
 }
 
-void CommandList_VK::DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride) const
+void CommandList_VK::DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride)
 {
 	assert(!"DispatchGraph is not implemented on Vulkan");
 	(void)numNodeInputs;
@@ -584,14 +584,14 @@ void CommandList_VK::DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* p
 	(void)nodeInputByteStride;
 }
 
-void CommandList_VK::DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes) const
+void CommandList_VK::DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes)
 {
 	assert(!"DispatchGraph is not implemented on Vulkan");
 	(void)nodeGPUInputAddress;
 	(void)isMultiNodes;
 }
 
-void CommandList_VK::ConvertLinearAlgebraMatrix(const LinearAlgebraMatrixConversionInfo* pConversions, uint32_t numConversions) const
+void CommandList_VK::ConvertLinearAlgebraMatrix(const LinearAlgebraMatrixConversionInfo* pConversions, uint32_t numConversions)
 {
 	assert(!"ConvertLinearAlgebraMatrix is not implemented on Vulkan");
 	(void)pConversions;

@@ -173,3 +173,9 @@ Pipeline PipelineLib_VK::getPipeline(const string& key, const wchar_t* name)
 
 	return pipeline->second;
 }
+
+State_VK* XUSG::Compute::AsVK(State* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<State_VK*>(p ? p->GetBackend() : nullptr);
+}

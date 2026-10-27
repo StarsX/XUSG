@@ -22,19 +22,19 @@ namespace XUSG
 
 			bool Create(XUSG::Device* pDevice, uint32_t nodeMask, CommandListType type,
 				uint8_t numAllocators, CommandAllocator* const* ppAllocators, const Pipeline& pipeline,
-				const wchar_t* name = nullptr) override;
+				const wchar_t* name = nullptr);
 			bool Create(Device* pDevice, uint32_t nodeMask, CommandListType type,
 				uint8_t numAllocators, CommandAllocator* const* ppAllocators, const Pipeline& pipeline,
-				const wchar_t* name = nullptr) override;
+				const wchar_t* name = nullptr);
 			void Create(void* pNativeHandle, Device* pDevice);
 
-			void Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers) const override;
+			void Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers);
 
 			void BuildRaytracingAccelerationStructure(const BuildDesc* pDesc,
 				uint32_t numPostbuildInfoDescs, const PostbuildInfo* pPostbuildInfoDescs,
 				const DescriptorHeap* pDescriptorHeap = nullptr);
 			void EmitRaytracingAccelerationStructurePostbuildInfo(const PostbuildInfo* pDesc,
-				uint32_t numAccelerationStructures, const uint64_t* pAccelerationStructureData) const;
+				uint32_t numAccelerationStructures, const uint64_t* pAccelerationStructureData);
 			void CopyRaytracingAccelerationStructure(AccelerationStructure* pDst,
 				AccelerationStructure* pSrc, CopyMode mode,
 				const DescriptorHeap* pDescriptorHeap = nullptr);
@@ -48,7 +48,7 @@ namespace XUSG
 				const ShaderTable* pCallable = nullptr) const;
 
 			Device* GetRTDevice() const;
-			void* GetRTBackend() override;
+			void* GetRTBackend();
 
 		protected:
 			bool createInterface();

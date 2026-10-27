@@ -61,7 +61,7 @@ void CommandList_DX12::Create(void* pNativeHandle, Device* pDevice)
 	createInterface();
 }
 
-void CommandList_DX12::Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups) const
+void CommandList_DX12::Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups)
 {
 	if (numBarrierGroups)
 	{
@@ -197,7 +197,7 @@ void CommandList_DX12::Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrier
 
 void CommandList_DX12::Barrier(uint32_t numBufferBarriers, ResourceBarrier* pBufferBarriers,
 	uint32_t numTextureBarriers, ResourceBarrier* pTextureBarriers,
-	uint32_t numGlobalBarriers, ResourceBarrier* pGlobalBarriers) const
+	uint32_t numGlobalBarriers, ResourceBarrier* pGlobalBarriers)
 {
 	m_barrierGroups.clear();
 
@@ -354,7 +354,7 @@ void CommandList_DX12::SetStateObject(const Pipeline& stateObject) const
 
 void CommandList_DX12::SetProgram(ProgramType type, ProgramIdentifier identifier, WorkGraphFlag flags,
 	uint64_t backingMemoryAddress, uint64_t backingMemoryByteSize, uint64_t localRootArgTableAddress,
-	uint64_t localRootArgTableByteSize, uint64_t localRootArgTableByteStride) const
+	uint64_t localRootArgTableByteSize, uint64_t localRootArgTableByteStride)
 {
 	D3D12_SET_PROGRAM_DESC desc = {};
 
@@ -393,7 +393,7 @@ void CommandList_DX12::SetProgram(ProgramType type, ProgramIdentifier identifier
 	m_commandListA->SetProgram(&desc);
 }
 
-void CommandList_DX12::DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride) const
+void CommandList_DX12::DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride)
 {
 	const auto populateNodeInput = [](D3D12_NODE_CPU_INPUT& nodeInput, const NodeCPUInput& nodeCPUInput)
 	{
@@ -424,7 +424,7 @@ void CommandList_DX12::DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput*
 	m_commandListA->DispatchGraph(&desc);
 }
 
-void CommandList_DX12::DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes) const
+void CommandList_DX12::DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes)
 {
 	D3D12_DISPATCH_GRAPH_DESC desc = {};
 	if (isMultiNodes)
@@ -468,7 +468,7 @@ public:
 		_In_  UINT DescCount) = 0;
 };
 
-void CommandList_DX12::ConvertLinearAlgebraMatrix(const LinearAlgebraMatrixConversionInfo* pConversions, uint32_t numConversions) const
+void CommandList_DX12::ConvertLinearAlgebraMatrix(const LinearAlgebraMatrixConversionInfo* pConversions, uint32_t numConversions)
 {
 	assert(pConversions);
 	m_matrixConversions.resize(numConversions);
@@ -521,7 +521,7 @@ bool CommandList_DX12::createInterface()
 	return true;
 }
 
-void CommandList_DX12::createAgilityInterface() const
+void CommandList_DX12::createAgilityInterface()
 {
 	if (m_commandListA == nullptr)
 	{

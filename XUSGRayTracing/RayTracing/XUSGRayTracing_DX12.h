@@ -23,7 +23,7 @@ namespace XUSG
 			void Create(void* pNativeHandle);
 
 			void* GetRTHandle() const;
-			void* GetRTBackend() override;
+			void* GetRTBackend();
 
 		protected:
 			bool createInterface(uint8_t flags = 0);
@@ -31,11 +31,7 @@ namespace XUSG
 			com_ptr<ID3D12RaytracingFallbackDevice> m_deviceRT;
 		};
 
-		inline Device_DX12* AsDX12(Device* p)
-		{
-			assert(!p || p->GetRTBackend());
-			return static_cast<Device_DX12*>(p ? p->GetRTBackend() : nullptr);
-		}
+		Device_DX12* AsDX12(Device* p);
 
 		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS GetDXRBuildFlag(BuildFlag buildFlag);
 		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS GetDXRBuildFlags(BuildFlag buildFlags);

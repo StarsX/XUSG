@@ -34,7 +34,7 @@ namespace XUSG
 			uint64_t GetVirtualAddress() const;
 			uint64_t GetResourcePointer() const;
 
-			void* GetBackend() override;
+			void* GetBackend();
 
 			static bool AllocateDestBuffer(Device* pDevice, Buffer* pDestBuffer, size_t byteWidth,
 				uint32_t numSRVs = 1, const uintptr_t* firstSrvElements = nullptr,
@@ -142,10 +142,6 @@ namespace XUSG
 			static size_t AlignOmmDesc(size_t byteSize);
 		};
 
-		inline AccelerationStructure_DX12* AsDX12(AccelerationStructure* p)
-		{
-			assert(!p || p->GetBackend());
-			return static_cast<AccelerationStructure_DX12*>(p ? p->GetBackend() : nullptr);
-		}
+		AccelerationStructure_DX12* AsDX12(AccelerationStructure* p);
 	}
 }

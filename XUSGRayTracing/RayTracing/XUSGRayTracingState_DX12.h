@@ -82,7 +82,7 @@ namespace XUSG
 			const wchar_t* GetHitGroupName(uint32_t index);
 			uint32_t GetNumHitGroups();
 
-			void* GetBackend() override;
+			void* GetBackend();
 
 		protected:
 			void serialize();
@@ -122,10 +122,6 @@ namespace XUSG
 			std::mutex m_mtx;
 		};
 
-		inline State_DX12* AsDX12(State* p)
-		{
-			assert(!p || p->GetBackend());
-			return static_cast<State_DX12*>(p ? p->GetBackend() : nullptr);
-		}
+		State_DX12* AsDX12(State* p);
 	}
 }

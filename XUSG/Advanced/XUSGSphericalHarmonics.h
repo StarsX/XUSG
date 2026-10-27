@@ -21,7 +21,7 @@ namespace XUSG
 			const DescriptorTableLib::sptr& descriptorTableLib,
 			uint8_t baseCSIndex, uint8_t descriptorHeapIndex = 0);
 
-		void Transform(const CommandList* pCommandList, Resource* pRadiance,
+		void Transform(CommandList* pCommandList, Resource* pRadiance,
 			const DescriptorTable& srvTable, uint8_t order = 3);
 
 		StructuredBuffer::sptr GetSHCoefficients() const;
@@ -59,10 +59,10 @@ namespace XUSG
 		bool createPipelines();
 		bool createDescriptorTables();
 
-		void shCubeMap(const CommandList* pCommandList, Resource* pRadiance,
+		void shCubeMap(CommandList* pCommandList, Resource* pRadiance,
 			const DescriptorTable& srvTable, uint8_t order);
-		void shSum(const CommandList* pCommandList, uint8_t order);
-		void shNormalize(const CommandList* pCommandList, uint8_t order);
+		void shSum(CommandList* pCommandList, uint8_t order);
+		void shNormalize(CommandList* pCommandList, uint8_t order);
 
 
 		ShaderLib::sptr				m_shaderLib;

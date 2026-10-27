@@ -270,7 +270,7 @@ DescriptorTable DescriptorTableLib_DX12::GetSamplerTable(const Util::DescriptorT
 	return getSamplerTable(pUtil->GetKey(), table);
 }
 
-DescriptorHeap DescriptorTableLib_DX12::GetDescriptorHeap(DescriptorHeapType type, uint8_t index) const
+DescriptorHeap DescriptorTableLib_DX12::GetDescriptorHeap(DescriptorHeapType type, uint8_t index)
 {
 	lock_guard<mutex> lock(m_mtx);
 
@@ -287,7 +287,7 @@ const Sampler* DescriptorTableLib_DX12::GetSampler(SamplerPreset preset)
 	return m_samplers[preset].get();
 }
 
-uint32_t DescriptorTableLib_DX12::GetDescriptorStride(DescriptorHeapType type) const
+uint32_t DescriptorTableLib_DX12::GetDescriptorStride(DescriptorHeapType type)
 {
 	lock_guard<mutex> lock(m_mtx);
 
@@ -628,4 +628,10 @@ uint32_t DescriptorTableLib_DX12::calculateGrowth(uint32_t newSize, DescriptorHe
 	const auto geometric = oldCapacity + halfOldCapacity;
 
 	return (max)(geometric, newSize); // geometric growth might be insufficient
+}
+
+DescriptorTableLib_DX12* XUSG::AsDX12(DescriptorTableLib* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<DescriptorTableLib_DX12*>(p ? p->GetBackend() : nullptr);
 }

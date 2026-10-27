@@ -660,3 +660,9 @@ size_t XUSG::RayTracing::OpacityMicromapArray_DX12::AlignOmmDesc(size_t byteSize
 {
 	return XUSG::Align(byteSize, 4);
 }
+
+AccelerationStructure_DX12* XUSG::RayTracing::AsDX12(AccelerationStructure* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<AccelerationStructure_DX12*>(p ? p->GetBackend() : nullptr);
+}

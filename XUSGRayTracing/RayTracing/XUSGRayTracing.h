@@ -472,7 +472,7 @@ namespace XUSG
 				uint32_t numPostbuildInfoDescs, const PostbuildInfo* pPostbuildInfoDescs,
 				const DescriptorHeap* pDescriptorHeap = nullptr) = 0;
 			virtual void EmitRaytracingAccelerationStructurePostbuildInfo(const PostbuildInfo* pDesc,
-				uint32_t numAccelerationStructures, const uint64_t* pAccelerationStructureData) const = 0;
+				uint32_t numAccelerationStructures, const uint64_t* pAccelerationStructureData) = 0;
 			virtual void CopyRaytracingAccelerationStructure(AccelerationStructure* pDst,
 				AccelerationStructure* pSrc, CopyMode mode,
 				const DescriptorHeap* pDescriptorHeap = nullptr) = 0;

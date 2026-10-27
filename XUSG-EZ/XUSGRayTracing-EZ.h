@@ -119,7 +119,7 @@ namespace XUSG
 				virtual size_t GetDispatchRaysArgReservedOffset() const = 0;
 
 				virtual Device* GetRTDevice() const = 0;
-				virtual RayTracing::CommandList* AsRTCommandList() const = 0;
+				virtual RayTracing::CommandList* AsRTCommandList() = 0;
 
 				static uptr MakeUnique();
 				static sptr MakeShared();
