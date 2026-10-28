@@ -114,6 +114,9 @@
     <ClInclude Include="XUSGRayTracing-EZ_Impl.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\XUSG\Core\XUSG_DX12.h">
+      <Filter>Core</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">

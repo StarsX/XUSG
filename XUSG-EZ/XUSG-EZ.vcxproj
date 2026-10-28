@@ -185,6 +185,7 @@
     <ClInclude Include="..\XUSG\Core\XUSGPipelineLayout_VK.h" />
     <ClInclude Include="..\XUSG\Core\XUSGResource_DX12.h" />
     <ClInclude Include="..\XUSG\Core\XUSGResource_VK.h" />
+    <ClInclude Include="..\XUSG\Core\XUSG_DX12.h" />
     <ClInclude Include="..\XUSG\Core\XUSG_VK.h" />
     <ClInclude Include="..\XUSG\Ultimate\XUSGUltimate.h" />
     <ClInclude Include="..\XUSG\Ultimate\XUSGUltimate_DX12.h" />
