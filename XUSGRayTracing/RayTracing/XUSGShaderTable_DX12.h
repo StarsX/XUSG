@@ -16,7 +16,7 @@ namespace XUSG
 		public:
 			ShaderRecord_DX12(const void* pShaderIdentifier, uint32_t shaderIdentifierSize,
 				const void* pLocalDescriptorArgs = nullptr, uint32_t localDescriptorArgSize = 0);
-			ShaderRecord_DX12(const Device* pDevice, const Pipeline& pipeline, const wchar_t* shaderName,
+			ShaderRecord_DX12(Device* pDevice, const Pipeline& pipeline, const wchar_t* shaderName,
 				const void* pLocalDescriptorArgs = nullptr, uint32_t localDescriptorArgSize = 0);
 			virtual ~ShaderRecord_DX12();
 
@@ -24,7 +24,7 @@ namespace XUSG
 
 			static const void* GetShaderIdentifier(const Pipeline& pipeline, const wchar_t* shaderName);
 
-			static uint32_t GetShaderIdentifierSize(const Device* pDevice);
+			static uint32_t GetShaderIdentifierSize(Device* pDevice);
 
 			static size_t Align(uint32_t byteSize);
 
@@ -48,7 +48,7 @@ namespace XUSG
 			ShaderTable_DX12();
 			virtual ~ShaderTable_DX12();
 
-			bool Create(const XUSG::Device* pDevice, uint32_t numShaderRecords, uint32_t shaderRecordSize,
+			bool Create(XUSG::Device* pDevice, uint32_t numShaderRecords, uint32_t shaderRecordSize,
 				MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr);
 
 			void Create(Buffer::sptr resource, uint32_t shaderRecordSize, uintptr_t byteOffset);

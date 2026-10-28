@@ -33,7 +33,7 @@ bool CommandRecorder_DML::Create(const Device* pDevice, const wchar_t* name)
 
 void CommandRecorder_DML::Dispatch(CommandList* pCommandList, const Dispatchable& dispatchable, const BindingTable& bindings) const
 {
-	m_commandRecorder->RecordDispatch(static_cast<ID3D12CommandList*>(pCommandList->GetHandle()),
+	m_commandRecorder->RecordDispatch(static_cast<ID3D12CommandList*>(pCommandList->GetNativeHandle()),
 		static_cast<IDMLDispatchable*>(dispatchable), static_cast<IDMLBindingTable*>(bindings));
 }
 

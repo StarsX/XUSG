@@ -8,68 +8,80 @@
 #include "Ultimate/XUSGUltimate_DX12.h"
 #include "RayTracing/XUSGRayTracingCommand_DX12.h"
 #include "RayTracing/XUSGRayTracingState_DX12.h"
-#include "XUSG-EZ_DX12.h"
-#include "XUSGUltimate-EZ_DX12.h"
-#include "XUSGRayTracing-EZ_DX12.h"
+#ifndef XUSG_NO_VULKAN
+#include "Core/XUSGCommand_VK.h"
+#include "Ultimate/XUSGUltimate_VK.h"
+#include "RayTracing/XUSGRayTracingCommand_VK.h"
+#endif
+#include "XUSG-EZ_Impl.h"
+#include "XUSGUltimate-EZ_Impl.h"
+#include "XUSGRayTracing-EZ_Impl.h"
 
 using namespace std;
+using namespace XUSG;
 using namespace XUSG::RayTracing;
 
-EZ::CommandList_DXR::CommandList_DXR() :
-	Ultimate::CommandList_DX12(),
-	Ultimate::EZ::CommandList_DX12(),
+template<typename CoreList, typename UltimateList, typename RTList>
+XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::CommandList_Impl() :
+	UltimateList(),
+	Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>(),
 	m_rayTracingPipelineLib(nullptr),
-	m_scratchSize(0),
-	m_scratches(0),
-	m_isRTStateDirty(false),
 	m_rayTracingState(nullptr),
-	m_tlasBindingToParamIndexMap(0)
+	m_scratchSize(0),
+	m_isRTStateDirty(false),
+	m_scratches(0),
+	m_tlasBindingToParamIndexMap(0),
+	m_pHitGroup(nullptr)
 {
 }
 
-EZ::CommandList_DXR::CommandList_DXR(RayTracing::CommandList* pCommandList,
+template<typename CoreList, typename UltimateList, typename RTList>
+XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::CommandList_Impl(RayTracing::CommandList* pCommandList,
 	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize) :
-	CommandList_DXR()
+	CommandList_Impl()
 {
 	Create(pCommandList, samplerHeapSize, cbvSrvUavHeapSize);
 }
 
-EZ::CommandList_DXR::~CommandList_DXR()
+template<typename CoreList, typename UltimateList, typename RTList>
+XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::~CommandList_Impl()
 {
 }
 
-bool EZ::CommandList_DXR::Create(RayTracing::CommandList* pCommandList, uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize)
+template<typename CoreList, typename UltimateList, typename RTList>
+bool XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::Create(RayTracing::CommandList* pCommandList, uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize)
 {
-	XUSG_N_RETURN(Ultimate::EZ::CommandList_DX12::init(pCommandList, samplerHeapSize, cbvSrvUavHeapSize), false);
+	XUSG_N_RETURN((Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::init(pCommandList, samplerHeapSize, cbvSrvUavHeapSize)), false);
+	XUSG_N_RETURN(bindRayTracing(pCommandList), false);
 
-	m_pDeviceRT = pCommandList->GetRTDevice();
-
-	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(m_pDeviceRT->GetRTHandle());
-	XUSG_N_RETURN(pDxDevice, false);
-	pDxDevice->QueryRaytracingCommandList(m_commandList.get(), IID_PPV_ARGS(&m_commandListRT));
-
-	m_rayTracingPipelineLib = PipelineLib::MakeUnique(m_pDeviceRT, API::DIRECTX_12);
-	m_rayTracingState = State::MakeUnique(API::DIRECTX_12);
+	m_rayTracingPipelineLib = PipelineLib::MakeUnique(m_pDeviceRT);
+	m_rayTracingState = State::MakeUnique();
 
 	return true;
 }
 
-bool EZ::CommandList_DXR::Create(const RayTracing::Device* pDevice, void* pHandle,
-	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize, const wchar_t* name)
+template<typename CoreList, typename UltimateList, typename RTList>
+bool XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::Create(RayTracing::Device* pDevice, void* pNativeHandle,
+	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize)
 {
 	m_pDeviceRT = pDevice;
-	RayTracing::CommandList_DX12::Create(pHandle, name);
+	RTList::Create(pNativeHandle, pDevice);
 
 	return Create(this, samplerHeapSize, cbvSrvUavHeapSize);
 }
 
-bool EZ::CommandList_DXR::CreatePipelineLayouts(
+template<typename CoreList, typename UltimateList, typename RTList>
+bool XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::CreatePipelineLayouts(
+	const uint32_t samplerStartSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE],
+	const uint32_t cbvStartSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t srvStartSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t uavStartSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE],
 	const uint32_t constantSlots[Shader::Stage::NUM_STAGE],
@@ -77,6 +89,9 @@ bool EZ::CommandList_DXR::CreatePipelineLayouts(
 	uint32_t maxTLASSrvs, uint32_t spaceTLAS,
 	uint32_t slotExt, uint32_t spaceExt)
 {
+	recordSpaceStarts(cbvStartSpaces, maxCbvSpaces, srvStartSpaces, maxSrvSpaces,
+		uavStartSpaces, maxUavSpaces, samplerStartSpaces);
+
 	// Create common pipeline layouts
 	XUSG_N_RETURN(createGraphicsPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
 		pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces, max32BitConstants,
@@ -92,14 +107,11 @@ bool EZ::CommandList_DXR::CreatePipelineLayouts(
 		maxUavSpaces ? maxUavSpaces[Shader::Stage::CS] : 1,
 		max32BitConstants ? max32BitConstants[Shader::Stage::CS] : 0,
 		constantSlots ? constantSlots[Shader::Stage::CS] : 0,
-		constantSpaces ? constantSpaces[Shader::Stage::CS] : cMaxCbvSpaces - 1,
+		constantSpaces ? constantSpaces[Shader::Stage::CS] :
+		spaceStart(Shader::Stage::CS, DescriptorType::CBV) + cMaxCbvSpaces - 1,
 		maxTLASSrvs, spaceTLAS, slotExt, spaceExt), false);
 
-	D3D12_FEATURE_DATA_D3D12_OPTIONS7 featureSupportData = {};
-	const auto hr = static_cast<ID3D12Device*>(m_pDevice->GetHandle())->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS7,
-		&featureSupportData, sizeof(featureSupportData));
-
-	if (m_commandListU && SUCCEEDED(hr) && featureSupportData.MeshShaderTier != D3D12_MESH_SHADER_TIER_NOT_SUPPORTED)
+	if (supportsMeshShader())
 		XUSG_N_RETURN(createMeshShaderPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
 			pMaxUavsEachSpace, maxCbvSpaces, maxSrvSpaces, maxUavSpaces, max32BitConstants,
 			constantSlots, constantSpaces, slotExt, spaceExt), false);
@@ -107,7 +119,8 @@ bool EZ::CommandList_DXR::CreatePipelineLayouts(
 	return true;
 }
 
-bool EZ::CommandList_DXR::Reset(const CommandAllocator* pAllocator, const Pipeline& initialState)
+template<typename CoreList, typename UltimateList, typename RTList>
+bool XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::Reset(uint8_t allocatorIndex, const Pipeline& initialState)
 {
 	if (!m_scratches.empty())
 	{
@@ -118,10 +131,11 @@ bool EZ::CommandList_DXR::Reset(const CommandAllocator* pAllocator, const Pipeli
 
 	m_uploaders.clear();
 
-	return XUSG::EZ::CommandList_DX12::Reset(pAllocator, initialState);
+	return XUSG::EZ::CommandList_Impl<CoreList>::Reset(allocatorIndex, initialState);
 }
 
-bool EZ::CommandList_DXR::PrebuildBLAS(BottomLevelAS* pBLAS, uint32_t numGeometries,
+template<typename CoreList, typename UltimateList, typename RTList>
+bool XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::PrebuildBLAS(BottomLevelAS* pBLAS, uint32_t numGeometries,
 	const GeometryBuffer& geometries, BuildFlag flags)
 {
 	assert(pBLAS);
@@ -134,7 +148,8 @@ bool EZ::CommandList_DXR::PrebuildBLAS(BottomLevelAS* pBLAS, uint32_t numGeometr
 	return true;
 }
 
-bool EZ::CommandList_DXR::PrebuildTLAS(TopLevelAS* pTLAS, uint32_t numInstances, BuildFlag flags)
+template<typename CoreList, typename UltimateList, typename RTList>
+bool XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::PrebuildTLAS(TopLevelAS* pTLAS, uint32_t numInstances, BuildFlag flags)
 {
 	assert(pTLAS);
 	XUSG_N_RETURN(pTLAS->Prebuild(m_pDeviceRT, numInstances, flags), false);
@@ -146,7 +161,8 @@ bool EZ::CommandList_DXR::PrebuildTLAS(TopLevelAS* pTLAS, uint32_t numInstances,
 	return true;
 }
 
-bool EZ::CommandList_DXR::PrebuildOmmArray(OpacityMicromapArray* pOmmArray, uint32_t numOpacityMicromaps,
+template<typename CoreList, typename UltimateList, typename RTList>
+bool XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::PrebuildOmmArray(OpacityMicromapArray* pOmmArray, uint32_t numOpacityMicromaps,
 	const GeometryBuffer& ommArrayDescs, BuildFlag flags)
 {
 	assert(pOmmArray);
@@ -159,13 +175,15 @@ bool EZ::CommandList_DXR::PrebuildOmmArray(OpacityMicromapArray* pOmmArray, uint
 	return true;
 }
 
-bool EZ::CommandList_DXR::AllocateAccelerationStructure(AccelerationStructure* pAccelerationStructure, size_t byteWidth)
+template<typename CoreList, typename UltimateList, typename RTList>
+bool XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::AllocateAccelerationStructure(AccelerationStructure* pAccelerationStructure, size_t byteWidth)
 {
 	assert(pAccelerationStructure);
 	return pAccelerationStructure->Allocate(m_pDeviceRT, m_descriptorTableLib.get(), byteWidth);
 }
 
-void EZ::CommandList_DXR::SetTriangleGeometry(BottomLevelAS::GeometryDesc& geometry, Format vertexFormat,
+template<typename CoreList, typename UltimateList, typename RTList>
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::SetTriangleGeometry(BottomLevelAS::GeometryDesc& geometry, Format vertexFormat,
 	const XUSG::EZ::VertexBufferView& vbv, const XUSG::EZ::IndexBufferView* pIbv, GeometryFlag flags,
 	const ResourceView* pTransform)
 {
@@ -196,7 +214,8 @@ void EZ::CommandList_DXR::SetTriangleGeometry(BottomLevelAS::GeometryDesc& geome
 	BottomLevelAS::SetTriangleGeometry(geometry, vertexFormat, *vbv.pView, pIbv ? pIbv->pView : nullptr, flags, pTransform);
 }
 
-void EZ::CommandList_DXR::SetAABBGeometry(BottomLevelAS::GeometryDesc& geometry, const XUSG::EZ::VertexBufferView& vbv, GeometryFlag flags)
+template<typename CoreList, typename UltimateList, typename RTList>
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::SetAABBGeometry(BottomLevelAS::GeometryDesc& geometry, const XUSG::EZ::VertexBufferView& vbv, GeometryFlag flags)
 {
 	// Set barriers if the vertex buffers or index buffers are not at the read states
 	const auto startIdx = m_barriers.size();
@@ -217,7 +236,8 @@ void EZ::CommandList_DXR::SetAABBGeometry(BottomLevelAS::GeometryDesc& geometry,
 	BottomLevelAS::SetAABBGeometry(geometry, *vbv.pView, flags);
 }
 
-void EZ::CommandList_DXR::SetOMMGeometry(BottomLevelAS::GeometryDesc& geometry, const BottomLevelAS::TriangleGeometry* pTriangles,
+template<typename CoreList, typename UltimateList, typename RTList>
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::SetOMMGeometry(BottomLevelAS::GeometryDesc& geometry, const BottomLevelAS::TriangleGeometry* pTriangles,
 	const BottomLevelAS::OMMLinkage* pOmmLinkage, Buffer* pOpacityMicromapIndexBuffer, GeometryFlag flags)
 {
 	if (pOmmLinkage)
@@ -241,7 +261,8 @@ void EZ::CommandList_DXR::SetOMMGeometry(BottomLevelAS::GeometryDesc& geometry, 
 	BottomLevelAS::SetOMMGeometry(geometry, pTriangles, pOmmLinkage, flags);
 }
 
-void EZ::CommandList_DXR::SetOmmArray(GeometryBuffer& ommArrayDescs, uint32_t numOpacityMicromaps,
+template<typename CoreList, typename UltimateList, typename RTList>
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::SetOmmArray(GeometryBuffer& ommArrayDescs, uint32_t numOpacityMicromaps,
 	const OpacityMicromapArray::Desc* pOmmArrayDescs)
 {
 	if (pOmmArrayDescs)
@@ -279,42 +300,48 @@ void EZ::CommandList_DXR::SetOmmArray(GeometryBuffer& ommArrayDescs, uint32_t nu
 	OpacityMicromapArray::SetOmmArray(ommArrayDescs, numOpacityMicromaps, pOmmArrayDescs);
 }
 
-void EZ::CommandList_DXR::SetBLASDestination(BottomLevelAS* pBLAS, const Buffer::sptr destBuffer,
+template<typename CoreList, typename UltimateList, typename RTList>
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::SetBLASDestination(BottomLevelAS* pBLAS, const Buffer::sptr destBuffer,
 	uintptr_t byteOffset, uint32_t uavIndex)
 {
 	pBLAS->SetDestination(m_pDeviceRT, destBuffer, byteOffset, uavIndex, m_descriptorTableLib.get());
 }
 
-void EZ::CommandList_DXR::SetTLASDestination(TopLevelAS* pTLAS, const Buffer::sptr destBuffer,
+template<typename CoreList, typename UltimateList, typename RTList>
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::SetTLASDestination(TopLevelAS* pTLAS, const Buffer::sptr destBuffer,
 	uintptr_t byteOffset, uint32_t uavIndex, uint32_t srvIndex)
 {
 	pTLAS->SetDestination(m_pDeviceRT, destBuffer, byteOffset, uavIndex, srvIndex, m_descriptorTableLib.get());
 }
 
-void EZ::CommandList_DXR::SetOmmArrayDestination(OpacityMicromapArray* pOmmArray,
-	const Buffer::sptr destBuffer, uintptr_t byteOffset)
+template<typename CoreList, typename UltimateList, typename RTList>
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::SetOmmArrayDestination(OpacityMicromapArray* pOmmArray,
+	const Buffer::sptr destBuffer, uintptr_t byteOffset) const
 {
 	pOmmArray->SetDestination(m_pDeviceRT, destBuffer, byteOffset);
 }
 
-void EZ::CommandList_DXR::BuildBLAS(BottomLevelAS* pBLAS, const BottomLevelAS* pSource,
+template<typename CoreList, typename UltimateList, typename RTList>
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::BuildBLAS(BottomLevelAS* pBLAS, BottomLevelAS* pSource,
 	uint8_t numPostbuildInfoDescs, const PostbuildInfoType* pPostbuildInfoTypes)
 {
 	assert(pBLAS);
 	const auto pScratch = needScratch(m_scratchSize);
 
 	// Set barrier command
-	XUSG::CommandList_DX12::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
+	CoreList::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
 	m_barriers.clear();
 
 	pBLAS->Build(this, pScratch, pSource, numPostbuildInfoDescs, pPostbuildInfoTypes);
 
-	// Set barrier command
-	const ResourceBarrier barrier = { nullptr, ResourceState::UNORDERED_ACCESS };
-	XUSG::CommandList_DX12::Barrier(1, &barrier);
+	ResourceBarrier barriers[2];
+	auto numBarriers = pBLAS->SetBarrier(barriers);
+	numBarriers = pScratch->SetBarrier(barriers, ResourceState::UNORDERED_ACCESS, numBarriers);
+	CoreList::Barrier(numBarriers, barriers);
 }
 
-void EZ::CommandList_DXR::BuildTLAS(TopLevelAS* pTLAS, Resource* pInstanceDescs, const TopLevelAS* pSource,
+template<typename CoreList, typename UltimateList, typename RTList>
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::BuildTLAS(TopLevelAS* pTLAS, Resource* pInstanceDescs, TopLevelAS* pSource,
 	uint8_t numPostbuildInfoDescs, const PostbuildInfoType* pPostbuildInfoTypes)
 {
 	assert(pTLAS);
@@ -333,62 +360,70 @@ void EZ::CommandList_DXR::BuildTLAS(TopLevelAS* pTLAS, Resource* pInstanceDescs,
 	if (numBarriers < 1) m_barriers.resize(startIdx + numBarriers);
 
 	// Set barrier command
-	XUSG::CommandList_DX12::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
+	CoreList::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
 	m_barriers.clear();
 
 	pTLAS->Build(this, pScratch, pInstanceDescs, descriptorHeap, pSource, numPostbuildInfoDescs, pPostbuildInfoTypes);
 
-	// Set barrier command
-	const ResourceBarrier barrier = { nullptr, ResourceState::UNORDERED_ACCESS };
-	XUSG::CommandList_DX12::Barrier(1, &barrier);
+	ResourceBarrier barriers[2];
+	numBarriers = pTLAS->SetBarrier(barriers);
+	numBarriers = pScratch->SetBarrier(barriers, ResourceState::UNORDERED_ACCESS, numBarriers);
+	CoreList::Barrier(numBarriers, barriers);
 }
 
-void EZ::CommandList_DXR::BuildOmmArray(OpacityMicromapArray* pOmmArray, const OpacityMicromapArray* pSource,
+template<typename CoreList, typename UltimateList, typename RTList>
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::BuildOmmArray(OpacityMicromapArray* pOmmArray, OpacityMicromapArray* pSource,
 	uint8_t numPostbuildInfoDescs, const PostbuildInfoType* pPostbuildInfoTypes)
 {
 	assert(pOmmArray);
 	const auto pScratch = needScratch(m_scratchSize);
 
 	// Set barrier command
-	XUSG::CommandList_DX12::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
+	CoreList::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
 	m_barriers.clear();
 
 	pOmmArray->Build(this, pScratch, pSource, numPostbuildInfoDescs, pPostbuildInfoTypes);
 
-	// Set barrier command
-	const ResourceBarrier barrier = { nullptr, ResourceState::UNORDERED_ACCESS };
-	XUSG::CommandList_DX12::Barrier(1, &barrier);
+	ResourceBarrier barriers[2];
+	auto numBarriers = pOmmArray->SetBarrier(barriers);
+	numBarriers = pScratch->SetBarrier(barriers, ResourceState::UNORDERED_ACCESS, numBarriers);
+	CoreList::Barrier(numBarriers, barriers);
 }
 
-void EZ::CommandList_DXR::CopyRaytracingAccelerationStructure(const AccelerationStructure* pDst,
-	const AccelerationStructure* pSrc, CopyMode mode)
+template<typename CoreList, typename UltimateList, typename RTList>
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::CopyRaytracingAccelerationStructure(AccelerationStructure* pDst,
+	AccelerationStructure* pSrc, CopyMode mode)
 {
-	RayTracing::CommandList_DX12::CopyRaytracingAccelerationStructure(pDst, pSrc, mode);
+	RTList::CopyRaytracingAccelerationStructure(pDst, pSrc, mode);
 
-	const ResourceBarrier barrier = { nullptr, ResourceState::UNORDERED_ACCESS };
-	XUSG::CommandList_DX12::Barrier(1, &barrier);
+	ResourceBarrier barrier;
+	CoreList::Barrier(pDst->SetBarrier(&barrier), &barrier);
 }
 
-void EZ::CommandList_DXR::SetTopLevelAccelerationStructure(uint32_t binding, const TopLevelAS* pTopLevelAS) const
+template<typename CoreList, typename UltimateList, typename RTList>
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::SetTopLevelAccelerationStructure(uint32_t binding, const TopLevelAS* pTopLevelAS) const
 {
-	RayTracing::CommandList_DX12::SetTopLevelAccelerationStructure(m_tlasBindingToParamIndexMap[binding], pTopLevelAS);
+	RTList::SetTopLevelAccelerationStructure(m_tlasBindingToParamIndexMap[binding], pTopLevelAS);
 }
 
-void EZ::CommandList_DXR::RTSetShaderLibrary(uint32_t index, const Blob& shaderLib, uint32_t numShaders, const wchar_t** pShaderNames)
+template<typename CoreList, typename UltimateList, typename RTList>
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::RTSetShaderLibrary(uint32_t index, const Blob& shaderLib, uint32_t numShaders, const wchar_t** pShaderNames)
 {
 	assert(m_rayTracingState);
 	m_rayTracingState->SetShaderLibrary(index, shaderLib, numShaders, pShaderNames);
 	m_isRTStateDirty = true;
 }
 
-void EZ::CommandList_DXR::RTSetShaderConfig(uint32_t maxPayloadSize, uint32_t maxAttributeSize)
+template<typename CoreList, typename UltimateList, typename RTList>
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::RTSetShaderConfig(uint32_t maxPayloadSize, uint32_t maxAttributeSize)
 {
 	assert(m_rayTracingState);
 	m_rayTracingState->SetShaderConfig(maxPayloadSize, maxAttributeSize);
 	m_isRTStateDirty = true;
 }
 
-void EZ::CommandList_DXR::RTSetHitGroup(uint32_t index, const wchar_t* hitGroupName, const wchar_t* closestHitShaderName,
+template<typename CoreList, typename UltimateList, typename RTList>
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::RTSetHitGroup(uint32_t index, const wchar_t* hitGroupName, const wchar_t* closestHitShaderName,
 	const wchar_t* anyHitShaderName, const wchar_t* intersectionShaderName, HitGroupType type)
 {
 	assert(m_rayTracingState);
@@ -396,14 +431,16 @@ void EZ::CommandList_DXR::RTSetHitGroup(uint32_t index, const wchar_t* hitGroupN
 	m_isRTStateDirty = true;
 }
 
-void EZ::CommandList_DXR::RTSetMaxRecursionDepth(uint32_t depth)
+template<typename CoreList, typename UltimateList, typename RTList>
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::RTSetMaxRecursionDepth(uint32_t depth)
 {
 	assert(m_rayTracingState);
 	m_rayTracingState->SetMaxRecursionDepth(depth);
 	m_isRTStateDirty = true;
 }
 
-void EZ::CommandList_DXR::RTSetPipelineState(const Pipeline& pipelineState, RayTracing::State* pState)
+template<typename CoreList, typename UltimateList, typename RTList>
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::RTSetPipelineState(const Pipeline& pipelineState, RayTracing::State* pState)
 {
 	assert(pipelineState || pState);
 	Pipeline pipeline;
@@ -423,34 +460,42 @@ void EZ::CommandList_DXR::RTSetPipelineState(const Pipeline& pipelineState, RayT
 	{
 		if (m_pipeline != pipeline)
 		{
-			XUSG::CommandList_DX12::SetPipelineState(pipeline);
+			CoreList::SetPipelineState(pipeline);
 			m_pipeline = pipeline;
 		}
 		m_isComputeDirty = false;
 	}
 }
 
-void EZ::CommandList_DXR::DispatchRays(uint32_t width, uint32_t height, uint32_t depth,
-	const wchar_t* rayGenShaderName, const wchar_t* const* pMissShaderNames, uint32_t numMissShaders)
+template<typename CoreList, typename UltimateList, typename RTList>
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::DispatchRays(uint32_t width, uint32_t height, uint32_t depth,
+	const wchar_t* rayGenShaderName, const wchar_t* const* pMissShaderNames, uint32_t numMissShaders,
+	const wchar_t* const* pCallableShaderNames, uint32_t numCallableShaders)
 {
 	CShaderTablePtr pRayGen = nullptr;
 	CShaderTablePtr pHitGroup = nullptr;
 	CShaderTablePtr pMiss = nullptr;
+	CShaderTablePtr pCallable = nullptr;
 
-	predispatchRays(pRayGen, pHitGroup, pMiss, rayGenShaderName, pMissShaderNames, numMissShaders);
-	RayTracing::CommandList_DX12::DispatchRays(width, height, depth, pRayGen, pHitGroup, pMiss);
+	predispatchRays(pRayGen, pHitGroup, pMiss, pCallable, rayGenShaderName, pMissShaderNames, numMissShaders,
+		pCallableShaderNames, numCallableShaders);
+	RTList::DispatchRays(width, height, depth, pRayGen, pHitGroup, pMiss, pCallable);
 }
 
-void EZ::CommandList_DXR::DispatchRaysIndirect(const CommandLayout* pCommandlayout, uint32_t maxCommandCount,
+template<typename CoreList, typename UltimateList, typename RTList>
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::DispatchRaysIndirect(CommandLayout* pCommandlayout, uint32_t maxCommandCount,
 	const wchar_t* rayGenShaderName, const wchar_t* const* pMissShaderNames, uint32_t numMissShaders,
+	const wchar_t* const* pCallableShaderNames, uint32_t numCallableShaders,
 	Resource* pArgumentBuffer, uint64_t argumentBufferOffset, Resource* pCountBuffer, uint64_t countBufferOffset)
 {
 	CShaderTablePtr pRayGen = nullptr;
 	CShaderTablePtr pHitGroup = nullptr;
 	CShaderTablePtr pMiss = nullptr;
+	CShaderTablePtr pCallable = nullptr;
 
 	preexecuteIndirect(pArgumentBuffer, pCountBuffer);
-	predispatchRays(pRayGen, pHitGroup, pMiss, rayGenShaderName, pMissShaderNames, numMissShaders);
+	predispatchRays(pRayGen, pHitGroup, pMiss, pCallable, rayGenShaderName, pMissShaderNames, numMissShaders,
+		pCallableShaderNames, numCallableShaders);
 
 	// Populate arg-buffer header with shader tables
 	string key(sizeof(ArgumentBufferVA), '\0');
@@ -463,7 +508,7 @@ void EZ::CommandList_DXR::DispatchRaysIndirect(const CommandLayout* pCommandlayo
 		m_uploaders.emplace_back();
 		auto& uploader = m_uploaders.back();
 
-		uploader = Buffer::MakeUnique(API::DIRECTX_12);
+		uploader = Buffer::MakeUnique();
 		const auto result = uploader->Create(m_pDevice, sizeof(DX12DispatchRaysDescHeader),
 			ResourceFlag::DENY_SHADER_RESOURCE, MemoryType::UPLOAD, 0, nullptr,
 			0, nullptr, MemoryFlag::NONE);
@@ -478,16 +523,38 @@ void EZ::CommandList_DXR::DispatchRaysIndirect(const CommandLayout* pCommandlayo
 		pDispatchDescHeader->MissShaderTable.StartAddress = pMiss ? pMiss->GetVirtualAddress() : 0;
 		pDispatchDescHeader->MissShaderTable.SizeInBytes = pMiss ? pMiss->GetByteSize() : 0;
 		pDispatchDescHeader->MissShaderTable.StrideInBytes = pMiss ? pMiss->GetByteStride() : 0;
+		pDispatchDescHeader->CallableShaderTable.StartAddress = pCallable ? pCallable->GetVirtualAddress() : 0;
+		pDispatchDescHeader->CallableShaderTable.SizeInBytes = pCallable ? pCallable->GetByteSize() : 0;
+		pDispatchDescHeader->CallableShaderTable.StrideInBytes = pCallable ? pCallable->GetByteStride() : 0;
 		uploader->Unmap();
 
 		CopyBufferRegion(pArgumentBuffer, argumentBufferOffset, uploader.get(), 0, sizeof(DX12DispatchRaysDescHeader));
 	}
 	
-	XUSG::CommandList_DX12::ExecuteIndirect(pCommandlayout, maxCommandCount,
+	CoreList::ExecuteIndirect(pCommandlayout, maxCommandCount,
 		pArgumentBuffer, argumentBufferOffset, pCountBuffer, countBufferOffset);
 }
 
-bool EZ::CommandList_DXR::createComputePipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
+template<typename CoreList, typename UltimateList, typename RTList>
+size_t XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::GetDispatchRaysArgReservedOffset() const
+{
+	return sizeof(DX12DispatchRaysDescHeader);
+}
+
+template<typename CoreList, typename UltimateList, typename RTList>
+RayTracing::Device* XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::GetRTDevice() const
+{
+	return RTList::GetRTDevice();
+}
+
+template<typename CoreList, typename UltimateList, typename RTList>
+RayTracing::CommandList* XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::AsRTCommandList()
+{
+	return static_cast<RayTracing::CommandList*>(static_cast<RTList*>(this));
+}
+
+template<typename CoreList, typename UltimateList, typename RTList>
+bool XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::createComputePipelineLayouts(uint32_t maxSamplers, const uint32_t* pMaxCbvsEachSpace,
 	const uint32_t* pMaxSrvsEachSpace, const uint32_t* pMaxUavsEachSpace,
 	uint32_t maxCbvSpaces, uint32_t maxSrvSpaces, uint32_t maxUavSpaces,
 	uint32_t max32BitConstants, uint32_t constantSlot, uint32_t constantSpace,
@@ -495,7 +562,7 @@ bool EZ::CommandList_DXR::createComputePipelineLayouts(uint32_t maxSamplers, con
 {
 	// Create common compute pipeline layout with ray tracing
 	auto paramIndex = 0u;
-	const auto pipelineLayout = PipelineLayout::MakeUnique(API::DIRECTX_12);
+	const auto pipelineLayout = PipelineLayout::MakeUnique();
 	const auto maxSpaces = (max)(maxCbvSpaces, (max)(maxSrvSpaces, maxUavSpaces));
 
 	auto& descriptorTables = m_cbvSrvUavTables[Shader::Stage::CS];
@@ -511,7 +578,11 @@ bool EZ::CommandList_DXR::createComputePipelineLayouts(uint32_t maxSamplers, con
 	m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::UAV)].resize(maxUavSpaces);
 	m_tlasBindingToParamIndexMap.resize(maxTLASSrvs);
 
-	pipelineLayout->SetRange(paramIndex++, DescriptorType::SAMPLER, maxSamplers, 0, 0, DescriptorFlag::DESCRIPTORS_VOLATILE);
+	const auto cbvSpaceStart = spaceStart(Shader::Stage::CS, DescriptorType::CBV);
+	const auto srvSpaceStart = spaceStart(Shader::Stage::CS, DescriptorType::SRV);
+	const auto uavSpaceStart = spaceStart(Shader::Stage::CS, DescriptorType::UAV);
+	pipelineLayout->SetRange(paramIndex++, DescriptorType::SAMPLER, maxSamplers, 0,
+		spaceStart(Shader::Stage::CS, DescriptorType::SAMPLER), DescriptorFlag::DESCRIPTORS_VOLATILE);
 
 	for (auto s = 0u; s < maxSpaces; ++s)
 	{
@@ -519,27 +590,30 @@ bool EZ::CommandList_DXR::createComputePipelineLayouts(uint32_t maxSamplers, con
 		{
 			auto maxDescriptors = pMaxCbvsEachSpace ? pMaxCbvsEachSpace[s] : 12;
 			auto slot = 0;
-			if (s == constantSpace && max32BitConstants > 0)
+			if (cbvSpaceStart + s == constantSpace && max32BitConstants > 0)
 			{
 				maxDescriptors = constantSlot ? (min)(maxDescriptors, constantSlot) : maxDescriptors - 1;
 				slot = constantSlot ? 0 : 1;
 			}
 			m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::CBV)][s] = paramIndex;
-			pipelineLayout->SetRange(paramIndex++, DescriptorType::CBV, maxDescriptors, slot, s, DescriptorFlag::DESCRIPTORS_VOLATILE);
+			pipelineLayout->SetRange(paramIndex++, DescriptorType::CBV, maxDescriptors, slot, cbvSpaceStart + s,
+				DescriptorFlag::DESCRIPTORS_VOLATILE);
 		}
 
-		if (s < maxSrvSpaces && !(s == spaceTLAS && maxTLASSrvs > 0))
+		if (s < maxSrvSpaces && !(srvSpaceStart + s == spaceTLAS && maxTLASSrvs > 0))
 		{
 			const auto maxDescriptors = pMaxSrvsEachSpace ? pMaxSrvsEachSpace[s] : 32;
 			m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::SRV)][s] = paramIndex;
-			pipelineLayout->SetRange(paramIndex++, DescriptorType::SRV, maxDescriptors, 0, s, DescriptorFlag::DESCRIPTORS_VOLATILE);
+			pipelineLayout->SetRange(paramIndex++, DescriptorType::SRV, maxDescriptors, 0, srvSpaceStart + s,
+				DescriptorFlag::DESCRIPTORS_VOLATILE);
 		}
 
 		if (s < maxUavSpaces)
 		{
 			const auto maxDescriptors = pMaxUavsEachSpace ? pMaxUavsEachSpace[s] : 16;
 			m_computeSpaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::UAV)][s] = paramIndex;
-			pipelineLayout->SetRange(paramIndex++, DescriptorType::UAV, maxDescriptors, 0, s, DescriptorFlag::DESCRIPTORS_VOLATILE);
+			pipelineLayout->SetRange(paramIndex++, DescriptorType::UAV, maxDescriptors, 0, uavSpaceStart + s,
+				DescriptorFlag::DESCRIPTORS_VOLATILE);
 		}
 	}
 
@@ -563,11 +637,13 @@ bool EZ::CommandList_DXR::createComputePipelineLayouts(uint32_t maxSamplers, con
 	return true;
 }
 
-void EZ::CommandList_DXR::predispatchRays(CShaderTablePtr& pRayGen, CShaderTablePtr& pHitGroup, CShaderTablePtr& pMiss,
-	const wchar_t* rayGenShaderName, const wchar_t* const* pMissShaderNames, uint32_t numMissShaders)
+template<typename CoreList, typename UltimateList, typename RTList>
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::predispatchRays(CShaderTablePtr& pRayGen, CShaderTablePtr& pHitGroup, CShaderTablePtr& pMiss, CShaderTablePtr& pCallable,
+	const wchar_t* rayGenShaderName, const wchar_t* const* pMissShaderNames, uint32_t numMissShaders,
+	const wchar_t* const* pCallableShaderNames, uint32_t numCallableShaders)
 {
 	// Set barrier command
-	XUSG::CommandList_DX12::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
+	CoreList::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
 	m_barriers.clear();
 
 	// Clear UAVs
@@ -583,47 +659,64 @@ void EZ::CommandList_DXR::predispatchRays(CShaderTablePtr& pRayGen, CShaderTable
 		{
 			if (m_pipeline != pipeline)
 			{
-				XUSG::RayTracing::CommandList_DX12::SetRayTracingPipeline(pipeline);
+				RTList::SetRayTracingPipeline(pipeline);
 				m_pipeline = pipeline;
-
-				// Get hit-group table; the hit-group has been bound on the pipeline
-				const auto numHitGroups = m_rayTracingState->GetNumHitGroups();
-				string key(sizeof(void*) * numHitGroups, '\0');
-				const auto pShaderIDs = reinterpret_cast<const void**>(&key[0]);
-				for (auto i = 0u; i < numHitGroups; ++i) // Set hit-group shader IDs into the key
-				{
-					const auto hitGroupName = m_rayTracingState->GetHitGroupName(i);
-					pShaderIDs[i] = ShaderRecord::GetShaderIdentifier(pipeline, hitGroupName, API::DIRECTX_12);
-				}
-				pHitGroup = getShaderTable(key, m_hitGroupTables, numHitGroups);
 			}
+
+			// Get hit-group table; the hit-group has been bound on the pipeline
+			const auto numHitGroups = m_rayTracingState->GetNumHitGroups();
+			const auto numRecords = numHitGroups ? numHitGroups : 1u;
+			string key(sizeof(void*) * numRecords, '\0');
+			const auto pShaderIDs = reinterpret_cast<const void**>(&key[0]);
+			for (auto i = 0u; i < numHitGroups; ++i) // Set hit-group shader IDs into the key
+			{
+				const auto hitGroupName = m_rayTracingState->GetHitGroupName(i);
+				if (hitGroupName)
+					pShaderIDs[i] = ShaderRecord::GetShaderIdentifier(pipeline, hitGroupName);
+			}
+			m_pHitGroup = getShaderTable(key, m_hitGroupTables, numRecords);
 			// Different from other types of state objects, m_rayTracingState cannot be reused
 			// for the next different pipeline, so we need to remake it
-			m_rayTracingState = State::MakeUnique(API::DIRECTX_12);
+			m_rayTracingState = State::MakeUnique();
 			m_isRTStateDirty = false;
 		}
 	}
+
+	pHitGroup = m_pHitGroup;
 
 	// Get ray-generation shader table; the ray-generation shader is independent of the pipeline
 	if (rayGenShaderName)
 	{
 		string key(sizeof(void*), '\0');
 		auto& shaderID = reinterpret_cast<const void*&>(key[0]);
-		shaderID = ShaderRecord::GetShaderIdentifier(m_pipeline, rayGenShaderName, API::DIRECTX_12);
+		shaderID = ShaderRecord::GetShaderIdentifier(m_pipeline, rayGenShaderName);
 		pRayGen = getShaderTable(key, m_rayGenTables, 1);
 	}
 
 	// Get miss shader tables; the miss shaders are independent of the pipeline
-	if (pMissShaderNames)
+	if (numMissShaders)
 	{
 		string key(sizeof(void*) * numMissShaders, '\0');
 		const auto pShaderIDs = reinterpret_cast<const void**>(&key[0]);
-		for (auto i = 0u; i < numMissShaders; ++i) // Set hit-group shader IDs into the key
+		for (auto i = 0u; i < numMissShaders; ++i) // Set miss shader IDs into the key
 		{
-			assert(pMissShaderNames[i]);
-			pShaderIDs[i] = ShaderRecord::GetShaderIdentifier(m_pipeline, pMissShaderNames[i], API::DIRECTX_12);
+			if (pMissShaderNames && pMissShaderNames[i])
+				pShaderIDs[i] = ShaderRecord::GetShaderIdentifier(m_pipeline, pMissShaderNames[i]);
 		}
 		pMiss = getShaderTable(key, m_missTables, numMissShaders);
+	}
+
+	// Get callable shader tables; the callable shaders are independent of the pipeline
+	if (numCallableShaders)
+	{
+		string key(sizeof(void*) * numCallableShaders, '\0');
+		const auto pShaderIDs = reinterpret_cast<const void**>(&key[0]);
+		for (auto i = 0u; i < numCallableShaders; ++i) // Set callable shader IDs into the key
+		{
+			if (pCallableShaderNames && pCallableShaderNames[i])
+				pShaderIDs[i] = ShaderRecord::GetShaderIdentifier(m_pipeline, pCallableShaderNames[i]);
+		}
+		pCallable = getShaderTable(key, m_callableTables, numCallableShaders);
 	}
 
 	// Create and set sampler table
@@ -631,7 +724,7 @@ void EZ::CommandList_DXR::predispatchRays(CShaderTablePtr& pRayGen, CShaderTable
 	if (samplerTable)
 	{
 		const auto descriptorTable = samplerTable->GetSamplerTable(m_descriptorTableLib.get());
-		if (descriptorTable) XUSG::CommandList_DX12::SetComputeDescriptorTable(0, descriptorTable);
+		if (descriptorTable) CoreList::SetComputeDescriptorTable(0, descriptorTable);
 		samplerTable.reset();
 	}
 
@@ -646,7 +739,7 @@ void EZ::CommandList_DXR::predispatchRays(CShaderTablePtr& pRayGen, CShaderTable
 			if (cbvSrvUavTable)
 			{
 				const auto descriptorTable = cbvSrvUavTable->GetCbvSrvUavTable(m_descriptorTableLib.get());
-				if (descriptorTable) XUSG::CommandList_DX12::SetComputeDescriptorTable(
+				if (descriptorTable) CoreList::SetComputeDescriptorTable(
 					m_computeSpaceToParamIndexMap[t][s], descriptorTable);
 				cbvSrvUavTable.reset();
 			}
@@ -654,18 +747,20 @@ void EZ::CommandList_DXR::predispatchRays(CShaderTablePtr& pRayGen, CShaderTable
 	}
 }
 
-XUSG::Resource* EZ::CommandList_DXR::needScratch(size_t size)
+template<typename CoreList, typename UltimateList, typename RTList>
+XUSG::Resource* XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::needScratch(size_t size)
 {
 	if (m_scratches.empty() || !m_scratches.back() || m_scratches.back()->GetWidth() < size)
 	{
-		m_scratches.emplace_back(Buffer::MakeUnique(API::DIRECTX_12));
+		m_scratches.emplace_back(Buffer::MakeUnique());
 		AccelerationStructure::AllocateUAVBuffer(m_pDeviceRT, m_scratches.back().get(), size);
 	}
 
 	return m_scratches.back().get();
 }
 
-const ShaderTable* EZ::CommandList_DXR::getShaderTable(const string& key,
+template<typename CoreList, typename UltimateList, typename RTList>
+const ShaderTable* XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::getShaderTable(const string& key,
 	unordered_map<string, ShaderTable::uptr>& shaderTables,
 	uint32_t numShaderIDs)
 {
@@ -673,10 +768,10 @@ const ShaderTable* EZ::CommandList_DXR::getShaderTable(const string& key,
 
 	if (shaderTablePair == shaderTables.cend())
 	{
-		const auto shaderIDSize = ShaderRecord::GetShaderIdentifierSize(m_pDeviceRT, API::DIRECTX_12);
+		const auto shaderIDSize = ShaderRecord::GetShaderIdentifierSize(m_pDeviceRT);
 
 		auto& shaderTable = shaderTables[key];
-		shaderTable = ShaderTable::MakeUnique(API::DIRECTX_12);
+		shaderTable = ShaderTable::MakeUnique();
 		shaderTable->Create(m_pDeviceRT, numShaderIDs, shaderIDSize);
 
 		const auto pShaderIDs = reinterpret_cast<void* const*>(&key[0]);
@@ -688,3 +783,47 @@ const ShaderTable* EZ::CommandList_DXR::getShaderTable(const string& key,
 
 	return shaderTablePair->second.get();
 }
+
+bool XUSG::RayTracing::EZ::CommandList_DX12::bindRayTracing(RayTracing::CommandList* pCommandList)
+{
+	m_pDeviceRT = pCommandList->GetRTDevice();
+	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(m_pDeviceRT ? m_pDeviceRT->GetRTHandle() : nullptr);
+	if (!pDxDevice) return false;
+	pDxDevice->QueryRaytracingCommandList(m_commandList.get(), IID_PPV_ARGS(&m_commandListRT));
+
+	return true;
+}
+
+bool XUSG::RayTracing::EZ::CommandList_DX12::supportsMeshShader() const
+{
+	if (!m_commandListU) return false;
+
+	D3D12_FEATURE_DATA_D3D12_OPTIONS7 featureSupportData = {};
+	const auto hr = static_cast<ID3D12Device*>(m_pDevice->GetNativeHandle())->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS7,
+		&featureSupportData, sizeof(featureSupportData));
+
+	return SUCCEEDED(hr) && featureSupportData.MeshShaderTier != D3D12_MESH_SHADER_TIER_NOT_SUPPORTED;
+}
+
+#ifndef XUSG_NO_VULKAN
+bool XUSG::RayTracing::EZ::CommandList_VK::bindRayTracing(RayTracing::CommandList* pCommandList)
+{
+	if (pCommandList != static_cast<RayTracing::CommandList*>(this))
+	{
+		const auto pRT = AsVK(pCommandList);
+		if (pRT) AttachRayTracing(*pRT);
+	}
+
+	return createInterface();
+}
+
+bool XUSG::RayTracing::EZ::CommandList_VK::supportsMeshShader() const
+{
+	return true;
+}
+#endif
+
+template class XUSG::RayTracing::EZ::CommandList_Impl<XUSG::CommandList_DX12, Ultimate::CommandList_DX12, RayTracing::CommandList_DX12>;
+#ifndef XUSG_NO_VULKAN
+template class XUSG::RayTracing::EZ::CommandList_Impl<XUSG::CommandList_VK, Ultimate::CommandList_VK, RayTracing::CommandList_VK>;
+#endif

@@ -15,8 +15,7 @@ namespace XUSG
 		{
 		public:
 			Util_Impl(TensorDataType tensorDataType = TensorDataType::FLOAT32,
-				TensorLayout tensorLayout = TensorLayout::DEFAULT,
-				XUSG::API api = XUSG::API::DIRECTX_12);
+				TensorLayout tensorLayout = TensorLayout::DEFAULT);
 			virtual ~Util_Impl();
 
 			bool CreateUpsampleLayer(const Device* pDevice, const uint32_t inputSizes[4],
@@ -35,8 +34,6 @@ namespace XUSG
 		protected:
 			TensorDataType	m_tensorDataType;
 			TensorLayout	m_tensorLayout;
-
-			XUSG::API		m_api;
 		};
 	}
 }

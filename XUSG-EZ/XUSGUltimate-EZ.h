@@ -28,34 +28,48 @@ namespace XUSG
 				using uptr = std::unique_ptr<CommandList>;
 				using sptr = std::shared_ptr<CommandList>;
 
-				// By default maxSamplers[stage] = 16, maxCbvsEachSpace[stage] = 14, maxSrvsEachSpace[stage] = 32, and maxUavsEachSpace[stage] = 16
+				// By default maxSamplers[stage] = 16, maxCbvsEachSpace[stage] = 14, maxSrvsEachSpace[stage] = 32, and maxUavsEachSpace[stage] = 16.
+				// maxCbvSpaces[stage], maxSrvSpaces[stage], and maxUavSpaces[stage] default to 1.
+				// Unset start spaces are 0 on DirectX 12. On Vulkan an unset start is:
+				// cbvStart = 0
+				// srvStart = cbvStart + maxCbvSpaces[stage]
+				// uavStart = srvStart + maxSrvSpaces[stage]
+				// samplerStart = uavStart + maxUavSpaces[stage]
 				virtual bool Create(Ultimate::CommandList* pCommandList,
 					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
+					const uint32_t samplerStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t cbvStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t srvStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t uavStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE) = 0;
-				virtual bool Create(const Device* pDevice, void* pHandle,
+				// pNativeHandle is ID3D12GraphicsCommandList* or VkCommandBuffer.
+				virtual bool Create(Device* pDevice, void* pNativeHandle,
 					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
+					const uint32_t samplerStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t cbvStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t srvStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t uavStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
-					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE,
-					const wchar_t* name = nullptr) = 0;
+					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE) = 0;
 
 				virtual void SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions) const = 0;
 				virtual void ResolveSubresourceRegion(Resource* pDstResource, uint32_t dstSubresource,
@@ -66,7 +80,7 @@ namespace XUSG
 				virtual void RSSetShadingRateImage(Resource* pShadingRateImage) = 0;
 
 				using XUSG::EZ::CommandList::SetGraphicsPipelineState;
-				virtual void SetGraphicsPipelineState(const Pipeline& pipelineState, const State* pState = nullptr) = 0;
+				virtual void SetGraphicsPipelineState(const Pipeline& pipelineState, State* pState = nullptr) = 0;
 				virtual void OMSetBlendState(const Graphics::Blend* pBlend, uint32_t sampleMask = UINT_MAX) = 0;
 				virtual void OMSetBlendState(Graphics::BlendPreset preset, uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX) = 0;
 				virtual void OMSetSample(uint8_t count, uint8_t quality = 0) = 0;
@@ -78,7 +92,7 @@ namespace XUSG
 				virtual void MSSetGraphicsShader(Shader::Stage stage, const Blob& shader) = 0;
 				virtual void SetGraphicsNodeMask(uint32_t nodeMask) = 0;
 				virtual void DispatchMesh(uint32_t ThreadGroupCountX, uint32_t ThreadGroupCountY, uint32_t ThreadGroupCountZ) = 0;
-				virtual void DispatchMeshIndirect(const CommandLayout* pCommandlayout,
+				virtual void DispatchMeshIndirect(CommandLayout* pCommandlayout,
 					uint32_t maxCommandCount,
 					Resource* pArgumentBuffer,
 					uint64_t argumentBufferOffset = 0,
@@ -114,36 +128,42 @@ namespace XUSG
 
 				virtual Ultimate::CommandList* AsUltimateCommandList() = 0;
 
-				static uptr MakeUnique(API api = API::DIRECTX_12);
-				static sptr MakeShared(API api = API::DIRECTX_12);
+				static uptr MakeUnique();
+				static sptr MakeShared();
 				static uptr MakeUnique(Ultimate::CommandList* pCommandList,
 					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
+					const uint32_t samplerStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t cbvStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t srvStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t uavStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
-					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE,
-					API api = API::DIRECTX_12);
+					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
 				static sptr MakeShared(Ultimate::CommandList* pCommandList,
 					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
-					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
+					const uint32_t samplerStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t cbvStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t srvStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t uavStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
-					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE,
-					API api = API::DIRECTX_12);
+					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
 			};
 		}
 	}

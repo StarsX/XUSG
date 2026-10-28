@@ -12,6 +12,9 @@
 using namespace std;
 using namespace XUSG::Ultimate;
 
+// Dense enumerator values and single-bit flag positions are the indices of these tables.
+// Do not reorder or renumber the enums in XUSG.h.
+
 #define APPEND_FLAG(type, dx12Type, flags, flag, none) ((flags & type::flag) == type::flag ? dx12Type##_##flag : dx12Type##_##none)
 #define APPEND_BARRIER_SYNC(barrierSyncs, barrierSync) APPEND_FLAG(BarrierSync, D3D12_BARRIER_SYNC, barrierSyncs, barrierSync, NONE)
 #define APPEND_BARRIER_ACCESS(barrierAccesses, barrierAccess) APPEND_FLAG(BarrierAccess, D3D12_BARRIER_ACCESS, barrierAccesses, barrierAccess, COMMON)
@@ -33,30 +36,29 @@ CommandList_DX12::CommandList_DX12() :
 CommandList_DX12::CommandList_DX12(XUSG::CommandList& commandList) :
 	XUSG::CommandList_DX12()
 {
-	const auto pCommandList = dynamic_cast<XUSG::CommandList_DX12*>(&commandList);
+	const auto pCommandList = AsDX12(&commandList);
 	assert(pCommandList);
 
 	m_commandList = pCommandList->GetGraphicsCommandList();
-	CreateInterface();
+	createInterface();
 }
 
 CommandList_DX12::~CommandList_DX12()
 {
 }
 
-bool CommandList_DX12::CreateInterface()
+bool CommandList_DX12::Create(Device* pDevice, uint32_t nodeMask, CommandListType type,
+	uint8_t numAllocators, CommandAllocator* const* ppAllocators, const Pipeline& pipeline, const wchar_t* name)
 {
-	if (!m_commandList) return false;
-	const auto hr = m_commandList->QueryInterface(IID_PPV_ARGS(&m_commandListU));
+	XUSG_N_RETURN(XUSG::CommandList_DX12::Create(pDevice, nodeMask, type, numAllocators, ppAllocators, pipeline, name), false);
 
-	if (FAILED(hr))
-	{
-		OutputDebugString(L"Couldn't get DirectX ultimate interface for the command list.\n");
+	return createInterface();
+}
 
-		return false;
-	}
-
-	return true;
+void CommandList_DX12::Create(void* pNativeHandle, Device* pDevice)
+{
+	XUSG::CommandList_DX12::Create(pNativeHandle, pDevice);
+	createInterface();
 }
 
 void CommandList_DX12::Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups)
@@ -134,7 +136,7 @@ void CommandList_DX12::Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrier
 						textureBarrier.AccessAfter = GetDX12BarrierAccesses(barrier.AccessAfter);
 						textureBarrier.LayoutBefore = GetDX12BarrierLayout(barrier.LayoutBefore);
 						textureBarrier.LayoutAfter = GetDX12BarrierLayout(barrier.LayoutAfter);
-						textureBarrier.pResource = static_cast<ID3D12Resource*>(barrier.pResource->GetHandle());
+						textureBarrier.pResource = reinterpret_cast<ID3D12Resource*>(barrier.pResource->GetNativeHandle());
 						textureBarrier.Subresources.IndexOrFirstMipLevel = barrier.IndexOrFirstMipLevel;
 						textureBarrier.Subresources.NumMipLevels = barrier.NumMipLevels;
 						textureBarrier.Subresources.FirstArraySlice = barrier.FirstArraySlice;
@@ -166,7 +168,7 @@ void CommandList_DX12::Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrier
 						bufferBarrier.SyncAfter = GetDX12BarrierSyncs(barrier.SyncAfter);
 						bufferBarrier.AccessBefore = GetDX12BarrierAccesses(barrier.AccessBefore);
 						bufferBarrier.AccessAfter = GetDX12BarrierAccesses(barrier.AccessAfter);
-						bufferBarrier.pResource = static_cast<ID3D12Resource*>(barrier.pResource->GetHandle());
+						bufferBarrier.pResource = reinterpret_cast<ID3D12Resource*>(barrier.pResource->GetNativeHandle());
 						bufferBarrier.Offset = barrier.Offset;
 						bufferBarrier.Size = barrier.Size;
 					}
@@ -212,7 +214,7 @@ void CommandList_DX12::Barrier(uint32_t numBufferBarriers, ResourceBarrier* pBuf
 			bufferBarrier.SyncAfter = GetDX12BarrierSyncs(barrier.SyncAfter);
 			bufferBarrier.AccessBefore = GetDX12BarrierAccesses(barrier.AccessBefore);
 			bufferBarrier.AccessAfter = GetDX12BarrierAccesses(barrier.AccessAfter);
-			bufferBarrier.pResource = static_cast<ID3D12Resource*>(barrier.pResource->GetHandle());
+			bufferBarrier.pResource = reinterpret_cast<ID3D12Resource*>(barrier.pResource->GetNativeHandle());
 			bufferBarrier.Offset = barrier.Offset;
 			bufferBarrier.Size = barrier.Size;
 		}
@@ -239,7 +241,7 @@ void CommandList_DX12::Barrier(uint32_t numBufferBarriers, ResourceBarrier* pBuf
 			textureBarrier.AccessAfter = GetDX12BarrierAccesses(barrier.AccessAfter);
 			textureBarrier.LayoutBefore = GetDX12BarrierLayout(barrier.LayoutBefore);
 			textureBarrier.LayoutAfter = GetDX12BarrierLayout(barrier.LayoutAfter);
-			textureBarrier.pResource = static_cast<ID3D12Resource*>(barrier.pResource->GetHandle());
+			textureBarrier.pResource = reinterpret_cast<ID3D12Resource*>(barrier.pResource->GetNativeHandle());
 			textureBarrier.Subresources.IndexOrFirstMipLevel = barrier.IndexOrFirstMipLevel;
 			textureBarrier.Subresources.NumMipLevels = barrier.NumMipLevels;
 			textureBarrier.Subresources.FirstArraySlice = barrier.FirstArraySlice;
@@ -311,16 +313,16 @@ void CommandList_DX12::SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t nu
 	m_commandListU->SetSamplePositions(numSamplesPerPixel, numPixels, pPositions ? positions : nullptr);
 }
 
-void CommandList_DX12::ResolveSubresourceRegion(const Resource* pDstResource, uint32_t dstSubresource, uint32_t dstX, uint32_t dstY,
-	const Resource* pSrcResource, uint32_t srcSubresource, const RectRange& srcRect, Format format, ResolveMode resolveMode) const
+void CommandList_DX12::ResolveSubresourceRegion(Resource* pDstResource, uint32_t dstSubresource, uint32_t dstX, uint32_t dstY,
+	Resource* pSrcResource, uint32_t srcSubresource, const RectRange& srcRect, Format format, ResolveMode resolveMode) const
 {
 	assert(pDstResource);
 	assert(pSrcResource);
 
 	D3D12_RECT rect = { srcRect.Left, srcRect.Top, srcRect.Right, srcRect.Bottom };
 
-	m_commandListU->ResolveSubresourceRegion(static_cast<ID3D12Resource*>(pDstResource->GetHandle()),
-		dstSubresource, dstX, dstY, static_cast<ID3D12Resource*>(pSrcResource->GetHandle()), srcSubresource,
+	m_commandListU->ResolveSubresourceRegion(reinterpret_cast<ID3D12Resource*>(pDstResource->GetNativeHandle()),
+		dstSubresource, dstX, dstY, reinterpret_cast<ID3D12Resource*>(pSrcResource->GetNativeHandle()), srcSubresource,
 		&rect, GetDXGIFormat(format), GetDX12ResolveMode(resolveMode));
 }
 
@@ -334,10 +336,10 @@ void CommandList_DX12::RSSetShadingRate(ShadingRate baseShadingRate, const Shadi
 	m_commandListU->RSSetShadingRate(D3D12_SHADING_RATE(baseShadingRate), pCombiners ? combiners : nullptr);
 }
 
-void CommandList_DX12::RSSetShadingRateImage(const Resource* pShadingRateImage)  const
+void CommandList_DX12::RSSetShadingRateImage(Resource* pShadingRateImage)  const
 {
 	m_commandListU->RSSetShadingRateImage(pShadingRateImage ?
-		static_cast<ID3D12Resource*>(pShadingRateImage->GetHandle()) : nullptr);
+		reinterpret_cast<ID3D12Resource*>(pShadingRateImage->GetNativeHandle()) : nullptr);
 }
 
 void CommandList_DX12::DispatchMesh(uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ)  const
@@ -345,7 +347,7 @@ void CommandList_DX12::DispatchMesh(uint32_t threadGroupCountX, uint32_t threadG
 	m_commandListU->DispatchMesh(threadGroupCountX, threadGroupCountY, threadGroupCountZ);
 }
 
-void CommandList_DX12::SetStateObject(const Pipeline& stateObject)
+void CommandList_DX12::SetStateObject(const Pipeline& stateObject) const
 {
 	m_commandListU->SetPipelineState1(static_cast<ID3D12StateObject*>(stateObject));
 }
@@ -504,6 +506,21 @@ XUSG::com_ptr<ID3D12GraphicsCommandList6>& CommandList_DX12::GetGraphicsCommandL
 	return m_commandListU;
 }
 
+bool CommandList_DX12::createInterface()
+{
+	if (!m_commandList) return false;
+	const auto hr = m_commandList->QueryInterface(IID_PPV_ARGS(&m_commandListU));
+
+	if (FAILED(hr))
+	{
+		OutputDebugString(L"Couldn't get DirectX ultimate interface for the command list.\n");
+
+		return false;
+	}
+
+	return true;
+}
+
 void CommandList_DX12::createAgilityInterface()
 {
 	if (m_commandListA == nullptr)
@@ -523,7 +540,7 @@ PipelineLayoutLib_DX12::PipelineLayoutLib_DX12() :
 {
 }
 
-PipelineLayoutLib_DX12::PipelineLayoutLib_DX12(const Device* pDevice) :
+PipelineLayoutLib_DX12::PipelineLayoutLib_DX12(Device* pDevice) :
 	XUSG::PipelineLayoutLib_DX12(pDevice)
 {
 }
@@ -593,7 +610,7 @@ SamplerFeedBack_DX12::~SamplerFeedBack_DX12()
 {
 }
 
-bool SamplerFeedBack_DX12::Create(const Device* pDevice, Texture* pTarget, Format format,
+bool SamplerFeedBack_DX12::Create(Device* pDevice, Texture* pTarget, Format format,
 	uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
 	ResourceFlag resourceFlags, bool isCubeMap, MemoryFlag memoryFlags, const wchar_t* name,
 	uint16_t srvComponentMapping, TextureLayout textureLayout, uint32_t maxThreads)
@@ -633,7 +650,7 @@ bool SamplerFeedBack_DX12::Create(const Device* pDevice, Texture* pTarget, Forma
 	return true;
 }
 
-bool SamplerFeedBack_DX12::Create(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset,
+bool SamplerFeedBack_DX12::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset,
 	Texture* pTarget, Format format, uint32_t mipRegionWidth, uint32_t mipRegionHeight,
 	uint32_t mipRegionDepth, ResourceFlag resourceFlags, bool isCubeMap, const wchar_t* name,
 	uint16_t srvComponentMapping, TextureLayout textureLayout, uint32_t maxThreads)
@@ -673,7 +690,7 @@ bool SamplerFeedBack_DX12::Create(const Device* pDevice, const Heap* pHeap, uint
 	return true;
 }
 
-bool SamplerFeedBack_DX12::CreateResource(const Device* pDevice, Texture* pTarget, Format format, uint32_t mipRegionWidth,
+bool SamplerFeedBack_DX12::CreateResource(Device* pDevice, Texture* pTarget, Format format, uint32_t mipRegionWidth,
 	uint32_t mipRegionHeight, uint32_t mipRegionDepth, ResourceFlag resourceFlags, bool isCubeMap, MemoryFlag memoryFlags,
 	ResourceState initialResourceState, TextureLayout textureLayout, uint32_t maxThreads)
 {
@@ -708,7 +725,7 @@ bool SamplerFeedBack_DX12::CreateResource(const Device* pDevice, Texture* pTarge
 	return true;
 }
 
-bool SamplerFeedBack_DX12::CreateResource(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, Texture* pTarget,
+bool SamplerFeedBack_DX12::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset, Texture* pTarget,
 	Format format, uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth, ResourceFlag resourceFlags,
 	bool isCubeMap, ResourceState initialResourceState, TextureLayout textureLayout, uint32_t maxThreads)
 {
@@ -737,7 +754,7 @@ bool SamplerFeedBack_DX12::CreateResource(const Device* pDevice, const Heap* pHe
 		states.resize(arraySize * numMips, initialResourceState);
 
 	assert(pHeap);
-	V_RETURN(device->CreatePlacedResource2(static_cast<ID3D12Heap*>(pHeap->GetHandle()), heapOffset, &desc,
+	V_RETURN(device->CreatePlacedResource2(reinterpret_cast<ID3D12Heap*>(pHeap->GetNativeHandle()), heapOffset, &desc,
 		GetDX12BarrierLayout(GetBarrierLayout(m_states[0][0])), nullptr, 0, nullptr, IID_PPV_ARGS(&m_resource)),
 		clog, false);
 
@@ -790,12 +807,12 @@ void XUSG::Ultimate::GetDX12LinearAlgebraMatrixInfo(const Device* pDevice, Linea
 	auto destInfo = GetDX12LinearAlgebraConversionDestInfo(matrixInfo);
 
 	com_ptr<ID3D12DevicePreview> device = nullptr;
-	auto hr = static_cast<ID3D12Device*>(pDevice->GetHandle())->QueryInterface(IID_PPV_ARGS(&device));
+	auto hr = static_cast<ID3D12Device*>(pDevice->GetNativeHandle())->QueryInterface(IID_PPV_ARGS(&device));
 
 	if (FAILED(hr) || !device)
 	{
 		com_ptr<ID3D12DevicePreview0> device = nullptr;
-		hr = static_cast<ID3D12Device*>(pDevice->GetHandle())->QueryInterface(IID_PPV_ARGS(&device));
+		hr = static_cast<ID3D12Device*>(pDevice->GetNativeHandle())->QueryInterface(IID_PPV_ARGS(&device));
 
 		if (FAILED(hr)) OutputDebugString(L"Couldn't get DirectX preview interface for the device.\n");
 
@@ -837,6 +854,30 @@ D3D12_BARRIER_SYNC XUSG::Ultimate::GetDX12BarrierSync(BarrierSync barrierSync)
 		D3D12_BARRIER_SYNC_COPY_RAYTRACING_ACCELERATION_STRUCTURE,
 		D3D12_BARRIER_SYNC_SPLIT
 	};
+
+	assert(barrierSyncs[Log2(static_cast<uint32_t>(BarrierSync::ALL))] == D3D12_BARRIER_SYNC_ALL);
+	assert(barrierSyncs[Log2(static_cast<uint32_t>(BarrierSync::DRAW))] == D3D12_BARRIER_SYNC_DRAW);
+	assert(barrierSyncs[Log2(static_cast<uint32_t>(BarrierSync::INDEX_INPUT))] == D3D12_BARRIER_SYNC_INDEX_INPUT);
+	assert(barrierSyncs[Log2(static_cast<uint32_t>(BarrierSync::VERTEX_SHADING))] == D3D12_BARRIER_SYNC_VERTEX_SHADING);
+	assert(barrierSyncs[Log2(static_cast<uint32_t>(BarrierSync::PIXEL_SHADING))] == D3D12_BARRIER_SYNC_PIXEL_SHADING);
+	assert(barrierSyncs[Log2(static_cast<uint32_t>(BarrierSync::DEPTH_STENCIL))] == D3D12_BARRIER_SYNC_DEPTH_STENCIL);
+	assert(barrierSyncs[Log2(static_cast<uint32_t>(BarrierSync::RENDER_TARGET))] == D3D12_BARRIER_SYNC_RENDER_TARGET);
+	assert(barrierSyncs[Log2(static_cast<uint32_t>(BarrierSync::COMPUTE_SHADING))] == D3D12_BARRIER_SYNC_COMPUTE_SHADING);
+	assert(barrierSyncs[Log2(static_cast<uint32_t>(BarrierSync::RAYTRACING))] == D3D12_BARRIER_SYNC_RAYTRACING);
+	assert(barrierSyncs[Log2(static_cast<uint32_t>(BarrierSync::COPY))] == D3D12_BARRIER_SYNC_COPY);
+	assert(barrierSyncs[Log2(static_cast<uint32_t>(BarrierSync::RESOLVE))] == D3D12_BARRIER_SYNC_RESOLVE);
+	assert(barrierSyncs[Log2(static_cast<uint32_t>(BarrierSync::EXECUTE_INDIRECT))] == D3D12_BARRIER_SYNC_EXECUTE_INDIRECT);
+	assert(barrierSyncs[Log2(static_cast<uint32_t>(BarrierSync::ALL_SHADING))] == D3D12_BARRIER_SYNC_ALL_SHADING);
+	assert(barrierSyncs[Log2(static_cast<uint32_t>(BarrierSync::NON_PIXEL_SHADING))] == D3D12_BARRIER_SYNC_NON_PIXEL_SHADING);
+	assert(barrierSyncs[Log2(static_cast<uint32_t>(BarrierSync::EMIT_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO))] == D3D12_BARRIER_SYNC_EMIT_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO);
+	assert(barrierSyncs[Log2(static_cast<uint32_t>(BarrierSync::CLEAR_UNORDERED_ACCESS_VIEW))] == D3D12_BARRIER_SYNC_CLEAR_UNORDERED_ACCESS_VIEW);
+	assert(barrierSyncs[Log2(static_cast<uint32_t>(BarrierSync::VIDEO_DECODE))] == D3D12_BARRIER_SYNC_VIDEO_DECODE);
+	assert(barrierSyncs[Log2(static_cast<uint32_t>(BarrierSync::VIDEO_PROCESS))] == D3D12_BARRIER_SYNC_VIDEO_PROCESS);
+	assert(barrierSyncs[Log2(static_cast<uint32_t>(BarrierSync::VIDEO_ENCODE))] == D3D12_BARRIER_SYNC_VIDEO_ENCODE);
+	assert(barrierSyncs[Log2(static_cast<uint32_t>(BarrierSync::BUILD_RAYTRACING_ACCELERATION_STRUCTURE))] == D3D12_BARRIER_SYNC_BUILD_RAYTRACING_ACCELERATION_STRUCTURE);
+	assert(barrierSyncs[Log2(static_cast<uint32_t>(BarrierSync::COPY_RAYTRACING_ACCELERATION_STRUCTURE))] == D3D12_BARRIER_SYNC_COPY_RAYTRACING_ACCELERATION_STRUCTURE);
+	assert(barrierSyncs[Log2(static_cast<uint32_t>(BarrierSync::SPLIT))] == D3D12_BARRIER_SYNC_SPLIT);
+	assert(barrierSyncs[Log2(static_cast<uint32_t>(BarrierSync::PREDICATION))] == D3D12_BARRIER_SYNC_EXECUTE_INDIRECT);
 
 	if (barrierSync == BarrierSync::NONE) return D3D12_BARRIER_SYNC_NONE;
 
@@ -904,6 +945,32 @@ D3D12_BARRIER_ACCESS XUSG::Ultimate::GetDX12BarrierAccess(BarrierAccess barrierA
 		D3D12_BARRIER_ACCESS_NO_ACCESS
 	};
 
+	assert(barrierAccesses[Log2(static_cast<uint32_t>(BarrierAccess::VERTEX_BUFFER))] == D3D12_BARRIER_ACCESS_VERTEX_BUFFER);
+	assert(barrierAccesses[Log2(static_cast<uint32_t>(BarrierAccess::CONSTANT_BUFFER))] == D3D12_BARRIER_ACCESS_CONSTANT_BUFFER);
+	assert(barrierAccesses[Log2(static_cast<uint32_t>(BarrierAccess::INDEX_BUFFER))] == D3D12_BARRIER_ACCESS_INDEX_BUFFER);
+	assert(barrierAccesses[Log2(static_cast<uint32_t>(BarrierAccess::RENDER_TARGET))] == D3D12_BARRIER_ACCESS_RENDER_TARGET);
+	assert(barrierAccesses[Log2(static_cast<uint32_t>(BarrierAccess::UNORDERED_ACCESS))] == D3D12_BARRIER_ACCESS_UNORDERED_ACCESS);
+	assert(barrierAccesses[Log2(static_cast<uint32_t>(BarrierAccess::DEPTH_STENCIL_WRITE))] == D3D12_BARRIER_ACCESS_DEPTH_STENCIL_WRITE);
+	assert(barrierAccesses[Log2(static_cast<uint32_t>(BarrierAccess::DEPTH_STENCIL_READ))] == D3D12_BARRIER_ACCESS_DEPTH_STENCIL_READ);
+	assert(barrierAccesses[Log2(static_cast<uint32_t>(BarrierAccess::SHADER_RESOURCE))] == D3D12_BARRIER_ACCESS_SHADER_RESOURCE);
+	assert(barrierAccesses[Log2(static_cast<uint32_t>(BarrierAccess::STREAM_OUTPUT))] == D3D12_BARRIER_ACCESS_STREAM_OUTPUT);
+	assert(barrierAccesses[Log2(static_cast<uint32_t>(BarrierAccess::INDIRECT_ARGUMENT))] == D3D12_BARRIER_ACCESS_INDIRECT_ARGUMENT);
+	assert(barrierAccesses[Log2(static_cast<uint32_t>(BarrierAccess::COPY_DEST))] == D3D12_BARRIER_ACCESS_COPY_DEST);
+	assert(barrierAccesses[Log2(static_cast<uint32_t>(BarrierAccess::COPY_SOURCE))] == D3D12_BARRIER_ACCESS_COPY_SOURCE);
+	assert(barrierAccesses[Log2(static_cast<uint32_t>(BarrierAccess::RESOLVE_DEST))] == D3D12_BARRIER_ACCESS_RESOLVE_DEST);
+	assert(barrierAccesses[Log2(static_cast<uint32_t>(BarrierAccess::RESOLVE_SOURCE))] == D3D12_BARRIER_ACCESS_RESOLVE_SOURCE);
+	assert(barrierAccesses[Log2(static_cast<uint32_t>(BarrierAccess::RAYTRACING_ACCELERATION_STRUCTURE_READ))] == D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_READ);
+	assert(barrierAccesses[Log2(static_cast<uint32_t>(BarrierAccess::RAYTRACING_ACCELERATION_STRUCTURE_WRITE))] == D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_WRITE);
+	assert(barrierAccesses[Log2(static_cast<uint32_t>(BarrierAccess::SHADING_RATE_SOURCE))] == D3D12_BARRIER_ACCESS_SHADING_RATE_SOURCE);
+	assert(barrierAccesses[Log2(static_cast<uint32_t>(BarrierAccess::VIDEO_DECODE_READ))] == D3D12_BARRIER_ACCESS_VIDEO_DECODE_READ);
+	assert(barrierAccesses[Log2(static_cast<uint32_t>(BarrierAccess::VIDEO_DECODE_WRITE))] == D3D12_BARRIER_ACCESS_VIDEO_DECODE_WRITE);
+	assert(barrierAccesses[Log2(static_cast<uint32_t>(BarrierAccess::VIDEO_PROCESS_READ))] == D3D12_BARRIER_ACCESS_VIDEO_PROCESS_READ);
+	assert(barrierAccesses[Log2(static_cast<uint32_t>(BarrierAccess::VIDEO_PROCESS_WRITE))] == D3D12_BARRIER_ACCESS_VIDEO_PROCESS_WRITE);
+	assert(barrierAccesses[Log2(static_cast<uint32_t>(BarrierAccess::VIDEO_ENCODE_READ))] == D3D12_BARRIER_ACCESS_VIDEO_ENCODE_READ);
+	assert(barrierAccesses[Log2(static_cast<uint32_t>(BarrierAccess::VIDEO_ENCODE_WRITE))] == D3D12_BARRIER_ACCESS_VIDEO_ENCODE_WRITE);
+	assert(barrierAccesses[Log2(static_cast<uint32_t>(BarrierAccess::NO_ACCESS))] == D3D12_BARRIER_ACCESS_NO_ACCESS);
+	assert(barrierAccesses[Log2(static_cast<uint32_t>(BarrierAccess::PREDICATION))] == D3D12_BARRIER_ACCESS_INDIRECT_ARGUMENT);
+
 	if (barrierAccess == BarrierAccess::COMMON) return D3D12_BARRIER_ACCESS_COMMON;
 
 	const auto index = Log2(static_cast<uint32_t>(barrierAccess));
@@ -949,6 +1016,8 @@ D3D12_TEXTURE_BARRIER_FLAGS XUSG::Ultimate::GetDX12TextureBarrierFlag(TextureBar
 		D3D12_TEXTURE_BARRIER_FLAG_DISCARD
 	};
 
+	assert(textureBarrierFlags[Log2(static_cast<uint32_t>(TextureBarrierFlag::DISCARD))] == D3D12_TEXTURE_BARRIER_FLAG_DISCARD);
+
 	if (textureBarrierFlag == TextureBarrierFlag::NONE) return D3D12_TEXTURE_BARRIER_FLAG_NONE;
 
 	const auto index = Log2(static_cast<uint32_t>(textureBarrierFlag));
@@ -975,6 +1044,12 @@ D3D12_SHADING_RATE_COMBINER XUSG::Ultimate::GetDX12ShadingRateCombiner(ShadingRa
 		D3D12_SHADING_RATE_COMBINER_SUM
 	};
 
+	assert(combiners[static_cast<uint32_t>(ShadingRateCombiner::COMBINER_PASSTHROUGH)] == D3D12_SHADING_RATE_COMBINER_PASSTHROUGH);
+	assert(combiners[static_cast<uint32_t>(ShadingRateCombiner::COMBINER_OVERRIDE)] == D3D12_SHADING_RATE_COMBINER_OVERRIDE);
+	assert(combiners[static_cast<uint32_t>(ShadingRateCombiner::COMBINER_MIN)] == D3D12_SHADING_RATE_COMBINER_MIN);
+	assert(combiners[static_cast<uint32_t>(ShadingRateCombiner::COMBINER_MAX)] == D3D12_SHADING_RATE_COMBINER_MAX);
+	assert(combiners[static_cast<uint32_t>(ShadingRateCombiner::COMBINER_SUM)] == D3D12_SHADING_RATE_COMBINER_SUM);
+
 	return combiners[static_cast<uint32_t>(combiner)];
 }
 
@@ -990,6 +1065,13 @@ D3D12_RESOLVE_MODE XUSG::Ultimate::GetDX12ResolveMode(ResolveMode mode)
 		D3D12_RESOLVE_MODE_DECODE_SAMPLER_FEEDBACK
 	};
 
+	assert(modes[static_cast<uint32_t>(ResolveMode::DECOMPRESS)] == D3D12_RESOLVE_MODE_DECOMPRESS);
+	assert(modes[static_cast<uint32_t>(ResolveMode::MIN)] == D3D12_RESOLVE_MODE_MIN);
+	assert(modes[static_cast<uint32_t>(ResolveMode::MAX)] == D3D12_RESOLVE_MODE_MAX);
+	assert(modes[static_cast<uint32_t>(ResolveMode::AVERAGE)] == D3D12_RESOLVE_MODE_AVERAGE);
+	assert(modes[static_cast<uint32_t>(ResolveMode::ENCODE_SAMPLER_FEEDBACK)] == D3D12_RESOLVE_MODE_ENCODE_SAMPLER_FEEDBACK);
+	assert(modes[static_cast<uint32_t>(ResolveMode::DECODE_SAMPLER_FEEDBACK)] == D3D12_RESOLVE_MODE_DECODE_SAMPLER_FEEDBACK);
+
 	return modes[static_cast<uint32_t>(mode)];
 }
 
@@ -999,6 +1081,8 @@ D3D12_VIEW_INSTANCING_FLAGS XUSG::Ultimate::GetDX12ViewInstanceFlag(ViewInstance
 	{
 		D3D12_VIEW_INSTANCING_FLAG_ENABLE_VIEW_INSTANCE_MASKING
 	};
+
+	assert(viewInstanceFlags[Log2(static_cast<uint32_t>(ViewInstanceFlag::ENABLE_VIEW_INSTANCE_MASKING))] == D3D12_VIEW_INSTANCING_FLAG_ENABLE_VIEW_INSTANCE_MASKING);
 
 	if (viewInstanceFlag == ViewInstanceFlag::NONE) return D3D12_VIEW_INSTANCING_FLAG_NONE;
 
@@ -1021,6 +1105,8 @@ D3D12_SET_WORK_GRAPH_FLAGS XUSG::Ultimate::GetDX12WorkGraphFlag(WorkGraphFlag wo
 	{
 		D3D12_SET_WORK_GRAPH_FLAG_INITIALIZE
 	};
+
+	assert(workGraphFlags[Log2(static_cast<uint32_t>(WorkGraphFlag::INITIALIZE))] == D3D12_SET_WORK_GRAPH_FLAG_INITIALIZE);
 
 	if (workGraphFlag == WorkGraphFlag::NONE) return D3D12_SET_WORK_GRAPH_FLAG_NONE;
 
@@ -1047,6 +1133,11 @@ D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT XUSG::Ultimate::GetDX12LinearAlgebraMatrixLay
 		D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL
 	};
 
+	assert(layouts[static_cast<uint32_t>(LinearAlgebraMatrixLayout::ROW_MAJOR)] == D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR);
+	assert(layouts[static_cast<uint32_t>(LinearAlgebraMatrixLayout::COLUMN_MAJOR)] == D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_COLUMN_MAJOR);
+	assert(layouts[static_cast<uint32_t>(LinearAlgebraMatrixLayout::MUL_OPTIMAL)] == D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_MUL_OPTIMAL);
+	assert(layouts[static_cast<uint32_t>(LinearAlgebraMatrixLayout::OUTER_PRODUCT_OPTIMAL)] == D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL);
+
 	return layouts[static_cast<uint32_t>(layout)];
 }
 
@@ -1065,6 +1156,17 @@ D3D12_LINEAR_ALGEBRA_DATATYPE XUSG::Ultimate::GetDX12LinearAlgebraDataType(Linea
 		D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT8_E4M3FN,
 		D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT8_E5M2
 	};
+
+	assert(dataTypes[static_cast<uint32_t>(LinearAlgebraDataType::SINT16)] == D3D12_LINEAR_ALGEBRA_DATATYPE_SINT16);
+	assert(dataTypes[static_cast<uint32_t>(LinearAlgebraDataType::UINT16)] == D3D12_LINEAR_ALGEBRA_DATATYPE_UINT16);
+	assert(dataTypes[static_cast<uint32_t>(LinearAlgebraDataType::SINT32)] == D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32);
+	assert(dataTypes[static_cast<uint32_t>(LinearAlgebraDataType::UINT32)] == D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32);
+	assert(dataTypes[static_cast<uint32_t>(LinearAlgebraDataType::FLOAT16)] == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16);
+	assert(dataTypes[static_cast<uint32_t>(LinearAlgebraDataType::FLOAT32)] == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32);
+	assert(dataTypes[static_cast<uint32_t>(LinearAlgebraDataType::UINT8)] == D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8);
+	assert(dataTypes[static_cast<uint32_t>(LinearAlgebraDataType::SINT8)] == D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8);
+	assert(dataTypes[static_cast<uint32_t>(LinearAlgebraDataType::FLOAT8_E4M3FN)] == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT8_E4M3FN);
+	assert(dataTypes[static_cast<uint32_t>(LinearAlgebraDataType::FLOAT8_E5M2)] == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT8_E5M2);
 
 	return dataTypes[static_cast<uint32_t>(dataType)];
 }

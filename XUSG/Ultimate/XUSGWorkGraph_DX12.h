@@ -63,6 +63,7 @@ namespace XUSG
 
 			State_DX12();
 			virtual ~State_DX12();
+			void* GetBackend();
 
 			void SetShaderLibrary(uint32_t index, const Blob& shaderLib,
 				uint32_t numShaders = 0, const wchar_t** pShaderNames = nullptr);
@@ -121,10 +122,10 @@ namespace XUSG
 		{
 		public:
 			PipelineLib_DX12();
-			PipelineLib_DX12(const Device* pDevice);
+			PipelineLib_DX12(Device* pDevice);
 			virtual ~PipelineLib_DX12();
 
-			void SetDevice(const Device* pDevice);
+			void SetDevice(Device* pDevice);
 			void SetPipeline(State* pState, const Pipeline& pipeline);
 
 			Pipeline CreatePipeline(State* pState, const wchar_t* name = nullptr);
@@ -161,5 +162,7 @@ namespace XUSG
 
 			std::mutex m_mtx;
 		};
+
+		State_DX12* AsDX12(State* p);
 	}
 }

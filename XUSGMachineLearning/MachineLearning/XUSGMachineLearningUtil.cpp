@@ -8,10 +8,9 @@
 using namespace std;
 using namespace XUSG::ML;
 
-Util_Impl::Util_Impl(TensorDataType tensorDataType, TensorLayout tensorLayout, API api) :
+Util_Impl::Util_Impl(TensorDataType tensorDataType, TensorLayout tensorLayout) :
 	m_tensorDataType(tensorDataType),
-	m_tensorLayout(tensorLayout),
-	m_api(api)
+	m_tensorLayout(tensorLayout)
 {
 }
 
@@ -27,7 +26,7 @@ bool Util_Impl::CreateUpsampleLayer(const Device* pDevice, const uint32_t inputS
 	uint32_t inputStrides[4];
 	GetStrides(inputSizes, m_tensorLayout, inputStrides);
 
-	Tensor::uptr inputTensor = Tensor::MakeUnique(m_api);
+	Tensor::uptr inputTensor = Tensor::MakeUnique();
 	const auto inputBufferSize = inputTensor->Create(m_tensorDataType,
 		static_cast<uint32_t>(size(inputStrides)), inputSizes, inputStrides);
 
@@ -44,7 +43,7 @@ bool Util_Impl::CreateUpsampleLayer(const Device* pDevice, const uint32_t inputS
 	uint32_t outputStrides[4];
 	GetStrides(outputSizes, m_tensorLayout, outputStrides);
 
-	Tensor::uptr outputTensor = Tensor::MakeUnique(m_api);
+	Tensor::uptr outputTensor = Tensor::MakeUnique();
 	const auto outputBufferSize = outputTensor->Create(m_tensorDataType,
 		static_cast<uint32_t>(size(outputStrides)), outputSizes, outputStrides);
 	outputBufferRequiredSize = (max)(outputBufferSize, outputBufferRequiredSize);
@@ -62,7 +61,7 @@ bool Util_Impl::CreateConvolutionLayer(const Device* pDevice, const uint32_t inp
 	uint32_t inputStrides[4];
 	GetStrides(inputSizes, m_tensorLayout, inputStrides);
 
-	Tensor::uptr inputTensor = Tensor::MakeUnique(m_api);
+	Tensor::uptr inputTensor = Tensor::MakeUnique();
 	const auto inputBufferSize = inputTensor->Create(m_tensorDataType,
 		static_cast<uint32_t>(size(inputStrides)), inputSizes, inputStrides);
 	inputBufferRequiredSize = (max)(inputBufferSize, inputBufferRequiredSize);
@@ -76,7 +75,7 @@ bool Util_Impl::CreateConvolutionLayer(const Device* pDevice, const uint32_t inp
 	uint32_t outputStrides[4];
 	GetStrides(outputSizes, m_tensorLayout, outputStrides);
 
-	Tensor::uptr outputTensor = Tensor::MakeUnique(m_api);
+	Tensor::uptr outputTensor = Tensor::MakeUnique();
 	const auto outputBufferSize = outputTensor->Create(m_tensorDataType,
 		static_cast<uint32_t>(size(outputStrides)), outputSizes, outputStrides);
 	outputBufferRequiredSize = (max)(outputBufferSize, outputBufferRequiredSize);
@@ -85,7 +84,7 @@ bool Util_Impl::CreateConvolutionLayer(const Device* pDevice, const uint32_t inp
 	uint32_t filterStrides[4];
 	GetStrides(filterSizes, m_tensorLayout, filterStrides);
 
-	Tensor::uptr filterTensor = Tensor::MakeUnique(m_api);
+	Tensor::uptr filterTensor = Tensor::MakeUnique();
 #if ML_MANAGED_WEIGHTS
 	const auto filterBufferSize = filterTensor->Create(m_tensorDataType,
 		static_cast<uint32_t>(size(filterStrides)), filterSizes, filterStrides, TensorFlag::MANAGED);
@@ -99,7 +98,7 @@ bool Util_Impl::CreateConvolutionLayer(const Device* pDevice, const uint32_t inp
 	uint32_t biasStrides[4];
 	GetStrides(biasSizes, m_tensorLayout, biasStrides);
 
-	Tensor::uptr biasTensor = Tensor::MakeUnique(m_api);
+	Tensor::uptr biasTensor = Tensor::MakeUnique();
 #if ML_MANAGED_WEIGHTS
 	const auto biasBufferSize = biasTensor->Create(m_tensorDataType,
 		static_cast<uint32_t>(size(biasStrides)), biasSizes, biasStrides, TensorFlag::MANAGED);
@@ -159,7 +158,7 @@ bool Util_Impl::CreateAdditionLayer(const Device* pDevice, const uint32_t inputS
 	uint32_t strides[4];
 	GetStrides(inputSizes, m_tensorLayout, strides);
 	
-	Tensor::uptr tensor = Tensor::MakeUnique(m_api);
+	Tensor::uptr tensor = Tensor::MakeUnique();
 	const auto bufferSize = tensor->Create(m_tensorDataType, static_cast<uint32_t>(size(strides)), inputSizes, strides);
 
 	// Describe, create, and compile elementwise addition operator

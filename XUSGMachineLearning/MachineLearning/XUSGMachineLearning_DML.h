@@ -38,7 +38,7 @@ namespace XUSG
 			virtual ~Device_DML();
 
 			bool GetCommandRecorder(CommandRecorder* pCommandRecorder, const wchar_t* name = nullptr);
-			bool Create(const XUSG::Device* pDevice, CreateDeviceFlag flags, const wchar_t* name = nullptr);
+			bool Create(XUSG::Device* pDevice, CreateDeviceFlag flags, const wchar_t* name = nullptr);
 
 			void Create(void* pHandle, const wchar_t* name = nullptr);
 

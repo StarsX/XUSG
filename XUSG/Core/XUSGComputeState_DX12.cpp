@@ -22,6 +22,11 @@ State_DX12::~State_DX12()
 {
 }
 
+void* State_DX12::GetBackend()
+{
+	return this;
+}
+
 void State_DX12::SetPipelineLayout(const PipelineLayout& layout)
 {
 	m_pKey->Layout = layout;
@@ -47,14 +52,19 @@ void State_DX12::SetFlags(PipelineFlag flag)
 	m_pKey->Flags = flag;
 }
 
-Pipeline State_DX12::CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name) const
+Pipeline State_DX12::CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name)
 {
 	return pPipelineLib->CreatePipeline(this, name);
 }
 
-Pipeline State_DX12::GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name) const
+Pipeline State_DX12::GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name)
 {
 	return pPipelineLib->GetPipeline(this, name);
+}
+
+const string& State_DX12::GetKey() const
+{
+	return m_key;
 }
 
 PipelineLayout State_DX12::GetPipelineLayout() const
@@ -87,11 +97,6 @@ void State_DX12::GetHandleDesc(void* pHandleDesc) const
 	PipelineLib_DX12::GetHandleDesc(pHandleDesc, GetKey());
 }
 
-const string& State_DX12::GetKey() const
-{
-	return m_key;
-}
-
 //--------------------------------------------------------------------------------------
 
 PipelineLib_DX12::PipelineLib_DX12() :
@@ -100,7 +105,7 @@ PipelineLib_DX12::PipelineLib_DX12() :
 {
 }
 
-PipelineLib_DX12::PipelineLib_DX12(const Device* pDevice) :
+PipelineLib_DX12::PipelineLib_DX12(Device* pDevice) :
 	PipelineLib_DX12()
 {
 	SetDevice(pDevice);
@@ -110,15 +115,15 @@ PipelineLib_DX12::~PipelineLib_DX12()
 {
 }
 
-void PipelineLib_DX12::SetDevice(const Device* pDevice)
+void PipelineLib_DX12::SetDevice(Device* pDevice)
 {
-	m_device = pDevice->GetHandle();
+	m_device = pDevice->GetNativeHandle();
 	assert(m_device);
 }
 
-void PipelineLib_DX12::SetPipeline(const State* pState, const Pipeline& pipeline)
+void PipelineLib_DX12::SetPipeline(State* pState, const Pipeline& pipeline)
 {
-	const auto p = dynamic_cast<const State_DX12*>(pState);
+	const auto p = AsDX12(pState);
 	assert(p);
 
 	lock_guard<mutex> lock(m_mtx);
@@ -126,9 +131,9 @@ void PipelineLib_DX12::SetPipeline(const State* pState, const Pipeline& pipeline
 	m_pipelines[p->GetKey()] = pipeline;
 }
 
-Pipeline PipelineLib_DX12::CreatePipeline(const State* pState, const wchar_t* name)
+Pipeline PipelineLib_DX12::CreatePipeline(State* pState, const wchar_t* name)
 {
-	const auto p = dynamic_cast<const State_DX12*>(pState);
+	const auto p = AsDX12(pState);
 	assert(p);
 
 	lock_guard<mutex> lock(m_mtx);
@@ -136,14 +141,38 @@ Pipeline PipelineLib_DX12::CreatePipeline(const State* pState, const wchar_t* na
 	return createPipeline(p->GetKey(), name);
 }
 
-Pipeline PipelineLib_DX12::GetPipeline(const State* pState, const wchar_t* name)
+Pipeline PipelineLib_DX12::GetPipeline(State* pState, const wchar_t* name)
 {
-	const auto p = dynamic_cast<const State_DX12*>(pState);
+	const auto p = AsDX12(pState);
 	assert(p);
 
 	lock_guard<mutex> lock(m_mtx);
 
 	return getPipeline(p->GetKey(), name);
+}
+
+void PipelineLib_DX12::GetHandleDesc(void* pHandleDesc, const string& key)
+{
+	const auto pDesc = reinterpret_cast<const PipelineDesc*>(key.data());
+	auto& desc = *static_cast<D3D12_COMPUTE_PIPELINE_STATE_DESC*>(pHandleDesc);
+	desc = {};
+
+	// Fill desc
+	if (pDesc->Layout)
+		desc.pRootSignature = static_cast<ID3D12RootSignature*>(pDesc->Layout);
+
+	if (pDesc->Shader)
+		desc.CS = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pDesc->Shader));
+
+	if (pDesc->CachedPipeline)
+	{
+		size_t cachedBlobSize;
+		GetDX12BlobData(pDesc->CachedPipeline, &desc.CachedPSO.pCachedBlob, &cachedBlobSize);
+		desc.CachedPSO.CachedBlobSizeInBytes = cachedBlobSize;
+	}
+
+	desc.NodeMask = pDesc->NodeMask;
+	desc.Flags = GetDX12PipelineFlags(pDesc->Flags);
 }
 
 Pipeline PipelineLib_DX12::createPipeline(const string& key, const wchar_t* name)
@@ -172,26 +201,8 @@ Pipeline PipelineLib_DX12::getPipeline(const string& key, const wchar_t* name)
 	return pPipeline->second.get();
 }
 
-void PipelineLib_DX12::GetHandleDesc(void* pHandleDesc, const string& key)
+State_DX12* XUSG::Compute::AsDX12(State* p)
 {
-	const auto pDesc = reinterpret_cast<const PipelineDesc*>(key.data());
-	auto& desc = *static_cast<D3D12_COMPUTE_PIPELINE_STATE_DESC*>(pHandleDesc);
-	desc = {};
-
-	// Fill desc
-	if (pDesc->Layout)
-		desc.pRootSignature = static_cast<ID3D12RootSignature*>(pDesc->Layout);
-
-	if (pDesc->Shader)
-		desc.CS = CD3DX12_SHADER_BYTECODE(static_cast<ID3DBlob*>(pDesc->Shader));
-
-	if (pDesc->CachedPipeline)
-	{
-		size_t cachedBlobSize;
-		GetDX12BlobData(pDesc->CachedPipeline, &desc.CachedPSO.pCachedBlob, &cachedBlobSize);
-		desc.CachedPSO.CachedBlobSizeInBytes = cachedBlobSize;
-	}
-
-	desc.NodeMask = pDesc->NodeMask;
-	desc.Flags = GetDX12PipelineFlags(pDesc->Flags);
+	assert(!p || p->GetBackend());
+	return static_cast<State_DX12*>(p ? p->GetBackend() : nullptr);
 }

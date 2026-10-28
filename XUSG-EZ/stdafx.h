@@ -45,10 +45,13 @@
 #include <map>
 #include <unordered_map>
 #endif
+#include <unordered_set>
 #include <functional>
 #include <mutex>
 #include <wrl.h>
 #include <shellapi.h>
+
+#include "D3D12RaytracingFallback.h"
 
 #if defined(DEBUG) | defined(_DEBUG)
 #ifndef DBG_NEW

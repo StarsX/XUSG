@@ -10,10 +10,10 @@
 //--------------------------------------------------------------------------------------
 // Load spherical harmonics
 //--------------------------------------------------------------------------------------
-void LoadSH(out float3 shCoeffs[SH_NUM_COEFF], StructuredBuffer<float3> roSHCoeffs)
+void LoadSH(out float3 shCoeffs[SH_NUM_COEFF], StructuredBuffer<float4> roSHCoeffs)
 {
 	[unroll]
-	for (uint i = 0; i < SH_NUM_COEFF; ++i) shCoeffs[i] = roSHCoeffs[i];
+	for (uint i = 0; i < SH_NUM_COEFF; ++i) shCoeffs[i] = roSHCoeffs[i].xyz;
 }
 
 //--------------------------------------------------------------------------------------

@@ -7,6 +7,9 @@
 
 using namespace XUSG;
 
+// Dense enumerator values and single-bit flag positions are the indices of these tables.
+// Do not reorder or renumber the enums in XUSG.h.
+
 #define APPEND_FLAG(type, dx12Type, flags, flag, none) ((flags & type::flag) == type::flag ? dx12Type##_##flag : dx12Type##_##none)
 #define APPEND_COMMAND_QUEUE_FLAG(flags, flag) APPEND_FLAG(CommandQueueFlag, D3D12_COMMAND_QUEUE_FLAG, flags, flag, NONE)
 #define APPEND_HEAP_FLAG(flags, flag) APPEND_FLAG(MemoryFlag, D3D12_HEAP_FLAG, flags, flag, NONE)
@@ -156,6 +159,129 @@ DXGI_FORMAT XUSG::GetDXGIFormat(Format format)
 		DXGI_FORMAT_FORCE_UINT
 	};
 
+	assert(formats[static_cast<uint32_t>(Format::UNKNOWN)] == DXGI_FORMAT_UNKNOWN);
+	assert(formats[static_cast<uint32_t>(Format::R32G32B32A32_TYPELESS)] == DXGI_FORMAT_R32G32B32A32_TYPELESS);
+	assert(formats[static_cast<uint32_t>(Format::R32G32B32A32_FLOAT)] == DXGI_FORMAT_R32G32B32A32_FLOAT);
+	assert(formats[static_cast<uint32_t>(Format::R32G32B32A32_UINT)] == DXGI_FORMAT_R32G32B32A32_UINT);
+	assert(formats[static_cast<uint32_t>(Format::R32G32B32A32_SINT)] == DXGI_FORMAT_R32G32B32A32_SINT);
+	assert(formats[static_cast<uint32_t>(Format::R32G32B32_TYPELESS)] == DXGI_FORMAT_R32G32B32_TYPELESS);
+	assert(formats[static_cast<uint32_t>(Format::R32G32B32_FLOAT)] == DXGI_FORMAT_R32G32B32_FLOAT);
+	assert(formats[static_cast<uint32_t>(Format::R32G32B32_UINT)] == DXGI_FORMAT_R32G32B32_UINT);
+	assert(formats[static_cast<uint32_t>(Format::R32G32B32_SINT)] == DXGI_FORMAT_R32G32B32_SINT);
+	assert(formats[static_cast<uint32_t>(Format::R16G16B16A16_TYPELESS)] == DXGI_FORMAT_R16G16B16A16_TYPELESS);
+	assert(formats[static_cast<uint32_t>(Format::R16G16B16A16_FLOAT)] == DXGI_FORMAT_R16G16B16A16_FLOAT);
+	assert(formats[static_cast<uint32_t>(Format::R16G16B16A16_UNORM)] == DXGI_FORMAT_R16G16B16A16_UNORM);
+	assert(formats[static_cast<uint32_t>(Format::R16G16B16A16_UINT)] == DXGI_FORMAT_R16G16B16A16_UINT);
+	assert(formats[static_cast<uint32_t>(Format::R16G16B16A16_SNORM)] == DXGI_FORMAT_R16G16B16A16_SNORM);
+	assert(formats[static_cast<uint32_t>(Format::R16G16B16A16_SINT)] == DXGI_FORMAT_R16G16B16A16_SINT);
+	assert(formats[static_cast<uint32_t>(Format::R32G32_TYPELESS)] == DXGI_FORMAT_R32G32_TYPELESS);
+	assert(formats[static_cast<uint32_t>(Format::R32G32_FLOAT)] == DXGI_FORMAT_R32G32_FLOAT);
+	assert(formats[static_cast<uint32_t>(Format::R32G32_UINT)] == DXGI_FORMAT_R32G32_UINT);
+	assert(formats[static_cast<uint32_t>(Format::R32G32_SINT)] == DXGI_FORMAT_R32G32_SINT);
+	assert(formats[static_cast<uint32_t>(Format::R32G8X24_TYPELESS)] == DXGI_FORMAT_R32G8X24_TYPELESS);
+	assert(formats[static_cast<uint32_t>(Format::D32_FLOAT_S8X24_UINT)] == DXGI_FORMAT_D32_FLOAT_S8X24_UINT);
+	assert(formats[static_cast<uint32_t>(Format::R32_FLOAT_X8X24_TYPELESS)] == DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS);
+	assert(formats[static_cast<uint32_t>(Format::X32_TYPELESS_G8X24_UINT)] == DXGI_FORMAT_X32_TYPELESS_G8X24_UINT);
+	assert(formats[static_cast<uint32_t>(Format::R10G10B10A2_TYPELESS)] == DXGI_FORMAT_R10G10B10A2_TYPELESS);
+	assert(formats[static_cast<uint32_t>(Format::R10G10B10A2_UNORM)] == DXGI_FORMAT_R10G10B10A2_UNORM);
+	assert(formats[static_cast<uint32_t>(Format::R10G10B10A2_UINT)] == DXGI_FORMAT_R10G10B10A2_UINT);
+	assert(formats[static_cast<uint32_t>(Format::R11G11B10_FLOAT)] == DXGI_FORMAT_R11G11B10_FLOAT);
+	assert(formats[static_cast<uint32_t>(Format::R8G8B8A8_TYPELESS)] == DXGI_FORMAT_R8G8B8A8_TYPELESS);
+	assert(formats[static_cast<uint32_t>(Format::R8G8B8A8_UNORM)] == DXGI_FORMAT_R8G8B8A8_UNORM);
+	assert(formats[static_cast<uint32_t>(Format::R8G8B8A8_UNORM_SRGB)] == DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
+	assert(formats[static_cast<uint32_t>(Format::R8G8B8A8_UINT)] == DXGI_FORMAT_R8G8B8A8_UINT);
+	assert(formats[static_cast<uint32_t>(Format::R8G8B8A8_SNORM)] == DXGI_FORMAT_R8G8B8A8_SNORM);
+	assert(formats[static_cast<uint32_t>(Format::R8G8B8A8_SINT)] == DXGI_FORMAT_R8G8B8A8_SINT);
+	assert(formats[static_cast<uint32_t>(Format::R16G16_TYPELESS)] == DXGI_FORMAT_R16G16_TYPELESS);
+	assert(formats[static_cast<uint32_t>(Format::R16G16_FLOAT)] == DXGI_FORMAT_R16G16_FLOAT);
+	assert(formats[static_cast<uint32_t>(Format::R16G16_UNORM)] == DXGI_FORMAT_R16G16_UNORM);
+	assert(formats[static_cast<uint32_t>(Format::R16G16_UINT)] == DXGI_FORMAT_R16G16_UINT);
+	assert(formats[static_cast<uint32_t>(Format::R16G16_SNORM)] == DXGI_FORMAT_R16G16_SNORM);
+	assert(formats[static_cast<uint32_t>(Format::R16G16_SINT)] == DXGI_FORMAT_R16G16_SINT);
+	assert(formats[static_cast<uint32_t>(Format::R32_TYPELESS)] == DXGI_FORMAT_R32_TYPELESS);
+	assert(formats[static_cast<uint32_t>(Format::D32_FLOAT)] == DXGI_FORMAT_D32_FLOAT);
+	assert(formats[static_cast<uint32_t>(Format::R32_FLOAT)] == DXGI_FORMAT_R32_FLOAT);
+	assert(formats[static_cast<uint32_t>(Format::R32_UINT)] == DXGI_FORMAT_R32_UINT);
+	assert(formats[static_cast<uint32_t>(Format::R32_SINT)] == DXGI_FORMAT_R32_SINT);
+	assert(formats[static_cast<uint32_t>(Format::R24G8_TYPELESS)] == DXGI_FORMAT_R24G8_TYPELESS);
+	assert(formats[static_cast<uint32_t>(Format::D24_UNORM_S8_UINT)] == DXGI_FORMAT_D24_UNORM_S8_UINT);
+	assert(formats[static_cast<uint32_t>(Format::R24_UNORM_X8_TYPELESS)] == DXGI_FORMAT_R24_UNORM_X8_TYPELESS);
+	assert(formats[static_cast<uint32_t>(Format::X24_TYPELESS_G8_UINT)] == DXGI_FORMAT_X24_TYPELESS_G8_UINT);
+	assert(formats[static_cast<uint32_t>(Format::R8G8_TYPELESS)] == DXGI_FORMAT_R8G8_TYPELESS);
+	assert(formats[static_cast<uint32_t>(Format::R8G8_UNORM)] == DXGI_FORMAT_R8G8_UNORM);
+	assert(formats[static_cast<uint32_t>(Format::R8G8_UINT)] == DXGI_FORMAT_R8G8_UINT);
+	assert(formats[static_cast<uint32_t>(Format::R8G8_SNORM)] == DXGI_FORMAT_R8G8_SNORM);
+	assert(formats[static_cast<uint32_t>(Format::R8G8_SINT)] == DXGI_FORMAT_R8G8_SINT);
+	assert(formats[static_cast<uint32_t>(Format::R16_TYPELESS)] == DXGI_FORMAT_R16_TYPELESS);
+	assert(formats[static_cast<uint32_t>(Format::R16_FLOAT)] == DXGI_FORMAT_R16_FLOAT);
+	assert(formats[static_cast<uint32_t>(Format::D16_UNORM)] == DXGI_FORMAT_D16_UNORM);
+	assert(formats[static_cast<uint32_t>(Format::R16_UNORM)] == DXGI_FORMAT_R16_UNORM);
+	assert(formats[static_cast<uint32_t>(Format::R16_UINT)] == DXGI_FORMAT_R16_UINT);
+	assert(formats[static_cast<uint32_t>(Format::R16_SNORM)] == DXGI_FORMAT_R16_SNORM);
+	assert(formats[static_cast<uint32_t>(Format::R16_SINT)] == DXGI_FORMAT_R16_SINT);
+	assert(formats[static_cast<uint32_t>(Format::R8_TYPELESS)] == DXGI_FORMAT_R8_TYPELESS);
+	assert(formats[static_cast<uint32_t>(Format::R8_UNORM)] == DXGI_FORMAT_R8_UNORM);
+	assert(formats[static_cast<uint32_t>(Format::R8_UINT)] == DXGI_FORMAT_R8_UINT);
+	assert(formats[static_cast<uint32_t>(Format::R8_SNORM)] == DXGI_FORMAT_R8_SNORM);
+	assert(formats[static_cast<uint32_t>(Format::R8_SINT)] == DXGI_FORMAT_R8_SINT);
+	assert(formats[static_cast<uint32_t>(Format::A8_UNORM)] == DXGI_FORMAT_A8_UNORM);
+	assert(formats[static_cast<uint32_t>(Format::R1_UNORM)] == DXGI_FORMAT_R1_UNORM);
+	assert(formats[static_cast<uint32_t>(Format::R9G9B9E5_SHAREDEXP)] == DXGI_FORMAT_R9G9B9E5_SHAREDEXP);
+	assert(formats[static_cast<uint32_t>(Format::R8G8_B8G8_UNORM)] == DXGI_FORMAT_R8G8_B8G8_UNORM);
+	assert(formats[static_cast<uint32_t>(Format::G8R8_G8B8_UNORM)] == DXGI_FORMAT_G8R8_G8B8_UNORM);
+	assert(formats[static_cast<uint32_t>(Format::BC1_TYPELESS)] == DXGI_FORMAT_BC1_TYPELESS);
+	assert(formats[static_cast<uint32_t>(Format::BC1_UNORM)] == DXGI_FORMAT_BC1_UNORM);
+	assert(formats[static_cast<uint32_t>(Format::BC1_UNORM_SRGB)] == DXGI_FORMAT_BC1_UNORM_SRGB);
+	assert(formats[static_cast<uint32_t>(Format::BC2_TYPELESS)] == DXGI_FORMAT_BC2_TYPELESS);
+	assert(formats[static_cast<uint32_t>(Format::BC2_UNORM)] == DXGI_FORMAT_BC2_UNORM);
+	assert(formats[static_cast<uint32_t>(Format::BC2_UNORM_SRGB)] == DXGI_FORMAT_BC2_UNORM_SRGB);
+	assert(formats[static_cast<uint32_t>(Format::BC3_TYPELESS)] == DXGI_FORMAT_BC3_TYPELESS);
+	assert(formats[static_cast<uint32_t>(Format::BC3_UNORM)] == DXGI_FORMAT_BC3_UNORM);
+	assert(formats[static_cast<uint32_t>(Format::BC3_UNORM_SRGB)] == DXGI_FORMAT_BC3_UNORM_SRGB);
+	assert(formats[static_cast<uint32_t>(Format::BC4_TYPELESS)] == DXGI_FORMAT_BC4_TYPELESS);
+	assert(formats[static_cast<uint32_t>(Format::BC4_UNORM)] == DXGI_FORMAT_BC4_UNORM);
+	assert(formats[static_cast<uint32_t>(Format::BC4_SNORM)] == DXGI_FORMAT_BC4_SNORM);
+	assert(formats[static_cast<uint32_t>(Format::BC5_TYPELESS)] == DXGI_FORMAT_BC5_TYPELESS);
+	assert(formats[static_cast<uint32_t>(Format::BC5_UNORM)] == DXGI_FORMAT_BC5_UNORM);
+	assert(formats[static_cast<uint32_t>(Format::BC5_SNORM)] == DXGI_FORMAT_BC5_SNORM);
+	assert(formats[static_cast<uint32_t>(Format::B5G6R5_UNORM)] == DXGI_FORMAT_B5G6R5_UNORM);
+	assert(formats[static_cast<uint32_t>(Format::B5G5R5A1_UNORM)] == DXGI_FORMAT_B5G5R5A1_UNORM);
+	assert(formats[static_cast<uint32_t>(Format::B8G8R8A8_UNORM)] == DXGI_FORMAT_B8G8R8A8_UNORM);
+	assert(formats[static_cast<uint32_t>(Format::B8G8R8X8_UNORM)] == DXGI_FORMAT_B8G8R8X8_UNORM);
+	assert(formats[static_cast<uint32_t>(Format::RGB10_XR_BIAS_A2_UNORM)] == DXGI_FORMAT_R10G10B10_XR_BIAS_A2_UNORM);
+	assert(formats[static_cast<uint32_t>(Format::B8G8R8A8_TYPELESS)] == DXGI_FORMAT_B8G8R8A8_TYPELESS);
+	assert(formats[static_cast<uint32_t>(Format::B8G8R8A8_UNORM_SRGB)] == DXGI_FORMAT_B8G8R8A8_UNORM_SRGB);
+	assert(formats[static_cast<uint32_t>(Format::B8G8R8X8_TYPELESS)] == DXGI_FORMAT_B8G8R8X8_TYPELESS);
+	assert(formats[static_cast<uint32_t>(Format::B8G8R8X8_UNORM_SRGB)] == DXGI_FORMAT_B8G8R8X8_UNORM_SRGB);
+	assert(formats[static_cast<uint32_t>(Format::BC6H_TYPELESS)] == DXGI_FORMAT_BC6H_TYPELESS);
+	assert(formats[static_cast<uint32_t>(Format::BC6H_UF16)] == DXGI_FORMAT_BC6H_UF16);
+	assert(formats[static_cast<uint32_t>(Format::BC6H_SF16)] == DXGI_FORMAT_BC6H_SF16);
+	assert(formats[static_cast<uint32_t>(Format::BC7_TYPELESS)] == DXGI_FORMAT_BC7_TYPELESS);
+	assert(formats[static_cast<uint32_t>(Format::BC7_UNORM)] == DXGI_FORMAT_BC7_UNORM);
+	assert(formats[static_cast<uint32_t>(Format::BC7_UNORM_SRGB)] == DXGI_FORMAT_BC7_UNORM_SRGB);
+	assert(formats[static_cast<uint32_t>(Format::AYUV)] == DXGI_FORMAT_AYUV);
+	assert(formats[static_cast<uint32_t>(Format::Y410)] == DXGI_FORMAT_Y410);
+	assert(formats[static_cast<uint32_t>(Format::Y416)] == DXGI_FORMAT_Y416);
+	assert(formats[static_cast<uint32_t>(Format::NV12)] == DXGI_FORMAT_NV12);
+	assert(formats[static_cast<uint32_t>(Format::P010)] == DXGI_FORMAT_P010);
+	assert(formats[static_cast<uint32_t>(Format::P016)] == DXGI_FORMAT_P016);
+	assert(formats[static_cast<uint32_t>(Format::OPAQUE_420)] == DXGI_FORMAT_420_OPAQUE);
+	assert(formats[static_cast<uint32_t>(Format::YUY2)] == DXGI_FORMAT_YUY2);
+	assert(formats[static_cast<uint32_t>(Format::Y210)] == DXGI_FORMAT_Y210);
+	assert(formats[static_cast<uint32_t>(Format::Y216)] == DXGI_FORMAT_Y216);
+	assert(formats[static_cast<uint32_t>(Format::NV11)] == DXGI_FORMAT_NV11);
+	assert(formats[static_cast<uint32_t>(Format::AI44)] == DXGI_FORMAT_AI44);
+	assert(formats[static_cast<uint32_t>(Format::IA44)] == DXGI_FORMAT_IA44);
+	assert(formats[static_cast<uint32_t>(Format::P8)] == DXGI_FORMAT_P8);
+	assert(formats[static_cast<uint32_t>(Format::A8P8)] == DXGI_FORMAT_A8P8);
+	assert(formats[static_cast<uint32_t>(Format::B4G4R4A4_UNORM)] == DXGI_FORMAT_B4G4R4A4_UNORM);
+	assert(formats[static_cast<uint32_t>(Format::P208)] == DXGI_FORMAT_P208);
+	assert(formats[static_cast<uint32_t>(Format::V208)] == DXGI_FORMAT_V208);
+	assert(formats[static_cast<uint32_t>(Format::V408)] == DXGI_FORMAT_V408);
+	assert(formats[static_cast<uint32_t>(Format::MIN_MIP_OPAQUE)] == DXGI_FORMAT_SAMPLER_FEEDBACK_MIN_MIP_OPAQUE);
+	assert(formats[static_cast<uint32_t>(Format::MIP_REGION_USED_OPAQUE)] == DXGI_FORMAT_SAMPLER_FEEDBACK_MIP_REGION_USED_OPAQUE);
+	assert(formats[static_cast<uint32_t>(Format::FORCE_UINT)] == DXGI_FORMAT_FORCE_UINT);
+
 	return formats[static_cast<uint32_t>(format)];
 }
 
@@ -172,6 +298,14 @@ D3D12_COMMAND_LIST_TYPE XUSG::GetDX12CommandListType(CommandListType commandList
 		D3D12_COMMAND_LIST_TYPE_VIDEO_ENCODE
 	};
 
+	assert(commandListTypes[static_cast<uint32_t>(CommandListType::DIRECT)] == D3D12_COMMAND_LIST_TYPE_DIRECT);
+	assert(commandListTypes[static_cast<uint32_t>(CommandListType::BUNDLE)] == D3D12_COMMAND_LIST_TYPE_BUNDLE);
+	assert(commandListTypes[static_cast<uint32_t>(CommandListType::COMPUTE)] == D3D12_COMMAND_LIST_TYPE_COMPUTE);
+	assert(commandListTypes[static_cast<uint32_t>(CommandListType::COPY)] == D3D12_COMMAND_LIST_TYPE_COPY);
+	assert(commandListTypes[static_cast<uint32_t>(CommandListType::VIDEO_DECODE)] == D3D12_COMMAND_LIST_TYPE_VIDEO_DECODE);
+	assert(commandListTypes[static_cast<uint32_t>(CommandListType::VIDEO_PROCESS)] == D3D12_COMMAND_LIST_TYPE_VIDEO_PROCESS);
+	assert(commandListTypes[static_cast<uint32_t>(CommandListType::VIDEO_ENCODE)] == D3D12_COMMAND_LIST_TYPE_VIDEO_ENCODE);
+
 	return commandListTypes[static_cast<uint32_t>(commandListType)];
 }
 
@@ -182,6 +316,9 @@ D3D12_INPUT_CLASSIFICATION XUSG::GetDX12InputClassification(InputClassification 
 		D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
 		D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA
 	};
+
+	assert(inputClassifications[static_cast<uint32_t>(InputClassification::PER_VERTEX_DATA)] == D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA);
+	assert(inputClassifications[static_cast<uint32_t>(InputClassification::PER_INSTANCE_DATA)] == D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA);
 
 	return inputClassifications[static_cast<uint32_t>(inputClassification)];
 }
@@ -197,6 +334,12 @@ D3D12_HEAP_TYPE XUSG::GetDX12HeapType(MemoryType memoryType)
 		D3D12_HEAP_TYPE_GPU_UPLOAD
 	};
 
+	assert(heapTypes[static_cast<uint32_t>(MemoryType::DEFAULT)] == D3D12_HEAP_TYPE_DEFAULT);
+	assert(heapTypes[static_cast<uint32_t>(MemoryType::UPLOAD)] == D3D12_HEAP_TYPE_UPLOAD);
+	assert(heapTypes[static_cast<uint32_t>(MemoryType::READBACK)] == D3D12_HEAP_TYPE_READBACK);
+	assert(heapTypes[static_cast<uint32_t>(MemoryType::CUSTOM)] == D3D12_HEAP_TYPE_CUSTOM);
+	assert(heapTypes[static_cast<uint32_t>(MemoryType::GPU_UPLOAD)] == D3D12_HEAP_TYPE_GPU_UPLOAD);
+
 	return heapTypes[static_cast<uint32_t>(memoryType)];
 }
 
@@ -210,6 +353,12 @@ D3D12_PRIMITIVE_TOPOLOGY_TYPE XUSG::GetDX12PrimitiveTopologyType(PrimitiveTopolo
 		D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
 		D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH
 	};
+
+	assert(primitiveTopologyTypes[static_cast<uint32_t>(PrimitiveTopologyType::UNDEFINED)] == D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED);
+	assert(primitiveTopologyTypes[static_cast<uint32_t>(PrimitiveTopologyType::POINT)] == D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT);
+	assert(primitiveTopologyTypes[static_cast<uint32_t>(PrimitiveTopologyType::LINE)] == D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE);
+	assert(primitiveTopologyTypes[static_cast<uint32_t>(PrimitiveTopologyType::TRIANGLE)] == D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
+	assert(primitiveTopologyTypes[static_cast<uint32_t>(PrimitiveTopologyType::PATCH)] == D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH);
 
 	return primitiveTopologyTypes[static_cast<uint32_t>(primitiveTopologyType)];
 }
@@ -263,6 +412,50 @@ D3D_PRIMITIVE_TOPOLOGY XUSG::GetDX12PrimitiveTopology(PrimitiveTopology primitiv
 		D3D_PRIMITIVE_TOPOLOGY_32_CONTROL_POINT_PATCHLIST
 	};
 
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::UNDEFINED)] == D3D_PRIMITIVE_TOPOLOGY_UNDEFINED);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::POINTLIST)] == D3D_PRIMITIVE_TOPOLOGY_POINTLIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::LINELIST)] == D3D_PRIMITIVE_TOPOLOGY_LINELIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::LINESTRIP)] == D3D_PRIMITIVE_TOPOLOGY_LINESTRIP);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::TRIANGLELIST)] == D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::TRIANGLESTRIP)] == D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::TRIANGLEFAN)] == D3D_PRIMITIVE_TOPOLOGY_TRIANGLEFAN);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::LINELIST_ADJ)] == D3D_PRIMITIVE_TOPOLOGY_LINELIST_ADJ);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::LINESTRIP_ADJ)] == D3D_PRIMITIVE_TOPOLOGY_LINESTRIP_ADJ);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::TRIANGLELIST_ADJ)] == D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST_ADJ);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::TRIANGLESTRIP_ADJ)] == D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP_ADJ);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::CONTROL_POINT1_PATCHLIST)] == D3D_PRIMITIVE_TOPOLOGY_1_CONTROL_POINT_PATCHLIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::CONTROL_POINT2_PATCHLIST)] == D3D_PRIMITIVE_TOPOLOGY_2_CONTROL_POINT_PATCHLIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::CONTROL_POINT3_PATCHLIST)] == D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::CONTROL_POINT4_PATCHLIST)] == D3D_PRIMITIVE_TOPOLOGY_4_CONTROL_POINT_PATCHLIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::CONTROL_POINT5_PATCHLIST)] == D3D_PRIMITIVE_TOPOLOGY_5_CONTROL_POINT_PATCHLIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::CONTROL_POINT6_PATCHLIST)] == D3D_PRIMITIVE_TOPOLOGY_6_CONTROL_POINT_PATCHLIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::CONTROL_POINT7_PATCHLIST)] == D3D_PRIMITIVE_TOPOLOGY_7_CONTROL_POINT_PATCHLIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::CONTROL_POINT8_PATCHLIST)] == D3D_PRIMITIVE_TOPOLOGY_8_CONTROL_POINT_PATCHLIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::CONTROL_POINT9_PATCHLIST)] == D3D_PRIMITIVE_TOPOLOGY_9_CONTROL_POINT_PATCHLIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::CONTROL_POINT10_PATCHLIST)] == D3D_PRIMITIVE_TOPOLOGY_10_CONTROL_POINT_PATCHLIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::CONTROL_POINT11_PATCHLIST)] == D3D_PRIMITIVE_TOPOLOGY_11_CONTROL_POINT_PATCHLIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::CONTROL_POINT12_PATCHLIST)] == D3D_PRIMITIVE_TOPOLOGY_12_CONTROL_POINT_PATCHLIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::CONTROL_POINT13_PATCHLIST)] == D3D_PRIMITIVE_TOPOLOGY_13_CONTROL_POINT_PATCHLIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::CONTROL_POINT14_PATCHLIST)] == D3D_PRIMITIVE_TOPOLOGY_14_CONTROL_POINT_PATCHLIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::CONTROL_POINT15_PATCHLIST)] == D3D_PRIMITIVE_TOPOLOGY_15_CONTROL_POINT_PATCHLIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::CONTROL_POINT16_PATCHLIST)] == D3D_PRIMITIVE_TOPOLOGY_16_CONTROL_POINT_PATCHLIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::CONTROL_POINT17_PATCHLIST)] == D3D_PRIMITIVE_TOPOLOGY_17_CONTROL_POINT_PATCHLIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::CONTROL_POINT18_PATCHLIST)] == D3D_PRIMITIVE_TOPOLOGY_18_CONTROL_POINT_PATCHLIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::CONTROL_POINT19_PATCHLIST)] == D3D_PRIMITIVE_TOPOLOGY_19_CONTROL_POINT_PATCHLIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::CONTROL_POINT20_PATCHLIST)] == D3D_PRIMITIVE_TOPOLOGY_20_CONTROL_POINT_PATCHLIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::CONTROL_POINT21_PATCHLIST)] == D3D_PRIMITIVE_TOPOLOGY_21_CONTROL_POINT_PATCHLIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::CONTROL_POINT22_PATCHLIST)] == D3D_PRIMITIVE_TOPOLOGY_22_CONTROL_POINT_PATCHLIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::CONTROL_POINT23_PATCHLIST)] == D3D_PRIMITIVE_TOPOLOGY_23_CONTROL_POINT_PATCHLIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::CONTROL_POINT24_PATCHLIST)] == D3D_PRIMITIVE_TOPOLOGY_24_CONTROL_POINT_PATCHLIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::CONTROL_POINT25_PATCHLIST)] == D3D_PRIMITIVE_TOPOLOGY_25_CONTROL_POINT_PATCHLIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::CONTROL_POINT26_PATCHLIST)] == D3D_PRIMITIVE_TOPOLOGY_26_CONTROL_POINT_PATCHLIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::CONTROL_POINT27_PATCHLIST)] == D3D_PRIMITIVE_TOPOLOGY_27_CONTROL_POINT_PATCHLIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::CONTROL_POINT28_PATCHLIST)] == D3D_PRIMITIVE_TOPOLOGY_28_CONTROL_POINT_PATCHLIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::CONTROL_POINT29_PATCHLIST)] == D3D_PRIMITIVE_TOPOLOGY_29_CONTROL_POINT_PATCHLIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::CONTROL_POINT30_PATCHLIST)] == D3D_PRIMITIVE_TOPOLOGY_30_CONTROL_POINT_PATCHLIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::CONTROL_POINT31_PATCHLIST)] == D3D_PRIMITIVE_TOPOLOGY_31_CONTROL_POINT_PATCHLIST);
+	assert(primitiveTopologies[static_cast<uint32_t>(PrimitiveTopology::CONTROL_POINT32_PATCHLIST)] == D3D_PRIMITIVE_TOPOLOGY_32_CONTROL_POINT_PATCHLIST);
+
 	return primitiveTopologies[static_cast<uint32_t>(primitiveTopology)];
 }
 
@@ -273,6 +466,9 @@ D3D12_FILL_MODE XUSG::GetDX12FillMode(FillMode fillMode)
 		D3D12_FILL_MODE_WIREFRAME,
 		D3D12_FILL_MODE_SOLID
 	};
+
+	assert(fillModes[static_cast<uint32_t>(FillMode::WIREFRAME)] == D3D12_FILL_MODE_WIREFRAME);
+	assert(fillModes[static_cast<uint32_t>(FillMode::SOLID)] == D3D12_FILL_MODE_SOLID);
 
 	return fillModes[static_cast<uint32_t>(fillMode)];
 }
@@ -285,6 +481,10 @@ D3D12_CULL_MODE XUSG::GetDX12CullMode(CullMode cullMode)
 		D3D12_CULL_MODE_FRONT,
 		D3D12_CULL_MODE_BACK
 	};
+
+	assert(cullModes[static_cast<uint32_t>(CullMode::NONE)] == D3D12_CULL_MODE_NONE);
+	assert(cullModes[static_cast<uint32_t>(CullMode::FRONT)] == D3D12_CULL_MODE_FRONT);
+	assert(cullModes[static_cast<uint32_t>(CullMode::BACK)] == D3D12_CULL_MODE_BACK);
 
 	return cullModes[static_cast<uint32_t>(cullMode)];
 }
@@ -307,6 +507,19 @@ D3D12_INDIRECT_ARGUMENT_TYPE XUSG::GetDX12IndirectArgumentType(IndirectArgumentT
 		D3D12_INDIRECT_ARGUMENT_TYPE_INCREMENTING_CONSTANT
 	};
 
+	assert(indirectArgumentTypes[static_cast<uint32_t>(IndirectArgumentType::DRAW)] == D3D12_INDIRECT_ARGUMENT_TYPE_DRAW);
+	assert(indirectArgumentTypes[static_cast<uint32_t>(IndirectArgumentType::DRAW_INDEXED)] == D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED);
+	assert(indirectArgumentTypes[static_cast<uint32_t>(IndirectArgumentType::DISPATCH)] == D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH);
+	assert(indirectArgumentTypes[static_cast<uint32_t>(IndirectArgumentType::VERTEX_BUFFER_VIEW)] == D3D12_INDIRECT_ARGUMENT_TYPE_VERTEX_BUFFER_VIEW);
+	assert(indirectArgumentTypes[static_cast<uint32_t>(IndirectArgumentType::INDEX_BUFFER_VIEW)] == D3D12_INDIRECT_ARGUMENT_TYPE_INDEX_BUFFER_VIEW);
+	assert(indirectArgumentTypes[static_cast<uint32_t>(IndirectArgumentType::CONSTANT)] == D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT);
+	assert(indirectArgumentTypes[static_cast<uint32_t>(IndirectArgumentType::CONSTANT_BUFFER_VIEW)] == D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT_BUFFER_VIEW);
+	assert(indirectArgumentTypes[static_cast<uint32_t>(IndirectArgumentType::SHADER_RESOURCE_VIEW)] == D3D12_INDIRECT_ARGUMENT_TYPE_SHADER_RESOURCE_VIEW);
+	assert(indirectArgumentTypes[static_cast<uint32_t>(IndirectArgumentType::UNORDERED_ACCESS_VIEW)] == D3D12_INDIRECT_ARGUMENT_TYPE_UNORDERED_ACCESS_VIEW);
+	assert(indirectArgumentTypes[static_cast<uint32_t>(IndirectArgumentType::DISPATCH_RAYS)] == D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH_RAYS);
+	assert(indirectArgumentTypes[static_cast<uint32_t>(IndirectArgumentType::DISPATCH_MESH)] == D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH_MESH);
+	assert(indirectArgumentTypes[static_cast<uint32_t>(IndirectArgumentType::INCREMENTING_CONSTANT)] == D3D12_INDIRECT_ARGUMENT_TYPE_INCREMENTING_CONSTANT);
+
 	return indirectArgumentTypes[static_cast<uint32_t>(indirectArgumentType)];
 }
 
@@ -321,6 +534,12 @@ D3D12_RESOURCE_DIMENSION XUSG::GetDX12ResourceDimension(ResourceDimension resour
 		D3D12_RESOURCE_DIMENSION_TEXTURE3D
 	};
 
+	assert(resourceDimensions[static_cast<uint32_t>(ResourceDimension::UNKNOWN)] == D3D12_RESOURCE_DIMENSION_UNKNOWN);
+	assert(resourceDimensions[static_cast<uint32_t>(ResourceDimension::BUFFER)] == D3D12_RESOURCE_DIMENSION_BUFFER);
+	assert(resourceDimensions[static_cast<uint32_t>(ResourceDimension::TEXTURE1D)] == D3D12_RESOURCE_DIMENSION_TEXTURE1D);
+	assert(resourceDimensions[static_cast<uint32_t>(ResourceDimension::TEXTURE2D)] == D3D12_RESOURCE_DIMENSION_TEXTURE2D);
+	assert(resourceDimensions[static_cast<uint32_t>(ResourceDimension::TEXTURE3D)] == D3D12_RESOURCE_DIMENSION_TEXTURE3D);
+
 	return resourceDimensions[static_cast<uint32_t>(resourceDimension)];
 }
 
@@ -334,6 +553,11 @@ D3D12_TEXTURE_LAYOUT XUSG::GetDX12TextureLayout(TextureLayout textureLayout)
 		D3D12_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE
 	};
 
+	assert(textureLayouts[static_cast<uint32_t>(TextureLayout::UNKNOWN)] == D3D12_TEXTURE_LAYOUT_UNKNOWN);
+	assert(textureLayouts[static_cast<uint32_t>(TextureLayout::ROW_MAJOR)] == D3D12_TEXTURE_LAYOUT_ROW_MAJOR);
+	assert(textureLayouts[static_cast<uint32_t>(TextureLayout::TILE_UNDEFINED_SWIZZLE)] == D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE);
+	assert(textureLayouts[static_cast<uint32_t>(TextureLayout::TILE_STANDARD_SWIZZLE)] == D3D12_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE);
+
 	return textureLayouts[static_cast<uint32_t>(textureLayout)];
 }
 
@@ -344,6 +568,9 @@ D3D12_COMMAND_QUEUE_FLAGS XUSG::GetDX12CommandQueueFlag(CommandQueueFlag command
 		D3D12_COMMAND_QUEUE_FLAG_DISABLE_GPU_TIMEOUT,
 		D3D12_COMMAND_QUEUE_FLAG_ALLOW_DYNAMIC_PRIORITY
 	};
+
+	assert(commandQueueFlags[Log2(static_cast<uint32_t>(CommandQueueFlag::DISABLE_GPU_TIMEOUT))] == D3D12_COMMAND_QUEUE_FLAG_DISABLE_GPU_TIMEOUT);
+	assert(commandQueueFlags[Log2(static_cast<uint32_t>(CommandQueueFlag::ALLOW_DYNAMIC_PRIORITY))] == D3D12_COMMAND_QUEUE_FLAG_ALLOW_DYNAMIC_PRIORITY);
 
 	if (commandQueueFlag == CommandQueueFlag::NONE) return D3D12_COMMAND_QUEUE_FLAG_NONE;
 
@@ -378,6 +605,19 @@ D3D12_HEAP_FLAGS XUSG::GetDX12HeapFlag(MemoryFlag memoryFlag)
 		D3D12_HEAP_FLAG_CREATE_NOT_ZEROED,
 		D3D12_HEAP_FLAG_TOOLS_USE_MANUAL_WRITE_TRACKING
 	};
+
+	assert(heapFlags[Log2(static_cast<uint32_t>(MemoryFlag::SHARED))] == D3D12_HEAP_FLAG_SHARED);
+	assert(heapFlags[Log2(static_cast<uint32_t>(MemoryFlag::DENY_BUFFERS))] == D3D12_HEAP_FLAG_DENY_BUFFERS);
+	assert(heapFlags[Log2(static_cast<uint32_t>(MemoryFlag::ALLOW_DISPLAY))] == D3D12_HEAP_FLAG_ALLOW_DISPLAY);
+	assert(heapFlags[Log2(static_cast<uint32_t>(MemoryFlag::SHARED_CROSS_ADAPTER))] == D3D12_HEAP_FLAG_SHARED_CROSS_ADAPTER);
+	assert(heapFlags[Log2(static_cast<uint32_t>(MemoryFlag::DENY_RT_DS_TEXTURES))] == D3D12_HEAP_FLAG_DENY_RT_DS_TEXTURES);
+	assert(heapFlags[Log2(static_cast<uint32_t>(MemoryFlag::DENY_NON_RT_DS_TEXTURES))] == D3D12_HEAP_FLAG_DENY_NON_RT_DS_TEXTURES);
+	assert(heapFlags[Log2(static_cast<uint32_t>(MemoryFlag::HARDWARE_PROTECTED))] == D3D12_HEAP_FLAG_HARDWARE_PROTECTED);
+	assert(heapFlags[Log2(static_cast<uint32_t>(MemoryFlag::ALLOW_WRITE_WATCH))] == D3D12_HEAP_FLAG_ALLOW_WRITE_WATCH);
+	assert(heapFlags[Log2(static_cast<uint32_t>(MemoryFlag::ALLOW_SHADER_ATOMICS))] == D3D12_HEAP_FLAG_ALLOW_SHADER_ATOMICS);
+	assert(heapFlags[Log2(static_cast<uint32_t>(MemoryFlag::CREATE_NOT_RESIDENT))] == D3D12_HEAP_FLAG_CREATE_NOT_RESIDENT);
+	assert(heapFlags[Log2(static_cast<uint32_t>(MemoryFlag::CREATE_NOT_ZEROED))] == D3D12_HEAP_FLAG_CREATE_NOT_ZEROED);
+	assert(heapFlags[Log2(static_cast<uint32_t>(MemoryFlag::TOOLS_USE_MANUAL_WRITE_TRACKING))] == D3D12_HEAP_FLAG_TOOLS_USE_MANUAL_WRITE_TRACKING);
 
 	if (memoryFlag == MemoryFlag::NONE) return D3D12_HEAP_FLAG_NONE;
 
@@ -417,8 +657,40 @@ D3D12_RESOURCE_FLAGS XUSG::GetDX12ResourceFlag(ResourceFlag resourceFlag)
 		D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS,
 		D3D12_RESOURCE_FLAG_VIDEO_DECODE_REFERENCE_ONLY,
 		D3D12_RESOURCE_FLAG_VIDEO_ENCODE_REFERENCE_ONLY,
-		D3D12_RESOURCE_FLAG_RAYTRACING_ACCELERATION_STRUCTURE
+		D3D12_RESOURCE_FLAG_RAYTRACING_ACCELERATION_STRUCTURE,
+		D3D12_RESOURCE_FLAG_NONE,
+		D3D12_RESOURCE_FLAG_NONE,
+		D3D12_RESOURCE_FLAG_NONE,
+		D3D12_RESOURCE_FLAG_NONE,
+		D3D12_RESOURCE_FLAG_NONE,
+		D3D12_RESOURCE_FLAG_NONE,
+		D3D12_RESOURCE_FLAG_NONE,
+		D3D12_RESOURCE_FLAG_NONE,
+		D3D12_RESOURCE_FLAG_NONE,
+		D3D12_RESOURCE_FLAG_NONE,
+		D3D12_RESOURCE_FLAG_NONE
 	};
+
+	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::ALLOW_RENDER_TARGET))] == D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
+	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::ALLOW_DEPTH_STENCIL))] == D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL);
+	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::ALLOW_UNORDERED_ACCESS))] == D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::DENY_SHADER_RESOURCE))] == D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE);
+	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::ALLOW_CROSS_ADAPTER))] == D3D12_RESOURCE_FLAG_ALLOW_CROSS_ADAPTER);
+	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::ALLOW_SIMULTANEOUS_ACCESS))] == D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS);
+	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::VIDEO_DECODE_REFERENCE_ONLY))] == D3D12_RESOURCE_FLAG_VIDEO_DECODE_REFERENCE_ONLY);
+	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::VIDEO_ENCODE_REFERENCE_ONLY))] == D3D12_RESOURCE_FLAG_VIDEO_ENCODE_REFERENCE_ONLY);
+	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::ACCELERATION_STRUCTURE))] == D3D12_RESOURCE_FLAG_RAYTRACING_ACCELERATION_STRUCTURE);
+	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::CONSTANT_BUFFER))] == D3D12_RESOURCE_FLAG_NONE);
+	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::VERTEX_BUFFER))] == D3D12_RESOURCE_FLAG_NONE);
+	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::INDEX_BUFFER))] == D3D12_RESOURCE_FLAG_NONE);
+	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::TYPED_BUFFER))] == D3D12_RESOURCE_FLAG_NONE);
+	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::INDIRECT_BUFFER))] == D3D12_RESOURCE_FLAG_NONE);
+	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::ACCELERATION_STRUCTURE_BUILD_INPUT))] == D3D12_RESOURCE_FLAG_NONE);
+	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::SHADER_TABLE))] == D3D12_RESOURCE_FLAG_NONE);
+	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::PREDICATION))] == D3D12_RESOURCE_FLAG_NONE);
+	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::MICROMAP_BUILD_INPUT))] == D3D12_RESOURCE_FLAG_NONE);
+	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::STREAM_OUT_BUFFER))] == D3D12_RESOURCE_FLAG_NONE);
+	assert(resourceFlags[Log2(static_cast<uint32_t>(ResourceFlag::STREAM_OUT_COUNTER))] == D3D12_RESOURCE_FLAG_NONE);
 
 	if (resourceFlag == ResourceFlag::NONE) return D3D12_RESOURCE_FLAG_NONE;
 
@@ -473,6 +745,30 @@ D3D12_RESOURCE_STATES XUSG::GetDX12ResourceState(ResourceState resourceState)
 		D3D12_RESOURCE_STATE_VIDEO_ENCODE_WRITE
 	};
 
+	assert(resourceStates[Log2(static_cast<uint32_t>(ResourceState::VERTEX_AND_CONSTANT_BUFFER))] == D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+	assert(resourceStates[Log2(static_cast<uint32_t>(ResourceState::INDEX_BUFFER))] == D3D12_RESOURCE_STATE_INDEX_BUFFER);
+	assert(resourceStates[Log2(static_cast<uint32_t>(ResourceState::RENDER_TARGET))] == D3D12_RESOURCE_STATE_RENDER_TARGET);
+	assert(resourceStates[Log2(static_cast<uint32_t>(ResourceState::UNORDERED_ACCESS))] == D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	assert(resourceStates[Log2(static_cast<uint32_t>(ResourceState::DEPTH_WRITE))] == D3D12_RESOURCE_STATE_DEPTH_WRITE);
+	assert(resourceStates[Log2(static_cast<uint32_t>(ResourceState::DEPTH_READ))] == D3D12_RESOURCE_STATE_DEPTH_READ);
+	assert(resourceStates[Log2(static_cast<uint32_t>(ResourceState::NON_PIXEL_SHADER_RESOURCE))] == D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+	assert(resourceStates[Log2(static_cast<uint32_t>(ResourceState::PIXEL_SHADER_RESOURCE))] == D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	assert(resourceStates[Log2(static_cast<uint32_t>(ResourceState::STREAM_OUT))] == D3D12_RESOURCE_STATE_STREAM_OUT);
+	assert(resourceStates[Log2(static_cast<uint32_t>(ResourceState::INDIRECT_ARGUMENT))] == D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
+	assert(resourceStates[Log2(static_cast<uint32_t>(ResourceState::COPY_DEST))] == D3D12_RESOURCE_STATE_COPY_DEST);
+	assert(resourceStates[Log2(static_cast<uint32_t>(ResourceState::COPY_SOURCE))] == D3D12_RESOURCE_STATE_COPY_SOURCE);
+	assert(resourceStates[Log2(static_cast<uint32_t>(ResourceState::RESOLVE_DEST))] == D3D12_RESOURCE_STATE_RESOLVE_DEST);
+	assert(resourceStates[Log2(static_cast<uint32_t>(ResourceState::RESOLVE_SOURCE))] == D3D12_RESOURCE_STATE_RESOLVE_SOURCE);
+	assert(resourceStates[Log2(static_cast<uint32_t>(ResourceState::RAYTRACING_ACCELERATION_STRUCTURE))] == D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE);
+	assert(resourceStates[Log2(static_cast<uint32_t>(ResourceState::SHADING_RATE_SOURCE))] == D3D12_RESOURCE_STATE_SHADING_RATE_SOURCE);
+	assert(resourceStates[Log2(static_cast<uint32_t>(ResourceState::PREDICATION))] == D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
+	assert(resourceStates[Log2(static_cast<uint32_t>(ResourceState::VIDEO_DECODE_READ))] == D3D12_RESOURCE_STATE_VIDEO_DECODE_READ);
+	assert(resourceStates[Log2(static_cast<uint32_t>(ResourceState::VIDEO_DECODE_WRITE))] == D3D12_RESOURCE_STATE_VIDEO_DECODE_WRITE);
+	assert(resourceStates[Log2(static_cast<uint32_t>(ResourceState::VIDEO_PROCESS_READ))] == D3D12_RESOURCE_STATE_VIDEO_PROCESS_READ);
+	assert(resourceStates[Log2(static_cast<uint32_t>(ResourceState::VIDEO_PROCESS_WRITE))] == D3D12_RESOURCE_STATE_VIDEO_PROCESS_WRITE);
+	assert(resourceStates[Log2(static_cast<uint32_t>(ResourceState::VIDEO_ENCODE_READ))] == D3D12_RESOURCE_STATE_VIDEO_ENCODE_READ);
+	assert(resourceStates[Log2(static_cast<uint32_t>(ResourceState::VIDEO_ENCODE_WRITE))] == D3D12_RESOURCE_STATE_VIDEO_ENCODE_WRITE);
+
 	if (resourceState == ResourceState::COMMON) return D3D12_RESOURCE_STATE_COMMON;
 
 	const auto index = Log2(static_cast<uint32_t>(resourceState));
@@ -482,6 +778,19 @@ D3D12_RESOURCE_STATES XUSG::GetDX12ResourceState(ResourceState resourceState)
 
 D3D12_RESOURCE_STATES XUSG::GetDX12ResourceStates(ResourceState resourceStates)
 {
+	// Composite writes / write|read are invalid (UAV stays UAV-only).
+	static const auto writeStates =
+		ResourceState::RENDER_TARGET | ResourceState::UNORDERED_ACCESS | ResourceState::DEPTH_WRITE |
+		ResourceState::COPY_DEST | ResourceState::RESOLVE_DEST | ResourceState::STREAM_OUT |
+		ResourceState::VIDEO_DECODE_WRITE | ResourceState::VIDEO_PROCESS_WRITE | ResourceState::VIDEO_ENCODE_WRITE;
+	const auto writeBits = resourceStates & writeStates;
+	if (writeBits != ResourceState::COMMON)
+	{
+		const auto w = static_cast<uint32_t>(writeBits);
+		assert((w & (w - 1)) == 0); // single write bit
+		assert((resourceStates & ~writeBits) == ResourceState::COMMON); // write is exclusive
+	}
+
 	auto states = D3D12_RESOURCE_STATE_COMMON;
 	states |= APPEND_RESOURCE_STATE(resourceStates, VERTEX_AND_CONSTANT_BUFFER);
 	states |= APPEND_RESOURCE_STATE(resourceStates, INDEX_BUFFER);
@@ -516,6 +825,9 @@ D3D12_RESOURCE_BARRIER_FLAGS XUSG::GetDX12BarrierFlag(BarrierFlag barrierFlag)
 		D3D12_RESOURCE_BARRIER_FLAG_BEGIN_ONLY,
 		D3D12_RESOURCE_BARRIER_FLAG_END_ONLY
 	};
+
+	assert(barrierFlags[Log2(static_cast<uint32_t>(BarrierFlag::BEGIN_ONLY))] == D3D12_RESOURCE_BARRIER_FLAG_BEGIN_ONLY);
+	assert(barrierFlags[Log2(static_cast<uint32_t>(BarrierFlag::END_ONLY))] == D3D12_RESOURCE_BARRIER_FLAG_END_ONLY);
 
 	if (barrierFlag == BarrierFlag::NONE) return D3D12_RESOURCE_BARRIER_FLAG_NONE;
 
@@ -572,6 +884,39 @@ D3D12_BARRIER_LAYOUT XUSG::GetDX12BarrierLayout(BarrierLayout barrierLayout)
 		D3D12_BARRIER_LAYOUT_DIRECT_QUEUE_GENERIC_READ_COMPUTE_QUEUE_ACCESSIBLE
 	};
 
+	assert(barrierLayouts[static_cast<uint32_t>(BarrierLayout::COMMON)] == D3D12_BARRIER_LAYOUT_COMMON);
+	assert(barrierLayouts[static_cast<uint32_t>(BarrierLayout::PRESENT)] == D3D12_BARRIER_LAYOUT_COMMON);
+	assert(barrierLayouts[static_cast<uint32_t>(BarrierLayout::GENERIC_READ_RESOURCE)] == D3D12_BARRIER_LAYOUT_GENERIC_READ);
+	assert(barrierLayouts[static_cast<uint32_t>(BarrierLayout::RENDER_TARGET)] == D3D12_BARRIER_LAYOUT_RENDER_TARGET);
+	assert(barrierLayouts[static_cast<uint32_t>(BarrierLayout::UNORDERED_ACCESS)] == D3D12_BARRIER_LAYOUT_UNORDERED_ACCESS);
+	assert(barrierLayouts[static_cast<uint32_t>(BarrierLayout::DEPTH_STENCIL_WRITE)] == D3D12_BARRIER_LAYOUT_DEPTH_STENCIL_WRITE);
+	assert(barrierLayouts[static_cast<uint32_t>(BarrierLayout::DEPTH_STENCIL_READ)] == D3D12_BARRIER_LAYOUT_DEPTH_STENCIL_READ);
+	assert(barrierLayouts[static_cast<uint32_t>(BarrierLayout::SHADER_RESOURCE)] == D3D12_BARRIER_LAYOUT_SHADER_RESOURCE);
+	assert(barrierLayouts[static_cast<uint32_t>(BarrierLayout::COPY_SOURCE)] == D3D12_BARRIER_LAYOUT_COPY_SOURCE);
+	assert(barrierLayouts[static_cast<uint32_t>(BarrierLayout::COPY_DEST)] == D3D12_BARRIER_LAYOUT_COPY_DEST);
+	assert(barrierLayouts[static_cast<uint32_t>(BarrierLayout::RESOLVE_SOURCE)] == D3D12_BARRIER_LAYOUT_RESOLVE_SOURCE);
+	assert(barrierLayouts[static_cast<uint32_t>(BarrierLayout::RESOLVE_DEST)] == D3D12_BARRIER_LAYOUT_RESOLVE_DEST);
+	assert(barrierLayouts[static_cast<uint32_t>(BarrierLayout::SHADING_RATE_SOURCE)] == D3D12_BARRIER_LAYOUT_SHADING_RATE_SOURCE);
+	assert(barrierLayouts[static_cast<uint32_t>(BarrierLayout::VIDEO_DECODE_READ)] == D3D12_BARRIER_LAYOUT_VIDEO_DECODE_READ);
+	assert(barrierLayouts[static_cast<uint32_t>(BarrierLayout::VIDEO_DECODE_WRITE)] == D3D12_BARRIER_LAYOUT_VIDEO_DECODE_WRITE);
+	assert(barrierLayouts[static_cast<uint32_t>(BarrierLayout::VIDEO_PROCESS_READ)] == D3D12_BARRIER_LAYOUT_VIDEO_PROCESS_READ);
+	assert(barrierLayouts[static_cast<uint32_t>(BarrierLayout::VIDEO_PROCESS_WRITE)] == D3D12_BARRIER_LAYOUT_VIDEO_PROCESS_WRITE);
+	assert(barrierLayouts[static_cast<uint32_t>(BarrierLayout::VIDEO_ENCODE_READ)] == D3D12_BARRIER_LAYOUT_VIDEO_ENCODE_READ);
+	assert(barrierLayouts[static_cast<uint32_t>(BarrierLayout::VIDEO_ENCODE_WRITE)] == D3D12_BARRIER_LAYOUT_VIDEO_ENCODE_WRITE);
+	assert(barrierLayouts[static_cast<uint32_t>(BarrierLayout::DIRECT_QUEUE_COMMON)] == D3D12_BARRIER_LAYOUT_DIRECT_QUEUE_COMMON);
+	assert(barrierLayouts[static_cast<uint32_t>(BarrierLayout::DIRECT_QUEUE_GENERIC_READ)] == D3D12_BARRIER_LAYOUT_DIRECT_QUEUE_GENERIC_READ);
+	assert(barrierLayouts[static_cast<uint32_t>(BarrierLayout::DIRECT_QUEUE_UNORDERED_ACCESS)] == D3D12_BARRIER_LAYOUT_DIRECT_QUEUE_UNORDERED_ACCESS);
+	assert(barrierLayouts[static_cast<uint32_t>(BarrierLayout::DIRECT_QUEUE_SHADER_RESOURCE)] == D3D12_BARRIER_LAYOUT_DIRECT_QUEUE_SHADER_RESOURCE);
+	assert(barrierLayouts[static_cast<uint32_t>(BarrierLayout::DIRECT_QUEUE_COPY_SOURCE)] == D3D12_BARRIER_LAYOUT_DIRECT_QUEUE_COPY_SOURCE);
+	assert(barrierLayouts[static_cast<uint32_t>(BarrierLayout::DIRECT_QUEUE_COPY_DEST)] == D3D12_BARRIER_LAYOUT_DIRECT_QUEUE_COPY_DEST);
+	assert(barrierLayouts[static_cast<uint32_t>(BarrierLayout::COMPUTE_QUEUE_COMMON)] == D3D12_BARRIER_LAYOUT_COMPUTE_QUEUE_COMMON);
+	assert(barrierLayouts[static_cast<uint32_t>(BarrierLayout::COMPUTE_QUEUE_GENERIC_READ)] == D3D12_BARRIER_LAYOUT_COMPUTE_QUEUE_GENERIC_READ);
+	assert(barrierLayouts[static_cast<uint32_t>(BarrierLayout::COMPUTE_QUEUE_UNORDERED_ACCESS)] == D3D12_BARRIER_LAYOUT_COMPUTE_QUEUE_UNORDERED_ACCESS);
+	assert(barrierLayouts[static_cast<uint32_t>(BarrierLayout::COMPUTE_QUEUE_SHADER_RESOURCE)] == D3D12_BARRIER_LAYOUT_COMPUTE_QUEUE_SHADER_RESOURCE);
+	assert(barrierLayouts[static_cast<uint32_t>(BarrierLayout::COMPUTE_QUEUE_COPY_SOURCE)] == D3D12_BARRIER_LAYOUT_COMPUTE_QUEUE_COPY_SOURCE);
+	assert(barrierLayouts[static_cast<uint32_t>(BarrierLayout::COMPUTE_QUEUE_COPY_DEST)] == D3D12_BARRIER_LAYOUT_COMPUTE_QUEUE_COPY_DEST);
+	assert(barrierLayouts[static_cast<uint32_t>(BarrierLayout::VIDEO_QUEUE_COMMON)] == D3D12_BARRIER_LAYOUT_VIDEO_QUEUE_COMMON);
+
 	if (barrierLayout == BarrierLayout::UNDEFINED) return D3D12_BARRIER_LAYOUT_UNDEFINED;
 
 	return barrierLayouts[static_cast<uint32_t>(barrierLayout)];
@@ -587,6 +932,12 @@ D3D12_DESCRIPTOR_RANGE_FLAGS XUSG::GetDX12DescriptorRangeFlag(DescriptorFlag des
 		D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC,
 		D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_STATIC_KEEPING_BUFFER_BOUNDS_CHECKS
 	};
+
+	assert(descriptorRangeFlags[Log2(static_cast<uint32_t>(DescriptorFlag::DESCRIPTORS_VOLATILE))] == D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE);
+	assert(descriptorRangeFlags[Log2(static_cast<uint32_t>(DescriptorFlag::DATA_VOLATILE))] == D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
+	assert(descriptorRangeFlags[Log2(static_cast<uint32_t>(DescriptorFlag::DATA_STATIC_WHILE_SET_AT_EXECUTE))] == D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC_WHILE_SET_AT_EXECUTE);
+	assert(descriptorRangeFlags[Log2(static_cast<uint32_t>(DescriptorFlag::DATA_STATIC))] == D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
+	assert(descriptorRangeFlags[Log2(static_cast<uint32_t>(DescriptorFlag::DESCRIPTORS_STATIC_KEEPING_BUFFER_BOUNDS_CHECKS))] == D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_STATIC_KEEPING_BUFFER_BOUNDS_CHECKS);
 
 	if (descriptorFlag == DescriptorFlag::NONE) return D3D12_DESCRIPTOR_RANGE_FLAG_NONE;
 
@@ -616,6 +967,11 @@ D3D12_ROOT_DESCRIPTOR_FLAGS XUSG::GetDX12RootDescriptorFlag(DescriptorFlag descr
 		D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC_WHILE_SET_AT_EXECUTE,
 		D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC
 	};
+
+	assert(rootDescriptorFlags[Log2(static_cast<uint32_t>(DescriptorFlag::DESCRIPTORS_VOLATILE))] == D3D12_ROOT_DESCRIPTOR_FLAGS(1));
+	assert(rootDescriptorFlags[Log2(static_cast<uint32_t>(DescriptorFlag::DATA_VOLATILE))] == D3D12_ROOT_DESCRIPTOR_FLAG_DATA_VOLATILE);
+	assert(rootDescriptorFlags[Log2(static_cast<uint32_t>(DescriptorFlag::DATA_STATIC_WHILE_SET_AT_EXECUTE))] == D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC_WHILE_SET_AT_EXECUTE);
+	assert(rootDescriptorFlags[Log2(static_cast<uint32_t>(DescriptorFlag::DATA_STATIC))] == D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC);
 
 	if (descriptorFlag == DescriptorFlag::NONE ||
 		descriptorFlag == DescriptorFlag::DESCRIPTORS_VOLATILE ||
@@ -655,6 +1011,19 @@ D3D12_ROOT_SIGNATURE_FLAGS XUSG::GetDX12RootSignatureFlag(PipelineLayoutFlag pip
 		D3D12_ROOT_SIGNATURE_FLAG_SAMPLER_HEAP_DIRECTLY_INDEXED
 	};
 
+	assert(rootSignatureFlags[Log2(static_cast<uint32_t>(PipelineLayoutFlag::ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT))] == D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+	assert(rootSignatureFlags[Log2(static_cast<uint32_t>(PipelineLayoutFlag::DENY_VERTEX_SHADER_ROOT_ACCESS))] == D3D12_ROOT_SIGNATURE_FLAG_DENY_VERTEX_SHADER_ROOT_ACCESS);
+	assert(rootSignatureFlags[Log2(static_cast<uint32_t>(PipelineLayoutFlag::DENY_HULL_SHADER_ROOT_ACCESS))] == D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS);
+	assert(rootSignatureFlags[Log2(static_cast<uint32_t>(PipelineLayoutFlag::DENY_DOMAIN_SHADER_ROOT_ACCESS))] == D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS);
+	assert(rootSignatureFlags[Log2(static_cast<uint32_t>(PipelineLayoutFlag::DENY_GEOMETRY_SHADER_ROOT_ACCESS))] == D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS);
+	assert(rootSignatureFlags[Log2(static_cast<uint32_t>(PipelineLayoutFlag::DENY_PIXEL_SHADER_ROOT_ACCESS))] == D3D12_ROOT_SIGNATURE_FLAG_DENY_PIXEL_SHADER_ROOT_ACCESS);
+	assert(rootSignatureFlags[Log2(static_cast<uint32_t>(PipelineLayoutFlag::ALLOW_STREAM_OUTPUT))] == D3D12_ROOT_SIGNATURE_FLAG_ALLOW_STREAM_OUTPUT);
+	assert(rootSignatureFlags[Log2(static_cast<uint32_t>(PipelineLayoutFlag::LOCAL_PIPELINE_LAYOUT))] == D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE);
+	assert(rootSignatureFlags[Log2(static_cast<uint32_t>(PipelineLayoutFlag::DENY_AMPLIFICATION_SHADER_ROOT_ACCESS))] == D3D12_ROOT_SIGNATURE_FLAG_DENY_AMPLIFICATION_SHADER_ROOT_ACCESS);
+	assert(rootSignatureFlags[Log2(static_cast<uint32_t>(PipelineLayoutFlag::DENY_MESH_SHADER_ROOT_ACCESS))] == D3D12_ROOT_SIGNATURE_FLAG_DENY_MESH_SHADER_ROOT_ACCESS);
+	assert(rootSignatureFlags[Log2(static_cast<uint32_t>(PipelineLayoutFlag::CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED))] == D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED);
+	assert(rootSignatureFlags[Log2(static_cast<uint32_t>(PipelineLayoutFlag::SAMPLER_HEAP_DIRECTLY_INDEXED))] == D3D12_ROOT_SIGNATURE_FLAG_SAMPLER_HEAP_DIRECTLY_INDEXED);
+
 	if (pipelineLayoutFlag == PipelineLayoutFlag::NONE) return D3D12_ROOT_SIGNATURE_FLAG_NONE;
 
 	const auto index = Log2(static_cast<uint32_t>(pipelineLayoutFlag));
@@ -687,10 +1056,12 @@ D3D12_CLEAR_FLAGS XUSG::GetDX12ClearFlag(ClearFlag clearFlag)
 {
 	static const D3D12_CLEAR_FLAGS clearFlags[] =
 	{
-		D3D12_CLEAR_FLAGS(0),
 		D3D12_CLEAR_FLAG_DEPTH,
-		D3D12_CLEAR_FLAG_STENCIL,
+		D3D12_CLEAR_FLAG_STENCIL
 	};
+
+	assert(clearFlags[Log2(static_cast<uint32_t>(ClearFlag::DEPTH))] == D3D12_CLEAR_FLAG_DEPTH);
+	assert(clearFlags[Log2(static_cast<uint32_t>(ClearFlag::STENCIL))] == D3D12_CLEAR_FLAG_STENCIL);
 
 	if (clearFlag == ClearFlag::NONE) return D3D12_CLEAR_FLAGS(0);
 
@@ -717,6 +1088,10 @@ D3D12_FENCE_FLAGS XUSG::GetDX12FenceFlag(FenceFlag fenceFlag)
 		D3D12_FENCE_FLAG_NON_MONITORED
 	};
 
+	assert(fenceFlags[Log2(static_cast<uint32_t>(FenceFlag::SHARED))] == D3D12_FENCE_FLAG_SHARED);
+	assert(fenceFlags[Log2(static_cast<uint32_t>(FenceFlag::SHARED_CROSS_ADAPTER))] == D3D12_FENCE_FLAG_SHARED_CROSS_ADAPTER);
+	assert(fenceFlags[Log2(static_cast<uint32_t>(FenceFlag::NON_MONITORED))] == D3D12_FENCE_FLAG_NON_MONITORED);
+
 	if (fenceFlag == FenceFlag::NONE) return D3D12_FENCE_FLAG_NONE;
 
 	const auto index = Log2(static_cast<uint32_t>(fenceFlag));
@@ -741,6 +1116,9 @@ D3D12_SAMPLER_FLAGS XUSG::GetDX12SamplerFlag(SamplerFlag samplerFlag)
 		D3D12_SAMPLER_FLAG_UINT_BORDER_COLOR,
 		D3D12_SAMPLER_FLAG_NON_NORMALIZED_COORDINATES
 	};
+
+	assert(samplerFlags[Log2(static_cast<uint32_t>(SamplerFlag::UINT_BORDER_COLOR))] == D3D12_SAMPLER_FLAG_UINT_BORDER_COLOR);
+	assert(samplerFlags[Log2(static_cast<uint32_t>(SamplerFlag::NON_NORMALIZED_COORDINATES))] == D3D12_SAMPLER_FLAG_NON_NORMALIZED_COORDINATES);
 
 	if (samplerFlag == SamplerFlag::NONE) return D3D12_SAMPLER_FLAG_NONE;
 
@@ -781,6 +1159,24 @@ D3D12_BLEND XUSG::GetDX12Blend(BlendFactor blend)
 		D3D12_BLEND_INV_SRC1_ALPHA
 	};
 
+	assert(blends[static_cast<uint32_t>(BlendFactor::ZERO)] == D3D12_BLEND_ZERO);
+	assert(blends[static_cast<uint32_t>(BlendFactor::ONE)] == D3D12_BLEND_ONE);
+	assert(blends[static_cast<uint32_t>(BlendFactor::SRC_COLOR)] == D3D12_BLEND_SRC_COLOR);
+	assert(blends[static_cast<uint32_t>(BlendFactor::INV_SRC_COLOR)] == D3D12_BLEND_INV_SRC_COLOR);
+	assert(blends[static_cast<uint32_t>(BlendFactor::SRC_ALPHA)] == D3D12_BLEND_SRC_ALPHA);
+	assert(blends[static_cast<uint32_t>(BlendFactor::INV_SRC_ALPHA)] == D3D12_BLEND_INV_SRC_ALPHA);
+	assert(blends[static_cast<uint32_t>(BlendFactor::DEST_ALPHA)] == D3D12_BLEND_DEST_ALPHA);
+	assert(blends[static_cast<uint32_t>(BlendFactor::INV_DEST_ALPHA)] == D3D12_BLEND_INV_DEST_ALPHA);
+	assert(blends[static_cast<uint32_t>(BlendFactor::DEST_COLOR)] == D3D12_BLEND_DEST_COLOR);
+	assert(blends[static_cast<uint32_t>(BlendFactor::INV_DEST_COLOR)] == D3D12_BLEND_INV_DEST_COLOR);
+	assert(blends[static_cast<uint32_t>(BlendFactor::SRC_ALPHA_SAT)] == D3D12_BLEND_SRC_ALPHA_SAT);
+	assert(blends[static_cast<uint32_t>(BlendFactor::BLEND_FACTOR)] == D3D12_BLEND_BLEND_FACTOR);
+	assert(blends[static_cast<uint32_t>(BlendFactor::INV_BLEND_FACTOR)] == D3D12_BLEND_INV_BLEND_FACTOR);
+	assert(blends[static_cast<uint32_t>(BlendFactor::SRC1_COLOR)] == D3D12_BLEND_SRC1_COLOR);
+	assert(blends[static_cast<uint32_t>(BlendFactor::INV_SRC1_COLOR)] == D3D12_BLEND_INV_SRC1_COLOR);
+	assert(blends[static_cast<uint32_t>(BlendFactor::SRC1_ALPHA)] == D3D12_BLEND_SRC1_ALPHA);
+	assert(blends[static_cast<uint32_t>(BlendFactor::INV_SRC1_ALPHA)] == D3D12_BLEND_INV_SRC1_ALPHA);
+
 	return blends[static_cast<uint32_t>(blend)];
 }
 
@@ -794,6 +1190,12 @@ D3D12_BLEND_OP XUSG::GetDX12BlendOp(BlendOperator blendOp)
 		D3D12_BLEND_OP_MIN,
 		D3D12_BLEND_OP_MAX
 	};
+
+	assert(blendOps[static_cast<uint32_t>(BlendOperator::ADD)] == D3D12_BLEND_OP_ADD);
+	assert(blendOps[static_cast<uint32_t>(BlendOperator::SUBTRACT)] == D3D12_BLEND_OP_SUBTRACT);
+	assert(blendOps[static_cast<uint32_t>(BlendOperator::REV_SUBTRACT)] == D3D12_BLEND_OP_REV_SUBTRACT);
+	assert(blendOps[static_cast<uint32_t>(BlendOperator::MIN)] == D3D12_BLEND_OP_MIN);
+	assert(blendOps[static_cast<uint32_t>(BlendOperator::MAX)] == D3D12_BLEND_OP_MAX);
 
 	return blendOps[static_cast<uint32_t>(blendOp)];
 }
@@ -820,6 +1222,23 @@ D3D12_LOGIC_OP XUSG::GetDX12LogicOp(LogicOperator logicOp)
 		D3D12_LOGIC_OP_OR_INVERTED
 	};
 
+	assert(logicOps[static_cast<uint32_t>(LogicOperator::CLEAR)] == D3D12_LOGIC_OP_CLEAR);
+	assert(logicOps[static_cast<uint32_t>(LogicOperator::SET)] == D3D12_LOGIC_OP_SET);
+	assert(logicOps[static_cast<uint32_t>(LogicOperator::COPY)] == D3D12_LOGIC_OP_COPY);
+	assert(logicOps[static_cast<uint32_t>(LogicOperator::COPY_INVERTED)] == D3D12_LOGIC_OP_COPY_INVERTED);
+	assert(logicOps[static_cast<uint32_t>(LogicOperator::NOOP)] == D3D12_LOGIC_OP_NOOP);
+	assert(logicOps[static_cast<uint32_t>(LogicOperator::INVERT)] == D3D12_LOGIC_OP_INVERT);
+	assert(logicOps[static_cast<uint32_t>(LogicOperator::AND)] == D3D12_LOGIC_OP_AND);
+	assert(logicOps[static_cast<uint32_t>(LogicOperator::NAND)] == D3D12_LOGIC_OP_NAND);
+	assert(logicOps[static_cast<uint32_t>(LogicOperator::OR)] == D3D12_LOGIC_OP_OR);
+	assert(logicOps[static_cast<uint32_t>(LogicOperator::NOR)] == D3D12_LOGIC_OP_NOR);
+	assert(logicOps[static_cast<uint32_t>(LogicOperator::XOR)] == D3D12_LOGIC_OP_XOR);
+	assert(logicOps[static_cast<uint32_t>(LogicOperator::EQUIV)] == D3D12_LOGIC_OP_EQUIV);
+	assert(logicOps[static_cast<uint32_t>(LogicOperator::AND_REVERSE)] == D3D12_LOGIC_OP_AND_REVERSE);
+	assert(logicOps[static_cast<uint32_t>(LogicOperator::AND_INVERTED)] == D3D12_LOGIC_OP_AND_INVERTED);
+	assert(logicOps[static_cast<uint32_t>(LogicOperator::OR_REVERSE)] == D3D12_LOGIC_OP_OR_REVERSE);
+	assert(logicOps[static_cast<uint32_t>(LogicOperator::OR_INVERTED)] == D3D12_LOGIC_OP_OR_INVERTED);
+
 	return logicOps[static_cast<uint32_t>(logicOp)];
 }
 
@@ -843,6 +1262,11 @@ D3D12_LINE_RASTERIZATION_MODE XUSG::GetDX12LineRasterizationMode(LineRasterizati
 		D3D12_LINE_RASTERIZATION_MODE_QUADRILATERAL_NARROW
 	};
 
+	assert(modes[static_cast<uint32_t>(LineRasterization::ALIASED)] == D3D12_LINE_RASTERIZATION_MODE_ALIASED);
+	assert(modes[static_cast<uint32_t>(LineRasterization::ALPHA_ANTIALIASED)] == D3D12_LINE_RASTERIZATION_MODE_ALPHA_ANTIALIASED);
+	assert(modes[static_cast<uint32_t>(LineRasterization::QUADRILATERAL_WIDE)] == D3D12_LINE_RASTERIZATION_MODE_QUADRILATERAL_WIDE);
+	assert(modes[static_cast<uint32_t>(LineRasterization::QUADRILATERAL_NARROW)] == D3D12_LINE_RASTERIZATION_MODE_QUADRILATERAL_NARROW);
+
 	return modes[static_cast<uint32_t>(mode)];
 }
 
@@ -859,6 +1283,15 @@ D3D12_COMPARISON_FUNC XUSG::GetDX12ComparisonFunc(ComparisonFunc comparisonFunc)
 		D3D12_COMPARISON_FUNC_GREATER_EQUAL,
 		D3D12_COMPARISON_FUNC_ALWAYS
 	};
+
+	assert(comparisonFuncs[static_cast<uint32_t>(ComparisonFunc::NEVER)] == D3D12_COMPARISON_FUNC_NEVER);
+	assert(comparisonFuncs[static_cast<uint32_t>(ComparisonFunc::LESS)] == D3D12_COMPARISON_FUNC_LESS);
+	assert(comparisonFuncs[static_cast<uint32_t>(ComparisonFunc::EQUAL)] == D3D12_COMPARISON_FUNC_EQUAL);
+	assert(comparisonFuncs[static_cast<uint32_t>(ComparisonFunc::LESS_EQUAL)] == D3D12_COMPARISON_FUNC_LESS_EQUAL);
+	assert(comparisonFuncs[static_cast<uint32_t>(ComparisonFunc::GREATER)] == D3D12_COMPARISON_FUNC_GREATER);
+	assert(comparisonFuncs[static_cast<uint32_t>(ComparisonFunc::NOT_EQUAL)] == D3D12_COMPARISON_FUNC_NOT_EQUAL);
+	assert(comparisonFuncs[static_cast<uint32_t>(ComparisonFunc::GREATER_EQUAL)] == D3D12_COMPARISON_FUNC_GREATER_EQUAL);
+	assert(comparisonFuncs[static_cast<uint32_t>(ComparisonFunc::ALWAYS)] == D3D12_COMPARISON_FUNC_ALWAYS);
 
 	return comparisonFuncs[static_cast<uint32_t>(comparisonFunc)];
 }
@@ -877,6 +1310,15 @@ D3D12_STENCIL_OP XUSG::GetDX12StencilOp(StencilOp stencilOp)
 		D3D12_STENCIL_OP_DECR
 	};
 
+	assert(stencilOps[static_cast<uint32_t>(StencilOp::KEEP)] == D3D12_STENCIL_OP_KEEP);
+	assert(stencilOps[static_cast<uint32_t>(StencilOp::ZERO)] == D3D12_STENCIL_OP_ZERO);
+	assert(stencilOps[static_cast<uint32_t>(StencilOp::REPLACE)] == D3D12_STENCIL_OP_REPLACE);
+	assert(stencilOps[static_cast<uint32_t>(StencilOp::INCR_SAT)] == D3D12_STENCIL_OP_INCR_SAT);
+	assert(stencilOps[static_cast<uint32_t>(StencilOp::DECR_SAT)] == D3D12_STENCIL_OP_DECR_SAT);
+	assert(stencilOps[static_cast<uint32_t>(StencilOp::INVERT)] == D3D12_STENCIL_OP_INVERT);
+	assert(stencilOps[static_cast<uint32_t>(StencilOp::INCR)] == D3D12_STENCIL_OP_INCR);
+	assert(stencilOps[static_cast<uint32_t>(StencilOp::DECR)] == D3D12_STENCIL_OP_DECR);
+
 	return stencilOps[static_cast<uint32_t>(stencilOp)];
 }
 
@@ -888,6 +1330,10 @@ D3D12_PIPELINE_STATE_FLAGS XUSG::GetDX12PipelineFlag(PipelineFlag pipelineFlag)
 		D3D12_PIPELINE_STATE_FLAG_DYNAMIC_DEPTH_BIAS,
 		D3D12_PIPELINE_STATE_FLAG_DYNAMIC_INDEX_BUFFER_STRIP_CUT
 	};
+
+	assert(pipelineFlags[Log2(static_cast<uint32_t>(PipelineFlag::TOOL_DEBUG))] == D3D12_PIPELINE_STATE_FLAG_TOOL_DEBUG);
+	assert(pipelineFlags[Log2(static_cast<uint32_t>(PipelineFlag::DYNAMIC_DEPTH_BIAS))] == D3D12_PIPELINE_STATE_FLAG_DYNAMIC_DEPTH_BIAS);
+	assert(pipelineFlags[Log2(static_cast<uint32_t>(PipelineFlag::DYNAMIC_INDEX_BUFFER_STRIP_CUT))] == D3D12_PIPELINE_STATE_FLAG_DYNAMIC_INDEX_BUFFER_STRIP_CUT);
 
 	if (pipelineFlag == PipelineFlag::NONE) return D3D12_PIPELINE_STATE_FLAG_NONE;
 
@@ -921,6 +1367,16 @@ D3D12_QUERY_TYPE XUSG::GetDX12QueryType(QueryType type)
 		D3D12_QUERY_TYPE_VIDEO_DECODE_STATISTICS
 	};
 
+	assert(types[static_cast<uint32_t>(QueryType::OCCLUSION)] == D3D12_QUERY_TYPE_OCCLUSION);
+	assert(types[static_cast<uint32_t>(QueryType::BINARY_OCCLUSION)] == D3D12_QUERY_TYPE_BINARY_OCCLUSION);
+	assert(types[static_cast<uint32_t>(QueryType::TIMESTAMP)] == D3D12_QUERY_TYPE_TIMESTAMP);
+	assert(types[static_cast<uint32_t>(QueryType::PIPELINE_STATISTICS)] == D3D12_QUERY_TYPE_PIPELINE_STATISTICS);
+	assert(types[static_cast<uint32_t>(QueryType::SO_STATISTICS_STREAM0)] == D3D12_QUERY_TYPE_SO_STATISTICS_STREAM0);
+	assert(types[static_cast<uint32_t>(QueryType::SO_STATISTICS_STREAM1)] == D3D12_QUERY_TYPE_SO_STATISTICS_STREAM1);
+	assert(types[static_cast<uint32_t>(QueryType::SO_STATISTICS_STREAM2)] == D3D12_QUERY_TYPE_SO_STATISTICS_STREAM2);
+	assert(types[static_cast<uint32_t>(QueryType::SO_STATISTICS_STREAM3)] == D3D12_QUERY_TYPE_SO_STATISTICS_STREAM3);
+	assert(types[static_cast<uint32_t>(QueryType::VIDEO_DECODE_STATISTICS)] == D3D12_QUERY_TYPE_VIDEO_DECODE_STATISTICS);
+
 	return types[static_cast<uint32_t>(type)];
 }
 
@@ -932,6 +1388,10 @@ D3D12_TILE_COPY_FLAGS XUSG::GetDX12TileCopyFlag(TileCopyFlag tileCopyFlag)
 		D3D12_TILE_COPY_FLAG_LINEAR_BUFFER_TO_SWIZZLED_TILED_RESOURCE,
 		D3D12_TILE_COPY_FLAG_SWIZZLED_TILED_RESOURCE_TO_LINEAR_BUFFER
 	};
+
+	assert(tileCopyFlags[Log2(static_cast<uint32_t>(TileCopyFlag::NO_HAZARD))] == D3D12_TILE_COPY_FLAG_NO_HAZARD);
+	assert(tileCopyFlags[Log2(static_cast<uint32_t>(TileCopyFlag::LINEAR_BUFFER_TO_SWIZZLED_TILED_RESOURCE))] == D3D12_TILE_COPY_FLAG_LINEAR_BUFFER_TO_SWIZZLED_TILED_RESOURCE);
+	assert(tileCopyFlags[Log2(static_cast<uint32_t>(TileCopyFlag::SWIZZLED_TILED_RESOURCE_TO_LINEAR_BUFFER))] == D3D12_TILE_COPY_FLAG_SWIZZLED_TILED_RESOURCE_TO_LINEAR_BUFFER);
 
 	if (tileCopyFlag == TileCopyFlag::NONE) return D3D12_TILE_COPY_FLAG_NONE;
 
@@ -959,6 +1419,10 @@ D3D12_TILE_RANGE_FLAGS XUSG::GetDX12TileRangeFlag(TileRangeFlag tileRangeFlag)
 		D3D12_TILE_RANGE_FLAG_REUSE_SINGLE_TILE
 	};
 
+	assert(tileRangeFlags[Log2(static_cast<uint32_t>(TileRangeFlag::NULL_RANGE))] == D3D12_TILE_RANGE_FLAG_NULL);
+	assert(tileRangeFlags[Log2(static_cast<uint32_t>(TileRangeFlag::SKIP))] == D3D12_TILE_RANGE_FLAG_SKIP);
+	assert(tileRangeFlags[Log2(static_cast<uint32_t>(TileRangeFlag::REUSE_SINGLE_TILE))] == D3D12_TILE_RANGE_FLAG_REUSE_SINGLE_TILE);
+
 	if (tileRangeFlag == TileRangeFlag::NONE) return D3D12_TILE_RANGE_FLAG_NONE;
 
 	const auto index = Log2(static_cast<uint32_t>(tileRangeFlag));
@@ -972,6 +1436,8 @@ D3D12_TILE_MAPPING_FLAGS XUSG::GetDX12TileMappingFlag(TileMappingFlag tileMappin
 	{
 		D3D12_TILE_MAPPING_FLAG_NO_HAZARD
 	};
+
+	assert(tileMappingFlags[Log2(static_cast<uint32_t>(TileMappingFlag::NO_HAZARD))] == D3D12_TILE_MAPPING_FLAG_NO_HAZARD);
 
 	if (tileMappingFlag == TileMappingFlag::NONE) return D3D12_TILE_MAPPING_FLAG_NONE;
 
@@ -1030,6 +1496,43 @@ D3D12_FILTER XUSG::GetDX12Filter(SamplerFilter filter)
 		D3D12_FILTER_MAXIMUM_ANISOTROPIC
 	};
 
+	assert(filters[static_cast<uint32_t>(SamplerFilter::MIN_MAG_MIP_POINT)] == D3D12_FILTER_MIN_MAG_MIP_POINT);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::MIN_MAG_POINT_MIP_LINEAR)] == D3D12_FILTER_MIN_MAG_POINT_MIP_LINEAR);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::MIN_POINT_MAG_LINEAR_MIP_POINT)] == D3D12_FILTER_MIN_POINT_MAG_LINEAR_MIP_POINT);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::MIN_POINT_MAG_MIP_LINEAR)] == D3D12_FILTER_MIN_POINT_MAG_MIP_LINEAR);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::MIN_LINEAR_MAG_MIP_POINT)] == D3D12_FILTER_MIN_LINEAR_MAG_MIP_POINT);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::MIN_LINEAR_MAG_POINT_MIP_LINEAR)] == D3D12_FILTER_MIN_LINEAR_MAG_POINT_MIP_LINEAR);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::MIN_MAG_LINEAR_MIP_POINT)] == D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::MIN_MAG_MIP_LINEAR)] == D3D12_FILTER_MIN_MAG_MIP_LINEAR);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::ANISOTROPIC)] == D3D12_FILTER_ANISOTROPIC);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::COMPARISON_MIN_MAG_MIP_POINT)] == D3D12_FILTER_COMPARISON_MIN_MAG_MIP_POINT);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::COMPARISON_MIN_MAG_POINT_MIP_LINEAR)] == D3D12_FILTER_COMPARISON_MIN_MAG_POINT_MIP_LINEAR);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::COMPARISON_MIN_POINT_MAG_LINEAR_MIP_POINT)] == D3D12_FILTER_COMPARISON_MIN_POINT_MAG_LINEAR_MIP_POINT);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::COMPARISON_MIN_POINT_MAG_MIP_LINEAR)] == D3D12_FILTER_COMPARISON_MIN_POINT_MAG_MIP_LINEAR);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::COMPARISON_MIN_LINEAR_MAG_MIP_POINT)] == D3D12_FILTER_COMPARISON_MIN_LINEAR_MAG_MIP_POINT);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::COMPARISON_MIN_LINEAR_MAG_POINT_MIP_LINEAR)] == D3D12_FILTER_COMPARISON_MIN_LINEAR_MAG_POINT_MIP_LINEAR);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::COMPARISON_MIN_MAG_LINEAR_MIP_POINT)] == D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::COMPARISON_MIN_MAG_MIP_LINEAR)] == D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::COMPARISON_ANISOTROPIC)] == D3D12_FILTER_COMPARISON_ANISOTROPIC);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::MINIMUM_MIN_MAG_MIP_POINT)] == D3D12_FILTER_MINIMUM_MIN_MAG_MIP_POINT);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::MINIMUM_MIN_MAG_POINT_MIP_LINEAR)] == D3D12_FILTER_MINIMUM_MIN_MAG_POINT_MIP_LINEAR);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::MINIMUM_MIN_POINT_MAG_LINEAR_MIP_POINT)] == D3D12_FILTER_MINIMUM_MIN_POINT_MAG_LINEAR_MIP_POINT);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::MINIMUM_MIN_POINT_MAG_MIP_LINEAR)] == D3D12_FILTER_MINIMUM_MIN_POINT_MAG_MIP_LINEAR);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::MINIMUM_MIN_LINEAR_MAG_MIP_POINT)] == D3D12_FILTER_MINIMUM_MIN_LINEAR_MAG_MIP_POINT);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::MINIMUM_MIN_LINEAR_MAG_POINT_MIP_LINEAR)] == D3D12_FILTER_MINIMUM_MIN_LINEAR_MAG_POINT_MIP_LINEAR);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::MINIMUM_MIN_MAG_LINEAR_MIP_POINT)] == D3D12_FILTER_MINIMUM_MIN_MAG_LINEAR_MIP_POINT);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::MINIMUM_MIN_MAG_MIP_LINEAR)] == D3D12_FILTER_MINIMUM_MIN_MAG_MIP_LINEAR);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::MINIMUM_ANISOTROPIC)] == D3D12_FILTER_MINIMUM_ANISOTROPIC);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::MAXIMUM_MIN_MAG_MIP_POINT)] == D3D12_FILTER_MAXIMUM_MIN_MAG_MIP_POINT);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::MAXIMUM_MIN_MAG_POINT_MIP_LINEAR)] == D3D12_FILTER_MAXIMUM_MIN_MAG_POINT_MIP_LINEAR);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::MAXIMUM_MIN_POINT_MAG_LINEAR_MIP_POINT)] == D3D12_FILTER_MAXIMUM_MIN_POINT_MAG_LINEAR_MIP_POINT);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::MAXIMUM_MIN_POINT_MAG_MIP_LINEAR)] == D3D12_FILTER_MAXIMUM_MIN_POINT_MAG_MIP_LINEAR);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::MAXIMUM_MIN_LINEAR_MAG_MIP_POINT)] == D3D12_FILTER_MAXIMUM_MIN_LINEAR_MAG_MIP_POINT);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::MAXIMUM_MIN_LINEAR_MAG_POINT_MIP_LINEAR)] == D3D12_FILTER_MAXIMUM_MIN_LINEAR_MAG_POINT_MIP_LINEAR);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::MAXIMUM_MIN_MAG_LINEAR_MIP_POINT)] == D3D12_FILTER_MAXIMUM_MIN_MAG_LINEAR_MIP_POINT);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::MAXIMUM_MIN_MAG_MIP_LINEAR)] == D3D12_FILTER_MAXIMUM_MIN_MAG_MIP_LINEAR);
+	assert(filters[static_cast<uint32_t>(SamplerFilter::MAXIMUM_ANISOTROPIC)] == D3D12_FILTER_MAXIMUM_ANISOTROPIC);
+
 	return filters[static_cast<uint32_t>(filter)];
 }
 
@@ -1043,6 +1546,12 @@ D3D12_TEXTURE_ADDRESS_MODE XUSG::GetDX12TextureAddressMode(TextureAddressMode te
 		D3D12_TEXTURE_ADDRESS_MODE_BORDER,
 		D3D12_TEXTURE_ADDRESS_MODE_MIRROR_ONCE
 	};
+
+	assert(textureAddressModes[static_cast<uint32_t>(TextureAddressMode::WRAP)] == D3D12_TEXTURE_ADDRESS_MODE_WRAP);
+	assert(textureAddressModes[static_cast<uint32_t>(TextureAddressMode::MIRROR)] == D3D12_TEXTURE_ADDRESS_MODE_MIRROR);
+	assert(textureAddressModes[static_cast<uint32_t>(TextureAddressMode::CLAMP)] == D3D12_TEXTURE_ADDRESS_MODE_CLAMP);
+	assert(textureAddressModes[static_cast<uint32_t>(TextureAddressMode::BORDER)] == D3D12_TEXTURE_ADDRESS_MODE_BORDER);
+	assert(textureAddressModes[static_cast<uint32_t>(TextureAddressMode::MIRROR_ONCE)] == D3D12_TEXTURE_ADDRESS_MODE_MIRROR_ONCE);
 
 	return textureAddressModes[static_cast<uint32_t>(textureAddressMode)];
 }
@@ -1059,6 +1568,19 @@ D3D12_SHADER_COMPONENT_MAPPING XUSG::GetDX12ShaderComponentMapping(SrvComponentM
 		D3D12_SHADER_COMPONENT_MAPPING_FORCE_VALUE_1
 	};
 
+	assert(shaderComponentMappings[static_cast<uint32_t>(SrvComponentMapping::MEMORY_COMPONENT_0)] == D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_0);
+	assert(shaderComponentMappings[static_cast<uint32_t>(SrvComponentMapping::MEMORY_COMPONENT_1)] == D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_1);
+	assert(shaderComponentMappings[static_cast<uint32_t>(SrvComponentMapping::MEMORY_COMPONENT_2)] == D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_2);
+	assert(shaderComponentMappings[static_cast<uint32_t>(SrvComponentMapping::MEMORY_COMPONENT_3)] == D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_3);
+	assert(shaderComponentMappings[static_cast<uint32_t>(SrvComponentMapping::FORCE_VALUE_0)] == D3D12_SHADER_COMPONENT_MAPPING_FORCE_VALUE_0);
+	assert(shaderComponentMappings[static_cast<uint32_t>(SrvComponentMapping::FORCE_VALUE_1)] == D3D12_SHADER_COMPONENT_MAPPING_FORCE_VALUE_1);
+	assert(shaderComponentMappings[static_cast<uint32_t>(SrvComponentMapping::MC0)] == D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_0);
+	assert(shaderComponentMappings[static_cast<uint32_t>(SrvComponentMapping::MC1)] == D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_1);
+	assert(shaderComponentMappings[static_cast<uint32_t>(SrvComponentMapping::MC2)] == D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_2);
+	assert(shaderComponentMappings[static_cast<uint32_t>(SrvComponentMapping::MC3)] == D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_3);
+	assert(shaderComponentMappings[static_cast<uint32_t>(SrvComponentMapping::FV0)] == D3D12_SHADER_COMPONENT_MAPPING_FORCE_VALUE_0);
+	assert(shaderComponentMappings[static_cast<uint32_t>(SrvComponentMapping::FV1)] == D3D12_SHADER_COMPONENT_MAPPING_FORCE_VALUE_1);
+
 	return shaderComponentMappings[static_cast<uint32_t>(srvComponentMapping)];
 }
 
@@ -1074,6 +1596,14 @@ uint32_t XUSG::GetDX12Requirement(Requirement requirement)
 		D3D12_REQ_TEXTURE1D_ARRAY_AXIS_DIMENSION,
 		D3D12_REQ_TEXTURE2D_ARRAY_AXIS_DIMENSION
 	};
+
+	assert(requirements[static_cast<uint32_t>(Requirement::REQ_MIP_LEVELS)] == D3D12_REQ_MIP_LEVELS);
+	assert(requirements[static_cast<uint32_t>(Requirement::REQ_TEXTURECUBE_DIMENSION)] == D3D12_REQ_TEXTURECUBE_DIMENSION);
+	assert(requirements[static_cast<uint32_t>(Requirement::REQ_TEXTURE1D_U_DIMENSION)] == D3D12_REQ_TEXTURE1D_U_DIMENSION);
+	assert(requirements[static_cast<uint32_t>(Requirement::REQ_TEXTURE2D_U_OR_V_DIMENSION)] == D3D12_REQ_TEXTURE2D_U_OR_V_DIMENSION);
+	assert(requirements[static_cast<uint32_t>(Requirement::REQ_TEXTURE3D_U_V_OR_W_DIMENSION)] == D3D12_REQ_TEXTURE3D_U_V_OR_W_DIMENSION);
+	assert(requirements[static_cast<uint32_t>(Requirement::REQ_TEXTURE1D_ARRAY_AXIS_DIMENSION)] == D3D12_REQ_TEXTURE1D_ARRAY_AXIS_DIMENSION);
+	assert(requirements[static_cast<uint32_t>(Requirement::REQ_TEXTURE2D_ARRAY_AXIS_DIMENSION)] == D3D12_REQ_TEXTURE2D_ARRAY_AXIS_DIMENSION);
 
 	return requirements[static_cast<uint32_t>(requirement)];
 }
@@ -1096,6 +1626,20 @@ uint32_t XUSG::GetDXGISwapChainFlag(SwapChainFlag swapChainFlag)
 		DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING,
 		DXGI_SWAP_CHAIN_FLAG_RESTRICTED_TO_ALL_HOLOGRAPHIC_DISPLAYS
 	};
+
+	assert(swapChainFlags[Log2(static_cast<uint32_t>(SwapChainFlag::NONPREROTATED))] == DXGI_SWAP_CHAIN_FLAG_NONPREROTATED);
+	assert(swapChainFlags[Log2(static_cast<uint32_t>(SwapChainFlag::ALLOW_MODE_SWITCH))] == DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH);
+	assert(swapChainFlags[Log2(static_cast<uint32_t>(SwapChainFlag::GDI_COMPATIBLE))] == DXGI_SWAP_CHAIN_FLAG_GDI_COMPATIBLE);
+	assert(swapChainFlags[Log2(static_cast<uint32_t>(SwapChainFlag::RESTRICTED_CONTENT))] == DXGI_SWAP_CHAIN_FLAG_RESTRICTED_CONTENT);
+	assert(swapChainFlags[Log2(static_cast<uint32_t>(SwapChainFlag::RESTRICT_SHARED_RESOURCE_DRIVER))] == DXGI_SWAP_CHAIN_FLAG_RESTRICT_SHARED_RESOURCE_DRIVER);
+	assert(swapChainFlags[Log2(static_cast<uint32_t>(SwapChainFlag::DISPLAY_ONLY))] == DXGI_SWAP_CHAIN_FLAG_DISPLAY_ONLY);
+	assert(swapChainFlags[Log2(static_cast<uint32_t>(SwapChainFlag::FRAME_LATENCY_WAITABLE_OBJECT))] == DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT);
+	assert(swapChainFlags[Log2(static_cast<uint32_t>(SwapChainFlag::FOREGROUND_LAYER))] == DXGI_SWAP_CHAIN_FLAG_FOREGROUND_LAYER);
+	assert(swapChainFlags[Log2(static_cast<uint32_t>(SwapChainFlag::FULLSCREEN_VIDEO))] == DXGI_SWAP_CHAIN_FLAG_FULLSCREEN_VIDEO);
+	assert(swapChainFlags[Log2(static_cast<uint32_t>(SwapChainFlag::YUV_VIDEO))] == DXGI_SWAP_CHAIN_FLAG_YUV_VIDEO);
+	assert(swapChainFlags[Log2(static_cast<uint32_t>(SwapChainFlag::HW_PROTECTED))] == DXGI_SWAP_CHAIN_FLAG_HW_PROTECTED);
+	assert(swapChainFlags[Log2(static_cast<uint32_t>(SwapChainFlag::ALLOW_TEARING))] == DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING);
+	assert(swapChainFlags[Log2(static_cast<uint32_t>(SwapChainFlag::RESTRICTED_TO_ALL_HOLOGRAPHIC_DISPLAYS))] == DXGI_SWAP_CHAIN_FLAG_RESTRICTED_TO_ALL_HOLOGRAPHIC_DISPLAYS);
 
 	if (swapChainFlag == SwapChainFlag::NONE) return 0;
 
@@ -1139,6 +1683,16 @@ uint32_t XUSG::GetDXGIPresentFlag(PresentFlag presentFlag)
 		DXGI_PRESENT_USE_DURATION,
 		DXGI_PRESENT_ALLOW_TEARING
 	};
+
+	assert(presentFlags[Log2(static_cast<uint32_t>(PresentFlag::TEST))] == DXGI_PRESENT_TEST);
+	assert(presentFlags[Log2(static_cast<uint32_t>(PresentFlag::DO_NOT_SEQUENCE))] == DXGI_PRESENT_DO_NOT_SEQUENCE);
+	assert(presentFlags[Log2(static_cast<uint32_t>(PresentFlag::RESTART))] == DXGI_PRESENT_RESTART);
+	assert(presentFlags[Log2(static_cast<uint32_t>(PresentFlag::DO_NOT_WAIT))] == DXGI_PRESENT_DO_NOT_WAIT);
+	assert(presentFlags[Log2(static_cast<uint32_t>(PresentFlag::STEREO_PREFER_RIGHT))] == DXGI_PRESENT_STEREO_PREFER_RIGHT);
+	assert(presentFlags[Log2(static_cast<uint32_t>(PresentFlag::STEREO_TEMPORARY_MONO))] == DXGI_PRESENT_STEREO_TEMPORARY_MONO);
+	assert(presentFlags[Log2(static_cast<uint32_t>(PresentFlag::RESTRICT_TO_OUTPUT))] == DXGI_PRESENT_RESTRICT_TO_OUTPUT);
+	assert(presentFlags[Log2(static_cast<uint32_t>(PresentFlag::USE_DURATION))] == DXGI_PRESENT_USE_DURATION);
+	assert(presentFlags[Log2(static_cast<uint32_t>(PresentFlag::ALLOW_TEARING))] == DXGI_PRESENT_ALLOW_TEARING);
 
 	if (presentFlag == PresentFlag::NONE) return 0;
 

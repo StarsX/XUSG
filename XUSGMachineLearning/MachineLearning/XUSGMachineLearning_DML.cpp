@@ -1059,9 +1059,9 @@ bool Device_DML::GetCommandRecorder(CommandRecorder* pCommandRecorder, const wch
 	return pCommandRecorder->Create(this, name);
 }
 
-bool Device_DML::Create(const XUSG::Device* pDevice, CreateDeviceFlag flags, const wchar_t* name)
+bool Device_DML::Create(XUSG::Device* pDevice, CreateDeviceFlag flags, const wchar_t* name)
 {
-	const auto pDxDevice = static_cast<ID3D12Device*>(pDevice->GetHandle());
+	const auto pDxDevice = static_cast<ID3D12Device*>(pDevice->GetNativeHandle());
 
 	assert(pDxDevice);
 	V_RETURN(DMLCreateDevice(pDxDevice, static_cast<DML_CREATE_DEVICE_FLAGS>(flags), IID_PPV_ARGS(&m_device)), cerr, false);

@@ -6,58 +6,76 @@
 #include "Core/XUSGPipelineLayout_DX12.h"
 #include "Core/XUSGResource_DX12.h"
 #include "Ultimate/XUSGUltimate_DX12.h"
-#include "XUSG-EZ_DX12.h"
-#include "XUSGUltimate-EZ_DX12.h"
+#ifndef XUSG_NO_VULKAN
+#include "Core/XUSGCommand_VK.h"
+#include "Ultimate/XUSGUltimate_VK.h"
+#endif
+#include "XUSG-EZ_Impl.h"
+#include "XUSGUltimate-EZ_Impl.h"
 
 using namespace std;
+using namespace XUSG;
 using namespace XUSG::Ultimate;
 
-EZ::CommandList_DX12::CommandList_DX12() :
-	XUSG::CommandList_DX12(),
-	XUSG::EZ::CommandList_DX12(),
+template<typename CoreList, typename UltimateList>
+XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::CommandList_Impl() :
+	CoreList(),
+	XUSG::EZ::CommandList_Impl<CoreList>(),
 	m_meshShaderPipelineLib(nullptr),
-	m_pipelineLayout(nullptr),
 	m_meshShaderState(nullptr),
 	m_workGraphState(nullptr),
+	m_pipelineLayout(nullptr),
 	m_workGraphProperty(nullptr),
 	m_isWGStateDirty(false),
 	m_meshShaderConstantParamIndices()
 {
 }
 
-EZ::CommandList_DX12::CommandList_DX12(Ultimate::CommandList* pCommandList,
+template<typename CoreList, typename UltimateList>
+XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::CommandList_Impl(Ultimate::CommandList* pCommandList,
 	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
+	const uint32_t samplerStartSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE],
+	const uint32_t cbvStartSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t srvStartSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t uavStartSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE],
 	const uint32_t constantSlots[Shader::Stage::NUM_STAGE],
 	const uint32_t constantSpaces[Shader::Stage::NUM_STAGE],
 	uint32_t slotExt, uint32_t spaceExt) :
-	CommandList_DX12()
+	CommandList_Impl()
 {
-	Create(pCommandList, samplerHeapSize, cbvSrvUavHeapSize, maxSamplers,
+	Create(pCommandList, samplerHeapSize, cbvSrvUavHeapSize, samplerStartSpaces, maxSamplers,
 		pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
-		maxCbvSpaces, maxSrvSpaces, maxUavSpaces, max32BitConstants,
+		cbvStartSpaces, maxCbvSpaces, srvStartSpaces, maxSrvSpaces, uavStartSpaces, maxUavSpaces,
+		max32BitConstants,
 		constantSlots, constantSpaces, slotExt, spaceExt);
 }
 
-EZ::CommandList_DX12::~CommandList_DX12()
+template<typename CoreList, typename UltimateList>
+XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::~CommandList_Impl()
 {
 }
 
-bool EZ::CommandList_DX12::Create(Ultimate::CommandList* pCommandList,
+template<typename CoreList, typename UltimateList>
+bool XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::Create(Ultimate::CommandList* pCommandList,
 	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
+	const uint32_t samplerStartSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE],
+	const uint32_t cbvStartSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t srvStartSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t uavStartSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE],
 	const uint32_t constantSlots[Shader::Stage::NUM_STAGE],
@@ -65,6 +83,8 @@ bool EZ::CommandList_DX12::Create(Ultimate::CommandList* pCommandList,
 	uint32_t slotExt, uint32_t spaceExt)
 {
 	XUSG_N_RETURN(init(pCommandList, samplerHeapSize, cbvSrvUavHeapSize), false);
+	recordSpaceStarts(cbvStartSpaces, maxCbvSpaces, srvStartSpaces, maxSrvSpaces,
+		uavStartSpaces, maxUavSpaces, samplerStartSpaces);
 
 	// Create common pipeline layouts
 	XUSG_N_RETURN(createGraphicsPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
@@ -81,7 +101,8 @@ bool EZ::CommandList_DX12::Create(Ultimate::CommandList* pCommandList,
 		maxUavSpaces ? maxUavSpaces[Shader::Stage::CS] : 1,
 		max32BitConstants ? max32BitConstants[Shader::Stage::CS] : 0,
 		constantSlots ? constantSlots[Shader::Stage::CS] : 0,
-		constantSpaces ? constantSpaces[Shader::Stage::CS] : cMaxCbvSpaces - 1,
+		constantSpaces ? constantSpaces[Shader::Stage::CS] :
+		spaceStart(Shader::Stage::CS, DescriptorType::CBV) + cMaxCbvSpaces - 1,
 		slotExt, spaceExt), false);
 
 	XUSG_N_RETURN(createMeshShaderPipelineLayouts(maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace,
@@ -91,30 +112,42 @@ bool EZ::CommandList_DX12::Create(Ultimate::CommandList* pCommandList,
 	return true;
 }
 
-bool EZ::CommandList_DX12::Create(const Device* pDevice, void* pHandle,
+template<typename CoreList, typename UltimateList>
+bool XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::Create(Device* pDevice, void* pNativeHandle,
 	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
+	const uint32_t samplerStartSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE],
+	const uint32_t cbvStartSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t srvStartSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t uavStartSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE],
 	const uint32_t constantSlots[Shader::Stage::NUM_STAGE],
 	const uint32_t constantSpaces[Shader::Stage::NUM_STAGE],
-	uint32_t slotExt, uint32_t spaceExt, const wchar_t* name)
+	uint32_t slotExt, uint32_t spaceExt)
 {
-	m_pDevice = pDevice;
-	Ultimate::CommandList_DX12::Create(pHandle, name);
+	CoreList::Create(pNativeHandle, pDevice);
 
-	return Create(this, samplerHeapSize, cbvSrvUavHeapSize, maxSamplers,
+	return Create(this, samplerHeapSize, cbvSrvUavHeapSize, samplerStartSpaces, maxSamplers,
 		pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
-		maxCbvSpaces, maxSrvSpaces, maxUavSpaces, max32BitConstants,
+		cbvStartSpaces, maxCbvSpaces, srvStartSpaces, maxSrvSpaces, uavStartSpaces, maxUavSpaces,
+		max32BitConstants,
 		constantSlots, constantSpaces, slotExt, spaceExt);
 }
 
-void EZ::CommandList_DX12::ResolveSubresourceRegion(Resource* pDstResource, uint32_t dstSubresource,
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions) const
+{
+	UltimateList::SetSamplePositions(numSamplesPerPixel, numPixels, pPositions);
+}
+
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::ResolveSubresourceRegion(Resource* pDstResource, uint32_t dstSubresource,
 	uint32_t dstX, uint32_t dstY, Resource* pSrcResource, uint32_t srcSubresource,
 	const RectRange& srcRect, Format format, ResolveMode resolveMode)
 {
@@ -125,13 +158,20 @@ void EZ::CommandList_DX12::ResolveSubresourceRegion(Resource* pDstResource, uint
 	XUSG::ResourceBarrier barriers[2];
 	auto numBarriers = pDstResource->SetBarrier(barriers, ResourceState::RESOLVE_DEST, 0, dstSubresource);
 	numBarriers = pSrcResource->SetBarrier(barriers, ResourceState::RESOLVE_SOURCE, numBarriers, srcSubresource);
-	XUSG::CommandList_DX12::Barrier(numBarriers, barriers);
+	CoreList::Barrier(numBarriers, barriers);
 
-	Ultimate::CommandList_DX12::ResolveSubresourceRegion(pDstResource, dstSubresource,
+	UltimateList::ResolveSubresourceRegion(pDstResource, dstSubresource,
 		dstX, dstY, pSrcResource, srcSubresource, srcRect, format, resolveMode);
 }
 
-void EZ::CommandList_DX12::RSSetShadingRateImage(Resource* pShadingRateImage)
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::RSSetShadingRate(ShadingRate baseShadingRate, const ShadingRateCombiner* pCombiners) const
+{
+	UltimateList::RSSetShadingRate(baseShadingRate, pCombiners);
+}
+
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::RSSetShadingRateImage(Resource* pShadingRateImage)
 {
 	// Set a barrier
 	if (pShadingRateImage)
@@ -146,10 +186,11 @@ void EZ::CommandList_DX12::RSSetShadingRateImage(Resource* pShadingRateImage)
 	}
 
 	// Set the shading-rate image
-	Ultimate::CommandList_DX12::RSSetShadingRateImage(pShadingRateImage);
+	UltimateList::RSSetShadingRateImage(pShadingRateImage);
 }
 
-void EZ::CommandList_DX12::SetGraphicsPipelineState(const Pipeline& pipelineState, const State* pState)
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::SetGraphicsPipelineState(const Pipeline& pipelineState, State* pState)
 {
 	assert(pipelineState || pState);
 	Pipeline pipeline;
@@ -169,63 +210,71 @@ void EZ::CommandList_DX12::SetGraphicsPipelineState(const Pipeline& pipelineStat
 	{
 		if (m_pipeline != pipeline)
 		{
-			XUSG::CommandList_DX12::SetPipelineState(pipeline);
+			CoreList::SetPipelineState(pipeline);
 			m_pipeline = pipeline;
 		}
 		m_isGraphicsDirty = false;
 	}
 }
 
-void EZ::CommandList_DX12::OMSetBlendState(const Graphics::Blend* pBlend, uint32_t sampleMask)
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::OMSetBlendState(const Graphics::Blend* pBlend, uint32_t sampleMask)
 {
 	assert(m_meshShaderState);
 	m_meshShaderState->OMSetBlendState(pBlend, sampleMask);
-	XUSG::EZ::CommandList_DX12::OMSetBlendState(pBlend, sampleMask);
+	XUSG::EZ::CommandList_Impl<CoreList>::OMSetBlendState(pBlend, sampleMask);
 }
 
-void EZ::CommandList_DX12::OMSetBlendState(Graphics::BlendPreset preset, uint8_t numColorRTs, uint32_t sampleMask)
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::OMSetBlendState(Graphics::BlendPreset preset, uint8_t numColorRTs, uint32_t sampleMask)
 {
 	assert(m_meshShaderState);
 	m_meshShaderState->OMSetBlendState(preset, m_meshShaderPipelineLib.get(), numColorRTs, sampleMask);
-	XUSG::EZ::CommandList_DX12::OMSetBlendState(preset, numColorRTs, sampleMask);
+	XUSG::EZ::CommandList_Impl<CoreList>::OMSetBlendState(preset, numColorRTs, sampleMask);
 }
 
-void EZ::CommandList_DX12::OMSetSample(uint8_t count, uint8_t quality)
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::OMSetSample(uint8_t count, uint8_t quality)
 {
 	assert(m_meshShaderState);
 	m_meshShaderState->OMSetSample(count, quality);
-	XUSG::EZ::CommandList_DX12::OMSetSample(count, quality);
+	XUSG::EZ::CommandList_Impl<CoreList>::OMSetSample(count, quality);
 }
 
-void EZ::CommandList_DX12::RSSetState(const Graphics::Rasterizer* pRasterizer)
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::RSSetState(const Graphics::Rasterizer* pRasterizer)
 {
 	assert(m_meshShaderState);
 	m_meshShaderState->RSSetState(pRasterizer);
-	XUSG::EZ::CommandList_DX12::RSSetState(pRasterizer);
+	XUSG::EZ::CommandList_Impl<CoreList>::RSSetState(pRasterizer);
 }
 
-void EZ::CommandList_DX12::RSSetState(Graphics::RasterizerPreset preset)
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::RSSetState(Graphics::RasterizerPreset preset)
 {
 	assert(m_meshShaderState);
 	m_meshShaderState->RSSetState(preset, m_meshShaderPipelineLib.get());
-	XUSG::EZ::CommandList_DX12::RSSetState(preset);
+	XUSG::EZ::CommandList_Impl<CoreList>::RSSetState(preset);
 }
 
-void EZ::CommandList_DX12::DSSetState(const Graphics::DepthStencil* pDepthStencil)
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::DSSetState(const Graphics::DepthStencil* pDepthStencil)
 {
 	assert(m_meshShaderState);
 	m_meshShaderState->DSSetState(pDepthStencil);
-	XUSG::EZ::CommandList_DX12::DSSetState(pDepthStencil);
+	XUSG::EZ::CommandList_Impl<CoreList>::DSSetState(pDepthStencil);
 }
 
-void EZ::CommandList_DX12::DSSetState(Graphics::DepthStencilPreset preset)
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::DSSetState(Graphics::DepthStencilPreset preset)
 {
 	assert(m_meshShaderState);
 	m_meshShaderState->DSSetState(preset, m_meshShaderPipelineLib.get());
-	XUSG::EZ::CommandList_DX12::DSSetState(preset);
+	XUSG::EZ::CommandList_Impl<CoreList>::DSSetState(preset);
 }
 
-void EZ::CommandList_DX12::SetGraphicsShader(Shader::Stage stage, const Blob& shader)
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::SetGraphicsShader(Shader::Stage stage, const Blob& shader)
 {
 	if (stage == Shader::Stage::MS || stage == Shader::Stage::AS)
 	{
@@ -237,12 +286,13 @@ void EZ::CommandList_DX12::SetGraphicsShader(Shader::Stage stage, const Blob& sh
 	{
 		assert(m_meshShaderState);
 		m_meshShaderState->SetShader(stage, shader);
-		XUSG::EZ::CommandList_DX12::SetGraphicsShader(stage, shader);
+		XUSG::EZ::CommandList_Impl<CoreList>::SetGraphicsShader(stage, shader);
 	}
-	else XUSG::EZ::CommandList_DX12::SetGraphicsShader(stage, shader);
+	else XUSG::EZ::CommandList_Impl<CoreList>::SetGraphicsShader(stage, shader);
 }
 
-void EZ::CommandList_DX12::MSSetGraphicsShader(Shader::Stage stage, const Blob& shader)
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::MSSetGraphicsShader(Shader::Stage stage, const Blob& shader)
 {
 	assert(m_meshShaderState);
 	assert(stage == Shader::Stage::PS || stage == Shader::Stage::MS || stage == Shader::Stage::AS);
@@ -250,30 +300,34 @@ void EZ::CommandList_DX12::MSSetGraphicsShader(Shader::Stage stage, const Blob& 
 	m_isGraphicsDirty = true;
 }
 
-void EZ::CommandList_DX12::SetGraphicsNodeMask(uint32_t nodeMask)
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::SetGraphicsNodeMask(uint32_t nodeMask)
 {
 	assert(m_meshShaderState);
 	m_meshShaderState->SetNodeMask(nodeMask);
-	XUSG::EZ::CommandList_DX12::SetGraphicsNodeMask(nodeMask);
+	XUSG::EZ::CommandList_Impl<CoreList>::SetGraphicsNodeMask(nodeMask);
 }
 
-void EZ::CommandList_DX12::DispatchMesh(uint32_t ThreadGroupCountX, uint32_t ThreadGroupCountY, uint32_t ThreadGroupCountZ)
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::DispatchMesh(uint32_t ThreadGroupCountX, uint32_t ThreadGroupCountY, uint32_t ThreadGroupCountZ)
 {
 	predispatchMesh();
-	Ultimate::CommandList_DX12::DispatchMesh(ThreadGroupCountX, ThreadGroupCountY, ThreadGroupCountZ);
+	UltimateList::DispatchMesh(ThreadGroupCountX, ThreadGroupCountY, ThreadGroupCountZ);
 }
 
-void EZ::CommandList_DX12::DispatchMeshIndirect(const CommandLayout* pCommandlayout, uint32_t maxCommandCount,
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::DispatchMeshIndirect(CommandLayout* pCommandlayout, uint32_t maxCommandCount,
 	Resource* pArgumentBuffer, uint64_t argumentBufferOffset, Resource* pCountBuffer, uint64_t countBufferOffset)
 {
 	preexecuteIndirect(pArgumentBuffer, pCountBuffer);
 	predispatchMesh();
 
-	XUSG::CommandList_DX12::ExecuteIndirect(pCommandlayout, maxCommandCount,
+	CoreList::ExecuteIndirect(pCommandlayout, maxCommandCount,
 		pArgumentBuffer, argumentBufferOffset, pCountBuffer, countBufferOffset);
 }
 
-void EZ::CommandList_DX12::OMSetRenderTargets(uint32_t numRenderTargets,
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::OMSetRenderTargets(uint32_t numRenderTargets,
 	const XUSG::EZ::ResourceView* pRenderTargetViews,
 	const XUSG::EZ::ResourceView* pDepthStencilView)
 {
@@ -314,18 +368,20 @@ void EZ::CommandList_DX12::OMSetRenderTargets(uint32_t numRenderTargets,
 
 	m_isGraphicsDirty = true;
 
-	XUSG::CommandList_DX12::OMSetRenderTargets(numRenderTargets, pRTVs,
+	CoreList::OMSetRenderTargets(numRenderTargets, pRTVs,
 		pDepthStencilView ? &pDepthStencilView->View : nullptr);
 }
 
-void EZ::CommandList_DX12::WGSetShaderLibrary(uint32_t index, const Blob& shaderLib, uint32_t numShaders, const wchar_t** pShaderNames)
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::WGSetShaderLibrary(uint32_t index, const Blob& shaderLib, uint32_t numShaders, const wchar_t** pShaderNames)
 {
 	assert(m_workGraphState);
 	m_workGraphState->SetShaderLibrary(index, shaderLib, numShaders, pShaderNames);
 	m_isWGStateDirty = true;
 }
 
-void EZ::CommandList_DX12::WGSetProgramName(const wchar_t* name)
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::WGSetProgramName(const wchar_t* name)
 {
 	assert(m_workGraphState);
 	m_workGraphState->SetProgramName(name);
@@ -333,43 +389,50 @@ void EZ::CommandList_DX12::WGSetProgramName(const wchar_t* name)
 	m_isWGStateDirty = true;
 }
 
-void EZ::CommandList_DX12::WGOverrideDispatchGrid(const wchar_t* shaderName, uint32_t x, uint32_t y, uint32_t z, WorkGraph::BoolOverride isEntry)
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::WGOverrideDispatchGrid(const wchar_t* shaderName, uint32_t x, uint32_t y, uint32_t z, WorkGraph::BoolOverride isEntry)
 {
 	assert(m_workGraphState);
 	m_workGraphState->OverrideDispatchGrid(shaderName, x, y, z, isEntry);
 	m_isWGStateDirty = true;
 }
 
-void EZ::CommandList_DX12::WGOverrideMaxDispatchGrid(const wchar_t* shaderName, uint32_t x, uint32_t y, uint32_t z, WorkGraph::BoolOverride isEntry)
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::WGOverrideMaxDispatchGrid(const wchar_t* shaderName, uint32_t x, uint32_t y, uint32_t z, WorkGraph::BoolOverride isEntry)
 {
 	assert(m_workGraphState);
 	m_workGraphState->OverrideMaxDispatchGrid(shaderName, x, y, z, isEntry);
 	m_isWGStateDirty = true;
 }
 
-void EZ::CommandList_DX12::DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride)
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride)
 {
 	predispatchGraph();
-	Ultimate::CommandList_DX12::DispatchGraph(numNodeInputs, pNodeInputs, nodeInputByteStride);
+	UltimateList::DispatchGraph(numNodeInputs, pNodeInputs, nodeInputByteStride);
 }
 
-void EZ::CommandList_DX12::DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes)
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes)
 {
 	predispatchGraph();
-	Ultimate::CommandList_DX12::DispatchGraph(nodeGPUInputAddress, isMultiNodes);
+	UltimateList::DispatchGraph(nodeGPUInputAddress, isMultiNodes);
 }
 
-const XUSG::PipelineLayout& EZ::CommandList_DX12::GetMSPipelineLayout() const
+template<typename CoreList, typename UltimateList>
+const XUSG::PipelineLayout& XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::GetMSPipelineLayout() const
 {
 	return m_pipelineLayout;
 }
 
-uint32_t EZ::CommandList_DX12::GetMSConstantParamIndex(Shader::Stage stage) const
+template<typename CoreList, typename UltimateList>
+uint32_t XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::GetMSConstantParamIndex(Shader::Stage stage) const
 {
 	return m_meshShaderConstantParamIndices[getShaderStageIndex(stage)];
 }
 
-uint32_t EZ::CommandList_DX12::WGGetIndex()
+template<typename CoreList, typename UltimateList>
+uint32_t XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::WGGetIndex()
 {
 	getWorkGraphPipeline();
 	if (!m_workGraphProperty) return UINT32_MAX;
@@ -377,7 +440,8 @@ uint32_t EZ::CommandList_DX12::WGGetIndex()
 	return m_workGraphProperty->Index;
 }
 
-uint32_t EZ::CommandList_DX12::WGGetNumNodes()
+template<typename CoreList, typename UltimateList>
+uint32_t XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::WGGetNumNodes()
 {
 	getWorkGraphPipeline();
 	if (!m_workGraphProperty) return 0;
@@ -385,7 +449,8 @@ uint32_t EZ::CommandList_DX12::WGGetNumNodes()
 	return static_cast<uint32_t>(m_workGraphProperty->NodeIDs.size());
 }
 
-uint32_t EZ::CommandList_DX12::WGGetNodeIndex(const WorkGraph::NodeID& nodeID)
+template<typename CoreList, typename UltimateList>
+uint32_t XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::WGGetNodeIndex(const WorkGraph::NodeID& nodeID)
 {
 	getWorkGraphPipeline();
 	if (!m_workGraphProperty) return UINT32_MAX;
@@ -396,7 +461,8 @@ uint32_t EZ::CommandList_DX12::WGGetNodeIndex(const WorkGraph::NodeID& nodeID)
 	return nodeID.ArrayIndex < it->second.size() ? it->second[nodeID.ArrayIndex] : UINT32_MAX;
 }
 
-uint32_t EZ::CommandList_DX12::WGGetNumEntrypoints()
+template<typename CoreList, typename UltimateList>
+uint32_t XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::WGGetNumEntrypoints()
 {
 	getWorkGraphPipeline();
 	if (!m_workGraphProperty) return 0;
@@ -404,7 +470,8 @@ uint32_t EZ::CommandList_DX12::WGGetNumEntrypoints()
 	return static_cast<uint32_t>(m_workGraphProperty->EntrypointIDs.size());
 }
 
-uint32_t EZ::CommandList_DX12::WGGetEntrypointIndex(const WorkGraph::NodeID& nodeID)
+template<typename CoreList, typename UltimateList>
+uint32_t XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::WGGetEntrypointIndex(const WorkGraph::NodeID& nodeID)
 {
 	getWorkGraphPipeline();
 	if (!m_workGraphProperty) return UINT32_MAX;
@@ -415,7 +482,8 @@ uint32_t EZ::CommandList_DX12::WGGetEntrypointIndex(const WorkGraph::NodeID& nod
 	return nodeID.ArrayIndex < it->second.size() ? it->second[nodeID.ArrayIndex] : UINT32_MAX;
 }
 
-uint32_t EZ::CommandList_DX12::WGGetEntrypointRecordSizeInBytes(uint32_t entryPointIndex)
+template<typename CoreList, typename UltimateList>
+uint32_t XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::WGGetEntrypointRecordSizeInBytes(uint32_t entryPointIndex)
 {
 	getWorkGraphPipeline();
 	if (!m_workGraphProperty) return 0;
@@ -424,7 +492,8 @@ uint32_t EZ::CommandList_DX12::WGGetEntrypointRecordSizeInBytes(uint32_t entryPo
 		m_workGraphProperty->RecordByteSizes[entryPointIndex] : 0;
 }
 
-XUSG::WorkGraph::NodeID EZ::CommandList_DX12::WGGetNodeID(uint32_t nodeIndex)
+template<typename CoreList, typename UltimateList>
+XUSG::WorkGraph::NodeID XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::WGGetNodeID(uint32_t nodeIndex)
 {
 	getWorkGraphPipeline();
 	if (!m_workGraphProperty) return WorkGraph::NodeID();
@@ -433,7 +502,8 @@ XUSG::WorkGraph::NodeID EZ::CommandList_DX12::WGGetNodeID(uint32_t nodeIndex)
 		m_workGraphProperty->NodeIDs[nodeIndex] : WorkGraph::NodeID();
 }
 
-XUSG::WorkGraph::NodeID EZ::CommandList_DX12::WGGetEntrypointID(uint32_t entryPointIndex)
+template<typename CoreList, typename UltimateList>
+XUSG::WorkGraph::NodeID XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::WGGetEntrypointID(uint32_t entryPointIndex)
 {
 	getWorkGraphPipeline();
 	if (!m_workGraphProperty) return WorkGraph::NodeID();
@@ -442,33 +512,35 @@ XUSG::WorkGraph::NodeID EZ::CommandList_DX12::WGGetEntrypointID(uint32_t entryPo
 		m_workGraphProperty->EntrypointIDs[entryPointIndex] : WorkGraph::NodeID();
 }
 
-CommandList* EZ::CommandList_DX12::AsUltimateCommandList()
+template<typename CoreList, typename UltimateList>
+Ultimate::CommandList* XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::AsUltimateCommandList()
 {
-	const auto pCommandList = dynamic_cast<Ultimate::CommandList*>(this);
-	assert(pCommandList);
-
-	return pCommandList;
+	return static_cast<Ultimate::CommandList*>(static_cast<UltimateList*>(this));
 }
 
-bool EZ::CommandList_DX12::init(Ultimate::CommandList* pCommandList, uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize)
+template<typename CoreList, typename UltimateList>
+bool XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::init(Ultimate::CommandList* pCommandList, uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize)
 {
-	XUSG_N_RETURN(XUSG::EZ::CommandList_DX12::init(pCommandList, samplerHeapSize, cbvSrvUavHeapSize), false);
+	XUSG_N_RETURN(XUSG::EZ::CommandList_Impl<CoreList>::init(pCommandList, samplerHeapSize, cbvSrvUavHeapSize), false);
+	XUSG_N_RETURN(adoptUltimate(pCommandList), false);
 
-	m_commandListU = dynamic_cast<Ultimate::CommandList_DX12*>(pCommandList)->GetGraphicsCommandList();
-
-	if (m_commandListU)
+	if (hasMeshShader())
 	{
-		m_meshShaderPipelineLib = PipelineLib::MakeUnique(m_pDevice, API::DIRECTX_12);
-		m_meshShaderState = State::MakeUnique(API::DIRECTX_12);
+		m_meshShaderPipelineLib = PipelineLib::MakeUnique(m_pDevice);
+		m_meshShaderState = State::MakeUnique();
+	}
 
-		m_workGraphPipelineLib = WorkGraph::PipelineLib::MakeUnique(m_pDevice, API::DIRECTX_12);
-		m_workGraphState = WorkGraph::State::MakeUnique(API::DIRECTX_12);
+	if (hasWorkGraph())
+	{
+		m_workGraphPipelineLib = WorkGraph::PipelineLib::MakeUnique(m_pDevice);
+		m_workGraphState = WorkGraph::State::MakeUnique();
 	}
 
 	return true;
 }
 
-bool EZ::CommandList_DX12::createMeshShaderPipelineLayouts(
+template<typename CoreList, typename UltimateList>
+bool XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::createMeshShaderPipelineLayouts(
 	const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE],
@@ -483,7 +555,7 @@ bool EZ::CommandList_DX12::createMeshShaderPipelineLayouts(
 {
 	// Create common mesh-shader pipeline layout
 	auto paramIndex = 0u;
-	const auto pipelineLayout = Util::PipelineLayout::MakeUnique(API::DIRECTX_12);
+	const auto pipelineLayout = Util::PipelineLayout::MakeUnique();
 
 	for (uint8_t i = 0; i < NUM_STAGE; ++i)
 	{
@@ -492,7 +564,8 @@ bool EZ::CommandList_DX12::createMeshShaderPipelineLayouts(
 
 		if (stageMaxSamplers > 0)
 		{
-			pipelineLayout->SetRange(paramIndex, DescriptorType::SAMPLER, stageMaxSamplers, 0, 0, DescriptorFlag::DESCRIPTORS_VOLATILE);
+			pipelineLayout->SetRange(paramIndex, DescriptorType::SAMPLER, stageMaxSamplers, 0,
+				spaceStart(stage, DescriptorType::SAMPLER), DescriptorFlag::DESCRIPTORS_VOLATILE);
 			pipelineLayout->SetShaderStage(paramIndex++, stage);
 		}
 	}
@@ -519,8 +592,11 @@ bool EZ::CommandList_DX12::createMeshShaderPipelineLayouts(
 		spaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::UAV)].resize(stageMaxUavSpaces);
 
 		const auto num32BitValues = max32BitConstants ? max32BitConstants[stage] : 0;
-		const auto constantSpace = constantSpaces ? constantSpaces[stage] : 0;
+		const auto constantSpace = constantSpaces ? constantSpaces[stage] : spaceStart(stage, DescriptorType::CBV);
 		const auto constantSlot = constantSlots ? constantSlots[stage] : 0;
+		const auto cbvSpaceStart = spaceStart(stage, DescriptorType::CBV);
+		const auto srvSpaceStart = spaceStart(stage, DescriptorType::SRV);
+		const auto uavSpaceStart = spaceStart(stage, DescriptorType::UAV);
 
 		for (auto s = 0u; s < maxSpaces; ++s)
 		{
@@ -528,13 +604,14 @@ bool EZ::CommandList_DX12::createMeshShaderPipelineLayouts(
 			{
 				auto maxDescriptors = pMaxCbvsEachSpace && pMaxCbvsEachSpace[stage] ? pMaxCbvsEachSpace[stage][s] : 14;
 				auto slot = 0;
-				if (s == constantSpace && num32BitValues > 0)
+				if (cbvSpaceStart + s == constantSpace && num32BitValues > 0)
 				{
 					maxDescriptors = constantSlot ? (min)(maxDescriptors, constantSlot) : maxDescriptors - 1;
 					slot = constantSlot ? 0 : 1;
 				}
 				spaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::CBV)][s] = paramIndex;
-				pipelineLayout->SetRange(paramIndex, DescriptorType::CBV, maxDescriptors, slot, s, DescriptorFlag::DESCRIPTORS_VOLATILE);
+				pipelineLayout->SetRange(paramIndex, DescriptorType::CBV, maxDescriptors, slot, cbvSpaceStart + s,
+					DescriptorFlag::DESCRIPTORS_VOLATILE);
 				pipelineLayout->SetShaderStage(paramIndex++, stage);
 			}
 
@@ -542,7 +619,8 @@ bool EZ::CommandList_DX12::createMeshShaderPipelineLayouts(
 			{
 				const auto maxDescriptors = pMaxSrvsEachSpace && pMaxSrvsEachSpace[stage] ? pMaxSrvsEachSpace[stage][s] : 32;
 				spaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::SRV)][s] = paramIndex;
-				pipelineLayout->SetRange(paramIndex, DescriptorType::SRV, maxDescriptors, 0, s, DescriptorFlag::DESCRIPTORS_VOLATILE);
+				pipelineLayout->SetRange(paramIndex, DescriptorType::SRV, maxDescriptors, 0, srvSpaceStart + s,
+					DescriptorFlag::DESCRIPTORS_VOLATILE);
 				pipelineLayout->SetShaderStage(paramIndex++, stage);
 			}
 
@@ -550,7 +628,8 @@ bool EZ::CommandList_DX12::createMeshShaderPipelineLayouts(
 			{
 				const auto maxDescriptors = pMaxUavsEachSpace && pMaxUavsEachSpace[stage] ? pMaxUavsEachSpace[stage][s] : 16;
 				spaceToParamIndexMap[static_cast<uint32_t>(DescriptorType::UAV)][s] = paramIndex;
-				pipelineLayout->SetRange(paramIndex, DescriptorType::UAV, maxDescriptors, 0, s, DescriptorFlag::DESCRIPTORS_VOLATILE);
+				pipelineLayout->SetRange(paramIndex, DescriptorType::UAV, maxDescriptors, 0, uavSpaceStart + s,
+					DescriptorFlag::DESCRIPTORS_VOLATILE);
 				pipelineLayout->SetShaderStage(paramIndex++, stage);
 			}
 		}
@@ -570,10 +649,11 @@ bool EZ::CommandList_DX12::createMeshShaderPipelineLayouts(
 	return true;
 }
 
-void EZ::CommandList_DX12::predispatchMesh()
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::predispatchMesh()
 {
 	// Set barrier command
-	XUSG::CommandList_DX12::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
+	CoreList::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
 	m_barriers.clear();
 
 	// Clear DSVs, RTVs, and UAVs
@@ -586,7 +666,7 @@ void EZ::CommandList_DX12::predispatchMesh()
 	if (m_isGraphicsDirty)
 	{
 		// Set pipeline layout
-		XUSG::CommandList_DX12::SetGraphicsPipelineLayout(m_pipelineLayout);
+		CoreList::SetGraphicsPipelineLayout(m_pipelineLayout);
 
 		m_meshShaderState->SetPipelineLayout(m_pipelineLayout);
 		const auto pipeline = m_meshShaderState->GetPipeline(m_meshShaderPipelineLib.get());
@@ -594,7 +674,7 @@ void EZ::CommandList_DX12::predispatchMesh()
 		{
 			if (m_pipeline != pipeline)
 			{
-				XUSG::CommandList_DX12::SetPipelineState(pipeline);
+				CoreList::SetPipelineState(pipeline);
 				m_pipeline = pipeline;
 			}
 			m_isGraphicsDirty = false;
@@ -611,7 +691,7 @@ void EZ::CommandList_DX12::predispatchMesh()
 		if (samplerTable)
 		{
 			const auto descriptorTable = samplerTable->GetSamplerTable(m_descriptorTableLib.get());
-			if (descriptorTable) XUSG::CommandList_DX12::SetGraphicsDescriptorTable(i, descriptorTable);
+			if (descriptorTable) CoreList::SetGraphicsDescriptorTable(i, descriptorTable);
 			samplerTable.reset();
 		}
 
@@ -626,7 +706,7 @@ void EZ::CommandList_DX12::predispatchMesh()
 				if (cbvSrvUavTable)
 				{
 					const auto descriptorTable = cbvSrvUavTable->GetCbvSrvUavTable(m_descriptorTableLib.get());
-					if (descriptorTable) XUSG::CommandList_DX12::SetGraphicsDescriptorTable(
+					if (descriptorTable) CoreList::SetGraphicsDescriptorTable(
 						m_meshShaderSpaceToParamIndexMap[i][t][s], descriptorTable);
 					cbvSrvUavTable.reset();
 				}
@@ -637,8 +717,9 @@ void EZ::CommandList_DX12::predispatchMesh()
 	for (const auto& set : m_graphicsSetDescriptorTables)
 	{
 		const auto stageIdx = getShaderStageIndex(set.Stage);
-		const auto& paramIdx = m_meshShaderSpaceToParamIndexMap[stageIdx][static_cast<uint32_t>(set.Type)][set.Space];
-		XUSG::CommandList_DX12::SetGraphicsDescriptorTable(paramIdx, set.Table);
+		const auto spaceIndex = set.Space - spaceStart(set.Stage, set.Type);
+		const auto& paramIdx = m_meshShaderSpaceToParamIndexMap[stageIdx][static_cast<uint32_t>(set.Type)][spaceIndex];
+		CoreList::SetGraphicsDescriptorTable(paramIdx, set.Table);
 	}
 	m_graphicsSetDescriptorTables.clear();
 
@@ -646,7 +727,7 @@ void EZ::CommandList_DX12::predispatchMesh()
 	{
 		const auto stageIdx = getShaderStageIndex(set.Stage);
 		const auto& paramIdx = m_meshShaderConstantParamIndices[stageIdx];
-		XUSG::CommandList_DX12::SetGraphics32BitConstant(paramIdx, set.SrcData, set.Offset);
+		CoreList::SetGraphics32BitConstant(paramIdx, set.SrcData, set.Offset);
 	}
 	m_graphicsSetSingle32BitConstants.clear();
 
@@ -654,15 +735,16 @@ void EZ::CommandList_DX12::predispatchMesh()
 	{
 		const auto stageIdx = getShaderStageIndex(set.Stage);
 		const auto& paramIdx = m_meshShaderConstantParamIndices[stageIdx];
-		XUSG::CommandList_DX12::SetGraphics32BitConstants(paramIdx, set.Num32BitValues, set.pSrcData, set.Offset);
+		CoreList::SetGraphics32BitConstants(paramIdx, set.Num32BitValues, set.pSrcData, set.Offset);
 	}
 	m_graphicsSet32BitConstants.clear();
 }
 
-void EZ::CommandList_DX12::predispatchGraph()
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::predispatchGraph()
 {
 	// Set barrier command
-	XUSG::CommandList_DX12::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
+	CoreList::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
 	m_barriers.clear();
 
 	// Clear UAVs
@@ -676,7 +758,7 @@ void EZ::CommandList_DX12::predispatchGraph()
 	if (samplerTable)
 	{
 		const auto descriptorTable = samplerTable->GetSamplerTable(m_descriptorTableLib.get());
-		if (descriptorTable) XUSG::CommandList_DX12::SetComputeDescriptorTable(0, descriptorTable);
+		if (descriptorTable) CoreList::SetComputeDescriptorTable(0, descriptorTable);
 		samplerTable.reset();
 	}
 
@@ -691,7 +773,7 @@ void EZ::CommandList_DX12::predispatchGraph()
 			if (cbvSrvUavTable)
 			{
 				const auto descriptorTable = cbvSrvUavTable->GetCbvSrvUavTable(m_descriptorTableLib.get());
-				if (descriptorTable) XUSG::CommandList_DX12::SetComputeDescriptorTable(
+				if (descriptorTable) CoreList::SetComputeDescriptorTable(
 					m_computeSpaceToParamIndexMap[t][s], descriptorTable);
 				cbvSrvUavTable.reset();
 			}
@@ -699,7 +781,8 @@ void EZ::CommandList_DX12::predispatchGraph()
 	}
 }
 
-void EZ::CommandList_DX12::getWorkGraphPipeline()
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::getWorkGraphPipeline()
 {
 	// Create pipeline for dynamic states
 	assert(m_workGraphState);
@@ -771,20 +854,21 @@ void EZ::CommandList_DX12::getWorkGraphPipeline()
 					flags = WorkGraphFlag::INITIALIZE;
 				}
 
-				CommandList_DX12::SetProgram(ProgramType::WORK_GRAPH, workGraph.Identifier, flags,
+				UltimateList::SetProgram(ProgramType::WORK_GRAPH, workGraph.Identifier, flags,
 					workGraph.BackingMemory->GetVirtualAddress(), workGraph.BackingMemory->GetWidth());
 				m_pipeline = pipeline;
 			}
 
 			// Different from other types of state objects, m_workGraphState cannot be reused
 			// for the next different pipeline, so we need to remake it
-			m_workGraphState = WorkGraph::State::MakeUnique(API::DIRECTX_12);
+			m_workGraphState = WorkGraph::State::MakeUnique();
 			m_isWGStateDirty = false;
 		}
 	}
 }
 
-const XUSG::Shader::Stage& EZ::CommandList_DX12::getShaderStage(uint8_t index) const
+template<typename CoreList, typename UltimateList>
+const XUSG::Shader::Stage& XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::getShaderStage(uint8_t index) const
 {
 	static const Shader::Stage stages[] =
 	{
@@ -799,7 +883,8 @@ const XUSG::Shader::Stage& EZ::CommandList_DX12::getShaderStage(uint8_t index) c
 	return stages[index];
 }
 
-EZ::CommandList_DX12::StageIndex EZ::CommandList_DX12::getShaderStageIndex(Shader::Stage stage) const
+template<typename CoreList, typename UltimateList>
+typename XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::StageIndex XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::getShaderStageIndex(Shader::Stage stage) const
 {
 	switch (stage)
 	{
@@ -814,3 +899,48 @@ EZ::CommandList_DX12::StageIndex EZ::CommandList_DX12::getShaderStageIndex(Shade
 		return PS;
 	}
 }
+
+bool XUSG::Ultimate::EZ::CommandList_DX12::adoptUltimate(Ultimate::CommandList* pCommandList)
+{
+	m_commandListU = dynamic_cast<Ultimate::CommandList_DX12*>(pCommandList)->GetGraphicsCommandList();
+
+	return true;
+}
+
+bool XUSG::Ultimate::EZ::CommandList_DX12::hasMeshShader() const
+{
+	return m_commandListU != nullptr;
+}
+
+bool XUSG::Ultimate::EZ::CommandList_DX12::hasWorkGraph() const
+{
+	return m_commandListU != nullptr;
+}
+
+#ifndef XUSG_NO_VULKAN
+bool XUSG::Ultimate::EZ::CommandList_VK::adoptUltimate(Ultimate::CommandList* pCommandList)
+{
+	if (pCommandList != static_cast<Ultimate::CommandList*>(this))
+	{
+		const auto pUltimate = dynamic_cast<Ultimate::CommandList_VK*>(pCommandList);
+		if (pUltimate) AttachUltimate(*pUltimate);
+	}
+
+	return createInterface();
+}
+
+bool XUSG::Ultimate::EZ::CommandList_VK::hasMeshShader() const
+{
+	return true;
+}
+
+bool XUSG::Ultimate::EZ::CommandList_VK::hasWorkGraph() const
+{
+	return false;
+}
+#endif
+
+template class XUSG::Ultimate::EZ::CommandList_Impl<XUSG::CommandList_DX12, Ultimate::CommandList_DX12>;
+#ifndef XUSG_NO_VULKAN
+template class XUSG::Ultimate::EZ::CommandList_Impl<XUSG::CommandList_VK, Ultimate::CommandList_VK>;
+#endif

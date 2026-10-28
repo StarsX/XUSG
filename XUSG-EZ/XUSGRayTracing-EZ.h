@@ -30,25 +30,36 @@ namespace XUSG
 
 				virtual bool Create(RayTracing::CommandList* pCommandList,
 					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize) = 0;
-				virtual bool Create(const RayTracing::Device* pDevice, void* pHandle, uint32_t samplerHeapSize,
-					uint32_t cbvSrvUavHeapSize, const wchar_t* name = nullptr) = 0;
+				// pNativeHandle is ID3D12GraphicsCommandList* or VkCommandBuffer.
+				virtual bool Create(RayTracing::Device* pDevice, void* pNativeHandle, uint32_t samplerHeapSize,
+					uint32_t cbvSrvUavHeapSize) = 0;
 				// Must be called after all acceleration structures allocated
-				// By default maxCbvsEachSpace[stage] = 14 for graphics or 12 for ray tracing and compute
-				// maxSamplers[stage] = 16, maxSrvsEachSpace[stage] = 32, and maxUavsEachSpace[stage] = 16
+				// By default maxCbvsEachSpace[stage] = 14 for graphics or 12 for ray tracing and compute.
+				// maxSamplers[stage] = 16, maxSrvsEachSpace[stage] = 32, and maxUavsEachSpace[stage] = 16.
+				// maxCbvSpaces[stage], maxSrvSpaces[stage], and maxUavSpaces[stage] default to 1.
+				// Unset start spaces are 0 on DirectX 12. On Vulkan an unset start is:
+				// cbvStart = 0
+				// srvStart = cbvStart + maxCbvSpaces[stage]
+				// uavStart = srvStart + maxSrvSpaces[stage]
+				// samplerStart = uavStart + maxUavSpaces[stage]
 				virtual bool CreatePipelineLayouts(
+					const uint32_t samplerStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t cbvStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t srvStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t uavStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					uint32_t maxTLASSrvs = 0, uint32_t spaceTLAS = 0,
 					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE) = 0;
-				virtual bool Reset(const CommandAllocator* pAllocator, const Pipeline& initialState) = 0;
+				virtual bool Reset(uint8_t allocatorIndex, const Pipeline& initialState) = 0;
 				virtual bool PrebuildBLAS(BottomLevelAS* pBLAS, uint32_t numGeometries, const GeometryBuffer& geometries,
 					BuildFlag flags = BuildFlag::PREFER_FAST_TRACE) = 0;
 				virtual bool PrebuildTLAS(TopLevelAS* pTLAS, uint32_t numInstances,
@@ -72,15 +83,15 @@ namespace XUSG
 					uintptr_t byteOffset, uint32_t uavIndex) = 0;
 				virtual void SetTLASDestination(TopLevelAS* pTLAS, const Buffer::sptr destBuffer,
 					uintptr_t byteOffset, uint32_t uavIndex, uint32_t srvIndex) = 0;
-				virtual void SetOmmArrayDestination(OpacityMicromapArray* pOmmArray, const Buffer::sptr destBuffer, uintptr_t byteOffset) = 0;
-				virtual void BuildBLAS(BottomLevelAS* pBLAS, const BottomLevelAS* pSource = nullptr,
+				virtual void SetOmmArrayDestination(OpacityMicromapArray* pOmmArray, const Buffer::sptr destBuffer, uintptr_t byteOffset) const = 0;
+				virtual void BuildBLAS(BottomLevelAS* pBLAS, BottomLevelAS* pSource = nullptr,
 					uint8_t numPostbuildInfoDescs = 0, const PostbuildInfoType* pPostbuildInfoTypes = nullptr) = 0;
-				virtual void BuildTLAS(TopLevelAS* pTLAS, Resource* pInstanceDescs, const TopLevelAS* pSource = nullptr,
+				virtual void BuildTLAS(TopLevelAS* pTLAS, Resource* pInstanceDescs, TopLevelAS* pSource = nullptr,
 					uint8_t numPostbuildInfoDescs = 0, const PostbuildInfoType* pPostbuildInfoTypes = nullptr) = 0;
-				virtual void BuildOmmArray(OpacityMicromapArray* pOmmArray, const OpacityMicromapArray* pSource = nullptr,
+				virtual void BuildOmmArray(OpacityMicromapArray* pOmmArray, OpacityMicromapArray* pSource = nullptr,
 					uint8_t numPostbuildInfoDescs = 0, const PostbuildInfoType* pPostbuildInfoTypes = nullptr) = 0;
-				virtual void CopyRaytracingAccelerationStructure(const AccelerationStructure* pDst,
-					const AccelerationStructure* pSrc, CopyMode mode) = 0;
+				virtual void CopyRaytracingAccelerationStructure(AccelerationStructure* pDst,
+					AccelerationStructure* pSrc, CopyMode mode) = 0;
 				virtual void SetTopLevelAccelerationStructure(uint32_t binding, const TopLevelAS* pTopLevelAS) const = 0;
 				virtual void RTSetShaderLibrary(uint32_t index, const Blob& shaderLib,
 					uint32_t numShaders = 0, const wchar_t** pShaderNames = nullptr) = 0;
@@ -91,12 +102,15 @@ namespace XUSG
 				virtual void RTSetMaxRecursionDepth(uint32_t depth) = 0;
 				virtual void RTSetPipelineState(const Pipeline& pipelineState, RayTracing::State* pState = nullptr) = 0;
 				virtual void DispatchRays(uint32_t width, uint32_t height, uint32_t depth, const wchar_t* rayGenShaderName,
-					const wchar_t* const* pMissShaderNames, uint32_t numMissShaders) = 0;
-				virtual void DispatchRaysIndirect(const CommandLayout* pCommandlayout,
+					const wchar_t* const* pMissShaderNames, uint32_t numMissShaders,
+					const wchar_t* const* pCallableShaderNames = nullptr, uint32_t numCallableShaders = 0) = 0;
+				virtual void DispatchRaysIndirect(CommandLayout* pCommandlayout,
 					uint32_t maxCommandCount,
 					const wchar_t* rayGenShaderName,
 					const wchar_t* const* pMissShaderNames,
 					uint32_t numMissShaders,
+					const wchar_t* const* pCallableShaderNames,
+					uint32_t numCallableShaders,
 					Resource* pArgumentBuffer,
 					uint64_t argumentBufferOffset = 0,
 					Resource* pCountBuffer = nullptr,
@@ -104,15 +118,15 @@ namespace XUSG
 
 				virtual size_t GetDispatchRaysArgReservedOffset() const = 0;
 
-				virtual const Device* GetRTDevice() const = 0;
+				virtual Device* GetRTDevice() const = 0;
 				virtual RayTracing::CommandList* AsRTCommandList() = 0;
 
-				static uptr MakeUnique(API api = API::DIRECTX_12);
-				static sptr MakeShared(API api = API::DIRECTX_12);
+				static uptr MakeUnique();
+				static sptr MakeShared();
 				static uptr MakeUnique(RayTracing::CommandList* pCommandList, uint32_t samplerHeapSize,
-					uint32_t cbvSrvUavHeapSize, API api = API::DIRECTX_12);
+					uint32_t cbvSrvUavHeapSize);
 				static sptr MakeShared(RayTracing::CommandList* pCommandList, uint32_t samplerHeapSize,
-					uint32_t cbvSrvUavHeapSize, API api = API::DIRECTX_12);
+					uint32_t cbvSrvUavHeapSize);
 			};
 		}
 	}

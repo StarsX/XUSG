@@ -22,7 +22,10 @@ namespace XUSG
 			CommandList_DX12(XUSG::CommandList& commandList);
 			~CommandList_DX12();
 
-			bool CreateInterface();
+			bool Create(Device* pDevice, uint32_t nodeMask, CommandListType type,
+				uint8_t numAllocators, CommandAllocator* const* ppAllocators, const Pipeline& pipeline,
+				const wchar_t* name = nullptr);
+			void Create(void* pNativeHandle, Device* pDevice);
 
 			using XUSG::CommandList_DX12::Barrier;
 			void Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups);
@@ -30,18 +33,18 @@ namespace XUSG
 				uint32_t numTextureBarriers, ResourceBarrier* pTextureBarriers,
 				uint32_t numGlobalBarriers, ResourceBarrier* pGlobalBarriers);
 			void SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions) const;
-			void ResolveSubresourceRegion(const Resource* pDstResource, uint32_t dstSubresource,
-				uint32_t dstX, uint32_t dstY, const Resource* pSrcResource, uint32_t srcSubresource,
+			void ResolveSubresourceRegion(Resource* pDstResource, uint32_t dstSubresource,
+				uint32_t dstX, uint32_t dstY, Resource* pSrcResource, uint32_t srcSubresource,
 				const RectRange& srcRect, Format format, ResolveMode resolveMode) const;
 
 			void RSSetShadingRate(ShadingRate baseShadingRate, const ShadingRateCombiner* pCombiners) const;
-			void RSSetShadingRateImage(const Resource* pShadingRateImage) const;
+			void RSSetShadingRateImage(Resource* pShadingRateImage) const;
 			void DispatchMesh(
 				uint32_t ThreadGroupCountX,
 				uint32_t ThreadGroupCountY,
 				uint32_t ThreadGroupCountZ) const;
 
-			void SetStateObject(const Pipeline& stateObject);
+			void SetStateObject(const Pipeline& stateObject) const;
 			void SetProgram(ProgramType type, ProgramIdentifier identifier, WorkGraphFlag flags = WorkGraphFlag::NONE,
 				uint64_t backingMemoryAddress = 0, uint64_t backingMemoryByteSize = 0,
 				uint64_t localRootArgTableAddress = 0, uint64_t localRootArgTableByteSize = 0,
@@ -54,6 +57,7 @@ namespace XUSG
 			com_ptr<ID3D12GraphicsCommandList6>& GetGraphicsCommandList();
 
 		protected:
+			bool createInterface();
 			void createAgilityInterface();
 
 			com_ptr<ID3D12GraphicsCommandList6>		m_commandListU;
@@ -79,7 +83,7 @@ namespace XUSG
 		{
 		public:
 			PipelineLayoutLib_DX12();
-			PipelineLayoutLib_DX12(const Device* pDevice);
+			PipelineLayoutLib_DX12(Device* pDevice);
 			virtual ~PipelineLayoutLib_DX12();
 
 			PipelineLayout CreateRootSignatureFromLibSubobject(const Blob& blobLib,
@@ -106,25 +110,25 @@ namespace XUSG
 			~SamplerFeedBack_DX12();
 
 			using Resource_DX12::Create;
-			bool Create(const Device* pDevice, Texture* pTarget, Format format, uint32_t mipRegionWidth,
+			bool Create(Device* pDevice, Texture* pTarget, Format format, uint32_t mipRegionWidth,
 				uint32_t mipRegionHeight, uint32_t mipRegionDepth, ResourceFlag resourceFlags = ResourceFlag::NONE,
 				bool isCubeMap = false, MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 				uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 				TextureLayout textureLayout = TextureLayout::UNKNOWN,
 				uint32_t maxThreads = 1);
-			bool Create(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, Texture* pTarget,
+			bool Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, Texture* pTarget,
 				Format format, uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
 				ResourceFlag resourceFlags = ResourceFlag::NONE, bool isCubeMap = false,
 				const wchar_t* name = nullptr, uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 				TextureLayout textureLayout = TextureLayout::UNKNOWN,
 				uint32_t maxThreads = 1);
-			bool CreateResource(const Device* pDevice, Texture* pTarget, Format format, uint32_t mipRegionWidth,
+			bool CreateResource(Device* pDevice, Texture* pTarget, Format format, uint32_t mipRegionWidth,
 				uint32_t mipRegionHeight, uint32_t mipRegionDepth, ResourceFlag resourceFlags = ResourceFlag::NONE,
 				bool isCubeMap = false, MemoryFlag memoryFlags = MemoryFlag::NONE,
 				ResourceState initialResourceState = ResourceState::COMMON,
 				TextureLayout textureLayout = TextureLayout::UNKNOWN,
 				uint32_t maxThreads = 1);
-			bool CreateResource(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, Texture* pTarget,
+			bool CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset, Texture* pTarget,
 				Format format, uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
 				ResourceFlag resourceFlags = ResourceFlag::NONE, bool isCubeMap = false,
 				ResourceState initialResourceState = ResourceState::COMMON,

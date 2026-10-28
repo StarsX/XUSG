@@ -25,29 +25,64 @@ RayTracing::CommandList_DX12::~CommandList_DX12()
 {
 }
 
-RayTracing::CommandList_DX12::CommandList_DX12(XUSG::CommandList* pCommandList, const RayTracing::Device* pDevice)
+RayTracing::CommandList_DX12::CommandList_DX12(XUSG::CommandList* pCommandList, RayTracing::Device* pDevice)
 {
-	const auto p = dynamic_cast<XUSG::CommandList_DX12*>(pCommandList);
+	const auto p = AsDX12(pCommandList);
 	assert(p);
 
 	m_commandList = p->GetGraphicsCommandList();
 	m_pDevice = pDevice;
-	CreateInterface();
+	m_pDeviceRT = pDevice;
+	createInterface();
 }
 
-bool RayTracing::CommandList_DX12::CreateInterface()
+bool RayTracing::CommandList_DX12::Create(XUSG::Device* pDevice, uint32_t nodeMask, CommandListType type,
+	uint8_t numAllocators, CommandAllocator* const* ppAllocators, const Pipeline& pipeline, const wchar_t* name)
 {
-	if (!Ultimate::CommandList_DX12::CreateInterface()) m_commandListU = nullptr;
+	const auto pDeviceRT = dynamic_cast<Device*>(pDevice);
+	assert(pDeviceRT);
 
-	m_pDeviceRT = dynamic_cast<const RayTracing::Device*>(m_pDevice);
-	assert(m_pDeviceRT);
+	return Create(pDeviceRT, nodeMask, type, numAllocators, ppAllocators, pipeline, name);
+}
 
-	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(m_pDeviceRT->GetRTHandle());
-	XUSG_N_RETURN(pDxDevice, false);
+bool RayTracing::CommandList_DX12::Create(Device* pDevice, uint32_t nodeMask, CommandListType type,
+	uint8_t numAllocators, CommandAllocator* const* ppAllocators, const Pipeline& pipeline, const wchar_t* name)
+{
+	XUSG_N_RETURN(Ultimate::CommandList_DX12::Create(pDevice, nodeMask, type, numAllocators, ppAllocators, pipeline, name), false);
+	m_pDeviceRT = pDevice;
 
-	pDxDevice->QueryRaytracingCommandList(m_commandList.get(), IID_PPV_ARGS(&m_commandListRT));
+	return createInterface();
+}
 
-	return true;
+void RayTracing::CommandList_DX12::Create(void* pNativeHandle, Device* pDevice)
+{
+	Ultimate::CommandList_DX12::Create(pNativeHandle, pDevice);
+	m_pDeviceRT = pDevice;
+	createInterface();
+}
+
+void RayTracing::CommandList_DX12::Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers)
+{
+	if (numBarriers)
+	{
+		assert(pBarriers);
+		vector<ResourceBarrier> barriers(pBarriers, pBarriers + numBarriers);
+		for (auto& barrier : barriers)
+		{
+			if (!barrier.pResource ||
+				barrier.pResource->GetResourceState() == ResourceState::RAYTRACING_ACCELERATION_STRUCTURE)
+				continue;
+
+			if ((barrier.StateBefore & ResourceState::RAYTRACING_ACCELERATION_STRUCTURE) != ResourceState::COMMON)
+				barrier.StateBefore = (barrier.StateBefore & ~ResourceState::RAYTRACING_ACCELERATION_STRUCTURE) |
+					ResourceState::UNORDERED_ACCESS;
+			if ((barrier.StateAfter & ResourceState::RAYTRACING_ACCELERATION_STRUCTURE) != ResourceState::COMMON)
+				barrier.StateAfter = (barrier.StateAfter & ~ResourceState::RAYTRACING_ACCELERATION_STRUCTURE) |
+					ResourceState::UNORDERED_ACCESS;
+		}
+
+		XUSG::CommandList_DX12::Barrier(numBarriers, barriers.data());
+	}
 }
 
 void RayTracing::CommandList_DX12::BuildRaytracingAccelerationStructure(const BuildDesc* pDesc, uint32_t numPostbuildInfoDescs,
@@ -72,7 +107,7 @@ void RayTracing::CommandList_DX12::BuildRaytracingAccelerationStructure(const Bu
 }
 
 void RayTracing::CommandList_DX12::EmitRaytracingAccelerationStructurePostbuildInfo(const PostbuildInfo* pDesc,
-	uint32_t numAccelerationStructures, const uint64_t* pAccelerationStructureData) const
+	uint32_t numAccelerationStructures, const uint64_t* pAccelerationStructureData)
 {
 	assert(pDesc);
 	D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_DESC desc;
@@ -83,8 +118,8 @@ void RayTracing::CommandList_DX12::EmitRaytracingAccelerationStructurePostbuildI
 		numAccelerationStructures, pAccelerationStructureData);
 }
 
-void RayTracing::CommandList_DX12::CopyRaytracingAccelerationStructure(const AccelerationStructure* pDst,
-	const AccelerationStructure* pSrc, CopyMode mode, const DescriptorHeap* pDescriptorHeap)
+void RayTracing::CommandList_DX12::CopyRaytracingAccelerationStructure(AccelerationStructure* pDst,
+	AccelerationStructure* pSrc, CopyMode mode, const DescriptorHeap* pDescriptorHeap)
 {
 	// Set the descriptor heaps to be used during acceleration structure build for the Fallback Layer.
 	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(m_pDeviceRT->GetRTHandle());
@@ -157,9 +192,28 @@ void RayTracing::CommandList_DX12::DispatchRays(uint32_t width, uint32_t height,
 	m_commandListRT->DispatchRays(&dispatchDesc);
 }
 
-const RayTracing::Device* RayTracing::CommandList_DX12::GetRTDevice() const
+RayTracing::Device* RayTracing::CommandList_DX12::GetRTDevice() const
 {
 	return m_pDeviceRT;
+}
+
+void* RayTracing::CommandList_DX12::GetRTBackend()
+{
+	return this;
+}
+
+bool RayTracing::CommandList_DX12::createInterface()
+{
+	if (!Ultimate::CommandList_DX12::createInterface()) m_commandListU = nullptr;
+
+	assert(m_pDeviceRT);
+
+	const auto pDxDevice = static_cast<ID3D12RaytracingFallbackDevice*>(m_pDeviceRT->GetRTHandle());
+	XUSG_N_RETURN(pDxDevice, false);
+
+	pDxDevice->QueryRaytracingCommandList(m_commandList.get(), IID_PPV_ARGS(&m_commandListRT));
+
+	return true;
 }
 
 D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_TYPE XUSG::RayTracing::GetDXRAccelerationStructurePostbuildInfoType(
