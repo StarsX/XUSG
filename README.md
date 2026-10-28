@@ -1,11 +1,10 @@
 # XUSG
-XUSG, XU's supreme graphics lib, is a handy wrapper currently for DirectX 12. XUSG includes the following modules:
+XUSG, XU's supreme graphics lib, is a handy wrapper for DirectX 12 and Vulkan. XUSG includes the following modules:
 
-* XUSG core (XUSGCore), the wrapper of the core functions in graphics API (currently DirectX 12).
-* XUSG ray-tracing (XUSGRayTracing), the wrapper of the ray-tracing functions in graphics API, including the ray-tracing pipleine functions through [DXR fallback layer](https://github.com/Microsoft/DirectX-Graphics-Samples/tree/master/Libraries/D3D12RaytracingFallback), which supports both native DXR and compute emulation. The hardware requirement of DXR fallback layer is backward-compatible to Tier 2 (official Microsoft DXR fallback layer needs Tier 3).
-* XUSG core with ultimate extensions, the wrapper of the extension functions in graphics API (currently DirectX 12 Ultimate).
-* XUSG-EZ, DirectX 11-style wrapper of XUSG core. It exposes pipeline state machine, auto implicit barrier settings, and auto implicit descriptor table compositions.
-* XUSGRayTracing-EZ, DirectX 11-style wrapper of XUSGRayTracing. It exposes pipeline state machine, auto implicit barrier settings, auto implicit descriptor table compositions, simplified acceleration-structure building with implicit scratch-buffer allocations, and implicit shader-table creations. What's more, it supports both native and DXR-fallback path of ray tracing.
+* XUSG core (XUSGCore), the wrapper of the core functions in graphics APIs (DirectX 12 and Vulkan).
+* XUSG ray-tracing (XUSGRayTracing), the wrapper of the ray-tracing functions in graphics APIs (DirectX 12 and Vulkan), including the ray-tracing pipleine functions through [DXR fallback layer](https://github.com/Microsoft/DirectX-Graphics-Samples/tree/master/Libraries/D3D12RaytracingFallback), which supports both native DXR and compute emulation. The hardware requirement of DXR fallback layer is backward-compatible to Tier 2 (official Microsoft DXR fallback layer needs Tier 3).
+* XUSG core with ultimate extensions, the wrapper of the extension functions in graphics API (DirectX 12 Ultimate and the equivalent features/extensions in Vulkan).
+* XUSG-EZ, DirectX 11-style wrapper of XUSG core. It exposes pipeline state machine, auto implicit barrier settings, and auto implicit descriptor table compositions. For ray tracing, exposes pipeline state machine, auto implicit barrier settings, auto implicit descriptor table compositions, simplified acceleration-structure building with implicit scratch-buffer allocations, and implicit shader-table creations. What's more, it supports both native and DXR-fallback path of ray tracing.
 * XUSG machine learning, the wrapper of the machine learning functions, currently based on DirectML (DML).
 
 # Samples
@@ -51,8 +50,6 @@ https://github.com/StarsX/FluidX12
 https://github.com/StarsX/NonuniformBlur
 
 https://github.com/StarsX/SHIrradianceEZ
-
-Using XUSGRayTracing-EZ:
 
 https://github.com/StarsX/DXRVoxelizer (supporting Tier 2 hardware with DXR fallback layer)
 
