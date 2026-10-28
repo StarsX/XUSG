@@ -29,6 +29,11 @@ State_DX12::~State_DX12()
 {
 }
 
+void* State_DX12::GetBackend()
+{
+	return this;
+}
+
 void State_DX12::SetPipelineLayout(const PipelineLayout& layout)
 {
 	m_pKey->Layout = layout;
@@ -156,12 +161,12 @@ void State_DX12::SetViewInstances(uint8_t n, const ViewInstance* viewInstances, 
 	for (auto i = 0u; i < n; ++i) SetViewInstance(i, viewInstances[i]);
 }
 
-Pipeline State_DX12::CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name) const
+Pipeline State_DX12::CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name)
 {
 	return pPipelineLib->CreatePipeline(this, name);
 }
 
-Pipeline State_DX12::GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name) const
+Pipeline State_DX12::GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name)
 {
 	return pPipelineLib->GetPipeline(this, name);
 }
@@ -367,7 +372,7 @@ PipelineLib_DX12::PipelineLib_DX12() :
 	m_pfnDepthStencils[Graphics::DepthStencilPreset::STENCIL_FRONT_FAIL_INVERT] = Graphics::PipelineLib::StencilFailInvert;
 }
 
-PipelineLib_DX12::PipelineLib_DX12(const Device* pDevice) :
+PipelineLib_DX12::PipelineLib_DX12(Device* pDevice) :
 	PipelineLib_DX12()
 {
 	SetDevice(pDevice);
@@ -377,15 +382,15 @@ PipelineLib_DX12::~PipelineLib_DX12()
 {
 }
 
-void PipelineLib_DX12::SetDevice(const Device* pDevice)
+void PipelineLib_DX12::SetDevice(Device* pDevice)
 {
-	m_device = pDevice->GetHandle();
+	m_device = pDevice->GetNativeHandle();
 	assert(m_device);
 }
 
-void PipelineLib_DX12::SetPipeline(const State* pState, const Pipeline& pipeline)
+void PipelineLib_DX12::SetPipeline(State* pState, const Pipeline& pipeline)
 {
-	const auto p = dynamic_cast<const State_DX12*>(pState);
+	const auto p = AsDX12(pState);
 	assert(p);
 
 	lock_guard<mutex> lock(m_mtx);
@@ -408,9 +413,9 @@ const InputLayout* PipelineLib_DX12::CreateInputLayout(uint32_t numElements, con
 	return m_inputLayoutLib.CreateLayout(numElements, pElements);
 }
 
-Pipeline PipelineLib_DX12::CreatePipeline(const State* pState, const wchar_t* name)
+Pipeline PipelineLib_DX12::CreatePipeline(State* pState, const wchar_t* name)
 {
-	const auto p = dynamic_cast<const State_DX12*>(pState);
+	const auto p = AsDX12(pState);
 	assert(p);
 
 	lock_guard<mutex> lock(m_mtx);
@@ -418,9 +423,9 @@ Pipeline PipelineLib_DX12::CreatePipeline(const State* pState, const wchar_t* na
 	return createPipeline(p->GetKey(), name);
 }
 
-Pipeline PipelineLib_DX12::GetPipeline(const State* pState, const wchar_t* name)
+Pipeline PipelineLib_DX12::GetPipeline(State* pState, const wchar_t* name)
 {
-	const auto p = dynamic_cast<const State_DX12*>(pState);
+	const auto p = AsDX12(pState);
 	assert(p);
 
 	lock_guard<mutex> lock(m_mtx);
@@ -1279,4 +1284,10 @@ void PipelineLib_DX12::getStream(CD3DX12_PIPELINE_STATE_STREAM5* pStream, void* 
 	}
 	viewInstancing.pViewInstanceLocations = viewInstances;
 	viewInstancing.Flags = GetDX12ViewInstanceFlags(pDesc->ViewInstanceFlags);
+}
+
+State_DX12* XUSG::Ultimate::AsDX12(State* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<State_DX12*>(p ? p->GetBackend() : nullptr);
 }

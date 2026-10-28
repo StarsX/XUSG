@@ -5,7 +5,7 @@
 #pragma once
 
 #include "XUSGUltimate.h"
-#include "Core/XUSGInputLayout_DX12.h"
+#include "Core/XUSGInputLayout.h"
 
 namespace XUSG
 {
@@ -48,6 +48,7 @@ namespace XUSG
 		public:
 			State_DX12();
 			virtual ~State_DX12();
+			void* GetBackend();
 
 			void SetPipelineLayout(const PipelineLayout& layout);
 			void SetShaderLibrary(uint8_t index, const Blob& shaderLib);
@@ -124,18 +125,18 @@ namespace XUSG
 		{
 		public:
 			PipelineLib_DX12();
-			PipelineLib_DX12(const Device* pDevice);
+			PipelineLib_DX12(Device* pDevice);
 			virtual ~PipelineLib_DX12();
 
-			void SetDevice(const Device* pDevice);
-			void SetPipeline(const State* pState, const Pipeline& pipeline);
+			void SetDevice(Device* pDevice);
+			void SetPipeline(State* pState, const Pipeline& pipeline);
 
 			void SetInputLayout(uint32_t index, uint32_t numElements, const InputElement* pElements);
 			const InputLayout* GetInputLayout(uint32_t index);
 			const InputLayout* CreateInputLayout(uint32_t numElements, const InputElement* pElements);
 
-			Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr);
-			Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr);
+			Pipeline CreatePipeline(State* pState, const wchar_t* name = nullptr);
+			Pipeline GetPipeline(State* pState, const wchar_t* name = nullptr);
 
 			ProgramIdentifier GetProgramIdentifier(const Pipeline& stateObject, const wchar_t* programName) const;
 
@@ -149,7 +150,7 @@ namespace XUSG
 
 			com_ptr<ID3D12Device> m_device;
 
-			InputLayoutLib_DX12 m_inputLayoutLib;
+			InputLayoutLib_Impl m_inputLayoutLib;
 
 			std::unordered_map<std::string, com_ptr<ID3D12StateObject>> m_stateObjects;
 			std::unique_ptr<Blend>			m_blends[Graphics::NUM_BLEND_PRESET];
@@ -162,5 +163,7 @@ namespace XUSG
 
 			std::mutex m_mtx;
 		};
+
+		State_DX12* AsDX12(State* p);
 	}
 }

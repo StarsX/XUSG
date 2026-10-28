@@ -129,6 +129,11 @@ uint32_t State_DX12::GetNumHitGroups()
 	return m_pKeyHeader->NumHitGroups;
 }
 
+void* State_DX12::GetBackend()
+{
+	return this;
+}
+
 void State_DX12::serialize()
 {
 	m_pKeyHeader->NumShaderLibs = static_cast<uint32_t>(m_keyShaderLibs.size());
@@ -200,7 +205,7 @@ PipelineLib_DX12::PipelineLib_DX12() :
 {
 }
 
-PipelineLib_DX12::PipelineLib_DX12(const RayTracing::Device* pDevice) :
+PipelineLib_DX12::PipelineLib_DX12(RayTracing::Device* pDevice) :
 	PipelineLib()
 {
 	SetDevice(pDevice);
@@ -210,7 +215,7 @@ PipelineLib_DX12::~PipelineLib_DX12()
 {
 }
 
-void PipelineLib_DX12::SetDevice(const RayTracing::Device* pDevice)
+void PipelineLib_DX12::SetDevice(RayTracing::Device* pDevice)
 {
 	m_device = static_cast<ID3D12RaytracingFallbackDevice*>(pDevice->GetRTHandle());
 	assert(m_device);
@@ -218,7 +223,7 @@ void PipelineLib_DX12::SetDevice(const RayTracing::Device* pDevice)
 
 void PipelineLib_DX12::SetPipeline(State* pState, const Pipeline& pipeline)
 {
-	const auto p = dynamic_cast<State_DX12*>(pState);
+	const auto p = AsDX12(pState);
 	assert(p);
 
 	lock_guard<mutex> lock(m_mtx);
@@ -228,7 +233,7 @@ void PipelineLib_DX12::SetPipeline(State* pState, const Pipeline& pipeline)
 
 Pipeline PipelineLib_DX12::CreatePipeline(State* pState, const wchar_t* name)
 {
-	const auto p = dynamic_cast<State_DX12*>(pState);
+	const auto p = AsDX12(pState);
 	assert(p);
 
 	lock_guard<mutex> lock(m_mtx);
@@ -238,7 +243,7 @@ Pipeline PipelineLib_DX12::CreatePipeline(State* pState, const wchar_t* name)
 
 Pipeline PipelineLib_DX12::GetPipeline(State* pState, const wchar_t* name)
 {
-	const auto p = dynamic_cast<State_DX12*>(pState);
+	const auto p = AsDX12(pState);
 	assert(p);
 
 	lock_guard<mutex> lock(m_mtx);
@@ -366,4 +371,10 @@ com_ptr<ID3D12RaytracingFallbackStateObject> PipelineLib_DX12::getStateObject(co
 	if (pStateObject == m_stateObjects.end()) return createStateObject(key, name);
 
 	return pStateObject->second;
+}
+
+State_DX12* XUSG::RayTracing::AsDX12(State* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<State_DX12*>(p ? p->GetBackend() : nullptr);
 }

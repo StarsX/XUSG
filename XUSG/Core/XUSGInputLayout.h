@@ -8,11 +8,11 @@
 
 namespace XUSG
 {
-	class InputLayoutLib_DX12
+	class InputLayoutLib_Impl
 	{
 	public:
-		InputLayoutLib_DX12();
-		virtual ~InputLayoutLib_DX12();
+		InputLayoutLib_Impl();
+		virtual ~InputLayoutLib_Impl();
 
 		void SetLayout(uint32_t index, uint32_t numElements, const InputElement* pElements);
 

@@ -2,6 +2,7 @@
 // Copyright (c) XU, Tianchen. All rights reserved.
 //--------------------------------------------------------------------------------------
 
+#include "XUSGAdvanced.h"
 #include "SHMath.hlsli"
 #include "CubeMap.hlsli"
 #include "CSWaveOP.hlsli"
@@ -9,7 +10,8 @@
 //--------------------------------------------------------------------------------------
 // Constant buffer
 //--------------------------------------------------------------------------------------
-cbuffer cb
+XUSG_VK_BINDING(0, XUSG_VK_SPACE_CBV)
+cbuffer cb : register(b0)
 {
 	uint g_order;
 	uint g_mapSize;
@@ -18,14 +20,18 @@ cbuffer cb
 //--------------------------------------------------------------------------------------
 // Buffers and texture
 //--------------------------------------------------------------------------------------
-RWStructuredBuffer<float3> g_rwSHBuff;
-RWStructuredBuffer<float> g_rwWeight;
-TextureCube<float3> g_txCubeMap;
+XUSG_VK_BINDING(0, XUSG_VK_SPACE_UAV)
+RWStructuredBuffer<float4>	g_rwSHBuff	: register(u0);
+XUSG_VK_BINDING(1, XUSG_VK_SPACE_UAV)
+RWStructuredBuffer<float>	g_rwWeight	: register(u1);
+XUSG_VK_BINDING(0, XUSG_VK_SPACE_SRV)
+TextureCube<float3>			g_txCubeMap	: register(t0);
 
 //--------------------------------------------------------------------------------------
 // Texture sampler
 //--------------------------------------------------------------------------------------
-SamplerState g_sampler;
+XUSG_VK_BINDING(0, XUSG_VK_SPACE_SAMPLER)
+SamplerState				g_sampler	: register(s0);
 
 //--------------------------------------------------------------------------------------
 // Compute shader that performs spherical-harmonics transform from a cube map
@@ -91,6 +97,6 @@ void main(uint DTid : SV_DispatchThreadID, uint GTid : SV_GroupThreadID, uint Gi
 			sh = WaveLanesSum(GTid, sh);
 		}
 #endif
-		if (GTid == 0) g_rwSHBuff[GetLocation(n, uint2(Gid, i))] = sh;
+		if (GTid == 0) g_rwSHBuff[GetLocation(n, uint2(Gid, i))] = float4(sh, 0.0);
 	}
 }

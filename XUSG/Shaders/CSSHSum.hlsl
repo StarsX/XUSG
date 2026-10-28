@@ -2,13 +2,15 @@
 // Copyright (c) XU, Tianchen. All rights reserved.
 //--------------------------------------------------------------------------------------
 
+#include "XUSGAdvanced.h"
 #include "SHMath.hlsli"
 #include "CSWaveOP.hlsli"
 
 //--------------------------------------------------------------------------------------
 // Constant buffer
 //--------------------------------------------------------------------------------------
-cbuffer cb
+XUSG_VK_BINDING(0, XUSG_VK_SPACE_CBV)
+cbuffer cb : register(b0)
 {
 	uint g_order;
 	uint g_pixelCount;
@@ -17,10 +19,14 @@ cbuffer cb
 //--------------------------------------------------------------------------------------
 // Buffers
 //--------------------------------------------------------------------------------------
-RWStructuredBuffer<float3> g_rwSHBuff;
-RWStructuredBuffer<float> g_rwWeight;
-StructuredBuffer<float3> g_roSHBuff;
-StructuredBuffer<float> g_roWeight;
+XUSG_VK_BINDING(0, XUSG_VK_SPACE_UAV)
+RWStructuredBuffer<float4>	g_rwSHBuff	: register(u0);
+XUSG_VK_BINDING(1, XUSG_VK_SPACE_UAV)
+RWStructuredBuffer<float>	g_rwWeight	: register(u1);
+XUSG_VK_BINDING(0, XUSG_VK_SPACE_SRV)
+StructuredBuffer<float4>	g_roSHBuff	: register(t0);
+XUSG_VK_BINDING(1, XUSG_VK_SPACE_SRV)
+StructuredBuffer<float>		g_roWeight	: register(t1);
 
 //--------------------------------------------------------------------------------------
 // Compute shader that performs group reduction of sum
@@ -33,7 +39,7 @@ void main(uint2 DTid : SV_DispatchThreadID, uint GTid : SV_GroupThreadID, uint2 
 
 	if (DTid.x < g_pixelCount)
 	{
-		sh.xyz = g_roSHBuff[GetLocation(n, DTid)];
+		sh.xyz = g_roSHBuff[GetLocation(n, DTid)].xyz;
 		if (Gid.y == 0) sh.w = g_roWeight[DTid.x];
 	}
 
@@ -53,7 +59,7 @@ void main(uint2 DTid : SV_DispatchThreadID, uint GTid : SV_GroupThreadID, uint2 
 
 	if (GTid == 0)
 	{
-		g_rwSHBuff[GetLocation(n, Gid)] = sh.xyz;
+		g_rwSHBuff[GetLocation(n, Gid)] = float4(sh.xyz, 0.0);
 		if (Gid.y == 0) g_rwWeight[Gid.x] = sh.w;
 	}
 }

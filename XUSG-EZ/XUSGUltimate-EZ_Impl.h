@@ -5,6 +5,11 @@
 #pragma once
 
 #include "XUSGUltimate-EZ.h"
+#include "XUSG-EZ_Impl.h"
+#include "Ultimate/XUSGUltimate_DX12.h"
+#ifndef XUSG_NO_VULKAN
+#include "Ultimate/XUSGUltimate_VK.h"
+#endif
 
 namespace XUSG
 {
@@ -12,74 +17,80 @@ namespace XUSG
 	{
 		namespace EZ
 		{
-			class CommandList_DX12 :
+			template<typename CoreList, typename UltimateList>
+			class CommandList_Impl :
 				virtual public CommandList,
-				virtual public Ultimate::CommandList_DX12,
-				virtual public XUSG::EZ::CommandList_DX12
+				virtual public UltimateList,
+				virtual public XUSG::EZ::CommandList_Impl<CoreList>
 			{
 			public:
-				CommandList_DX12();
-				CommandList_DX12(Ultimate::CommandList* pCommandList,
+				CommandList_Impl();
+				CommandList_Impl(Ultimate::CommandList* pCommandList,
 					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
+					const uint32_t samplerStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t cbvStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t srvStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t uavStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
-				virtual ~CommandList_DX12();
+				virtual ~CommandList_Impl();
 
 				bool Create(Ultimate::CommandList* pCommandList,
 					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
+					const uint32_t samplerStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t cbvStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t srvStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t uavStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
-				bool Create(const Device* pDevice, void* pHandle,
+				bool Create(Device* pDevice, void* pNativeHandle,
 					uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
+					const uint32_t samplerStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t cbvStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t srvStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+					const uint32_t uavStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
-					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE,
-					const wchar_t* name = nullptr);
+					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
 
-				void SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions) const
-				{
-					Ultimate::CommandList_DX12::SetSamplePositions(numSamplesPerPixel, numPixels, pPositions);
-				}
+				void SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions) const;
 
 				void ResolveSubresourceRegion(Resource* pDstResource, uint32_t dstSubresource,
 					uint32_t dstX, uint32_t dstY, Resource* pSrcResource, uint32_t srcSubresource,
 					const RectRange& srcRect, Format format, ResolveMode resolveMode);
 
-				void RSSetShadingRate(ShadingRate baseShadingRate, const ShadingRateCombiner* pCombiners) const
-				{
-					Ultimate::CommandList_DX12::RSSetShadingRate(baseShadingRate, pCombiners);
-				}
+				void RSSetShadingRate(ShadingRate baseShadingRate, const ShadingRateCombiner* pCombiners) const;
 
 				void RSSetShadingRateImage(Resource* pShadingRateImage);
 
-				using XUSG::EZ::CommandList_DX12::SetGraphicsPipelineState;
-				void SetGraphicsPipelineState(const Pipeline& pipelineState, const State* pState = nullptr);
+				using XUSG::EZ::CommandList_Impl<CoreList>::SetGraphicsPipelineState;
+				void SetGraphicsPipelineState(const Pipeline& pipelineState, State* pState = nullptr);
 				void OMSetBlendState(const Graphics::Blend* pBlend, uint32_t sampleMask = UINT_MAX);
 				void OMSetBlendState(Graphics::BlendPreset preset, uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX);
 				void OMSetSample(uint8_t count, uint8_t quality = 0);
@@ -91,7 +102,7 @@ namespace XUSG
 				void MSSetGraphicsShader(Shader::Stage stage, const Blob& shader);
 				void SetGraphicsNodeMask(uint32_t nodeMask);
 				void DispatchMesh(uint32_t ThreadGroupCountX, uint32_t ThreadGroupCountY, uint32_t ThreadGroupCountZ);
-				void DispatchMeshIndirect(const CommandLayout* pCommandlayout,
+				void DispatchMeshIndirect(CommandLayout* pCommandlayout,
 					uint32_t maxCommandCount,
 					Resource* pArgumentBuffer,
 					uint64_t argumentBufferOffset = 0,
@@ -149,6 +160,47 @@ namespace XUSG
 					std::unordered_map<const wchar_t*, std::vector<uint32_t>> NodeIndices;
 				};
 
+				virtual bool adoptUltimate(Ultimate::CommandList* pCommandList) = 0;
+				virtual bool hasMeshShader() const = 0;
+				virtual bool hasWorkGraph() const = 0;
+
+				using CoreEZ = XUSG::EZ::CommandList_Impl<CoreList>;
+				using CoreEZ::CbvSrvUavTypes;
+				using CoreEZ::createGraphicsPipelineLayouts;
+				using CoreEZ::createComputePipelineLayouts;
+				using CoreEZ::predraw;
+				using CoreEZ::predispatch;
+				using CoreEZ::preexecuteIndirect;
+				using CoreEZ::clearDSVs;
+				using CoreEZ::clearRTVs;
+				using CoreEZ::clearUAVs;
+				using CoreEZ::setBarriers;
+				using CoreEZ::m_graphicsPipelineLib;
+				using CoreEZ::m_computePipelineLib;
+				using CoreEZ::m_pipelineLayoutLib;
+				using CoreEZ::m_descriptorTableLib;
+				using CoreEZ::m_pipelineLayouts;
+				using CoreEZ::m_pipeline;
+				using CoreEZ::m_graphicsState;
+				using CoreEZ::m_computeState;
+				using CoreEZ::m_isGraphicsDirty;
+				using CoreEZ::m_isComputeDirty;
+				using CoreEZ::m_cbvSrvUavTables;
+				using CoreEZ::m_samplerTables;
+				using CoreEZ::m_barriers;
+				using CoreEZ::m_graphicsSpaceToParamIndexMap;
+				using CoreEZ::m_computeSpaceToParamIndexMap;
+				using CoreEZ::m_spaceStarts;
+				using CoreEZ::recordSpaceStarts;
+				using CoreEZ::spaceStart;
+				using CoreEZ::m_graphicsSetDescriptorTables;
+				using CoreEZ::m_graphicsSetSingle32BitConstants;
+				using CoreEZ::m_graphicsSet32BitConstants;
+				using CoreEZ::COMPUTE;
+				using CoreEZ::m_graphicsConstantParamIndices;
+				using CoreEZ::m_computeConstantParamIndex;
+				using CoreList::m_pDevice;
+
 				bool init(Ultimate::CommandList* pCommandList, uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize);
 				bool createMeshShaderPipelineLayouts(
 					const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
@@ -172,13 +224,15 @@ namespace XUSG
 
 				PipelineLib::uptr		m_meshShaderPipelineLib;
 				WorkGraph::PipelineLib::uptr m_workGraphPipelineLib;
+				State::uptr				m_meshShaderState;
+				WorkGraph::State::uptr  m_workGraphState;
 
 				XUSG::PipelineLayout	m_pipelineLayout;
 
-				State::uptr				m_meshShaderState;
-				WorkGraph::State::uptr  m_workGraphState;
 				std::wstring			m_workGraphName;
+
 				const WorkGraphProperty* m_workGraphProperty;
+
 				bool					m_isWGStateDirty;
 
 				std::unordered_map<Pipeline, std::vector<WorkGraphProperty>> m_workGraphProperties;
@@ -187,6 +241,39 @@ namespace XUSG
 
 				uint32_t m_meshShaderConstantParamIndices[NUM_STAGE];
 			};
+
+			extern template class CommandList_Impl<XUSG::CommandList_DX12, Ultimate::CommandList_DX12>;
+#ifndef XUSG_NO_VULKAN
+			extern template class CommandList_Impl<XUSG::CommandList_VK, Ultimate::CommandList_VK>;
+#endif
+
+			class CommandList_DX12 :
+				public virtual CommandList_Impl<XUSG::CommandList_DX12, Ultimate::CommandList_DX12>,
+				public virtual XUSG::EZ::CommandList_DX12
+			{
+			public:
+				using CommandList_Impl<XUSG::CommandList_DX12, Ultimate::CommandList_DX12>::CommandList_Impl;
+
+			protected:
+				bool adoptUltimate(Ultimate::CommandList* pCommandList);
+				bool hasMeshShader() const;
+				bool hasWorkGraph() const;
+			};
+
+#ifndef XUSG_NO_VULKAN
+			class CommandList_VK :
+				public virtual CommandList_Impl<XUSG::CommandList_VK, Ultimate::CommandList_VK>,
+				public virtual XUSG::EZ::CommandList_VK
+			{
+			public:
+				using CommandList_Impl<XUSG::CommandList_VK, Ultimate::CommandList_VK>::CommandList_Impl;
+
+			protected:
+				bool adoptUltimate(Ultimate::CommandList* pCommandList);
+				bool hasMeshShader() const;
+				bool hasWorkGraph() const;
+			};
+#endif
 		}
 	}
 }

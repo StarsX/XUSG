@@ -5,63 +5,79 @@
 #pragma once
 
 #include "XUSG-EZ.h"
+#include "Core/XUSGCommand_DX12.h"
+#ifndef XUSG_NO_VULKAN
+#include "Core/XUSGCommand_VK.h"
+#endif
 
 namespace XUSG
 {
 	namespace EZ
 	{
-		class CommandList_DX12 :
+		template<typename Base>
+		class CommandList_Impl :
 			public virtual CommandList,
-			public virtual XUSG::CommandList_DX12
+			public virtual Base
 		{
 		public:
-			CommandList_DX12();
-			CommandList_DX12(XUSG::CommandList* pCommandList,
+			CommandList_Impl();
+			CommandList_Impl(XUSG::CommandList* pCommandList,
 				uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
+				const uint32_t samplerStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t cbvStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t srvStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t uavStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
-			virtual ~CommandList_DX12();
+			virtual ~CommandList_Impl();
 
 			bool Create(XUSG::CommandList* pCommandList,
 				uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
+				const uint32_t samplerStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t cbvStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t srvStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t uavStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
-			bool Create(const Device* pDevice, void* pHandle,
+			bool Create(Device* pDevice, void* pNativeHandle,
 				uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
+				const uint32_t samplerStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxSamplers[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t cbvStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t srvStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE] = nullptr,
+				const uint32_t uavStartSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
 				const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
-				uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE,
-				const wchar_t* name = nullptr);
+				uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
 			bool Close(RenderTarget* pBackBuffer = nullptr);
-			bool Reset(const CommandAllocator* pAllocator, const Pipeline& initialState);
+			bool Reset(uint8_t allocatorIndex, const Pipeline& initialState);
 
-			void ClearState(const Pipeline& initialState) const { XUSG::CommandList_DX12::ClearState(initialState); }
+			void ClearState(const Pipeline& initialState) const;
 			void Draw(
 				uint32_t vertexCountPerInstance,
 				uint32_t instanceCount,
@@ -73,7 +89,7 @@ namespace XUSG
 				uint32_t startIndexLocation,
 				int32_t baseVertexLocation,
 				uint32_t startInstanceLocation);
-			void DrawIndirect(const CommandLayout* pCommandlayout,
+			void DrawIndirect(CommandLayout* pCommandlayout,
 				uint32_t maxCommandCount,
 				Resource* pArgumentBuffer,
 				uint64_t argumentBufferOffset = 0,
@@ -83,7 +99,7 @@ namespace XUSG
 				uint32_t threadGroupCountX,
 				uint32_t threadGroupCountY,
 				uint32_t threadGroupCountZ);
-			void DispatchIndirect(const CommandLayout* pCommandlayout,
+			void DispatchIndirect(CommandLayout* pCommandlayout,
 				uint32_t maxCommandCount,
 				Resource* pArgumentBuffer,
 				uint64_t argumentBufferOffset = 0,
@@ -95,7 +111,7 @@ namespace XUSG
 				TextureCopyLocation& src, const BoxRange* pSrcBox = nullptr);
 			void CopyResource(Resource* pDstResource, Resource* pSrcResource);
 			void CopyTiles(Resource* pTiledResource, const TiledResourceCoord* pTileRegionStartCoord,
-				const TileRegionSize& tileRegionSize, const Resource* pBuffer, uint64_t bufferStartOffsetInBytes,
+				const TileRegionSize& tileRegionSize, Resource* pBuffer, uint64_t bufferStartOffsetInBytes,
 				TileCopyFlag flags = TileCopyFlag::NONE);
 			void ResolveSubresource(Resource* pDstResource, uint32_t dstSubresource,
 				Resource* pSrcResource, uint32_t srcSubresource, Format format);
@@ -103,20 +119,13 @@ namespace XUSG
 			void IASetIndexBufferStripCutValue(IBStripCutValue ibStripCutValue);
 			void RSSetState(const Graphics::Rasterizer* pRasterizer);
 			void RSSetState(Graphics::RasterizerPreset preset);
-			void RSSetViewports(uint32_t numViewports, const Viewport* pViewports) const
-			{
-				XUSG::CommandList_DX12::RSSetViewports(numViewports, pViewports);
-			}
-
-			void RSSetScissorRects(uint32_t numRects, const RectRange* pRects) const
-			{
-				XUSG::CommandList_DX12::RSSetScissorRects(numRects, pRects);
-			}
+			void RSSetViewports(uint32_t numViewports, const Viewport* pViewports) const;
+			void RSSetScissorRects(uint32_t numRects, const RectRange* pRects) const;
 
 			void OMSetBlendState(const Graphics::Blend* pBlend, uint32_t sampleMask = UINT_MAX);
 			void OMSetBlendState(Graphics::BlendPreset preset, uint8_t numColorRTs = 1, uint32_t sampleMask = UINT_MAX);
-			void OMSetBlendFactor(const float blendFactor[4]) const { XUSG::CommandList_DX12::OMSetBlendFactor(blendFactor); }
-			void OMSetStencilRef(uint32_t stencilRef) const { XUSG::CommandList_DX12::OMSetStencilRef(stencilRef); }
+			void OMSetBlendFactor(const float blendFactor[4]) const;
+			void OMSetStencilRef(uint32_t stencilRef) const;
 			void OMSetSample(uint8_t count, uint8_t quality = 0);
 			void DSSetState(const Graphics::DepthStencil* pDepthStencil);
 			void DSSetState(Graphics::DepthStencilPreset preset);
@@ -124,19 +133,19 @@ namespace XUSG
 			void SetGraphicsNodeMask(uint32_t nodeMask);
 			void SetComputeShader(const Blob& shader);
 			void SetComputeNodeMask(uint32_t nodeMask);
-			void SetGraphicsPipelineState(const Pipeline& pipelineState, const Graphics::State* pState = nullptr);
-			void SetComputePipelineState(const Pipeline& pipelineState, const Compute::State* pState = nullptr);
-			void ExecuteBundle(const XUSG::CommandList* pCommandList) const { XUSG::CommandList_DX12::ExecuteBundle(pCommandList); }
+			void SetGraphicsPipelineState(const Pipeline& pipelineState, Graphics::State* pState = nullptr);
+			void SetComputePipelineState(const Pipeline& pipelineState, Compute::State* pState = nullptr);
+			void ExecuteBundle(XUSG::CommandList* pCommandList) const;
 			void SetSamplers(Shader::Stage stage, uint32_t startBinding, uint32_t numSamplers, const Sampler* const* ppSamplers);
 			void SetSamplerStates(Shader::Stage stage, uint32_t startBinding, uint32_t numSamplers, const SamplerPreset* pSamplerPresets);
 			void SetResources(Shader::Stage stage, DescriptorType descriptorType, uint32_t startBinding,
 				uint32_t numResources, const ResourceView* pResourceViews, uint32_t space = 0);
 			void SetGraphicsDescriptorTable(Shader::Stage stage, DescriptorType descriptorType, const DescriptorTable& descriptorTable, uint32_t space);
-			void SetComputeDescriptorTable(DescriptorType descriptorType, const DescriptorTable& descriptorTable, uint32_t space);
+			void SetComputeDescriptorTable(DescriptorType descriptorType, const DescriptorTable& descriptorTable, uint32_t space) const;
 			void SetGraphics32BitConstant(Shader::Stage stage, uint32_t srcData, uint32_t destOffsetIn32BitValues = 0);
-			void SetCompute32BitConstant(uint32_t srcData, uint32_t destOffsetIn32BitValues = 0);
+			void SetCompute32BitConstant(uint32_t srcData, uint32_t destOffsetIn32BitValues = 0) const;
 			void SetGraphics32BitConstants(Shader::Stage stage, uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues = 0);
-			void SetCompute32BitConstants(uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues = 0);
+			void SetCompute32BitConstants(uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues = 0) const;
 			void IASetPrimitiveTopology(PrimitiveTopology primitiveTopology);
 			void IASetIndexBuffer(const IndexBufferView& view);
 			void IASetVertexBuffers(uint32_t startSlot, uint32_t numViews, const VertexBufferView* pViews);
@@ -153,46 +162,16 @@ namespace XUSG
 				uint32_t numRects = 0, const RectRange* pRects = nullptr);
 			void ClearUnorderedAccessViewFloat(const ResourceView& unorderedAccessView, const float values[4],
 				uint32_t numRects = 0, const RectRange* pRects = nullptr);
-			void DiscardResource(const Resource* pResource, uint32_t numRects, const RectRange* pRects,
-				uint32_t firstSubresource, uint32_t numSubresources)
-			{
-				XUSG::CommandList_DX12::DiscardResource(pResource, numRects,
-					pRects, firstSubresource, numSubresources);
-			}
-
-			void BeginQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const
-			{
-				XUSG::CommandList_DX12::BeginQuery(queryHeap, type, index);
-			}
-
-			void EndQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const
-			{
-				XUSG::CommandList_DX12::EndQuery(queryHeap, type, index);
-			}
-
+			void DiscardResource(Resource* pResource, uint32_t numRects, const RectRange* pRects,
+				uint32_t firstSubresource, uint32_t numSubresources);
+			void BeginQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const;
+			void EndQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const;
 			void ResolveQueryData(const QueryHeap& queryHeap, QueryType type, uint32_t startIndex,
-				uint32_t numQueries, const Resource* pDstBuffer, uint64_t alignedDstBufferOffset) const
-			{
-				XUSG::CommandList_DX12::ResolveQueryData(queryHeap, type, startIndex,
-					numQueries, pDstBuffer, alignedDstBufferOffset);
-			}
-
-			void SetPredication(const Resource* pBuffer, uint64_t alignedBufferOffset, bool opEqualZero) const
-			{
-				XUSG::CommandList_DX12::SetPredication(pBuffer, alignedBufferOffset, opEqualZero);
-			}
-
-			void SetMarker(uint32_t metaData, const void* pData, uint32_t size) const
-			{
-				XUSG::CommandList_DX12::SetMarker(metaData, pData, size);
-			}
-
-			void BeginEvent(uint32_t metaData, const void* pData, uint32_t size) const
-			{
-				XUSG::CommandList_DX12::BeginEvent(metaData, pData, size);
-			}
-
-			void EndEvent() { XUSG::CommandList_DX12::EndEvent(); }
+				uint32_t numQueries, Resource* pDstBuffer, uint64_t alignedDstBufferOffset) const;
+			void SetPredication(Resource* pBuffer, uint64_t alignedBufferOffset, bool opEqualZero) const;
+			void SetMarker(uint32_t metaData, const void* pData, uint32_t size) const;
+			void BeginEvent(uint32_t metaData, const void* pData, uint32_t size) const;
+			void EndEvent() const;
 
 			// For resize window
 			void Resize();
@@ -217,10 +196,11 @@ namespace XUSG
 			uint32_t GetGraphicsConstantParamIndex(Shader::Stage stage) const;
 			uint32_t GetComputeConstantParamIndex() const;
 
-			void* GetHandle() const { return XUSG::CommandList_DX12::GetHandle(); }
-			void* GetDeviceHandle() const { return XUSG::CommandList_DX12::GetDeviceHandle(); }
+			void* GetNativeHandle();
+			void* GetDeviceNativeHandle() const;
+			void* GetBackend();
 
-			const Device* GetDevice() const { return XUSG::CommandList_DX12::GetDevice(); }
+			Device* GetDevice() const;
 			XUSG::CommandList* AsCommandList();
 
 		protected:
@@ -299,6 +279,8 @@ namespace XUSG
 
 			static const uint8_t CbvSrvUavTypes = 3;
 
+			virtual bool adopt(XUSG::CommandList* pCommandList) = 0;
+
 			bool init(XUSG::CommandList* pCommandList, uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize);
 			bool createGraphicsPipelineLayouts(
 				const uint32_t maxSamplers[Shader::Stage::NUM_GRAPHICS],
@@ -318,6 +300,19 @@ namespace XUSG
 				uint32_t max32BitConstants, uint32_t constantSlot, uint32_t constantSpace,
 				uint32_t slotExt, uint32_t spaceExt);
 			bool createShaders();
+			bool createBlitPipelineLayout();
+			void recordSpaceStarts(
+				const uint32_t cbvStartSpaces[Shader::Stage::NUM_STAGE],
+				const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
+				const uint32_t srvStartSpaces[Shader::Stage::NUM_STAGE],
+				const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
+				const uint32_t uavStartSpaces[Shader::Stage::NUM_STAGE],
+				const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
+				const uint32_t samplerStartSpaces[Shader::Stage::NUM_STAGE]);
+			uint32_t spaceStart(Shader::Stage stage, DescriptorType type) const;
+			void flushClears(const Resource* pResource);
+			void dispatchBlit(const Blob& shader, SamplerPreset sampler, const ResourceView& srv,
+				const ResourceView& uav, uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ);
 
 			void predraw();
 			void predispatch();
@@ -325,49 +320,76 @@ namespace XUSG
 			void clearDSVs();
 			void clearRTVs();
 			void clearUAVs();
-			void setBarriers(uint32_t numResources, const ResourceView* pResourceViews);
+			void setBarriers(uint32_t numResources, const ResourceView* pResourceViews,
+				ResourceState state = ResourceState::COMMON);
 
 			static uint32_t generateBarriers(ResourceBarrier* pBarriers, const ResourceView& resrouceView,
-				uint32_t numBarriers = 0, BarrierFlag flags = BarrierFlag::NONE);
+				uint32_t numBarriers = 0, BarrierFlag flags = BarrierFlag::NONE,
+				ResourceState state = ResourceState::COMMON);
 
 			ShaderLib::uptr m_shaderLib;
 			Graphics::PipelineLib::uptr	m_graphicsPipelineLib;
 			Compute::PipelineLib::uptr	m_computePipelineLib;
 			PipelineLayoutLib::uptr		m_pipelineLayoutLib;
 			DescriptorTableLib::uptr	m_descriptorTableLib;
+			Graphics::State::uptr		m_graphicsState;
+			Compute::State::uptr		m_computeState;
+			Util::DescriptorTable::uptr	m_samplerTables[Shader::Stage::NUM_STAGE];
 
 			const XUSG::InputLayout* m_pInputLayout;
 			XUSG::PipelineLayout m_pipelineLayouts[NUM_PIPELINE_LAYOUT];
+			XUSG::PipelineLayout m_blitPipelineLayout;
 			XUSG::Pipeline m_pipeline;
-
-			Graphics::State::uptr m_graphicsState;
-			Compute::State::uptr m_computeState;
 
 			bool m_isGraphicsDirty;
 			bool m_isComputeDirty;
 
 			std::vector<Descriptor> m_descriptors;
 			std::vector<Util::DescriptorTable::uptr> m_cbvSrvUavTables[Shader::Stage::NUM_STAGE][CbvSrvUavTypes];
-			Util::DescriptorTable::uptr m_samplerTables[Shader::Stage::NUM_STAGE];
-
 			std::vector<ResourceBarrier> m_barriers;
 			std::vector<ClearDSV> m_clearDSVs;
 			std::vector<ClearRTV> m_clearRTVs;
 			std::vector<ClearUAVUint> m_clearUAVsUint;
 			std::vector<ClearUAVFloat> m_clearUAVsFloat;
 			std::vector<ResourceView> m_clearUAVs;
-
 			std::vector<uint32_t> m_graphicsSpaceToParamIndexMap[Shader::Stage::NUM_GRAPHICS][CbvSrvUavTypes];
 			std::vector<uint32_t> m_computeSpaceToParamIndexMap[CbvSrvUavTypes];
-
 			std::vector<SetDescriptorTable> m_graphicsSetDescriptorTables;
 			std::vector<Set32BitConstant> m_graphicsSetSingle32BitConstants;
 			std::vector<Set32BitConstants> m_graphicsSet32BitConstants;
 
+			uint32_t m_spaceStarts[Shader::Stage::NUM_STAGE][static_cast<uint32_t>(DescriptorType::SAMPLER) + 1];
 			uint32_t m_graphicsConstantParamIndices[Shader::Stage::NUM_GRAPHICS];
 			uint32_t m_computeConstantParamIndex;
 
 			Blob m_shaders[NUM_SHADER];
 		};
+
+		extern template class CommandList_Impl<XUSG::CommandList_DX12>;
+#ifndef XUSG_NO_VULKAN
+		extern template class CommandList_Impl<XUSG::CommandList_VK>;
+#endif
+
+		class CommandList_DX12 :
+			public virtual CommandList_Impl<XUSG::CommandList_DX12>
+		{
+		public:
+			using CommandList_Impl<XUSG::CommandList_DX12>::CommandList_Impl;
+
+		protected:
+			bool adopt(XUSG::CommandList* pCommandList);
+		};
+
+#ifndef XUSG_NO_VULKAN
+		class CommandList_VK :
+			public virtual CommandList_Impl<XUSG::CommandList_VK>
+		{
+		public:
+			using CommandList_Impl<XUSG::CommandList_VK>::CommandList_Impl;
+
+		protected:
+			bool adopt(XUSG::CommandList* pCommandList);
+		};
+#endif
 	}
 }

@@ -189,7 +189,7 @@ namespace XUSG
 			BarrierAccess AccessAfter;
 			BarrierLayout LayoutBefore;
 			BarrierLayout LayoutAfter;
-			const Resource* pResource;
+			Resource* pResource;
 			union
 			{
 				struct
@@ -282,26 +282,24 @@ namespace XUSG
 			//CommandList();
 			virtual ~CommandList() {};
 
-			virtual bool CreateInterface() = 0;
-
 			using XUSG::CommandList::Barrier;
 			virtual void Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups) = 0;
 			virtual void Barrier(uint32_t numBufferBarriers, ResourceBarrier* pBufferBarriers,
 				uint32_t numTextureBarriers, ResourceBarrier* pTextureBarriers,
 				uint32_t numGlobalBarriers, ResourceBarrier* pGlobalBarriers) = 0;
 			virtual void SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions) const = 0;
-			virtual void ResolveSubresourceRegion(const Resource* pDstResource, uint32_t dstSubresource,
-				uint32_t dstX, uint32_t dstY, const Resource* pSrcResource, uint32_t srcSubresource,
+			virtual void ResolveSubresourceRegion(Resource* pDstResource, uint32_t dstSubresource,
+				uint32_t dstX, uint32_t dstY, Resource* pSrcResource, uint32_t srcSubresource,
 				const RectRange& srcRect, Format format, ResolveMode resolveMode) const = 0;
 
 			virtual void RSSetShadingRate(ShadingRate baseShadingRate, const ShadingRateCombiner* pCombiners) const = 0;
-			virtual void RSSetShadingRateImage(const Resource* pShadingRateImage) const = 0;
+			virtual void RSSetShadingRateImage(Resource* pShadingRateImage) const = 0;
 			virtual void DispatchMesh(
 				uint32_t ThreadGroupCountX,
 				uint32_t ThreadGroupCountY,
 				uint32_t ThreadGroupCountZ) const = 0;
 
-			virtual void SetStateObject(const Pipeline& stateObject) = 0;
+			virtual void SetStateObject(const Pipeline& stateObject) const = 0;
 			virtual void SetProgram(ProgramType type, ProgramIdentifier identifier, WorkGraphFlag flags = WorkGraphFlag::NONE,
 				uint64_t backingMemoryAddress = 0, uint64_t backingMemoryByteSize = 0,
 				uint64_t localRootArgTableAddress = 0, uint64_t localRootArgTableByteSize = 0,
@@ -314,10 +312,10 @@ namespace XUSG
 			using uptr = std::unique_ptr<CommandList>;
 			using sptr = std::shared_ptr<CommandList>;
 
-			static uptr MakeUnique(API api = API::DIRECTX_12);
-			static sptr MakeShared(API api = API::DIRECTX_12);
-			static uptr MakeUnique(XUSG::CommandList& commandList, API api = API::DIRECTX_12);
-			static sptr MakeShared(XUSG::CommandList& commandList, API api = API::DIRECTX_12);
+			static uptr MakeUnique();
+			static sptr MakeShared();
+			static uptr MakeUnique(XUSG::CommandList& commandList);
+			static sptr MakeShared(XUSG::CommandList& commandList);
 		};
 
 		//--------------------------------------------------------------------------------------
@@ -328,7 +326,7 @@ namespace XUSG
 		{
 		public:
 			//PipelineLayoutLib();
-			//PipelineLayoutLib(const Device* pDevice) = 0;
+			//PipelineLayoutLib(Device* pDevice) = 0;
 			virtual ~PipelineLayoutLib() {};
 
 			virtual PipelineLayout CreateRootSignatureFromLibSubobject(const Blob& blobLib,
@@ -339,10 +337,10 @@ namespace XUSG
 			using uptr = std::unique_ptr<PipelineLayoutLib>;
 			using sptr = std::shared_ptr<PipelineLayoutLib>;
 
-			static uptr MakeUnique(API api = API::DIRECTX_12);
-			static sptr MakeShared(API api = API::DIRECTX_12);
-			static uptr MakeUnique(const Device* pDevice, API api = API::DIRECTX_12);
-			static sptr MakeShared(const Device* pDevice, API api = API::DIRECTX_12);
+			static uptr MakeUnique();
+			static sptr MakeShared();
+			static uptr MakeUnique(Device* pDevice);
+			static sptr MakeShared(Device* pDevice);
 		};
 
 		//--------------------------------------------------------------------------------------
@@ -385,8 +383,8 @@ namespace XUSG
 			virtual void SetViewInstance(uint8_t i, const ViewInstance& viewInstance) = 0;
 			virtual void SetViewInstances(uint8_t n, const ViewInstance* viewInstances, ViewInstanceFlag flags) = 0;
 
-			virtual Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
-			virtual Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
+			virtual Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) = 0;
+			virtual Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) = 0;
 
 			virtual PipelineLayout GetPipelineLayout() const = 0;
 			virtual Blob GetShader(Shader::Stage stage) const = 0;
@@ -413,29 +411,32 @@ namespace XUSG
 			virtual ViewInstanceFlag GetViewInstanceFlags() const = 0;
 			virtual const ViewInstance& GetViewInstance(uint8_t i) const = 0;
 
+			// Backend C++ object (Ultimate::State_DX12* / State_VK*, not available to users), internal use only.
+			virtual void* GetBackend() = 0;
+
 			using uptr = std::unique_ptr<State>;
 			using sptr = std::shared_ptr<State>;
 
-			static uptr MakeUnique(API api = API::DIRECTX_12);
-			static sptr MakeShared(API api = API::DIRECTX_12);
+			static uptr MakeUnique();
+			static sptr MakeShared();
 		};
 
 		class XUSG_INTERFACE PipelineLib
 		{
 		public:
 			//PipelineLib();
-			//PipelineLib(const Device* pDevice);
+			//PipelineLib(Device* pDevice);
 			virtual ~PipelineLib() {};
 
-			virtual void SetDevice(const Device* pDevice) = 0;
-			virtual void SetPipeline(const State* pState, const Pipeline& pipeline) = 0;
+			virtual void SetDevice(Device* pDevice) = 0;
+			virtual void SetPipeline(State* pState, const Pipeline& pipeline) = 0;
 
 			virtual void SetInputLayout(uint32_t index, uint32_t numElements, const InputElement* pElements) = 0;
 			virtual const InputLayout* GetInputLayout(uint32_t index) = 0;
 			virtual const InputLayout* CreateInputLayout(uint32_t numElements, const InputElement* pElements) = 0;
 
-			virtual Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr) = 0;
-			virtual Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr) = 0;
+			virtual Pipeline CreatePipeline(State* pState, const wchar_t* name = nullptr) = 0;
+			virtual Pipeline GetPipeline(State* pState, const wchar_t* name = nullptr) = 0;
 
 			virtual const Graphics::Blend* GetBlend(Graphics::BlendPreset preset, uint8_t numColorRTs = 1) = 0;
 			virtual const Graphics::Rasterizer* GetRasterizer(Graphics::RasterizerPreset preset) = 0;
@@ -444,10 +445,10 @@ namespace XUSG
 			using uptr = std::unique_ptr<PipelineLib>;
 			using sptr = std::shared_ptr<PipelineLib>;
 
-			static uptr MakeUnique(API api = API::DIRECTX_12);
-			static sptr MakeShared(API api = API::DIRECTX_12);
-			static uptr MakeUnique(const Device* pDevice, API api = API::DIRECTX_12);
-			static sptr MakeShared(const Device* pDevice, API api = API::DIRECTX_12);
+			static uptr MakeUnique();
+			static sptr MakeShared();
+			static uptr MakeUnique(Device* pDevice);
+			static sptr MakeShared(Device* pDevice);
 		};
 
 		//--------------------------------------------------------------------------------------
@@ -462,25 +463,25 @@ namespace XUSG
 
 			using Resource::Create;
 			// Create a texture with auto SRVs and UAVs
-			virtual bool Create(const Device* pDevice, Texture* pTarget, Format format, uint32_t mipRegionWidth,
+			virtual bool Create(Device* pDevice, Texture* pTarget, Format format, uint32_t mipRegionWidth,
 				uint32_t mipRegionHeight, uint32_t mipRegionDepth, ResourceFlag resourceFlags = ResourceFlag::NONE,
 				bool isCubeMap = false, MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 				uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 				TextureLayout textureLayout = TextureLayout::UNKNOWN,
 				uint32_t maxThreads = 1) = 0;
-			virtual bool Create(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, Texture* pTarget,
+			virtual bool Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, Texture* pTarget,
 				Format format, uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
 				ResourceFlag resourceFlags = ResourceFlag::NONE, bool isCubeMap = false,
 				const wchar_t* name = nullptr, uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 				TextureLayout textureLayout = TextureLayout::UNKNOWN,
 				uint32_t maxThreads = 1) = 0;
-			virtual bool CreateResource(const Device* pDevice, Texture* pTarget, Format format, uint32_t mipRegionWidth,
+			virtual bool CreateResource(Device* pDevice, Texture* pTarget, Format format, uint32_t mipRegionWidth,
 				uint32_t mipRegionHeight, uint32_t mipRegionDepth, ResourceFlag resourceFlags = ResourceFlag::NONE,
 				bool isCubeMap = false, MemoryFlag memoryFlags = MemoryFlag::NONE,
 				ResourceState initialResourceState = ResourceState::COMMON,
 				TextureLayout textureLayout = TextureLayout::UNKNOWN,
 				uint32_t maxThreads = 1) = 0;
-			virtual bool CreateResource(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, Texture* pTarget,
+			virtual bool CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset, Texture* pTarget,
 				Format format, uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
 				ResourceFlag resourceFlags = ResourceFlag::NONE, bool isCubeMap = false,
 				ResourceState initialResourceState = ResourceState::COMMON,
@@ -492,8 +493,8 @@ namespace XUSG
 			using uptr = std::unique_ptr<SamplerFeedBack>;
 			using sptr = std::shared_ptr<SamplerFeedBack>;
 
-			static uptr MakeUnique(API api = API::DIRECTX_12);
-			static sptr MakeShared(API api = API::DIRECTX_12);
+			static uptr MakeUnique();
+			static sptr MakeShared();
 		};
 
 		XUSG_INTERFACE uint32_t SetBarrier(ResourceBarrier* pBufferBarriers, Buffer* pBuffer, ResourceState dstState,
@@ -505,7 +506,7 @@ namespace XUSG
 			BarrierFlag flags = BarrierFlag::NONE, ResourceState srcState = ResourceState::AUTO,
 			TextureBarrierFlag textureFlags = TextureBarrierFlag::NONE, uint32_t threadIdx = 0);
 
-		XUSG_INTERFACE void GetLinearAlgebraMatrixInfo(const Device* pDevice, LinearAlgebraMatrixInfo& matrixInfo, API api = API::DIRECTX_12);
+		XUSG_INTERFACE void GetLinearAlgebraMatrixInfo(const Device* pDevice, LinearAlgebraMatrixInfo& matrixInfo);
 		XUSG_INTERFACE void SetLinearAlgebraMatrixConversionInfo(LinearAlgebraMatrixConversionInfo& conversion,
 			uint64_t dst, uint64_t src, LinearAlgebraDataType srcDataType, LinearAlgebraMatrixLayout srcLayout,
 			uint32_t srcSize = 0, uint32_t srcStride = 0);
@@ -587,21 +588,24 @@ namespace XUSG
 
 			virtual void GetMemoryRequirements(uint32_t workGraphIndex, MemoryRequirements* pMemoryReq) const = 0;
 
+			// Backend C++ object (WorkGraph::State_DX12*, not available to users), internal use only.
+			virtual void* GetBackend() = 0;
+
 			using uptr = std::unique_ptr<State>;
 			using sptr = std::shared_ptr<State>;
 
-			static uptr MakeUnique(API api = API::DIRECTX_12);
-			static sptr MakeShared(API api = API::DIRECTX_12);
+			static uptr MakeUnique();
+			static sptr MakeShared();
 		};
 
 		class XUSG_INTERFACE PipelineLib
 		{
 		public:
 			//PipelineLib();
-			//PipelineLib(const Device* pDevice);
+			//PipelineLib(Device* pDevice);
 			virtual ~PipelineLib() {}
 
-			virtual void SetDevice(const Device* pDevice) = 0;
+			virtual void SetDevice(Device* pDevice) = 0;
 			virtual void SetPipeline(State* pState, const Pipeline& pipeline) = 0;
 
 			virtual Pipeline CreatePipeline(State* pState, const wchar_t* name = nullptr) = 0;
@@ -627,10 +631,10 @@ namespace XUSG
 			using uptr = std::unique_ptr<PipelineLib>;
 			using sptr = std::shared_ptr<PipelineLib>;
 
-			static uptr MakeUnique(API api = API::DIRECTX_12);
-			static sptr MakeShared(API api = API::DIRECTX_12);
-			static uptr MakeUnique(const Device* pDevice, API api = API::DIRECTX_12);
-			static sptr MakeShared(const Device* pDevice, API api = API::DIRECTX_12);
+			static uptr MakeUnique();
+			static sptr MakeShared();
+			static uptr MakeUnique(Device* pDevice);
+			static sptr MakeShared(Device* pDevice);
 		};
 	}
 
@@ -719,29 +723,32 @@ namespace XUSG
 			virtual ViewInstanceFlag GetViewInstanceFlags() const = 0;
 			virtual const ViewInstance& GetViewInstance(uint8_t i) const = 0;
 
+			// Backend C++ object (Generic::State_DX12* / State_VK*, not available to users), internal use only.
+			virtual void* GetBackend() = 0;
+
 			using uptr = std::unique_ptr<State>;
 			using sptr = std::shared_ptr<State>;
 
-			static uptr MakeUnique(API api = API::DIRECTX_12);
-			static sptr MakeShared(API api = API::DIRECTX_12);
+			static uptr MakeUnique();
+			static sptr MakeShared();
 		};
 
 		class XUSG_INTERFACE PipelineLib
 		{
 		public:
 			//PipelineLib();
-			//PipelineLib(const Device* pDevice);
+			//PipelineLib(Device* pDevice);
 			virtual ~PipelineLib() {};
 
-			virtual void SetDevice(const Device* pDevice) = 0;
-			virtual void SetPipeline(const State* pState, const Pipeline& pipeline) = 0;
+			virtual void SetDevice(Device* pDevice) = 0;
+			virtual void SetPipeline(State* pState, const Pipeline& pipeline) = 0;
 
 			virtual void SetInputLayout(uint32_t index, uint32_t numElements, const InputElement* pElements) = 0;
 			virtual const InputLayout* GetInputLayout(uint32_t index) = 0;
 			virtual const InputLayout* CreateInputLayout(uint32_t numElements, const InputElement* pElements) = 0;
 
-			virtual Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr) = 0;
-			virtual Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr) = 0;
+			virtual Pipeline CreatePipeline(State* pState, const wchar_t* name = nullptr) = 0;
+			virtual Pipeline GetPipeline(State* pState, const wchar_t* name = nullptr) = 0;
 
 			virtual const Blend* GetBlend(BlendPreset preset, uint8_t numColorRTs = 1) = 0;
 			virtual const Rasterizer* GetRasterizer(RasterizerPreset preset) = 0;
@@ -752,10 +759,10 @@ namespace XUSG
 			using uptr = std::unique_ptr<PipelineLib>;
 			using sptr = std::shared_ptr<PipelineLib>;
 
-			static uptr MakeUnique(API api = API::DIRECTX_12);
-			static sptr MakeShared(API api = API::DIRECTX_12);
-			static uptr MakeUnique(const Device* pDevice, API api = API::DIRECTX_12);
-			static sptr MakeShared(const Device* pDevice, API api = API::DIRECTX_12);
+			static uptr MakeUnique();
+			static sptr MakeShared();
+			static uptr MakeUnique(Device* pDevice);
+			static sptr MakeShared(Device* pDevice);
 		};
 	}
 }

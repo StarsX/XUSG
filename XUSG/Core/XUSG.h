@@ -9,6 +9,11 @@
 #define XUSG_INTERFACE
 #endif
 
+// The Vulkan SDK no longer ships 32-bit libraries.
+#if defined(_WIN32) && !defined(_WIN64)
+#define XUSG_NO_VULKAN
+#endif
+
 #define XUSG_M_RETURN(x, o, m, r)		if (x) { o << m << std::endl; assert(!m); return r; }
 #define XUSG_C_RETURN(x, r)				if (x) return r
 #define XUSG_N_RETURN(x, r)				XUSG_C_RETURN(!(x), r)
@@ -74,9 +79,12 @@ namespace XUSG
 #endif
 
 	// Enumerations
+	// Mapping tables index these by dense enumerator value or single-bit flag position.
+	// Do not reorder or renumber them; the asserts in the enum translation code lock that order.
 	enum class API
 	{
-		DIRECTX_12
+		DIRECTX_12,
+		VULKAN
 	};
 
 	enum class Format : uint8_t
@@ -394,7 +402,18 @@ namespace XUSG
 		ALLOW_SIMULTANEOUS_ACCESS = (1 << 5),
 		VIDEO_DECODE_REFERENCE_ONLY = (1 << 6),
 		VIDEO_ENCODE_REFERENCE_ONLY = (1 << 7),
-		ACCELERATION_STRUCTURE = (1 << 8)
+		ACCELERATION_STRUCTURE = (1 << 8),
+		CONSTANT_BUFFER = (1 << 9),
+		VERTEX_BUFFER = (1 << 10),
+		INDEX_BUFFER = (1 << 11),
+		TYPED_BUFFER = (1 << 12),
+		INDIRECT_BUFFER = (1 << 13),
+		ACCELERATION_STRUCTURE_BUILD_INPUT = (1 << 14),
+		SHADER_TABLE = (1 << 15),
+		PREDICATION = (1 << 16),
+		MICROMAP_BUILD_INPUT = (1 << 17),
+		STREAM_OUT_BUFFER = (1 << 18),
+		STREAM_OUT_COUNTER = (1 << 19)
 	};
 
 	XUSG_DEF_ENUM_FLAG_OPERATORS(ResourceFlag);
@@ -890,33 +909,37 @@ namespace XUSG
 
 	struct ResourceBarrier
 	{
-		const Resource* pResource;
+		Resource* pResource;
 		ResourceState StateBefore;
 		ResourceState StateAfter;
 		uint32_t Subresource;
 		BarrierFlag Flags;
-		const Resource* pResourceAfter;
+		Resource* pResourceAfter;
 	};
 
 	struct VertexBufferView
 	{
-		uint64_t BufferLocation;
-		uint32_t SizeInBytes;
-		uint32_t StrideInBytes;
+		Resource* pResource;
+		uint64_t ByteOffset;
+		uint32_t ByteSize;
+		uint32_t ByteStride;
 	};
 
 	struct IndexBufferView
 	{
-		uint64_t BufferLocation;
-		uint32_t SizeInBytes;
+		Resource* pResource;
+		uint64_t ByteOffset;
+		uint32_t ByteSize;
 		Format Format;
 	};
 
 	struct StreamOutBufferView
 	{
-		uint64_t BufferLocation;
-		uint64_t SizeInBytes;
-		uint64_t BufferFilledSizeLocation;
+		Resource* pResource;
+		uint64_t ByteOffset;
+		uint64_t ByteSize;
+		Resource* pBufferFilledSize;
+		uint64_t BufferFilledSizeByteOffset;
 	};
 
 	// Samplers related
@@ -946,6 +969,14 @@ namespace XUSG
 		float MinLOD;
 		float MaxLOD;
 		SamplerFlag Flags;
+	};
+
+	struct StaticSampler
+	{
+		uint32_t Binding;
+		uint32_t Space;
+		const Sampler* pSampler;
+		uint8_t Stage;
 	};
 
 	// Pipeline state related
@@ -1183,7 +1214,7 @@ namespace XUSG
 	using DescriptorTableLayout = const void*;
 	using DescriptorHeap = void*;
 	using Blob = void*;
-	using QueryHeap = void*;
+	using QueryHeap = uint64_t;
 
 	//--------------------------------------------------------------------------------------
 	// Device
@@ -1205,7 +1236,7 @@ namespace XUSG
 		virtual bool GetCommandAllocator(CommandAllocator* pCommandAllocator,
 			CommandListType type, const wchar_t* name = nullptr) = 0;
 		virtual bool GetCommandList(CommandList* pCommandList, uint32_t nodeMask, CommandListType type,
-			const CommandAllocator* pCommandAllocator, const Pipeline& pipeline,
+			uint8_t numAllocators, CommandAllocator* const* ppAllocators, const Pipeline& pipeline,
 			const wchar_t* name = nullptr) = 0;
 		virtual bool GetFence(Fence* pFence, uint64_t initialValue, FenceFlag flags,
 			const wchar_t* name = nullptr) = 0;
@@ -1213,17 +1244,30 @@ namespace XUSG
 		virtual uint32_t Create(void* pAdapter, uint32_t minFeatureLevel, const wchar_t* name = nullptr) = 0;
 		virtual uint32_t GetDeviceRemovedReason() const = 0;
 
-		// Create from API native handle
-		virtual void Create(void* pHandle, const wchar_t* name = nullptr) = 0;
+		// Create from API native handle. pNativeHandle is ID3D12Device* or VkDevice.
+		virtual void Create(void* pNativeHandle) = 0;
 
-		// Get API native handle
-		virtual void* GetHandle() const = 0;
+		// Get API native handle. Cast to ID3D12Device* or VkDevice.
+		virtual void* GetNativeHandle() const = 0;
+
+		// Get the adapter native handle. Cast to IDXGIAdapter* or VkPhysicalDevice.
+		// Feature queries on DX12 use ID3D12Device from GetNativeHandle.
+		virtual void* GetAdapterNativeHandle() const = 0;
+
+		// Backend C++ object (Device_DX12* / Device_VK*, not available to users), internal use only.
+		// Needed because virtual inheritance forbids static_cast from Device* to *_DX12/*_VK*.
+		virtual void* GetBackend() = 0;
 
 		using uptr = std::unique_ptr<Device>;
 		using sptr = std::shared_ptr<Device>;
 
-		static uptr MakeUnique(API api = API::DIRECTX_12);
-		static sptr MakeShared(API api = API::DIRECTX_12);
+		static void LockApi();
+		static void UnlockApi();
+		static void SetApi(API api);
+		static API GetApi();
+
+		static uptr MakeUnique();
+		static sptr MakeShared();
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -1235,29 +1279,29 @@ namespace XUSG
 		//Fence();
 		virtual ~Fence() {};
 
-		virtual bool Create(const Device* pDevice, uint64_t initialValue,
+		virtual bool Create(Device* pDevice, uint64_t initialValue,
 			FenceFlag flags, const wchar_t* name = nullptr) = 0;
 		virtual bool SetEventOnCompletion(uint64_t value, void* hEvent) = 0;
 		virtual bool Signal(uint64_t value) = 0;
 
 		virtual uint64_t GetCompletedValue() const = 0;
 
-		// Create from API native handle
-		virtual void Create(void* pHandle, const wchar_t* name = nullptr) = 0;
+		// Create from API native handle. nativeHandle is ID3D12Fence* or VkSemaphore.
+		virtual void Create(uint64_t nativeHandle, Device* pDevice) = 0;
 
-		// Get API native handle
-		virtual void* GetHandle() const = 0;
+		// Get API native handle. Cast to ID3D12Fence* or VkSemaphore.
+		virtual uint64_t GetNativeHandle() const = 0;
 
 		using uptr = std::unique_ptr<Fence>;
 		using sptr = std::shared_ptr<Fence>;
 
-		static uptr MakeUnique(API api = API::DIRECTX_12);
-		static sptr MakeShared(API api = API::DIRECTX_12);
+		static uptr MakeUnique();
+		static sptr MakeShared();
 	};
 
 	struct Semaphore
 	{
-		Fence::uptr Fence;
+		Fence* Fence;
 		uint64_t Value;
 	};
 
@@ -1270,21 +1314,24 @@ namespace XUSG
 		//CommandLayout();
 		virtual ~CommandLayout() {};
 
-		virtual bool Create(const Device* pDevice, uint32_t byteStride, uint32_t numArguments,
+		virtual bool Create(Device* pDevice, uint32_t byteStride, uint32_t numArguments,
 			const IndirectArgument* pArguments, const PipelineLayout& pipelineLayout = nullptr,
 			uint32_t nodeMask = 0, const wchar_t* name = nullptr) = 0;
 
-		// Create from API native handle
-		virtual void Create(void* pHandle, const wchar_t* name = nullptr) = 0;
+		// Create from API native handle. nativeHandle is ID3D12CommandSignature* or VkIndirectCommandsLayoutEXT.
+		virtual void Create(uint64_t nativeHandle, Device* pDevice) = 0;
 
-		// Get API native handle
-		virtual void* GetHandle() const = 0;
+		// Get API native handle. Cast to ID3D12CommandSignature* or VkIndirectCommandsLayoutEXT.
+		virtual uint64_t GetNativeHandle() const = 0;
+
+		// Backend C++ object (CommandLayout_DX12* / CommandLayout_VK*, not available to users), internal use only.
+		virtual void* GetBackend() = 0;
 
 		using uptr = std::unique_ptr<CommandLayout>;
 		using sptr = std::shared_ptr<CommandLayout>;
 
-		static uptr MakeUnique(API api = API::DIRECTX_12);
-		static sptr MakeShared(API api = API::DIRECTX_12);
+		static uptr MakeUnique();
+		static sptr MakeShared();
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -1296,25 +1343,25 @@ namespace XUSG
 		//CommandAllocator();
 		virtual ~CommandAllocator() {};
 
-		virtual bool Create(const Device* pDevice, CommandListType type, const wchar_t* name = nullptr) = 0;
+		virtual bool Create(Device* pDevice, CommandListType type, const wchar_t* name = nullptr) = 0;
 		virtual bool Reset() = 0;
 
-		// Create from API native handle
-		virtual void Create(void* pHandle, const wchar_t* name = nullptr) = 0;
+		// Create from API native handle. nativeHandle is ID3D12CommandAllocator* or VkCommandPool.
+		virtual void Create(uint64_t nativeHandle, Device* pDevice) = 0;
 
-		// Get API native handle
-		virtual void* GetHandle() const = 0;
+		// Get API native handle. Cast to ID3D12CommandAllocator* or VkCommandPool.
+		virtual uint64_t GetNativeHandle() const = 0;
 
-		// Get API native handle of the device for this command allocator
-		virtual void* GetDeviceHandle() const = 0;
+		// Get API native handle of the device for this command allocator. Cast to ID3D12Device* or VkDevice.
+		virtual void* GetDeviceNativeHandle() const = 0;
 
-		virtual const Device* GetDevice() const = 0;
+		virtual Device* GetDevice() const = 0;
 
 		using uptr = std::unique_ptr<CommandAllocator>;
 		using sptr = std::shared_ptr<CommandAllocator>;
 
-		static uptr MakeUnique(API api = API::DIRECTX_12);
-		static sptr MakeShared(API api = API::DIRECTX_12);
+		static uptr MakeUnique();
+		static sptr MakeShared();
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -1326,12 +1373,11 @@ namespace XUSG
 		//CommandList();
 		virtual ~CommandList() {};
 
-		virtual bool Create(const Device* pDevice, uint32_t nodeMask, CommandListType type,
-			const CommandAllocator* pAllocator, const Pipeline& pipeline,
-			const wchar_t* name = nullptr) = 0;
+		// ppAllocators must list every CommandAllocator that will be used with Reset.
+		virtual bool Create(Device* pDevice, uint32_t nodeMask, CommandListType type, uint8_t numAllocators,
+			CommandAllocator* const* ppAllocators, const Pipeline& pipeline, const wchar_t* name = nullptr) = 0;
 		virtual bool Close() const = 0;
-		virtual bool Reset(const CommandAllocator* pAllocator,
-			const Pipeline& initialState) const = 0;
+		virtual bool Reset(uint8_t allocatorIndex, const Pipeline& initialState) const = 0;
 
 		virtual void ClearState(const Pipeline& initialState) const = 0;
 		virtual void Draw(
@@ -1349,17 +1395,17 @@ namespace XUSG
 			uint32_t threadGroupCountX,
 			uint32_t threadGroupCountY,
 			uint32_t threadGroupCountZ) const = 0;
-		virtual void CopyBufferRegion(const Resource* pDstBuffer, uint64_t dstOffset,
+		virtual void CopyBufferRegion(Resource* pDstBuffer, uint64_t dstOffset,
 			const Resource* pSrcBuffer, uint64_t srcOffset, uint64_t numBytes) const = 0;
 		virtual void CopyTextureRegion(const TextureCopyLocation& dst,
 			uint32_t dstX, uint32_t dstY, uint32_t dstZ,
 			const TextureCopyLocation& src, const BoxRange* pSrcBox = nullptr) const = 0;
-		virtual void CopyResource(const Resource* pDstResource, const Resource* pSrcResource) const = 0;
-		virtual void CopyTiles(const Resource* pTiledResource, const TiledResourceCoord* pTileRegionStartCoord,
-			const TileRegionSize& tileRegionSize, const Resource* pBuffer, uint64_t bufferStartOffsetInBytes,
+		virtual void CopyResource(Resource* pDstResource, Resource* pSrcResource) const = 0;
+		virtual void CopyTiles(Resource* pTiledResource, const TiledResourceCoord* pTileRegionStartCoord,
+			const TileRegionSize& tileRegionSize, Resource* pBuffer, uint64_t bufferStartByteOffset,
 			TileCopyFlag flags = TileCopyFlag::NONE) const = 0;
-		virtual void ResolveSubresource(const Resource* pDstResource, uint32_t dstSubresource,
-			const Resource* pSrcResource, uint32_t srcSubresource, Format format) const = 0;
+		virtual void ResolveSubresource(Resource* pDstResource, uint32_t dstSubresource,
+			Resource* pSrcResource, uint32_t srcSubresource, Format format) const = 0;
 		virtual void IASetPrimitiveTopology(PrimitiveTopology primitiveTopology) const = 0;
 		virtual void RSSetViewports(uint32_t numViewports, const Viewport* pViewports) const = 0;
 		virtual void RSSetScissorRects(uint32_t numRects, const RectRange* pRects) const = 0;
@@ -1367,8 +1413,11 @@ namespace XUSG
 		virtual void OMSetStencilRef(uint32_t stencilRef) const = 0;
 		virtual void SetPipelineState(const Pipeline& pipelineState) const = 0;
 		virtual void Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers) = 0;
-		virtual void ExecuteBundle(const CommandList* pCommandList) const = 0;
+		virtual void ExecuteBundle(CommandList* pCommandList) const = 0;
 		virtual void SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps) = 0;
+		// Graphics and compute share one root-parameter binding state.
+		// Do not switch sides after setting only part of the bindings.
+		// A switch invalidates the bindings already set; set that side again before the next draw or dispatch.
 		virtual void SetComputePipelineLayout(const PipelineLayout& pipelineLayout) const = 0;
 		virtual void SetGraphicsPipelineLayout(const PipelineLayout& pipelineLayout) const = 0;
 		virtual void SetComputeDescriptorTable(uint32_t index, const DescriptorTable& descriptorTable) const = 0;
@@ -1413,36 +1462,42 @@ namespace XUSG
 			const uint32_t values[4], uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
 		virtual void ClearUnorderedAccessViewFloat(const DescriptorTable& descriptorTable, const Descriptor& descriptor,
 			const float values[4], uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
-		virtual void DiscardResource(const Resource*pResource, uint32_t numRects, const RectRange* pRects,
+		// Vulkan marks discarded image subresources. The next image barrier uses an undefined
+		// old layout, and the next render-target or depth load uses DONT_CARE.
+		// Rectangle discards and buffer discards are not supported on Vulkan.
+		virtual void DiscardResource(Resource* pResource, uint32_t numRects, const RectRange* pRects,
 			uint32_t firstSubresource, uint32_t numSubresources) = 0;
 		virtual void BeginQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const = 0;
 		virtual void EndQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const = 0;
 		virtual void ResolveQueryData(const QueryHeap& queryHeap, QueryType type, uint32_t startIndex,
 			uint32_t numQueries, const Resource* pDstBuffer, uint64_t alignedDstBufferOffset) const = 0;
-		virtual void SetPredication(const Resource* pBuffer, uint64_t alignedBufferOffset, bool opEqualZero)const = 0;
+		virtual void SetPredication(const Resource* pBuffer, uint64_t alignedBufferOffset, bool opEqualZero) const = 0;
 		virtual void SetMarker(uint32_t metaData, const void* pData, uint32_t size) const = 0;
 		virtual void BeginEvent(uint32_t metaData, const void* pData, uint32_t size) const = 0;
-		virtual void EndEvent() = 0;
-		virtual void ExecuteIndirect(const CommandLayout* pCommandlayout, uint32_t maxCommandCount,
+		virtual void EndEvent() const = 0;
+		virtual void ExecuteIndirect(CommandLayout* pCommandlayout, uint32_t maxCommandCount,
 			const Resource* pArgumentBuffer, uint64_t argumentBufferOffset = 0,
-			const Resource* pCountBuffer = nullptr, uint64_t countBufferOffset = 0) = 0;
+			const Resource* pCountBuffer = nullptr, uint64_t countBufferOffset = 0) const = 0;
 
-		// Create from API native handle
-		virtual void Create(void* pHandle, const wchar_t* name = nullptr) = 0;
+		// Create from API native handle. pNativeHandle is ID3D12GraphicsCommandList* or VkCommandBuffer.
+		virtual void Create(void* pNativeHandle, Device* pDevice) = 0;
 
-		// Get API native handle
-		virtual void* GetHandle() const = 0;
+		// Get API native handle. Cast to ID3D12GraphicsCommandList* or VkCommandBuffer.
+		virtual void* GetNativeHandle() = 0;
 
-		// Get API native handle of the device for this command list
-		virtual void* GetDeviceHandle() const = 0;
+		// Get API native handle of the device for this command list. Cast to ID3D12Device* or VkDevice.
+		virtual void* GetDeviceNativeHandle() const = 0;
 
-		virtual const Device* GetDevice() const = 0;
+		// Backend C++ object (CommandList_DX12* / CommandList_VK*, not available to users), internal use only.
+		virtual void* GetBackend() = 0;
+
+		virtual Device* GetDevice() const = 0;
 
 		using uptr = std::unique_ptr<CommandList>;
 		using sptr = std::shared_ptr<CommandList>;
 
-		static uptr MakeUnique(API api = API::DIRECTX_12);
-		static sptr MakeShared(API api = API::DIRECTX_12);
+		static uptr MakeUnique();
+		static sptr MakeShared();
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -1454,45 +1509,45 @@ namespace XUSG
 		//CommandQueue();
 		virtual ~CommandQueue() {};
 
-		virtual bool Create(const Device* pDevice, CommandListType type, CommandQueueFlag flags,
+		virtual bool Create(Device* pDevice, CommandListType type, CommandQueueFlag flags,
 			int32_t priority = 0, uint32_t nodeMask = 0, const wchar_t* name = nullptr) = 0;
 
-		virtual bool SubmitCommandLists(uint32_t numCommandLists, const CommandList* const* ppCommandLists,
+		virtual bool SubmitCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists,
 			const Semaphore* pWaits = nullptr, uint32_t numWaits = 0,
 			const Semaphore* pSignals = nullptr, uint32_t numSignals = 0) = 0;
-		virtual bool SubmitCommandList(const CommandList* pCommandList,
+		virtual bool SubmitCommandList(CommandList* pCommandList,
 			const Semaphore* pWaits = nullptr, uint32_t numWaits = 0,
 			const Semaphore* pSignals = nullptr, uint32_t numSignals = 0) = 0;
-		virtual bool Wait(const Fence* pFence, uint64_t value) = 0;
-		virtual bool Signal(const Fence* pFence, uint64_t value) = 0;
+		virtual bool Wait(Fence* pFence, uint64_t value) = 0;
+		virtual bool Signal(Fence* pFence, uint64_t value) = 0;
 
-		virtual void ExecuteCommandLists(uint32_t numCommandLists, const CommandList* const* ppCommandLists) = 0;
-		virtual void ExecuteCommandList(const CommandList* pCommandList) = 0;
-		virtual void UpdateTileMappings(const Resource* pResource, uint32_t numResourceRegions,
+		virtual void ExecuteCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists) = 0;
+		virtual void ExecuteCommandList(CommandList* pCommandList) = 0;
+		virtual void UpdateTileMappings(Resource* pResource, uint32_t numResourceRegions,
 			const TiledResourceCoord* pResourceRegionStartCoords, const TileRegionSize* pResourceRegionSizes,
-			const Heap* pHeap, uint32_t numHeapRanges, const TileRangeFlag* pHeapRangeFlags,
+			Heap* pHeap, uint32_t numHeapRanges, const TileRangeFlag* pHeapRangeFlags,
 			const uint32_t* pHeapRangeStartOffsets, const uint32_t* pHeapRangeTileCounts,
 			TileMappingFlag flags = TileMappingFlag::NONE) = 0;
-		virtual void CopyTileMappings(const Resource* pDstResource, const TiledResourceCoord* pDstRegionStartCoord,
-			const Resource* pSrcResource, const TiledResourceCoord* pSrcRegionStartCoordinate,
+		virtual void CopyTileMappings(Resource* pDstResource, const TiledResourceCoord* pDstRegionStartCoord,
+			Resource* pSrcResource, const TiledResourceCoord* pSrcRegionStartCoordinate,
 			const TileRegionSize& regionSize, TileMappingFlag Flags = TileMappingFlag::NONE) const = 0;
 
-		// Create from API native handle
-		virtual void Create(void* pHandle, const wchar_t* name = nullptr) = 0;
+		// Create from API native handle. pNativeHandle is ID3D12CommandQueue* or VkQueue.
+		virtual void Create(void* pNativeHandle, Device* pDevice) = 0;
 
-		// Get API native handle
-		virtual void* GetHandle() const = 0;
+		// Get API native handle. Cast to ID3D12CommandQueue* or VkQueue.
+		virtual void* GetNativeHandle() const = 0;
 
-		// Get API native handle of the device for this command list
-		virtual void* GetDeviceHandle() const = 0;
+		// Get API native handle of the device for this command queue. Cast to ID3D12Device* or VkDevice.
+		virtual void* GetDeviceNativeHandle() const = 0;
 
-		virtual const Device* GetDevice() const = 0;
+		virtual Device* GetDevice() const = 0;
 
 		using uptr = std::unique_ptr<CommandQueue>;
 		using sptr = std::shared_ptr<CommandQueue>;
 
-		static uptr MakeUnique(API api = API::DIRECTX_12);
-		static sptr MakeShared(API api = API::DIRECTX_12);
+		static uptr MakeUnique();
+		static sptr MakeShared();
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -1518,19 +1573,22 @@ namespace XUSG
 		virtual uint32_t ResizeBuffers(uint8_t bufferCount, uint32_t width, uint32_t height,
 			Format format, SwapChainFlag flags = SwapChainFlag::NONE) = 0;
 
-		virtual uint8_t GetCurrentBackBufferIndex() const = 0;
+		virtual uint8_t GetCurrentBackBufferIndex() = 0;
 
-		// Create from API native handle
-		virtual void Create(void* pHandle) = 0;
+		// Create from API native handle. nativeHandle is IDXGISwapChain3* or VkSwapchainKHR.
+		virtual void Create(uint64_t nativeHandle) = 0;
 
-		// Get API native handle
-		virtual void* GetHandle() const = 0;
+		// Get API native handle. Cast to IDXGISwapChain3* or VkSwapchainKHR.
+		virtual uint64_t GetNativeHandle() const = 0;
+
+		// Backend C++ object (SwapChain_DX12* / SwapChain_VK*, not available to users), internal use only.
+		virtual void* GetBackend() = 0;
 
 		using uptr = std::unique_ptr<SwapChain>;
 		using sptr = std::shared_ptr<SwapChain>;
 
-		static uptr MakeUnique(API api = API::DIRECTX_12);
-		static sptr MakeShared(API api = API::DIRECTX_12);
+		static uptr MakeUnique();
+		static sptr MakeShared();
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -1542,7 +1600,7 @@ namespace XUSG
 		//Heap();
 		virtual ~Heap() {};
 
-		virtual bool Create(const Device* pDevice, uint64_t byteSize, MemoryType memoryType,
+		virtual bool Create(Device* pDevice, uint64_t byteSize, MemoryType memoryType,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, uint64_t alignment = 0,
 			const wchar_t* name = nullptr) = 0;
 
@@ -1550,18 +1608,22 @@ namespace XUSG
 		virtual uint64_t GetAlignment() const = 0;
 		virtual MemoryType GetType() const = 0;
 
-		// Create from API native handle
-		virtual void Create(void* pDeviceHandle, void* pHeapHandle, const wchar_t* name = nullptr) = 0;
+		// Create from API native handle. nativeHandle is ID3D12Heap* or VkDeviceMemory.
+		// DX12 copies the existing debug name into the stored name. Vulkan leaves that name empty.
+		virtual void Create(uint64_t nativeHandle, Device* pDevice) = 0;
 		virtual void SetName(const wchar_t* name) = 0;
 
-		// Get API native handle
-		virtual void* GetHandle() const = 0;
+		// Get API native handle. Cast to ID3D12Heap* or VkDeviceMemory.
+		virtual uint64_t GetNativeHandle() const = 0;
+
+		// Backend C++ object (Heap_DX12* / Heap_VK*, not available to users), internal use only.
+		virtual void* GetBackend() = 0;
 
 		using uptr = std::unique_ptr<Heap>;
 		using sptr = std::shared_ptr<Heap>;
 
-		static uptr MakeUnique(API api = API::DIRECTX_12);
-		static sptr MakeShared(API api = API::DIRECTX_12);
+		static uptr MakeUnique();
+		static sptr MakeShared();
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -1593,21 +1655,26 @@ namespace XUSG
 		virtual void Unmap(const Range* pWrittenRange = nullptr) = 0;
 		virtual void GetTiling(uint32_t* pTotalNumTiles, PackedMipInfo* pPackedMipInfo = nullptr,
 			TileShape* pStandardTileShapeForNonPackedMips = nullptr, uint32_t* pNumSubresourceTilings = nullptr,
-			uint32_t firstSubresourceTiling = 0, SubresourceTiling* pSubresourceTilingsForNonPackedMips = nullptr) const = 0;
+			uint32_t firstSubresourceTiling = 0, SubresourceTiling* pSubresourceTilingsForNonPackedMips = nullptr) = 0;
 
-		// Create from API native handle
-		virtual void Create(void* pDeviceHandle, void* pResourceHandle,
-			const wchar_t* name = nullptr, uint32_t maxThreads = 1) = 0;
+		// Create from API native handle. nativeHandle is ID3D12Resource* or VkImage.
+		// The Vulkan wrap stores this handle as an image. A VkBuffer is not accepted here.
+		// DX12 copies the existing debug name into the stored name. Vulkan leaves that name empty.
+		virtual void Create(uint64_t nativeHandle, Device* pDevice, uint32_t maxThreads = 1) = 0;
 		virtual void SetName(const wchar_t* name) = 0;
 
-		// Get API native handle
-		virtual void* GetHandle() const = 0;
+		// Get API native handle. Cast to ID3D12Resource*, VkImage, or VkBuffer.
+		virtual uint64_t GetNativeHandle() const = 0;
+
+		// Backend C++ object (Resource_DX12* / Resource_VK*, not available to users), internal use only.
+		// Needed because virtual inheritance forbids static_cast from Resource* to *_DX12/*_VK*.
+		virtual void* GetBackend() = 0;
 
 		using uptr = std::unique_ptr<Resource>;
 		using sptr = std::shared_ptr<Resource>;
 
-		static uptr MakeUnique(API api = API::DIRECTX_12);
-		static sptr MakeShared(API api = API::DIRECTX_12);
+		static uptr MakeUnique();
+		static sptr MakeShared();
 
 		static BarrierLayout GetBarrierLayout(ResourceState resourceState);
 	};
@@ -1623,14 +1690,14 @@ namespace XUSG
 		virtual ~ConstantBuffer() {};
 
 		using Resource::Create;
-		virtual bool Create(const Device* pDevice, size_t byteWidth, uint32_t numCBVs = 1,
+		virtual bool Create(Device* pDevice, size_t byteWidth, uint32_t numCBVs = 1,
 			const size_t* cbvByteOffsets = nullptr, MemoryType memoryType = MemoryType::UPLOAD,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr) = 0;
-		virtual bool Create(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, size_t byteWidth,
+		virtual bool Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, size_t byteWidth,
 			uint32_t numCBVs, const size_t* cbvByteOffsets, const wchar_t* name) = 0;
-		virtual bool CreateResource(const Device* pDevice, size_t byteWidth, MemoryType memoryType = MemoryType::UPLOAD,
+		virtual bool CreateResource(Device* pDevice, size_t byteWidth, MemoryType memoryType = MemoryType::UPLOAD,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, ResourceState initialResourceState = ResourceState::COMMON) = 0;
-		virtual bool CreateResource(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, size_t byteWidth,
+		virtual bool CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset, size_t byteWidth,
 			ResourceState initialResourceState = ResourceState::COMMON) = 0;
 		virtual bool Upload(CommandList* pCommandList, Resource* pUploader, const void* pData,
 			size_t size, size_t byteOffset = 0, ResourceState srcState = ResourceState::COMMON,
@@ -1651,14 +1718,13 @@ namespace XUSG
 		using uptr = std::unique_ptr<ConstantBuffer>;
 		using sptr = std::shared_ptr<ConstantBuffer>;
 
-		static uptr MakeUnique(API api = API::DIRECTX_12);
-		static sptr MakeShared(API api = API::DIRECTX_12);
+		static uptr MakeUnique();
+		static sptr MakeShared();
 
 		static void GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment,
-			const Device* pDevice, size_t byteWidth, uint64_t requiredAlignment = 0,
-			API api = API::DIRECTX_12);
+			Device* pDevice, size_t byteWidth, uint64_t requiredAlignment = 0);
 
-		static size_t AlignCBV(size_t byteSize, API api = API::DIRECTX_12);
+		static size_t AlignCBV(size_t byteSize);
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -1678,8 +1744,8 @@ namespace XUSG
 		using uptr = std::unique_ptr<ShaderResource>;
 		using sptr = std::shared_ptr<ShaderResource>;
 
-		static uptr MakeUnique(API api = API::DIRECTX_12);
-		static sptr MakeShared(API api = API::DIRECTX_12);
+		static uptr MakeUnique();
+		static sptr MakeShared();
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -1696,7 +1762,7 @@ namespace XUSG
 
 		using Resource::Create;
 		// Create a texture with auto SRVs and UAVs, where numMips can be 0 for full MIP chain
-		virtual bool Create(const Device* pDevice, uint32_t width, uint32_t height, Format format,
+		virtual bool Create(Device* pDevice, uint32_t width, uint32_t height, Format format,
 			uint16_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, bool isCubeMap = false,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
@@ -1704,7 +1770,7 @@ namespace XUSG
 			TextureLayout textureLayout = TextureLayout::UNKNOWN,
 			uint8_t numUavFormats = 0, const Format* uavFormats = nullptr,
 			uint32_t maxThreads = 1) = 0;
-		virtual bool Create(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset,
+		virtual bool Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset,
 			uint32_t width, uint32_t height, Format format, uint16_t arraySize = 1,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			uint8_t sampleCount = 1, bool isCubeMap = false, const wchar_t* name = nullptr,
@@ -1712,13 +1778,13 @@ namespace XUSG
 			TextureLayout textureLayout = TextureLayout::UNKNOWN,
 			uint8_t numUavFormats = 0, const Format* uavFormats = nullptr,
 			uint32_t maxThreads = 1) = 0;
-		virtual bool CreateResource(const Device* pDevice, uint32_t width, uint32_t height, Format format,
+		virtual bool CreateResource(Device* pDevice, uint32_t width, uint32_t height, Format format,
 			uint16_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			uint8_t sampleCount = 1, MemoryFlag memoryFlags = MemoryFlag::NONE,
 			ResourceState initialResourceState = ResourceState::COMMON,
 			TextureLayout textureLayout = TextureLayout::UNKNOWN, uint8_t numCastableFormats = 0,
 			const Format* pCastableFormats = nullptr, uint32_t maxThreads = 1) = 0;
-		virtual bool CreateResource(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, uint32_t width,
+		virtual bool CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width,
 			uint32_t height, Format format, uint16_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, ResourceState initialResourceState = ResourceState::COMMON,
 			TextureLayout textureLayout = TextureLayout::UNKNOWN, uint8_t numCastableFormats = 0,
@@ -1745,11 +1811,11 @@ namespace XUSG
 			uint32_t numBarriers = 0, uint16_t arraySlice = 0, BarrierFlag flags = BarrierFlag::NONE,
 			ResourceState srcState = ResourceState::AUTO, uint8_t plane = 0, uint32_t threadIdx = 0) = 0;
 
-		virtual void Blit(const CommandList* pCommandList, uint32_t groupSizeX, uint32_t groupSizeY,
+		virtual void Blit(CommandList* pCommandList, uint32_t groupSizeX, uint32_t groupSizeY,
 			uint32_t groupSizeZ, const DescriptorTable& uavSrvTable, uint32_t uavSrvSlot = 0,
 			uint8_t mipLevel = 0, const DescriptorTable& srvTable = XUSG_NULL, uint32_t srvSlot = 0,
 			const DescriptorTable& samplerTable = XUSG_NULL, uint32_t samplerSlot = 1,
-			const Pipeline& pipeline = nullptr) = 0;
+			const Pipeline& pipeline = nullptr) const = 0;
 
 		virtual uint32_t Blit(CommandList* pCommandList, ResourceBarrier* pBarriers, uint32_t groupSizeX,
 			uint32_t groupSizeY, uint32_t groupSizeZ, uint8_t mipLevel, int8_t srcMipLevel,
@@ -1779,14 +1845,14 @@ namespace XUSG
 		using uptr = std::unique_ptr<Texture>;
 		using sptr = std::shared_ptr<Texture>;
 
-		static uptr MakeUnique(API api = API::DIRECTX_12);
-		static sptr MakeShared(API api = API::DIRECTX_12);
+		static uptr MakeUnique();
+		static sptr MakeShared();
 
-		static void GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, const Device* pDevice,
+		static void GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, Device* pDevice,
 			uint32_t width, uint32_t height, Format format, uint16_t arraySize = 1,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			uint8_t sampleCount = 1, TextureLayout textureLayout = TextureLayout::UNKNOWN,
-			uint64_t requiredAlignment = 0, API api = API::DIRECTX_12);
+			uint64_t requiredAlignment = 0);
 
 		static uint8_t CalculateMipLevels(uint32_t width, uint32_t height, uint32_t depth = 1);
 	};
@@ -1808,7 +1874,7 @@ namespace XUSG
 
 		using Resource::Create;
 		// Create() will create multiple RTVs (1 slice per RTV), where numMips can be 0 for full MIP chain
-		virtual bool Create(const Device* pDevice, uint32_t width, uint32_t height, Format format,
+		virtual bool Create(Device* pDevice, uint32_t width, uint32_t height, Format format,
 			uint16_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			uint8_t sampleCount = 1, const float* pClearColor = nullptr, bool isCubeMap = false,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
@@ -1816,7 +1882,7 @@ namespace XUSG
 			TextureLayout textureLayout = TextureLayout::UNKNOWN,
 			uint8_t numUavFormats = 0, const Format* uavFormats = nullptr,
 			uint32_t maxThreads = 1) = 0;
-		virtual bool Create(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
+		virtual bool Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 			Format format, uint16_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, const float* pClearColor = nullptr,
 			bool isCubeMap = false, const wchar_t* name = nullptr,
@@ -1825,7 +1891,7 @@ namespace XUSG
 			uint8_t numUavFormats = 0, const Format* uavFormats = nullptr,
 			uint32_t maxThreads = 1) = 0;
 		// CreateArray() will create a single array RTV of n slices, where numMips can be 0 for full MIP chain
-		virtual bool CreateArray(const Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize,
+		virtual bool CreateArray(Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize,
 			Format format, ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			uint8_t sampleCount = 1, const float* pClearColor = nullptr, bool isCubeMap = false,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
@@ -1833,22 +1899,22 @@ namespace XUSG
 			TextureLayout textureLayout = TextureLayout::UNKNOWN,
 			uint8_t numUavFormats = 0, const Format* uavFormats = nullptr,
 			uint32_t maxThreads = 1) = 0;
-		virtual bool CreateArray(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
+		virtual bool CreateArray(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 			uint16_t arraySize, Format format, ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			uint8_t sampleCount = 1, const float* pClearColor = nullptr, bool isCubeMap = false,
 			const wchar_t* name = nullptr, uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 			TextureLayout textureLayout = TextureLayout::UNKNOWN,
 			uint8_t numUavFormats = 0, const Format* uavFormats = nullptr,
 			uint32_t maxThreads = 1) = 0;
-		virtual bool CreateFromSwapChain(const Device* pDevice, const SwapChain* pSwapChain,
+		virtual bool CreateFromSwapChain(Device* pDevice, SwapChain* pSwapChain,
 			uint32_t bufferIndex, uint32_t maxThreads = 1) = 0;
-		virtual bool CreateResource(const Device* pDevice, uint32_t width, uint32_t height,
+		virtual bool CreateResource(Device* pDevice, uint32_t width, uint32_t height,
 			Format format, uint16_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, MemoryFlag memoryFlags = MemoryFlag::NONE,
 			ResourceState initialResourceState = ResourceState::COMMON, const float* pClearColor = nullptr,
 			TextureLayout textureLayout = TextureLayout::UNKNOWN, uint8_t numCastableFormats = 0,
 			const Format* pCastableFormats = nullptr, uint32_t maxThreads = 1) = 0;
-		virtual bool CreateResource(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, uint32_t width,
+		virtual bool CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width,
 			uint32_t height, Format format, uint16_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, ResourceState initialResourceState = ResourceState::COMMON,
 			const float* pClearColor = nullptr, TextureLayout textureLayout = TextureLayout::UNKNOWN,
@@ -1858,11 +1924,11 @@ namespace XUSG
 			Format format = Format::UNKNOWN, uint8_t mipLevel = 0, bool multisamples = false) = 0;
 
 		using Texture::Blit;
-		virtual void Blit(const CommandList* pCommandList, const DescriptorTable& srcSrvTable,
+		virtual void Blit(CommandList* pCommandList, const DescriptorTable& srcSrvTable,
 			uint32_t srcSlot = 0, uint8_t mipLevel = 0, uint16_t baseSlice = 0,
 			uint16_t numSlices = 0, const DescriptorTable& samplerTable = XUSG_NULL,
 			uint32_t samplerSlot = 1, const Pipeline& pipeline = nullptr,
-			uint32_t offsetForSliceId = 0, uint32_t cbSlot = 2) = 0;
+			uint32_t offsetForSliceId = 0, uint32_t cbSlot = 2) const = 0;
 
 		virtual uint32_t Blit(CommandList* pCommandList, ResourceBarrier* pBarriers, uint8_t mipLevel,
 			int8_t srcMipLevel, ResourceState srcState, const DescriptorTable& srcSrvTable,
@@ -1881,14 +1947,14 @@ namespace XUSG
 		using uptr = std::unique_ptr<RenderTarget>;
 		using sptr = std::shared_ptr<RenderTarget>;
 
-		static uptr MakeUnique(API api = API::DIRECTX_12);
-		static sptr MakeShared(API api = API::DIRECTX_12);
+		static uptr MakeUnique();
+		static sptr MakeShared();
 
-		static void GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, const Device* pDevice,
+		static void GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, Device* pDevice,
 			uint32_t width, uint32_t height, Format format, uint16_t arraySize = 1,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			uint8_t sampleCount = 1, TextureLayout textureLayout = TextureLayout::UNKNOWN,
-			uint64_t requiredAlignment = 0, API api = API::DIRECTX_12);
+			uint64_t requiredAlignment = 0);
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -1903,7 +1969,7 @@ namespace XUSG
 
 		using Resource::Create;
 		// Create() will create multiple DSVs (1 slice per DSV), where numMips can be 0 for full MIP chain
-		virtual bool Create(const Device* pDevice, uint32_t width, uint32_t height,
+		virtual bool Create(Device* pDevice, uint32_t width, uint32_t height,
 			Format format = Format::UNKNOWN, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint16_t arraySize = 1, uint8_t numMips = 1, uint8_t sampleCount = 1,
 			float clearDepth = 1.0f, uint8_t clearStencil = 0, bool isCubeMap = false,
@@ -1911,7 +1977,7 @@ namespace XUSG
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 			uint16_t stencilSrvComponentMapping = XUSG_DEFAULT_STENCIL_SRV_COMPONENT_MAPPING,
 			TextureLayout textureLayout = TextureLayout::UNKNOWN, uint32_t maxThreads = 1) = 0;
-		virtual bool Create(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
+		virtual bool Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 			Format format = Format::UNKNOWN, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint16_t arraySize = 1, uint8_t numMips = 1, uint8_t sampleCount = 1,
 			float clearDepth = 1.0f, uint8_t clearStencil = 0, bool isCubeMap = false,
@@ -1919,27 +1985,27 @@ namespace XUSG
 			uint16_t stencilSrvComponentMapping = XUSG_DEFAULT_STENCIL_SRV_COMPONENT_MAPPING,
 			TextureLayout textureLayout = TextureLayout::UNKNOWN, uint32_t maxThreads = 1) = 0;
 		// CreateArray() will create a single array DSV of n slices, where numMips can be 0 for full MIP chain
-		virtual bool CreateArray(const Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize,
+		virtual bool CreateArray(Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize,
 			Format format = Format::UNKNOWN, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, float clearDepth = 1.0f, uint8_t clearStencil = 0,
 			bool isCubeMap = false, MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 			uint16_t stencilSrvComponentMapping = XUSG_DEFAULT_STENCIL_SRV_COMPONENT_MAPPING,
 			TextureLayout textureLayout = TextureLayout::UNKNOWN, uint32_t maxThreads = 1) = 0;
-		virtual bool CreateArray(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
+		virtual bool CreateArray(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 			uint16_t arraySize, Format format = Format::UNKNOWN, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, float clearDepth = 1.0f, uint8_t clearStencil = 0,
 			bool isCubeMap = false, const wchar_t* name = nullptr,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 			uint16_t stencilSrvComponentMapping = XUSG_DEFAULT_STENCIL_SRV_COMPONENT_MAPPING,
 			TextureLayout textureLayout = TextureLayout::UNKNOWN, uint32_t maxThreads = 1) = 0;
-		virtual bool CreateResource(const Device* pDevice, uint32_t width, uint32_t height,
+		virtual bool CreateResource(Device* pDevice, uint32_t width, uint32_t height,
 			Format format, uint16_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, MemoryFlag memoryFlags = MemoryFlag::NONE,
 			ResourceState initialResourceState = ResourceState::DEPTH_WRITE, float clearDepth = 1.0f,
 			uint8_t clearStencil = 0, TextureLayout textureLayout = TextureLayout::UNKNOWN,
 			uint32_t maxThreads = 1) = 0;
-		virtual bool CreateResource(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, uint32_t width,
+		virtual bool CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width,
 			uint32_t height, Format format, uint16_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, ResourceState initialResourceState = ResourceState::DEPTH_WRITE,
 			float clearDepth = 1.0f, uint8_t clearStencil = 0, TextureLayout textureLayout = TextureLayout::UNKNOWN,
@@ -1954,14 +2020,14 @@ namespace XUSG
 		using uptr = std::unique_ptr<DepthStencil>;
 		using sptr = std::shared_ptr<DepthStencil>;
 
-		static uptr MakeUnique(API api = API::DIRECTX_12);
-		static sptr MakeShared(API api = API::DIRECTX_12);
+		static uptr MakeUnique();
+		static sptr MakeShared();
 
-		static void GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, const Device* pDevice,
+		static void GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, Device* pDevice,
 			uint32_t width, uint32_t height, Format format, uint16_t arraySize = 1,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			uint8_t sampleCount = 1, TextureLayout textureLayout = TextureLayout::UNKNOWN,
-			uint64_t requiredAlignment = 0, API api = API::DIRECTX_12);
+			uint64_t requiredAlignment = 0);
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -1976,25 +2042,25 @@ namespace XUSG
 
 		using Resource::Create;
 		// Create a 3D texture with auto SRVs and UAVs, where numMips can be 0 for full MIP chain
-		virtual bool Create(const Device* pDevice, uint32_t width, uint32_t height, uint16_t depth,
+		virtual bool Create(Device* pDevice, uint32_t width, uint32_t height, uint16_t depth,
 			Format format, ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 			TextureLayout textureLayout = TextureLayout::UNKNOWN,
 			uint8_t numUavFormats = 0, const Format* uavFormats = nullptr,
 			uint32_t maxThreads = 1) = 0;
-		virtual bool Create(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
+		virtual bool Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 			uint16_t depth, Format format, ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			const wchar_t* name = nullptr, uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 			TextureLayout textureLayout = TextureLayout::UNKNOWN,
 			uint8_t numUavFormats = 0, const Format* uavFormats = nullptr,
 			uint32_t maxThreads = 1) = 0;
-		virtual bool CreateResource(const Device* pDevice, uint32_t width, uint32_t height, uint16_t depth,
+		virtual bool CreateResource(Device* pDevice, uint32_t width, uint32_t height, uint16_t depth,
 			Format format, ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, ResourceState initialResourceState = ResourceState::COMMON,
 			TextureLayout textureLayout = TextureLayout::UNKNOWN, uint8_t numCastableFormats = 0,
 			const Format* pCastableFormats = nullptr, uint32_t maxThreads = 1) = 0;
-		virtual bool CreateResource(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, uint32_t width,
+		virtual bool CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width,
 			uint32_t height, uint16_t depth, Format format, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, ResourceState initialResourceState = ResourceState::COMMON,
 			TextureLayout textureLayout = TextureLayout::UNKNOWN,
@@ -2012,14 +2078,14 @@ namespace XUSG
 		using uptr = std::unique_ptr<Texture3D>;
 		using sptr = std::shared_ptr<Texture3D>;
 
-		static uptr MakeUnique(API api = API::DIRECTX_12);
-		static sptr MakeShared(API api = API::DIRECTX_12);
+		static uptr MakeUnique();
+		static sptr MakeShared();
 
-		static void GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, const Device* pDevice,
+		static void GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, Device* pDevice,
 			uint32_t width, uint32_t height, uint16_t depth, Format format,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			TextureLayout textureLayout = TextureLayout::UNKNOWN,
-			uint64_t requiredAlignment = 0, API api = API::DIRECTX_12);
+			uint64_t requiredAlignment = 0);
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -2033,22 +2099,22 @@ namespace XUSG
 		virtual ~Buffer() {};
 
 		using Resource::Create;
-		virtual bool Create(const Device* pDevice, size_t byteWidth, ResourceFlag resourceFlags = ResourceFlag::NONE,
+		virtual bool Create(Device* pDevice, size_t byteWidth, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			MemoryType memoryType = MemoryType::DEFAULT, uint32_t numSRVs = 1,
 			const uintptr_t* firstSrvElements = nullptr, uint32_t numUAVs = 1,
 			const uintptr_t* firstUavElements = nullptr, MemoryFlag memoryFlags = MemoryFlag::NONE,
 			const wchar_t* name = nullptr, const uintptr_t* counterByteOffsets = nullptr,
 			uint32_t maxThreads = 1) = 0;
-		virtual bool Create(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, size_t byteWidth,
+		virtual bool Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, size_t byteWidth,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, uint32_t numSRVs = 1,
 			const uintptr_t* firstSrvElements = nullptr, uint32_t numUAVs = 1,
 			const uintptr_t* firstUavElements = nullptr, const wchar_t* name = nullptr,
 			const uintptr_t* counterByteOffsets = nullptr, uint32_t maxThreads = 1) = 0;
-		virtual bool CreateResource(const Device* pDevice, size_t byteWidth, ResourceFlag resourceFlags = ResourceFlag::NONE,
+		virtual bool CreateResource(Device* pDevice, size_t byteWidth, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			MemoryType memoryType = MemoryType::DEFAULT, MemoryFlag memoryFlags = MemoryFlag::NONE,
 			ResourceState initialResourceState = ResourceState::COMMON, uint8_t numCastableFormats = 0,
 			const Format* pCastableFormats = nullptr, uint32_t maxThreads = 1) = 0;
-		virtual bool CreateResource(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, size_t byteWidth,
+		virtual bool CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset, size_t byteWidth,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, ResourceState initialResourceState = ResourceState::COMMON,
 			uint8_t numCastableFormats = 0, const Format* pCastableFormats = nullptr, uint32_t maxThreads = 1) = 0;
 		virtual bool Upload(CommandList* pCommandList, Resource* pUploader, const void* pData, size_t size,
@@ -2076,15 +2142,15 @@ namespace XUSG
 		using uptr = std::unique_ptr<Buffer>;
 		using sptr = std::shared_ptr<Buffer>;
 
-		static uptr MakeUnique(API api = API::DIRECTX_12);
-		static sptr MakeShared(API api = API::DIRECTX_12);
+		static uptr MakeUnique();
+		static sptr MakeShared();
 
-		static void GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, const Device* pDevice,
+		static void GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, Device* pDevice,
 			size_t byteWidth, ResourceFlag resourceFlags = ResourceFlag::NONE,
-			uint64_t requiredAlignment = 0, API api = API::DIRECTX_12);
+			uint64_t requiredAlignment = 0);
 
-		static size_t AlignRawView(size_t byteSize, API api = API::DIRECTX_12);
-		static size_t AlignCounter(size_t byteSize, API api = API::DIRECTX_12);
+		static size_t AlignRawView(size_t byteSize);
+		static size_t AlignCounter(size_t byteSize);
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -2103,13 +2169,13 @@ namespace XUSG
 		virtual ~StructuredBuffer() {};
 
 		using Resource::Create;
-		virtual bool Create(const Device* pDevice, size_t numElements, uint32_t byteStride,
+		virtual bool Create(Device* pDevice, size_t numElements, uint32_t byteStride,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
 			uint32_t numSRVs = 1, const uintptr_t* firstSrvElements = nullptr,
 			uint32_t numUAVs = 1, const uintptr_t* firstUavElements = nullptr,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 			const uintptr_t* counterByteOffsets = nullptr, uint32_t maxThreads = 1) = 0;
-		virtual bool Create(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, size_t numElements,
+		virtual bool Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, size_t numElements,
 			uint32_t byteStride, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint32_t numSRVs = 1, const uintptr_t* firstSrvElements = nullptr,
 			uint32_t numUAVs = 1, const uintptr_t* firstUavElements = nullptr,
@@ -2119,8 +2185,8 @@ namespace XUSG
 		using uptr = std::unique_ptr<StructuredBuffer>;
 		using sptr = std::shared_ptr<StructuredBuffer>;
 
-		static uptr MakeUnique(API api = API::DIRECTX_12);
-		static sptr MakeShared(API api = API::DIRECTX_12);
+		static uptr MakeUnique();
+		static sptr MakeShared();
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -2134,7 +2200,7 @@ namespace XUSG
 		virtual ~TypedBuffer() {};
 
 		using Resource::Create;
-		virtual bool Create(const Device* pDevice, size_t numElements, uint32_t byteStride, Format format,
+		virtual bool Create(Device* pDevice, size_t numElements, uint32_t byteStride, Format format,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
 			uint32_t numSRVs = 1, const uintptr_t* firstSrvElements = nullptr,
 			uint32_t numUAVs = 1, const uintptr_t* firstUavElements = nullptr,
@@ -2142,7 +2208,7 @@ namespace XUSG
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 			const uintptr_t* counterByteOffsets = nullptr, uint8_t numUavFormats = 0,
 			const Format* uavFormats = nullptr, uint32_t maxThreads = 1) = 0;
-		virtual bool Create(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, size_t numElements,
+		virtual bool Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, size_t numElements,
 			uint32_t byteStride, Format format, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint32_t numSRVs = 1, const uintptr_t* firstSrvElements = nullptr,
 			uint32_t numUAVs = 1, const uintptr_t* firstUavElements = nullptr,
@@ -2155,8 +2221,8 @@ namespace XUSG
 		using uptr = std::unique_ptr<TypedBuffer>;
 		using sptr = std::shared_ptr<TypedBuffer>;
 
-		static uptr MakeUnique(API api = API::DIRECTX_12);
-		static sptr MakeShared(API api = API::DIRECTX_12);
+		static uptr MakeUnique();
+		static sptr MakeShared();
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -2170,28 +2236,28 @@ namespace XUSG
 		virtual ~VertexBuffer() {};
 
 		using Resource::Create;
-		virtual bool Create(const Device* pDevice, size_t numVertices, uint32_t byteStride,
+		virtual bool Create(Device* pDevice, size_t numVertices, uint32_t byteStride,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
 			uint32_t numVBVs = 1, const uintptr_t* firstVertices = nullptr,
 			uint32_t numSRVs = 1, const uintptr_t* firstSrvElements = nullptr,
 			uint32_t numUAVs = 1, const uintptr_t* firstUavElements = nullptr,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 			const uintptr_t* counterByteOffsets = nullptr, uint32_t maxThreads = 1) = 0;
-		virtual bool Create(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, size_t numVertices,
+		virtual bool Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, size_t numVertices,
 			uint32_t byteStride, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint32_t numVBVs = 1, const uintptr_t* firstVertices = nullptr,
 			uint32_t numSRVs = 1, const uintptr_t* firstSrvElements = nullptr,
 			uint32_t numUAVs = 1, const uintptr_t* firstUavElements = nullptr,
 			const wchar_t* name = nullptr, const uintptr_t* counterByteOffsets = nullptr,
 			uint32_t maxThreads = 1) = 0;
-		virtual bool CreateAsRaw(const Device* pDevice, size_t numVertices, uint32_t byteStride,
+		virtual bool CreateAsRaw(Device* pDevice, size_t numVertices, uint32_t byteStride,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, MemoryType memoryType = MemoryType::DEFAULT,
 			uint32_t numVBVs = 1, const uintptr_t* firstVertices = nullptr,
 			uint32_t numSRVs = 1, const uintptr_t* firstSrvElements = nullptr,
 			uint32_t numUAVs = 1, const uintptr_t* firstUavElements = nullptr,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 			const uintptr_t* counterByteOffsets = nullptr, uint32_t maxThreads = 1) = 0;
-		virtual bool CreateAsRaw(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, size_t numVertices,
+		virtual bool CreateAsRaw(Device* pDevice, Heap* pHeap, uint64_t heapOffset, size_t numVertices,
 			uint32_t byteStride, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint32_t numVBVs = 1, const uintptr_t* firstVertices = nullptr,
 			uint32_t numSRVs = 1, const uintptr_t* firstSrvElements = nullptr,
@@ -2206,8 +2272,8 @@ namespace XUSG
 		using uptr = std::unique_ptr<VertexBuffer>;
 		using sptr = std::shared_ptr<VertexBuffer>;
 
-		static uptr MakeUnique(API api = API::DIRECTX_12);
-		static sptr MakeShared(API api = API::DIRECTX_12);
+		static uptr MakeUnique();
+		static sptr MakeShared();
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -2221,7 +2287,7 @@ namespace XUSG
 		virtual ~IndexBuffer() {};
 
 		using Resource::Create;
-		virtual bool Create(const Device* pDevice, size_t byteWidth, Format format = Format::R32_UINT,
+		virtual bool Create(Device* pDevice, size_t byteWidth, Format format = Format::R32_UINT,
 			ResourceFlag resourceFlags = ResourceFlag::DENY_SHADER_RESOURCE,
 			MemoryType memoryType = MemoryType::DEFAULT,
 			uint32_t numIBVs = 1, const uintptr_t* ibvByteOffsets = nullptr,
@@ -2230,7 +2296,7 @@ namespace XUSG
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 			const uintptr_t* counterByteOffsets = nullptr, uint32_t maxThreads = 1) = 0;
-		virtual bool Create(const Device* pDevice, const Heap* pHeap, uint64_t heapOffset, size_t byteWidth,
+		virtual bool Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, size_t byteWidth,
 			Format format = Format::R32_UINT, ResourceFlag resourceFlags = ResourceFlag::DENY_SHADER_RESOURCE,
 			uint32_t numIBVs = 1, const uintptr_t* ibvByteOffsets = nullptr,
 			uint32_t numSRVs = 1, const uintptr_t* firstSrvElements = nullptr,
@@ -2245,8 +2311,8 @@ namespace XUSG
 		using uptr = std::unique_ptr<IndexBuffer>;
 		using sptr = std::shared_ptr<IndexBuffer>;
 
-		static uptr MakeUnique(API api = API::DIRECTX_12);
-		static sptr MakeShared(API api = API::DIRECTX_12);
+		static uptr MakeUnique();
+		static sptr MakeShared();
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -2291,8 +2357,8 @@ namespace XUSG
 			using uptr = std::unique_ptr<DescriptorTable>;
 			using sptr = std::shared_ptr<DescriptorTable>;
 
-			static uptr MakeUnique(API api = API::DIRECTX_12);
-			static sptr MakeShared(API api = API::DIRECTX_12);
+			static uptr MakeUnique();
+			static sptr MakeShared();
 		};
 	}
 
@@ -2300,10 +2366,10 @@ namespace XUSG
 	{
 	public:
 		//DescriptorTableLib();
-		//DescriptorTableLib(const Device* pDevice, const wchar_t* name = nullptr);
+		//DescriptorTableLib(Device* pDevice, const wchar_t* name = nullptr);
 		virtual ~DescriptorTableLib() {};
 
-		virtual void SetDevice(const Device* pDevice) = 0;
+		virtual void SetDevice(Device* pDevice) = 0;
 		virtual void SetName(const wchar_t* name) = 0;
 		virtual void ResetDescriptorHeap(DescriptorHeapType type, uint8_t index = 0) = 0;
 
@@ -2320,6 +2386,9 @@ namespace XUSG
 		virtual const Sampler* GetSampler(SamplerPreset preset) = 0;
 
 		virtual uint32_t GetDescriptorStride(DescriptorHeapType type) = 0;
+
+		// Backend C++ object (DescriptorTableLib_DX12* / DescriptorTableLib_VK*, not available to users), internal use only.
+		virtual void* GetBackend() = 0;
 
 		static Sampler SamplerPointWrap();
 		static Sampler SamplerPointMirror();
@@ -2362,10 +2431,10 @@ namespace XUSG
 		using uptr = std::unique_ptr<DescriptorTableLib>;
 		using sptr = std::shared_ptr<DescriptorTableLib>;
 
-		static uptr MakeUnique(API api = API::DIRECTX_12);
-		static sptr MakeShared(API api = API::DIRECTX_12);
-		static uptr MakeUnique(const Device* pDevice, const wchar_t* name = nullptr, API api = API::DIRECTX_12);
-		static sptr MakeShared(const Device* pDevice, const wchar_t* name = nullptr, API api = API::DIRECTX_12);
+		static uptr MakeUnique();
+		static sptr MakeShared();
+		static uptr MakeUnique(Device* pDevice, const wchar_t* name = nullptr);
+		static sptr MakeShared(Device* pDevice, const wchar_t* name = nullptr);
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -2380,12 +2449,16 @@ namespace XUSG
 		virtual bool SetShader(const Blob& shader) = 0;
 		virtual bool IsValid() const = 0;
 		virtual uint32_t GetResourceBindingPointByName(const char* name, uint32_t defaultVal = UINT32_MAX) const = 0;
+		virtual uint32_t GetResourceSpaceByName(const char* name, uint32_t defaultVal = UINT32_MAX) const = 0;
+
+		// Override the estimated binding slot with the reflected one. Space/set is checked, not overridden.
+		uint32_t ReflectBinding(const char* name, uint32_t defaultVal, uint32_t expectedSpace) const;
 
 		using uptr = std::unique_ptr<Reflector>;
 		using sptr = std::shared_ptr<Reflector>;
 
-		static uptr MakeUnique(API api = API::DIRECTX_12);
-		static sptr MakeShared(API api = API::DIRECTX_12);
+		static uptr MakeUnique();
+		static sptr MakeShared();
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -2406,11 +2479,14 @@ namespace XUSG
 		virtual Blob GetShader(Shader::Stage stage, uint32_t index) = 0;
 		virtual Reflector::sptr GetReflector(Shader::Stage stage, uint32_t index) = 0;
 
+		bool CreateShader(Shader::Stage stage, uint32_t index,
+			const void* pDxbc, size_t dxbcSize, const void* pSpirv, size_t spirvSize);
+
 		using uptr = std::unique_ptr<ShaderLib>;
 		using sptr = std::shared_ptr<ShaderLib>;
 
-		static uptr MakeUnique(API api = API::DIRECTX_12);
-		static sptr MakeShared(API api = API::DIRECTX_12);
+		static uptr MakeUnique();
+		static sptr MakeShared();
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -2451,13 +2527,16 @@ namespace XUSG
 			virtual const std::vector<std::string>& GetDescriptorTableLayoutKeys() const = 0;
 			virtual std::string& GetPipelineLayoutKey(PipelineLayoutLib* pPipelineLayoutLib) = 0;
 
+			// Backend C++ object (PipelineLayout_DX12* / PipelineLayout_VK*, not available to users), internal use only.
+			virtual void* GetBackend() = 0;
+
 			using uptr = std::unique_ptr<PipelineLayout>;
 			using sptr = std::shared_ptr<PipelineLayout>;
 
-			static uptr MakeUnique(API api = API::DIRECTX_12);
-			static sptr MakeShared(API api = API::DIRECTX_12);
-			static uptr CloneUnique(const PipelineLayout* pSrc, API api = API::DIRECTX_12);
-			static sptr CloneShared(const PipelineLayout* pSrc, API api = API::DIRECTX_12);
+			static uptr MakeUnique();
+			static sptr MakeShared();
+			static uptr CloneUnique(PipelineLayout* pSrc);
+			static sptr CloneShared(PipelineLayout* pSrc);
 		};
 	}
 
@@ -2465,10 +2544,10 @@ namespace XUSG
 	{
 	public:
 		//PipelineLayoutLib();
-		//PipelineLayoutLib(const Device* pDevice) = 0;
+		//PipelineLayoutLib(Device* pDevice) = 0;
 		virtual ~PipelineLayoutLib() {};
 
-		virtual void SetDevice(const Device* pDevice) = 0;
+		virtual void SetDevice(Device* pDevice) = 0;
 		virtual void SetPipelineLayout(const std::string& key, const PipelineLayout& pipelineLayout) = 0;
 
 		virtual PipelineLayout CreatePipelineLayout(Util::PipelineLayout* pUtil, PipelineLayoutFlag flags,
@@ -2483,13 +2562,16 @@ namespace XUSG
 		virtual DescriptorTableLayout CreateDescriptorTableLayout(uint32_t index, const Util::PipelineLayout* pUtil) = 0;
 		virtual DescriptorTableLayout GetDescriptorTableLayout(uint32_t index, const Util::PipelineLayout* pUtil) = 0;
 
+		// Backend C++ object (PipelineLayoutLib_DX12* / PipelineLayoutLib_VK*, not available to users), internal use only.
+		virtual void* GetBackend() = 0;
+
 		using uptr = std::unique_ptr<PipelineLayoutLib>;
 		using sptr = std::shared_ptr<PipelineLayoutLib>;
 
-		static uptr MakeUnique(API api = API::DIRECTX_12);
-		static sptr MakeShared(API api = API::DIRECTX_12);
-		static uptr MakeUnique(const Device* pDevice, API api = API::DIRECTX_12);
-		static sptr MakeShared(const Device* pDevice, API api = API::DIRECTX_12);
+		static uptr MakeUnique();
+		static sptr MakeShared();
+		static uptr MakeUnique(Device* pDevice);
+		static sptr MakeShared(Device* pDevice);
 	};
 
 	//--------------------------------------------------------------------------------------
@@ -2682,8 +2764,8 @@ namespace XUSG
 			virtual void OMSetDSVFormat(Format format) = 0;
 			virtual void OMSetSample(uint8_t count, uint8_t quality = 0) = 0;
 
-			virtual Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
-			virtual Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
+			virtual Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) = 0;
+			virtual Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) = 0;
 
 			virtual PipelineLayout GetPipelineLayout() const = 0;
 			virtual Blob GetShader(Shader::Stage stage) const = 0;
@@ -2710,29 +2792,32 @@ namespace XUSG
 			// pInputElements should be a pointer to std::vector<[API]_INPUT_ELEMENT_DESC>
 			virtual void GetHandleDesc(void* pHandleDesc, void* pInputElements) const = 0;
 
+			// Backend C++ object (Graphics::State_DX12* / State_VK*, not available to users), internal use only.
+			virtual void* GetBackend() = 0;
+
 			using uptr = std::unique_ptr<State>;
 			using sptr = std::shared_ptr<State>;
 
-			static uptr MakeUnique(API api = API::DIRECTX_12);
-			static sptr MakeShared(API api = API::DIRECTX_12);
+			static uptr MakeUnique();
+			static sptr MakeShared();
 		};
 
 		class XUSG_INTERFACE PipelineLib
 		{
 		public:
 			//PipelineLib();
-			//PipelineLib(const Device* pDevice);
+			//PipelineLib(Device* pDevice);
 			virtual ~PipelineLib() {};
 
-			virtual void SetDevice(const Device* pDevice) = 0;
-			virtual void SetPipeline(const State* pState, const Pipeline& pipeline) = 0;
+			virtual void SetDevice(Device* pDevice) = 0;
+			virtual void SetPipeline(State* pState, const Pipeline& pipeline) = 0;
 
 			virtual void SetInputLayout(uint32_t index, uint32_t numElements, const InputElement* pElements) = 0;
 			virtual const InputLayout* GetInputLayout(uint32_t index) = 0;
 			virtual const InputLayout* CreateInputLayout(uint32_t numElements, const InputElement* pElements) = 0;
 
-			virtual Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr) = 0;
-			virtual Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr) = 0;
+			virtual Pipeline CreatePipeline(State* pState, const wchar_t* name = nullptr) = 0;
+			virtual Pipeline GetPipeline(State* pState, const wchar_t* name = nullptr) = 0;
 
 			virtual const Blend* GetBlend(BlendPreset preset, uint8_t numColorRTs = 1) = 0;
 			virtual const Rasterizer* GetRasterizer(RasterizerPreset preset) = 0;
@@ -2823,10 +2908,10 @@ namespace XUSG
 			using uptr = std::unique_ptr<PipelineLib>;
 			using sptr = std::shared_ptr<PipelineLib>;
 
-			static uptr MakeUnique(API api = API::DIRECTX_12);
-			static sptr MakeShared(API api = API::DIRECTX_12);
-			static uptr MakeUnique(const Device* pDevice, API api = API::DIRECTX_12);
-			static sptr MakeShared(const Device* pDevice, API api = API::DIRECTX_12);
+			static uptr MakeUnique();
+			static sptr MakeShared();
+			static uptr MakeUnique(Device* pDevice);
+			static sptr MakeShared(Device* pDevice);
 		};
 	}
 
@@ -2849,8 +2934,8 @@ namespace XUSG
 			virtual void SetNodeMask(uint32_t nodeMask) = 0;
 			virtual void SetFlags(PipelineFlag flag) = 0;
 
-			virtual Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
-			virtual Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const = 0;
+			virtual Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) = 0;
+			virtual Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) = 0;
 
 			virtual PipelineLayout GetPipelineLayout() const = 0;
 			virtual Blob GetShader() const = 0;
@@ -2861,41 +2946,44 @@ namespace XUSG
 			// Get API native desc of this PSO handle
 			virtual void GetHandleDesc(void* pHandleDesc) const = 0;
 
+			// Backend C++ object (Compute::State_DX12* / State_VK*, not available to users), internal use only.
+			virtual void* GetBackend() = 0;
+
 			using uptr = std::unique_ptr<State>;
 			using sptr = std::shared_ptr<State>;
 
-			static uptr MakeUnique(API api = API::DIRECTX_12);
-			static sptr MakeShared(API api = API::DIRECTX_12);
+			static uptr MakeUnique();
+			static sptr MakeShared();
 		};
 
 		class XUSG_INTERFACE PipelineLib
 		{
 		public:
 			//PipelineLib();
-			//PipelineLib(const Device* pDevice);
+			//PipelineLib(Device* pDevice);
 			virtual ~PipelineLib() {};
 
-			virtual void SetDevice(const Device* pDevice) = 0;
-			virtual void SetPipeline(const State* pState, const Pipeline& pipeline) = 0;
+			virtual void SetDevice(Device* pDevice) = 0;
+			virtual void SetPipeline(State* pState, const Pipeline& pipeline) = 0;
 
-			virtual Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr) = 0;
-			virtual Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr) = 0;
+			virtual Pipeline CreatePipeline(State* pState, const wchar_t* name = nullptr) = 0;
+			virtual Pipeline GetPipeline(State* pState, const wchar_t* name = nullptr) = 0;
 
 			using uptr = std::unique_ptr<PipelineLib>;
 			using sptr = std::shared_ptr<PipelineLib>;
 
-			static uptr MakeUnique(API api = API::DIRECTX_12);
-			static sptr MakeShared(API api = API::DIRECTX_12);
-			static uptr MakeUnique(const Device* pDevice, API api = API::DIRECTX_12);
-			static sptr MakeShared(const Device* pDevice, API api = API::DIRECTX_12);
+			static uptr MakeUnique();
+			static sptr MakeShared();
+			static uptr MakeUnique(Device* pDevice);
+			static sptr MakeShared(Device* pDevice);
 		};
 	}
 
-	XUSG_INTERFACE void GetPipelineCacheData(Pipeline pipeline, const void** ppData, size_t* pSize, API api = API::DIRECTX_12);
+	XUSG_INTERFACE void GetPipelineCacheData(Pipeline pipeline, const void** ppData, size_t* pSize);
 
-	XUSG_INTERFACE void GetBlobData(const Blob& blob, const void** ppData, size_t* pSize, API api = API::DIRECTX_12);
+	XUSG_INTERFACE void GetBlobData(const Blob& blob, const void** ppData, size_t* pSize);
 
-	XUSG_INTERFACE Blob GetPipelineCache(Pipeline pipeline, API api = API::DIRECTX_12);
+	XUSG_INTERFACE Blob GetPipelineCache(Pipeline pipeline);
 
 	XUSG_INTERFACE size_t Align(size_t size, size_t alignment);
 

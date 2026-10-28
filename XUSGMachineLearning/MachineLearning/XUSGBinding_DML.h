@@ -22,20 +22,20 @@ namespace XUSG
 			bool Reset(const Operator& dispatchable, const DescriptorHeap& descriptorHeap,
 				uint32_t descriptorCount, int32_t descriptorOffset = 0);
 
-			void BindInput(uint32_t i, const Resource* pResource, uint64_t size = 0, uint64_t offset = 0);
+			void BindInput(uint32_t i, Resource* pResource, uint64_t size = 0, uint64_t offset = 0);
 			void BindInput(uint32_t i, uintptr_t bindingIndex, uint32_t bindingCount = 1);
-			void BindOutput(uint32_t i, const Resource* pResource, uint64_t size = 0, uint64_t offset = 0);
+			void BindOutput(uint32_t i, Resource* pResource, uint64_t size = 0, uint64_t offset = 0);
 			void BindOutput(uint32_t i, uintptr_t bindingIndex, uint32_t bindingCount = 1);
-			void AppendInput(const Resource* pResource, uint64_t size = 0, uint64_t offset = 0);
+			void AppendInput(Resource* pResource, uint64_t size = 0, uint64_t offset = 0);
 			void AppendInput(uintptr_t bindingIndex, uint32_t bindingCount = 1);
-			void AppendOutput(const Resource* pResource, uint64_t size = 0, uint64_t offset = 0);
+			void AppendOutput(Resource* pResource, uint64_t size = 0, uint64_t offset = 0);
 			void AppendOutput(uintptr_t bindingIndex, uint32_t bindingCount = 1);
 
-			void BindInputBuffer(uint32_t i, const Resource* pResource, uint64_t size = 0, uint64_t offset = 0);
-			void BindOutputBuffer(uint32_t i, const Resource* pResource, uint64_t size = 0, uint64_t offset = 0);
+			void BindInputBuffer(uint32_t i, Resource* pResource, uint64_t size = 0, uint64_t offset = 0);
+			void BindOutputBuffer(uint32_t i, Resource* pResource, uint64_t size = 0, uint64_t offset = 0);
 
-			void BindTemporary(const Resource* pResource, uint64_t size = 0, uint64_t offset = 0);
-			void BindPersistent(const Resource* pResource, uint64_t size = 0, uint64_t offset = 0);
+			void BindTemporary(Resource* pResource, uint64_t size = 0, uint64_t offset = 0);
+			void BindPersistent(Resource* pResource, uint64_t size = 0, uint64_t offset = 0);
 
 			BindingTable GetBindingTable() const;
 			BindingTable GetDispatchableBindingTable();

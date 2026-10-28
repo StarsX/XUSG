@@ -143,6 +143,11 @@ string& Util::PipelineLayout_DX12::GetPipelineLayoutKey(PipelineLayoutLib* pPipe
 	return m_pipelineLayoutKey;
 }
 
+void* Util::PipelineLayout_DX12::GetBackend()
+{
+	return this;
+}
+
 std::string& Util::PipelineLayout_DX12::checkKeyStorage(uint32_t index)
 {
 	m_isTableLayoutsCompleted = false;
@@ -167,7 +172,7 @@ PipelineLayoutLib_DX12::PipelineLayoutLib_DX12() :
 {
 }
 
-PipelineLayoutLib_DX12::PipelineLayoutLib_DX12(const Device* pDevice) :
+PipelineLayoutLib_DX12::PipelineLayoutLib_DX12(Device* pDevice) :
 	PipelineLayoutLib()
 {
 	SetDevice(pDevice);
@@ -177,9 +182,9 @@ PipelineLayoutLib_DX12::~PipelineLayoutLib_DX12()
 {
 }
 
-void PipelineLayoutLib_DX12::SetDevice(const Device* pDevice)
+void PipelineLayoutLib_DX12::SetDevice(Device* pDevice)
 {
-	m_device = pDevice->GetHandle();
+	m_device = pDevice->GetNativeHandle();
 	assert(m_device);
 }
 
@@ -358,6 +363,11 @@ D3D_ROOT_SIGNATURE_VERSION PipelineLayoutLib_DX12::GetRootSignatureHighestVersio
 	return featureData.HighestVersion;
 }
 
+void* PipelineLayoutLib_DX12::GetBackend()
+{
+	return this;
+}
+
 PipelineLayout PipelineLayoutLib_DX12::createPipelineLayout(const string& key, const wchar_t* name, uint32_t nodeMask)
 {
 	static const auto highestVersion = GetRootSignatureHighestVersion();
@@ -476,4 +486,16 @@ D3D12_SHADER_VISIBILITY PipelineLayoutLib_DX12::getShaderVisibility(Shader::Stag
 	assert(visibilities[Shader::MS] == D3D12_SHADER_VISIBILITY_MESH);
 
 	return visibilities[stage];
+}
+
+Util::PipelineLayout_DX12* XUSG::Util::AsDX12(PipelineLayout* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<Util::PipelineLayout_DX12*>(p ? p->GetBackend() : nullptr);
+}
+
+PipelineLayoutLib_DX12* XUSG::AsDX12(PipelineLayoutLib* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<PipelineLayoutLib_DX12*>(p ? p->GetBackend() : nullptr);
 }

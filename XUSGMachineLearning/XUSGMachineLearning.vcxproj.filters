@@ -78,6 +78,12 @@
     <ClInclude Include="..\XUSG\Common\d3dcommon.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="..\XUSG\Core\XUSG_DX12.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XUSG\Core\XUSGResource_DX12.h">
+      <Filter>Core</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -108,6 +114,12 @@
       <Filter>Core</Filter>
     </ClCompile>
     <ClCompile Include="..\XUSG\Core\XUSGEnum_DX12.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSG\Core\XUSG_DX12.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XUSG\Core\XUSGResource_DX12.cpp">
       <Filter>Core</Filter>
     </ClCompile>
   </ItemGroup>

@@ -82,6 +82,8 @@ namespace XUSG
 			const wchar_t* GetHitGroupName(uint32_t index);
 			uint32_t GetNumHitGroups();
 
+			void* GetBackend();
+
 		protected:
 			void serialize();
 
@@ -100,10 +102,10 @@ namespace XUSG
 		{
 		public:
 			PipelineLib_DX12();
-			PipelineLib_DX12(const Device* pDevice);
+			PipelineLib_DX12(Device* pDevice);
 			virtual ~PipelineLib_DX12();
 
-			void SetDevice(const Device* pDevice);
+			void SetDevice(Device* pDevice);
 			void SetPipeline(State* pState, const Pipeline& pipeline);
 
 			Pipeline CreatePipeline(State* pState, const wchar_t* name = nullptr);
@@ -119,5 +121,7 @@ namespace XUSG
 
 			std::mutex m_mtx;
 		};
+
+		State_DX12* AsDX12(State* p);
 	}
 }

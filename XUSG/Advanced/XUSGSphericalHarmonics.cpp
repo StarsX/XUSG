@@ -2,12 +2,16 @@
 // Copyright (c) XU, Tianchen. All rights reserved.
 //--------------------------------------------------------------------------------------
 
+#include "XUSGAdvanced.h"
 #include "XUSGSHSharedConsts.h"
 #include "XUSGSphericalHarmonics.h"
 
 #include "CSSHCubeMap.h"
+#include "CSSHCubeMapSpv.h"
 #include "CSSHSum.h"
+#include "CSSHSumSpv.h"
 #include "CSSHNormalize.h"
+#include "CSSHNormalizeSpv.h"
 
 using namespace std;
 using namespace DirectX;
@@ -16,21 +20,22 @@ using namespace XUSG;
 //--------------------------------------------------------------------------------------
 // Create interfaces
 //--------------------------------------------------------------------------------------
-SphericalHarmonics::uptr SphericalHarmonics::MakeUnique(API api)
+SphericalHarmonics::uptr SphericalHarmonics::MakeUnique()
 {
-	return make_unique<SphericalHarmonics_Impl>(api);
+	Device::LockApi();
+	return make_unique<SphericalHarmonics_Impl>();
 }
 
-SphericalHarmonics::sptr SphericalHarmonics::MakeShared(API api)
+SphericalHarmonics::sptr SphericalHarmonics::MakeShared()
 {
-	return make_shared<SphericalHarmonics_Impl>(api);
+	Device::LockApi();
+	return make_shared<SphericalHarmonics_Impl>();
 }
 
 //--------------------------------------------------------------------------------------
 // Spherical-harmonics implementations
 //--------------------------------------------------------------------------------------
-SphericalHarmonics_Impl::SphericalHarmonics_Impl(API api) :
-	m_api(api),
+SphericalHarmonics_Impl::SphericalHarmonics_Impl() :
 	m_shaderLib(nullptr),
 	m_computePipelineLib(nullptr),
 	m_pipelineLayoutLib(nullptr),
@@ -50,7 +55,7 @@ SphericalHarmonics_Impl::~SphericalHarmonics_Impl()
 {
 }
 
-bool SphericalHarmonics_Impl::Init(const Device* pDevice, const ShaderLib::sptr& shaderLib,
+bool SphericalHarmonics_Impl::Init(Device* pDevice, const ShaderLib::sptr& shaderLib,
 	const Compute::PipelineLib::sptr& computePipelineLib,
 	const PipelineLayoutLib::sptr& pipelineLayoutLib,
 	const DescriptorTableLib::sptr& descriptorTableLib,
@@ -70,19 +75,19 @@ bool SphericalHarmonics_Impl::Init(const Device* pDevice, const ShaderLib::sptr&
 	const auto numSumGroups = XUSG_DIV_UP(numGroups, SH_GROUP_SIZE);
 	const auto maxElements = SH_MAX_ORDER * SH_MAX_ORDER * numGroups;
 	const auto maxSumElements = SH_MAX_ORDER * SH_MAX_ORDER * numSumGroups;
-	m_coeffSH[0] = StructuredBuffer::MakeShared(m_api);
-	m_coeffSH[0]->Create(pDevice, maxElements, sizeof(float[3]),
+	m_coeffSH[0] = StructuredBuffer::MakeShared();
+	m_coeffSH[0]->Create(pDevice, maxElements, sizeof(float[4]),
 		ResourceFlag::ALLOW_UNORDERED_ACCESS, MemoryType::DEFAULT,
 		1, nullptr, 1, nullptr, MemoryFlag::NONE, L"SHCoefficients0");
-	m_coeffSH[1] = StructuredBuffer::MakeShared(m_api);
-	m_coeffSH[1]->Create(pDevice, maxSumElements, sizeof(float[3]),
+	m_coeffSH[1] = StructuredBuffer::MakeShared();
+	m_coeffSH[1]->Create(pDevice, maxSumElements, sizeof(float[4]),
 		ResourceFlag::ALLOW_UNORDERED_ACCESS, MemoryType::DEFAULT,
 		1, nullptr, 1, nullptr, MemoryFlag::NONE, L"SHCoefficients1");
-	m_weightSH[0] = StructuredBuffer::MakeUnique(m_api);
+	m_weightSH[0] = StructuredBuffer::MakeUnique();
 	m_weightSH[0]->Create(pDevice, numGroups, sizeof(float),
 		ResourceFlag::ALLOW_UNORDERED_ACCESS, MemoryType::DEFAULT,
 		1, nullptr, 1, nullptr, MemoryFlag::NONE, L"SHWeights0");
-	m_weightSH[1] = StructuredBuffer::MakeUnique(m_api);
+	m_weightSH[1] = StructuredBuffer::MakeUnique();
 	m_weightSH[1]->Create(pDevice, numSumGroups, sizeof(float),
 		ResourceFlag::ALLOW_UNORDERED_ACCESS, MemoryType::DEFAULT,
 		1, nullptr, 1, nullptr, MemoryFlag::NONE, L"SHWeights1");
@@ -114,6 +119,10 @@ const DescriptorTable& SphericalHarmonics_Impl::GetSHCoeffSRVTable() const
 
 bool SphericalHarmonics_Impl::createPipelineLayouts()
 {
+	const auto cbvSpace = GetCBVSpace();
+	const auto srvSpace = GetSRVSpace();
+	const auto uavSpace = GetUAVSpace();
+	const auto samplerSpace = GetSamplerSpace();
 	const auto pSampler = m_descriptorTableLib->GetSampler(ANISOTROPIC_WRAP);
 
 	// SH cube map transform
@@ -125,35 +134,36 @@ bool SphericalHarmonics_Impl::createPipelineLayouts()
 		auto sampler = 0u;
 
 		// Load shader
-		XUSG_N_RETURN(m_shaderLib->CreateShader(Shader::Stage::CS, m_baseCSIndex + SH_CUBE_MAP, CSSHCubeMap, sizeof(CSSHCubeMap)), false);
+		XUSG_N_RETURN(m_shaderLib->CreateShader(Shader::Stage::CS, m_baseCSIndex + SH_CUBE_MAP,
+			CSSHCubeMap, sizeof(CSSHCubeMap), CSSHCubeMapSpv, sizeof(CSSHCubeMapSpv)), false);
 
 		// Get compute shader slots
 		const auto reflector = m_shaderLib->GetReflector(Shader::Stage::CS, m_baseCSIndex + SH_CUBE_MAP);
 		if (reflector && reflector->IsValid())
 		{
 			// Get constant buffer slots
-			cb = reflector->GetResourceBindingPointByName("cb", cb);
+			cb = reflector->ReflectBinding("cb", cb, cbvSpace);
 
 			// Get UAV slots
-			rwSHBuff = reflector->GetResourceBindingPointByName("g_rwSHBuff", rwSHBuff);
-			rwWeight = reflector->GetResourceBindingPointByName("g_rwWeight", rwWeight);
+			rwSHBuff = reflector->ReflectBinding("g_rwSHBuff", rwSHBuff, uavSpace);
+			rwWeight = reflector->ReflectBinding("g_rwWeight", rwWeight, uavSpace);
 
 			// Get SRV slot
-			txCubeMap = reflector->GetResourceBindingPointByName("g_txCubeMap", txCubeMap);
+			txCubeMap = reflector->ReflectBinding("g_txCubeMap", txCubeMap, srvSpace);
 
 			// Get sampler slot
-			sampler = reflector->GetResourceBindingPointByName("g_sampler", sampler);
+			sampler = reflector->ReflectBinding("g_sampler", sampler, samplerSpace);
 		}
 
 		const auto utilPipelineLayout = Util::PipelineLayout::MakeUnique();
 		
 		assert(rwWeight == rwSHBuff + 1);
-		utilPipelineLayout->SetRange(UAV_BUFFERS, DescriptorType::UAV, 2, rwSHBuff, 0,
+		utilPipelineLayout->SetRange(UAV_BUFFERS, DescriptorType::UAV, 2, rwSHBuff, uavSpace,
 			DescriptorFlag::DATA_STATIC_WHILE_SET_AT_EXECUTE | DescriptorFlag::DESCRIPTORS_VOLATILE);
 
-		utilPipelineLayout->SetRange(SRV_BUFFERS, DescriptorType::SRV, 1, txCubeMap);
-		utilPipelineLayout->SetConstants(CONSTANTS, XUSG_UINT32_SIZE_OF(uint32_t[2]), cb);
-		utilPipelineLayout->SetStaticSamplers(&pSampler, 1, sampler);
+		utilPipelineLayout->SetRange(SRV_BUFFERS, DescriptorType::SRV, 1, txCubeMap, srvSpace);
+		utilPipelineLayout->SetConstants(CONSTANTS, XUSG_UINT32_SIZE_OF(uint32_t[2]), cb, cbvSpace);
+		utilPipelineLayout->SetStaticSamplers(&pSampler, 1, sampler, samplerSpace);
 
 		XUSG_X_RETURN(m_pipelineLayouts[SH_CUBE_MAP], utilPipelineLayout->GetPipelineLayout(
 			m_pipelineLayoutLib.get(), PipelineLayoutFlag::NONE, L"SHCubeMapLayout"), false);
@@ -168,34 +178,35 @@ bool SphericalHarmonics_Impl::createPipelineLayouts()
 		auto roWeight = roSHBuff + 1;
 
 		// Load shader
-		XUSG_N_RETURN(m_shaderLib->CreateShader(Shader::Stage::CS, m_baseCSIndex + SH_SUM, CSSHSum, sizeof(CSSHSum)), false);
+		XUSG_N_RETURN(m_shaderLib->CreateShader(Shader::Stage::CS, m_baseCSIndex + SH_SUM,
+			CSSHSum, sizeof(CSSHSum), CSSHSumSpv, sizeof(CSSHSumSpv)), false);
 
 		// Get compute shader slots
 		const auto reflector = m_shaderLib->GetReflector(Shader::Stage::CS, m_baseCSIndex + SH_SUM);
 		if (reflector && reflector->IsValid())
 		{
 			// Get constant buffer slots
-			cb = reflector->GetResourceBindingPointByName("cb", cb);
+			cb = reflector->ReflectBinding("cb", cb, cbvSpace);
 
 			// Get UAV slots
-			rwSHBuff = reflector->GetResourceBindingPointByName("g_rwSHBuff", rwSHBuff);
-			rwWeight = reflector->GetResourceBindingPointByName("g_rwWeight", rwWeight);
+			rwSHBuff = reflector->ReflectBinding("g_rwSHBuff", rwSHBuff, uavSpace);
+			rwWeight = reflector->ReflectBinding("g_rwWeight", rwWeight, uavSpace);
 
 			// Get SRV slots
-			roSHBuff = reflector->GetResourceBindingPointByName("g_roSHBuff", roSHBuff);
-			roWeight = reflector->GetResourceBindingPointByName("g_roWeight", roWeight);
+			roSHBuff = reflector->ReflectBinding("g_roSHBuff", roSHBuff, srvSpace);
+			roWeight = reflector->ReflectBinding("g_roWeight", roWeight, srvSpace);
 		}
 
 		const auto utilPipelineLayout = Util::PipelineLayout::MakeUnique();
 
 		assert(rwWeight == rwSHBuff + 1);
-		utilPipelineLayout->SetRange(UAV_BUFFERS, DescriptorType::UAV, 2, rwSHBuff, 0,
+		utilPipelineLayout->SetRange(UAV_BUFFERS, DescriptorType::UAV, 2, rwSHBuff, uavSpace,
 			DescriptorFlag::DATA_STATIC_WHILE_SET_AT_EXECUTE | DescriptorFlag::DESCRIPTORS_VOLATILE);
 
 		assert(roWeight == roSHBuff + 1);
-		utilPipelineLayout->SetRange(SRV_BUFFERS, DescriptorType::SRV, 2, roSHBuff);
+		utilPipelineLayout->SetRange(SRV_BUFFERS, DescriptorType::SRV, 2, roSHBuff, srvSpace);
 
-		utilPipelineLayout->SetConstants(CONSTANTS, XUSG_UINT32_SIZE_OF(uint32_t[2]), cb);
+		utilPipelineLayout->SetConstants(CONSTANTS, XUSG_UINT32_SIZE_OF(uint32_t[2]), cb, cbvSpace);
 
 		XUSG_X_RETURN(m_pipelineLayouts[SH_SUM], utilPipelineLayout->GetPipelineLayout(
 			m_pipelineLayoutLib.get(), PipelineLayoutFlag::NONE, L"SHSumLayout"), false);
@@ -208,26 +219,27 @@ bool SphericalHarmonics_Impl::createPipelineLayouts()
 		auto roWeight = roSHBuff + 1;
 
 		// Load shader
-		XUSG_N_RETURN(m_shaderLib->CreateShader(Shader::Stage::CS, m_baseCSIndex + SH_NORMALIZE, CSSHNormalize, sizeof(CSSHNormalize)), false);
+		XUSG_N_RETURN(m_shaderLib->CreateShader(Shader::Stage::CS, m_baseCSIndex + SH_NORMALIZE,
+			CSSHNormalize, sizeof(CSSHNormalize), CSSHNormalizeSpv, sizeof(CSSHNormalizeSpv)), false);
 
 		// Get compute shader slots
 		const auto reflector = m_shaderLib->GetReflector(Shader::Stage::CS, m_baseCSIndex + SH_NORMALIZE);
 		if (reflector && reflector->IsValid())
 		{
 			// Get UAV slots
-			rwSHResult = reflector->GetResourceBindingPointByName("g_rwSHResult", rwSHResult);
+			rwSHResult = reflector->ReflectBinding("g_rwSHResult", rwSHResult, uavSpace);
 
 			// Get SRV slots
-			roSHBuff = reflector->GetResourceBindingPointByName("g_roSHBuff", roSHBuff);
-			roWeight = reflector->GetResourceBindingPointByName("g_roWeight", roWeight);
+			roSHBuff = reflector->ReflectBinding("g_roSHBuff", roSHBuff, srvSpace);
+			roWeight = reflector->ReflectBinding("g_roWeight", roWeight, srvSpace);
 		}
 
 		const auto utilPipelineLayout = Util::PipelineLayout::MakeUnique();
-		utilPipelineLayout->SetRange(UAV_BUFFERS, DescriptorType::UAV, 1, rwSHResult, 0,
+		utilPipelineLayout->SetRange(UAV_BUFFERS, DescriptorType::UAV, 1, rwSHResult, uavSpace,
 			DescriptorFlag::DATA_STATIC_WHILE_SET_AT_EXECUTE | DescriptorFlag::DESCRIPTORS_VOLATILE);
 
 		assert(roWeight == roSHBuff + 1);
-		utilPipelineLayout->SetRange(SRV_BUFFERS, DescriptorType::SRV, 2, roSHBuff);
+		utilPipelineLayout->SetRange(SRV_BUFFERS, DescriptorType::SRV, 2, roSHBuff, srvSpace);
 
 		XUSG_X_RETURN(m_pipelineLayouts[SH_NORMALIZE], utilPipelineLayout->GetPipelineLayout(
 			m_pipelineLayoutLib.get(), PipelineLayoutFlag::NONE, L"SHNormalizeLayout"), false);
@@ -270,7 +282,7 @@ bool SphericalHarmonics_Impl::createDescriptorTables()
 	// Create SH UAV tables
 	for (uint8_t i = 0; i < 2; ++i)
 	{
-		const auto descriptorTable = Util::DescriptorTable::MakeUnique(m_api);
+		const auto descriptorTable = Util::DescriptorTable::MakeUnique();
 		const Descriptor descriptors[] =
 		{
 			m_coeffSH[i]->GetUAV(),
@@ -283,7 +295,7 @@ bool SphericalHarmonics_Impl::createDescriptorTables()
 	// Create SH SRV tables
 	for (uint8_t i = 0; i < 2; ++i)
 	{
-		const auto descriptorTable = Util::DescriptorTable::MakeUnique(m_api);
+		const auto descriptorTable = Util::DescriptorTable::MakeUnique();
 		const Descriptor descriptors[] =
 		{
 			m_coeffSH[i]->GetSRV(),

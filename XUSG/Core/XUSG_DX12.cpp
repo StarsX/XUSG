@@ -10,6 +10,31 @@
 using namespace std;
 using namespace XUSG;
 
+string XUSG::HrToString(uint32_t hr)
+{
+	char s_str[64] = {};
+	sprintf_s(s_str, "HRESULT of 0x%08X", hr);
+
+	return string(s_str);
+}
+
+wstring XUSG::GetDebugObjectName(ID3D12Object* pObject)
+{
+	if (!pObject) return {};
+
+	UINT size = 0;
+	const auto hr = pObject->GetPrivateData(WKPDID_D3DDebugObjectNameW, &size, nullptr);
+	if ((FAILED(hr) && hr != DXGI_ERROR_MORE_DATA) || !size) return {};
+
+	wstring name((size + sizeof(wchar_t) - 1) / sizeof(wchar_t), L'\0');
+	if (FAILED(pObject->GetPrivateData(WKPDID_D3DDebugObjectNameW, &size, name.data()))) return {};
+
+	name.resize(size / sizeof(wchar_t));
+	while (!name.empty() && name.back() == L'\0') name.pop_back();
+
+	return name;
+}
+
 Device_DX12::Device_DX12()
 {
 }
@@ -31,9 +56,9 @@ bool Device_DX12::GetCommandAllocator(CommandAllocator* pCommandAllocator,
 }
 
 bool Device_DX12::GetCommandList(CommandList* pCommandList, uint32_t nodeMask, CommandListType type,
-	const CommandAllocator* pCommandAllocator, const Pipeline& pipeline, const wchar_t* name)
+	uint8_t numAllocators, CommandAllocator* const* ppAllocators, const Pipeline& pipeline, const wchar_t* name)
 {
-	return pCommandList->Create(this, nodeMask, type, pCommandAllocator, pipeline, name);
+	return pCommandList->Create(this, nodeMask, type, numAllocators, ppAllocators, pipeline, name);
 }
 
 bool Device_DX12::GetFence(Fence* pFence, uint64_t initialValue, FenceFlag flags, const wchar_t* name)
@@ -61,9 +86,11 @@ bool Device_DX12::Evict(uint32_t numObjects, void* const* ppObjects)
 
 uint32_t Device_DX12::Create(void* pAdapter, uint32_t minFeatureLevel, const wchar_t* name)
 {
-	const auto hr = D3D12CreateDevice(static_cast<IUnknown*>(pAdapter),
+	m_adapter = static_cast<IDXGIAdapter*>(pAdapter);
+	const auto hr = D3D12CreateDevice(m_adapter.get(),
 		static_cast<D3D_FEATURE_LEVEL>(minFeatureLevel), IID_PPV_ARGS(&m_device));
 	if (name) m_device->SetName(name);
+	if (!m_adapter) queryAdapter();
 
 	return hr;
 }
@@ -73,15 +100,37 @@ uint32_t Device_DX12::GetDeviceRemovedReason() const
 	return m_device->GetDeviceRemovedReason();
 }
 
-void Device_DX12::Create(void* pHandle, const wchar_t* name)
+void Device_DX12::Create(void* pNativeHandle)
 {
-	m_device = pHandle;
-	if (name) m_device->SetName(name);
+	m_device = pNativeHandle;
+	m_adapter = nullptr;
+	queryAdapter();
 }
 
-void* Device_DX12::GetHandle() const
+void* Device_DX12::GetNativeHandle() const
 {
 	return m_device.get();
+}
+
+void* Device_DX12::GetAdapterNativeHandle() const
+{
+	return m_adapter.get();
+}
+
+void Device_DX12::queryAdapter()
+{
+	m_adapter = nullptr;
+	if (!m_device) return;
+
+	com_ptr<IDXGIDevice> dxgiDevice;
+	if (FAILED(m_device->QueryInterface(IID_PPV_ARGS(&dxgiDevice)))) return;
+
+	dxgiDevice->GetAdapter(m_adapter.put());
+}
+
+void* Device_DX12::GetBackend()
+{
+	return this;
 }
 
 //--------------------------------------------------------------------------------------
@@ -94,9 +143,9 @@ Fence_DX12::~Fence_DX12()
 {
 }
 
-bool Fence_DX12::Create(const Device* pDevice, uint64_t initialValue, FenceFlag flags, const wchar_t* name)
+bool Fence_DX12::Create(Device* pDevice, uint64_t initialValue, FenceFlag flags, const wchar_t* name)
 {
-	const auto pDxDevice = static_cast<ID3D12Device*>(pDevice->GetHandle());
+	const auto pDxDevice = static_cast<ID3D12Device*>(pDevice->GetNativeHandle());
 
 	assert(pDxDevice);
 	V_RETURN(pDxDevice->CreateFence(initialValue, GetDX12FenceFlags(flags), IID_PPV_ARGS(&m_fence)), cerr, false);
@@ -124,15 +173,15 @@ uint64_t Fence_DX12::GetCompletedValue() const
 	return m_fence->GetCompletedValue();
 }
 
-void Fence_DX12::Create(void* pHandle, const wchar_t* name)
+void Fence_DX12::Create(uint64_t nativeHandle, Device* pDevice)
 {
-	m_fence = pHandle;
-	if (name) m_fence->SetName(name);
+	(void)pDevice;
+	m_fence = reinterpret_cast<ID3D12Fence*>(nativeHandle);
 }
 
-void* Fence_DX12::GetHandle() const
+uint64_t Fence_DX12::GetNativeHandle() const
 {
-	return m_fence.get();
+	return reinterpret_cast<uintptr_t>(m_fence.get());
 }
 
 //--------------------------------------------------------------------------------------
@@ -145,7 +194,7 @@ CommandLayout_DX12::~CommandLayout_DX12()
 {
 }
 
-bool CommandLayout_DX12::Create(const Device* pDevice, uint32_t byteStride, uint32_t numArguments,
+bool CommandLayout_DX12::Create(Device* pDevice, uint32_t byteStride, uint32_t numArguments,
 	const IndirectArgument* pArguments, const PipelineLayout& pipelineLayout, uint32_t nodeMask,
 	const wchar_t* name)
 {
@@ -188,7 +237,7 @@ bool CommandLayout_DX12::Create(const Device* pDevice, uint32_t byteStride, uint
 	desc.pArgumentDescs = argDescs.data();
 	desc.NodeMask = nodeMask;
 
-	const auto pDxDevice = static_cast<ID3D12Device*>(pDevice->GetHandle());
+	const auto pDxDevice = static_cast<ID3D12Device*>(pDevice->GetNativeHandle());
 
 	assert(pDxDevice);
 	V_RETURN(pDxDevice->CreateCommandSignature(&desc, static_cast<ID3D12RootSignature*>(pipelineLayout),
@@ -198,15 +247,20 @@ bool CommandLayout_DX12::Create(const Device* pDevice, uint32_t byteStride, uint
 	return true;
 }
 
-void CommandLayout_DX12::Create(void* pHandle, const wchar_t* name)
+void CommandLayout_DX12::Create(uint64_t nativeHandle, Device* pDevice)
 {
-	m_commandSignature = pHandle;
-	if (name) m_commandSignature->SetName(name);
+	(void)pDevice;
+	m_commandSignature = reinterpret_cast<ID3D12CommandSignature*>(nativeHandle);
 }
 
-void* CommandLayout_DX12::GetHandle() const
+uint64_t CommandLayout_DX12::GetNativeHandle() const
 {
-	return m_commandSignature.get();
+	return reinterpret_cast<uintptr_t>(m_commandSignature.get());
+}
+
+void* CommandLayout_DX12::GetBackend()
+{
+	return this;
 }
 
 //--------------------------------------------------------------------------------------
@@ -311,7 +365,7 @@ bool SwapChain_DX12::PresentEx(uint8_t syncInterval, PresentFlag flags, uint32_t
 
 bool SwapChain_DX12::GetBuffer(uint8_t buffer, Resource* pResource) const
 {
-	const auto p = dynamic_cast<Resource_DX12*>(pResource);
+	const auto p = AsDX12(pResource);
 	assert(p);
 
 	V_RETURN(m_swapChain->GetBuffer(buffer, IID_PPV_ARGS(&p->GetResource())), cerr, false);
@@ -327,19 +381,24 @@ uint32_t SwapChain_DX12::ResizeBuffers(uint8_t bufferCount, uint32_t width,
 		GetDXGIFormat(format), GetDXGISwapChainFlags(flags));
 }
 
-uint8_t SwapChain_DX12::GetCurrentBackBufferIndex() const
+uint8_t SwapChain_DX12::GetCurrentBackBufferIndex()
 {
 	return m_swapChain->GetCurrentBackBufferIndex();
 }
 
-void SwapChain_DX12::Create(void* pHandle)
+void SwapChain_DX12::Create(uint64_t nativeHandle)
 {
-	m_swapChain = pHandle;
+	m_swapChain = reinterpret_cast<IDXGISwapChain3*>(nativeHandle);
 }
 
-void* SwapChain_DX12::GetHandle() const
+uint64_t SwapChain_DX12::GetNativeHandle() const
 {
-	return m_swapChain.get();
+	return reinterpret_cast<uintptr_t>(m_swapChain.get());
+}
+
+void* SwapChain_DX12::GetBackend()
+{
+	return this;
 }
 
 void XUSG::GetDX12BlobData(const Blob& blob, const void** ppData, size_t* pSize)
@@ -355,4 +414,22 @@ Blob XUSG::GetDX12PipelineCache(Pipeline pipeline)
 	V_RETURN(static_cast<ID3D12PipelineState*>(pipeline)->GetCachedBlob(blob.put()), cerr, nullptr);
 
 	return blob.get();
+}
+
+Device_DX12* XUSG::AsDX12(Device* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<Device_DX12*>(p ? p->GetBackend() : nullptr);
+}
+
+CommandLayout_DX12* XUSG::AsDX12(CommandLayout* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<CommandLayout_DX12*>(p ? p->GetBackend() : nullptr);
+}
+
+SwapChain_DX12* XUSG::AsDX12(SwapChain* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<SwapChain_DX12*>(p ? p->GetBackend() : nullptr);
 }

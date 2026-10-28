@@ -25,6 +25,7 @@ namespace XUSG
 		public:
 			State_DX12();
 			virtual ~State_DX12();
+			void* GetBackend();
 
 			void SetPipelineLayout(const PipelineLayout& layout);
 			void SetShader(const Blob& shader);
@@ -32,8 +33,8 @@ namespace XUSG
 			void SetNodeMask(uint32_t nodeMask);
 			void SetFlags(PipelineFlag flag);
 
-			Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const;
-			Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr) const;
+			Pipeline CreatePipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr);
+			Pipeline GetPipeline(PipelineLib* pPipelineLib, const wchar_t* name = nullptr);
 
 			const std::string& GetKey() const;
 
@@ -55,14 +56,14 @@ namespace XUSG
 		{
 		public:
 			PipelineLib_DX12();
-			PipelineLib_DX12(const Device* pDevice);
+			PipelineLib_DX12(Device* pDevice);
 			virtual ~PipelineLib_DX12();
 
-			void SetDevice(const Device* pDevice);
-			void SetPipeline(const State* pState, const Pipeline& pipeline);
+			void SetDevice(Device* pDevice);
+			void SetPipeline(State* pState, const Pipeline& pipeline);
 
-			Pipeline CreatePipeline(const State* pState, const wchar_t* name = nullptr);
-			Pipeline GetPipeline(const State* pState, const wchar_t* name = nullptr);
+			Pipeline CreatePipeline(State* pState, const wchar_t* name = nullptr);
+			Pipeline GetPipeline(State* pState, const wchar_t* name = nullptr);
 
 			static void GetHandleDesc(void* pHandleDesc, const std::string& key);
 
@@ -76,5 +77,7 @@ namespace XUSG
 
 			std::mutex m_mtx;
 		};
+
+		State_DX12* AsDX12(State* p);
 	}
 }

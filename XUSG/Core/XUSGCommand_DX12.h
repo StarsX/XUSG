@@ -15,20 +15,20 @@ namespace XUSG
 		CommandAllocator_DX12();
 		virtual ~CommandAllocator_DX12();
 
-		bool Create(const Device* pDevice, CommandListType type, const wchar_t* name = nullptr);
+		bool Create(Device* pDevice, CommandListType type, const wchar_t* name = nullptr);
 		bool Reset();
 
-		void Create(void* pHandle, const wchar_t* name = nullptr);
+		void Create(uint64_t nativeHandle, Device* pDevice);
 
-		void* GetHandle() const;
-		void* GetDeviceHandle() const;
+		uint64_t GetNativeHandle() const;
+		void* GetDeviceNativeHandle() const;
 
-		const Device* GetDevice() const;
+		Device* GetDevice() const;
 
 	protected:
 		com_ptr<ID3D12CommandAllocator> m_commandAllocator;
 
-		const Device* m_pDevice;
+		Device* m_pDevice;
 	};
 
 	class CommandList_DX12 :
@@ -38,12 +38,10 @@ namespace XUSG
 		CommandList_DX12();
 		~CommandList_DX12();
 
-		bool Create(const Device* pDevice, uint32_t nodeMask, CommandListType type,
-			const CommandAllocator* pAllocator, const Pipeline& pipeline,
-			const wchar_t* name = nullptr);
+		bool Create(Device* pDevice, uint32_t nodeMask, CommandListType type, uint8_t numAllocators,
+			CommandAllocator* const* ppAllocators, const Pipeline& pipeline, const wchar_t* name = nullptr);
 		bool Close() const;
-		bool Reset(const CommandAllocator* pAllocator,
-			const Pipeline& initialState) const;
+		bool Reset(uint8_t allocatorIndex, const Pipeline& initialState) const;
 
 		void ClearState(const Pipeline& initialState) const;
 		void Draw(
@@ -61,17 +59,17 @@ namespace XUSG
 			uint32_t threadGroupCountX,
 			uint32_t threadGroupCountY,
 			uint32_t threadGroupCountZ) const;
-		void CopyBufferRegion(const Resource* pDstBuffer, uint64_t dstOffset,
+		void CopyBufferRegion(Resource* pDstBuffer, uint64_t dstOffset,
 			const Resource* pSrcBuffer, uint64_t srcOffset, uint64_t numBytes) const;
 		void CopyTextureRegion(const TextureCopyLocation& dst,
 			uint32_t dstX, uint32_t dstY, uint32_t dstZ,
 			const TextureCopyLocation& src, const BoxRange* pSrcBox = nullptr) const;
-		void CopyResource(const Resource* pDstResource, const Resource* pSrcResource) const;
-		void CopyTiles(const Resource* pTiledResource, const TiledResourceCoord* pTileRegionStartCoord,
-			const TileRegionSize& tileRegionSize, const Resource* pBuffer, uint64_t bufferStartOffsetInBytes,
+		void CopyResource(Resource* pDstResource, Resource* pSrcResource) const;
+		void CopyTiles(Resource* pTiledResource, const TiledResourceCoord* pTileRegionStartCoord,
+			const TileRegionSize& tileRegionSize, Resource* pBuffer, uint64_t bufferStartByteOffset,
 			TileCopyFlag flags = TileCopyFlag::NONE) const;
-		void ResolveSubresource(const Resource* pDstResource, uint32_t dstSubresource,
-			const Resource* pSrcResource, uint32_t srcSubresource, Format format) const;
+		void ResolveSubresource(Resource* pDstResource, uint32_t dstSubresource,
+			Resource* pSrcResource, uint32_t srcSubresource, Format format) const;
 		void IASetPrimitiveTopology(PrimitiveTopology primitiveTopology) const;
 		void RSSetViewports(uint32_t numViewports, const Viewport* pViewports) const;
 		void RSSetScissorRects(uint32_t numRects, const RectRange* pRects) const;
@@ -79,7 +77,7 @@ namespace XUSG
 		void OMSetStencilRef(uint32_t stencilRef) const;
 		void SetPipelineState(const Pipeline& pipelineState) const;
 		void Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers);
-		void ExecuteBundle(const CommandList* pCommandList) const;
+		void ExecuteBundle(CommandList* pCommandList) const;
 		void SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps);
 		void SetComputePipelineLayout(const PipelineLayout& pipelineLayout) const;
 		void SetGraphicsPipelineLayout(const PipelineLayout& pipelineLayout) const;
@@ -122,28 +120,35 @@ namespace XUSG
 			const uint32_t values[4], uint32_t numRects = 0, const RectRange* pRects = nullptr);
 		void ClearUnorderedAccessViewFloat(const DescriptorTable& descriptorTable, const Descriptor& descriptor,
 			const float values[4], uint32_t numRects = 0, const RectRange* pRects = nullptr);
-		void DiscardResource(const Resource* pResource, uint32_t numRects, const RectRange* pRects,
+		void DiscardResource(Resource* pResource, uint32_t numRects, const RectRange* pRects,
 			uint32_t firstSubresource, uint32_t numSubresources);
 		void BeginQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const;
 		void EndQuery(const QueryHeap& queryHeap, QueryType type, uint32_t index) const;
 		void ResolveQueryData(const QueryHeap& queryHeap, QueryType type, uint32_t startIndex,
 			uint32_t numQueries, const Resource* pDstBuffer, uint64_t alignedDstBufferOffset) const;
-		void SetPredication(const Resource* pBuffer, uint64_t alignedBufferOffset, bool opEqualZero)const;
+		void SetPredication(const Resource* pBuffer, uint64_t alignedBufferOffset, bool opEqualZero) const;
 		void SetMarker(uint32_t metaData, const void* pData, uint32_t size) const;
 		void BeginEvent(uint32_t metaData, const void* pData, uint32_t size) const;
-		void EndEvent();
-		void ExecuteIndirect(const CommandLayout* pCommandlayout, uint32_t maxCommandCount,
+		void EndEvent() const;
+		void ExecuteIndirect(CommandLayout* pCommandlayout, uint32_t maxCommandCount,
 			const Resource* pArgumentBuffer, uint64_t argumentBufferOffset = 0,
-			const Resource* pCountBuffer = nullptr, uint64_t countBufferOffset = 0);
+			const Resource* pCountBuffer = nullptr, uint64_t countBufferOffset = 0) const;
 
-		void Create(void* pHandle, const wchar_t* name = nullptr);
+		void Create(void* pNativeHandle, Device* pDevice);
 
-		void* GetHandle() const;
-		void* GetDeviceHandle() const;
+		void* GetNativeHandle();
+		void* GetDeviceNativeHandle() const;
+		void* GetBackend();
 
-		const Device* GetDevice() const;
+		Device* GetDevice() const;
 
 		com_ptr<ID3D12GraphicsCommandList>& GetGraphicsCommandList();
+
+		com_ptr<ID3D12DescriptorHeap>& GetRtvHeap();
+		com_ptr<ID3D12DescriptorHeap>& GetDsvHeap();
+		com_ptr<ID3D12DescriptorHeap>& GetUavHeap();
+
+		const std::vector<ID3D12CommandAllocator*>& GetCommandAllocators() const;
 
 	protected:
 		com_ptr<ID3D12GraphicsCommandList>	m_commandList;
@@ -151,7 +156,9 @@ namespace XUSG
 		com_ptr<ID3D12DescriptorHeap>		m_dsvHeap;
 		com_ptr<ID3D12DescriptorHeap>		m_uavHeap;
 
-		const Device*						m_pDevice;
+		std::vector<ID3D12CommandAllocator*> m_commandAllocators;
+
+		Device* m_pDevice;
 
 		std::vector<D3D12_RESOURCE_BARRIER>	m_barriers;
 		std::vector<D3D12_RECT>				m_rects;
@@ -168,35 +175,35 @@ namespace XUSG
 		CommandQueue_DX12();
 		virtual ~CommandQueue_DX12();
 
-		bool Create(const Device* pDevice, CommandListType type, CommandQueueFlag flags,
+		bool Create(Device* pDevice, CommandListType type, CommandQueueFlag flags,
 			int32_t priority = 0, uint32_t nodeMask = 0, const wchar_t* name = nullptr);
 
-		bool SubmitCommandLists(uint32_t numCommandLists, const CommandList* const* ppCommandLists,
+		bool SubmitCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists,
 			const Semaphore* pWaits = nullptr, uint32_t numWaits = 0,
 			const Semaphore* pSignals = nullptr, uint32_t numSignals = 0);
-		bool SubmitCommandList(const CommandList* pCommandList,
+		bool SubmitCommandList(CommandList* pCommandList,
 			const Semaphore* pWaits = nullptr, uint32_t numWaits = 0,
 			const Semaphore* pSignals = nullptr, uint32_t numSignals = 0);
-		bool Wait(const Fence* pFence, uint64_t value);
-		bool Signal(const Fence* pFence, uint64_t value);
+		bool Wait(Fence* pFence, uint64_t value);
+		bool Signal(Fence* pFence, uint64_t value);
 
-		void ExecuteCommandLists(uint32_t numCommandLists, const CommandList* const* ppCommandLists);
-		void ExecuteCommandList(const CommandList* pCommandList);
-		void UpdateTileMappings(const Resource* pResource, uint32_t numResourceRegions,
+		void ExecuteCommandLists(uint32_t numCommandLists, CommandList* const* ppCommandLists);
+		void ExecuteCommandList(CommandList* pCommandList);
+		void UpdateTileMappings(Resource* pResource, uint32_t numResourceRegions,
 			const TiledResourceCoord* pResourceRegionStartCoords, const TileRegionSize* pResourceRegionSizes,
-			const Heap* pHeap, uint32_t numHeapRanges, const TileRangeFlag* pHeapRangeFlags,
+			Heap* pHeap, uint32_t numHeapRanges, const TileRangeFlag* pHeapRangeFlags,
 			const uint32_t* pHeapRangeStartOffsets, const uint32_t* pHeapRangeTileCounts,
 			TileMappingFlag flags = TileMappingFlag::NONE);
-		void CopyTileMappings(const Resource* pDstResource, const TiledResourceCoord* pDstRegionStartCoord,
-			const Resource* pSrcResource, const TiledResourceCoord* pSrcRegionStartCoordinate,
+		void CopyTileMappings(Resource* pDstResource, const TiledResourceCoord* pDstRegionStartCoord,
+			Resource* pSrcResource, const TiledResourceCoord* pSrcRegionStartCoordinate,
 			const TileRegionSize& regionSize, TileMappingFlag Flags = TileMappingFlag::NONE) const;
 
-		void Create(void* pHandle, const wchar_t* name = nullptr);
+		void Create(void* pNativeHandle, Device* pDevice);
 
-		void* GetHandle() const;
-		void* GetDeviceHandle() const;
+		void* GetNativeHandle() const;
+		void* GetDeviceNativeHandle() const;
 
-		const Device* GetDevice() const;
+		Device* GetDevice() const;
 
 		com_ptr<ID3D12CommandQueue>& GetCommandQueue();
 
@@ -205,10 +212,12 @@ namespace XUSG
 
 		std::vector<ID3D12CommandList*> m_pCommandLists;
 
-		const Device* m_pDevice;
+		Device* m_pDevice;
 
 		std::vector<D3D12_TILED_RESOURCE_COORDINATE> m_resourceRegionStartCoords;
 		std::vector<D3D12_TILE_REGION_SIZE> m_resourceRegionSizes;
 		std::vector<D3D12_TILE_RANGE_FLAGS> m_heapRangeFlags;
 	};
+
+	CommandList_DX12* AsDX12(CommandList* p);
 }

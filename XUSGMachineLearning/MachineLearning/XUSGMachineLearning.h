@@ -673,7 +673,7 @@ namespace XUSG
 			virtual ~Device() {};
 
 			virtual bool GetCommandRecorder(CommandRecorder* pCommandRecorder, const wchar_t* name = nullptr) = 0;
-			virtual bool Create(const XUSG::Device* pDevice, CreateDeviceFlag flags, const wchar_t* name = nullptr) = 0;
+			virtual bool Create(XUSG::Device* pDevice, CreateDeviceFlag flags, const wchar_t* name = nullptr) = 0;
 
 			virtual void Create(void* pHandle, const wchar_t* name = nullptr) = 0;
 
@@ -682,8 +682,8 @@ namespace XUSG
 			using uptr = std::unique_ptr<Device>;
 			using sptr = std::shared_ptr<Device>;
 
-			static uptr MakeUnique(API api = API::DIRECTX_12);
-			static sptr MakeShared(API api = API::DIRECTX_12);
+			static uptr MakeUnique();
+			static sptr MakeShared();
 		};
 
 		//--------------------------------------------------------------------------------------
@@ -705,8 +705,8 @@ namespace XUSG
 			using uptr = std::unique_ptr<Tensor>;
 			using sptr = std::shared_ptr<Tensor>;
 
-			static uptr MakeUnique(XUSG::API api = XUSG::API::DIRECTX_12);
-			static sptr MakeShared(XUSG::API api = XUSG::API::DIRECTX_12);
+			static uptr MakeUnique();
+			static sptr MakeShared();
 		};
 
 		//--------------------------------------------------------------------------------------
@@ -734,8 +734,8 @@ namespace XUSG
 			using uptr = std::unique_ptr<Operator>;
 			using sptr = std::shared_ptr<Operator>;
 
-			static uptr MakeUnique(XUSG::API api = XUSG::API::DIRECTX_12);
-			static sptr MakeShared(XUSG::API api = XUSG::API::DIRECTX_12);
+			static uptr MakeUnique();
+			static sptr MakeShared();
 		};
 
 		//--------------------------------------------------------------------------------------
@@ -753,8 +753,8 @@ namespace XUSG
 			using uptr = std::unique_ptr<OperatorInitializer>;
 			using sptr = std::shared_ptr<OperatorInitializer>;
 
-			static uptr MakeUnique(XUSG::API api = XUSG::API::DIRECTX_12);
-			static sptr MakeShared(XUSG::API api = XUSG::API::DIRECTX_12);
+			static uptr MakeUnique();
+			static sptr MakeShared();
 		};
 
 		//--------------------------------------------------------------------------------------
@@ -771,20 +771,20 @@ namespace XUSG
 			virtual bool Reset(const Operator& dispatchable, const DescriptorHeap& descriptorHeap,
 				uint32_t descriptorCount, int32_t descriptorOffset = 0) = 0;
 
-			virtual void BindInput(uint32_t i, const Resource* pResource, uint64_t size = 0, uint64_t offset = 0) = 0;
+			virtual void BindInput(uint32_t i, Resource* pResource, uint64_t size = 0, uint64_t offset = 0) = 0;
 			virtual void BindInput(uint32_t i, size_t bindingIndex, uint32_t bindingCount = 1) = 0;
-			virtual void BindOutput(uint32_t i, const Resource* pResource, uint64_t size = 0, uint64_t offset = 0) = 0;
+			virtual void BindOutput(uint32_t i, Resource* pResource, uint64_t size = 0, uint64_t offset = 0) = 0;
 			virtual void BindOutput(uint32_t i, size_t bindingIndex, uint32_t bindingCount = 1) = 0;
-			virtual void AppendInput(const Resource* pResource, uint64_t size = 0, uint64_t offset = 0) = 0;
+			virtual void AppendInput(Resource* pResource, uint64_t size = 0, uint64_t offset = 0) = 0;
 			virtual void AppendInput(size_t bindingIndex, uint32_t bindingCount = 1) = 0;
-			virtual void AppendOutput(const Resource* pResource, uint64_t size = 0, uint64_t offset = 0) = 0;
+			virtual void AppendOutput(Resource* pResource, uint64_t size = 0, uint64_t offset = 0) = 0;
 			virtual void AppendOutput(size_t bindingIndex, uint32_t bindingCount = 1) = 0;
 
-			virtual void BindInputBuffer(uint32_t i, const Resource* pResource, uint64_t size = 0, uint64_t offset = 0) = 0;
-			virtual void BindOutputBuffer(uint32_t i, const Resource* pResource, uint64_t size = 0, uint64_t offset = 0) = 0;
+			virtual void BindInputBuffer(uint32_t i, Resource* pResource, uint64_t size = 0, uint64_t offset = 0) = 0;
+			virtual void BindOutputBuffer(uint32_t i, Resource* pResource, uint64_t size = 0, uint64_t offset = 0) = 0;
 
-			virtual void BindTemporary(const Resource* pResource, uint64_t size = 0, uint64_t offset = 0) = 0;
-			virtual void BindPersistent(const Resource* pResource, uint64_t size = 0, uint64_t offset = 0) = 0;
+			virtual void BindTemporary(Resource* pResource, uint64_t size = 0, uint64_t offset = 0) = 0;
+			virtual void BindPersistent(Resource* pResource, uint64_t size = 0, uint64_t offset = 0) = 0;
 
 			virtual BindingTable GetBindingTable() const = 0;
 			virtual BindingTable GetDispatchableBindingTable() = 0;
@@ -792,8 +792,8 @@ namespace XUSG
 			using uptr = std::unique_ptr<Binding>;
 			using sptr = std::shared_ptr<Binding>;
 
-			static uptr MakeUnique(XUSG::API api = XUSG::API::DIRECTX_12);
-			static sptr MakeShared(XUSG::API api = XUSG::API::DIRECTX_12);
+			static uptr MakeUnique();
+			static sptr MakeShared();
 		};
 
 		//--------------------------------------------------------------------------------------
@@ -817,8 +817,8 @@ namespace XUSG
 			using uptr = std::unique_ptr<CommandRecorder>;
 			using sptr = std::shared_ptr<CommandRecorder>;
 
-			static uptr MakeUnique(XUSG::API api = XUSG::API::DIRECTX_12);
-			static sptr MakeShared(XUSG::API api = XUSG::API::DIRECTX_12);
+			static uptr MakeUnique();
+			static sptr MakeShared();
 		};
 
 		//--------------------------------------------------------------------------------------
@@ -862,8 +862,8 @@ namespace XUSG
 			using uptr = std::unique_ptr<Util>;
 			using sptr = std::shared_ptr<Util>;
 
-			static uptr MakeUnique(TensorDataType tensorDataType, TensorLayout tensorLayout, XUSG::API api = XUSG::API::DIRECTX_12);
-			static sptr MakeShared(TensorDataType tensorDataType, TensorLayout tensorLayout, XUSG::API api = XUSG::API::DIRECTX_12);
+			static uptr MakeUnique(TensorDataType tensorDataType, TensorLayout tensorLayout);
+			static sptr MakeShared(TensorDataType tensorDataType, TensorLayout tensorLayout);
 		};
 	}
 }

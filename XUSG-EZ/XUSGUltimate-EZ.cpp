@@ -6,8 +6,8 @@
 #include "Core/XUSGResource_DX12.h"
 #include "Core/XUSGPipelineLayout_DX12.h"
 #include "Ultimate/XUSGUltimate_DX12.h"
-#include "XUSG-EZ_DX12.h"
-#include "XUSGUltimate-EZ_DX12.h"
+#include "XUSG-EZ_Impl.h"
+#include "XUSGUltimate-EZ_Impl.h"
 
 using namespace std;
 using namespace XUSG::Ultimate;
@@ -23,52 +23,92 @@ XUSG::EZ::ResourceView XUSG::Ultimate::EZ::GetUAV(const SamplerFeedBack* pResour
 	return resourceView;
 }
 
-EZ::CommandList::uptr EZ::CommandList::MakeUnique(API api)
+EZ::CommandList::uptr EZ::CommandList::MakeUnique()
 {
+	XUSG::Device::LockApi();
+#ifndef XUSG_NO_VULKAN
+	if (XUSG::Device::GetApi() == API::VULKAN) return make_unique<EZ::CommandList_VK>();
+#endif
+
 	return make_unique<EZ::CommandList_DX12>();
 }
 
-EZ::CommandList::sptr EZ::CommandList::MakeShared(API api)
+EZ::CommandList::sptr EZ::CommandList::MakeShared()
 {
+	XUSG::Device::LockApi();
+#ifndef XUSG_NO_VULKAN
+	if (XUSG::Device::GetApi() == API::VULKAN) return make_shared<EZ::CommandList_VK>();
+#endif
+
 	return make_shared<EZ::CommandList_DX12>();
 }
 
 EZ::CommandList::uptr EZ::CommandList::MakeUnique(Ultimate::CommandList* pCommandList,
 	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
+	const uint32_t samplerStartSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE],
+	const uint32_t cbvStartSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t srvStartSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t uavStartSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE],
 	const uint32_t constantSlots[Shader::Stage::NUM_STAGE],
 	const uint32_t constantSpaces[Shader::Stage::NUM_STAGE],
-	uint32_t slotExt, uint32_t spaceExt, API api)
+	uint32_t slotExt, uint32_t spaceExt)
 {
+	XUSG::Device::LockApi();
+#ifndef XUSG_NO_VULKAN
+	if (XUSG::Device::GetApi() == API::VULKAN)
+		return make_unique<EZ::CommandList_VK>(pCommandList, samplerHeapSize, cbvSrvUavHeapSize,
+			samplerStartSpaces, maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
+			cbvStartSpaces, maxCbvSpaces, srvStartSpaces, maxSrvSpaces, uavStartSpaces, maxUavSpaces,
+			max32BitConstants,
+			constantSlots, constantSpaces, slotExt, spaceExt);
+#endif
+
 	return make_unique<EZ::CommandList_DX12>(pCommandList, samplerHeapSize, cbvSrvUavHeapSize,
-		maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
-		maxCbvSpaces, maxSrvSpaces, maxUavSpaces, max32BitConstants,
+		samplerStartSpaces, maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
+		cbvStartSpaces, maxCbvSpaces, srvStartSpaces, maxSrvSpaces, uavStartSpaces, maxUavSpaces,
+		max32BitConstants,
 		constantSlots, constantSpaces, slotExt, spaceExt);
 }
 
 EZ::CommandList::sptr EZ::CommandList::MakeShared(Ultimate::CommandList* pCommandList,
 	uint32_t samplerHeapSize, uint32_t cbvSrvUavHeapSize,
+	const uint32_t samplerStartSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxSamplers[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxCbvsEachSpace[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxSrvsEachSpace[Shader::Stage::NUM_STAGE],
 	const uint32_t* pMaxUavsEachSpace[Shader::Stage::NUM_STAGE],
+	const uint32_t cbvStartSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxCbvSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t srvStartSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxSrvSpaces[Shader::Stage::NUM_STAGE],
+	const uint32_t uavStartSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t maxUavSpaces[Shader::Stage::NUM_STAGE],
 	const uint32_t max32BitConstants[Shader::Stage::NUM_STAGE],
 	const uint32_t constantSlots[Shader::Stage::NUM_STAGE],
 	const uint32_t constantSpaces[Shader::Stage::NUM_STAGE],
-	uint32_t slotExt, uint32_t spaceExt, API api)
+	uint32_t slotExt, uint32_t spaceExt)
 {
+	XUSG::Device::LockApi();
+#ifndef XUSG_NO_VULKAN
+	if (XUSG::Device::GetApi() == API::VULKAN)
+		return make_shared<EZ::CommandList_VK>(pCommandList, samplerHeapSize, cbvSrvUavHeapSize,
+			samplerStartSpaces, maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
+			cbvStartSpaces, maxCbvSpaces, srvStartSpaces, maxSrvSpaces, uavStartSpaces, maxUavSpaces,
+			max32BitConstants,
+			constantSlots, constantSpaces, slotExt, spaceExt);
+#endif
+
 	return make_shared<EZ::CommandList_DX12>(pCommandList, samplerHeapSize, cbvSrvUavHeapSize,
-		maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
-		maxCbvSpaces, maxSrvSpaces, maxUavSpaces, max32BitConstants,
+		samplerStartSpaces, maxSamplers, pMaxCbvsEachSpace, pMaxSrvsEachSpace, pMaxUavsEachSpace,
+		cbvStartSpaces, maxCbvSpaces, srvStartSpaces, maxSrvSpaces, uavStartSpaces, maxUavSpaces,
+		max32BitConstants,
 		constantSlots, constantSpaces, slotExt, spaceExt);
 }

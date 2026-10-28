@@ -8,14 +8,6 @@
 
 namespace XUSG
 {
-	struct StaticSampler
-	{
-		uint32_t Binding;
-		uint32_t Space;
-		const Sampler* pSampler;
-		uint8_t Stage;
-	};
-
 	namespace Util
 	{
 		class PipelineLayout_DX12 :
@@ -49,6 +41,7 @@ namespace XUSG
 
 			const std::vector<std::string>& GetDescriptorTableLayoutKeys() const;
 			std::string& GetPipelineLayoutKey(PipelineLayoutLib* pPipelineLayoutLib);
+			void* GetBackend();
 
 			static const uint8_t DescriptorTableLayoutCountOffset = sizeof(uint16_t);
 			static const uint8_t DescriptorTableLayoutOffset = DescriptorTableLayoutCountOffset + sizeof(uint16_t);
@@ -62,6 +55,8 @@ namespace XUSG
 
 			bool m_isTableLayoutsCompleted;
 		};
+
+		PipelineLayout_DX12* AsDX12(PipelineLayout* p);
 	}
 
 	class PipelineLayoutLib_DX12 :
@@ -69,10 +64,10 @@ namespace XUSG
 	{
 	public:
 		PipelineLayoutLib_DX12();
-		PipelineLayoutLib_DX12(const Device* pDevice);
+		PipelineLayoutLib_DX12(Device* pDevice);
 		virtual ~PipelineLayoutLib_DX12();
 
-		void SetDevice(const Device* pDevice);
+		void SetDevice(Device* pDevice);
 		void SetPipelineLayout(const std::string& key, const PipelineLayout& pipelineLayout);
 		void GetRootParameter(CD3DX12_ROOT_PARAMETER1& rootParam,
 			std::vector<CD3DX12_DESCRIPTOR_RANGE1>& descriptorRanges,
@@ -92,6 +87,8 @@ namespace XUSG
 		DescriptorTableLayout GetDescriptorTableLayout(uint32_t index, const Util::PipelineLayout* pUtil);
 
 		D3D_ROOT_SIGNATURE_VERSION GetRootSignatureHighestVersion() const;
+
+		void* GetBackend();
 
 	protected:
 		virtual PipelineLayout createPipelineLayout(const std::string& key, const wchar_t* name, uint32_t nodeMask);
@@ -113,4 +110,6 @@ namespace XUSG
 
 		std::mutex m_mtx;
 	};
+
+	PipelineLayoutLib_DX12* AsDX12(PipelineLayoutLib* p);
 }

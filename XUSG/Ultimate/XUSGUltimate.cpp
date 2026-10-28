@@ -10,87 +10,148 @@
 #include "XUSGPipelineState_DX12.h"
 #include "XUSGWorkGraph_DX12.h"
 #include "XUSGGenericState_DX12.h"
+#ifndef XUSG_NO_VULKAN
+#include "Core/XUSGCommand_VK.h"
+#include "Core/XUSGPipelineLayout_VK.h"
+#include "XUSGUltimate_VK.h"
+#include "XUSGPipelineState_VK.h"
+#include "XUSGGenericState_VK.h"
+#endif
 
 using namespace std;
 using namespace XUSG;
 
-Ultimate::CommandList::uptr Ultimate::CommandList::MakeUnique(API api)
+#ifdef XUSG_NO_VULKAN
+#define XUSG_IF_VK(...)
+#else
+#define XUSG_IF_VK(...) if (Device::GetApi() == API::VULKAN) { __VA_ARGS__ }
+#endif
+
+Ultimate::CommandList::uptr Ultimate::CommandList::MakeUnique()
 {
+	Device::LockApi();
+	XUSG_IF_VK(return make_unique<CommandList_VK>();)
+
 	return make_unique<CommandList_DX12>();
 }
 
-Ultimate::CommandList::sptr Ultimate::CommandList::MakeShared(API api)
+Ultimate::CommandList::sptr Ultimate::CommandList::MakeShared()
 {
+	Device::LockApi();
+	XUSG_IF_VK(return make_shared<CommandList_VK>();)
+
 	return make_shared<CommandList_DX12>();
 }
 
-Ultimate::CommandList::uptr Ultimate::CommandList::MakeUnique(XUSG::CommandList& commandList, API api)
+Ultimate::CommandList::uptr Ultimate::CommandList::MakeUnique(XUSG::CommandList& commandList)
 {
+	Device::LockApi();
+	XUSG_IF_VK(return make_unique<CommandList_VK>(commandList);)
+
 	return make_unique<CommandList_DX12>(commandList);
 }
 
-Ultimate::CommandList::sptr Ultimate::CommandList::MakeShared(XUSG::CommandList& commandList, API api)
+Ultimate::CommandList::sptr Ultimate::CommandList::MakeShared(XUSG::CommandList& commandList)
 {
+	Device::LockApi();
+	XUSG_IF_VK(return make_shared<CommandList_VK>(commandList);)
+
 	return make_shared<CommandList_DX12>(commandList);
 }
 
-Ultimate::PipelineLayoutLib::uptr Ultimate::PipelineLayoutLib::MakeUnique(API api)
+Ultimate::PipelineLayoutLib::uptr Ultimate::PipelineLayoutLib::MakeUnique()
 {
+	Device::LockApi();
+	XUSG_IF_VK(return make_unique<PipelineLayoutLib_VK>();)
+
 	return make_unique<PipelineLayoutLib_DX12>();
 }
 
-Ultimate::PipelineLayoutLib::sptr Ultimate::PipelineLayoutLib::MakeShared(API api)
+Ultimate::PipelineLayoutLib::sptr Ultimate::PipelineLayoutLib::MakeShared()
 {
+	Device::LockApi();
+	XUSG_IF_VK(return make_shared<PipelineLayoutLib_VK>();)
+
 	return make_shared<PipelineLayoutLib_DX12>();
 }
 
-Ultimate::PipelineLayoutLib::uptr Ultimate::PipelineLayoutLib::MakeUnique(const Device* pDevice, API api)
+Ultimate::PipelineLayoutLib::uptr Ultimate::PipelineLayoutLib::MakeUnique(Device* pDevice)
 {
+	Device::LockApi();
+	XUSG_IF_VK(return make_unique<PipelineLayoutLib_VK>(pDevice);)
+
 	return make_unique<PipelineLayoutLib_DX12>(pDevice);
 }
 
-Ultimate::PipelineLayoutLib::sptr Ultimate::PipelineLayoutLib::MakeShared(const Device* pDevice, API api)
+Ultimate::PipelineLayoutLib::sptr Ultimate::PipelineLayoutLib::MakeShared(Device* pDevice)
 {
+	Device::LockApi();
+	XUSG_IF_VK(return make_shared<PipelineLayoutLib_VK>(pDevice);)
+
 	return make_shared<PipelineLayoutLib_DX12>(pDevice);
 }
 
-Ultimate::State::uptr Ultimate::State::MakeUnique(API api)
+Ultimate::State::uptr Ultimate::State::MakeUnique()
 {
+	Device::LockApi();
+	XUSG_IF_VK(return make_unique<State_VK>();)
+
 	return make_unique<State_DX12>();
 }
 
-Ultimate::State::sptr Ultimate::State::MakeShared(API api)
+Ultimate::State::sptr Ultimate::State::MakeShared()
 {
+	Device::LockApi();
+	XUSG_IF_VK(return make_shared<State_VK>();)
+
 	return make_shared<State_DX12>();
 }
 
-Ultimate::PipelineLib::uptr Ultimate::PipelineLib::MakeUnique(API api)
+Ultimate::PipelineLib::uptr Ultimate::PipelineLib::MakeUnique()
 {
+	Device::LockApi();
+	XUSG_IF_VK(return make_unique<PipelineLib_VK>();)
+
 	return make_unique<PipelineLib_DX12>();
 }
 
-Ultimate::PipelineLib::sptr Ultimate::PipelineLib::MakeShared(API api)
+Ultimate::PipelineLib::sptr Ultimate::PipelineLib::MakeShared()
 {
+	Device::LockApi();
+	XUSG_IF_VK(return make_shared<PipelineLib_VK>();)
+
 	return make_shared<PipelineLib_DX12>();
 }
 
-Ultimate::PipelineLib::uptr Ultimate::PipelineLib::MakeUnique(const Device* pDevice, API api)
+Ultimate::PipelineLib::uptr Ultimate::PipelineLib::MakeUnique(Device* pDevice)
 {
+	Device::LockApi();
+	XUSG_IF_VK(return make_unique<PipelineLib_VK>(pDevice);)
+
 	return make_unique<PipelineLib_DX12>(pDevice);
 }
 
-Ultimate::PipelineLib::sptr Ultimate::PipelineLib::MakeShared(const Device* pDevice, API api)
+Ultimate::PipelineLib::sptr Ultimate::PipelineLib::MakeShared(Device* pDevice)
 {
+	Device::LockApi();
+	XUSG_IF_VK(return make_shared<PipelineLib_VK>(pDevice);)
+
 	return make_shared<PipelineLib_DX12>(pDevice);
 }
 
-Ultimate::SamplerFeedBack::uptr Ultimate::SamplerFeedBack::MakeUnique(API api)
+Ultimate::SamplerFeedBack::uptr Ultimate::SamplerFeedBack::MakeUnique()
 {
+	Device::LockApi();
+	XUSG_IF_VK(return make_unique<SamplerFeedBack_VK>();)
+
 	return make_unique<SamplerFeedBack_DX12>();
 }
 
-Ultimate::SamplerFeedBack::sptr Ultimate::SamplerFeedBack::MakeShared(API api)
+Ultimate::SamplerFeedBack::sptr Ultimate::SamplerFeedBack::MakeShared()
 {
+	Device::LockApi();
+	XUSG_IF_VK(return make_shared<SamplerFeedBack_VK>();)
+
 	return make_shared<SamplerFeedBack_DX12>();
 }
 
@@ -163,8 +224,15 @@ uint32_t Ultimate::SetBarrier(ResourceBarrier* pTextureBarriers, Texture* pTextu
 	return numBarriers;
 }
 
-void Ultimate::GetLinearAlgebraMatrixInfo(const Device* pDevice, LinearAlgebraMatrixInfo& matrixInfo, API api)
+void Ultimate::GetLinearAlgebraMatrixInfo(const Device* pDevice, LinearAlgebraMatrixInfo& matrixInfo)
 {
+	if (Device::GetApi() == API::VULKAN)
+	{
+		assert(!"GetLinearAlgebraMatrixInfo is not implemented on Vulkan");
+
+		return;
+	}
+
 	return GetDX12LinearAlgebraMatrixInfo(pDevice, matrixInfo);
 }
 
@@ -216,7 +284,10 @@ void Ultimate::MapBarrierState(BarrierSync& barrierSync, BarrierAccess& barrierA
 		barrierAccess = BarrierAccess::RENDER_TARGET;
 		return;
 	case ResourceState::UNORDERED_ACCESS:
-		barrierSync = BarrierSync::ALL_SHADING;
+		barrierSync = BarrierSync::ALL_SHADING |
+			BarrierSync::BUILD_RAYTRACING_ACCELERATION_STRUCTURE |
+			BarrierSync::COPY_RAYTRACING_ACCELERATION_STRUCTURE |
+			BarrierSync::EMIT_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO;
 		barrierAccess = BarrierAccess::UNORDERED_ACCESS;
 		return;
 	case ResourceState::STREAM_OUT:
@@ -232,10 +303,7 @@ void Ultimate::MapBarrierState(BarrierSync& barrierSync, BarrierAccess& barrierA
 		barrierAccess = BarrierAccess::RESOLVE_DEST;
 		return;
 	case ResourceState::RAYTRACING_ACCELERATION_STRUCTURE:
-		barrierSync = BarrierSync::ALL_SHADING |
-			BarrierSync::BUILD_RAYTRACING_ACCELERATION_STRUCTURE |
-			BarrierSync::COPY_RAYTRACING_ACCELERATION_STRUCTURE |
-			BarrierSync::EMIT_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO;
+		barrierSync = BarrierSync::RAYTRACING;
 		barrierAccess = BarrierAccess::RAYTRACING_ACCELERATION_STRUCTURE;
 		return;
 	}
@@ -248,8 +316,9 @@ void Ultimate::MapBarrierState(BarrierSync& barrierSync, BarrierAccess& barrierA
 		barrierSync |= BarrierSync::ALL_SHADING;
 	else if ((resourceState & ResourceState::NON_PIXEL_SHADER_RESOURCE) == ResourceState::NON_PIXEL_SHADER_RESOURCE)
 		barrierSync |= BarrierSync::NON_PIXEL_SHADING;
-	else if ((resourceState & ResourceState::PIXEL_SHADER_RESOURCE) == ResourceState::PIXEL_SHADER_RESOURCE ||
-		(resourceState & ResourceState::SHADING_RATE_SOURCE) == ResourceState::SHADING_RATE_SOURCE)
+	else if ((resourceState & ResourceState::PIXEL_SHADER_RESOURCE) == ResourceState::PIXEL_SHADER_RESOURCE)
+		barrierSync |= BarrierSync::PIXEL_SHADING;
+	if ((resourceState & ResourceState::SHADING_RATE_SOURCE) == ResourceState::SHADING_RATE_SOURCE)
 		barrierSync |= BarrierSync::PIXEL_SHADING;
 
 	if ((resourceState & ResourceState::VERTEX_AND_CONSTANT_BUFFER) == ResourceState::VERTEX_AND_CONSTANT_BUFFER)
@@ -314,7 +383,10 @@ void Ultimate::MapBarrierState(BarrierSync& barrierSync, BarrierAccess& barrierA
 		barrierLayout = BarrierLayout::RENDER_TARGET;
 		return;
 	case ResourceState::UNORDERED_ACCESS:
-		barrierSync = BarrierSync::ALL_SHADING;
+		barrierSync = BarrierSync::ALL_SHADING |
+			BarrierSync::BUILD_RAYTRACING_ACCELERATION_STRUCTURE |
+			BarrierSync::COPY_RAYTRACING_ACCELERATION_STRUCTURE |
+			BarrierSync::EMIT_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO;
 		barrierAccess = BarrierAccess::UNORDERED_ACCESS;
 		barrierLayout = BarrierLayout::UNORDERED_ACCESS;
 		return;
@@ -364,15 +436,12 @@ void Ultimate::MapBarrierState(BarrierSync& barrierSync, BarrierAccess& barrierA
 		barrierLayout = BarrierLayout::RESOLVE_SOURCE;
 		return;
 	case ResourceState::RAYTRACING_ACCELERATION_STRUCTURE:
-		barrierSync = BarrierSync::ALL_SHADING |
-			BarrierSync::BUILD_RAYTRACING_ACCELERATION_STRUCTURE |
-			BarrierSync::COPY_RAYTRACING_ACCELERATION_STRUCTURE |
-			BarrierSync::EMIT_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO;
+		barrierSync = BarrierSync::RAYTRACING;
 		barrierAccess = BarrierAccess::RAYTRACING_ACCELERATION_STRUCTURE;
 		barrierLayout = BarrierLayout::UNDEFINED;
 		return;
 	case ResourceState::SHADING_RATE_SOURCE:
-		barrierSync = BarrierSync::ALL_SHADING;
+		barrierSync = BarrierSync::PIXEL_SHADING;
 		barrierAccess = BarrierAccess::SHADING_RATE_SOURCE;
 		barrierLayout = BarrierLayout::SHADING_RATE_SOURCE;
 		return;
@@ -387,8 +456,9 @@ void Ultimate::MapBarrierState(BarrierSync& barrierSync, BarrierAccess& barrierA
 		barrierSync |= BarrierSync::ALL_SHADING;
 	else if ((resourceState & ResourceState::NON_PIXEL_SHADER_RESOURCE) == ResourceState::NON_PIXEL_SHADER_RESOURCE)
 		barrierSync |= BarrierSync::NON_PIXEL_SHADING;
-	else if ((resourceState & ResourceState::PIXEL_SHADER_RESOURCE) == ResourceState::PIXEL_SHADER_RESOURCE ||
-		(resourceState & ResourceState::SHADING_RATE_SOURCE) == ResourceState::SHADING_RATE_SOURCE)
+	else if ((resourceState & ResourceState::PIXEL_SHADER_RESOURCE) == ResourceState::PIXEL_SHADER_RESOURCE)
+		barrierSync |= BarrierSync::PIXEL_SHADING;
+	if ((resourceState & ResourceState::SHADING_RATE_SOURCE) == ResourceState::SHADING_RATE_SOURCE)
 		barrierSync |= BarrierSync::PIXEL_SHADING;
 
 	if ((resourceState & ResourceState::VERTEX_AND_CONSTANT_BUFFER) == ResourceState::VERTEX_AND_CONSTANT_BUFFER)
@@ -464,7 +534,10 @@ Ultimate::BarrierSync Ultimate::GetBarrierSync(ResourceState resourceState)
 	case ResourceState::RENDER_TARGET:
 		return BarrierSync::RENDER_TARGET;
 	case ResourceState::UNORDERED_ACCESS:
-		return BarrierSync::ALL_SHADING;
+		return BarrierSync::ALL_SHADING |
+			BarrierSync::BUILD_RAYTRACING_ACCELERATION_STRUCTURE |
+			BarrierSync::COPY_RAYTRACING_ACCELERATION_STRUCTURE |
+			BarrierSync::EMIT_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO;
 	case ResourceState::STREAM_OUT:
 		return BarrierSync::VERTEX_SHADING;
 	case ResourceState::COPY_DEST:
@@ -472,10 +545,7 @@ Ultimate::BarrierSync Ultimate::GetBarrierSync(ResourceState resourceState)
 	case ResourceState::RESOLVE_DEST:
 		return BarrierSync::RESOLVE;
 	case ResourceState::RAYTRACING_ACCELERATION_STRUCTURE:
-		return BarrierSync::ALL_SHADING |
-			BarrierSync::BUILD_RAYTRACING_ACCELERATION_STRUCTURE |
-			BarrierSync::COPY_RAYTRACING_ACCELERATION_STRUCTURE |
-			BarrierSync::EMIT_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO;
+		return BarrierSync::RAYTRACING;
 	}
 
 	auto barrierSync = BarrierSync::NONE;
@@ -485,8 +555,9 @@ Ultimate::BarrierSync Ultimate::GetBarrierSync(ResourceState resourceState)
 		barrierSync |= BarrierSync::ALL_SHADING;
 	else if ((resourceState & ResourceState::NON_PIXEL_SHADER_RESOURCE) == ResourceState::NON_PIXEL_SHADER_RESOURCE)
 		barrierSync |= BarrierSync::NON_PIXEL_SHADING;
-	else if ((resourceState & ResourceState::PIXEL_SHADER_RESOURCE) == ResourceState::PIXEL_SHADER_RESOURCE ||
-		(resourceState & ResourceState::SHADING_RATE_SOURCE) == ResourceState::SHADING_RATE_SOURCE)
+	else if ((resourceState & ResourceState::PIXEL_SHADER_RESOURCE) == ResourceState::PIXEL_SHADER_RESOURCE)
+		barrierSync |= BarrierSync::PIXEL_SHADING;
+	if ((resourceState & ResourceState::SHADING_RATE_SOURCE) == ResourceState::SHADING_RATE_SOURCE)
 		barrierSync |= BarrierSync::PIXEL_SHADING;
 
 	if ((resourceState & ResourceState::INDEX_BUFFER) == ResourceState::INDEX_BUFFER)
@@ -561,62 +632,98 @@ Ultimate::BarrierAccess Ultimate::GetBarrierAccess(ResourceState resourceState)
 	return barrierAccess;
 }
 
-WorkGraph::State::uptr WorkGraph::State::MakeUnique(API api)
+WorkGraph::State::uptr WorkGraph::State::MakeUnique()
 {
+	Device::LockApi();
+	assert(Device::GetApi() != API::VULKAN && "Work graph is not implemented on Vulkan");
+
 	return make_unique<State_DX12>();
 }
 
-WorkGraph::State::sptr WorkGraph::State::MakeShared(API api)
+WorkGraph::State::sptr WorkGraph::State::MakeShared()
 {
+	Device::LockApi();
+	assert(Device::GetApi() != API::VULKAN && "Work graph is not implemented on Vulkan");
+
 	return make_shared<State_DX12>();
 }
 
-WorkGraph::PipelineLib::uptr WorkGraph::PipelineLib::MakeUnique(API api)
+WorkGraph::PipelineLib::uptr WorkGraph::PipelineLib::MakeUnique()
 {
+	Device::LockApi();
+	assert(Device::GetApi() != API::VULKAN && "Work graph is not implemented on Vulkan");
+
 	return make_unique<PipelineLib_DX12>();
 }
 
-WorkGraph::PipelineLib::sptr WorkGraph::PipelineLib::MakeShared(API api)
+WorkGraph::PipelineLib::sptr WorkGraph::PipelineLib::MakeShared()
 {
+	Device::LockApi();
+	assert(Device::GetApi() != API::VULKAN && "Work graph is not implemented on Vulkan");
+
 	return make_shared<PipelineLib_DX12>();
 }
 
-WorkGraph::PipelineLib::uptr WorkGraph::PipelineLib::MakeUnique(const Device* pDevice, API api)
+WorkGraph::PipelineLib::uptr WorkGraph::PipelineLib::MakeUnique(Device* pDevice)
 {
+	Device::LockApi();
+	assert(Device::GetApi() != API::VULKAN && "Work graph is not implemented on Vulkan");
+
 	return make_unique<PipelineLib_DX12>(pDevice);
 }
 
-WorkGraph::PipelineLib::sptr WorkGraph::PipelineLib::MakeShared(const Device* pDevice, API api)
+WorkGraph::PipelineLib::sptr WorkGraph::PipelineLib::MakeShared(Device* pDevice)
 {
+	Device::LockApi();
+	assert(Device::GetApi() != API::VULKAN && "Work graph is not implemented on Vulkan");
+
 	return make_shared<PipelineLib_DX12>(pDevice);
 }
 
-Generic::State::uptr Generic::State::MakeUnique(API api)
+Generic::State::uptr Generic::State::MakeUnique()
 {
+	Device::LockApi();
+	XUSG_IF_VK(return make_unique<State_VK>();)
+
 	return make_unique<State_DX12>();
 }
 
-Generic::State::sptr Generic::State::MakeShared(API api)
+Generic::State::sptr Generic::State::MakeShared()
 {
+	Device::LockApi();
+	XUSG_IF_VK(return make_shared<State_VK>();)
+
 	return make_shared<State_DX12>();
 }
 
-Generic::PipelineLib::uptr Generic::PipelineLib::MakeUnique(API api)
+Generic::PipelineLib::uptr Generic::PipelineLib::MakeUnique()
 {
+	Device::LockApi();
+	XUSG_IF_VK(return make_unique<PipelineLib_VK>();)
+
 	return make_unique<PipelineLib_DX12>();
 }
 
-Generic::PipelineLib::sptr Generic::PipelineLib::MakeShared(API api)
+Generic::PipelineLib::sptr Generic::PipelineLib::MakeShared()
 {
+	Device::LockApi();
+	XUSG_IF_VK(return make_shared<PipelineLib_VK>();)
+
 	return make_shared<PipelineLib_DX12>();
 }
 
-Generic::PipelineLib::uptr Generic::PipelineLib::MakeUnique(const Device* pDevice, API api)
+Generic::PipelineLib::uptr Generic::PipelineLib::MakeUnique(Device* pDevice)
 {
+	Device::LockApi();
+	XUSG_IF_VK(return make_unique<PipelineLib_VK>(pDevice);)
+
 	return make_unique<PipelineLib_DX12>(pDevice);
 }
 
-Generic::PipelineLib::sptr Generic::PipelineLib::MakeShared(const Device* pDevice, API api)
+Generic::PipelineLib::sptr Generic::PipelineLib::MakeShared(Device* pDevice)
 {
+	Device::LockApi();
+	XUSG_IF_VK(return make_shared<PipelineLib_VK>(pDevice);)
+
 	return make_shared<PipelineLib_DX12>(pDevice);
 }

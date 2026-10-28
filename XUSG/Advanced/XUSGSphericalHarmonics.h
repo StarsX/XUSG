@@ -12,10 +12,10 @@ namespace XUSG
 		public virtual SphericalHarmonics
 	{
 	public:
-		SphericalHarmonics_Impl(API api);
+		SphericalHarmonics_Impl();
 		virtual ~SphericalHarmonics_Impl();
 
-		bool Init(const Device* pDevice, const ShaderLib::sptr& shaderLib,
+		bool Init(Device* pDevice, const ShaderLib::sptr& shaderLib,
 			const Compute::PipelineLib::sptr& computePipelineLib,
 			const PipelineLayoutLib::sptr& pipelineLayoutLib,
 			const DescriptorTableLib::sptr& descriptorTableLib,
@@ -64,7 +64,6 @@ namespace XUSG
 		void shSum(CommandList* pCommandList, uint8_t order);
 		void shNormalize(CommandList* pCommandList, uint8_t order);
 
-		API m_api;
 
 		ShaderLib::sptr				m_shaderLib;
 		Compute::PipelineLib::sptr	m_computePipelineLib;
