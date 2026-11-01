@@ -199,7 +199,7 @@ namespace XUSG
 			uint8_t numMips = 1, uint8_t sampleCount = 1, bool isCubeMap = false,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			const TextureLayoutDesc& textureLayout = {},
 			uint8_t numUavFormats = 0, const Format* uavFormats = nullptr,
 			uint32_t maxThreads = 1);
 		bool Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset,
@@ -207,19 +207,19 @@ namespace XUSG
 			ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			uint8_t sampleCount = 1, bool isCubeMap = false, const wchar_t* name = nullptr,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			const TextureLayoutDesc& textureLayout = {},
 			uint8_t numUavFormats = 0, const Format* uavFormats = nullptr,
 			uint32_t maxThreads = 1);
 		bool CreateResource(Device* pDevice, uint32_t width, uint32_t height, Format format,
 			uint16_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			uint8_t sampleCount = 1, MemoryFlag memoryFlags = MemoryFlag::NONE,
 			ResourceState initialResourceState = ResourceState::COMMON,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN, uint8_t numCastableFormats = 0,
+			const TextureLayoutDesc& textureLayout = {}, uint8_t numCastableFormats = 0,
 			const Format* pCastableFormats = nullptr, uint32_t maxThreads = 1);
 		bool CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width,
 			uint32_t height, Format format, uint16_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, ResourceState initialResourceState = ResourceState::COMMON,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN, uint8_t numCastableFormats = 0,
+			const TextureLayoutDesc& textureLayout = {}, uint8_t numCastableFormats = 0,
 			const Format* pCastableFormats = nullptr, uint32_t maxThreads = 1);
 		bool Upload(CommandList* pCommandList, Resource* pUploader,
 			const SubresourceData* pSubresourceData, uint32_t numSubresources = 1,
@@ -277,7 +277,7 @@ namespace XUSG
 		static void GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, Device* pDevice,
 			uint32_t width, uint32_t height, Format format, uint16_t arraySize = 1,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
-			uint8_t sampleCount = 1, TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			uint8_t sampleCount = 1, const TextureLayoutDesc& textureLayout = {},
 			uint64_t requiredAlignment = 0);
 
 	protected:
@@ -310,7 +310,7 @@ namespace XUSG
 			uint8_t sampleCount = 1, const float* pClearColor = nullptr, bool isCubeMap = false,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			const TextureLayoutDesc& textureLayout = {},
 			uint8_t numUavFormats = 0, const Format* uavFormats = nullptr,
 			uint32_t maxThreads = 1);
 		bool Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
@@ -318,7 +318,7 @@ namespace XUSG
 			uint8_t numMips = 1, uint8_t sampleCount = 1, const float* pClearColor = nullptr,
 			bool isCubeMap = false, const wchar_t* name = nullptr,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			const TextureLayoutDesc& textureLayout = {},
 			uint8_t numUavFormats = 0, const Format* uavFormats = nullptr,
 			uint32_t maxThreads = 1);
 		bool CreateArray(Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize,
@@ -326,14 +326,14 @@ namespace XUSG
 			uint8_t sampleCount = 1, const float* pClearColor = nullptr, bool isCubeMap = false,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			const TextureLayoutDesc& textureLayout = {},
 			uint8_t numUavFormats = 0, const Format* uavFormats = nullptr,
 			uint32_t maxThreads = 1);
 		bool CreateArray(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 			uint16_t arraySize, Format format, ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			uint8_t sampleCount = 1, const float* pClearColor = nullptr, bool isCubeMap = false,
 			const wchar_t* name = nullptr, uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			const TextureLayoutDesc& textureLayout = {},
 			uint8_t numUavFormats = 0, const Format* uavFormats = nullptr,
 			uint32_t maxThreads = 1);
 		bool CreateFromSwapChain(Device* pDevice, SwapChain* pSwapChain,
@@ -342,12 +342,12 @@ namespace XUSG
 			Format format, uint16_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, MemoryFlag memoryFlags = MemoryFlag::NONE,
 			ResourceState initialResourceState = ResourceState::COMMON, const float* pClearColor = nullptr,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN, uint8_t numCastableFormats = 0,
+			const TextureLayoutDesc& textureLayout = {}, uint8_t numCastableFormats = 0,
 			const Format* pCastableFormats = nullptr, uint32_t maxThreads = 1);
 		bool CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width,
 			uint32_t height, Format format, uint16_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, ResourceState initialResourceState = ResourceState::COMMON,
-			const float* pClearColor = nullptr, TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			const float* pClearColor = nullptr, const TextureLayoutDesc& textureLayout = {},
 			uint8_t numCastableFormats = 0, const Format* pCastableFormats = nullptr, uint32_t maxThreads = 1);
 
 		Descriptor CreateRTV(uint16_t arraySize, uint16_t firstArraySlice, Format format = Format::UNKNOWN,
@@ -378,12 +378,12 @@ namespace XUSG
 		bool create(Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize,
 			Format format, uint8_t& numMips, uint8_t sampleCount, ResourceFlag resourceFlags,
 			const float* pClearColor, bool isCubeMap, MemoryFlag memoryFlags, const wchar_t* name,
-			uint16_t srvComponentMapping, TextureLayout textureLayout, uint8_t numUavFormats,
+			uint16_t srvComponentMapping, const TextureLayoutDesc& textureLayout, uint8_t numUavFormats,
 			const Format* uavFormats, uint32_t maxThreads);
 		bool create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 			uint16_t arraySize, Format format, uint8_t& numMips, uint8_t sampleCount, ResourceFlag resourceFlags,
 			const float* pClearColor, bool isCubeMap, const wchar_t* name, uint16_t srvComponentMapping,
-			TextureLayout textureLayout, uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads);
+			const TextureLayoutDesc& textureLayout, uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads);
 
 		std::vector<std::vector<Descriptor>> m_rtvs;
 	};
@@ -407,38 +407,38 @@ namespace XUSG
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 			uint16_t stencilSrvComponentMapping = XUSG_DEFAULT_STENCIL_SRV_COMPONENT_MAPPING,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN, uint32_t maxThreads = 1);
+			const TextureLayoutDesc& textureLayout = {}, uint32_t maxThreads = 1);
 		bool Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 			Format format = Format::UNKNOWN, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint16_t arraySize = 1, uint8_t numMips = 1, uint8_t sampleCount = 1,
 			float clearDepth = 1.0f, uint8_t clearStencil = 0, bool isCubeMap = false,
 			const wchar_t* name = nullptr, uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 			uint16_t stencilSrvComponentMapping = XUSG_DEFAULT_STENCIL_SRV_COMPONENT_MAPPING,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN, uint32_t maxThreads = 1);
+			const TextureLayoutDesc& textureLayout = {}, uint32_t maxThreads = 1);
 		bool CreateArray(Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize,
 			Format format = Format::UNKNOWN, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, float clearDepth = 1.0f, uint8_t clearStencil = 0,
 			bool isCubeMap = false, MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 			uint16_t stencilSrvComponentMapping = XUSG_DEFAULT_STENCIL_SRV_COMPONENT_MAPPING,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN, uint32_t maxThreads = 1);
+			const TextureLayoutDesc& textureLayout = {}, uint32_t maxThreads = 1);
 		bool CreateArray(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 			uint16_t arraySize, Format format = Format::UNKNOWN, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, float clearDepth = 1.0f, uint8_t clearStencil = 0,
 			bool isCubeMap = false, const wchar_t* name = nullptr,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 			uint16_t stencilSrvComponentMapping = XUSG_DEFAULT_STENCIL_SRV_COMPONENT_MAPPING,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN, uint32_t maxThreads = 1);
+			const TextureLayoutDesc& textureLayout = {}, uint32_t maxThreads = 1);
 		bool CreateResource(Device* pDevice, uint32_t width, uint32_t height,
 			Format format, uint16_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, MemoryFlag memoryFlags = MemoryFlag::NONE,
 			ResourceState initialResourceState = ResourceState::DEPTH_WRITE, float clearDepth = 1.0f,
-			uint8_t clearStencil = 0, TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			uint8_t clearStencil = 0, const TextureLayoutDesc& textureLayout = {},
 			uint32_t maxThreads = 1);
 		bool CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width,
 			uint32_t height, Format format, uint16_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, ResourceState initialResourceState = ResourceState::DEPTH_WRITE,
-			float clearDepth = 1.0f, uint8_t clearStencil = 0, TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			float clearDepth = 1.0f, uint8_t clearStencil = 0, const TextureLayoutDesc& textureLayout = {},
 			uint32_t maxThreads = 1);
 
 		Descriptor CreateDSV(uint16_t arraySize, uint16_t firstArraySlice = 0, Format format = Format::UNKNOWN,
@@ -451,13 +451,13 @@ namespace XUSG
 		bool create(Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize, uint8_t& numMips,
 			uint8_t sampleCount, Format format, ResourceFlag resourceFlags, float clearDepth, uint8_t clearStencil,
 			bool& hasSRV, Format& formatStencil, bool isCubeMap, MemoryFlag memoryFlags, const wchar_t* name,
-			uint16_t srvComponentMapping, uint16_t stencilSrvComponentMapping, TextureLayout textureLayout,
+			uint16_t srvComponentMapping, uint16_t stencilSrvComponentMapping, const TextureLayoutDesc& textureLayout,
 			uint32_t maxThreads);
 		bool create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 			uint16_t arraySize, uint8_t& numMips, uint8_t sampleCount, Format format, ResourceFlag resourceFlags,
 			float clearDepth, uint8_t clearStencil, bool& hasSRV, Format& formatStencil, bool isCubeMap,
 			const wchar_t* name, uint16_t srvComponentMapping, uint16_t stencilSrvComponentMapping,
-			TextureLayout textureLayout, uint32_t maxThreads);
+			const TextureLayoutDesc& textureLayout, uint32_t maxThreads);
 
 		void mapFormat(Format& format);
 		void separateFormat(Format& format, Format& formatDepth, Format& formatStencil);
@@ -484,24 +484,24 @@ namespace XUSG
 			Format format, ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			const TextureLayoutDesc& textureLayout = {},
 			uint8_t numUavFormats = 0, const Format* uavFormats = nullptr,
 			uint32_t maxThreads = 1);
 		bool Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 			uint16_t depth, Format format, ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			const wchar_t* name = nullptr, uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			const TextureLayoutDesc& textureLayout = {},
 			uint8_t numUavFormats = 0, const Format* uavFormats = nullptr,
 			uint32_t maxThreads = 1);
 		bool CreateResource(Device* pDevice, uint32_t width, uint32_t height, uint16_t depth,
 			Format format, ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, ResourceState initialResourceState = ResourceState::COMMON,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN, uint8_t numCastableFormats = 0,
+			const TextureLayoutDesc& textureLayout = {}, uint8_t numCastableFormats = 0,
 			const Format* pCastableFormats = nullptr, uint32_t maxThreads = 1);
 		bool CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width,
 			uint32_t height, uint16_t depth, Format format, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, ResourceState initialResourceState = ResourceState::COMMON,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			const TextureLayoutDesc& textureLayout = {},
 			uint8_t numCastableFormats = 0, const Format* pCastableFormats = nullptr,
 			uint32_t maxThreads = 1);
 
@@ -515,7 +515,7 @@ namespace XUSG
 		static void GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, Device* pDevice,
 			uint32_t width, uint32_t height, uint16_t depth, Format format,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			const TextureLayoutDesc& textureLayout = {},
 			uint64_t requiredAlignment = 0);
 	};
 

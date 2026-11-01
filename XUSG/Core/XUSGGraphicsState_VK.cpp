@@ -847,6 +847,35 @@ Pipeline_VK* XUSG::CreateVKGraphicsPipeline(const Device_VK* pDevice, const Grap
 	flags.pNext = &rendering;
 	flags.flags = VK_PIPELINE_CREATE_2_DESCRIPTOR_HEAP_BIT_EXT;
 
+	VkGraphicsPipelineLibraryCreateInfoEXT gpl = {};
+	VkPipelineLibraryCreateInfoKHR linked = {};
+	if (desc.LibraryFlags)
+	{
+		assert(pDevice->HasGraphicsPipelineLibrary() && "VK_EXT_graphics_pipeline_library required");
+		gpl.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_LIBRARY_CREATE_INFO_EXT;
+		gpl.pNext = flags.pNext;
+		gpl.flags = static_cast<VkGraphicsPipelineLibraryFlagsEXT>(desc.LibraryFlags);
+		flags.pNext = &gpl;
+		flags.flags |= VK_PIPELINE_CREATE_2_LIBRARY_BIT_KHR;
+	}
+	if (desc.LibraryCount)
+	{
+		assert(desc.pLibraries);
+		assert(pDevice->HasGraphicsPipelineLibrary() && "VK_EXT_graphics_pipeline_library required");
+		linked.sType = VK_STRUCTURE_TYPE_PIPELINE_LIBRARY_CREATE_INFO_KHR;
+		linked.pNext = flags.pNext;
+		linked.libraryCount = desc.LibraryCount;
+		linked.pLibraries = desc.pLibraries;
+		flags.pNext = &linked;
+	}
+
+	const auto isLibrary = desc.LibraryFlags != 0;
+	const auto linkOnly = desc.LibraryCount != 0 && !isLibrary;
+	const auto isVertexInputLib = (desc.LibraryFlags & VK_GRAPHICS_PIPELINE_LIBRARY_VERTEX_INPUT_INTERFACE_BIT_EXT) != 0;
+	const auto isPreRasterLib = (desc.LibraryFlags & VK_GRAPHICS_PIPELINE_LIBRARY_PRE_RASTERIZATION_SHADERS_BIT_EXT) != 0;
+	const auto isFragmentLib = (desc.LibraryFlags & VK_GRAPHICS_PIPELINE_LIBRARY_FRAGMENT_SHADER_BIT_EXT) != 0;
+	const auto isFragmentOutputLib = (desc.LibraryFlags & VK_GRAPHICS_PIPELINE_LIBRARY_FRAGMENT_OUTPUT_INTERFACE_BIT_EXT) != 0;
+
 	VkGraphicsPipelineCreateInfo info = {};
 	info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	info.pNext = &flags;
@@ -862,6 +891,41 @@ Pipeline_VK* XUSG::CreateVKGraphicsPipeline(const Device_VK* pDevice, const Grap
 	info.pColorBlendState = &blend;
 	info.pDynamicState = &dynamic;
 	info.layout = VK_NULL_HANDLE;
+
+	if (linkOnly)
+	{
+		info.stageCount = 0;
+		info.pStages = nullptr;
+		info.pVertexInputState = nullptr;
+		info.pInputAssemblyState = nullptr;
+		info.pTessellationState = nullptr;
+		info.pViewportState = nullptr;
+		info.pRasterizationState = nullptr;
+		info.pMultisampleState = nullptr;
+		info.pDepthStencilState = nullptr;
+		info.pColorBlendState = nullptr;
+		info.pDynamicState = nullptr;
+	}
+	else if (isLibrary)
+	{
+		if (!isVertexInputLib)
+		{
+			info.pVertexInputState = nullptr;
+			info.pInputAssemblyState = nullptr;
+		}
+		if (!isPreRasterLib)
+		{
+			info.pTessellationState = nullptr;
+			info.pViewportState = nullptr;
+			info.pRasterizationState = nullptr;
+		}
+		if (!isFragmentLib)
+			info.pDepthStencilState = nullptr;
+		if (!isFragmentLib && !isFragmentOutputLib)
+			info.pMultisampleState = nullptr;
+		if (!isFragmentOutputLib)
+			info.pColorBlendState = nullptr;
+	}
 
 	VkPipeline handle = VK_NULL_HANDLE;
 	const auto result = vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &info, nullptr, &handle);

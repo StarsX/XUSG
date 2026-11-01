@@ -550,15 +550,31 @@ D3D12_TEXTURE_LAYOUT XUSG::GetDX12TextureLayout(TextureLayout textureLayout)
 		D3D12_TEXTURE_LAYOUT_UNKNOWN,
 		D3D12_TEXTURE_LAYOUT_ROW_MAJOR,
 		D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE,
-		D3D12_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE
+		D3D12_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE,
+		D3D12_TEXTURE_LAYOUT_GUID
 	};
 
 	assert(textureLayouts[static_cast<uint32_t>(TextureLayout::UNKNOWN)] == D3D12_TEXTURE_LAYOUT_UNKNOWN);
 	assert(textureLayouts[static_cast<uint32_t>(TextureLayout::ROW_MAJOR)] == D3D12_TEXTURE_LAYOUT_ROW_MAJOR);
 	assert(textureLayouts[static_cast<uint32_t>(TextureLayout::TILE_UNDEFINED_SWIZZLE)] == D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE);
 	assert(textureLayouts[static_cast<uint32_t>(TextureLayout::TILE_STANDARD_SWIZZLE)] == D3D12_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE);
+	assert(textureLayouts[static_cast<uint32_t>(TextureLayout::GUID)] == D3D12_TEXTURE_LAYOUT_GUID);
 
 	return textureLayouts[static_cast<uint32_t>(textureLayout)];
+}
+
+D3D12_TEXTURE_LAYOUT XUSG::GetDX12TextureLayout(const TextureLayoutDesc& textureLayout)
+{
+	return GetDX12TextureLayout(textureLayout.Layout);
+}
+
+GUID XUSG::GetDX12TextureLayoutGuid(const TextureLayoutDesc& textureLayout)
+{
+	GUID guid = {};
+	static_assert(sizeof(TextureLayoutGuid) == sizeof(GUID), "TextureLayoutGuid must match GUID");
+	memcpy(&guid, &textureLayout.Guid, sizeof(GUID));
+
+	return guid;
 }
 
 D3D12_COMMAND_QUEUE_FLAGS XUSG::GetDX12CommandQueueFlag(CommandQueueFlag commandQueueFlag)
@@ -1085,12 +1101,16 @@ D3D12_FENCE_FLAGS XUSG::GetDX12FenceFlag(FenceFlag fenceFlag)
 	{
 		D3D12_FENCE_FLAG_SHARED,
 		D3D12_FENCE_FLAG_SHARED_CROSS_ADAPTER,
-		D3D12_FENCE_FLAG_NON_MONITORED
+		D3D12_FENCE_FLAG_NON_MONITORED,
+		D3D12_FENCE_FLAG_ALLOW_COMMAND_LIST_BARRIERS,
+		D3D12_FENCE_FLAG_ALLOW_QUEUE_AND_CPU_SYNC
 	};
 
 	assert(fenceFlags[Log2(static_cast<uint32_t>(FenceFlag::SHARED))] == D3D12_FENCE_FLAG_SHARED);
 	assert(fenceFlags[Log2(static_cast<uint32_t>(FenceFlag::SHARED_CROSS_ADAPTER))] == D3D12_FENCE_FLAG_SHARED_CROSS_ADAPTER);
 	assert(fenceFlags[Log2(static_cast<uint32_t>(FenceFlag::NON_MONITORED))] == D3D12_FENCE_FLAG_NON_MONITORED);
+	assert(fenceFlags[Log2(static_cast<uint32_t>(FenceFlag::ALLOW_COMMAND_LIST_BARRIERS))] == D3D12_FENCE_FLAG_ALLOW_COMMAND_LIST_BARRIERS);
+	assert(fenceFlags[Log2(static_cast<uint32_t>(FenceFlag::ALLOW_QUEUE_AND_CPU_SYNC))] == D3D12_FENCE_FLAG_ALLOW_QUEUE_AND_CPU_SYNC);
 
 	if (fenceFlag == FenceFlag::NONE) return D3D12_FENCE_FLAG_NONE;
 
@@ -1105,6 +1125,8 @@ D3D12_FENCE_FLAGS XUSG::GetDX12FenceFlags(FenceFlag fenceFlags)
 	flags |= APPEND_FENCE_FLAG(fenceFlags, SHARED);
 	flags |= APPEND_FENCE_FLAG(fenceFlags, SHARED_CROSS_ADAPTER);
 	flags |= APPEND_FENCE_FLAG(fenceFlags, NON_MONITORED);
+	flags |= APPEND_FENCE_FLAG(fenceFlags, ALLOW_COMMAND_LIST_BARRIERS);
+	flags |= APPEND_FENCE_FLAG(fenceFlags, ALLOW_QUEUE_AND_CPU_SYNC);
 
 	return flags;
 }

@@ -779,6 +779,7 @@ bool DescriptorTableLib_VK::writeSampler(const Sampler* pSampler, void* pDescrip
 		const auto g = pSampler->BorderColorU[1];
 		const auto b = pSampler->BorderColorU[2];
 		const auto a = pSampler->BorderColorU[3];
+
 		// Match vkd3d: standard UINT borders use 0/1, not 0/~0.
 		const auto black = r == 0 && g == 0 && b == 0;
 		const auto white = r == 1 && g == 1 && b == 1;
@@ -822,6 +823,7 @@ bool DescriptorTableLib_VK::writeSampler(const Sampler* pSampler, void* pDescrip
 	info.addressModeV = GetVKSamplerAddressMode(pSampler->AddressV);
 	info.addressModeW = GetVKSamplerAddressMode(pSampler->AddressW);
 	info.mipLodBias = pSampler->MipLODBias;
+
 	// Match vkd3d: aniso from filter type, then MaxAnisotropy < 1 disables; clamp to 16.
 	info.anisotropyEnable = IsAnisotropicSamplerFilter(pSampler->Filter) && pSampler->MaxAnisotropy >= 1;
 	info.maxAnisotropy = info.anisotropyEnable ?

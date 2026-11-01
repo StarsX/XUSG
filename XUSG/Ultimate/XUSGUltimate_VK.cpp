@@ -57,6 +57,8 @@ namespace
 			(sync & BarrierSync::EMIT_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO) == BarrierSync::EMIT_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO)
 			AddAccelerationStructureStage(pDevice, stage);
 		if ((sync & BarrierSync::COPY) == BarrierSync::COPY) stage |= VK_PIPELINE_STAGE_2_COPY_BIT;
+		if ((sync & BarrierSync::CONVERT_LINEAR_ALGEBRA_MATRIX) == BarrierSync::CONVERT_LINEAR_ALGEBRA_MATRIX)
+			stage |= VK_PIPELINE_STAGE_2_COPY_BIT;
 		if ((sync & BarrierSync::RESOLVE) == BarrierSync::RESOLVE) stage |= VK_PIPELINE_STAGE_2_RESOLVE_BIT;
 		if ((sync & BarrierSync::EXECUTE_INDIRECT) == BarrierSync::EXECUTE_INDIRECT) stage |= VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT;
 		if ((sync & BarrierSync::ALL_SHADING) == BarrierSync::ALL_SHADING)
@@ -264,8 +266,13 @@ void* CommandList_VK::GetUltimateBackend()
 	return this;
 }
 
-void CommandList_VK::Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups)
+void CommandList_VK::prepareFenceBarrierGroups(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups,
+	VkMemoryBarrier2& memory) const
 {
+	memory = {};
+	memory.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
+	m_state->m_buffers.clear();
+	m_state->m_images.clear();
 	if (!numBarrierGroups) return;
 	assert(pBarrierGroups);
 
@@ -291,10 +298,6 @@ void CommandList_VK::Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGr
 		endPredication();
 	}
 
-	VkMemoryBarrier2 memory = {};
-	memory.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
-	m_state->m_buffers.clear();
-	m_state->m_images.clear();
 	if (m_state->m_buffers.capacity() < count) m_state->m_buffers.reserve(count);
 	if (m_state->m_images.capacity() < count) m_state->m_images.reserve(count);
 	for (auto i = 0u; i < numBarrierGroups; ++i)
@@ -304,7 +307,78 @@ void CommandList_VK::Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGr
 		assert(group.pBarriers);
 		for (auto j = 0u; j < group.NumBarriers; ++j) addBarrier(group.pBarriers[j], memory);
 	}
+}
+
+void CommandList_VK::Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups)
+{
+	VkMemoryBarrier2 memory = {};
+	prepareFenceBarrierGroups(numBarrierGroups, pBarrierGroups, memory);
 	flushBarriers(memory);
+}
+
+void CommandList_VK::SignalBarrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups,
+	Fence* pFence, uint64_t fenceValue)
+{
+	(void)fenceValue;
+	assert(pFence);
+	const auto pFenceVK = AsVK(pFence);
+	assert(pFenceVK);
+	const auto event = pFenceVK->GetEvent();
+	assert(event != VK_NULL_HANDLE && "Vulkan SignalBarrier requires ALLOW_COMMAND_LIST_BARRIERS without ALLOW_QUEUE_AND_CPU_SYNC");
+
+	VkMemoryBarrier2 memory = {};
+	prepareFenceBarrierGroups(numBarrierGroups, pBarrierGroups, memory);
+
+	VkDependencyInfo dependency = {};
+	FillBarrierDependency(dependency, memory, m_state->m_buffers, m_state->m_images);
+	vkCmdResetEvent2(m_state->m_commandBuffer, event, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT);
+	vkCmdSetEvent2(m_state->m_commandBuffer, event, &dependency);
+	memory.srcStageMask = 0;
+	memory.srcAccessMask = 0;
+	memory.dstStageMask = 0;
+	memory.dstAccessMask = 0;
+	m_state->m_buffers.clear();
+	m_state->m_images.clear();
+}
+
+void CommandList_VK::WaitBarrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups,
+	uint32_t numFences, Fence* const* ppFences, const uint64_t* pFenceValues)
+{
+	(void)pFenceValues;
+	assert(numFences);
+	assert(ppFences);
+
+	vector<VkEvent> events(numFences);
+	for (auto i = 0u; i < numFences; ++i)
+	{
+		assert(ppFences[i]);
+		const auto pFenceVK = AsVK(ppFences[i]);
+		assert(pFenceVK);
+		events[i] = pFenceVK->GetEvent();
+		assert(events[i] != VK_NULL_HANDLE && "Vulkan WaitBarrier requires command-list-scoped fences (VkEvent)");
+	}
+
+	VkMemoryBarrier2 memory = {};
+	prepareFenceBarrierGroups(numBarrierGroups, pBarrierGroups, memory);
+
+	VkDependencyInfo dependency = {};
+	FillBarrierDependency(dependency, memory, m_state->m_buffers, m_state->m_images);
+	vector<VkDependencyInfo> dependencies(numFences, dependency);
+
+	// Barriers apply once after all events; empty infos on earlier slots avoid repeating them.
+	for (auto i = 0u; i + 1 < numFences; ++i)
+	{
+		dependencies[i] = {};
+		dependencies[i].sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+	}
+
+	vkCmdWaitEvents2(m_state->m_commandBuffer, numFences, events.data(), dependencies.data());
+	memory.srcStageMask = 0;
+	memory.srcAccessMask = 0;
+	memory.dstStageMask = 0;
+	memory.dstAccessMask = 0;
+	m_state->m_buffers.clear();
+	m_state->m_images.clear();
 }
 
 void CommandList_VK::Barrier(uint32_t numBufferBarriers, ResourceBarrier* pBufferBarriers,
@@ -316,6 +390,7 @@ void CommandList_VK::Barrier(uint32_t numBufferBarriers, ResourceBarrier* pBuffe
 	if (numBufferBarriers) assert(pBufferBarriers);
 	if (numTextureBarriers) assert(pTextureBarriers);
 	if (numGlobalBarriers) assert(pGlobalBarriers);
+
 	// Only texture barriers can reference bound color/depth attachments.
 	prepareUltimateBarriersOutsidePass(numTextureBarriers, pTextureBarriers);
 
@@ -591,11 +666,464 @@ void CommandList_VK::DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNod
 	(void)isMultiNodes;
 }
 
+void CommandList_VK::DispatchGraph(uint32_t numBindings, const ProgramBinding* pBindings)
+{
+	assert(!"DispatchGraph is not implemented on Vulkan");
+	(void)numBindings;
+	(void)pBindings;
+}
+
 void CommandList_VK::ConvertLinearAlgebraMatrix(const LinearAlgebraMatrixConversionInfo* pConversions, uint32_t numConversions)
 {
 	assert(!"ConvertLinearAlgebraMatrix is not implemented on Vulkan");
 	(void)pConversions;
 	(void)numConversions;
+}
+
+namespace XUSG::Ultimate
+{
+namespace
+{
+	uint32_t CopyTexelBytes(Format format)
+	{
+		if (IsCompressedFormat(format)) return GetVKFormatBits(format) <= 4 ? 8u : 16u;
+
+		return (max)(GetVKFormatBits(format), 8u) / 8u;
+	}
+
+	VkImageAspectFlags TransferAspect(VkFormat format)
+	{
+		const auto aspect = GetVKImageAspect(GetFormatFromVK(format));
+		if ((aspect & VK_IMAGE_ASPECT_DEPTH_BIT) != 0) return VK_IMAGE_ASPECT_DEPTH_BIT;
+
+		return aspect ? aspect : static_cast<VkImageAspectFlags>(VK_IMAGE_ASPECT_COLOR_BIT);
+	}
+
+	void DecodeSubresource(const Resource_VK* pResource, uint32_t subresource, uint32_t& mip, uint32_t& layer, uint32_t& depth)
+	{
+		const auto mips = (max)(pResource->GetMipLevels(), 1u);
+		mip = mips ? subresource % mips : 0;
+		if (pResource->Is3D())
+		{
+			layer = 0;
+			depth = (max)(pResource->GetDepthOrArray() >> mip, 1u);
+		}
+		else
+		{
+			layer = subresource / mips;
+			depth = 1;
+		}
+	}
+
+	uint32_t BufferRowLength(const PlacedSubresourceFootprint& footprint)
+	{
+		const auto texelBytes = CopyTexelBytes(footprint.Footprint.Format);
+		assert(texelBytes);
+		assert(footprint.Footprint.RowPitch % texelBytes == 0);
+
+		return footprint.Footprint.RowPitch / texelBytes;
+	}
+
+	VkDeviceSize BufferRegionOffset(const PlacedSubresourceFootprint& footprint, const BoxRange* pSourceBox)
+	{
+		auto offset = static_cast<VkDeviceSize>(footprint.Offset);
+		if (!pSourceBox) return offset;
+
+		const auto texelBytes = CopyTexelBytes(footprint.Footprint.Format);
+		const auto rowPitch = static_cast<VkDeviceSize>(footprint.Footprint.RowPitch);
+		const auto slicePitch = rowPitch * footprint.Footprint.Height;
+		offset += static_cast<VkDeviceSize>(pSourceBox->Front) * slicePitch;
+		offset += static_cast<VkDeviceSize>(pSourceBox->Top) * rowPitch;
+		offset += static_cast<VkDeviceSize>(pSourceBox->Left) * texelBytes;
+
+		return offset;
+	}
+}
+}
+
+void CommandList_VK::CopyBufferRegions(uint32_t numRegions, Resource* const* ppDestBuffers, const uint64_t* pDestOffsets,
+	Resource* const* ppSourceBuffers, const uint64_t* pSourceOffsets, const uint64_t* pSizes)
+{
+	assert(numRegions);
+	assert(ppDestBuffers);
+	assert(pDestOffsets);
+	assert(ppSourceBuffers);
+	assert(pSourceOffsets);
+	assert(pSizes);
+
+	recordOutside();
+	vector<VkBufferCopy> copies(numRegions);
+
+	// Batch contiguous runs that share the same source/dest buffers.
+	auto runStart = 0u;
+	while (runStart < numRegions)
+	{
+		assert(ppDestBuffers[runStart]);
+		assert(ppSourceBuffers[runStart]);
+		const auto pDst = AsVK(ppDestBuffers[runStart]);
+		const auto pSrc = AsVK(ppSourceBuffers[runStart]);
+		assert(pDst && pSrc);
+		const auto dst = pDst->GetBuffer();
+		const auto src = pSrc->GetBuffer();
+		auto runCount = 0u;
+		for (auto i = runStart; i < numRegions; ++i)
+		{
+			assert(ppDestBuffers[i]);
+			assert(ppSourceBuffers[i]);
+			const auto pDstI = AsVK(ppDestBuffers[i]);
+			const auto pSrcI = AsVK(ppSourceBuffers[i]);
+			if (!pDstI || !pSrcI || pDstI->GetBuffer() != dst || pSrcI->GetBuffer() != src) break;
+			copies[runCount].srcOffset = pSourceOffsets[i];
+			copies[runCount].dstOffset = pDestOffsets[i];
+			copies[runCount].size = pSizes[i];
+			++runCount;
+		}
+		vkCmdCopyBuffer(m_state->m_commandBuffer, src, dst, runCount, copies.data());
+		runStart += runCount;
+	}
+}
+
+void CommandList_VK::CopyTextureRegions(uint32_t numCopyDescs, const TextureCopyDesc* pCopyDescs)
+{
+	assert(numCopyDescs);
+	assert(pCopyDescs);
+
+	for (auto i = 0u; i < numCopyDescs; ++i)
+	{
+		const auto& desc = pCopyDescs[i];
+		if (desc.Type == TextureCopyDescType::TEXTURE_TO_TEXTURE)
+		{
+			assert(desc.TextureTextureCopy.pDest);
+			assert(desc.TextureTextureCopy.pSource);
+			const TextureCopyLocation dst(desc.TextureTextureCopy.pDest, desc.TextureTextureCopy.DestSubresourceIndex);
+			const TextureCopyLocation src(desc.TextureTextureCopy.pSource, desc.TextureTextureCopy.SourceSubresourceIndex);
+			if (!desc.NumRegions)
+				CopyTextureRegion(dst, 0, 0, 0, src, nullptr);
+			else
+			{
+				assert(desc.pCopyRegions);
+				for (auto j = 0u; j < desc.NumRegions; ++j)
+				{
+					const auto& region = desc.pCopyRegions[j];
+					CopyTextureRegion(dst, region.DestX, region.DestY, region.DestZ, src, region.pSourceBox);
+				}
+			}
+
+			continue;
+		}
+
+		assert(desc.BufferTextureCopy.pBuffer);
+		assert(desc.BufferTextureCopy.pTexture);
+		const auto pBuffer = AsVK(desc.BufferTextureCopy.pBuffer);
+		const auto pTexture = AsVK(desc.BufferTextureCopy.pTexture);
+		assert(pBuffer && !pBuffer->IsImage());
+		assert(pTexture && pTexture->IsImage());
+
+		auto footprint = desc.BufferTextureCopy.PlacedFootprint;
+		if (footprint.Footprint.Format == Format::UNKNOWN)
+			footprint.Footprint.Format = GetFormatFromVK(pTexture->GetVkFormat());
+		assert(footprint.Footprint.Format != Format::UNKNOWN);
+
+		uint32_t mip = 0, layer = 0, depth = 1;
+		DecodeSubresource(pTexture, desc.BufferTextureCopy.SubresourceIndex, mip, layer, depth);
+
+		const auto toTexture = desc.Type == TextureCopyDescType::BUFFER_TO_TEXTURE;
+		const auto regionCount = desc.NumRegions ? desc.NumRegions : 1u;
+		vector<VkBufferImageCopy> copies(regionCount);
+
+		for (auto j = 0u; j < regionCount; ++j)
+		{
+			const TextureCopyRegion* pRegion = desc.NumRegions ? &desc.pCopyRegions[j] : nullptr;
+			auto& copy = copies[j];
+			copy = {};
+			copy.bufferOffset = BufferRegionOffset(footprint, pRegion ? pRegion->pSourceBox : nullptr);
+			copy.bufferRowLength = BufferRowLength(footprint);
+			copy.bufferImageHeight = footprint.Footprint.Height;
+			copy.imageSubresource.aspectMask = TransferAspect(pTexture->GetVkFormat());
+			copy.imageSubresource.mipLevel = mip;
+			copy.imageSubresource.baseArrayLayer = layer;
+			copy.imageSubresource.layerCount = 1;
+			if (pRegion)
+			{
+				copy.imageOffset = {
+					static_cast<int32_t>(pRegion->DestX),
+					static_cast<int32_t>(pRegion->DestY),
+					static_cast<int32_t>(pRegion->DestZ)
+				};
+				if (pRegion->pSourceBox)
+				{
+					copy.imageExtent.width = pRegion->pSourceBox->Right - pRegion->pSourceBox->Left;
+					copy.imageExtent.height = pRegion->pSourceBox->Bottom - pRegion->pSourceBox->Top;
+					copy.imageExtent.depth = pRegion->pSourceBox->Back - pRegion->pSourceBox->Front;
+				}
+				else
+				{
+					copy.imageExtent.width = footprint.Footprint.Width;
+					copy.imageExtent.height = footprint.Footprint.Height;
+					copy.imageExtent.depth = footprint.Footprint.Depth;
+				}
+			}
+			else
+			{
+				copy.imageExtent.width = footprint.Footprint.Width;
+				copy.imageExtent.height = footprint.Footprint.Height;
+				copy.imageExtent.depth = footprint.Footprint.Depth;
+			}
+		}
+
+		recordOutside();
+		if (toTexture)
+		{
+			vkCmdCopyBufferToImage(m_state->m_commandBuffer, pBuffer->GetBuffer(), pTexture->GetImage(),
+				pTexture->ImageLayout(ResourceState::COPY_DEST), regionCount, copies.data());
+		}
+		else
+		{
+			vkCmdCopyImageToBuffer(m_state->m_commandBuffer, pTexture->GetImage(),
+				pTexture->ImageLayout(ResourceState::COPY_SOURCE), pBuffer->GetBuffer(),
+				regionCount, copies.data());
+		}
+	}
+}
+
+void CommandList_VK::CopyResources(uint32_t numSourceDestPairs, Resource* const* ppDestResources,
+	Resource* const* ppSourceResources)
+{
+	assert(numSourceDestPairs);
+	assert(ppDestResources);
+	assert(ppSourceResources);
+
+	for (auto i = 0u; i < numSourceDestPairs; ++i)
+		CopyResource(ppDestResources[i], ppSourceResources[i]);
+}
+
+void CommandList_VK::CopyTilesAsync(Resource* pTiledResource, const TiledResourceCoord* pTileRegionStartCoord,
+	const TileRegionSize& tileRegionSize, Resource* pBuffer, uint64_t bufferOffset, TileCopyFlag flags)
+{
+	assert(!"CopyTilesAsync is not implemented on Vulkan");
+	(void)pTiledResource;
+	(void)pTileRegionStartCoord;
+	(void)tileRegionSize;
+	(void)pBuffer;
+	(void)bufferOffset;
+	(void)flags;
+}
+
+void CommandList_VK::ResolveSubresourceRegionAsync(Resource* pDstResource, uint32_t dstSubresource,
+	uint32_t dstX, uint32_t dstY, Resource* pSrcResource, uint32_t srcSubresource,
+	const RectRange* pSrcRect, Format format, ResolveMode resolveMode)
+{
+	assert(pDstResource);
+	assert(pSrcResource);
+
+	RectRange fullRect = {};
+	if (!pSrcRect)
+	{
+		const auto pSrc = AsVK(pSrcResource);
+		assert(pSrc);
+		const auto mips = (max)(pSrc->GetMipLevels(), 1u);
+		const auto mip = srcSubresource % mips;
+		fullRect.Left = 0;
+		fullRect.Top = 0;
+		fullRect.Right = static_cast<long>((max)(pSrc->GetWidth() >> mip, 1ull));
+		fullRect.Bottom = static_cast<long>((max)(pSrc->GetHeight() >> mip, 1u));
+		pSrcRect = &fullRect;
+	}
+
+	ResolveSubresourceRegion(pDstResource, dstSubresource, dstX, dstY,
+		pSrcResource, srcSubresource, *pSrcRect, format, resolveMode);
+}
+
+void CommandList_VK::ResolveQueryDataAsync(const QueryHeap& queryHeap, QueryType type, uint32_t startIndex,
+	uint32_t numQueries, Resource* pDestBuffer, uint64_t destOffset)
+{
+	ResolveQueryData(queryHeap, type, startIndex, numQueries, pDestBuffer, destOffset);
+}
+
+void CommandList_VK::ClearBoundDepthStencilView(ClearFlag clearFlags, float depth, uint8_t stencil,
+	uint32_t numRegions, const BoxRange* pRegions)
+{
+	if (!m_state->m_hasDepth) return;
+
+	if (!numRegions)
+	{
+		ClearDepthStencilView(clearFlags, depth, stencil, 0, nullptr);
+
+		return;
+	}
+
+	assert(pRegions);
+	if (m_state->m_type == CommandListType::DIRECT) beginRendering();
+	assert(m_state->m_renderingBegun);
+
+	VkClearAttachment clear = {};
+	if ((clearFlags & ClearFlag::DEPTH) != ClearFlag::NONE) clear.aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
+	if ((clearFlags & ClearFlag::STENCIL) != ClearFlag::NONE) clear.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+	clear.clearValue.depthStencil.depth = depth;
+	clear.clearValue.depthStencil.stencil = stencil;
+	if (!clear.aspectMask) return;
+
+	if (m_state->m_clearRects.size() < numRegions) m_state->m_clearRects.resize(numRegions);
+	for (auto i = 0u; i < numRegions; ++i)
+	{
+		m_state->m_clearRects[i].rect.offset = { static_cast<int32_t>(pRegions[i].Left), static_cast<int32_t>(pRegions[i].Top) };
+		m_state->m_clearRects[i].rect.extent.width = pRegions[i].Right - pRegions[i].Left;
+		m_state->m_clearRects[i].rect.extent.height = pRegions[i].Bottom - pRegions[i].Top;
+		m_state->m_clearRects[i].baseArrayLayer = m_state->m_depth.BaseLayer + pRegions[i].Front;
+		m_state->m_clearRects[i].layerCount = (max)(pRegions[i].Back - pRegions[i].Front, 1u);
+	}
+
+	vkCmdClearAttachments(m_state->m_commandBuffer, 1, &clear, numRegions, m_state->m_clearRects.data());
+}
+
+void CommandList_VK::ClearBoundRenderTargetViews(uint32_t renderTargetMask, const ClearData* pClearValues,
+	const uint32_t* pNumRegions, const BoxRange* const* ppRegions)
+{
+	assert(pClearValues);
+	assert(renderTargetMask);
+	assert((renderTargetMask & ~0xffu) == 0);
+
+	if (m_state->m_type == CommandListType::DIRECT) beginRendering();
+	assert(m_state->m_renderingBegun);
+
+	for (auto slot = 0u; slot < 8; ++slot)
+	{
+		if ((renderTargetMask & (1u << slot)) == 0) continue;
+		if (slot >= m_state->m_colorCount) continue;
+
+		VkClearAttachment clear = {};
+		clear.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		clear.colorAttachment = slot;
+		memcpy(&clear.clearValue.color, &pClearValues[slot], sizeof(ClearData));
+
+		const auto hasRegions = pNumRegions && ppRegions && pNumRegions[slot] && ppRegions[slot];
+		const auto regionCount = hasRegions ? pNumRegions[slot] : 1u;
+		if (m_state->m_clearRects.size() < regionCount) m_state->m_clearRects.resize(regionCount);
+
+		if (!hasRegions)
+		{
+			m_state->m_clearRects[0].rect.offset = {};
+			m_state->m_clearRects[0].rect.extent = { m_state->m_colors[slot].Width, m_state->m_colors[slot].Height };
+			m_state->m_clearRects[0].baseArrayLayer = 0;
+			m_state->m_clearRects[0].layerCount = m_state->m_colors[slot].Layers;
+		}
+		else
+		{
+			for (auto i = 0u; i < regionCount; ++i)
+			{
+				const auto& box = ppRegions[slot][i];
+				m_state->m_clearRects[i].rect.offset = { static_cast<int32_t>(box.Left), static_cast<int32_t>(box.Top) };
+				m_state->m_clearRects[i].rect.extent.width = box.Right - box.Left;
+				m_state->m_clearRects[i].rect.extent.height = box.Bottom - box.Top;
+				m_state->m_clearRects[i].baseArrayLayer = m_state->m_colors[slot].BaseLayer + box.Front;
+				m_state->m_clearRects[i].layerCount = (max)(box.Back - box.Front, 1u);
+			}
+		}
+
+		vkCmdClearAttachments(m_state->m_commandBuffer, 1, &clear, regionCount, m_state->m_clearRects.data());
+	}
+}
+
+void CommandList_VK::ClearTextureSubresources(uint32_t numClearDescs, const ClearTextureDesc* pClearDescs)
+{
+	assert(numClearDescs);
+	assert(pClearDescs);
+
+	recordOutside();
+	for (auto i = 0u; i < numClearDescs; ++i)
+	{
+		const auto& desc = pClearDescs[i];
+		assert(desc.pTexture);
+		assert(!desc.pRegion && "ClearTextureSubresources regions are not implemented on Vulkan");
+
+		const auto pTexture = AsVK(desc.pTexture);
+		assert(pTexture && pTexture->IsImage());
+
+		auto format = desc.Format;
+		if (format == Format::UNKNOWN) format = GetFormatFromVK(pTexture->GetVkFormat());
+
+		VkImageSubresourceRange range = {};
+		range.aspectMask = GetVKImageAspect(format);
+		if (desc.SubresourceIndex == 0xffffffffu)
+		{
+			range.baseMipLevel = 0;
+			range.levelCount = VK_REMAINING_MIP_LEVELS;
+			range.baseArrayLayer = 0;
+			range.layerCount = VK_REMAINING_ARRAY_LAYERS;
+		}
+		else
+		{
+			uint32_t mip = 0, layer = 0, depth = 1;
+			DecodeSubresource(pTexture, desc.SubresourceIndex, mip, layer, depth);
+			range.baseMipLevel = mip;
+			range.levelCount = 1;
+			range.baseArrayLayer = layer;
+			range.layerCount = 1;
+		}
+
+		const auto layout = pTexture->ImageLayout(ResourceState::COPY_DEST);
+		if (IsDepthStencilFormat(format))
+		{
+			VkClearDepthStencilValue value = {};
+			value.depth = desc.ClearValue.Floats[0];
+			value.stencil = static_cast<uint32_t>(desc.ClearValue.Uints[1]);
+			if ((range.aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) == 0)
+				range.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+			vkCmdClearDepthStencilImage(m_state->m_commandBuffer, pTexture->GetImage(), layout, &value, 1, &range);
+		}
+		else
+		{
+			VkClearColorValue color = {};
+			memcpy(&color, &desc.ClearValue, sizeof(color));
+			if (!range.aspectMask) range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			vkCmdClearColorImage(m_state->m_commandBuffer, pTexture->GetImage(), layout, &color, 1, &range);
+		}
+	}
+}
+
+void CommandList_VK::FillBuffers(uint32_t numFillDescs, const FillBufferDesc* pFillDescs)
+{
+	assert(numFillDescs);
+	assert(pFillDescs);
+
+	recordOutside();
+	for (auto i = 0u; i < numFillDescs; ++i)
+	{
+		const auto& desc = pFillDescs[i];
+		assert(desc.pBuffer);
+		if (!desc.RepeatCount) continue;
+
+		const auto pBuffer = AsVK(desc.pBuffer);
+		assert(pBuffer && !pBuffer->IsImage());
+
+		auto patternSize = desc.RawPatternSizeInBytes;
+		if (desc.Format != Format::UNKNOWN)
+		{
+			assert(patternSize == 0);
+			patternSize = CopyTexelBytes(desc.Format);
+		}
+		assert(patternSize >= 1 && patternSize <= 16);
+
+		const auto fillBytes = static_cast<VkDeviceSize>(patternSize) * desc.RepeatCount;
+		assert(desc.Offset + fillBytes <= pBuffer->GetByteSize());
+
+		if (patternSize == 4)
+		{
+			uint32_t value = 0;
+			memcpy(&value, desc.FillValue.Bytes, sizeof(value));
+			assert((desc.Offset % 4) == 0 && (fillBytes % 4) == 0);
+			vkCmdFillBuffer(m_state->m_commandBuffer, pBuffer->GetBuffer(), desc.Offset, fillBytes, value);
+
+			continue;
+		}
+
+		// vkCmdUpdateBuffer is capped at 65536 bytes; larger non-4-byte patterns need a staging path.
+		assert(fillBytes <= 65536 && "FillBuffers pattern size other than 4 bytes is limited to 64KB on Vulkan");
+		vector<uint8_t> data(static_cast<size_t>(fillBytes));
+		for (auto n = 0u; n < desc.RepeatCount; ++n)
+			memcpy(data.data() + static_cast<size_t>(n) * patternSize, desc.FillValue.Bytes, patternSize);
+		vkCmdUpdateBuffer(m_state->m_commandBuffer, pBuffer->GetBuffer(), desc.Offset, fillBytes, data.data());
+	}
 }
 
 bool CommandList_VK::createInterface()
@@ -684,6 +1212,7 @@ void CommandList_VK::addBarrier(const ResourceBarrier& barrier, VkMemoryBarrier2
 	image.dstAccessMask = BarrierAccessFlags(m_pDevice, barrier.AccessAfter);
 	image.oldLayout = XUSG::GetVKBarrierLayout(barrier.LayoutBefore);
 	image.newLayout = XUSG::GetVKBarrierLayout(barrier.LayoutAfter);
+
 	// BarrierLayout::PRESENT aliases COMMON and maps to GENERAL in GetVKBarrierLayout;
 	// resolve to PRESENT_SRC / per-resource common layout like Resource_VK::ImageLayout.
 	if (barrier.LayoutBefore == BarrierLayout::COMMON)
@@ -704,6 +1233,7 @@ void CommandList_VK::addBarrier(const ResourceBarrier& barrier, VkMemoryBarrier2
 	SubresourceRange(barrier, pResource, image.subresourceRange);
 	if (image.oldLayout == image.newLayout && barrier.LayoutBefore == BarrierLayout::COMMON)
 		return;
+
 	// Vulkan applies every barrier in one call at once, so an overlapping layout
 	// change has to be submitted first.
 	if (image.oldLayout != image.newLayout)
@@ -1070,7 +1600,7 @@ SamplerFeedBack_VK::~SamplerFeedBack_VK()
 bool SamplerFeedBack_VK::Create(Device* pDevice, Texture* pTarget, Format format,
 	uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
 	ResourceFlag resourceFlags, bool isCubeMap, MemoryFlag memoryFlags, const wchar_t* name,
-	uint16_t srvComponentMapping, TextureLayout textureLayout, uint32_t maxThreads)
+	uint16_t srvComponentMapping, const TextureLayoutDesc& textureLayout, uint32_t maxThreads)
 {
 	assert(!"Sampler feedback is not implemented on Vulkan");
 	(void)pDevice;
@@ -1093,7 +1623,7 @@ bool SamplerFeedBack_VK::Create(Device* pDevice, Texture* pTarget, Format format
 bool SamplerFeedBack_VK::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset,
 	Texture* pTarget, Format format, uint32_t mipRegionWidth, uint32_t mipRegionHeight,
 	uint32_t mipRegionDepth, ResourceFlag resourceFlags, bool isCubeMap, const wchar_t* name,
-	uint16_t srvComponentMapping, TextureLayout textureLayout, uint32_t maxThreads)
+	uint16_t srvComponentMapping, const TextureLayoutDesc& textureLayout, uint32_t maxThreads)
 {
 	assert(!"Sampler feedback is not implemented on Vulkan");
 	(void)pDevice;
@@ -1116,7 +1646,7 @@ bool SamplerFeedBack_VK::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffse
 
 bool SamplerFeedBack_VK::CreateResource(Device* pDevice, Texture* pTarget, Format format, uint32_t mipRegionWidth,
 	uint32_t mipRegionHeight, uint32_t mipRegionDepth, ResourceFlag resourceFlags, bool isCubeMap, MemoryFlag memoryFlags,
-	ResourceState initialResourceState, TextureLayout textureLayout, uint32_t maxThreads)
+	ResourceState initialResourceState, const TextureLayoutDesc& textureLayout, uint32_t maxThreads)
 {
 	assert(!"Sampler feedback is not implemented on Vulkan");
 	(void)pDevice;
@@ -1137,7 +1667,7 @@ bool SamplerFeedBack_VK::CreateResource(Device* pDevice, Texture* pTarget, Forma
 
 bool SamplerFeedBack_VK::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset, Texture* pTarget,
 	Format format, uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth, ResourceFlag resourceFlags,
-	bool isCubeMap, 	ResourceState initialResourceState, TextureLayout textureLayout, uint32_t maxThreads)
+	bool isCubeMap, ResourceState initialResourceState, const TextureLayoutDesc& textureLayout, uint32_t maxThreads)
 {
 	assert(!"Sampler feedback is not implemented on Vulkan");
 	(void)pDevice;

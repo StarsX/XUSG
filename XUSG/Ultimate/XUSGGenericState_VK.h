@@ -27,6 +27,11 @@ namespace XUSG
 			void SetProgram(const wchar_t* programName);
 			void SetNodeMask(uint32_t nodeMask);
 			void SetFlags(PipelineFlag flag);
+			void SetPartialProgramType(PartialProgramType type);
+			void SetPartialProgramFlags(PartialProgramFlag flags);
+			void SetExistingCollection(Pipeline collection);
+			void AddPartialProgram(const wchar_t* programName);
+			void AddPartialLibrary(Pipeline library);
 
 			void OMSetBlendState(const Blend* pBlend, uint32_t sampleMask = UINT_MAX);
 			void RSSetState(const Rasterizer* pRasterizer);
@@ -62,6 +67,8 @@ namespace XUSG
 			ProgramIdentifier GetProgramIdentifier(const wchar_t* programName = nullptr) const;
 			uint32_t GetNodeMask() const;
 			PipelineFlag GetFlags() const;
+			PartialProgramType GetPartialProgramType() const;
+			PartialProgramFlag GetPartialProgramFlags() const;
 
 			uint32_t OMGetSampleMask() const;
 			const Graphics::Blend* OMGetBlendState() const;

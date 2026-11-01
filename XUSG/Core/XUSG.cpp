@@ -321,7 +321,7 @@ Texture::sptr Texture::MakeShared()
 
 void Texture::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, Device* pDevice,
 	uint32_t width, uint32_t height, Format format, uint16_t arraySize, ResourceFlag resourceFlags,
-	uint8_t numMips, uint8_t sampleCount, TextureLayout textureLayout, uint64_t requiredAlignment)
+	uint8_t numMips, uint8_t sampleCount, const TextureLayoutDesc& textureLayout, uint64_t requiredAlignment)
 {
 #ifndef XUSG_NO_VULKAN
 	if (Device::GetApi() == API::VULKAN)
@@ -358,7 +358,7 @@ RenderTarget::sptr RenderTarget::MakeShared()
 
 void RenderTarget::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, Device* pDevice,
 	uint32_t width, uint32_t height, Format format, uint16_t arraySize, ResourceFlag resourceFlags,
-	uint8_t numMips, uint8_t sampleCount, TextureLayout textureLayout, uint64_t requiredAlignment)
+	uint8_t numMips, uint8_t sampleCount, const TextureLayoutDesc& textureLayout, uint64_t requiredAlignment)
 {
 	Texture::GetAllocationInfo(byteSize, alignment, pDevice, width, height,
 		format, arraySize, ResourceFlag::ALLOW_RENDER_TARGET | resourceFlags,
@@ -383,7 +383,7 @@ DepthStencil::sptr DepthStencil::MakeShared()
 
 void DepthStencil::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, Device* pDevice,
 	uint32_t width, uint32_t height, Format format, uint16_t arraySize, ResourceFlag resourceFlags,
-	uint8_t numMips, uint8_t sampleCount, TextureLayout textureLayout, uint64_t requiredAlignment)
+	uint8_t numMips, uint8_t sampleCount, const TextureLayoutDesc& textureLayout, uint64_t requiredAlignment)
 {
 	Texture::GetAllocationInfo(byteSize, alignment, pDevice, width, height,
 		format, arraySize, ResourceFlag::ALLOW_DEPTH_STENCIL | resourceFlags,
@@ -408,7 +408,7 @@ Texture3D::sptr Texture3D::MakeShared()
 
 void Texture3D::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, Device* pDevice,
 	uint32_t width, uint32_t height, uint16_t depth, Format format, ResourceFlag resourceFlags,
-	uint8_t numMips, TextureLayout textureLayout, uint64_t requiredAlignment)
+	uint8_t numMips, const TextureLayoutDesc& textureLayout, uint64_t requiredAlignment)
 {
 #ifndef XUSG_NO_VULKAN
 	if (Device::GetApi() == API::VULKAN)
@@ -836,6 +836,14 @@ Blob XUSG::GetPipelineCache(Pipeline pipeline)
 size_t XUSG::Align(size_t size, size_t alignment)
 {
 	return (size + (alignment - 1)) & ~(alignment - 1);
+}
+
+TextureLayoutGuid XUSG::ToTextureLayoutGuid(const void* pGuidBytes16)
+{
+	TextureLayoutGuid out = {};
+	if (pGuidBytes16) memcpy(&out, pGuidBytes16, sizeof(out));
+
+	return out;
 }
 
 uint8_t XUSG::Log2(uint32_t value)

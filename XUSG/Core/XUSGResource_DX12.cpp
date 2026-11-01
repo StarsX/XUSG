@@ -13,6 +13,49 @@ using namespace XUSG;
 
 #define DECODE_SRV_COMPONENT_MAPPING(i, mapping) static_cast<SrvComponentMapping>((mapping) >> (3 * i) & 0x7)
 
+namespace
+{
+	bool IsGuidTextureLayout(const TextureLayoutDesc& textureLayout)
+	{
+		return textureLayout.Layout == TextureLayout::GUID;
+	}
+
+	// GUID layouts require DESC2 + ID3D12Device16 create APIs. Feature support is app-side native query.
+	HRESULT CreateCommittedGuidTexture(ID3D12Device* pDevice, const D3D12_HEAP_PROPERTIES& heapProps,
+		D3D12_HEAP_FLAGS heapFlags, const D3D12_RESOURCE_DESC2& desc, D3D12_BARRIER_LAYOUT initialLayout,
+		const D3D12_CLEAR_VALUE* pClear, uint32_t numCastableFormats, const DXGI_FORMAT* pCastableFormats,
+		ID3D12Resource** ppResource)
+	{
+		com_ptr<ID3D12Device16> device16;
+		const auto hr = pDevice->QueryInterface(IID_PPV_ARGS(&device16));
+		if (FAILED(hr)) return hr;
+
+		return device16->CreateCommittedResource4(&heapProps, heapFlags, &desc, initialLayout, pClear,
+			nullptr, numCastableFormats, pCastableFormats, IID_PPV_ARGS(ppResource));
+	}
+
+	HRESULT CreatePlacedGuidTexture(ID3D12Device* pDevice, ID3D12Heap* pHeap, uint64_t heapOffset,
+		const D3D12_RESOURCE_DESC2& desc, D3D12_BARRIER_LAYOUT initialLayout, const D3D12_CLEAR_VALUE* pClear,
+		uint32_t numCastableFormats, const DXGI_FORMAT* pCastableFormats, ID3D12Resource** ppResource)
+	{
+		com_ptr<ID3D12Device16> device16;
+		const auto hr = pDevice->QueryInterface(IID_PPV_ARGS(&device16));
+		if (FAILED(hr)) return hr;
+
+		return device16->CreatePlacedResource3(pHeap, heapOffset, &desc, initialLayout, pClear,
+			numCastableFormats, pCastableFormats, IID_PPV_ARGS(ppResource));
+	}
+
+	D3D12_RESOURCE_ALLOCATION_INFO GetGuidAllocationInfo(ID3D12Device* pDevice, const D3D12_RESOURCE_DESC2& desc)
+	{
+		com_ptr<ID3D12Device16> device16;
+		if (FAILED(pDevice->QueryInterface(IID_PPV_ARGS(&device16))))
+			return {};
+
+		return device16->GetResourceAllocationInfo4(0, 1, &desc, nullptr, nullptr, nullptr);
+	}
+}
+
 //--------------------------------------------------------------------------------------
 // Resource heap
 //--------------------------------------------------------------------------------------
@@ -353,6 +396,7 @@ bool ConstantBuffer_DX12::Create(Device* pDevice, size_t byteWidth, uint32_t num
 	if (!cbvByteOffsets)
 	{
 		size_t numBytes = 0;
+
 		// CB size is required to be D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT-byte aligned.
 		const auto cbvSize = AlignCBV(byteWidth / numCBVs);
 		offsetList.resize(numCBVs);
@@ -397,6 +441,7 @@ bool ConstantBuffer_DX12::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffs
 	if (!cbvByteOffsets)
 	{
 		size_t numBytes = 0;
+
 		// CB size is required to be D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT-byte aligned.
 		const auto cbvSize = AlignCBV(byteWidth / numCBVs);
 		offsetList.resize(numCBVs);
@@ -735,7 +780,7 @@ Texture_DX12::~Texture_DX12()
 
 bool Texture_DX12::Create(Device* pDevice, uint32_t width, uint32_t height, Format format,
 	uint16_t arraySize, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount, bool isCubeMap,
-	MemoryFlag memoryFlags, const wchar_t* name, uint16_t srvComponentMapping, TextureLayout textureLayout,
+	MemoryFlag memoryFlags, const wchar_t* name, uint16_t srvComponentMapping, const TextureLayoutDesc& textureLayout,
 	uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads)
 {
 	assert(sampleCount >= 1 && sampleCount <= 16);
@@ -788,7 +833,7 @@ bool Texture_DX12::Create(Device* pDevice, uint32_t width, uint32_t height, Form
 
 bool Texture_DX12::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 	Format format, uint16_t arraySize, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount,
-	bool isCubeMap, const wchar_t* name, uint16_t srvComponentMapping, TextureLayout textureLayout,
+	bool isCubeMap, const wchar_t* name, uint16_t srvComponentMapping, const TextureLayoutDesc& textureLayout,
 	uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads)
 {
 	assert(sampleCount >= 1 && sampleCount <= 16);
@@ -842,7 +887,7 @@ bool Texture_DX12::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uin
 bool Texture_DX12::CreateResource(Device* pDevice, uint32_t width, uint32_t height,
 	Format format, uint16_t arraySize, ResourceFlag resourceFlags, uint8_t numMips,
 	uint8_t sampleCount, MemoryFlag memoryFlags, ResourceState initialResourceState,
-	TextureLayout textureLayout, uint8_t numCastableFormats, const Format* pCastableFormats,
+	const TextureLayoutDesc& textureLayout, uint8_t numCastableFormats, const Format* pCastableFormats,
 	uint32_t maxThreads)
 {
 	assert(numMips >= 1);
@@ -863,12 +908,31 @@ bool Texture_DX12::CreateResource(Device* pDevice, uint32_t width, uint32_t heig
 	for (auto& states : m_states)
 		states.resize(static_cast<uint32_t>(arraySize) * numMips, initialResourceState);
 
+	vector<DXGI_FORMAT> castableFormats;
 	if (numCastableFormats && pCastableFormats)
 	{
-		vector<DXGI_FORMAT> castableFormats(numCastableFormats);
+		castableFormats.resize(numCastableFormats);
 		for (uint8_t i = 0; i < numCastableFormats; ++i)
 			castableFormats[i] = GetDXGIFormat(pCastableFormats[i]);
+	}
 
+	if (IsGuidTextureLayout(textureLayout))
+	{
+		assert((memoryFlags & MemoryFlag::SHARED) != MemoryFlag::SHARED &&
+			"GUID texture layout is not supported with SHARED keyed-mutex create");
+		const auto desc = CD3DX12_RESOURCE_DESC2::Tex2D(GetDXGIFormat(format), width, height, arraySize, numMips,
+			sampleCount, 0, GetDX12ResourceFlags(resourceFlags), D3D12_TEXTURE_LAYOUT_GUID, 0, 0, 0, 0,
+			GetDX12TextureLayoutGuid(textureLayout));
+		V_RETURN(CreateCommittedGuidTexture(m_device.get(), heapProperties, GetDX12HeapFlags(memoryFlags), desc,
+			GetDX12BarrierLayout(GetBarrierLayout(m_states[0][0])), nullptr,
+			numCastableFormats, castableFormats.empty() ? nullptr : castableFormats.data(),
+			m_resource.put()), clog, false);
+
+		return true;
+	}
+
+	if (numCastableFormats && pCastableFormats)
+	{
 		// Setup the texture description.
 		const auto desc = CD3DX12_RESOURCE_DESC1::Tex2D(GetDXGIFormat(format), width, height, arraySize, numMips,
 			sampleCount, 0, GetDX12ResourceFlags(resourceFlags), GetDX12TextureLayout(textureLayout));
@@ -907,7 +971,7 @@ bool Texture_DX12::CreateResource(Device* pDevice, uint32_t width, uint32_t heig
 
 bool Texture_DX12::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset,
 	uint32_t width, uint32_t height, Format format, uint16_t arraySize, ResourceFlag resourceFlags,
-	uint8_t numMips, uint8_t sampleCount, ResourceState initialResourceState, TextureLayout textureLayout,
+	uint8_t numMips, uint8_t sampleCount, ResourceState initialResourceState, const TextureLayoutDesc& textureLayout,
 	uint8_t numCastableFormats, const Format* pCastableFormats, uint32_t maxThreads)
 {
 	assert(numMips >= 1);
@@ -925,12 +989,30 @@ bool Texture_DX12::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOff
 	for (auto& states : m_states)
 		states.resize(static_cast<uint32_t>(arraySize) * numMips, initialResourceState);
 
+	vector<DXGI_FORMAT> castableFormats;
 	if (numCastableFormats && pCastableFormats)
 	{
-		vector<DXGI_FORMAT> castableFormats(numCastableFormats);
+		castableFormats.resize(numCastableFormats);
 		for (uint8_t i = 0; i < numCastableFormats; ++i)
 			castableFormats[i] = GetDXGIFormat(pCastableFormats[i]);
+	}
 
+	if (IsGuidTextureLayout(textureLayout))
+	{
+		assert(pHeap && "GUID texture layout is not supported for reserved (tiled) resources");
+		const auto desc = CD3DX12_RESOURCE_DESC2::Tex2D(GetDXGIFormat(format), width, height, arraySize, numMips,
+			sampleCount, 0, GetDX12ResourceFlags(resourceFlags), D3D12_TEXTURE_LAYOUT_GUID, 0, 0, 0, 0,
+			GetDX12TextureLayoutGuid(textureLayout));
+		V_RETURN(CreatePlacedGuidTexture(m_device.get(), reinterpret_cast<ID3D12Heap*>(pHeap->GetNativeHandle()),
+			heapOffset, desc, GetDX12BarrierLayout(GetBarrierLayout(m_states[0][0])), nullptr,
+			numCastableFormats, castableFormats.empty() ? nullptr : castableFormats.data(),
+			m_resource.put()), clog, false);
+
+		return true;
+	}
+
+	if (numCastableFormats && pCastableFormats)
+	{
 		com_ptr<ID3D12Device10> device = nullptr;
 		V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&device)), cerr, false);
 		if (pHeap)
@@ -948,7 +1030,7 @@ bool Texture_DX12::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOff
 		{
 			// Setup the texture description.
 			const auto desc = CD3DX12_RESOURCE_DESC::Tex2D(GetDXGIFormat(format), width, height, arraySize, numMips,
-				sampleCount, 0, GetDX12ResourceFlags(resourceFlags), textureLayout == TextureLayout::TILE_STANDARD_SWIZZLE ?
+				sampleCount, 0, GetDX12ResourceFlags(resourceFlags), textureLayout.Layout == TextureLayout::TILE_STANDARD_SWIZZLE ?
 				D3D12_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE : D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE);
 
 			// Create the texture.
@@ -972,7 +1054,7 @@ bool Texture_DX12::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOff
 		{
 			// Setup the texture description.
 			const auto desc = CD3DX12_RESOURCE_DESC::Tex2D(GetDXGIFormat(format), width, height, arraySize, numMips,
-				sampleCount, 0, GetDX12ResourceFlags(resourceFlags), textureLayout == TextureLayout::TILE_STANDARD_SWIZZLE ?
+				sampleCount, 0, GetDX12ResourceFlags(resourceFlags), textureLayout.Layout == TextureLayout::TILE_STANDARD_SWIZZLE ?
 				D3D12_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE : D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE);
 
 			// Create the texture.
@@ -1413,11 +1495,24 @@ void* Texture_DX12::Map(const Range* pReadRange, uint32_t subresource)
 
 void Texture_DX12::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, Device* pDevice,
 	uint32_t width, uint32_t height, Format format, uint16_t arraySize, ResourceFlag resourceFlags,
-	uint8_t numMips, uint8_t sampleCount, TextureLayout textureLayout, uint64_t requiredAlignment)
+	uint8_t numMips, uint8_t sampleCount, const TextureLayoutDesc& textureLayout, uint64_t requiredAlignment)
 {
+	const auto device = static_cast<ID3D12Device*>(pDevice->GetNativeHandle());
+	if (IsGuidTextureLayout(textureLayout))
+	{
+		const auto desc = CD3DX12_RESOURCE_DESC2::Tex2D(GetDXGIFormat(format), width, height, arraySize, numMips,
+			sampleCount, 0, GetDX12ResourceFlags(resourceFlags), D3D12_TEXTURE_LAYOUT_GUID, requiredAlignment,
+			0, 0, 0, GetDX12TextureLayoutGuid(textureLayout));
+		const auto info = GetGuidAllocationInfo(device, desc);
+		byteSize = info.SizeInBytes;
+		alignment = info.Alignment;
+
+		return;
+	}
+
 	const auto desc = CD3DX12_RESOURCE_DESC::Tex2D(GetDXGIFormat(format), width, height, arraySize, numMips,
 		sampleCount, 0, GetDX12ResourceFlags(resourceFlags), GetDX12TextureLayout(textureLayout), requiredAlignment);
-	const auto info = static_cast<ID3D12Device*>(pDevice->GetNativeHandle())->GetResourceAllocationInfo(0, 1, &desc);
+	const auto info = device->GetResourceAllocationInfo(0, 1, &desc);
 
 	byteSize = info.SizeInBytes;
 	alignment = info.Alignment;
@@ -1489,7 +1584,7 @@ RenderTarget_DX12::~RenderTarget_DX12()
 bool RenderTarget_DX12::Create(Device* pDevice, uint32_t width, uint32_t height, Format format,
 	uint16_t arraySize, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount,
 	const float* pClearColor, bool isCubeMap, MemoryFlag memoryFlags, const wchar_t* name,
-	uint16_t srvComponentMapping, TextureLayout textureLayout, uint8_t numUavFormats,
+	uint16_t srvComponentMapping, const TextureLayoutDesc& textureLayout, uint8_t numUavFormats,
 	const Format* uavFormats, uint32_t maxThreads)
 {
 	XUSG_N_RETURN(create(pDevice, width, height, arraySize, format, numMips, sampleCount,
@@ -1511,7 +1606,7 @@ bool RenderTarget_DX12::Create(Device* pDevice, uint32_t width, uint32_t height,
 bool RenderTarget_DX12::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 	Format format, uint16_t arraySize, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount,
 	const float* pClearColor, bool isCubeMap, const wchar_t* name, uint16_t srvComponentMapping,
-	TextureLayout textureLayout, uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads)
+	const TextureLayoutDesc& textureLayout, uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads)
 {
 	XUSG_N_RETURN(create(pDevice, pHeap, heapOffset, width, height, arraySize, format, numMips,
 		sampleCount, resourceFlags, pClearColor, isCubeMap, name, srvComponentMapping,
@@ -1532,7 +1627,7 @@ bool RenderTarget_DX12::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset
 bool RenderTarget_DX12::CreateArray(Device* pDevice, uint32_t width, uint32_t height,
 	uint16_t arraySize, Format format, ResourceFlag resourceFlags, uint8_t numMips,
 	uint8_t sampleCount, const float* pClearColor, bool isCubeMap, MemoryFlag memoryFlags,
-	const wchar_t* name, uint16_t srvComponentMapping, TextureLayout textureLayout,
+	const wchar_t* name, uint16_t srvComponentMapping, const TextureLayoutDesc& textureLayout,
 	uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads)
 {
 	XUSG_N_RETURN(create(pDevice, width, height, arraySize, format, numMips, sampleCount,
@@ -1552,7 +1647,7 @@ bool RenderTarget_DX12::CreateArray(Device* pDevice, uint32_t width, uint32_t he
 bool RenderTarget_DX12::CreateArray(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 	uint16_t arraySize, Format format, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount,
 	const float* pClearColor, bool isCubeMap, const wchar_t* name, uint16_t srvComponentMapping,
-	TextureLayout textureLayout, uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads)
+	const TextureLayoutDesc& textureLayout, uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads)
 {
 	XUSG_N_RETURN(create(pDevice, pHeap, heapOffset, width, height, arraySize, format, numMips,
 		sampleCount, resourceFlags, pClearColor, isCubeMap, name, srvComponentMapping,
@@ -1617,7 +1712,7 @@ bool RenderTarget_DX12::CreateFromSwapChain(Device* pDevice, SwapChain* pSwapCha
 
 bool RenderTarget_DX12::CreateResource(Device* pDevice, uint32_t width, uint32_t height, Format format,
 	uint16_t arraySize, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount, MemoryFlag memoryFlags,
-	ResourceState initialResourceState, const float* pClearColor, TextureLayout textureLayout,
+	ResourceState initialResourceState, const float* pClearColor, const TextureLayoutDesc& textureLayout,
 	uint8_t numCastableFormats, const Format* pCastableFormats, uint32_t maxThreads)
 {
 	assert(numMips >= 1);
@@ -1642,12 +1737,30 @@ bool RenderTarget_DX12::CreateResource(Device* pDevice, uint32_t width, uint32_t
 	D3D12_CLEAR_VALUE clearValue = { GetDXGIFormat(m_format) };
 	if (pClearColor) memcpy(clearValue.Color, pClearColor, sizeof(clearValue.Color));
 
+	vector<DXGI_FORMAT> castableFormats;
 	if (numCastableFormats && pCastableFormats)
 	{
-		vector<DXGI_FORMAT> castableFormats(numCastableFormats);
+		castableFormats.resize(numCastableFormats);
 		for (uint8_t i = 0; i < numCastableFormats; ++i)
 			castableFormats[i] = GetDXGIFormat(pCastableFormats[i]);
+	}
 
+	if (IsGuidTextureLayout(textureLayout))
+	{
+		assert((memoryFlags & MemoryFlag::SHARED) != MemoryFlag::SHARED);
+		const auto desc = CD3DX12_RESOURCE_DESC2::Tex2D(GetDXGIFormat(format), width, height, arraySize, numMips,
+			sampleCount, 0, GetDX12ResourceFlags(ResourceFlag::ALLOW_RENDER_TARGET | resourceFlags),
+			D3D12_TEXTURE_LAYOUT_GUID, 0, 0, 0, 0, GetDX12TextureLayoutGuid(textureLayout));
+		V_RETURN(CreateCommittedGuidTexture(m_device.get(), heapProperties, GetDX12HeapFlags(memoryFlags), desc,
+			GetDX12BarrierLayout(GetBarrierLayout(m_states[0][0])), &clearValue,
+			numCastableFormats, castableFormats.empty() ? nullptr : castableFormats.data(),
+			m_resource.put()), clog, false);
+
+		return true;
+	}
+
+	if (numCastableFormats && pCastableFormats)
+	{
 		// Setup the texture description.
 		const auto desc = CD3DX12_RESOURCE_DESC1::Tex2D(GetDXGIFormat(format), width, height, arraySize, numMips, sampleCount,
 			0, GetDX12ResourceFlags(ResourceFlag::ALLOW_RENDER_TARGET | resourceFlags), GetDX12TextureLayout(textureLayout));
@@ -1687,7 +1800,7 @@ bool RenderTarget_DX12::CreateResource(Device* pDevice, uint32_t width, uint32_t
 bool RenderTarget_DX12::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset,
 	uint32_t width, uint32_t height, Format format, uint16_t arraySize, ResourceFlag resourceFlags,
 	uint8_t numMips, uint8_t sampleCount, ResourceState initialResourceState, const float* pClearColor,
-	TextureLayout textureLayout, uint8_t numCastableFormats, const Format* pCastableFormats,
+	const TextureLayoutDesc& textureLayout, uint8_t numCastableFormats, const Format* pCastableFormats,
 	uint32_t maxThreads)
 {
 	assert(numMips >= 1);
@@ -1709,12 +1822,30 @@ bool RenderTarget_DX12::CreateResource(Device* pDevice, Heap* pHeap, uint64_t he
 	D3D12_CLEAR_VALUE clearValue = { GetDXGIFormat(m_format) };
 	if (pClearColor) memcpy(clearValue.Color, pClearColor, sizeof(clearValue.Color));
 
+	vector<DXGI_FORMAT> castableFormats;
 	if (numCastableFormats && pCastableFormats)
 	{
-		vector<DXGI_FORMAT> castableFormats(numCastableFormats);
+		castableFormats.resize(numCastableFormats);
 		for (uint8_t i = 0; i < numCastableFormats; ++i)
 			castableFormats[i] = GetDXGIFormat(pCastableFormats[i]);
+	}
 
+	if (IsGuidTextureLayout(textureLayout))
+	{
+		assert(pHeap && "GUID texture layout is not supported for reserved (tiled) resources");
+		const auto desc = CD3DX12_RESOURCE_DESC2::Tex2D(GetDXGIFormat(format), width, height, arraySize, numMips,
+			sampleCount, 0, GetDX12ResourceFlags(ResourceFlag::ALLOW_RENDER_TARGET | resourceFlags),
+			D3D12_TEXTURE_LAYOUT_GUID, 0, 0, 0, 0, GetDX12TextureLayoutGuid(textureLayout));
+		V_RETURN(CreatePlacedGuidTexture(m_device.get(), reinterpret_cast<ID3D12Heap*>(pHeap->GetNativeHandle()),
+			heapOffset, desc, GetDX12BarrierLayout(GetBarrierLayout(m_states[0][0])), &clearValue,
+			numCastableFormats, castableFormats.empty() ? nullptr : castableFormats.data(),
+			m_resource.put()), clog, false);
+
+		return true;
+	}
+
+	if (numCastableFormats && pCastableFormats)
+	{
 		com_ptr<ID3D12Device10> device = nullptr;
 		V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&device)), cerr, false);
 		if (pHeap)
@@ -1733,7 +1864,7 @@ bool RenderTarget_DX12::CreateResource(Device* pDevice, Heap* pHeap, uint64_t he
 			// Setup the texture description.
 			const auto desc = CD3DX12_RESOURCE_DESC::Tex2D(GetDXGIFormat(format), width, height, arraySize,
 				numMips, sampleCount, 0, GetDX12ResourceFlags(ResourceFlag::ALLOW_RENDER_TARGET | resourceFlags),
-				textureLayout == TextureLayout::TILE_STANDARD_SWIZZLE ? D3D12_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE :
+				textureLayout.Layout == TextureLayout::TILE_STANDARD_SWIZZLE ? D3D12_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE :
 				D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE);
 
 			// Create the render-target texture.
@@ -1758,7 +1889,7 @@ bool RenderTarget_DX12::CreateResource(Device* pDevice, Heap* pHeap, uint64_t he
 			// Setup the texture description.
 			const auto desc = CD3DX12_RESOURCE_DESC::Tex2D(GetDXGIFormat(format), width, height, arraySize,
 				numMips, sampleCount, 0, GetDX12ResourceFlags(ResourceFlag::ALLOW_RENDER_TARGET | resourceFlags),
-				textureLayout == TextureLayout::TILE_STANDARD_SWIZZLE ? D3D12_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE :
+				textureLayout.Layout == TextureLayout::TILE_STANDARD_SWIZZLE ? D3D12_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE :
 				D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE);
 
 			// Create the render-target texture.
@@ -1945,7 +2076,7 @@ const Descriptor& RenderTarget_DX12::GetRTV(uint16_t slice, uint8_t mipLevel) co
 bool RenderTarget_DX12::create(Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize,
 	Format format, uint8_t& numMips, uint8_t sampleCount, ResourceFlag resourceFlags, const float* pClearColor,
 	bool isCubeMap, MemoryFlag memoryFlags, const wchar_t* name, uint16_t srvComponentMapping,
-	TextureLayout textureLayout, uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads)
+	const TextureLayoutDesc& textureLayout, uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads)
 {
 	assert(sampleCount >= 1 && sampleCount <= 16);
 	assert(sampleCount <= 1 || numMips == 1);
@@ -1998,7 +2129,7 @@ bool RenderTarget_DX12::create(Device* pDevice, uint32_t width, uint32_t height,
 bool RenderTarget_DX12::create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 	uint16_t arraySize, Format format, uint8_t& numMips, uint8_t sampleCount, ResourceFlag resourceFlags,
 	const float* pClearColor, bool isCubeMap, const wchar_t* name, uint16_t srvComponentMapping,
-	TextureLayout textureLayout, uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads)
+	const TextureLayoutDesc& textureLayout, uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads)
 {
 	assert(sampleCount >= 1 && sampleCount <= 16);
 	assert(sampleCount <= 1 || numMips == 1);
@@ -2068,7 +2199,7 @@ bool DepthStencil_DX12::Create(Device* pDevice, uint32_t width, uint32_t height,
 	ResourceFlag resourceFlags, uint16_t arraySize, uint8_t numMips, uint8_t sampleCount,
 	float clearDepth, uint8_t clearStencil, bool isCubeMap, MemoryFlag memoryFlags,
 	const wchar_t* name, uint16_t srvComponentMapping, uint16_t stencilSrvComponentMapping,
-	TextureLayout textureLayout, uint32_t maxThreads)
+	const TextureLayoutDesc& textureLayout, uint32_t maxThreads)
 {
 	bool hasSRV;
 	Format formatStencil;
@@ -2106,7 +2237,7 @@ bool DepthStencil_DX12::Create(Device* pDevice, uint32_t width, uint32_t height,
 bool DepthStencil_DX12::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 	Format format, ResourceFlag resourceFlags, uint16_t arraySize, uint8_t numMips, uint8_t sampleCount,
 	float clearDepth, uint8_t clearStencil, bool isCubeMap, const wchar_t* name, uint16_t srvComponentMapping,
-	uint16_t stencilSrvComponentMapping, TextureLayout textureLayout, uint32_t maxThreads)
+	uint16_t stencilSrvComponentMapping, const TextureLayoutDesc& textureLayout, uint32_t maxThreads)
 {
 	bool hasSRV;
 	Format formatStencil;
@@ -2145,7 +2276,7 @@ bool DepthStencil_DX12::CreateArray(Device* pDevice, uint32_t width, uint32_t he
 	uint16_t arraySize, Format format, ResourceFlag resourceFlags, uint8_t numMips,
 	uint8_t sampleCount, float clearDepth, uint8_t clearStencil, bool isCubeMap,
 	MemoryFlag memoryFlags, const wchar_t* name, uint16_t srvComponentMapping,
-	uint16_t stencilSrvComponentMapping, TextureLayout textureLayout, uint32_t maxThreads)
+	uint16_t stencilSrvComponentMapping, const TextureLayoutDesc& textureLayout, uint32_t maxThreads)
 {
 	bool hasSRV;
 	Format formatStencil;
@@ -2179,7 +2310,7 @@ bool DepthStencil_DX12::CreateArray(Device* pDevice, uint32_t width, uint32_t he
 bool DepthStencil_DX12::CreateArray(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 	uint16_t arraySize, Format format, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount, float clearDepth,
 	uint8_t clearStencil, bool isCubeMap, const wchar_t* name, uint16_t srvComponentMapping,
-	uint16_t stencilSrvComponentMapping, TextureLayout textureLayout, uint32_t maxThreads)
+	uint16_t stencilSrvComponentMapping, const TextureLayoutDesc& textureLayout, uint32_t maxThreads)
 {
 	bool hasSRV;
 	Format formatStencil;
@@ -2212,7 +2343,7 @@ bool DepthStencil_DX12::CreateArray(Device* pDevice, Heap* pHeap, uint64_t heapO
 
 bool DepthStencil_DX12::CreateResource(Device* pDevice, uint32_t width, uint32_t height, Format format,
 	uint16_t arraySize, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount, MemoryFlag memoryFlags,
-	ResourceState initialResourceState, float clearDepth, uint8_t clearStencil, TextureLayout textureLayout,
+	ResourceState initialResourceState, float clearDepth, uint8_t clearStencil, const TextureLayoutDesc& textureLayout,
 	uint32_t maxThreads)
 {
 	assert(numMips >= 1);
@@ -2223,11 +2354,8 @@ bool DepthStencil_DX12::CreateResource(Device* pDevice, uint32_t width, uint32_t
 	m_format = m_format != Format::UNKNOWN ? m_format : format;
 	m_hasPromotion = (resourceFlags & ResourceFlag::ALLOW_SIMULTANEOUS_ACCESS) == ResourceFlag::ALLOW_SIMULTANEOUS_ACCESS;
 
-	// Setup the texture description.
 	assert(width && height && arraySize);
 	const CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_DEFAULT);
-	const auto desc = CD3DX12_RESOURCE_DESC::Tex2D(GetDXGIFormat(format), width, height, arraySize, numMips, sampleCount,
-		0, GetDX12ResourceFlags(ResourceFlag::ALLOW_DEPTH_STENCIL | resourceFlags), GetDX12TextureLayout(textureLayout));
 
 	// Determine initial state
 	assert(maxThreads);
@@ -2239,6 +2367,22 @@ bool DepthStencil_DX12::CreateResource(Device* pDevice, uint32_t width, uint32_t
 	D3D12_CLEAR_VALUE clearValue = { GetDXGIFormat(m_format) };
 	clearValue.DepthStencil.Depth = clearDepth;
 	clearValue.DepthStencil.Stencil = clearStencil;
+
+	if (IsGuidTextureLayout(textureLayout))
+	{
+		assert((memoryFlags & MemoryFlag::SHARED) != MemoryFlag::SHARED);
+		const auto desc = CD3DX12_RESOURCE_DESC2::Tex2D(GetDXGIFormat(format), width, height, arraySize, numMips,
+			sampleCount, 0, GetDX12ResourceFlags(ResourceFlag::ALLOW_DEPTH_STENCIL | resourceFlags),
+			D3D12_TEXTURE_LAYOUT_GUID, 0, 0, 0, 0, GetDX12TextureLayoutGuid(textureLayout));
+		V_RETURN(CreateCommittedGuidTexture(m_device.get(), heapProperties, GetDX12HeapFlags(memoryFlags), desc,
+			GetDX12BarrierLayout(GetBarrierLayout(m_states[0][0])), &clearValue, 0, nullptr,
+			m_resource.put()), clog, false);
+
+		return true;
+	}
+
+	const auto desc = CD3DX12_RESOURCE_DESC::Tex2D(GetDXGIFormat(format), width, height, arraySize, numMips, sampleCount,
+		0, GetDX12ResourceFlags(ResourceFlag::ALLOW_DEPTH_STENCIL | resourceFlags), GetDX12TextureLayout(textureLayout));
 
 	// Create the depth-stencil texture.
 	if ((memoryFlags & MemoryFlag::SHARED) == MemoryFlag::SHARED)
@@ -2261,7 +2405,7 @@ bool DepthStencil_DX12::CreateResource(Device* pDevice, uint32_t width, uint32_t
 bool DepthStencil_DX12::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset,
 	uint32_t width, uint32_t height, Format format, uint16_t arraySize, ResourceFlag resourceFlags,
 	uint8_t numMips, uint8_t sampleCount, ResourceState initialResourceState, float clearDepth,
-	uint8_t clearStencil, TextureLayout textureLayout, uint32_t maxThreads)
+	uint8_t clearStencil, const TextureLayoutDesc& textureLayout, uint32_t maxThreads)
 {
 	assert(numMips >= 1);
 	assert(sampleCount >= 1 && sampleCount <= 16);
@@ -2282,6 +2426,19 @@ bool DepthStencil_DX12::CreateResource(Device* pDevice, Heap* pHeap, uint64_t he
 	D3D12_CLEAR_VALUE clearValue = { GetDXGIFormat(m_format) };
 	clearValue.DepthStencil.Depth = clearDepth;
 	clearValue.DepthStencil.Stencil = clearStencil;
+
+	if (IsGuidTextureLayout(textureLayout))
+	{
+		assert(pHeap && "GUID texture layout is not supported for reserved (tiled) resources");
+		const auto desc = CD3DX12_RESOURCE_DESC2::Tex2D(GetDXGIFormat(format), width, height, arraySize, numMips,
+			sampleCount, 0, GetDX12ResourceFlags(ResourceFlag::ALLOW_DEPTH_STENCIL | resourceFlags),
+			D3D12_TEXTURE_LAYOUT_GUID, 0, 0, 0, 0, GetDX12TextureLayoutGuid(textureLayout));
+		V_RETURN(CreatePlacedGuidTexture(m_device.get(), reinterpret_cast<ID3D12Heap*>(pHeap->GetNativeHandle()),
+			heapOffset, desc, GetDX12BarrierLayout(GetBarrierLayout(m_states[0][0])), &clearValue, 0, nullptr,
+			m_resource.put()), clog, false);
+
+		return true;
+	}
 
 	// Create the depth-stencil texture.
 	if (pHeap)
@@ -2368,7 +2525,7 @@ bool DepthStencil_DX12::create(Device* pDevice, uint32_t width, uint32_t height,
 	uint8_t& numMips, uint8_t sampleCount, Format format, ResourceFlag resourceFlags, float clearDepth,
 	uint8_t clearStencil, bool& hasSRV, Format& formatStencil, bool isCubeMap, MemoryFlag memoryFlags,
 	const wchar_t* name, uint16_t srvComponentMapping, uint16_t stencilSrvComponentMapping,
-	TextureLayout textureLayout, uint32_t maxThreads)
+	const TextureLayoutDesc& textureLayout, uint32_t maxThreads)
 {
 	assert(sampleCount >= 1 && sampleCount <= 16);
 	assert(sampleCount <= 1 || numMips <= 1);
@@ -2413,7 +2570,7 @@ bool DepthStencil_DX12::create(Device* pDevice, Heap* pHeap, uint64_t heapOffset
 	uint16_t arraySize, uint8_t& numMips, uint8_t sampleCount, Format format, ResourceFlag resourceFlags,
 	float clearDepth, uint8_t clearStencil, bool& hasSRV, Format& formatStencil, bool isCubeMap,
 	const wchar_t* name, uint16_t srvComponentMapping, uint16_t stencilSrvComponentMapping,
-	TextureLayout textureLayout, uint32_t maxThreads)
+	const TextureLayoutDesc& textureLayout, uint32_t maxThreads)
 {
 	assert(sampleCount >= 1 && sampleCount <= 16);
 	assert(sampleCount <= 1 || numMips <= 1);
@@ -2531,7 +2688,7 @@ Texture3D_DX12::~Texture3D_DX12()
 
 bool Texture3D_DX12::Create(Device* pDevice, uint32_t width, uint32_t height, uint16_t depth,
 	Format format, ResourceFlag resourceFlags, uint8_t numMips, MemoryFlag memoryFlags,
-	const wchar_t* name, uint16_t srvComponentMapping, TextureLayout textureLayout,
+	const wchar_t* name, uint16_t srvComponentMapping, const TextureLayoutDesc& textureLayout,
 	uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads)
 {
 	m_format = format;
@@ -2598,7 +2755,7 @@ bool Texture3D_DX12::Create(Device* pDevice, uint32_t width, uint32_t height, ui
 
 bool Texture3D_DX12::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 	uint16_t depth, Format format, ResourceFlag resourceFlags, uint8_t numMips, const wchar_t* name,
-	uint16_t srvComponentMapping, TextureLayout textureLayout, uint8_t numUavFormats,
+	uint16_t srvComponentMapping, const TextureLayoutDesc& textureLayout, uint8_t numUavFormats,
 	const Format* uavFormats, uint32_t maxThreads)
 {
 	m_format = format;
@@ -2665,7 +2822,7 @@ bool Texture3D_DX12::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, u
 
 bool Texture3D_DX12::CreateResource(Device* pDevice, uint32_t width, uint32_t height, uint16_t depth,
 	Format format, ResourceFlag resourceFlags, uint8_t numMips, MemoryFlag memoryFlags,
-	ResourceState initialResourceState, TextureLayout textureLayout,
+	ResourceState initialResourceState, const TextureLayoutDesc& textureLayout,
 	uint8_t numCastableFormats, const Format* pCastableFormats, uint32_t maxThreads)
 {
 	assert(numMips >= 1);
@@ -2683,12 +2840,30 @@ bool Texture3D_DX12::CreateResource(Device* pDevice, uint32_t width, uint32_t he
 	m_states.resize(maxThreads);
 	for (auto& states : m_states) states.resize(numMips, initialResourceState);
 
+	vector<DXGI_FORMAT> castableFormats;
 	if (numCastableFormats && pCastableFormats)
 	{
-		vector<DXGI_FORMAT> castableFormats(numCastableFormats);
+		castableFormats.resize(numCastableFormats);
 		for (uint8_t i = 0; i < numCastableFormats; ++i)
 			castableFormats[i] = GetDXGIFormat(pCastableFormats[i]);
+	}
 
+	if (IsGuidTextureLayout(textureLayout))
+	{
+		assert((memoryFlags & MemoryFlag::SHARED) != MemoryFlag::SHARED);
+		auto desc = CD3DX12_RESOURCE_DESC2::Tex3D(GetDXGIFormat(format), width, height, depth,
+			numMips, GetDX12ResourceFlags(resourceFlags), D3D12_TEXTURE_LAYOUT_GUID);
+		desc.LayoutGuid = GetDX12TextureLayoutGuid(textureLayout);
+		V_RETURN(CreateCommittedGuidTexture(m_device.get(), heapProperties, GetDX12HeapFlags(memoryFlags), desc,
+			GetDX12BarrierLayout(GetBarrierLayout(m_states[0][0])), nullptr,
+			numCastableFormats, castableFormats.empty() ? nullptr : castableFormats.data(),
+			m_resource.put()), clog, false);
+
+		return true;
+	}
+
+	if (numCastableFormats && pCastableFormats)
+	{
 		// Setup the texture description.
 		const auto desc = CD3DX12_RESOURCE_DESC1::Tex3D(GetDXGIFormat(format), width, height, depth,
 			numMips, GetDX12ResourceFlags(resourceFlags), GetDX12TextureLayout(textureLayout));
@@ -2727,7 +2902,7 @@ bool Texture3D_DX12::CreateResource(Device* pDevice, uint32_t width, uint32_t he
 
 bool Texture3D_DX12::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset,
 	uint32_t width, uint32_t height, uint16_t depth, Format format, ResourceFlag resourceFlags,
-	uint8_t numMips, ResourceState initialResourceState, TextureLayout textureLayout,
+	uint8_t numMips, ResourceState initialResourceState, const TextureLayoutDesc& textureLayout,
 	uint8_t numCastableFormats, const Format* pCastableFormats, uint32_t maxThreads)
 {
 	assert(numMips >= 1);
@@ -2742,12 +2917,30 @@ bool Texture3D_DX12::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapO
 	m_states.resize(maxThreads);
 	for (auto& states : m_states) states.resize(numMips, initialResourceState);
 
+	vector<DXGI_FORMAT> castableFormats;
 	if (numCastableFormats && pCastableFormats)
 	{
-		vector<DXGI_FORMAT> castableFormats(numCastableFormats);
+		castableFormats.resize(numCastableFormats);
 		for (uint8_t i = 0; i < numCastableFormats; ++i)
 			castableFormats[i] = GetDXGIFormat(pCastableFormats[i]);
+	}
 
+	if (IsGuidTextureLayout(textureLayout))
+	{
+		assert(pHeap && "GUID texture layout is not supported for reserved (tiled) resources");
+		auto desc = CD3DX12_RESOURCE_DESC2::Tex3D(GetDXGIFormat(format), width, height, depth,
+			numMips, GetDX12ResourceFlags(resourceFlags), D3D12_TEXTURE_LAYOUT_GUID);
+		desc.LayoutGuid = GetDX12TextureLayoutGuid(textureLayout);
+		V_RETURN(CreatePlacedGuidTexture(m_device.get(), reinterpret_cast<ID3D12Heap*>(pHeap->GetNativeHandle()),
+			heapOffset, desc, GetDX12BarrierLayout(GetBarrierLayout(m_states[0][0])), nullptr,
+			numCastableFormats, castableFormats.empty() ? nullptr : castableFormats.data(),
+			m_resource.put()), clog, false);
+
+		return true;
+	}
+
+	if (numCastableFormats && pCastableFormats)
+	{
 		com_ptr<ID3D12Device10> device = nullptr;
 		V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&device)), cerr, false);
 		if (pHeap)
@@ -2765,7 +2958,7 @@ bool Texture3D_DX12::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapO
 		{
 			// Setup the texture description.
 			const auto desc = CD3DX12_RESOURCE_DESC::Tex3D(GetDXGIFormat(format), width, height, depth, numMips,
-				GetDX12ResourceFlags(resourceFlags), textureLayout == TextureLayout::TILE_STANDARD_SWIZZLE ?
+				GetDX12ResourceFlags(resourceFlags), textureLayout.Layout == TextureLayout::TILE_STANDARD_SWIZZLE ?
 				D3D12_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE : D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE);
 
 			// Create the texture.
@@ -2789,7 +2982,7 @@ bool Texture3D_DX12::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapO
 		{
 			// Setup the texture description.
 			const auto desc = CD3DX12_RESOURCE_DESC::Tex3D(GetDXGIFormat(format), width, height, depth,
-				numMips, GetDX12ResourceFlags(resourceFlags), textureLayout == TextureLayout::TILE_STANDARD_SWIZZLE ?
+				numMips, GetDX12ResourceFlags(resourceFlags), textureLayout.Layout == TextureLayout::TILE_STANDARD_SWIZZLE ?
 				D3D12_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE : D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE);
 
 			// Create the texture.
@@ -2857,11 +3050,24 @@ uint16_t Texture3D_DX12::GetDepth() const
 
 void Texture3D_DX12::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, Device* pDevice,
 	uint32_t width, uint32_t height, uint16_t depth, Format format, ResourceFlag resourceFlags,
-	uint8_t numMips, TextureLayout textureLayout, uint64_t requiredAlignment)
+	uint8_t numMips, const TextureLayoutDesc& textureLayout, uint64_t requiredAlignment)
 {
+	const auto device = static_cast<ID3D12Device*>(pDevice->GetNativeHandle());
+	if (IsGuidTextureLayout(textureLayout))
+	{
+		auto desc = CD3DX12_RESOURCE_DESC2::Tex3D(GetDXGIFormat(format), width, height, depth,
+			numMips, GetDX12ResourceFlags(resourceFlags), D3D12_TEXTURE_LAYOUT_GUID, requiredAlignment);
+		desc.LayoutGuid = GetDX12TextureLayoutGuid(textureLayout);
+		const auto info = GetGuidAllocationInfo(device, desc);
+		byteSize = info.SizeInBytes;
+		alignment = info.Alignment;
+
+		return;
+	}
+
 	const auto desc = CD3DX12_RESOURCE_DESC::Tex3D(GetDXGIFormat(format), width, height, depth,
 		numMips, GetDX12ResourceFlags(resourceFlags), GetDX12TextureLayout(textureLayout), requiredAlignment);
-	const auto info = static_cast<ID3D12Device*>(pDevice->GetNativeHandle())->GetResourceAllocationInfo(0, 1, &desc);
+	const auto info = device->GetResourceAllocationInfo(0, 1, &desc);
 
 	byteSize = info.SizeInBytes;
 	alignment = info.Alignment;

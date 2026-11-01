@@ -19,6 +19,8 @@ namespace XUSG
 	D3D12_INDIRECT_ARGUMENT_TYPE GetDX12IndirectArgumentType(IndirectArgumentType indirectArgumentType);
 	D3D12_RESOURCE_DIMENSION GetDX12ResourceDimension(ResourceDimension resourceDimension);
 	D3D12_TEXTURE_LAYOUT GetDX12TextureLayout(TextureLayout textureLayout);
+	D3D12_TEXTURE_LAYOUT GetDX12TextureLayout(const TextureLayoutDesc& textureLayout);
+	GUID GetDX12TextureLayoutGuid(const TextureLayoutDesc& textureLayout);
 
 	D3D12_COMMAND_QUEUE_FLAGS GetDX12CommandQueueFlag(CommandQueueFlag commandQueueFlag);
 	D3D12_COMMAND_QUEUE_FLAGS GetDX12CommandQueueFlags(CommandQueueFlag commandQueueFlags);

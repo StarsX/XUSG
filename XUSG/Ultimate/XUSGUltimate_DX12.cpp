@@ -61,138 +61,175 @@ void CommandList_DX12::Create(void* pNativeHandle, Device* pDevice)
 	createInterface();
 }
 
-void CommandList_DX12::Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups)
+bool CommandList_DX12::prepareBarrierGroups(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups)
 {
-	if (numBarrierGroups)
-	{
-		assert(pBarrierGroups);
-		if (m_barrierGroups.size() < numBarrierGroups) m_barrierGroups.resize(numBarrierGroups);
-		if (m_barrierGroupBarrierStarts.size() < numBarrierGroups) m_barrierGroupBarrierStarts.resize(numBarrierGroups);
-		m_globalBarriers.clear();
-		m_textureBarriers.clear();
-		m_bufferBarriers.clear();
+	if (!numBarrierGroups) return false;
+	assert(pBarrierGroups);
+	if (m_barrierGroups.size() < numBarrierGroups) m_barrierGroups.resize(numBarrierGroups);
+	if (m_barrierGroupBarrierStarts.size() < numBarrierGroups) m_barrierGroupBarrierStarts.resize(numBarrierGroups);
+	m_globalBarriers.clear();
+	m_textureBarriers.clear();
+	m_bufferBarriers.clear();
 
-		for (auto i = 0u; i < numBarrierGroups; ++i)
+	auto hasBarriers = false;
+	for (auto i = 0u; i < numBarrierGroups; ++i)
+	{
+		const auto& barrierGroup = pBarrierGroups[i];
+		auto& dxBarrierGroup = m_barrierGroups[i];
+		dxBarrierGroup = {};
+		if (!barrierGroup.NumBarriers) continue;
+		assert(barrierGroup.pBarriers);
+		hasBarriers = true;
+
+		auto& barrierStart = m_barrierGroupBarrierStarts[i];
+		dxBarrierGroup.Type = barrierGroup.pBarriers->pResource ?
+			(barrierGroup.pBarriers->LayoutBefore == BarrierLayout::UNDEFINED &&
+				barrierGroup.pBarriers->LayoutAfter == BarrierLayout::UNDEFINED ?
+				D3D12_BARRIER_TYPE_BUFFER : D3D12_BARRIER_TYPE_TEXTURE) :
+			D3D12_BARRIER_TYPE_GLOBAL;
+		dxBarrierGroup.NumBarriers = barrierGroup.NumBarriers;
+
+		switch (dxBarrierGroup.Type)
 		{
-			const auto& barrierGroup = pBarrierGroups[i];
-			if (barrierGroup.NumBarriers)
+		case D3D12_BARRIER_TYPE_GLOBAL:
+		{
+			barrierStart = static_cast<uint32_t>(m_globalBarriers.size());
+			m_globalBarriers.resize(barrierStart + barrierGroup.NumBarriers);
+
+			for (auto j = 0u; j < barrierGroup.NumBarriers; ++j)
 			{
-				assert(barrierGroup.pBarriers);
-				auto& dxBarrierGroup = m_barrierGroups[i];
-				auto& barrierStart = m_barrierGroupBarrierStarts[i];
-				dxBarrierGroup.Type = barrierGroup.pBarriers->pResource ?
-					(barrierGroup.pBarriers->LayoutBefore == BarrierLayout::UNDEFINED &&
-						barrierGroup.pBarriers->LayoutAfter == BarrierLayout::UNDEFINED ?
+				const auto& barrier = barrierGroup.pBarriers[j];
+				const auto type = barrier.pResource ?
+					(barrier.LayoutBefore == BarrierLayout::UNDEFINED &&
+						barrier.LayoutAfter == BarrierLayout::UNDEFINED ?
 						D3D12_BARRIER_TYPE_BUFFER : D3D12_BARRIER_TYPE_TEXTURE) :
 					D3D12_BARRIER_TYPE_GLOBAL;
-				dxBarrierGroup.NumBarriers = barrierGroup.NumBarriers;
+				assert(type == D3D12_BARRIER_TYPE_GLOBAL);
+				assert(!barrier.pResource);
 
-				switch (dxBarrierGroup.Type)
-				{
-				case D3D12_BARRIER_TYPE_GLOBAL:
-				{
-					barrierStart = static_cast<uint32_t>(m_globalBarriers.size());
-					m_globalBarriers.resize(barrierStart + barrierGroup.NumBarriers);
-
-					for (auto j = 0u; j < barrierGroup.NumBarriers; ++j)
-					{
-						const auto& barrier = barrierGroup.pBarriers[j];
-						const auto type = barrier.pResource ?
-							(barrier.LayoutBefore == BarrierLayout::UNDEFINED &&
-								barrier.LayoutAfter == BarrierLayout::UNDEFINED ?
-								D3D12_BARRIER_TYPE_BUFFER : D3D12_BARRIER_TYPE_TEXTURE) :
-							D3D12_BARRIER_TYPE_GLOBAL;
-						assert(type == D3D12_BARRIER_TYPE_GLOBAL);
-						assert(!barrier.pResource);
-
-						auto& globalBarrier = m_globalBarriers[barrierStart + j];
-						globalBarrier.SyncBefore = GetDX12BarrierSyncs(barrier.SyncBefore);
-						globalBarrier.SyncAfter = GetDX12BarrierSyncs(barrier.SyncAfter);
-						globalBarrier.AccessBefore = GetDX12BarrierAccesses(barrier.AccessBefore);
-						globalBarrier.AccessAfter = GetDX12BarrierAccesses(barrier.AccessAfter);
-					}
-					break;
-				}
-				case D3D12_BARRIER_TYPE_TEXTURE:
-				{
-					barrierStart = static_cast<uint32_t>(m_textureBarriers.size());
-					m_textureBarriers.resize(barrierStart + barrierGroup.NumBarriers);
-
-					for (auto j = 0u; j < barrierGroup.NumBarriers; ++j)
-					{
-						const auto& barrier = barrierGroup.pBarriers[j];
-						const auto type = barrier.pResource ?
-							(barrier.LayoutBefore == BarrierLayout::UNDEFINED &&
-								barrier.LayoutAfter == BarrierLayout::UNDEFINED ?
-								D3D12_BARRIER_TYPE_BUFFER : D3D12_BARRIER_TYPE_TEXTURE) :
-							D3D12_BARRIER_TYPE_GLOBAL;
-						assert(type == D3D12_BARRIER_TYPE_TEXTURE);
-						assert(barrier.pResource);
-
-						auto& textureBarrier = m_textureBarriers[barrierStart + j];
-						textureBarrier.SyncBefore = GetDX12BarrierSyncs(barrier.SyncBefore);
-						textureBarrier.SyncAfter = GetDX12BarrierSyncs(barrier.SyncAfter);
-						textureBarrier.AccessBefore = GetDX12BarrierAccesses(barrier.AccessBefore);
-						textureBarrier.AccessAfter = GetDX12BarrierAccesses(barrier.AccessAfter);
-						textureBarrier.LayoutBefore = GetDX12BarrierLayout(barrier.LayoutBefore);
-						textureBarrier.LayoutAfter = GetDX12BarrierLayout(barrier.LayoutAfter);
-						textureBarrier.pResource = reinterpret_cast<ID3D12Resource*>(barrier.pResource->GetNativeHandle());
-						textureBarrier.Subresources.IndexOrFirstMipLevel = barrier.IndexOrFirstMipLevel;
-						textureBarrier.Subresources.NumMipLevels = barrier.NumMipLevels;
-						textureBarrier.Subresources.FirstArraySlice = barrier.FirstArraySlice;
-						textureBarrier.Subresources.NumArraySlices = barrier.NumArraySlices;
-						textureBarrier.Subresources.FirstPlane = barrier.FirstPlane;
-						textureBarrier.Subresources.NumPlanes = barrier.NumPlanes;
-						textureBarrier.Flags = GetDX12TextureBarrierFlags(barrier.Flags);
-					}
-					break;
-				}
-				case D3D12_BARRIER_TYPE_BUFFER:
-				{
-					barrierStart = static_cast<uint32_t>(m_bufferBarriers.size());
-					m_bufferBarriers.resize(barrierStart + barrierGroup.NumBarriers);
-
-					for (auto j = 0u; j < barrierGroup.NumBarriers; ++j)
-					{
-						const auto& barrier = barrierGroup.pBarriers[j];
-						const auto type = barrier.pResource ?
-							(barrier.LayoutBefore == BarrierLayout::UNDEFINED &&
-								barrier.LayoutAfter == BarrierLayout::UNDEFINED ?
-								D3D12_BARRIER_TYPE_BUFFER : D3D12_BARRIER_TYPE_TEXTURE) :
-							D3D12_BARRIER_TYPE_GLOBAL;
-						assert(type == D3D12_BARRIER_TYPE_BUFFER);
-						assert(barrier.pResource);
-
-						auto& bufferBarrier = m_bufferBarriers[barrierStart + j];
-						bufferBarrier.SyncBefore = GetDX12BarrierSyncs(barrier.SyncBefore);
-						bufferBarrier.SyncAfter = GetDX12BarrierSyncs(barrier.SyncAfter);
-						bufferBarrier.AccessBefore = GetDX12BarrierAccesses(barrier.AccessBefore);
-						bufferBarrier.AccessAfter = GetDX12BarrierAccesses(barrier.AccessAfter);
-						bufferBarrier.pResource = reinterpret_cast<ID3D12Resource*>(barrier.pResource->GetNativeHandle());
-						bufferBarrier.Offset = barrier.Offset;
-						bufferBarrier.Size = barrier.Size;
-					}
-					break;
-				}
-				}
-
-				switch (dxBarrierGroup.Type)
-				{
-				case D3D12_BARRIER_TYPE_GLOBAL:
-					dxBarrierGroup.pGlobalBarriers = &m_globalBarriers[barrierStart];
-					break;
-				case D3D12_BARRIER_TYPE_TEXTURE:
-					dxBarrierGroup.pTextureBarriers = &m_textureBarriers[barrierStart];
-					break;
-				case D3D12_BARRIER_TYPE_BUFFER:
-					dxBarrierGroup.pBufferBarriers = &m_bufferBarriers[barrierStart];
-					break;
-				}
+				auto& globalBarrier = m_globalBarriers[barrierStart + j];
+				globalBarrier.SyncBefore = GetDX12BarrierSyncs(barrier.SyncBefore);
+				globalBarrier.SyncAfter = GetDX12BarrierSyncs(barrier.SyncAfter);
+				globalBarrier.AccessBefore = GetDX12BarrierAccesses(barrier.AccessBefore);
+				globalBarrier.AccessAfter = GetDX12BarrierAccesses(barrier.AccessAfter);
 			}
+			break;
+		}
+		case D3D12_BARRIER_TYPE_TEXTURE:
+		{
+			barrierStart = static_cast<uint32_t>(m_textureBarriers.size());
+			m_textureBarriers.resize(barrierStart + barrierGroup.NumBarriers);
+
+			for (auto j = 0u; j < barrierGroup.NumBarriers; ++j)
+			{
+				const auto& barrier = barrierGroup.pBarriers[j];
+				const auto type = barrier.pResource ?
+					(barrier.LayoutBefore == BarrierLayout::UNDEFINED &&
+						barrier.LayoutAfter == BarrierLayout::UNDEFINED ?
+						D3D12_BARRIER_TYPE_BUFFER : D3D12_BARRIER_TYPE_TEXTURE) :
+					D3D12_BARRIER_TYPE_GLOBAL;
+				assert(type == D3D12_BARRIER_TYPE_TEXTURE);
+				assert(barrier.pResource);
+
+				auto& textureBarrier = m_textureBarriers[barrierStart + j];
+				textureBarrier.SyncBefore = GetDX12BarrierSyncs(barrier.SyncBefore);
+				textureBarrier.SyncAfter = GetDX12BarrierSyncs(barrier.SyncAfter);
+				textureBarrier.AccessBefore = GetDX12BarrierAccesses(barrier.AccessBefore);
+				textureBarrier.AccessAfter = GetDX12BarrierAccesses(barrier.AccessAfter);
+				textureBarrier.LayoutBefore = GetDX12BarrierLayout(barrier.LayoutBefore);
+				textureBarrier.LayoutAfter = GetDX12BarrierLayout(barrier.LayoutAfter);
+				textureBarrier.pResource = reinterpret_cast<ID3D12Resource*>(barrier.pResource->GetNativeHandle());
+				textureBarrier.Subresources.IndexOrFirstMipLevel = barrier.IndexOrFirstMipLevel;
+				textureBarrier.Subresources.NumMipLevels = barrier.NumMipLevels;
+				textureBarrier.Subresources.FirstArraySlice = barrier.FirstArraySlice;
+				textureBarrier.Subresources.NumArraySlices = barrier.NumArraySlices;
+				textureBarrier.Subresources.FirstPlane = barrier.FirstPlane;
+				textureBarrier.Subresources.NumPlanes = barrier.NumPlanes;
+				textureBarrier.Flags = GetDX12TextureBarrierFlags(barrier.Flags);
+			}
+			break;
+		}
+		case D3D12_BARRIER_TYPE_BUFFER:
+		{
+			barrierStart = static_cast<uint32_t>(m_bufferBarriers.size());
+			m_bufferBarriers.resize(barrierStart + barrierGroup.NumBarriers);
+
+			for (auto j = 0u; j < barrierGroup.NumBarriers; ++j)
+			{
+				const auto& barrier = barrierGroup.pBarriers[j];
+				const auto type = barrier.pResource ?
+					(barrier.LayoutBefore == BarrierLayout::UNDEFINED &&
+						barrier.LayoutAfter == BarrierLayout::UNDEFINED ?
+						D3D12_BARRIER_TYPE_BUFFER : D3D12_BARRIER_TYPE_TEXTURE) :
+					D3D12_BARRIER_TYPE_GLOBAL;
+				assert(type == D3D12_BARRIER_TYPE_BUFFER);
+				assert(barrier.pResource);
+
+				auto& bufferBarrier = m_bufferBarriers[barrierStart + j];
+				bufferBarrier.SyncBefore = GetDX12BarrierSyncs(barrier.SyncBefore);
+				bufferBarrier.SyncAfter = GetDX12BarrierSyncs(barrier.SyncAfter);
+				bufferBarrier.AccessBefore = GetDX12BarrierAccesses(barrier.AccessBefore);
+				bufferBarrier.AccessAfter = GetDX12BarrierAccesses(barrier.AccessAfter);
+				bufferBarrier.pResource = reinterpret_cast<ID3D12Resource*>(barrier.pResource->GetNativeHandle());
+				bufferBarrier.Offset = barrier.Offset;
+				bufferBarrier.Size = barrier.Size;
+			}
+			break;
+		}
 		}
 
-		m_commandListA->Barrier(numBarrierGroups, m_barrierGroups.data());
+		switch (dxBarrierGroup.Type)
+		{
+		case D3D12_BARRIER_TYPE_GLOBAL:
+			dxBarrierGroup.pGlobalBarriers = &m_globalBarriers[barrierStart];
+			break;
+		case D3D12_BARRIER_TYPE_TEXTURE:
+			dxBarrierGroup.pTextureBarriers = &m_textureBarriers[barrierStart];
+			break;
+		case D3D12_BARRIER_TYPE_BUFFER:
+			dxBarrierGroup.pBufferBarriers = &m_bufferBarriers[barrierStart];
+			break;
+		}
 	}
+
+	return hasBarriers || numBarrierGroups > 0;
+}
+
+void CommandList_DX12::Barrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups)
+{
+	if (!prepareBarrierGroups(numBarrierGroups, pBarrierGroups)) return;
+
+	createAgilityInterface();
+	m_commandListA->Barrier(numBarrierGroups, m_barrierGroups.data());
+}
+
+void CommandList_DX12::SignalBarrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups,
+	Fence* pFence, uint64_t fenceValue)
+{
+	assert(pFence);
+	prepareBarrierGroups(numBarrierGroups, pBarrierGroups);
+	createAgilityInterface();
+	m_commandListA->SignalBarrier(numBarrierGroups, numBarrierGroups ? m_barrierGroups.data() : nullptr,
+		reinterpret_cast<ID3D12Fence*>(pFence->GetNativeHandle()), fenceValue);
+}
+
+void CommandList_DX12::WaitBarrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups,
+	uint32_t numFences, Fence* const* ppFences, const uint64_t* pFenceValues)
+{
+	assert(numFences);
+	assert(ppFences);
+	assert(pFenceValues);
+	if (m_fences.size() < numFences) m_fences.resize(numFences);
+	for (auto i = 0u; i < numFences; ++i)
+	{
+		assert(ppFences[i]);
+		m_fences[i] = reinterpret_cast<ID3D12Fence*>(ppFences[i]->GetNativeHandle());
+	}
+
+	prepareBarrierGroups(numBarrierGroups, pBarrierGroups);
+	createAgilityInterface();
+	m_commandListA->WaitBarrier(numBarrierGroups, numBarrierGroups ? m_barrierGroups.data() : nullptr,
+		numFences, m_fences.data(), pFenceValues);
 }
 
 void CommandList_DX12::Barrier(uint32_t numBufferBarriers, ResourceBarrier* pBufferBarriers,
@@ -380,6 +417,14 @@ void CommandList_DX12::SetProgram(ProgramType type, ProgramIdentifier identifier
 		desc.WorkGraph.NodeLocalRootArgumentsTable.SizeInBytes = localRootArgTableByteSize;
 		desc.WorkGraph.NodeLocalRootArgumentsTable.StrideInBytes = localRootArgTableByteStride;
 		break;
+	case ProgramType::MLIR_PROGRAM:
+		desc.Type = D3D12_PROGRAM_TYPE_MLIR_PROGRAM;
+		desc.MlirProgram.ProgramIdentifier.OpaqueData[0] = identifier.OpaqueData[0];
+		desc.MlirProgram.ProgramIdentifier.OpaqueData[1] = identifier.OpaqueData[1];
+		desc.MlirProgram.ProgramIdentifier.OpaqueData[2] = identifier.OpaqueData[2];
+		desc.MlirProgram.ProgramIdentifier.OpaqueData[3] = identifier.OpaqueData[3];
+		desc.MlirProgram.Flags = D3D12_SET_MLIR_PROGRAM_FLAG_NONE;
+		break;
 	default:
 		assert(type == ProgramType::GENERIC_PIPELINE);
 		desc.Type = D3D12_PROGRAM_TYPE_GENERIC_PIPELINE;
@@ -437,6 +482,46 @@ void CommandList_DX12::DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiN
 		desc.Mode = D3D12_DISPATCH_MODE_NODE_GPU_INPUT;
 		desc.NodeGPUInput = nodeGPUInputAddress;
 	}
+
+	createAgilityInterface();
+	m_commandListA->DispatchGraph(&desc);
+}
+
+void CommandList_DX12::DispatchGraph(uint32_t numBindings, const ProgramBinding* pBindings)
+{
+	assert(numBindings);
+	assert(pBindings);
+
+	if (m_programBindings.size() < numBindings) m_programBindings.resize(numBindings);
+	for (auto i = 0u; i < numBindings; ++i)
+	{
+		auto& dst = m_programBindings[i];
+		const auto& src = pBindings[i];
+
+		dst.BindPointIndex = src.BindPointIndex;
+		dst.Flags = static_cast<D3D12_MLIR_PROGRAM_BINDING_FLAGS>(src.Flags);
+		dst.Type = static_cast<D3D12_MLIR_PROGRAM_BINDING_TYPE>(src.Type);
+
+		switch (src.Type)
+		{
+		case ProgramBindingType::GPU_DESCRIPTOR:
+			dst.GpuDescriptorBinding.ptr = src.GpuDescriptor;
+			break;
+		case ProgramBindingType::CPU:
+			dst.CpuBinding.pData = src.Cpu.pData;
+			dst.CpuBinding.DataSizeInBytes = src.Cpu.DataByteSize;
+			break;
+		default:
+			assert(src.Type == ProgramBindingType::GPU_VIRTUAL_ADDRESS);
+			dst.GpuVirtualAddressBinding.StartAddress = src.GpuVirtualAddress.StartAddress;
+			dst.GpuVirtualAddressBinding.SizeInBytes = src.GpuVirtualAddress.ByteSize;
+		}
+	}
+
+	D3D12_DISPATCH_GRAPH_DESC desc = {};
+	desc.Mode = D3D12_DISPATCH_MODE_MLIR_PROGRAM;
+	desc.MlirProgramBindings.NumBindings = numBindings;
+	desc.MlirProgramBindings.pBindings = m_programBindings.data();
 
 	createAgilityInterface();
 	m_commandListA->DispatchGraph(&desc);
@@ -501,6 +586,337 @@ void CommandList_DX12::ConvertLinearAlgebraMatrix(const LinearAlgebraMatrixConve
 	else commandList->ConvertLinearAlgebraMatrix(m_matrixConversions.data(), numConversions);
 }
 
+void CommandList_DX12::CopyBufferRegions(uint32_t numRegions, Resource* const* ppDestBuffers, const uint64_t* pDestOffsets,
+	Resource* const* ppSourceBuffers, const uint64_t* pSourceOffsets, const uint64_t* pSizes)
+{
+	assert(numRegions);
+	assert(ppDestBuffers);
+	assert(pDestOffsets);
+	assert(ppSourceBuffers);
+	assert(pSourceOffsets);
+	assert(pSizes);
+
+	if (m_dstResources.size() < numRegions) m_dstResources.resize(numRegions);
+	if (m_srcResources.size() < numRegions) m_srcResources.resize(numRegions);
+	for (auto i = 0u; i < numRegions; ++i)
+	{
+		assert(ppDestBuffers[i]);
+		assert(ppSourceBuffers[i]);
+		m_dstResources[i] = reinterpret_cast<ID3D12Resource*>(ppDestBuffers[i]->GetNativeHandle());
+		m_srcResources[i] = reinterpret_cast<ID3D12Resource*>(ppSourceBuffers[i]->GetNativeHandle());
+	}
+
+	createAgilityInterface();
+	m_commandListA->CopyBufferRegions(numRegions, m_dstResources.data(), pDestOffsets,
+		m_srcResources.data(), pSourceOffsets, pSizes);
+}
+
+void CommandList_DX12::CopyTextureRegions(uint32_t numCopyDescs, const TextureCopyDesc* pCopyDescs)
+{
+	assert(numCopyDescs);
+	assert(pCopyDescs);
+
+	auto numRegions = 0u;
+	for (auto i = 0u; i < numCopyDescs; ++i) numRegions += pCopyDescs[i].NumRegions;
+
+	if (m_textureCopyDescs.size() < numCopyDescs) m_textureCopyDescs.resize(numCopyDescs);
+	if (m_textureCopyRegions.size() < numRegions) m_textureCopyRegions.resize(numRegions);
+	if (m_boxes.size() < numRegions) m_boxes.resize(numRegions);
+
+	auto regionIndex = 0u;
+	for (auto i = 0u; i < numCopyDescs; ++i)
+	{
+		const auto& src = pCopyDescs[i];
+		auto& dst = m_textureCopyDescs[i];
+
+		dst.Type = static_cast<D3D12_TEXTURE_COPY_DESC_TYPE>(src.Type);
+		dst.NumRegions = src.NumRegions;
+		dst.pCopyRegions = src.NumRegions ? &m_textureCopyRegions[regionIndex] : nullptr;
+
+		for (auto j = 0u; j < src.NumRegions; ++j)
+		{
+			const auto& srcRegion = src.pCopyRegions[j];
+			auto& dstRegion = m_textureCopyRegions[regionIndex];
+			dstRegion.DestX = srcRegion.DestX;
+			dstRegion.DestY = srcRegion.DestY;
+			dstRegion.DestZ = srcRegion.DestZ;
+			if (srcRegion.pSourceBox)
+			{
+				auto& box = m_boxes[regionIndex];
+				box.left = srcRegion.pSourceBox->Left;
+				box.top = srcRegion.pSourceBox->Top;
+				box.front = srcRegion.pSourceBox->Front;
+				box.right = srcRegion.pSourceBox->Right;
+				box.bottom = srcRegion.pSourceBox->Bottom;
+				box.back = srcRegion.pSourceBox->Back;
+				dstRegion.pSourceBox = &box;
+			}
+			else dstRegion.pSourceBox = nullptr;
+			++regionIndex;
+		}
+
+		if (src.Type == TextureCopyDescType::TEXTURE_TO_TEXTURE)
+		{
+			assert(src.TextureTextureCopy.pDest);
+			assert(src.TextureTextureCopy.pSource);
+			dst.TextureTextureCopy.pDest = reinterpret_cast<ID3D12Resource*>(src.TextureTextureCopy.pDest->GetNativeHandle());
+			dst.TextureTextureCopy.DestSubresourceIndex = src.TextureTextureCopy.DestSubresourceIndex;
+			dst.TextureTextureCopy.pSource = reinterpret_cast<ID3D12Resource*>(src.TextureTextureCopy.pSource->GetNativeHandle());
+			dst.TextureTextureCopy.SourceSubresourceIndex = src.TextureTextureCopy.SourceSubresourceIndex;
+		}
+		else
+		{
+			assert(src.BufferTextureCopy.pBuffer);
+			assert(src.BufferTextureCopy.pTexture);
+			dst.BufferTextureCopy.pBuffer = reinterpret_cast<ID3D12Resource*>(src.BufferTextureCopy.pBuffer->GetNativeHandle());
+			dst.BufferTextureCopy.pTexture = reinterpret_cast<ID3D12Resource*>(src.BufferTextureCopy.pTexture->GetNativeHandle());
+			dst.BufferTextureCopy.SubresourceIndex = src.BufferTextureCopy.SubresourceIndex;
+			dst.BufferTextureCopy.PlacedFootprint.Offset = src.BufferTextureCopy.PlacedFootprint.Offset;
+			dst.BufferTextureCopy.PlacedFootprint.Footprint.Format = GetDXGIFormat(src.BufferTextureCopy.PlacedFootprint.Footprint.Format);
+			dst.BufferTextureCopy.PlacedFootprint.Footprint.Width = src.BufferTextureCopy.PlacedFootprint.Footprint.Width;
+			dst.BufferTextureCopy.PlacedFootprint.Footprint.Height = src.BufferTextureCopy.PlacedFootprint.Footprint.Height;
+			dst.BufferTextureCopy.PlacedFootprint.Footprint.Depth = src.BufferTextureCopy.PlacedFootprint.Footprint.Depth;
+			dst.BufferTextureCopy.PlacedFootprint.Footprint.RowPitch = src.BufferTextureCopy.PlacedFootprint.Footprint.RowPitch;
+		}
+	}
+
+	createAgilityInterface();
+	m_commandListA->CopyTextureRegions(numCopyDescs, m_textureCopyDescs.data());
+}
+
+void CommandList_DX12::CopyResources(uint32_t numSourceDestPairs, Resource* const* ppDestResources,
+	Resource* const* ppSourceResources)
+{
+	assert(numSourceDestPairs);
+	assert(ppDestResources);
+	assert(ppSourceResources);
+
+	if (m_dstResources.size() < numSourceDestPairs) m_dstResources.resize(numSourceDestPairs);
+	if (m_srcResources.size() < numSourceDestPairs) m_srcResources.resize(numSourceDestPairs);
+	for (auto i = 0u; i < numSourceDestPairs; ++i)
+	{
+		assert(ppDestResources[i]);
+		assert(ppSourceResources[i]);
+		m_dstResources[i] = reinterpret_cast<ID3D12Resource*>(ppDestResources[i]->GetNativeHandle());
+		m_srcResources[i] = reinterpret_cast<ID3D12Resource*>(ppSourceResources[i]->GetNativeHandle());
+	}
+
+	createAgilityInterface();
+	m_commandListA->CopyResources(numSourceDestPairs, m_dstResources.data(), m_srcResources.data());
+}
+
+void CommandList_DX12::CopyTilesAsync(Resource* pTiledResource, const TiledResourceCoord* pTileRegionStartCoord,
+	const TileRegionSize& tileRegionSize, Resource* pBuffer, uint64_t bufferOffset, TileCopyFlag flags)
+{
+	assert(pTiledResource);
+	assert(pTileRegionStartCoord);
+	assert(pBuffer);
+
+	const D3D12_TILED_RESOURCE_COORDINATE regionStartCoord =
+	{
+		pTileRegionStartCoord->X,
+		pTileRegionStartCoord->Y,
+		pTileRegionStartCoord->Z,
+		pTileRegionStartCoord->Subresource
+	};
+
+	const D3D12_TILE_REGION_SIZE regionSize =
+	{
+		tileRegionSize.NumTiles,
+		tileRegionSize.UseBox,
+		tileRegionSize.Width,
+		tileRegionSize.Height,
+		tileRegionSize.Depth
+	};
+
+	createAgilityInterface();
+	m_commandListA->CopyTilesAsync(reinterpret_cast<ID3D12Resource*>(pTiledResource->GetNativeHandle()),
+		&regionStartCoord, &regionSize, reinterpret_cast<ID3D12Resource*>(pBuffer->GetNativeHandle()),
+		bufferOffset, GetDX12TileCopyFlags(flags));
+}
+
+void CommandList_DX12::ResolveSubresourceRegionAsync(Resource* pDstResource, uint32_t dstSubresource,
+	uint32_t dstX, uint32_t dstY, Resource* pSrcResource, uint32_t srcSubresource,
+	const RectRange* pSrcRect, Format format, ResolveMode resolveMode)
+{
+	assert(pDstResource);
+	assert(pSrcResource);
+
+	D3D12_RECT rect;
+	if (pSrcRect)
+	{
+		rect.left = pSrcRect->Left;
+		rect.top = pSrcRect->Top;
+		rect.right = pSrcRect->Right;
+		rect.bottom = pSrcRect->Bottom;
+	}
+
+	createAgilityInterface();
+	m_commandListA->ResolveSubresourceRegionAsync(
+		reinterpret_cast<ID3D12Resource*>(pDstResource->GetNativeHandle()), dstSubresource, dstX, dstY,
+		reinterpret_cast<ID3D12Resource*>(pSrcResource->GetNativeHandle()), srcSubresource,
+		pSrcRect ? &rect : nullptr, GetDXGIFormat(format), GetDX12ResolveMode(resolveMode));
+}
+
+void CommandList_DX12::ResolveQueryDataAsync(const QueryHeap& queryHeap, QueryType type, uint32_t startIndex,
+	uint32_t numQueries, Resource* pDestBuffer, uint64_t destOffset)
+{
+	assert(pDestBuffer);
+
+	createAgilityInterface();
+	m_commandListA->ResolveQueryDataAsync(reinterpret_cast<ID3D12QueryHeap*>(queryHeap),
+		GetDX12QueryType(type), startIndex, numQueries,
+		reinterpret_cast<ID3D12Resource*>(pDestBuffer->GetNativeHandle()), destOffset);
+}
+
+void CommandList_DX12::ClearBoundDepthStencilView(ClearFlag clearFlags, float depth, uint8_t stencil,
+	uint32_t numRegions, const BoxRange* pRegions)
+{
+	if (numRegions)
+	{
+		assert(pRegions);
+		if (m_boxes.size() < numRegions) m_boxes.resize(numRegions);
+		for (auto i = 0u; i < numRegions; ++i)
+		{
+			m_boxes[i].left = pRegions[i].Left;
+			m_boxes[i].top = pRegions[i].Top;
+			m_boxes[i].front = pRegions[i].Front;
+			m_boxes[i].right = pRegions[i].Right;
+			m_boxes[i].bottom = pRegions[i].Bottom;
+			m_boxes[i].back = pRegions[i].Back;
+		}
+	}
+
+	createAgilityInterface();
+	m_commandListA->ClearBoundDepthStencilView(GetDX12ClearFlags(clearFlags), depth, stencil,
+		numRegions, numRegions ? m_boxes.data() : nullptr);
+}
+
+void CommandList_DX12::ClearBoundRenderTargetViews(uint32_t renderTargetMask, const ClearData* pClearValues,
+	const uint32_t* pNumRegions, const BoxRange* const* ppRegions)
+{
+	assert(pClearValues);
+	assert(renderTargetMask);
+	assert((renderTargetMask & ~0xffu) == 0);
+
+	auto highestSlot = 0u;
+	for (auto i = 0u; i < 8; ++i)
+		if (renderTargetMask & (1u << i)) highestSlot = i;
+
+	const auto numSlots = highestSlot + 1;
+	if (m_clearData.size() < numSlots) m_clearData.resize(numSlots);
+	for (auto i = 0u; i < numSlots; ++i)
+		if (renderTargetMask & (1u << i))
+			memcpy(&m_clearData[i], &pClearValues[i], sizeof(D3D12_CLEAR_DATA));
+
+	const UINT* pDX12NumRegions = nullptr;
+	const D3D12_BOX* const* ppDX12Regions = nullptr;
+	if (pNumRegions)
+	{
+		assert(ppRegions);
+		auto totalRegions = 0u;
+		for (auto i = 0u; i < numSlots; ++i)
+			if (renderTargetMask & (1u << i)) totalRegions += pNumRegions[i];
+
+		if (m_boxes.size() < totalRegions) m_boxes.resize(totalRegions);
+		if (m_boxPointers.size() < numSlots) m_boxPointers.resize(numSlots);
+
+		auto boxIndex = 0u;
+		for (auto i = 0u; i < numSlots; ++i)
+		{
+			if ((renderTargetMask & (1u << i)) == 0)
+			{
+				m_boxPointers[i] = nullptr;
+				continue;
+			}
+
+			if (pNumRegions[i] == 0 || !ppRegions[i])
+			{
+				m_boxPointers[i] = nullptr;
+				continue;
+			}
+
+			m_boxPointers[i] = &m_boxes[boxIndex];
+			for (auto j = 0u; j < pNumRegions[i]; ++j)
+			{
+				m_boxes[boxIndex].left = ppRegions[i][j].Left;
+				m_boxes[boxIndex].top = ppRegions[i][j].Top;
+				m_boxes[boxIndex].front = ppRegions[i][j].Front;
+				m_boxes[boxIndex].right = ppRegions[i][j].Right;
+				m_boxes[boxIndex].bottom = ppRegions[i][j].Bottom;
+				m_boxes[boxIndex].back = ppRegions[i][j].Back;
+				++boxIndex;
+			}
+		}
+
+		pDX12NumRegions = pNumRegions;
+		ppDX12Regions = m_boxPointers.data();
+	}
+
+	createAgilityInterface();
+	m_commandListA->ClearBoundRenderTargetViews(renderTargetMask, m_clearData.data(),
+		pDX12NumRegions, ppDX12Regions);
+}
+
+void CommandList_DX12::ClearTextureSubresources(uint32_t numClearDescs, const ClearTextureDesc* pClearDescs)
+{
+	assert(numClearDescs);
+	assert(pClearDescs);
+
+	if (m_clearTextureDescs.size() < numClearDescs) m_clearTextureDescs.resize(numClearDescs);
+	if (m_boxes.size() < numClearDescs) m_boxes.resize(numClearDescs);
+
+	for (auto i = 0u; i < numClearDescs; ++i)
+	{
+		const auto& src = pClearDescs[i];
+		auto& dst = m_clearTextureDescs[i];
+
+		assert(src.pTexture);
+		dst.pTexture = reinterpret_cast<ID3D12Resource*>(src.pTexture->GetNativeHandle());
+		dst.SubresourceIndex = src.SubresourceIndex;
+		memcpy(&dst.ClearValue, &src.ClearValue, sizeof(D3D12_CLEAR_DATA));
+		dst.Format = GetDXGIFormat(src.Format);
+		if (src.pRegion)
+		{
+			m_boxes[i].left = src.pRegion->Left;
+			m_boxes[i].top = src.pRegion->Top;
+			m_boxes[i].front = src.pRegion->Front;
+			m_boxes[i].right = src.pRegion->Right;
+			m_boxes[i].bottom = src.pRegion->Bottom;
+			m_boxes[i].back = src.pRegion->Back;
+			dst.pRegion = &m_boxes[i];
+		}
+		else dst.pRegion = nullptr;
+	}
+
+	createAgilityInterface();
+	m_commandListA->ClearTextureSubresources(numClearDescs, m_clearTextureDescs.data());
+}
+
+void CommandList_DX12::FillBuffers(uint32_t numFillDescs, const FillBufferDesc* pFillDescs)
+{
+	assert(numFillDescs);
+	assert(pFillDescs);
+
+	if (m_fillBufferDescs.size() < numFillDescs) m_fillBufferDescs.resize(numFillDescs);
+	for (auto i = 0u; i < numFillDescs; ++i)
+	{
+		const auto& src = pFillDescs[i];
+		auto& dst = m_fillBufferDescs[i];
+
+		assert(src.pBuffer);
+		dst.pBuffer = reinterpret_cast<ID3D12Resource*>(src.pBuffer->GetNativeHandle());
+		dst.Offset = src.Offset;
+		memcpy(&dst.FillValue, &src.FillValue, sizeof(D3D12_CLEAR_DATA));
+		dst.Format = GetDXGIFormat(src.Format);
+		dst.RawPatternSizeInBytes = src.RawPatternSizeInBytes;
+		dst.RepeatCount = src.RepeatCount;
+	}
+
+	createAgilityInterface();
+	m_commandListA->FillBuffers(numFillDescs, m_fillBufferDescs.data());
+}
+
 XUSG::com_ptr<ID3D12GraphicsCommandList6>& CommandList_DX12::GetGraphicsCommandList()
 {
 	return m_commandListU;
@@ -527,8 +943,10 @@ void CommandList_DX12::createAgilityInterface()
 	{
 		const auto hr = m_commandList->QueryInterface(IID_PPV_ARGS(&m_commandListA));
 
-		if (FAILED(hr)) OutputDebugString(L"Couldn't get DirectX agility interface for the command list.\n");
+		if (FAILED(hr)) OutputDebugString(L"Couldn't get ID3D12GraphicsCommandList12 for the command list.\n");
 	}
+
+	assert(m_commandListA); // Call only when GetAsyncCommandsImpl != NOT_SUPPORTED (1.620+ / fallback).
 }
 
 //--------------------------------------------------------------------------------------
@@ -613,7 +1031,7 @@ SamplerFeedBack_DX12::~SamplerFeedBack_DX12()
 bool SamplerFeedBack_DX12::Create(Device* pDevice, Texture* pTarget, Format format,
 	uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
 	ResourceFlag resourceFlags, bool isCubeMap, MemoryFlag memoryFlags, const wchar_t* name,
-	uint16_t srvComponentMapping, TextureLayout textureLayout, uint32_t maxThreads)
+	uint16_t srvComponentMapping, const TextureLayoutDesc& textureLayout, uint32_t maxThreads)
 {
 	assert(format == Format::MIN_MIP_OPAQUE || format == Format::MIP_REGION_USED_OPAQUE);
 	m_format = format;
@@ -653,7 +1071,7 @@ bool SamplerFeedBack_DX12::Create(Device* pDevice, Texture* pTarget, Format form
 bool SamplerFeedBack_DX12::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset,
 	Texture* pTarget, Format format, uint32_t mipRegionWidth, uint32_t mipRegionHeight,
 	uint32_t mipRegionDepth, ResourceFlag resourceFlags, bool isCubeMap, const wchar_t* name,
-	uint16_t srvComponentMapping, TextureLayout textureLayout, uint32_t maxThreads)
+	uint16_t srvComponentMapping, const TextureLayoutDesc& textureLayout, uint32_t maxThreads)
 {
 	assert(format == Format::MIN_MIP_OPAQUE || format == Format::MIP_REGION_USED_OPAQUE);
 	m_format = format;
@@ -692,11 +1110,12 @@ bool SamplerFeedBack_DX12::Create(Device* pDevice, Heap* pHeap, uint64_t heapOff
 
 bool SamplerFeedBack_DX12::CreateResource(Device* pDevice, Texture* pTarget, Format format, uint32_t mipRegionWidth,
 	uint32_t mipRegionHeight, uint32_t mipRegionDepth, ResourceFlag resourceFlags, bool isCubeMap, MemoryFlag memoryFlags,
-	ResourceState initialResourceState, TextureLayout textureLayout, uint32_t maxThreads)
+	ResourceState initialResourceState, const TextureLayoutDesc& textureLayout, uint32_t maxThreads)
 {
 	com_ptr<ID3D12Device10> device;
 	XUSG_N_RETURN(initialize(pDevice), false);
 	V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&device)), cerr, false);
+	assert(textureLayout.Layout != TextureLayout::GUID && "GUID texture layout is not supported for sampler feedback");
 
 	m_format = m_format != Format::UNKNOWN ? m_format : format;
 
@@ -727,11 +1146,12 @@ bool SamplerFeedBack_DX12::CreateResource(Device* pDevice, Texture* pTarget, For
 
 bool SamplerFeedBack_DX12::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset, Texture* pTarget,
 	Format format, uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth, ResourceFlag resourceFlags,
-	bool isCubeMap, ResourceState initialResourceState, TextureLayout textureLayout, uint32_t maxThreads)
+	bool isCubeMap, ResourceState initialResourceState, const TextureLayoutDesc& textureLayout, uint32_t maxThreads)
 {
 	com_ptr<ID3D12Device10> device;
 	XUSG_N_RETURN(initialize(pDevice), false);
 	V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&device)), cerr, false);
+	assert(textureLayout.Layout != TextureLayout::GUID && "GUID texture layout is not supported for sampler feedback");
 
 	m_format = m_format != Format::UNKNOWN ? m_format : format;
 
@@ -794,6 +1214,151 @@ XUSG::ProgramIdentifier XUSG::Ultimate::GetDX12ProgramIdentifier(const XUSG::Pip
 	return identifier;
 }
 
+namespace XUSG::Ultimate
+{
+	namespace
+	{
+		// Declared in d3d12.h but not provided by dxguid.lib.
+		constexpr GUID c_clsidAsyncCommandsFallback =
+		{ 0xef4992f0, 0x0fae, 0x424e, { 0xb4, 0x84, 0x7b, 0xcd, 0x8e, 0x56, 0x9e, 0x3e } };
+		constexpr GUID c_clsidDeviceFactory =
+		{ 0x114863bf, 0xc386, 0x4aee, { 0xb3, 0x9d, 0x8f, 0x0b, 0xbb, 0x06, 0x29, 0x55 } };
+
+		// Prefer factory GetConfigurationInterface for factory-created devices; else D3D12GetInterface
+		// for D3D12CreateDevice (see D3D12AsyncCommands.md / Fallback spec).
+		void setAsyncCommandsFallbackLayer(bool enable, ID3D12DeviceFactory* pFactory = nullptr)
+		{
+			com_ptr<ID3D12AsyncCommandsFallback> fallback;
+			const auto hr = pFactory ?
+				pFactory->GetConfigurationInterface(c_clsidAsyncCommandsFallback, IID_PPV_ARGS(&fallback)) :
+				D3D12GetInterface(c_clsidAsyncCommandsFallback, IID_PPV_ARGS(&fallback));
+			if (SUCCEEDED(hr))
+				fallback->SetFallbackLayerEnabled(enable ? TRUE : FALSE);
+		}
+
+		uint32_t createDeviceWithAsyncCommandsFallbackIfNeeded(IDXGIAdapter* pAdapter,
+			D3D_FEATURE_LEVEL minFeatureLevel, ID3D12Device** ppDevice, const wchar_t* name)
+		{
+			assert(ppDevice);
+			*ppDevice = nullptr;
+
+			com_ptr<ID3D12DeviceFactory> factory;
+			const auto hasFactory = SUCCEEDED(D3D12GetInterface(c_clsidDeviceFactory, IID_PPV_ARGS(&factory)));
+			ID3D12DeviceFactory* const pFactory = hasFactory ? factory.get() : nullptr;
+
+			auto createDevice = [&](bool disallowSingleton, ID3D12Device** ppOut) -> HRESULT
+			{
+				if (pFactory)
+				{
+					factory->SetFlags(disallowSingleton ?
+						D3D12_DEVICE_FACTORY_FLAG_DISALLOW_STORING_NEW_DEVICE_AS_SINGLETON :
+						D3D12_DEVICE_FACTORY_FLAG_NONE);
+
+					return factory->CreateDevice(pAdapter, minFeatureLevel, IID_PPV_ARGS(ppOut));
+				}
+
+				return D3D12CreateDevice(pAdapter, minFeatureLevel, IID_PPV_ARGS(ppOut));
+			};
+
+			// Plain CreateDevice path matching Core when the async opt-in path cannot proceed.
+			auto createCoreCompatibleDevice = [&](ID3D12Device** ppOut) -> HRESULT
+			{
+				setAsyncCommandsFallbackLayer(false, pFactory);
+				auto hrCreate = createDevice(false, ppOut);
+				if (FAILED(hrCreate) && pFactory)
+					hrCreate = D3D12CreateDevice(pAdapter, minFeatureLevel, IID_PPV_ARGS(ppOut));
+
+				return hrCreate;
+			};
+
+			auto finish = [&](com_ptr<ID3D12Device>& device, HRESULT hrFinish) -> HRESULT
+			{
+				if (FAILED(hrFinish) || !device) return hrFinish;
+				if (name) device->SetName(name);
+				*ppDevice = device.detach();
+
+				return hrFinish;
+			};
+
+			// Probe with fallback off. DISALLOW_STORING avoids singleton conflict if we recreate
+			// after changing the fallback setting (Fallback spec: Opting in).
+			setAsyncCommandsFallbackLayer(false, pFactory);
+
+			com_ptr<ID3D12Device> device;
+			auto hr = createDevice(true, device.put());
+			if (FAILED(hr))
+			{
+				// Factory/DISALLOW quirks must not break Core: fall back to plain create.
+				hr = createCoreCompatibleDevice(device.put());
+
+				return finish(device, hr);
+			}
+
+			D3D12_FEATURE_DATA_ASYNC_COMMANDS featureData = {};
+
+			// Inbox Windows d3d12.dll / older Agility / EOL drivers: unknown feature ? E_INVALIDARG.
+			// Treat as absent and do NOT enable the fallback layer.
+			if (FAILED(device->CheckFeatureSupport(
+				D3D12_FEATURE_ASYNC_COMMANDS, &featureData, sizeof(featureData))))
+				return finish(device, hr);
+
+			// Compare against enum values (spec: do not treat Impl as a boolean).
+			if (featureData.Impl == D3D12_ASYNC_COMMANDS_IMPL_NATIVE ||
+				featureData.Impl == D3D12_ASYNC_COMMANDS_IMPL_FALLBACK)
+				return finish(device, hr);
+
+			// Fallback requires Enhanced Barriers (Fallback spec). OPTIONS12 may also be unknown
+			// on inbox runtimes ? FAILED here likewise means keep the probe device.
+			D3D12_FEATURE_DATA_D3D12_OPTIONS12 options12 = {};
+			if (FAILED(device->CheckFeatureSupport(
+				D3D12_FEATURE_D3D12_OPTIONS12, &options12, sizeof(options12))) ||
+				!options12.EnhancedBarriersSupported)
+				return finish(device, hr);
+
+			assert(featureData.Impl == D3D12_ASYNC_COMMANDS_IMPL_NOT_SUPPORTED);
+
+			device = nullptr;
+			setAsyncCommandsFallbackLayer(true, pFactory);
+
+			hr = createDevice(false, device.put());
+			if (FAILED(hr))
+			{
+				// Opt-in recreate failed: restore Core-compatible create so Device::Create still works.
+				hr = createCoreCompatibleDevice(device.put());
+			}
+
+			return finish(device, hr);
+		}
+	}
+
+	void EnableDX12AsyncCommandsFallback(bool enable)
+	{
+		setAsyncCommandsFallbackLayer(false);
+		SetDX12DeviceCreateHook(enable ? createDeviceWithAsyncCommandsFallbackIfNeeded : nullptr);
+	}
+}
+
+bool XUSG::Ultimate::GetDX12AsyncCommandsImpl(Device* pDevice, AsyncCommandsImpl* pImpl)
+{
+	assert(pDevice);
+	assert(pImpl);
+
+	com_ptr<ID3D12Device> device = pDevice->GetNativeHandle();
+	assert(device);
+
+	D3D12_FEATURE_DATA_ASYNC_COMMANDS featureData = {};
+	if (FAILED(device->CheckFeatureSupport(D3D12_FEATURE_ASYNC_COMMANDS, &featureData, sizeof(featureData))))
+	{
+		*pImpl = AsyncCommandsImpl::NOT_SUPPORTED;
+
+		return false;
+	}
+
+	*pImpl = static_cast<AsyncCommandsImpl>(featureData.Impl);
+
+	return true;
+}
+
 MIDL_INTERFACE("55ea41d3-6bf5-4332-bbf9-905e6b4e2930")
 ID3D12DevicePreview0 : public IUnknown
 {
@@ -852,7 +1417,8 @@ D3D12_BARRIER_SYNC XUSG::Ultimate::GetDX12BarrierSync(BarrierSync barrierSync)
 		D3D12_BARRIER_SYNC_VIDEO_ENCODE,
 		D3D12_BARRIER_SYNC_BUILD_RAYTRACING_ACCELERATION_STRUCTURE,
 		D3D12_BARRIER_SYNC_COPY_RAYTRACING_ACCELERATION_STRUCTURE,
-		D3D12_BARRIER_SYNC_SPLIT
+		D3D12_BARRIER_SYNC_SPLIT,
+		D3D12_BARRIER_SYNC_CONVERT_LINEAR_ALGEBRA_MATRIX
 	};
 
 	assert(barrierSyncs[Log2(static_cast<uint32_t>(BarrierSync::ALL))] == D3D12_BARRIER_SYNC_ALL);
@@ -877,6 +1443,7 @@ D3D12_BARRIER_SYNC XUSG::Ultimate::GetDX12BarrierSync(BarrierSync barrierSync)
 	assert(barrierSyncs[Log2(static_cast<uint32_t>(BarrierSync::BUILD_RAYTRACING_ACCELERATION_STRUCTURE))] == D3D12_BARRIER_SYNC_BUILD_RAYTRACING_ACCELERATION_STRUCTURE);
 	assert(barrierSyncs[Log2(static_cast<uint32_t>(BarrierSync::COPY_RAYTRACING_ACCELERATION_STRUCTURE))] == D3D12_BARRIER_SYNC_COPY_RAYTRACING_ACCELERATION_STRUCTURE);
 	assert(barrierSyncs[Log2(static_cast<uint32_t>(BarrierSync::SPLIT))] == D3D12_BARRIER_SYNC_SPLIT);
+	assert(barrierSyncs[Log2(static_cast<uint32_t>(BarrierSync::CONVERT_LINEAR_ALGEBRA_MATRIX))] == D3D12_BARRIER_SYNC_CONVERT_LINEAR_ALGEBRA_MATRIX);
 	assert(barrierSyncs[Log2(static_cast<uint32_t>(BarrierSync::PREDICATION))] == D3D12_BARRIER_SYNC_EXECUTE_INDIRECT);
 
 	if (barrierSync == BarrierSync::NONE) return D3D12_BARRIER_SYNC_NONE;
@@ -911,6 +1478,7 @@ D3D12_BARRIER_SYNC XUSG::Ultimate::GetDX12BarrierSyncs(BarrierSync barrierSync)
 	barrierSyncs |= APPEND_BARRIER_SYNC(barrierSync, BUILD_RAYTRACING_ACCELERATION_STRUCTURE);
 	barrierSyncs |= APPEND_BARRIER_SYNC(barrierSync, COPY_RAYTRACING_ACCELERATION_STRUCTURE);
 	barrierSyncs |= APPEND_BARRIER_SYNC(barrierSync, SPLIT);
+	barrierSyncs |= APPEND_BARRIER_SYNC(barrierSync, CONVERT_LINEAR_ALGEBRA_MATRIX);
 
 	return barrierSyncs;
 }

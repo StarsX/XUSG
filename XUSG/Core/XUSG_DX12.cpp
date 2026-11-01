@@ -84,12 +84,30 @@ bool Device_DX12::Evict(uint32_t numObjects, void* const* ppObjects)
 	return true;
 }
 
+namespace
+{
+	DX12DeviceCreateHook g_dx12DeviceCreateHook = nullptr;
+}
+
+void XUSG::SetDX12DeviceCreateHook(DX12DeviceCreateHook hook)
+{
+	g_dx12DeviceCreateHook = hook;
+}
+
 uint32_t Device_DX12::Create(void* pAdapter, uint32_t minFeatureLevel, const wchar_t* name)
 {
 	m_adapter = static_cast<IDXGIAdapter*>(pAdapter);
-	const auto hr = D3D12CreateDevice(m_adapter.get(),
-		static_cast<D3D_FEATURE_LEVEL>(minFeatureLevel), IID_PPV_ARGS(&m_device));
-	if (name) m_device->SetName(name);
+	const auto featureLevel = static_cast<D3D_FEATURE_LEVEL>(minFeatureLevel);
+
+	uint32_t hr;
+	if (g_dx12DeviceCreateHook)
+		hr = g_dx12DeviceCreateHook(m_adapter.get(), featureLevel, m_device.put(), name);
+	else
+	{
+		hr = D3D12CreateDevice(m_adapter.get(), featureLevel, IID_PPV_ARGS(&m_device));
+		if (SUCCEEDED(hr) && name) m_device->SetName(name);
+	}
+
 	if (!m_adapter) queryAdapter();
 
 	return hr;
@@ -182,6 +200,11 @@ void Fence_DX12::Create(uint64_t nativeHandle, Device* pDevice)
 uint64_t Fence_DX12::GetNativeHandle() const
 {
 	return reinterpret_cast<uintptr_t>(m_fence.get());
+}
+
+void* Fence_DX12::GetBackend()
+{
+	return this;
 }
 
 //--------------------------------------------------------------------------------------

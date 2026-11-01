@@ -67,6 +67,35 @@ void State_DX12::SetFlags(PipelineFlag flag)
 	m_pKey->Flags = flag;
 }
 
+void State_DX12::SetPartialProgramType(PartialProgramType type)
+{
+	m_pKey->PartialType = type;
+}
+
+void State_DX12::SetPartialProgramFlags(PartialProgramFlag flags)
+{
+	m_pKey->PartialFlags = flags;
+}
+
+void State_DX12::SetExistingCollection(Pipeline collection)
+{
+	m_pKey->ExistingCollection = collection;
+}
+
+void State_DX12::AddPartialProgram(const wchar_t* programName)
+{
+	assert(programName);
+	assert(m_pKey->NumPartialPrograms < size(m_pKey->PartialPrograms));
+	m_pKey->PartialPrograms[m_pKey->NumPartialPrograms++] = programName;
+}
+
+void State_DX12::AddPartialLibrary(Pipeline library)
+{
+	assert(library);
+	assert(m_pKey->NumPartialLibraries < size(m_pKey->PartialLibraries));
+	m_pKey->PartialLibraries[m_pKey->NumPartialLibraries++] = library;
+}
+
 void State_DX12::OMSetBlendState(const Blend* pBlend, uint32_t sampleMask)
 {
 	m_pKey->pBlend = pBlend;
@@ -223,6 +252,16 @@ uint32_t State_DX12::GetNodeMask() const
 PipelineFlag State_DX12::GetFlags() const
 {
 	return m_pKey->Flags;
+}
+
+PartialProgramType State_DX12::GetPartialProgramType() const
+{
+	return m_pKey->PartialType;
+}
+
+PartialProgramFlag State_DX12::GetPartialProgramFlags() const
+{
+	return m_pKey->PartialFlags;
 }
 
 uint32_t State_DX12::OMGetSampleMask() const
@@ -495,15 +534,52 @@ const Generic::DepthStencil* PipelineLib_DX12::GetDepthStencil(DepthStencilPrese
 	return m_depthStencils[preset].get();
 }
 
+#if !defined(D3D12_PARTIAL_GRAPHICS_PROGRAM_TYPE_GENERIC)
+static constexpr D3D12_PARTIAL_GRAPHICS_PROGRAM_TYPE D3D12_PARTIAL_GRAPHICS_PROGRAM_TYPE_GENERIC =
+	static_cast<D3D12_PARTIAL_GRAPHICS_PROGRAM_TYPE>(3);
+#endif
+
 com_ptr<ID3D12StateObject> PipelineLib_DX12::createStateObject(const string& key, const wchar_t* name)
 {
 	const auto pDesc = reinterpret_cast<const PipelineDesc*>(key.data());
-	CD3DX12_STATE_OBJECT_DESC pPsoDesc(D3D12_STATE_OBJECT_TYPE_EXECUTABLE);
+	const auto isPartial = pDesc->PartialType != PartialProgramType::NONE;
+	CD3DX12_STATE_OBJECT_DESC pPsoDesc(isPartial ?
+		D3D12_STATE_OBJECT_TYPE_COLLECTION : D3D12_STATE_OBJECT_TYPE_EXECUTABLE);
+
+	if (!isPartial && pDesc->ExistingCollection)
+	{
+		const auto pCollection = pPsoDesc.CreateSubobject<CD3DX12_EXISTING_COLLECTION_SUBOBJECT>();
+		pCollection->SetExistingCollection(static_cast<ID3D12StateObject*>(pDesc->ExistingCollection));
+	}
 
 	// Program
 	// Defines the shader program name.
-	auto pProgram = pPsoDesc.CreateSubobject<CD3DX12_GENERIC_PROGRAM_SUBOBJECT>();
-	pProgram->SetProgramName(pDesc->Program);
+	CD3DX12_GENERIC_PROGRAM_SUBOBJECT* pProgram = nullptr;
+	CD3DX12_PARTIAL_GRAPHICS_PROGRAM_SUBOBJECT* pPartial = nullptr;
+	if (isPartial)
+	{
+		pPartial = pPsoDesc.CreateSubobject<CD3DX12_PARTIAL_GRAPHICS_PROGRAM_SUBOBJECT>();
+		pPartial->SetProgramName(pDesc->Program);
+		switch (pDesc->PartialType)
+		{
+		case PartialProgramType::PRERASTERIZATION:
+			pPartial->SetPartialGraphicsProgramType(D3D12_PARTIAL_GRAPHICS_PROGRAM_TYPE_PRERASTERIZATION_SHADER);
+			break;
+		case PartialProgramType::PIXEL:
+			pPartial->SetPartialGraphicsProgramType(D3D12_PARTIAL_GRAPHICS_PROGRAM_TYPE_PIXEL_SHADER);
+			break;
+		default:
+			pPartial->SetPartialGraphicsProgramType(D3D12_PARTIAL_GRAPHICS_PROGRAM_TYPE_GENERIC);
+			break;
+		}
+	}
+	else
+	{
+		pProgram = pPsoDesc.CreateSubobject<CD3DX12_GENERIC_PROGRAM_SUBOBJECT>();
+		pProgram->SetProgramName(pDesc->Program);
+		for (uint8_t i = 0; i < pDesc->NumPartialPrograms; ++i)
+			pProgram->AddExport(pDesc->PartialPrograms[i]);
+	}
 
 	// Root signature
 	if (pDesc->Layout)
@@ -520,8 +596,28 @@ com_ptr<ID3D12StateObject> PipelineLib_DX12::createStateObject(const string& key
 		const auto shaderStage = pDesc->ShaderStages[i];
 		if (shaderStage.ShaderName)
 		{
+			const auto stage = static_cast<Shader::Stage>(i);
+			auto includeStage = stage != Shader::CS;
+			if (isPartial)
+			{
+				switch (pDesc->PartialType)
+				{
+				case PartialProgramType::PRERASTERIZATION:
+					includeStage = stage == Shader::VS || stage == Shader::HS || stage == Shader::DS ||
+						stage == Shader::GS || stage == Shader::AS || stage == Shader::MS;
+					break;
+				case PartialProgramType::PIXEL:
+					includeStage = stage == Shader::PS;
+					break;
+				default:
+					break;
+				}
+			}
+			if (!includeStage) continue;
+
 			libShaderNames[shaderStage.LibIndex].emplace_back(shaderStage.ShaderName);
-			pProgram->AddExport(shaderStage.ShaderName);
+			if (pProgram) pProgram->AddExport(shaderStage.ShaderName);
+			else pPartial->AddExport(shaderStage.ShaderName);
 		}
 	}
 
@@ -535,12 +631,23 @@ com_ptr<ID3D12StateObject> PipelineLib_DX12::createStateObject(const string& key
 
 			for (const auto& shaderName : libShaderNames[i]) // Export shaders
 				pLib->DefineExport(shaderName, L"*");
+
 			// Else, use default shader exports for a DXIL library/collection subobject ~ surface all shaders.
 		}
 	}
 
+	const auto lateLink = pDesc->PartialFlags;
+	const auto skipBlend = isPartial && (lateLink & PartialProgramFlag::LATE_LINK_BLEND) == PartialProgramFlag::LATE_LINK_BLEND;
+	const auto skipRasterizer = isPartial && (lateLink & PartialProgramFlag::LATE_LINK_RASTERIZER) == PartialProgramFlag::LATE_LINK_RASTERIZER;
+	const auto skipInputLayout = isPartial && (lateLink & PartialProgramFlag::LATE_LINK_INPUT_LAYOUT) == PartialProgramFlag::LATE_LINK_INPUT_LAYOUT;
+	const auto skipSampleMask = isPartial && (lateLink & PartialProgramFlag::LATE_LINK_SAMPLE_MASK) == PartialProgramFlag::LATE_LINK_SAMPLE_MASK;
+	const auto skipSampleDesc = isPartial && (lateLink & PartialProgramFlag::LATE_LINK_SAMPLE_DESC) == PartialProgramFlag::LATE_LINK_SAMPLE_DESC;
+	const auto skipRTVFormats = isPartial && (lateLink & PartialProgramFlag::LATE_LINK_RENDER_TARGET_FORMAT) == PartialProgramFlag::LATE_LINK_RENDER_TARGET_FORMAT;
+	const auto skipDSVFormat = isPartial && (lateLink & PartialProgramFlag::LATE_LINK_DEPTH_STENCIL_FORMAT) == PartialProgramFlag::LATE_LINK_DEPTH_STENCIL_FORMAT;
+	const auto skipDepthStencil = isPartial && (lateLink & PartialProgramFlag::LATE_LINK_DEPTH_STENCIL) == PartialProgramFlag::LATE_LINK_DEPTH_STENCIL;
+
 	// Blend state
-	if (pDesc->pBlend)
+	if (pDesc->pBlend && !skipBlend)
 	{
 		const auto pBlend = pPsoDesc.CreateSubobject<CD3DX12_BLEND_SUBOBJECT>();
 		pBlend->SetAlphaToCoverageEnable(pDesc->pBlend->AlphaToCoverageEnable);
@@ -561,19 +668,21 @@ com_ptr<ID3D12StateObject> PipelineLib_DX12::createStateObject(const string& key
 			dst.RenderTargetWriteMask = GetDX12ColorWrite(src.WriteMask);
 			pBlend->SetRenderTarget(i, dst);
 		}
-		pProgram->AddSubobject(*pBlend);
+		if (pProgram) pProgram->AddSubobject(*pBlend);
+		else pPartial->AddSubobject(*pBlend);
 	}
 	
 	// Sample mask
-	if (pDesc->SampleMask == UINT_MAX)
+	if (pDesc->SampleMask != UINT_MAX && !skipSampleMask)
 	{
 		const auto pSampleMask = pPsoDesc.CreateSubobject<CD3DX12_SAMPLE_MASK_SUBOBJECT>();
 		pSampleMask->SetSampleMask(pDesc->SampleMask);
-		pProgram->AddSubobject(*pSampleMask);
+		if (pProgram) pProgram->AddSubobject(*pSampleMask);
+		else pPartial->AddSubobject(*pSampleMask);
 	}
 
 	// Rasterizer state
-	if (pDesc->pRasterizer)
+	if (pDesc->pRasterizer && !skipRasterizer)
 	{
 		const auto pRasterizer = pPsoDesc.CreateSubobject<CD3DX12_RASTERIZER_SUBOBJECT>();
 		pRasterizer->SetFillMode(GetDX12FillMode(pDesc->pRasterizer->Fill));
@@ -587,11 +696,12 @@ com_ptr<ID3D12StateObject> PipelineLib_DX12::createStateObject(const string& key
 		pRasterizer->SetForcedSampleCount(pDesc->pRasterizer->ForcedSampleCount);
 		pRasterizer->SetConservativeRaster(pDesc->pRasterizer->ConservativeRaster ?
 			D3D12_CONSERVATIVE_RASTERIZATION_MODE_ON : D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF);
-		pProgram->AddSubobject(*pRasterizer);
+		if (pProgram) pProgram->AddSubobject(*pRasterizer);
+		else pPartial->AddSubobject(*pRasterizer);
 	}
 
 	// Depth-stencil state
-	if (pDesc->pDepthStencil)
+	if (pDesc->pDepthStencil && !skipDepthStencil)
 	{
 		const auto pDepthStencil = pPsoDesc.CreateSubobject<CD3DX12_DEPTH_STENCIL2_SUBOBJECT>();
 		pDepthStencil->SetDepthEnable(pDesc->pDepthStencil->DepthEnable ? TRUE : FALSE);
@@ -614,11 +724,12 @@ com_ptr<ID3D12StateObject> PipelineLib_DX12::createStateObject(const string& key
 		backFace.StencilWriteMask = pDesc->pDepthStencil->BackFace.StencilWriteMask;
 		pDepthStencil->SetBackFace(frontFace);
 		pDepthStencil->SetDepthBoundsTestEnable(pDesc->pDepthStencil->DepthBoundsTestEnable ? TRUE : FALSE);
-		pProgram->AddSubobject(*pDepthStencil);
+		if (pProgram) pProgram->AddSubobject(*pDepthStencil);
+		else pPartial->AddSubobject(*pDepthStencil);
 	}
 
 	// Input layout
-	if (pDesc->pInputLayout)
+	if (pDesc->pInputLayout && !skipInputLayout)
 	{
 		const auto pInputLayout = pPsoDesc.CreateSubobject<CD3DX12_INPUT_LAYOUT_SUBOBJECT>();
 		const auto numElements = static_cast<uint32_t>(pDesc->pInputLayout->size());
@@ -635,7 +746,8 @@ com_ptr<ID3D12StateObject> PipelineLib_DX12::createStateObject(const string& key
 			dst.InstanceDataStepRate = src.InstanceDataStepRate;
 			pInputLayout->AddInputLayoutElementDesc(dst);
 		}
-		pProgram->AddSubobject(*pInputLayout);
+		if (pProgram) pProgram->AddSubobject(*pInputLayout);
+		else pPartial->AddSubobject(*pInputLayout);
 	}
 
 	// Primitive Topology
@@ -643,34 +755,38 @@ com_ptr<ID3D12StateObject> PipelineLib_DX12::createStateObject(const string& key
 	{
 		const auto pPrimitiveTopology = pPsoDesc.CreateSubobject<CD3DX12_PRIMITIVE_TOPOLOGY_SUBOBJECT>();
 		pPrimitiveTopology->SetPrimitiveTopologyType(GetDX12PrimitiveTopologyType(pDesc->PrimTopologyType));
-		pProgram->AddSubobject(*pPrimitiveTopology);
+		if (pProgram) pProgram->AddSubobject(*pPrimitiveTopology);
+		else pPartial->AddSubobject(*pPrimitiveTopology);
 	}
 
 	// RTV formats
-	if (pDesc->NumRenderTargets)
+	if (pDesc->NumRenderTargets && !skipRTVFormats)
 	{
 		const auto pRTVFormats = pPsoDesc.CreateSubobject<CD3DX12_RENDER_TARGET_FORMATS_SUBOBJECT>();
 		pRTVFormats->SetNumRenderTargets(pDesc->NumRenderTargets);
 		for (uint8_t i = 0; i < pDesc->NumRenderTargets; ++i)
 			pRTVFormats->SetRenderTargetFormat(i, GetDXGIFormat(pDesc->RTVFormats[i]));
-		pProgram->AddSubobject(*pRTVFormats);
+		if (pProgram) pProgram->AddSubobject(*pRTVFormats);
+		else pPartial->AddSubobject(*pRTVFormats);
 	}
 
 	// DSV format
-	if (pDesc->DSVFormat != Format::UNKNOWN)
+	if (pDesc->DSVFormat != Format::UNKNOWN && !skipDSVFormat)
 	{
 		const auto pDSVFormat = pPsoDesc.CreateSubobject<CD3DX12_DEPTH_STENCIL_FORMAT_SUBOBJECT>();
 		pDSVFormat->SetDepthStencilFormat(GetDXGIFormat(pDesc->DSVFormat));
-		pProgram->AddSubobject(*pDSVFormat);
+		if (pProgram) pProgram->AddSubobject(*pDSVFormat);
+		else pPartial->AddSubobject(*pDSVFormat);
 	}
 
 	// Sample desc
-	if (pDesc->SampleCount > 1 || pDesc->SampleQuality)
+	if ((pDesc->SampleCount > 1 || pDesc->SampleQuality) && !skipSampleDesc)
 	{
 		const auto pSampleDesc = pPsoDesc.CreateSubobject<CD3DX12_SAMPLE_DESC_SUBOBJECT>();
 		pSampleDesc->SetCount(pDesc->SampleCount);
 		pSampleDesc->SetQuality(pDesc->SampleQuality);
-		pProgram->AddSubobject(*pSampleDesc);
+		if (pProgram) pProgram->AddSubobject(*pSampleDesc);
+		else pPartial->AddSubobject(*pSampleDesc);
 	}
 
 	// Node mask
@@ -678,7 +794,8 @@ com_ptr<ID3D12StateObject> PipelineLib_DX12::createStateObject(const string& key
 	{
 		const auto pNodeMask = pPsoDesc.CreateSubobject<CD3DX12_NODE_MASK_SUBOBJECT>();
 		pNodeMask->SetNodeMask(pDesc->NodeMask);
-		pProgram->AddSubobject(*pNodeMask);
+		if (pProgram) pProgram->AddSubobject(*pNodeMask);
+		else pPartial->AddSubobject(*pNodeMask);
 	}
 
 	// Flags
@@ -686,7 +803,8 @@ com_ptr<ID3D12StateObject> PipelineLib_DX12::createStateObject(const string& key
 	{
 		const auto pFlags = pPsoDesc.CreateSubobject<CD3DX12_FLAGS_SUBOBJECT>();
 		pFlags->SetFlags(GetDX12PipelineFlags(pDesc->Flags));
-		pProgram->AddSubobject(*pFlags);
+		if (pProgram) pProgram->AddSubobject(*pFlags);
+		else pPartial->AddSubobject(*pFlags);
 	}
 
 	// IB strip cube value
@@ -704,7 +822,8 @@ com_ptr<ID3D12StateObject> PipelineLib_DX12::createStateObject(const string& key
 		default:
 			assert(D3D12_INDEX_BUFFER_STRIP_CUT_VALUE(*pIBStripCutValue) == D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_DISABLED);
 		}
-		pProgram->AddSubobject(*pIBStripCutValue);
+		if (pProgram) pProgram->AddSubobject(*pIBStripCutValue);
+		else pPartial->AddSubobject(*pIBStripCutValue);
 	}
 
 	// View instancing
@@ -719,7 +838,42 @@ com_ptr<ID3D12StateObject> PipelineLib_DX12::createStateObject(const string& key
 			pViewInstancing->AddViewInstanceLocation(viewInstance);
 		}
 		pViewInstancing->SetFlags(GetDX12ViewInstanceFlags(pDesc->ViewInstanceFlags));
-		pProgram->AddSubobject(*pViewInstancing);
+		if (pProgram) pProgram->AddSubobject(*pViewInstancing);
+		else pPartial->AddSubobject(*pViewInstancing);
+	}
+
+	// Late-link fields
+	if (isPartial && pDesc->PartialType == PartialProgramType::PRERASTERIZATION &&
+		((lateLink & (PartialProgramFlag::LATE_LINK_INPUT_LAYOUT | PartialProgramFlag::EXCLUDE_PS)) != PartialProgramFlag::NONE))
+	{
+		const auto pFields = pPsoDesc.CreateSubobject<CD3DX12_PRERASTERIZATION_SHADERS_PARTIAL_PROGRAM_FIELDS_SUBOBJECT>();
+		pFields->SetExcludePS((lateLink & PartialProgramFlag::EXCLUDE_PS) == PartialProgramFlag::EXCLUDE_PS ? TRUE : FALSE);
+		pFields->SetLateLinkInputLayoutSubobject(
+			(lateLink & PartialProgramFlag::LATE_LINK_INPUT_LAYOUT) == PartialProgramFlag::LATE_LINK_INPUT_LAYOUT ? TRUE : FALSE);
+		pPartial->AddSubobject(*pFields);
+	}
+	if (isPartial && (pDesc->PartialType == PartialProgramType::PIXEL || pDesc->PartialType == PartialProgramType::COMBINED) &&
+		(lateLink & (PartialProgramFlag::LATE_LINK_BLEND | PartialProgramFlag::LATE_LINK_RASTERIZER |
+			PartialProgramFlag::LATE_LINK_SAMPLE_MASK | PartialProgramFlag::LATE_LINK_SAMPLE_DESC |
+			PartialProgramFlag::LATE_LINK_DEPTH_STENCIL_FORMAT | PartialProgramFlag::LATE_LINK_RENDER_TARGET_FORMAT |
+			PartialProgramFlag::LATE_LINK_DEPTH_STENCIL)) != PartialProgramFlag::NONE)
+	{
+		const auto pFields = pPsoDesc.CreateSubobject<CD3DX12_PIXEL_SHADER_PARTIAL_PROGRAM_FIELDS_SUBOBJECT>();
+		pFields->SetLateLinkBlendSubobject(
+			(lateLink & PartialProgramFlag::LATE_LINK_BLEND) == PartialProgramFlag::LATE_LINK_BLEND ? TRUE : FALSE);
+		pFields->SetLateLinkRasterizerSubobject(
+			(lateLink & PartialProgramFlag::LATE_LINK_RASTERIZER) == PartialProgramFlag::LATE_LINK_RASTERIZER ? TRUE : FALSE);
+		pFields->SetLateLinkSampleMaskSubobject(
+			(lateLink & PartialProgramFlag::LATE_LINK_SAMPLE_MASK) == PartialProgramFlag::LATE_LINK_SAMPLE_MASK ? TRUE : FALSE);
+		pFields->SetLateLinkSampleDescSubobject(
+			(lateLink & PartialProgramFlag::LATE_LINK_SAMPLE_DESC) == PartialProgramFlag::LATE_LINK_SAMPLE_DESC ? TRUE : FALSE);
+		pFields->SetLateLinkDepthStencilFormatSubobject(
+			(lateLink & PartialProgramFlag::LATE_LINK_DEPTH_STENCIL_FORMAT) == PartialProgramFlag::LATE_LINK_DEPTH_STENCIL_FORMAT ? TRUE : FALSE);
+		pFields->SetLateLinkRenderTargetFormatSubobject(
+			(lateLink & PartialProgramFlag::LATE_LINK_RENDER_TARGET_FORMAT) == PartialProgramFlag::LATE_LINK_RENDER_TARGET_FORMAT ? TRUE : FALSE);
+		pFields->SetLateLinkDepthStencilSubobject(
+			(lateLink & PartialProgramFlag::LATE_LINK_DEPTH_STENCIL) == PartialProgramFlag::LATE_LINK_DEPTH_STENCIL ? TRUE : FALSE);
+		pPartial->AddSubobject(*pFields);
 	}
 
 	// Create pipeline

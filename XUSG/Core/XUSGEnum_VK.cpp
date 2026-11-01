@@ -360,11 +360,13 @@ VkImageLayout XUSG::GetVKImageLayout(ResourceState state)
 		return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	if (depthWrite && !depthRead && !color && !uav && !copyDst && !copySrc && !srv && !shadingRate)
 		return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
 	// DEPTH_READ | PSR is valid as depth-stencil read-only (sample + test).
 	if (depthRead && !depthWrite && !color && !uav && !copyDst && !copySrc && !shadingRate)
 		return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 	if (uav && !color && !depthWrite && !depthRead && !copyDst && !copySrc && !srv && !shadingRate)
 		return VK_IMAGE_LAYOUT_GENERAL;
+
 	// Transfer alone uses optimal layouts. Transfer | SRV has no shared optimal layout
 	// (TRANSFER_* cannot be sampled); fall through to GENERAL for the combo.
 	if (copyDst && !srv && !color && !depthWrite && !depthRead && !uav && !copySrc && !shadingRate)
@@ -565,6 +567,7 @@ VkPipelineStageFlags2 XUSG::GetVKStage(const Device_VK* pDevice, ResourceState s
 		stage |= VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT |
 			VK_PIPELINE_STAGE_2_GEOMETRY_SHADER_BIT | VK_PIPELINE_STAGE_2_TESSELLATION_CONTROL_SHADER_BIT |
 			VK_PIPELINE_STAGE_2_TESSELLATION_EVALUATION_SHADER_BIT;
+
 		// Stage bits are valid only when the device feature was enabled.
 		if (pDevice && pDevice->HasMeshShader())
 		{
@@ -574,6 +577,7 @@ VkPipelineStageFlags2 XUSG::GetVKStage(const Device_VK* pDevice, ResourceState s
 		if (pDevice && pDevice->HasRayTracingPipeline())
 			stage |= VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR;
 	}
+
 	// PIXEL_SHADER_RESOURCE maps only to fragment shading (not ALL_GRAPHICS / ALL_COMMANDS).
 	if ((state & ResourceState::PIXEL_SHADER_RESOURCE) != ResourceState::COMMON)
 		stage |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;

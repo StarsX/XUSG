@@ -25,6 +25,9 @@ namespace XUSG
 		Format DSVFormat;
 		uint8_t SampleCount;
 		const wchar_t* Name;
+		uint32_t LibraryFlags;
+		uint32_t LibraryCount;
+		const VkPipeline* pLibraries;
 	};
 
 	Pipeline_VK* CreateVKGraphicsPipeline(const Device_VK* pDevice, const GraphicsPipelineCreateVK& desc);

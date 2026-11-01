@@ -325,8 +325,35 @@ namespace XUSG
 		UNKNOWN,
 		ROW_MAJOR,
 		TILE_UNDEFINED_SWIZZLE,
-		TILE_STANDARD_SWIZZLE
+		TILE_STANDARD_SWIZZLE,
+		GUID // D3D12_TEXTURE_LAYOUT_GUID; set Guid via TextureLayoutDesc
 	};
+
+	// Binary-compatible with Windows GUID / D3D12 LayoutGuid. Feature query
+	// (GetTextureLayouts / CheckFeatureSupport) stays on native APIs.
+	struct TextureLayoutGuid
+	{
+		uint32_t Data1;
+		uint16_t Data2;
+		uint16_t Data3;
+		uint8_t Data4[8];
+	};
+
+	struct TextureLayoutDesc
+	{
+		TextureLayoutDesc() = default;
+		TextureLayoutDesc(TextureLayout layout) noexcept : Layout(layout) {}
+		TextureLayoutDesc(TextureLayout layout, const TextureLayoutGuid& guid) noexcept :
+			Layout(layout), Guid(guid) {}
+		explicit TextureLayoutDesc(const TextureLayoutGuid& guid) noexcept :
+			Layout(TextureLayout::GUID), Guid(guid) {}
+
+		TextureLayout Layout = TextureLayout::UNKNOWN;
+		TextureLayoutGuid Guid = {};
+	};
+
+	// Copy 16 bytes from a native GUID (e.g. after GetTextureLayouts) into TextureLayoutGuid.
+	XUSG_INTERFACE TextureLayoutGuid ToTextureLayoutGuid(const void* pGuidBytes16);
 
 	enum class ResourceViewType : uint8_t
 	{
@@ -546,7 +573,13 @@ namespace XUSG
 		NONE = 0,
 		SHARED = (1 << 0),
 		SHARED_CROSS_ADAPTER = (1 << 1),
-		NON_MONITORED = (1 << 2)
+		NON_MONITORED = (1 << 2),
+
+		// Fence Barriers (Ultimate): command-list SignalBarrier / WaitBarrier.
+		ALLOW_COMMAND_LIST_BARRIERS = (1 << 3),
+
+		// With ALLOW_COMMAND_LIST_BARRIERS: queue/CPU sync (Tier-2 WaitBarrier on DX12).
+		ALLOW_QUEUE_AND_CPU_SYNC = (1 << 4)
 	};
 
 	XUSG_DEF_ENUM_FLAG_OPERATORS(FenceFlag);
@@ -1286,11 +1319,15 @@ namespace XUSG
 
 		virtual uint64_t GetCompletedValue() const = 0;
 
-		// Create from API native handle. nativeHandle is ID3D12Fence* or VkSemaphore.
+		// Create from API native handle. nativeHandle is ID3D12Fence* or VkSemaphore
+		// (command-list-scoped Vulkan fences use VkEvent; see GetBackend).
 		virtual void Create(uint64_t nativeHandle, Device* pDevice) = 0;
 
-		// Get API native handle. Cast to ID3D12Fence* or VkSemaphore.
+		// Get API native handle. Cast to ID3D12Fence* or VkSemaphore
+		// (VkEvent when created with ALLOW_COMMAND_LIST_BARRIERS only on Vulkan).
 		virtual uint64_t GetNativeHandle() const = 0;
+
+		virtual void* GetBackend() = 0;
 
 		using uptr = std::unique_ptr<Fence>;
 		using sptr = std::shared_ptr<Fence>;
@@ -1415,6 +1452,7 @@ namespace XUSG
 		virtual void Barrier(uint32_t numBarriers, const ResourceBarrier* pBarriers) = 0;
 		virtual void ExecuteBundle(CommandList* pCommandList) const = 0;
 		virtual void SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps) = 0;
+
 		// Graphics and compute share one root-parameter binding state.
 		// Do not switch sides after setting only part of the bindings.
 		// A switch invalidates the bindings already set; set that side again before the next draw or dispatch.
@@ -1447,12 +1485,15 @@ namespace XUSG
 		virtual void SOSetTargets(uint32_t startSlot, uint32_t numViews, const StreamOutBufferView* pViews) const = 0;
 		virtual void OMSetRenderTargets(uint32_t numRenderTargetDescriptors, const Descriptor* pRenderTargetViews,
 			const Descriptor* pDepthStencilView = nullptr) const = 0;
+
 		// Clear the currently bound DSV
 		virtual void ClearDepthStencilView(ClearFlag clearFlags, float depth, uint8_t stencil = 0,
 			uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
+
 		// Set depthStencilView = nullptr to clear the currently bound DSV
 		virtual void ClearDepthStencilView(const Descriptor& depthStencilView, ClearFlag clearFlags,
 			float depth, uint8_t stencil = 0, uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
+
 		// Clear the currently bound RTV, renderTargetViewIndex is the currently bound index
 		virtual void ClearRenderTargetView(const float colorRGBA[4], uint8_t renderTargetViewIndex,
 			uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
@@ -1462,6 +1503,7 @@ namespace XUSG
 			const uint32_t values[4], uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
 		virtual void ClearUnorderedAccessViewFloat(const DescriptorTable& descriptorTable, const Descriptor& descriptor,
 			const float values[4], uint32_t numRects = 0, const RectRange* pRects = nullptr) = 0;
+
 		// Vulkan marks discarded image subresources. The next image barrier uses an undefined
 		// old layout, and the next render-target or depth load uses DONT_CARE.
 		// Rectangle discards and buffer discards are not supported on Vulkan.
@@ -1761,13 +1803,14 @@ namespace XUSG
 		virtual ~Texture() {};
 
 		using Resource::Create;
+
 		// Create a texture with auto SRVs and UAVs, where numMips can be 0 for full MIP chain
 		virtual bool Create(Device* pDevice, uint32_t width, uint32_t height, Format format,
 			uint16_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, bool isCubeMap = false,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			const TextureLayoutDesc& textureLayout = {},
 			uint8_t numUavFormats = 0, const Format* uavFormats = nullptr,
 			uint32_t maxThreads = 1) = 0;
 		virtual bool Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset,
@@ -1775,19 +1818,19 @@ namespace XUSG
 			ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			uint8_t sampleCount = 1, bool isCubeMap = false, const wchar_t* name = nullptr,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			const TextureLayoutDesc& textureLayout = {},
 			uint8_t numUavFormats = 0, const Format* uavFormats = nullptr,
 			uint32_t maxThreads = 1) = 0;
 		virtual bool CreateResource(Device* pDevice, uint32_t width, uint32_t height, Format format,
 			uint16_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			uint8_t sampleCount = 1, MemoryFlag memoryFlags = MemoryFlag::NONE,
 			ResourceState initialResourceState = ResourceState::COMMON,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN, uint8_t numCastableFormats = 0,
+			const TextureLayoutDesc& textureLayout = {}, uint8_t numCastableFormats = 0,
 			const Format* pCastableFormats = nullptr, uint32_t maxThreads = 1) = 0;
 		virtual bool CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width,
 			uint32_t height, Format format, uint16_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, ResourceState initialResourceState = ResourceState::COMMON,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN, uint8_t numCastableFormats = 0,
+			const TextureLayoutDesc& textureLayout = {}, uint8_t numCastableFormats = 0,
 			const Format* pCastableFormats = nullptr, uint32_t maxThreads = 1) = 0;
 		virtual bool Upload(CommandList* pCommandList, Resource* pUploader,
 			const SubresourceData* pSubresourceData, uint32_t numSubresources = 1,
@@ -1851,7 +1894,7 @@ namespace XUSG
 		static void GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, Device* pDevice,
 			uint32_t width, uint32_t height, Format format, uint16_t arraySize = 1,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
-			uint8_t sampleCount = 1, TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			uint8_t sampleCount = 1, const TextureLayoutDesc& textureLayout = {},
 			uint64_t requiredAlignment = 0);
 
 		static uint8_t CalculateMipLevels(uint32_t width, uint32_t height, uint32_t depth = 1);
@@ -1873,13 +1916,14 @@ namespace XUSG
 		virtual ~RenderTarget() {};
 
 		using Resource::Create;
+
 		// Create() will create multiple RTVs (1 slice per RTV), where numMips can be 0 for full MIP chain
 		virtual bool Create(Device* pDevice, uint32_t width, uint32_t height, Format format,
 			uint16_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			uint8_t sampleCount = 1, const float* pClearColor = nullptr, bool isCubeMap = false,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			const TextureLayoutDesc& textureLayout = {},
 			uint8_t numUavFormats = 0, const Format* uavFormats = nullptr,
 			uint32_t maxThreads = 1) = 0;
 		virtual bool Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
@@ -1887,23 +1931,24 @@ namespace XUSG
 			uint8_t numMips = 1, uint8_t sampleCount = 1, const float* pClearColor = nullptr,
 			bool isCubeMap = false, const wchar_t* name = nullptr,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			const TextureLayoutDesc& textureLayout = {},
 			uint8_t numUavFormats = 0, const Format* uavFormats = nullptr,
 			uint32_t maxThreads = 1) = 0;
+
 		// CreateArray() will create a single array RTV of n slices, where numMips can be 0 for full MIP chain
 		virtual bool CreateArray(Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize,
 			Format format, ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			uint8_t sampleCount = 1, const float* pClearColor = nullptr, bool isCubeMap = false,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			const TextureLayoutDesc& textureLayout = {},
 			uint8_t numUavFormats = 0, const Format* uavFormats = nullptr,
 			uint32_t maxThreads = 1) = 0;
 		virtual bool CreateArray(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 			uint16_t arraySize, Format format, ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			uint8_t sampleCount = 1, const float* pClearColor = nullptr, bool isCubeMap = false,
 			const wchar_t* name = nullptr, uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			const TextureLayoutDesc& textureLayout = {},
 			uint8_t numUavFormats = 0, const Format* uavFormats = nullptr,
 			uint32_t maxThreads = 1) = 0;
 		virtual bool CreateFromSwapChain(Device* pDevice, SwapChain* pSwapChain,
@@ -1912,12 +1957,12 @@ namespace XUSG
 			Format format, uint16_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, MemoryFlag memoryFlags = MemoryFlag::NONE,
 			ResourceState initialResourceState = ResourceState::COMMON, const float* pClearColor = nullptr,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN, uint8_t numCastableFormats = 0,
+			const TextureLayoutDesc& textureLayout = {}, uint8_t numCastableFormats = 0,
 			const Format* pCastableFormats = nullptr, uint32_t maxThreads = 1) = 0;
 		virtual bool CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width,
 			uint32_t height, Format format, uint16_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, ResourceState initialResourceState = ResourceState::COMMON,
-			const float* pClearColor = nullptr, TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			const float* pClearColor = nullptr, const TextureLayoutDesc& textureLayout = {},
 			uint8_t numCastableFormats = 0, const Format* pCastableFormats = nullptr, uint32_t maxThreads = 1) = 0;
 
 		virtual Descriptor CreateRTV(uint16_t arraySize, uint16_t firstArraySlice = 0,
@@ -1953,7 +1998,7 @@ namespace XUSG
 		static void GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, Device* pDevice,
 			uint32_t width, uint32_t height, Format format, uint16_t arraySize = 1,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
-			uint8_t sampleCount = 1, TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			uint8_t sampleCount = 1, const TextureLayoutDesc& textureLayout = {},
 			uint64_t requiredAlignment = 0);
 	};
 
@@ -1968,6 +2013,7 @@ namespace XUSG
 		virtual ~DepthStencil() {};
 
 		using Resource::Create;
+
 		// Create() will create multiple DSVs (1 slice per DSV), where numMips can be 0 for full MIP chain
 		virtual bool Create(Device* pDevice, uint32_t width, uint32_t height,
 			Format format = Format::UNKNOWN, ResourceFlag resourceFlags = ResourceFlag::NONE,
@@ -1976,14 +2022,15 @@ namespace XUSG
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 			uint16_t stencilSrvComponentMapping = XUSG_DEFAULT_STENCIL_SRV_COMPONENT_MAPPING,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN, uint32_t maxThreads = 1) = 0;
+			const TextureLayoutDesc& textureLayout = {}, uint32_t maxThreads = 1) = 0;
 		virtual bool Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 			Format format = Format::UNKNOWN, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint16_t arraySize = 1, uint8_t numMips = 1, uint8_t sampleCount = 1,
 			float clearDepth = 1.0f, uint8_t clearStencil = 0, bool isCubeMap = false,
 			const wchar_t* name = nullptr, uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 			uint16_t stencilSrvComponentMapping = XUSG_DEFAULT_STENCIL_SRV_COMPONENT_MAPPING,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN, uint32_t maxThreads = 1) = 0;
+			const TextureLayoutDesc& textureLayout = {}, uint32_t maxThreads = 1) = 0;
+
 		// CreateArray() will create a single array DSV of n slices, where numMips can be 0 for full MIP chain
 		virtual bool CreateArray(Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize,
 			Format format = Format::UNKNOWN, ResourceFlag resourceFlags = ResourceFlag::NONE,
@@ -1991,24 +2038,24 @@ namespace XUSG
 			bool isCubeMap = false, MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 			uint16_t stencilSrvComponentMapping = XUSG_DEFAULT_STENCIL_SRV_COMPONENT_MAPPING,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN, uint32_t maxThreads = 1) = 0;
+			const TextureLayoutDesc& textureLayout = {}, uint32_t maxThreads = 1) = 0;
 		virtual bool CreateArray(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 			uint16_t arraySize, Format format = Format::UNKNOWN, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, float clearDepth = 1.0f, uint8_t clearStencil = 0,
 			bool isCubeMap = false, const wchar_t* name = nullptr,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
 			uint16_t stencilSrvComponentMapping = XUSG_DEFAULT_STENCIL_SRV_COMPONENT_MAPPING,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN, uint32_t maxThreads = 1) = 0;
+			const TextureLayoutDesc& textureLayout = {}, uint32_t maxThreads = 1) = 0;
 		virtual bool CreateResource(Device* pDevice, uint32_t width, uint32_t height,
 			Format format, uint16_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, MemoryFlag memoryFlags = MemoryFlag::NONE,
 			ResourceState initialResourceState = ResourceState::DEPTH_WRITE, float clearDepth = 1.0f,
-			uint8_t clearStencil = 0, TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			uint8_t clearStencil = 0, const TextureLayoutDesc& textureLayout = {},
 			uint32_t maxThreads = 1) = 0;
 		virtual bool CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width,
 			uint32_t height, Format format, uint16_t arraySize = 1, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, uint8_t sampleCount = 1, ResourceState initialResourceState = ResourceState::DEPTH_WRITE,
-			float clearDepth = 1.0f, uint8_t clearStencil = 0, TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			float clearDepth = 1.0f, uint8_t clearStencil = 0, const TextureLayoutDesc& textureLayout = {},
 			uint32_t maxThreads = 1) = 0;
 
 		virtual Descriptor CreateDSV(uint16_t arraySize, uint16_t firstArraySlice = 0, Format format = Format::UNKNOWN,
@@ -2026,7 +2073,7 @@ namespace XUSG
 		static void GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, Device* pDevice,
 			uint32_t width, uint32_t height, Format format, uint16_t arraySize = 1,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
-			uint8_t sampleCount = 1, TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			uint8_t sampleCount = 1, const TextureLayoutDesc& textureLayout = {},
 			uint64_t requiredAlignment = 0);
 	};
 
@@ -2041,29 +2088,30 @@ namespace XUSG
 		virtual ~Texture3D() {};
 
 		using Resource::Create;
+
 		// Create a 3D texture with auto SRVs and UAVs, where numMips can be 0 for full MIP chain
 		virtual bool Create(Device* pDevice, uint32_t width, uint32_t height, uint16_t depth,
 			Format format, ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 			uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			const TextureLayoutDesc& textureLayout = {},
 			uint8_t numUavFormats = 0, const Format* uavFormats = nullptr,
 			uint32_t maxThreads = 1) = 0;
 		virtual bool Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 			uint16_t depth, Format format, ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			const wchar_t* name = nullptr, uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			const TextureLayoutDesc& textureLayout = {},
 			uint8_t numUavFormats = 0, const Format* uavFormats = nullptr,
 			uint32_t maxThreads = 1) = 0;
 		virtual bool CreateResource(Device* pDevice, uint32_t width, uint32_t height, uint16_t depth,
 			Format format, ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, ResourceState initialResourceState = ResourceState::COMMON,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN, uint8_t numCastableFormats = 0,
+			const TextureLayoutDesc& textureLayout = {}, uint8_t numCastableFormats = 0,
 			const Format* pCastableFormats = nullptr, uint32_t maxThreads = 1) = 0;
 		virtual bool CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width,
 			uint32_t height, uint16_t depth, Format format, ResourceFlag resourceFlags = ResourceFlag::NONE,
 			uint8_t numMips = 1, ResourceState initialResourceState = ResourceState::COMMON,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			const TextureLayoutDesc& textureLayout = {},
 			uint8_t numCastableFormats = 0, const Format* pCastableFormats = nullptr,
 			uint32_t maxThreads = 1) = 0;
 
@@ -2084,7 +2132,7 @@ namespace XUSG
 		static void GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, Device* pDevice,
 			uint32_t width, uint32_t height, uint16_t depth, Format format,
 			ResourceFlag resourceFlags = ResourceFlag::NONE, uint8_t numMips = 1,
-			TextureLayout textureLayout = TextureLayout::UNKNOWN,
+			const TextureLayoutDesc& textureLayout = {},
 			uint64_t requiredAlignment = 0);
 	};
 

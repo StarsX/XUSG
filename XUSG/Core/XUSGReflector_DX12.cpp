@@ -28,17 +28,15 @@ struct DxilContainerHeader
 	uint8_t					Hash[g_dxilContainerHashSize];
 	DxilContainerVersion	Version;
 	uint32_t				ContainerSizeInBytes; // From start of this header
-	uint32_t				PartCount;
-	// Structure is followed by uint32_t PartOffset[PartCount];
-	// The offset is to a DxilPartHeader.
+	uint32_t				PartCount; // Structure is followed by uint32_t PartOffset[PartCount];
+	                                   // The offset is to a DxilPartHeader.
 };
 
 // Use this type to describe the size and type of a DXIL container part.
 struct DxilPartHeader
 {
 	uint32_t PartFourCC; // Four char code for part type.
-	uint32_t PartSize;   // Byte count for PartData.
-	// Structure is followed by uint8_t PartData[PartSize].
+	uint32_t PartSize;   // Byte count for PartData; structure is followed by uint8_t PartData[PartSize].
 };
 
 #define DXIL_FOURCC(ch0, ch1, ch2, ch3) ( \

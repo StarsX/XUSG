@@ -35,6 +35,7 @@ namespace XUSG
 	VkSamplerMipmapMode GetVKMipmapMode(SamplerFilter filter);
 	VkSamplerAddressMode GetVKSamplerAddressMode(TextureAddressMode mode);
 	VkSamplerReductionMode GetVKReductionMode(SamplerFilter filter);
+
 	// Map RTS0 root-sig filter dword (D3D12 bit encoding) to sequential SamplerFilter.
 	SamplerFilter GetSamplerFilterFromRootSig(uint32_t encodedFilter);
 	bool IsAnisotropicSamplerFilter(SamplerFilter filter);

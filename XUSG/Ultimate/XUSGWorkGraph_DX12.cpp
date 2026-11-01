@@ -485,6 +485,7 @@ com_ptr<ID3D12StateObject> PipelineLib_DX12::createStateObject(const string& key
 			pKeyShaderLibHeader = reinterpret_cast<const State_DX12::KeyShaderLibHeader*>
 				(&pShaderNames[pKeyShaderLibHeader->NumShaders]);
 		}
+
 		// Else, use default shader exports for a DXIL library/collection subobject ~ surface all shaders.
 	}
 

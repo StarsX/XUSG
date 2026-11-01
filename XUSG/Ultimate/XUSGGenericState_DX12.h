@@ -40,6 +40,13 @@ namespace XUSG
 			ViewInstance ViewInstances[4];
 			ViewInstanceFlag ViewInstanceFlags;
 			const wchar_t* Program;
+			PartialProgramType PartialType;
+			PartialProgramFlag PartialFlags;
+			Pipeline ExistingCollection;
+			const wchar_t* PartialPrograms[8];
+			uint8_t NumPartialPrograms;
+			Pipeline PartialLibraries[4];
+			uint8_t NumPartialLibraries;
 		};
 
 		class State_DX12 :
@@ -56,6 +63,11 @@ namespace XUSG
 			void SetProgram(const wchar_t* programName);
 			void SetNodeMask(uint32_t nodeMask);
 			void SetFlags(PipelineFlag flag);
+			void SetPartialProgramType(PartialProgramType type);
+			void SetPartialProgramFlags(PartialProgramFlag flags);
+			void SetExistingCollection(Pipeline collection);
+			void AddPartialProgram(const wchar_t* programName);
+			void AddPartialLibrary(Pipeline library);
 
 			void OMSetBlendState(const Blend* pBlend, uint32_t sampleMask = UINT_MAX);
 			void RSSetState(const Rasterizer* pRasterizer);
@@ -91,6 +103,8 @@ namespace XUSG
 			ProgramIdentifier GetProgramIdentifier(const wchar_t* programName = nullptr) const;
 			uint32_t GetNodeMask() const;
 			PipelineFlag GetFlags() const;
+			PartialProgramType GetPartialProgramType() const;
+			PartialProgramFlag GetPartialProgramFlags() const;
 
 			uint32_t OMGetSampleMask() const;
 			const Graphics::Blend* OMGetBlendState() const;

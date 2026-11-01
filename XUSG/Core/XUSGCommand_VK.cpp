@@ -745,6 +745,7 @@ void CommandList_VK::Barrier(uint32_t numBarriers, const ResourceBarrier* pBarri
 		auto dstStage = GetVKStage(m_pDevice, barrier.StateAfter);
 		auto srcAccess = GetVKAccess(m_pDevice, barrier.StateBefore);
 		auto dstAccess = GetVKAccess(m_pDevice, barrier.StateAfter);
+
 		// PRESENT aliases COMMON. Narrow WSI transitions so the GPU is not
 		// stalled on ALL_COMMANDS / MEMORY_* for every presentable barrier.
 		if (pResource->IsPresentable() && barrier.StateBefore == ResourceState::COMMON)
@@ -790,6 +791,7 @@ void CommandList_VK::Barrier(uint32_t numBarriers, const ResourceBarrier* pBarri
 			image.subresourceRange.baseArrayLayer = layer;
 			image.subresourceRange.layerCount = 1;
 		}
+
 		// vkd3d common-layout promotion: COMMON -> compatible read layout needs no transition.
 		// An image still at UNDEFINED must take that first transition even when the
 		// tracked states share one Vulkan layout.
@@ -1784,6 +1786,7 @@ void CommandList_VK::beginRendering() const
 		depth.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	if (m_state->m_hasDepth && (m_state->m_depth.PendingClear & PENDING_CLEAR_STENCIL))
 		stencil.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+
 	// Read-only DSV: keep LOAD for tests, skip STORE (avoids pointless depth write traffic).
 	if (m_state->m_hasDepth && m_state->m_depth.ReadOnly)
 	{
@@ -2010,6 +2013,7 @@ void CommandList_VK::writePush(bool graphics, uint32_t rootIndex, uint32_t offse
 	auto* buffer = graphics ? m_state->m_graphicsPushData : m_state->m_computePushData;
 	auto& dirty = graphics ? m_state->m_graphicsPushDirty : m_state->m_computePushDirty;
 	const auto resync = graphics ? m_state->m_graphicsPushResync : m_state->m_computePushResync;
+
 	// Skip unchanged data only when the current layout still owns the GPU push state.
 	if (!resync && memcmp(buffer + offset, pData, size) == 0) return;
 	memcpy(buffer + offset, pData, size);
@@ -2262,6 +2266,7 @@ void CommandList_VK::prepareBarriersOutsidePass(uint32_t numBarriers, const Reso
 {
 	(void)numBarriers;
 	(void)pBarriers;
+
 	// Without dynamicRenderingLocalRead / shader_tile_image, vkCmdPipelineBarrier2
 	// (including image layout transitions) is illegal inside vkCmdBeginRendering.
 	if (m_state->m_renderingBegun) endRendering();
@@ -2803,6 +2808,7 @@ bool CommandQueue_VK::Signal(Fence* pFence, uint64_t value)
 {
 	assert(pFence);
 	const Semaphore signal = { pFence, value };
+
 	// Submit deferred lists, then flush pending PresentKHR.
 	XUSG_N_RETURN(flushDeferred(nullptr, 0, &signal, 1), false);
 	XUSG_N_RETURN(FlushQueuePendingPresent(m_queue), false);

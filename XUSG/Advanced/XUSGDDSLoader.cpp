@@ -353,6 +353,7 @@ static Format GetFormat(const DDS_PIXELFORMAT& ddpf)
 			// For 'correct' writers, this should be 0x000003ff,0x000ffc00,0x3ff00000 for RGB data
 			if (ISBITMASK(0x3ff00000, 0x000ffc00, 0x000003ff, 0xc0000000))
 				return Format::R10G10B10A2_UNORM;
+
 			// No XUSG format maps to ISBITMASK(0x000003ff,0x000ffc00,0x3ff00000,0xc0000000) aka D3DFMT_A2R10G10B10
 			if (ISBITMASK(0x0000ffff, 0xffff0000, 0x00000000, 0x00000000))
 				return Format::R16G16_UNORM;
@@ -372,9 +373,11 @@ static Format GetFormat(const DDS_PIXELFORMAT& ddpf)
 				return Format::B5G5R5A1_UNORM;
 			if (ISBITMASK(0xf800, 0x07e0, 0x001f, 0x0000))
 				return Format::B5G6R5_UNORM;
+
 			// No XUSG format maps to ISBITMASK(0x7c00,0x03e0,0x001f,0x0000) aka D3DFMT_X1R5G5B5
 			if (ISBITMASK(0x0f00, 0x00f0, 0x000f, 0xf000))
 				return Format::B4G4R4A4_UNORM;
+
 			// No XUSG format maps to ISBITMASK(0x0f00,0x00f0,0x000f,0x0000) aka D3DFMT_X4R4G4B4
 			// No 3:3:2, 3:3:2:8, or paletted XUSG formats aka D3DFMT_A8R3G3B2, D3DFMT_R3G3B2, D3DFMT_P8, D3DFMT_A8P8, etc.
 			break;
@@ -386,6 +389,7 @@ static Format GetFormat(const DDS_PIXELFORMAT& ddpf)
 		{
 			if (ISBITMASK(0x000000ff, 0x00000000, 0x00000000, 0x00000000))
 				return Format::R8_UNORM; // D3DX10/11 writes this out as DX10 extension
+
 			// No XUSG format maps to ISBITMASK(0x0f,0x00,0x00,0xf0) aka D3DFMT_A4L4
 		}
 

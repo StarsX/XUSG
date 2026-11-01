@@ -253,6 +253,7 @@ namespace
 	void FillStaticSampler(Sampler& sampler, const uint32_t* pWords, bool hasFlags)
 	{
 		sampler = {};
+
 		// pWords[0] is RTS0 bit-encoded filter, not sequential SamplerFilter.
 		sampler.Filter = GetSamplerFilterFromRootSig(pWords[0]);
 		sampler.AddressU = static_cast<TextureAddressMode>(pWords[1] - 1u);
@@ -287,6 +288,7 @@ namespace
 
 		memcpy(&sampler.MinLOD, &pWords[8], sizeof(float));
 		memcpy(&sampler.MaxLOD, &pWords[9], sizeof(float));
+
 		// D3D12_SAMPLER_FLAG_UINT_BORDER_COLOR = 0x1, NON_NORMALIZED = 0x2 (matches SamplerFlag).
 		if (hasFlags)
 			sampler.Flags |= static_cast<SamplerFlag>(pWords[13] & 0x3u);
@@ -1088,6 +1090,7 @@ void PipelineLayoutLib_VK::fillEmbeddedSampler(EmbeddedSampler_VK& embedded, con
 		const auto g = pSampler->BorderColorU[1];
 		const auto b = pSampler->BorderColorU[2];
 		const auto a = pSampler->BorderColorU[3];
+
 		// Match vkd3d: standard UINT borders use 0/1, not 0/~0.
 		const auto black = r == 0 && g == 0 && b == 0;
 		const auto white = r == 1 && g == 1 && b == 1;
@@ -1140,6 +1143,7 @@ void PipelineLayoutLib_VK::fillEmbeddedSampler(EmbeddedSampler_VK& embedded, con
 	embedded.Info.addressModeV = GetVKSamplerAddressMode(pSampler->AddressV);
 	embedded.Info.addressModeW = GetVKSamplerAddressMode(pSampler->AddressW);
 	embedded.Info.mipLodBias = pSampler->MipLODBias;
+
 	// Match vkd3d: aniso from filter type, then MaxAnisotropy < 1 disables; clamp to 16.
 	embedded.Info.anisotropyEnable = IsAnisotropicSamplerFilter(pSampler->Filter) && pSampler->MaxAnisotropy >= 1;
 	embedded.Info.maxAnisotropy = embedded.Info.anisotropyEnable ?

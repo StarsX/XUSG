@@ -9,6 +9,7 @@
 #include "XUSGUltimate_DX12.h"
 #include "XUSGPipelineState_DX12.h"
 #include "XUSGWorkGraph_DX12.h"
+#include "XUSGComputeGraph_DX12.h"
 #include "XUSGGenericState_DX12.h"
 #ifndef XUSG_NO_VULKAN
 #include "Core/XUSGCommand_VK.h"
@@ -234,6 +235,30 @@ void Ultimate::GetLinearAlgebraMatrixInfo(const Device* pDevice, LinearAlgebraMa
 	}
 
 	return GetDX12LinearAlgebraMatrixInfo(pDevice, matrixInfo);
+}
+
+void Ultimate::EnableAsyncCommandsFallback(bool enable)
+{
+	Device::LockApi();
+	XUSG_IF_VK(
+		// Vulkan maps async commands to native transfer/clear ops; no runtime fallback layer.
+		(void)enable;
+		return;
+	)
+
+	EnableDX12AsyncCommandsFallback(enable);
+}
+
+bool Ultimate::GetAsyncCommandsImpl(Device* pDevice, AsyncCommandsImpl* pImpl)
+{
+	Device::LockApi();
+	XUSG_IF_VK(
+		(void)pDevice;
+		if (pImpl) *pImpl = AsyncCommandsImpl::NATIVE;
+		return true;
+	)
+
+	return GetDX12AsyncCommandsImpl(pDevice, pImpl);
 }
 
 void Ultimate::SetLinearAlgebraMatrixConversionInfo(LinearAlgebraMatrixConversionInfo& conversion,
@@ -724,6 +749,104 @@ Generic::PipelineLib::sptr Generic::PipelineLib::MakeShared(Device* pDevice)
 {
 	Device::LockApi();
 	XUSG_IF_VK(return make_shared<PipelineLib_VK>(pDevice);)
+
+	return make_shared<PipelineLib_DX12>(pDevice);
+}
+
+bool ComputeGraph::GetVersion(Device* pDevice, uint64_t maxVersion, uint64_t* pHighestVersion)
+{
+	Device::LockApi();
+	XUSG_IF_VK(
+		assert(!"ComputeGraph::GetVersion is not implemented on Vulkan");
+		(void)pDevice;
+		(void)maxVersion;
+		if (pHighestVersion) *pHighestVersion = 0;
+		return false;
+	)
+
+	return GetDX12Version(pDevice, maxVersion, pHighestVersion);
+}
+
+bool ComputeGraph::GetSupport(Device* pDevice, Support* pSupport)
+{
+	Device::LockApi();
+	XUSG_IF_VK(
+		assert(!"ComputeGraph::GetSupport is not implemented on Vulkan");
+		(void)pDevice;
+		if (pSupport)
+		{
+			pSupport->MultisubgraphPartitionsSupported = false;
+			pSupport->CpuBindingSupported = false;
+		}
+		return false;
+	)
+
+	return GetDX12Support(pDevice, pSupport);
+}
+
+bool ComputeGraph::Exchange(Device* pDevice, ExchangeType type, uint64_t irVersion,
+	const void* pInputData, size_t inputDataByteSize, void* pOutputData, size_t* pOutputDataByteSize)
+{
+	Device::LockApi();
+	XUSG_IF_VK(
+		assert(!"ComputeGraph::Exchange is not implemented on Vulkan");
+		(void)pDevice;
+		(void)type;
+		(void)irVersion;
+		(void)pInputData;
+		(void)inputDataByteSize;
+		(void)pOutputData;
+		(void)pOutputDataByteSize;
+		return false;
+	)
+
+	return GetDX12Exchange(pDevice, type, irVersion, pInputData, inputDataByteSize, pOutputData, pOutputDataByteSize);
+}
+
+ComputeGraph::State::uptr ComputeGraph::State::MakeUnique()
+{
+	Device::LockApi();
+	assert(Device::GetApi() != API::VULKAN && "Compute graph is not implemented on Vulkan");
+
+	return make_unique<State_DX12>();
+}
+
+ComputeGraph::State::sptr ComputeGraph::State::MakeShared()
+{
+	Device::LockApi();
+	assert(Device::GetApi() != API::VULKAN && "Compute graph is not implemented on Vulkan");
+
+	return make_shared<State_DX12>();
+}
+
+ComputeGraph::PipelineLib::uptr ComputeGraph::PipelineLib::MakeUnique()
+{
+	Device::LockApi();
+	assert(Device::GetApi() != API::VULKAN && "Compute graph is not implemented on Vulkan");
+
+	return make_unique<PipelineLib_DX12>();
+}
+
+ComputeGraph::PipelineLib::sptr ComputeGraph::PipelineLib::MakeShared()
+{
+	Device::LockApi();
+	assert(Device::GetApi() != API::VULKAN && "Compute graph is not implemented on Vulkan");
+
+	return make_shared<PipelineLib_DX12>();
+}
+
+ComputeGraph::PipelineLib::uptr ComputeGraph::PipelineLib::MakeUnique(Device* pDevice)
+{
+	Device::LockApi();
+	assert(Device::GetApi() != API::VULKAN && "Compute graph is not implemented on Vulkan");
+
+	return make_unique<PipelineLib_DX12>(pDevice);
+}
+
+ComputeGraph::PipelineLib::sptr ComputeGraph::PipelineLib::MakeShared(Device* pDevice)
+{
+	Device::LockApi();
+	assert(Device::GetApi() != API::VULKAN && "Compute graph is not implemented on Vulkan");
 
 	return make_shared<PipelineLib_DX12>(pDevice);
 }

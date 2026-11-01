@@ -70,6 +70,8 @@ namespace XUSG
 
 		uint64_t GetNativeHandle() const;
 
+		void* GetBackend();
+
 	protected:
 		com_ptr<ID3D12Fence> m_fence;
 	};
@@ -131,6 +133,12 @@ namespace XUSG
 	Blob GetDX12PipelineCache(Pipeline pipeline);
 
 	void GetDX12BlobData(const Blob& blob, const void** ppData, size_t* pSize);
+
+	// Optional Device::Create override (e.g. Ultimate async-commands fallback probe).
+	// Hook owns SetName when non-null; return HRESULT of D3D12CreateDevice.
+	using DX12DeviceCreateHook = uint32_t(*)(IDXGIAdapter* pAdapter, D3D_FEATURE_LEVEL minFeatureLevel,
+		ID3D12Device** ppDevice, const wchar_t* name);
+	void SetDX12DeviceCreateHook(DX12DeviceCreateHook hook);
 
 	Device_DX12* AsDX12(Device* p);
 	CommandLayout_DX12* AsDX12(CommandLayout* p);

@@ -763,6 +763,7 @@ void Resource_VK::WrapImage(VkDevice device, VkImage image, VkFormat format, uin
 	m_depthOrArray = 1;
 	m_mipLevels = 1;
 	m_presentable = presentable;
+
 	// Non-WSI images use COLOR_ATTACHMENT as COMMON (vkd3d user backbuffer).
 	if (!presentable)
 		m_commonLayout = m_pDevice ? m_pDevice->PreferredImageLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) :
@@ -1116,6 +1117,7 @@ bool Resource_VK::createImage(Heap* pHeap, uint64_t heapOffset, uint32_t width, 
 	m_mipLevels = numMips ? numMips : 1;
 	m_sampleCount = sampleCount ? sampleCount : 1;
 	m_vkFormat = GetVKFormat(m_pDevice, format);
+
 	// Mirror vkd3d vk_common_image_layout_from_d3d12_desc for non-presentable images.
 	if ((resourceFlags & ResourceFlag::ALLOW_SIMULTANEOUS_ACCESS) != ResourceFlag::NONE)
 		m_commonLayout = VK_IMAGE_LAYOUT_GENERAL;
@@ -1992,10 +1994,11 @@ Texture_VK::~Texture_VK()
 
 bool Texture_VK::Create(Device* pDevice, uint32_t width, uint32_t height, Format format,
 	uint16_t arraySize, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount, bool isCubeMap,
-	MemoryFlag memoryFlags, const wchar_t* name, uint16_t srvComponentMapping, TextureLayout textureLayout,
+	MemoryFlag memoryFlags, const wchar_t* name, uint16_t srvComponentMapping, const TextureLayoutDesc& textureLayout,
 	uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads)
 {
 	(void)memoryFlags;
+	assert(textureLayout.Layout != TextureLayout::GUID && "GUID texture layout is DX12-only");
 	(void)textureLayout;
 	assert(sampleCount >= 1 && sampleCount <= 16);
 	assert(sampleCount <= 1 || numMips <= 1);
@@ -2029,9 +2032,10 @@ bool Texture_VK::Create(Device* pDevice, uint32_t width, uint32_t height, Format
 
 bool Texture_VK::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 	Format format, uint16_t arraySize, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount, bool isCubeMap,
-	const wchar_t* name, uint16_t srvComponentMapping, TextureLayout textureLayout, uint8_t numUavFormats,
+	const wchar_t* name, uint16_t srvComponentMapping, const TextureLayoutDesc& textureLayout, uint8_t numUavFormats,
 	const Format* uavFormats, uint32_t maxThreads)
 {
+	assert(textureLayout.Layout != TextureLayout::GUID && "GUID texture layout is DX12-only");
 	(void)textureLayout;
 	assert(sampleCount >= 1 && sampleCount <= 16);
 	assert(sampleCount <= 1 || numMips <= 1);
@@ -2060,10 +2064,11 @@ bool Texture_VK::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint3
 
 bool Texture_VK::CreateResource(Device* pDevice, uint32_t width, uint32_t height, Format format,
 	uint16_t arraySize, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount, MemoryFlag memoryFlags,
-	ResourceState initialResourceState, TextureLayout textureLayout, uint8_t numCastableFormats,
+	ResourceState initialResourceState, const TextureLayoutDesc& textureLayout, uint8_t numCastableFormats,
 	const Format* pCastableFormats, uint32_t maxThreads)
 {
 	(void)memoryFlags;
+	assert(textureLayout.Layout != TextureLayout::GUID && "GUID texture layout is DX12-only");
 	(void)textureLayout;
 	XUSG_N_RETURN(initialize(pDevice, maxThreads), false);
 	m_format = format;
@@ -2077,9 +2082,10 @@ bool Texture_VK::CreateResource(Device* pDevice, uint32_t width, uint32_t height
 
 bool Texture_VK::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width,
 	uint32_t height, Format format, uint16_t arraySize, ResourceFlag resourceFlags, uint8_t numMips,
-	uint8_t sampleCount, ResourceState initialResourceState, TextureLayout textureLayout, uint8_t numCastableFormats,
+	uint8_t sampleCount, ResourceState initialResourceState, const TextureLayoutDesc& textureLayout, uint8_t numCastableFormats,
 	const Format* pCastableFormats, uint32_t maxThreads)
 {
+	assert(textureLayout.Layout != TextureLayout::GUID && "GUID texture layout is DX12-only");
 	(void)textureLayout;
 	XUSG_N_RETURN(initialize(pDevice, maxThreads), false);
 	m_format = format;
@@ -2462,8 +2468,9 @@ void* Texture_VK::Map(const Range* pReadRange, uint32_t subresource)
 
 void Texture_VK::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, Device* pDevice,
 	uint32_t width, uint32_t height, Format format, uint16_t arraySize, ResourceFlag resourceFlags,
-	uint8_t numMips, uint8_t sampleCount, TextureLayout textureLayout, uint64_t requiredAlignment)
+	uint8_t numMips, uint8_t sampleCount, const TextureLayoutDesc& textureLayout, uint64_t requiredAlignment)
 {
+	assert(textureLayout.Layout != TextureLayout::GUID && "GUID texture layout is DX12-only");
 	(void)textureLayout;
 	assert(pDevice);
 	const auto pVkDevice = AsVK(pDevice);
@@ -2587,7 +2594,7 @@ RenderTarget_VK::~RenderTarget_VK()
 
 bool RenderTarget_VK::Create(Device* pDevice, uint32_t width, uint32_t height, Format format, uint16_t arraySize,
 	ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount, const float* pClearColor, bool isCubeMap,
-	MemoryFlag memoryFlags, const wchar_t* name, uint16_t srvComponentMapping, TextureLayout textureLayout,
+	MemoryFlag memoryFlags, const wchar_t* name, uint16_t srvComponentMapping, const TextureLayoutDesc& textureLayout,
 	uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads)
 {
 	(void)pClearColor;
@@ -2610,7 +2617,7 @@ bool RenderTarget_VK::Create(Device* pDevice, uint32_t width, uint32_t height, F
 
 bool RenderTarget_VK::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 	Format format, uint16_t arraySize, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount, const float* pClearColor,
-	bool isCubeMap, const wchar_t* name, uint16_t srvComponentMapping, TextureLayout textureLayout,
+	bool isCubeMap, const wchar_t* name, uint16_t srvComponentMapping, const TextureLayoutDesc& textureLayout,
 	uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads)
 {
 	(void)pClearColor;
@@ -2633,7 +2640,7 @@ bool RenderTarget_VK::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, 
 
 bool RenderTarget_VK::CreateArray(Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize, Format format,
 	ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount, const float* pClearColor, bool isCubeMap,
-	MemoryFlag memoryFlags, const wchar_t* name, uint16_t srvComponentMapping, TextureLayout textureLayout,
+	MemoryFlag memoryFlags, const wchar_t* name, uint16_t srvComponentMapping, const TextureLayoutDesc& textureLayout,
 	uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads)
 {
 	(void)pClearColor;
@@ -2653,7 +2660,7 @@ bool RenderTarget_VK::CreateArray(Device* pDevice, uint32_t width, uint32_t heig
 
 bool RenderTarget_VK::CreateArray(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 	uint16_t arraySize, Format format, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount, const float* pClearColor,
-	bool isCubeMap, const wchar_t* name, uint16_t srvComponentMapping, TextureLayout textureLayout,
+	bool isCubeMap, const wchar_t* name, uint16_t srvComponentMapping, const TextureLayoutDesc& textureLayout,
 	uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads)
 {
 	(void)pClearColor;
@@ -2677,6 +2684,7 @@ bool RenderTarget_VK::CreateFromSwapChain(Device* pDevice, SwapChain* pSwapChain
 	m_pDevice = AsVK(pDevice);
 	assert(m_pDevice);
 	XUSG_N_RETURN(initialize(pDevice, maxThreads), false);
+
 	// GetBuffer sets presentable=true for direct WSI, false for user-BB blit (AMD).
 	XUSG_N_RETURN(pSwapChain->GetBuffer(static_cast<uint8_t>(bufferIndex), this), false);
 	m_format = GetFormatFromVK(m_vkFormat);
@@ -2689,7 +2697,7 @@ bool RenderTarget_VK::CreateFromSwapChain(Device* pDevice, SwapChain* pSwapChain
 
 bool RenderTarget_VK::CreateResource(Device* pDevice, uint32_t width, uint32_t height, Format format, uint16_t arraySize,
 	ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount, MemoryFlag memoryFlags, ResourceState initialResourceState,
-	const float* pClearColor, TextureLayout textureLayout, uint8_t numCastableFormats, const Format* pCastableFormats, uint32_t maxThreads)
+	const float* pClearColor, const TextureLayoutDesc& textureLayout, uint8_t numCastableFormats, const Format* pCastableFormats, uint32_t maxThreads)
 {
 	(void)pClearColor;
 
@@ -2699,7 +2707,7 @@ bool RenderTarget_VK::CreateResource(Device* pDevice, uint32_t width, uint32_t h
 
 bool RenderTarget_VK::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width,
 	uint32_t height, Format format, uint16_t arraySize, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount,
-	ResourceState initialResourceState, const float* pClearColor, TextureLayout textureLayout, uint8_t numCastableFormats,
+	ResourceState initialResourceState, const float* pClearColor, const TextureLayoutDesc& textureLayout, uint8_t numCastableFormats,
 	const Format* pCastableFormats, uint32_t maxThreads)
 {
 	(void)pClearColor;
@@ -2789,6 +2797,7 @@ uint32_t RenderTarget_VK::GenerateMips(CommandList* pCommandList, ResourceBarrie
 			XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::NONE, ResourceState::AUTO, threadIdx);
 	if (!numSlices) numSlices = static_cast<uint16_t>(m_depthOrArray - baseSlice);
 	if (!numMips) numMips = static_cast<uint8_t>(m_mipLevels - baseMip);
+
 	// Chain samples the previous mip in PS; keep intermediate barriers to PSR only.
 	// Final mip uses caller dstState (may include NPSR / ASR).
 	const auto sampleState = ResourceState::PIXEL_SHADER_RESOURCE;
@@ -2798,6 +2807,7 @@ uint32_t RenderTarget_VK::GenerateMips(CommandList* pCommandList, ResourceBarrie
 		if (j) for (uint16_t k = 0; k < numSlices; ++k)
 		{
 			const uint16_t n = baseSlice + k;
+
 			// Dest mip fully overwritten - end live pass if needed, UNDEFINED for barrier.
 			pCommandList->DiscardResource(this, 0, nullptr,
 				CalculateSubresource(j, n), 1);
@@ -2839,7 +2849,7 @@ const Descriptor& RenderTarget_VK::GetRTV(uint16_t slice, uint8_t mipLevel) cons
 
 void RenderTarget_VK::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, Device* pDevice, uint32_t width,
 	uint32_t height, Format format, uint16_t arraySize, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount,
-	TextureLayout textureLayout, uint64_t requiredAlignment)
+	const TextureLayoutDesc& textureLayout, uint64_t requiredAlignment)
 {
 	Texture_VK::GetAllocationInfo(byteSize, alignment, pDevice, width, height, format, arraySize,
 		resourceFlags | ResourceFlag::ALLOW_RENDER_TARGET, numMips, sampleCount, textureLayout, requiredAlignment);
@@ -2861,7 +2871,7 @@ DepthStencil_VK::~DepthStencil_VK()
 bool DepthStencil_VK::Create(Device* pDevice, uint32_t width, uint32_t height, Format format, ResourceFlag resourceFlags,
 	uint16_t arraySize, uint8_t numMips, uint8_t sampleCount, float clearDepth, uint8_t clearStencil, bool isCubeMap,
 	MemoryFlag memoryFlags, const wchar_t* name, uint16_t srvComponentMapping, uint16_t stencilSrvComponentMapping,
-	TextureLayout textureLayout, uint32_t maxThreads)
+	const TextureLayoutDesc& textureLayout, uint32_t maxThreads)
 {
 	(void)clearDepth;
 	(void)clearStencil;
@@ -2895,7 +2905,7 @@ bool DepthStencil_VK::Create(Device* pDevice, uint32_t width, uint32_t height, F
 bool DepthStencil_VK::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 	Format format, ResourceFlag resourceFlags, uint16_t arraySize, uint8_t numMips, uint8_t sampleCount, float clearDepth,
 	uint8_t clearStencil, bool isCubeMap, const wchar_t* name, uint16_t srvComponentMapping, uint16_t stencilSrvComponentMapping,
-	TextureLayout textureLayout, uint32_t maxThreads)
+	const TextureLayoutDesc& textureLayout, uint32_t maxThreads)
 {
 	(void)clearDepth;
 	(void)clearStencil;
@@ -2929,7 +2939,7 @@ bool DepthStencil_VK::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, 
 bool DepthStencil_VK::CreateArray(Device* pDevice, uint32_t width, uint32_t height, uint16_t arraySize, Format format,
 	ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount, float clearDepth, uint8_t clearStencil, bool isCubeMap,
 	MemoryFlag memoryFlags, const wchar_t* name, uint16_t srvComponentMapping, uint16_t stencilSrvComponentMapping,
-	TextureLayout textureLayout, uint32_t maxThreads)
+	const TextureLayoutDesc& textureLayout, uint32_t maxThreads)
 {
 	(void)clearDepth;
 	(void)clearStencil;
@@ -2960,7 +2970,7 @@ bool DepthStencil_VK::CreateArray(Device* pDevice, uint32_t width, uint32_t heig
 bool DepthStencil_VK::CreateArray(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 	uint16_t arraySize, Format format, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount, float clearDepth,
 	uint8_t clearStencil, bool isCubeMap, const wchar_t* name, uint16_t srvComponentMapping, uint16_t stencilSrvComponentMapping,
-	TextureLayout textureLayout, uint32_t maxThreads)
+	const TextureLayoutDesc& textureLayout, uint32_t maxThreads)
 {
 	(void)clearDepth;
 	(void)clearStencil;
@@ -2990,7 +3000,7 @@ bool DepthStencil_VK::CreateArray(Device* pDevice, Heap* pHeap, uint64_t heapOff
 
 bool DepthStencil_VK::CreateResource(Device* pDevice, uint32_t width, uint32_t height, Format format, uint16_t arraySize,
 	ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount, MemoryFlag memoryFlags, ResourceState initialResourceState,
-	float clearDepth, uint8_t clearStencil, TextureLayout textureLayout, uint32_t maxThreads)
+	float clearDepth, uint8_t clearStencil, const TextureLayoutDesc& textureLayout, uint32_t maxThreads)
 {
 	(void)clearDepth;
 	(void)clearStencil;
@@ -3002,7 +3012,7 @@ bool DepthStencil_VK::CreateResource(Device* pDevice, uint32_t width, uint32_t h
 
 bool DepthStencil_VK::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width,
 	uint32_t height, Format format, uint16_t arraySize, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount,
-	ResourceState initialResourceState, float clearDepth, uint8_t clearStencil, TextureLayout textureLayout, uint32_t maxThreads)
+	ResourceState initialResourceState, float clearDepth, uint8_t clearStencil, const TextureLayoutDesc& textureLayout, uint32_t maxThreads)
 {
 	(void)clearDepth;
 	(void)clearStencil;
@@ -3045,7 +3055,7 @@ const Descriptor& DepthStencil_VK::GetSRV(uint8_t firstLevel, bool singleLevel, 
 
 void DepthStencil_VK::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, Device* pDevice, uint32_t width,
 	uint32_t height, Format format, uint16_t arraySize, ResourceFlag resourceFlags, uint8_t numMips, uint8_t sampleCount,
-	TextureLayout textureLayout, uint64_t requiredAlignment)
+	const TextureLayoutDesc& textureLayout, uint64_t requiredAlignment)
 {
 	Texture_VK::GetAllocationInfo(byteSize, alignment, pDevice, width, height, format, arraySize,
 		resourceFlags | ResourceFlag::ALLOW_DEPTH_STENCIL, numMips, sampleCount, textureLayout, requiredAlignment);
@@ -3092,9 +3102,10 @@ Texture3D_VK::~Texture3D_VK()
 
 bool Texture3D_VK::Create(Device* pDevice, uint32_t width, uint32_t height, uint16_t depth, Format format,
 	ResourceFlag resourceFlags, uint8_t numMips, MemoryFlag memoryFlags, const wchar_t* name, uint16_t srvComponentMapping,
-	TextureLayout textureLayout, uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads)
+	const TextureLayoutDesc& textureLayout, uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads)
 {
 	(void)memoryFlags;
+	assert(textureLayout.Layout != TextureLayout::GUID && "GUID texture layout is DX12-only");
 	(void)textureLayout;
 	XUSG_N_RETURN(initialize(pDevice, maxThreads), false);
 	m_format = format;
@@ -3144,8 +3155,9 @@ bool Texture3D_VK::Create(Device* pDevice, uint32_t width, uint32_t height, uint
 
 bool Texture3D_VK::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 	uint16_t depth, Format format, ResourceFlag resourceFlags, uint8_t numMips, const wchar_t* name, uint16_t srvComponentMapping,
-	TextureLayout textureLayout, uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads)
+	const TextureLayoutDesc& textureLayout, uint8_t numUavFormats, const Format* uavFormats, uint32_t maxThreads)
 {
+	assert(textureLayout.Layout != TextureLayout::GUID && "GUID texture layout is DX12-only");
 	(void)textureLayout;
 	XUSG_N_RETURN(initialize(pDevice, maxThreads), false);
 	m_format = format;
@@ -3178,9 +3190,10 @@ bool Texture3D_VK::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uin
 
 bool Texture3D_VK::CreateResource(Device* pDevice, uint32_t width, uint32_t height, uint16_t depth, Format format,
 	ResourceFlag resourceFlags, uint8_t numMips, MemoryFlag memoryFlags, ResourceState initialResourceState,
-	TextureLayout textureLayout, uint8_t numCastableFormats, const Format* pCastableFormats, uint32_t maxThreads)
+	const TextureLayoutDesc& textureLayout, uint8_t numCastableFormats, const Format* pCastableFormats, uint32_t maxThreads)
 {
 	(void)memoryFlags;
+	assert(textureLayout.Layout != TextureLayout::GUID && "GUID texture layout is DX12-only");
 	(void)textureLayout;
 	XUSG_N_RETURN(initialize(pDevice, maxThreads), false);
 	m_format = format;
@@ -3193,8 +3206,9 @@ bool Texture3D_VK::CreateResource(Device* pDevice, uint32_t width, uint32_t heig
 
 bool Texture3D_VK::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint32_t width, uint32_t height,
 	uint16_t depth, Format format, ResourceFlag resourceFlags, uint8_t numMips, ResourceState initialResourceState,
-	TextureLayout textureLayout, uint8_t numCastableFormats, const Format* pCastableFormats, uint32_t maxThreads)
+	const TextureLayoutDesc& textureLayout, uint8_t numCastableFormats, const Format* pCastableFormats, uint32_t maxThreads)
 {
+	assert(textureLayout.Layout != TextureLayout::GUID && "GUID texture layout is DX12-only");
 	(void)textureLayout;
 	XUSG_N_RETURN(initialize(pDevice, maxThreads), false);
 	m_format = format;
@@ -3237,7 +3251,7 @@ uint16_t Texture3D_VK::GetDepth() const
 
 void Texture3D_VK::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, Device* pDevice, uint32_t width,
 	uint32_t height, uint16_t depth, Format format, ResourceFlag resourceFlags, uint8_t numMips,
-	TextureLayout textureLayout, uint64_t requiredAlignment)
+	const TextureLayoutDesc& textureLayout, uint64_t requiredAlignment)
 {
 	(void)depth;
 	Texture_VK::GetAllocationInfo(byteSize, alignment, pDevice, width, height, format, 1, resourceFlags, numMips, 1, textureLayout, requiredAlignment);

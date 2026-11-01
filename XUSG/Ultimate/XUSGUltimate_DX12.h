@@ -32,6 +32,10 @@ namespace XUSG
 			void Barrier(uint32_t numBufferBarriers, ResourceBarrier* pBufferBarriers,
 				uint32_t numTextureBarriers, ResourceBarrier* pTextureBarriers,
 				uint32_t numGlobalBarriers, ResourceBarrier* pGlobalBarriers);
+			void SignalBarrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups,
+				Fence* pFence, uint64_t fenceValue);
+			void WaitBarrier(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups,
+				uint32_t numFences, Fence* const* ppFences, const uint64_t* pFenceValues);
 			void SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions) const;
 			void ResolveSubresourceRegion(Resource* pDstResource, uint32_t dstSubresource,
 				uint32_t dstX, uint32_t dstY, Resource* pSrcResource, uint32_t srcSubresource,
@@ -51,8 +55,29 @@ namespace XUSG
 				uint64_t localRootArgTableByteStride = 0);
 			void DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride = 0);
 			void DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes = false);
+			void DispatchGraph(uint32_t numBindings, const ProgramBinding* pBindings);
 
 			void ConvertLinearAlgebraMatrix(const LinearAlgebraMatrixConversionInfo* pConversions, uint32_t numConversions);
+
+			void CopyBufferRegions(uint32_t numRegions, Resource* const* ppDestBuffers, const uint64_t* pDestOffsets,
+				Resource* const* ppSourceBuffers, const uint64_t* pSourceOffsets, const uint64_t* pSizes);
+			void CopyTextureRegions(uint32_t numCopyDescs, const TextureCopyDesc* pCopyDescs);
+			void CopyResources(uint32_t numSourceDestPairs, Resource* const* ppDestResources,
+				Resource* const* ppSourceResources);
+			void CopyTilesAsync(Resource* pTiledResource, const TiledResourceCoord* pTileRegionStartCoord,
+				const TileRegionSize& tileRegionSize, Resource* pBuffer, uint64_t bufferOffset,
+				TileCopyFlag flags = TileCopyFlag::NONE);
+			void ResolveSubresourceRegionAsync(Resource* pDstResource, uint32_t dstSubresource,
+				uint32_t dstX, uint32_t dstY, Resource* pSrcResource, uint32_t srcSubresource,
+				const RectRange* pSrcRect, Format format, ResolveMode resolveMode);
+			void ResolveQueryDataAsync(const QueryHeap& queryHeap, QueryType type, uint32_t startIndex,
+				uint32_t numQueries, Resource* pDestBuffer, uint64_t destOffset);
+			void ClearBoundDepthStencilView(ClearFlag clearFlags, float depth, uint8_t stencil = 0,
+				uint32_t numRegions = 0, const BoxRange* pRegions = nullptr);
+			void ClearBoundRenderTargetViews(uint32_t renderTargetMask, const ClearData* pClearValues,
+				const uint32_t* pNumRegions = nullptr, const BoxRange* const* ppRegions = nullptr);
+			void ClearTextureSubresources(uint32_t numClearDescs, const ClearTextureDesc* pClearDescs);
+			void FillBuffers(uint32_t numFillDescs, const FillBufferDesc* pFillDescs);
 
 			com_ptr<ID3D12GraphicsCommandList6>& GetGraphicsCommandList();
 
@@ -61,17 +86,31 @@ namespace XUSG
 			void createAgilityInterface();
 
 			com_ptr<ID3D12GraphicsCommandList6>		m_commandListU;
-			com_ptr<ID3D12GraphicsCommandList11>	m_commandListA;
+			com_ptr<ID3D12GraphicsCommandList12>	m_commandListA;
+
+			bool prepareBarrierGroups(uint32_t numBarrierGroups, BarrierGroup* pBarrierGroups);
 
 			std::vector<D3D12_BARRIER_GROUP>		m_barrierGroups;
 			std::vector<D3D12_GLOBAL_BARRIER>		m_globalBarriers;
 			std::vector<D3D12_TEXTURE_BARRIER>		m_textureBarriers;
 			std::vector<D3D12_BUFFER_BARRIER>		m_bufferBarriers;
 			std::vector<uint32_t>					m_barrierGroupBarrierStarts;
+			std::vector<ID3D12Fence*>				m_fences;
 
 			std::vector<D3D12_NODE_CPU_INPUT>		m_nodeInputs;
+			std::vector<D3D12_MLIR_PROGRAM_BINDING>	m_programBindings;
 
 			std::vector<D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_INFO> m_matrixConversions;
+
+			std::vector<ID3D12Resource*>			m_dstResources;
+			std::vector<ID3D12Resource*>			m_srcResources;
+			std::vector<D3D12_TEXTURE_COPY_DESC>	m_textureCopyDescs;
+			std::vector<D3D12_TEXTURE_COPY_REGION>	m_textureCopyRegions;
+			std::vector<D3D12_BOX>					m_boxes;
+			std::vector<D3D12_CLEAR_DATA>			m_clearData;
+			std::vector<D3D12_CLEAR_TEXTURE_DESC>	m_clearTextureDescs;
+			std::vector<D3D12_FILL_BUFFER_DESC>		m_fillBufferDescs;
+			std::vector<const D3D12_BOX*>			m_boxPointers;
 		};
 
 		//--------------------------------------------------------------------------------------
@@ -114,25 +153,25 @@ namespace XUSG
 				uint32_t mipRegionHeight, uint32_t mipRegionDepth, ResourceFlag resourceFlags = ResourceFlag::NONE,
 				bool isCubeMap = false, MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr,
 				uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
-				TextureLayout textureLayout = TextureLayout::UNKNOWN,
+				const TextureLayoutDesc& textureLayout = {},
 				uint32_t maxThreads = 1);
 			bool Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, Texture* pTarget,
 				Format format, uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
 				ResourceFlag resourceFlags = ResourceFlag::NONE, bool isCubeMap = false,
 				const wchar_t* name = nullptr, uint16_t srvComponentMapping = XUSG_DEFAULT_SRV_COMPONENT_MAPPING,
-				TextureLayout textureLayout = TextureLayout::UNKNOWN,
+				const TextureLayoutDesc& textureLayout = {},
 				uint32_t maxThreads = 1);
 			bool CreateResource(Device* pDevice, Texture* pTarget, Format format, uint32_t mipRegionWidth,
 				uint32_t mipRegionHeight, uint32_t mipRegionDepth, ResourceFlag resourceFlags = ResourceFlag::NONE,
 				bool isCubeMap = false, MemoryFlag memoryFlags = MemoryFlag::NONE,
 				ResourceState initialResourceState = ResourceState::COMMON,
-				TextureLayout textureLayout = TextureLayout::UNKNOWN,
+				const TextureLayoutDesc& textureLayout = {},
 				uint32_t maxThreads = 1);
 			bool CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset, Texture* pTarget,
 				Format format, uint32_t mipRegionWidth, uint32_t mipRegionHeight, uint32_t mipRegionDepth,
 				ResourceFlag resourceFlags = ResourceFlag::NONE, bool isCubeMap = false,
 				ResourceState initialResourceState = ResourceState::COMMON,
-				TextureLayout textureLayout = TextureLayout::UNKNOWN,
+				const TextureLayoutDesc& textureLayout = {},
 				uint32_t maxThreads = 1);
 			//bool CreateUAV(Resource* pTarget);
 
@@ -142,6 +181,9 @@ namespace XUSG
 		ProgramIdentifier GetDX12ProgramIdentifier(const Pipeline& stateObject, const wchar_t* programName);
 
 		void GetDX12LinearAlgebraMatrixInfo(const Device* pDevice, LinearAlgebraMatrixInfo& matrixInfo);
+
+		void EnableDX12AsyncCommandsFallback(bool enable);
+		bool GetDX12AsyncCommandsImpl(Device* pDevice, AsyncCommandsImpl* pImpl);
 
 		D3D12_BARRIER_SYNC GetDX12BarrierSync(BarrierSync barrierSync);
 		D3D12_BARRIER_SYNC GetDX12BarrierSyncs(BarrierSync barrierSync);

@@ -61,6 +61,35 @@ void State_VK::SetFlags(PipelineFlag flag)
 	m_pKey->Flags = flag;
 }
 
+void State_VK::SetPartialProgramType(PartialProgramType type)
+{
+	m_pKey->PartialType = type;
+}
+
+void State_VK::SetPartialProgramFlags(PartialProgramFlag flags)
+{
+	m_pKey->PartialFlags = flags;
+}
+
+void State_VK::SetExistingCollection(Pipeline collection)
+{
+	m_pKey->ExistingCollection = collection;
+}
+
+void State_VK::AddPartialProgram(const wchar_t* programName)
+{
+	assert(programName);
+	assert(m_pKey->NumPartialPrograms < size(m_pKey->PartialPrograms));
+	m_pKey->PartialPrograms[m_pKey->NumPartialPrograms++] = programName;
+}
+
+void State_VK::AddPartialLibrary(Pipeline library)
+{
+	assert(library);
+	assert(m_pKey->NumPartialLibraries < size(m_pKey->PartialLibraries));
+	m_pKey->PartialLibraries[m_pKey->NumPartialLibraries++] = library;
+}
+
 void State_VK::OMSetBlendState(const Blend* pBlend, uint32_t sampleMask)
 {
 	m_pKey->pBlend = pBlend;
@@ -220,6 +249,16 @@ uint32_t State_VK::GetNodeMask() const
 PipelineFlag State_VK::GetFlags() const
 {
 	return m_pKey->Flags;
+}
+
+PartialProgramType State_VK::GetPartialProgramType() const
+{
+	return m_pKey->PartialType;
+}
+
+PartialProgramFlag State_VK::GetPartialProgramFlags() const
+{
+	return m_pKey->PartialFlags;
 }
 
 uint32_t State_VK::OMGetSampleMask() const
@@ -432,7 +471,7 @@ Pipeline PipelineLib_VK::createPipeline(const string& key, const wchar_t* name)
 	}
 
 	Pipeline_VK* pipeline = nullptr;
-	if (graphics)
+	if (graphics || pDesc->NumPartialLibraries)
 	{
 		GraphicsPipelineCreateVK desc = {};
 		desc.pLayout = static_cast<const PipelineLayoutObject*>(pDesc->Layout);
@@ -449,6 +488,48 @@ Pipeline PipelineLib_VK::createPipeline(const string& key, const wchar_t* name)
 		desc.DSVFormat = pDesc->DSVFormat;
 		desc.SampleCount = pDesc->SampleCount;
 		desc.Name = name;
+
+		const auto lateInput = (pDesc->PartialFlags & PartialProgramFlag::LATE_LINK_INPUT_LAYOUT) == PartialProgramFlag::LATE_LINK_INPUT_LAYOUT;
+		const auto lateBlend = (pDesc->PartialFlags & PartialProgramFlag::LATE_LINK_BLEND) == PartialProgramFlag::LATE_LINK_BLEND;
+		const auto lateRTV = (pDesc->PartialFlags & PartialProgramFlag::LATE_LINK_RENDER_TARGET_FORMAT) == PartialProgramFlag::LATE_LINK_RENDER_TARGET_FORMAT;
+		const auto lateSample = (pDesc->PartialFlags & PartialProgramFlag::LATE_LINK_SAMPLE_DESC) == PartialProgramFlag::LATE_LINK_SAMPLE_DESC;
+		switch (pDesc->PartialType)
+		{
+		case PartialProgramType::PRERASTERIZATION:
+			desc.LibraryFlags = VK_GRAPHICS_PIPELINE_LIBRARY_PRE_RASTERIZATION_SHADERS_BIT_EXT;
+			if (!lateInput) desc.LibraryFlags |= VK_GRAPHICS_PIPELINE_LIBRARY_VERTEX_INPUT_INTERFACE_BIT_EXT;
+			break;
+		case PartialProgramType::PIXEL:
+			desc.LibraryFlags = VK_GRAPHICS_PIPELINE_LIBRARY_FRAGMENT_SHADER_BIT_EXT;
+			if (!lateBlend && !lateRTV && !lateSample)
+				desc.LibraryFlags |= VK_GRAPHICS_PIPELINE_LIBRARY_FRAGMENT_OUTPUT_INTERFACE_BIT_EXT;
+			break;
+		case PartialProgramType::COMBINED:
+			desc.LibraryFlags = VK_GRAPHICS_PIPELINE_LIBRARY_PRE_RASTERIZATION_SHADERS_BIT_EXT |
+				VK_GRAPHICS_PIPELINE_LIBRARY_FRAGMENT_SHADER_BIT_EXT;
+			if (!lateInput) desc.LibraryFlags |= VK_GRAPHICS_PIPELINE_LIBRARY_VERTEX_INPUT_INTERFACE_BIT_EXT;
+			if (!lateBlend && !lateRTV && !lateSample)
+				desc.LibraryFlags |= VK_GRAPHICS_PIPELINE_LIBRARY_FRAGMENT_OUTPUT_INTERFACE_BIT_EXT;
+			break;
+		default:
+			break;
+		}
+
+		VkPipeline libraries[4] = {};
+		if (pDesc->NumPartialLibraries)
+		{
+			assert(pDesc->PartialType == PartialProgramType::NONE);
+			assert(pDesc->NumPartialLibraries <= size(libraries));
+			for (uint8_t i = 0; i < pDesc->NumPartialLibraries; ++i)
+			{
+				const auto pLib = static_cast<const Pipeline_VK*>(pDesc->PartialLibraries[i]);
+				assert(pLib);
+				libraries[i] = pLib->Handle;
+			}
+			desc.LibraryCount = pDesc->NumPartialLibraries;
+			desc.pLibraries = libraries;
+		}
+
 		pipeline = CreateVKGraphicsPipeline(m_pDevice, desc);
 	}
 	else if (compute)

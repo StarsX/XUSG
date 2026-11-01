@@ -286,6 +286,8 @@ namespace XUSG
 		bool HasShaderOutputViewportIndex() const;
 		bool HasShaderOutputLayer() const;
 		bool HasSubgroupBroadcastDynamicId() const;
+		bool HasVulkanMemoryModel() const;
+		bool HasVulkanMemoryModelDeviceScope() const;
 		bool HasShaderBufferFloat32Atomics() const;
 		bool HasShaderBufferFloat32AtomicAdd() const;
 		bool HasShaderBufferFloat64Atomics() const;
@@ -315,6 +317,7 @@ namespace XUSG
 		bool HasHlslFunctionality1() const;
 		bool HasDeferredHostOperations() const;
 		bool HasPipelineLibrary() const;
+		bool HasGraphicsPipelineLibrary() const;
 		bool HasSpirv14() const;
 		bool HasShaderFloatControls() const;
 		bool HasAccelerationStructure() const;
@@ -484,6 +487,8 @@ namespace XUSG
 		bool				m_shaderOutputViewportIndex;
 		bool				m_shaderOutputLayer;
 		bool				m_subgroupBroadcastDynamicId;
+		bool				m_vulkanMemoryModel;
+		bool				m_vulkanMemoryModelDeviceScope;
 		bool				m_shaderBufferFloat32Atomics;
 		bool				m_shaderBufferFloat32AtomicAdd;
 		bool				m_shaderBufferFloat64Atomics;
@@ -513,6 +518,7 @@ namespace XUSG
 		bool				m_hlslFunctionality1;
 		bool				m_deferredHostOperations;
 		bool				m_pipelineLibrary;
+		bool				m_graphicsPipelineLibrary;
 		bool				m_spirv14;
 		bool				m_shaderFloatControls;
 		bool				m_accelerationStructure;
@@ -628,11 +634,15 @@ namespace XUSG
 
 		uint64_t GetNativeHandle() const;
 
+		void* GetBackend();
+
 		VkSemaphore GetSemaphore() const;
+		VkEvent GetEvent() const;
 
 	protected:
 		Device_VK*	m_pDevice;
 		VkSemaphore	m_semaphore;
+		VkEvent		m_event;
 	};
 
 	class CommandLayout_VK :
@@ -765,6 +775,7 @@ namespace XUSG
 	Device_VK* AsVK(Device* p);
 	CommandLayout_VK* AsVK(CommandLayout* p);
 	SwapChain_VK* AsVK(SwapChain* p);
+	Fence_VK* AsVK(Fence* p);
 
 	// StorageInputOutput16 is only for 16-bit shader inputs and outputs.
 	// Drop that capability when the device bit is off.

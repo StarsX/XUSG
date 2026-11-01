@@ -231,6 +231,7 @@ namespace XUSG
 
 		static constexpr uint32_t	MaxRenderTargetCount = 8;
 		static constexpr uint32_t	MaxStreamOutCount = 4;
+
 		// D3D12 root-signature push budget is 256 bytes. Dirty is tracked per root
 		// parameter; flush merges adjacent byte ranges and splits on gaps.
 		// writePush skips unchanged staged bytes only while the layout is unchanged;

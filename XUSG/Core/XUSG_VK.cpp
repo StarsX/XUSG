@@ -391,6 +391,8 @@ Device_VK::Device_VK() :
 	m_shaderOutputViewportIndex(false),
 	m_shaderOutputLayer(false),
 	m_subgroupBroadcastDynamicId(false),
+	m_vulkanMemoryModel(false),
+	m_vulkanMemoryModelDeviceScope(false),
 	m_shaderBufferFloat32Atomics(false),
 	m_shaderBufferFloat32AtomicAdd(false),
 	m_shaderBufferFloat64Atomics(false),
@@ -420,6 +422,7 @@ Device_VK::Device_VK() :
 	m_hlslFunctionality1(false),
 	m_deferredHostOperations(false),
 	m_pipelineLibrary(false),
+	m_graphicsPipelineLibrary(false),
 	m_spirv14(false),
 	m_shaderFloatControls(false),
 	m_accelerationStructure(false),
@@ -1081,6 +1084,16 @@ bool Device_VK::HasSubgroupBroadcastDynamicId() const
 	return m_subgroupBroadcastDynamicId;
 }
 
+bool Device_VK::HasVulkanMemoryModel() const
+{
+	return m_vulkanMemoryModel;
+}
+
+bool Device_VK::HasVulkanMemoryModelDeviceScope() const
+{
+	return m_vulkanMemoryModelDeviceScope;
+}
+
 bool Device_VK::HasShaderBufferFloat32Atomics() const
 {
 	return m_shaderBufferFloat32Atomics;
@@ -1224,6 +1237,11 @@ bool Device_VK::HasDeferredHostOperations() const
 bool Device_VK::HasPipelineLibrary() const
 {
 	return m_pipelineLibrary;
+}
+
+bool Device_VK::HasGraphicsPipelineLibrary() const
+{
+	return m_graphicsPipelineLibrary;
 }
 
 bool Device_VK::HasSpirv14() const
@@ -1895,6 +1913,7 @@ bool Device_VK::createDevice()
 	const auto coreDynamicRendering = m_apiVersion >= VK_API_VERSION_1_3;
 
 	vector<const char*> enabled;
+
 	// Core extensions with no fallback. Missing one fails device creation.
 	// A name promoted into the requested API version is already core.
 	XUSG_N_RETURN(require(VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME), false);
@@ -1940,6 +1959,7 @@ bool Device_VK::createDevice()
 	if (!core12 && timelineExt) enabled.push_back(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
 	if (!core12 && float16Ext) enabled.push_back(VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME);
 	if (dynamicRenderingExt) enabled.push_back(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
+
 	// Core extensions that stay off when missing. Device creation still succeeds.
 	m_conditionalRendering = HasExtension(exts, VK_EXT_CONDITIONAL_RENDERING_EXTENSION_NAME);
 	m_transformFeedback = HasExtension(exts, VK_EXT_TRANSFORM_FEEDBACK_EXTENSION_NAME);
@@ -1948,6 +1968,7 @@ bool Device_VK::createDevice()
 
 	// Ultimate extensions. A missing extension leaves the feature off.
 	m_meshShader = HasExtension(exts, VK_EXT_MESH_SHADER_EXTENSION_NAME);
+
 	// Forced off. GENERAL is still uncompressed on current drivers, so optimal layouts are faster.
 	m_unifiedImageLayouts = false;
 	m_fragmentShadingRate = HasExtension(exts, VK_KHR_FRAGMENT_SHADING_RATE_EXTENSION_NAME);
@@ -2192,6 +2213,7 @@ bool Device_VK::createDevice()
 
 	const auto imageStride = static_cast<uint32_t>(m_heapProps.imageDescriptorSize);
 	const auto bufferStride = static_cast<uint32_t>(m_heapProps.bufferDescriptorSize);
+
 	// Texel-buffer descriptors can be larger than bufferDescriptorSize.
 	// vkWriteResourceDescriptorsEXT rejects a host range smaller than
 	// vkGetPhysicalDeviceDescriptorSizeEXT for that descriptor type.
@@ -2306,10 +2328,13 @@ bool Device_VK::createDevice()
 	const auto accelerationStructureExt = deferredHostOpsExt &&
 		HasExtension(exts, VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
 	const auto pipelineLibraryExt = core11 && HasExtension(exts, VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME);
+	const auto graphicsPipelineLibraryExt = pipelineLibraryExt &&
+		HasExtension(exts, VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME);
 	const auto shaderFloatControlsExt = !core12 && HasExtension(exts, VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME);
 	const auto spirv14Ext = shaderFloatControlsExt && HasExtension(exts, VK_KHR_SPIRV_1_4_EXTENSION_NAME);
 	m_deferredHostOperations = deferredHostOpsExt;
 	m_pipelineLibrary = pipelineLibraryExt;
+	m_graphicsPipelineLibrary = graphicsPipelineLibraryExt;
 	m_shaderFloatControls = core12 || shaderFloatControlsExt;
 	m_spirv14 = core12 || spirv14Ext;
 	const auto rayTracingPipelineExt = core11 && HasExtension(exts, VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
@@ -2318,6 +2343,7 @@ bool Device_VK::createDevice()
 		HasExtension(exts, VK_KHR_RAY_TRACING_MAINTENANCE_1_EXTENSION_NAME);
 	const auto rayTracingPositionFetchExt = core11 &&
 		HasExtension(exts, VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME);
+
 	// VK_KHR_opacity_micromap requires VK_KHR_device_address_commands; that in turn
 	// needs copy_commands2 (core in 1.3), sync2, and buffer_device_address.
 	const auto deviceAddressCommandsExt =
@@ -2373,6 +2399,7 @@ bool Device_VK::createDevice()
 		m_storageInputOutput16 = supported11.storageInputOutput16 == VK_TRUE;
 		m_shaderDrawParameters = supported11.shaderDrawParameters == VK_TRUE;
 	}
+
 	// The promoted 1.1 query and the extension query do not always agree.
 	if (storage16Ext)
 	{
@@ -2412,6 +2439,8 @@ bool Device_VK::createDevice()
 		m_shaderOutputViewportIndex = supported12.shaderOutputViewportIndex == VK_TRUE;
 		m_shaderOutputLayer = supported12.shaderOutputLayer == VK_TRUE;
 		m_subgroupBroadcastDynamicId = supported12.subgroupBroadcastDynamicId == VK_TRUE;
+		m_vulkanMemoryModel = supported12.vulkanMemoryModel == VK_TRUE;
+		m_vulkanMemoryModelDeviceScope = supported12.vulkanMemoryModelDeviceScope == VK_TRUE;
 	}
 	else m_shaderInt8 = supportedFloat16.shaderInt8 == VK_TRUE;
 	if (instanceVersion >= VK_API_VERSION_1_3)
@@ -2455,6 +2484,7 @@ bool Device_VK::createDevice()
 	VkPhysicalDeviceIndexTypeUint8Features indexTypeUint8Query = {};
 	VkPhysicalDeviceRayTracingInvocationReorderFeaturesEXT invocationReorderQuery = {};
 	VkPhysicalDevicePipelineLibraryGroupHandlesFeaturesKHR pipelineLibraryGroupHandlesQuery = {};
+	VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT graphicsPipelineLibraryQuery = {};
 	VkPhysicalDeviceCooperativeMatrixFeaturesKHR cooperativeMatrixQuery = {};
 	VkPhysicalDeviceShaderBfloat16FeaturesKHR shaderBfloat16Query = {};
 	VkPhysicalDeviceShaderFloat8FeaturesEXT shaderFloat8Query = {};
@@ -2630,6 +2660,12 @@ bool Device_VK::createDevice()
 		pipelineLibraryGroupHandlesQuery.sType =
 			VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_LIBRARY_GROUP_HANDLES_FEATURES_KHR;
 		linkQuery(pipelineLibraryGroupHandlesQuery.pNext, &pipelineLibraryGroupHandlesQuery);
+	}
+	if (graphicsPipelineLibraryExt)
+	{
+		graphicsPipelineLibraryQuery.sType =
+			VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_FEATURES_EXT;
+		linkQuery(graphicsPipelineLibraryQuery.pNext, &graphicsPipelineLibraryQuery);
 	}
 	if (cooperativeMatrixExt)
 	{
@@ -2845,6 +2881,7 @@ bool Device_VK::createDevice()
 	{
 		m_uniformAndStorageBuffer16BitAccess = false;
 		m_storagePushConstant16 = false;
+
 		// storageInputOutput16 is independent of the buffer 16-bit bits.
 	}
 	if (!m_storageBuffer8BitAccess)
@@ -3009,6 +3046,8 @@ bool Device_VK::createDevice()
 		m_rayTracingInvocationReorder = invocationReorderQuery.rayTracingInvocationReorder == VK_TRUE;
 	if (pipelineLibraryGroupHandlesExtName && m_pipelineLibrary && m_rayTracingPipeline)
 		m_pipelineLibraryGroupHandles = pipelineLibraryGroupHandlesQuery.pipelineLibraryGroupHandles == VK_TRUE;
+	if (graphicsPipelineLibraryExt)
+		m_graphicsPipelineLibrary = graphicsPipelineLibraryQuery.graphicsPipelineLibrary == VK_TRUE;
 	const auto descriptorIndexingOn = m_shaderInputAttachmentArrayDynamicIndexing ||
 		m_shaderUniformTexelBufferArrayDynamicIndexing || m_shaderStorageTexelBufferArrayDynamicIndexing ||
 		m_shaderUniformBufferArrayNonUniformIndexing || m_shaderSampledImageArrayNonUniformIndexing ||
@@ -3027,6 +3066,7 @@ bool Device_VK::createDevice()
 	if (!core12 && m_spirv14) enabled.push_back(VK_KHR_SPIRV_1_4_EXTENSION_NAME);
 	if (m_deferredHostOperations) enabled.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
 	if (m_pipelineLibrary) enabled.push_back(VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME);
+	if (m_graphicsPipelineLibrary) enabled.push_back(VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME);
 	if (m_accelerationStructure) enabled.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
 	if (m_rayTracingPipeline) enabled.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
 	if (m_rayQuery) enabled.push_back(VK_KHR_RAY_QUERY_EXTENSION_NAME);
@@ -3143,6 +3183,10 @@ bool Device_VK::createDevice()
 		features12.shaderOutputViewportIndex = m_shaderOutputViewportIndex ? VK_TRUE : VK_FALSE;
 		features12.shaderOutputLayer = m_shaderOutputLayer ? VK_TRUE : VK_FALSE;
 		features12.subgroupBroadcastDynamicId = m_subgroupBroadcastDynamicId ? VK_TRUE : VK_FALSE;
+
+		// dxil-spirv defaults to SPIR-V 1.6 + Vulkan memory model; match vkd3d-proton.
+		features12.vulkanMemoryModel = m_vulkanMemoryModel ? VK_TRUE : VK_FALSE;
+		features12.vulkanMemoryModelDeviceScope = m_vulkanMemoryModelDeviceScope ? VK_TRUE : VK_FALSE;
 		promoted = &features12;
 	}
 	else
@@ -3666,6 +3710,16 @@ bool Device_VK::createDevice()
 		featureChain = &pipelineLibraryGroupHandlesEnable;
 	}
 
+	VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT graphicsPipelineLibraryEnable = {};
+	if (m_graphicsPipelineLibrary)
+	{
+		graphicsPipelineLibraryEnable.sType =
+			VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_FEATURES_EXT;
+		graphicsPipelineLibraryEnable.pNext = featureChain;
+		graphicsPipelineLibraryEnable.graphicsPipelineLibrary = VK_TRUE;
+		featureChain = &graphicsPipelineLibraryEnable;
+	}
+
 	VkPhysicalDeviceCooperativeMatrixFeaturesKHR cooperativeMatrixEnable = {};
 	if (m_cooperativeMatrix)
 	{
@@ -4028,21 +4082,41 @@ bool Device_VK::createDevice()
 
 Fence_VK::Fence_VK() :
 	m_pDevice(nullptr),
-	m_semaphore(VK_NULL_HANDLE)
+	m_semaphore(VK_NULL_HANDLE),
+	m_event(VK_NULL_HANDLE)
 {
 }
 
 Fence_VK::~Fence_VK()
 {
-	if (m_semaphore != VK_NULL_HANDLE && m_pDevice) vkDestroySemaphore(m_pDevice->GetDevice(), m_semaphore, nullptr);
+	if (m_pDevice)
+	{
+		const auto device = m_pDevice->GetDevice();
+		if (m_semaphore != VK_NULL_HANDLE) vkDestroySemaphore(device, m_semaphore, nullptr);
+		if (m_event != VK_NULL_HANDLE) vkDestroyEvent(device, m_event, nullptr);
+	}
 }
 
 bool Fence_VK::Create(Device* pDevice, uint64_t initialValue, FenceFlag flags, const wchar_t* name)
 {
-	(void)flags;
 	m_pDevice = AsVK(pDevice);
 	assert(m_pDevice);
 	const auto device = m_pDevice->GetDevice();
+
+	const auto allowCLBarriers = (flags & FenceFlag::ALLOW_COMMAND_LIST_BARRIERS) == FenceFlag::ALLOW_COMMAND_LIST_BARRIERS;
+	const auto allowQueueCpuSync = (flags & FenceFlag::ALLOW_QUEUE_AND_CPU_SYNC) == FenceFlag::ALLOW_QUEUE_AND_CPU_SYNC;
+
+	// Command-list-scoped fence barriers map to VkEvent (Tier 1 WaitBarrier).
+	if (allowCLBarriers && !allowQueueCpuSync)
+	{
+		(void)initialValue;
+		VkEventCreateInfo info = {};
+		info.sType = VK_STRUCTURE_TYPE_EVENT_CREATE_INFO;
+		XUSG_VK_CHECK(vkCreateEvent(device, &info, nullptr, &m_event), cerr, false);
+		m_pDevice->SetDebugName(VK_OBJECT_TYPE_EVENT, (uint64_t)m_event, name);
+
+		return true;
+	}
 
 	VkSemaphoreTypeCreateInfo type = {};
 	type.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO;
@@ -4061,6 +4135,8 @@ bool Fence_VK::Create(Device* pDevice, uint64_t initialValue, FenceFlag flags, c
 
 bool Fence_VK::SetEventOnCompletion(uint64_t value, void* hEvent)
 {
+	assert(m_semaphore != VK_NULL_HANDLE && "Command-list-scoped fence has no host wait");
+
 	// Wait on this thread. Spawning a worker just to SetEvent then WaitForSingleObject
 	// on the caller adds thread create/join cost every frame.
 	VkSemaphoreWaitInfo wait = {};
@@ -4076,6 +4152,7 @@ bool Fence_VK::SetEventOnCompletion(uint64_t value, void* hEvent)
 
 bool Fence_VK::Signal(uint64_t value)
 {
+	assert(m_semaphore != VK_NULL_HANDLE && "Command-list-scoped fence has no host signal");
 	VkSemaphoreSignalInfo info = {};
 	info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO;
 	info.semaphore = m_semaphore;
@@ -4087,6 +4164,7 @@ bool Fence_VK::Signal(uint64_t value)
 
 uint64_t Fence_VK::GetCompletedValue() const
 {
+	assert(m_semaphore != VK_NULL_HANDLE && "Command-list-scoped fence has no completed value");
 	uint64_t value = 0;
 	vkGetSemaphoreCounterValue(m_pDevice->GetDevice(), m_semaphore, &value);
 
@@ -4099,16 +4177,27 @@ void Fence_VK::Create(uint64_t nativeHandle, Device* pDevice)
 	assert(m_pDevice);
 
 	m_semaphore = (VkSemaphore)nativeHandle;
+	m_event = VK_NULL_HANDLE;
 }
 
 uint64_t Fence_VK::GetNativeHandle() const
 {
-	return (uint64_t)m_semaphore;
+	return m_event != VK_NULL_HANDLE ? (uint64_t)m_event : (uint64_t)m_semaphore;
+}
+
+void* Fence_VK::GetBackend()
+{
+	return this;
 }
 
 VkSemaphore Fence_VK::GetSemaphore() const
 {
 	return m_semaphore;
+}
+
+VkEvent Fence_VK::GetEvent() const
+{
+	return m_event;
 }
 
 //--------------------------------------------------------------------------------------
@@ -4622,6 +4711,7 @@ bool SwapChain_VK::createSwapchain(uint8_t bufferCount, uint32_t width, uint32_t
 	info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	info.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
 	info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+
 	// Unlocked: prefer IMMEDIATE (then MAILBOX).
 	info.presentMode = VK_PRESENT_MODE_FIFO_KHR;
 	if (m_allowTearing)
@@ -5029,6 +5119,12 @@ SwapChain_VK* XUSG::AsVK(SwapChain* p)
 {
 	assert(!p || p->GetBackend());
 	return static_cast<SwapChain_VK*>(p ? p->GetBackend() : nullptr);
+}
+
+Fence_VK* XUSG::AsVK(Fence* p)
+{
+	assert(!p || p->GetBackend());
+	return static_cast<Fence_VK*>(p ? p->GetBackend() : nullptr);
 }
 
 void XUSG::DropUnsupportedStorageInputOutput16(const Device_VK* pDevice, const void* pCode, size_t codeSize,

@@ -52,6 +52,15 @@ static const float	XUSG_zFar = 1000.0f;
 #define XUSG_VK_BINDING(b, s)
 #endif
 
+// HLSL 2021 and()/or()/select() for vector bools (DXC). Older HLSL uses pre-2021 ops.
+#ifndef __cplusplus
+#if !defined(__HLSL_VERSION) || (__HLSL_VERSION < 2021)
+#define and(a, b)		((a) && (b))
+#define or(a, b)		((a) || (b))
+#define select(c, a, b)	((c) ? (a) : (b))
+#endif
+#endif
+
 #endif
 
 #if !(defined(HLSL_VERSION) || defined(__HLSL_VERSION))
