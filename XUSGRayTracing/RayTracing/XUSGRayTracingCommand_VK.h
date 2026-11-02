@@ -39,6 +39,8 @@ namespace XUSG
 			void CopyRaytracingAccelerationStructure(AccelerationStructure* pDst,
 				AccelerationStructure* pSrc, CopyMode mode,
 				const DescriptorHeap* pDescriptorHeap = nullptr);
+			void ExecuteIndirectRTASOperations(uint32_t numOperationDescs, const RTASOperationDesc* pDescs,
+				RTASExecuteFlag flags = RTASExecuteFlag::NONE);
 
 			void SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps);
 			void SetTopLevelAccelerationStructure(uint32_t index, const TopLevelAS* pTopLevelAS) const;

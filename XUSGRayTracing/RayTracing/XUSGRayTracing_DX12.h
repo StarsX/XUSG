@@ -25,10 +25,16 @@ namespace XUSG
 			void* GetRTHandle() const;
 			void* GetRTBackend();
 
+			bool HasClustersAndPTLAS() const;
+			void GetRTASOperationPrebuildInfo(const RTASOperationInputs& desc, RTASPrebuildInfo& info) const;
+
 		protected:
 			bool createInterface(uint8_t flags = 0);
 
 			com_ptr<ID3D12RaytracingFallbackDevice> m_deviceRT;
+			com_ptr<ID3D12DeviceRaytracing2> m_deviceRT2;
+
+			bool m_hasClustersAndPTLAS;
 		};
 
 		Device_DX12* AsDX12(Device* p);

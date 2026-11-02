@@ -98,6 +98,12 @@ void State_DX12::SetNodeMask(uint32_t nodeMask)
 	m_pKeyHeader->NodeMask = nodeMask;
 }
 
+void State_DX12::SetPipelineFlags(PipelineFlag flags)
+{
+	m_isSerialized = false;
+	m_pKeyHeader->Flags = static_cast<uint32_t>(flags);
+}
+
 Pipeline State_DX12::CreatePipeline(PipelineLib* pPipelineCache, const wchar_t* name)
 {
 	return pPipelineCache->CreatePipeline(this, name);
@@ -338,10 +344,19 @@ com_ptr<ID3D12RaytracingFallbackStateObject> PipelineLib_DX12::createStateObject
 
 	// Pipeline config
 	// Defines the maximum TraceRay() recursion depth.
-	const auto pPipelineConfig = pPsoDesc.CreateSubobject<CD3DX12_RAYTRACING_PIPELINE_CONFIG_SUBOBJECT>();
 	// PERFOMANCE TIP: Set max recursion depth as low as needed
 	// as drivers may apply optimization strategies for low recursion depths.
-	pPipelineConfig->Config(keyHeader.MaxRecursionDepth);
+	if (keyHeader.Flags)
+	{
+		assert(m_device->UsingRaytracingDriver());
+		const auto pPipelineConfig = pPsoDesc.CreateSubobject<CD3DX12_RAYTRACING_PIPELINE_CONFIG1_SUBOBJECT>();
+		pPipelineConfig->Config(keyHeader.MaxRecursionDepth, static_cast<D3D12_RAYTRACING_PIPELINE_FLAGS>(keyHeader.Flags));
+	}
+	else
+	{
+		const auto pPipelineConfig = pPsoDesc.CreateSubobject<CD3DX12_RAYTRACING_PIPELINE_CONFIG_SUBOBJECT>();
+		pPipelineConfig->Config(keyHeader.MaxRecursionDepth);
+	}
 
 	// Node mask
 	if (keyHeader.NodeMask)

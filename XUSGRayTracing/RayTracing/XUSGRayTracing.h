@@ -47,6 +47,161 @@ namespace XUSG
 
 		XUSG_DEF_ENUM_FLAG_OPERATORS(InstanceFlag);
 
+		enum class PipelineFlag
+		{
+			NONE = 0,
+			SKIP_TRIANGLES = (1 << 8),
+			SKIP_PROCEDURAL_PRIMITIVES = (1 << 9),
+			ALLOW_OPACITY_MICROMAPS = (1 << 10),
+			ALLOW_CLUSTERED_GEOMETRY = (1 << 11)
+		};
+
+		XUSG_DEF_ENUM_FLAG_OPERATORS(PipelineFlag);
+
+		enum class RTASOperationType
+		{
+			MOVE_CLUSTER_OBJECTS = 0,
+			BUILD_BLAS_FROM_CLAS = 0x1,
+			BUILD_CLAS_FROM_TRIANGLES = 0x2,
+			BUILD_CLUSTER_TEMPLATES_FROM_TRIANGLES = 0x3,
+			INSTANTIATE_CLUSTER_TEMPLATES = 0x4,
+			PARTITIONED_TLAS = 0x8
+		};
+
+		enum class RTASOperationFlag
+		{
+			NONE = 0,
+			FAST_TRACE = 0x4,
+			FAST_OPERATION = 0x8,
+			ALLOW_DATA_ACCESS = 0x100,
+			ALLOW_OMM = 0x400
+		};
+
+		XUSG_DEF_ENUM_FLAG_OPERATORS(RTASOperationFlag);
+
+		enum class RTASOperationMode
+		{
+			IMPLICIT_DESTINATIONS = 0,
+			EXPLICIT_DESTINATIONS = 0x1,
+			GET_SIZES = 0x2
+		};
+
+		enum class RTASMoveOperationType
+		{
+			CLUSTER_BOTTOM_LEVEL_ACCELERATION_STRUCTURE = 0,
+			CLUSTER_LEVEL_ACCELERATION_STRUCTURE = 0x1,
+			CLUSTER_TEMPLATE = 0x2
+		};
+
+		enum class RTASClusterMoveFlag
+		{
+			NONE = 0,
+			NO_OVERLAP = 0x200,
+			ALLOW_OMM = 0x400
+		};
+
+		XUSG_DEF_ENUM_FLAG_OPERATORS(RTASClusterMoveFlag);
+
+		enum class RTASPartitionedTLASFlag
+		{
+			NONE = 0,
+			FAST_TRACE = 0x1,
+			FAST_BUILD = 0x2,
+			ENABLE_PARTITION_TRANSLATION = 0x4
+		};
+
+		XUSG_DEF_ENUM_FLAG_OPERATORS(RTASPartitionedTLASFlag);
+
+		enum class RTASExecuteFlag
+		{
+			NONE = 0
+		};
+
+		XUSG_DEF_ENUM_FLAG_OPERATORS(RTASExecuteFlag);
+
+		enum class ClusterVertexFormat
+		{
+			FLOAT32_2 = 1,
+			FLOAT32_3 = 2,
+			FLOAT16_2 = 3,
+			FLOAT16_3 = 4,
+			UNORM16_2 = 5,
+			UNORM16_3 = 6,
+			SNORM16_2 = 7,
+			SNORM16_3 = 8,
+			UNORM8_2 = 9,
+			UNORM8_3 = 10,
+			SNORM8_2 = 11,
+			SNORM8_3 = 12,
+			UNORM10_10_10_2 = 13,
+			COMPRESSED1 = 14
+		};
+
+		enum class ClusterIndexFormat
+		{
+			NONE = 0,
+			UINT8 = 0x1,
+			UINT16 = 0x2,
+			UINT32 = 0x4
+		};
+
+		enum class RTASClusterOperationClasFlag
+		{
+			NONE = 0,
+			ALLOW_DISABLE_OMMS = 0x1,
+			DISALLOW_DATA_ACCESS = 0x2
+		};
+
+		XUSG_DEF_ENUM_FLAG_OPERATORS(RTASClusterOperationClasFlag);
+
+		enum class RTASClusteredGeometryFlag : uint32_t
+		{
+			NONE = 0,
+			FULL_OPAQUE = 0x80000000,
+			NO_DUPLICATE_ANYHIT_INVOCATION = 0x40000000
+		};
+
+		XUSG_DEF_ENUM_FLAG_OPERATORS(RTASClusteredGeometryFlag);
+
+		enum class RTASAddressResolutionFlag
+		{
+			NONE = 0,
+			INDIRECTED_BATCH_RESULT = 0x1,
+			INDIRECTED_BATCH_SCRATCH = 0x2,
+			INDIRECTED_DESTINATION_ADDRESS_ARRAY = 0x4,
+			INDIRECTED_RESULT_SIZE_ARRAY = 0x8,
+			INDIRECTED_INDIRECT_ARGUMENT_ARRAY = 0x10,
+			INDIRECTED_INDIRECT_ARGUMENT_COUNT = 0x20
+		};
+
+		XUSG_DEF_ENUM_FLAG_OPERATORS(RTASAddressResolutionFlag);
+
+		enum class RTASPartitionedTLASOperationType
+		{
+			WRITE_INSTANCE = 0,
+			UPDATE_INSTANCE = 0x1,
+			TRANSLATE_PARTITION = 0x2
+		};
+
+		enum class RTASPartitionedTLASPartitionIndex : uint32_t
+		{
+			GLOBAL_PARTITION = 0xffffffff
+		};
+
+		enum class RTASPartitionedTLASInstanceFlag
+		{
+			NONE = 0,
+			TRIANGLE_CULL_DISABLE = 0x1,
+			TRIANGLE_FRONT_COUNTERCLOCKWISE = 0x2,
+			FORCE_OPAQUE = 0x4,
+			FORCE_NON_OPAQUE = 0x8,
+			FORCE_OMM_2_STATE = 0x10,
+			DISABLE_OMMS = 0x20,
+			ENABLE_EXPLICIT_AABB = 0x40
+		};
+
+		XUSG_DEF_ENUM_FLAG_OPERATORS(RTASPartitionedTLASInstanceFlag);
+
 		enum class GeometryType : uint8_t
 		{
 			TRIANGLES,
@@ -129,6 +284,235 @@ namespace XUSG
 			OpacityMicromapFormat Format;
 		};
 
+		// Matches D3D12_GPU_VIRTUAL_ADDRESS_AND_STRIDE.
+		struct GpuVirtualAddressAndStride
+		{
+			uint64_t StartAddress;
+			uint64_t StrideInBytes;
+		};
+
+		// Matches D3D12_RTAS_OPERATION_PREBUILD_INFO.
+		struct RTASPrebuildInfo
+		{
+			uint64_t ResultDataMaxByteSize;
+			uint64_t ScratchDataByteSize;
+		};
+
+		struct RTASClusterLimits
+		{
+			uint32_t MaxArgCount;
+			uint32_t MaxGeometryIndexValue;
+			uint32_t MaxUniqueGeometryIndexAndFlagsCountPerCluster;
+			uint32_t MaxTriangleCountPerCluster;
+			uint32_t MaxUniqueVertexIndexCountPerCluster;
+			uint32_t MaxTotalTriangleCount;
+			uint32_t MaxSumOfUniqueVertexIndexCounts;
+			uint32_t MaxOpacityMicromapIndicesPerCluster;
+		};
+
+		struct RTASClusterTrianglesInputs
+		{
+			RTASClusterLimits ClusterLimits;
+			RTASOperationFlag Flags;
+			RTASOperationMode Mode;
+			ClusterVertexFormat VertexFormat;
+			ClusterIndexFormat IndexFormat;
+			ClusterIndexFormat GeometryIndexAndFlagsIndexFormat;
+			ClusterIndexFormat OpacityMicromapIndexFormat;
+			union
+			{
+				uint32_t MinPositionTruncateBitCount;
+				uint32_t MaxCompressedClusterPositionsSize;
+			};
+		};
+
+		struct RTASClusterTemplateTrianglesInputs
+		{
+			RTASClusterLimits ClusterLimits;
+			RTASOperationFlag Flags;
+			RTASOperationMode Mode;
+			ClusterVertexFormat VertexHintFormat;
+			ClusterVertexFormat VertexInstantiationFormat;
+			ClusterIndexFormat IndexFormat;
+			ClusterIndexFormat GeometryIndexAndFlagsIndexFormat;
+			ClusterIndexFormat OpacityMicromapIndexFormat;
+		};
+
+		struct RTASInstantiateClusterTemplateInputs
+		{
+			RTASClusterLimits ClusterLimits;
+			RTASOperationFlag Flags;
+			RTASOperationMode Mode;
+			ClusterVertexFormat VertexSourceFormat;
+		};
+
+		struct RTASClasInputs
+		{
+			RTASOperationFlag Flags;
+			uint32_t MaxArgCount;
+			RTASOperationMode Mode;
+			uint32_t MaxTotalClasCount;
+			uint32_t MaxClasCountPerArg;
+		};
+
+		struct RTASClusterMoves
+		{
+			RTASClusterMoveFlag Flags;
+			uint32_t MaxArgCount;
+			RTASOperationMode Mode;
+			RTASMoveOperationType Type;
+			uint64_t MaxBytesMoved;
+		};
+
+		struct RTASBatchedOperationData
+		{
+			RTASAddressResolutionFlag AddressResolutionFlags;
+			uint64_t BatchResultData;
+			uint64_t BatchScratchData;
+			GpuVirtualAddressAndStride ResultAddressArray;
+			GpuVirtualAddressAndStride ResultSizeArray;
+			GpuVirtualAddressAndStride IndirectArgumentArray;
+			uint64_t IndirectArgumentArraySize;
+			uint64_t ToolsInfo;
+		};
+
+		struct RTASPartitionedTLASInputs
+		{
+			RTASPartitionedTLASFlag Flags;
+			uint32_t InstanceCount;
+			uint32_t MaxInstancePerPartitionCount;
+			uint32_t PartitionCount;
+			uint32_t MaxInstanceInGlobalPartitionCount;
+		};
+
+		struct RTASPartitionedTLASOperationData
+		{
+			uint64_t SourceAccelerationStructureData;
+			uint64_t DestAccelerationStructureData;
+			uint64_t ScratchAccelerationStructureData;
+			uint64_t IndirectPartitionedTlasOpCount;
+			uint64_t IndirectPartitionedTlasOps;
+		};
+
+		struct RTASOperationInputs
+		{
+			RTASOperationType Type;
+			union
+			{
+				const RTASClasInputs* pClasDesc;
+				const RTASClusterTrianglesInputs* pClusterTrianglesDesc;
+				const RTASClusterTemplateTrianglesInputs* pClusterTemplateTrianglesDesc;
+				const RTASInstantiateClusterTemplateInputs* pInstantiateClusterTemplateDesc;
+				const RTASClusterMoves* pClusterMovesDesc;
+				const RTASPartitionedTLASInputs* pPartitionedTLASInputsDesc;
+			};
+		};
+
+		struct RTASOperationDesc
+		{
+			RTASOperationInputs Inputs;
+			union
+			{
+				const RTASBatchedOperationData* pBatchedOperationData;
+				const RTASPartitionedTLASOperationData* pPartitionedTlasOperationData;
+			};
+		};
+
+		// GPU argument layouts match the D3D12_RTAS_OPERATION_*_ARGS structs.
+		struct RTASBuildClasFromTrianglesArgs
+		{
+			uint32_t ClusterID;
+			uint32_t ClusterFlags;
+			uint16_t TriangleCount;
+			uint16_t UniqueVertexIndexCount;
+			uint32_t BaseGeometryIndexAndFlags;
+			uint32_t OpacityMicromapBaseLocation;
+			uint16_t VertexBufferStride;
+			uint16_t IndexBufferStride;
+			uint16_t OpacityMicromapIndexBufferStride;
+			uint16_t GeometryIndexAndFlagsArrayStride;
+			uint16_t PositionTruncateBitCount;
+			uint16_t ReservedPadding;
+			uint64_t VertexBuffer;
+			uint64_t IndexBuffer;
+			uint64_t GeometryIndexAndFlagsArray;
+			uint64_t GeometryIndexAndFlagsIndexBuffer;
+			uint64_t OpacityMicromapArray;
+			uint64_t OpacityMicromapIndexBuffer;
+		};
+
+		struct RTASBuildBlasFromClasArgs
+		{
+			uint32_t ClasAddressCount;
+			uint32_t ClasAddressStride;
+			uint64_t ClasAddressArray;
+		};
+
+		struct RTASMoveClusterObjectsArgs
+		{
+			uint64_t SourceAccelerationStructure;
+		};
+
+		struct RTASBuildClusterTemplatesFromTrianglesArgs
+		{
+			RTASBuildClasFromTrianglesArgs TrianglesArgs;
+			uint64_t InstantiationBoundingBoxLimit;
+			union
+			{
+				struct
+				{
+					uint32_t field0;
+					uint32_t ReservedPadding;
+				} Compressed1;
+			};
+		};
+
+		struct RTASInstantiateClusterTemplatesArgs
+		{
+			int32_t GeometryIndexOffset;
+			uint32_t ClusterIdOffset;
+			uint64_t ClusterTemplate;
+			GpuVirtualAddressAndStride VertexBuffer;
+		};
+
+		struct RTASPartitionedTLASOperation
+		{
+			RTASPartitionedTLASOperationType Type;
+			uint32_t ArgCount;
+			GpuVirtualAddressAndStride ArgData;
+		};
+
+		struct RTASPartitionedTLASWriteInstanceArgs
+		{
+			float Transform[3][4];
+			uint32_t InstanceID;
+			uint32_t InstanceMask;
+			uint32_t InstanceContributionToHitGroupIndex;
+			uint32_t InstanceFlags;
+			uint64_t AccelerationStructure;
+			uint32_t InstanceIndex;
+			uint32_t PartitionIndex;
+			float MinX;
+			float MinY;
+			float MinZ;
+			float MaxX;
+			float MaxY;
+			float MaxZ;
+		};
+
+		struct RTASPartitionedTLASUpdateInstanceArgs
+		{
+			uint32_t InstanceIndex;
+			uint32_t InstanceContributionToHitGroupIndex;
+			uint64_t AccelerationStructure;
+		};
+
+		struct RTASPartitionedTLASTranslatePartitionArgs
+		{
+			uint32_t PartitionIndex;
+			float PartitionTranslation[3];
+		};
+
 		//--------------------------------------------------------------------------------------
 		// Device
 		//--------------------------------------------------------------------------------------
@@ -151,6 +535,9 @@ namespace XUSG
 			// Concrete RT backend (Device_DX12* / Device_VK*). Distinct from
 			// XUSG::Device::GetBackend(), which returns the core Device_* subobject.
 			virtual void* GetRTBackend() = 0;
+
+			virtual bool HasClustersAndPTLAS() const = 0;
+			virtual void GetRTASOperationPrebuildInfo(const RTASOperationInputs& desc, RTASPrebuildInfo& info) const = 0;
 
 			using uptr = std::unique_ptr<Device>;
 			using sptr = std::shared_ptr<Device>;
@@ -394,6 +781,160 @@ namespace XUSG
 		};
 
 		//--------------------------------------------------------------------------------------
+		// Cluster-level acceleration structure
+		//--------------------------------------------------------------------------------------
+		class XUSG_INTERFACE ClusterLevelAS
+		{
+		public:
+			//ClusterLevelAS();
+			virtual ~ClusterLevelAS() {}
+
+			virtual void SetTriangles(const RTASClusterTrianglesInputs& desc) = 0;
+			virtual void SetTemplateInstantiation(const RTASInstantiateClusterTemplateInputs& desc) = 0;
+
+			virtual bool Prebuild(Device* pDevice) = 0;
+			virtual bool Allocate(Device* pDevice, size_t byteWidth = 0,
+				MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr, uint32_t maxThreads = 1) = 0;
+			virtual void Build(CommandList* pCommandList, const Resource* pScratch,
+				uint64_t indirectArgumentAddress, uint64_t indirectArgumentStride = 0) = 0;
+
+			virtual uint32_t SetBarrier(ResourceBarrier* pBarriers, uint32_t numBarriers = 0) = 0;
+
+			virtual const RTASPrebuildInfo& GetPrebuildInfo() const = 0;
+
+			virtual size_t GetResultDataMaxByteSize(bool isAligned = true) const = 0;
+			virtual size_t GetScratchDataByteSize(bool isAligned = true) const = 0;
+
+			virtual uint64_t GetVirtualAddress() const = 0;
+
+			virtual void* GetBackend() = 0;
+
+			static size_t Align(size_t byteSize);
+
+			using uptr = std::unique_ptr<ClusterLevelAS>;
+			using sptr = std::shared_ptr<ClusterLevelAS>;
+
+			static uptr MakeUnique();
+			static sptr MakeShared();
+		};
+
+		//--------------------------------------------------------------------------------------
+		// Cluster template
+		//--------------------------------------------------------------------------------------
+		class XUSG_INTERFACE ClusterTemplate
+		{
+		public:
+			//ClusterTemplate();
+			virtual ~ClusterTemplate() {}
+
+			virtual void SetTriangles(const RTASClusterTemplateTrianglesInputs& desc) = 0;
+
+			virtual bool Prebuild(Device* pDevice) = 0;
+			virtual bool Allocate(Device* pDevice, size_t byteWidth = 0,
+				MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr, uint32_t maxThreads = 1) = 0;
+			virtual void Build(CommandList* pCommandList, const Resource* pScratch,
+				uint64_t indirectArgumentAddress, uint64_t indirectArgumentStride = 0) = 0;
+			virtual void Instantiate(CommandList* pCommandList, ClusterLevelAS* pDestination, const Resource* pScratch,
+				uint64_t indirectArgumentAddress, uint64_t indirectArgumentStride = 0) = 0;
+
+			virtual uint32_t SetBarrier(ResourceBarrier* pBarriers, uint32_t numBarriers = 0) = 0;
+
+			virtual const RTASPrebuildInfo& GetPrebuildInfo() const = 0;
+
+			virtual size_t GetResultDataMaxByteSize(bool isAligned = true) const = 0;
+			virtual size_t GetScratchDataByteSize(bool isAligned = true) const = 0;
+
+			virtual uint64_t GetVirtualAddress() const = 0;
+
+			virtual void* GetBackend() = 0;
+
+			static size_t Align(size_t byteSize);
+
+			using uptr = std::unique_ptr<ClusterTemplate>;
+			using sptr = std::shared_ptr<ClusterTemplate>;
+
+			static uptr MakeUnique();
+			static sptr MakeShared();
+		};
+
+		//--------------------------------------------------------------------------------------
+		// Cluster bottom-level acceleration structure
+		//--------------------------------------------------------------------------------------
+		class XUSG_INTERFACE ClusterBottomLevelAS
+		{
+		public:
+			//ClusterBottomLevelAS();
+			virtual ~ClusterBottomLevelAS() {}
+
+			virtual void SetClusters(const RTASClasInputs& desc) = 0;
+
+			virtual bool Prebuild(Device* pDevice) = 0;
+			virtual bool Allocate(Device* pDevice, size_t byteWidth = 0,
+				MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr, uint32_t maxThreads = 1) = 0;
+			virtual void Build(CommandList* pCommandList, const Resource* pScratch,
+				uint64_t indirectArgumentAddress, uint64_t indirectArgumentStride = 0) = 0;
+
+			virtual uint32_t SetBarrier(ResourceBarrier* pBarriers, uint32_t numBarriers = 0) = 0;
+
+			virtual const RTASPrebuildInfo& GetPrebuildInfo() const = 0;
+
+			virtual size_t GetResultDataMaxByteSize(bool isAligned = true) const = 0;
+			virtual size_t GetScratchDataByteSize(bool isAligned = true) const = 0;
+
+			virtual uint64_t GetVirtualAddress() const = 0;
+
+			virtual void* GetBackend() = 0;
+
+			static size_t Align(size_t byteSize);
+
+			using uptr = std::unique_ptr<ClusterBottomLevelAS>;
+			using sptr = std::shared_ptr<ClusterBottomLevelAS>;
+
+			static uptr MakeUnique();
+			static sptr MakeShared();
+		};
+
+		//--------------------------------------------------------------------------------------
+		// Partitioned top-level acceleration structure
+		//--------------------------------------------------------------------------------------
+		class XUSG_INTERFACE PartitionedTLAS
+		{
+		public:
+			//PartitionedTLAS();
+			virtual ~PartitionedTLAS() {}
+
+			virtual void SetPartitions(const RTASPartitionedTLASInputs& desc) = 0;
+
+			virtual bool Prebuild(Device* pDevice) = 0;
+			virtual bool Allocate(Device* pDevice, size_t byteWidth = 0,
+				MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr, uint32_t maxThreads = 1) = 0;
+			virtual void Build(CommandList* pCommandList, const Resource* pScratch,
+				uint64_t indirectOps, uint64_t indirectOpCount) = 0;
+			virtual void Update(CommandList* pCommandList, const Resource* pScratch,
+				uint64_t indirectOps, uint64_t indirectOpCount) = 0;
+
+			virtual uint32_t SetBarrier(ResourceBarrier* pBarriers, uint32_t numBarriers = 0) = 0;
+
+			virtual const RTASPrebuildInfo& GetPrebuildInfo() const = 0;
+
+			virtual size_t GetResultDataMaxByteSize(bool isAligned = true) const = 0;
+			virtual size_t GetScratchDataByteSize(bool isAligned = true) const = 0;
+
+			virtual uint64_t GetVirtualAddress() const = 0;
+			virtual const Descriptor& GetSRV() const = 0;
+
+			virtual void* GetBackend() = 0;
+
+			static size_t Align(size_t byteSize);
+
+			using uptr = std::unique_ptr<PartitionedTLAS>;
+			using sptr = std::shared_ptr<PartitionedTLAS>;
+
+			static uptr MakeUnique();
+			static sptr MakeShared();
+		};
+
+		//--------------------------------------------------------------------------------------
 		// Shader record
 		//--------------------------------------------------------------------------------------
 		class XUSG_INTERFACE ShaderRecord
@@ -476,6 +1017,8 @@ namespace XUSG
 			virtual void CopyRaytracingAccelerationStructure(AccelerationStructure* pDst,
 				AccelerationStructure* pSrc, CopyMode mode,
 				const DescriptorHeap* pDescriptorHeap = nullptr) = 0;
+			virtual void ExecuteIndirectRTASOperations(uint32_t numOperationDescs, const RTASOperationDesc* pDescs,
+				RTASExecuteFlag flags = RTASExecuteFlag::NONE) = 0;
 
 			virtual void SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps) = 0;
 			virtual void SetTopLevelAccelerationStructure(uint32_t index, const TopLevelAS* pTopLevelAS) const = 0;
@@ -544,6 +1087,7 @@ namespace XUSG
 			virtual void SetGlobalPipelineLayout(const XUSG::PipelineLayout& layout) = 0;
 			virtual void SetMaxRecursionDepth(uint32_t depth) = 0;
 			virtual void SetNodeMask(uint32_t nodeMask) = 0;
+			virtual void SetPipelineFlags(PipelineFlag flags) = 0;
 
 			virtual Pipeline CreatePipeline(PipelineLib* pPipelineCache, const wchar_t* name = nullptr) = 0;
 			virtual Pipeline GetPipeline(PipelineLib* pPipelineCache, const wchar_t* name = nullptr) = 0;

@@ -260,6 +260,15 @@ void RayTracing::CommandList_VK::CopyRaytracingAccelerationStructure(Acceleratio
 	m_rt->m_cmdCopyAccelerationStructure(m_state->m_commandBuffer, &info);
 }
 
+void RayTracing::CommandList_VK::ExecuteIndirectRTASOperations(uint32_t numOperationDescs,
+	const RTASOperationDesc* pDescs, RTASExecuteFlag flags)
+{
+	assert(!"ExecuteIndirectRTASOperations is not implemented on Vulkan");
+	(void)numOperationDescs;
+	(void)pDescs;
+	(void)flags;
+}
+
 void RayTracing::CommandList_VK::SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps)
 {
 	XUSG::CommandList_VK::SetDescriptorHeaps(numDescriptorHeaps, pDescriptorHeaps);

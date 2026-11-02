@@ -276,6 +276,12 @@ void State_VK::SetNodeMask(uint32_t nodeMask)
 	m_pKeyHeader->NodeMask = nodeMask;
 }
 
+void State_VK::SetPipelineFlags(PipelineFlag flags)
+{
+	m_isSerialized = false;
+	m_pKeyHeader->Flags = static_cast<uint32_t>(flags);
+}
+
 Pipeline State_VK::CreatePipeline(PipelineLib* pPipelineCache, const wchar_t* name)
 {
 	return pPipelineCache->CreatePipeline(this, name);

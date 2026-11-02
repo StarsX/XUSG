@@ -10,6 +10,7 @@
 #include "XUSGRayTracing.h"
 #include "XUSGRayTracing_DX12.h"
 #include "XUSGAccelerationStructure_DX12.h"
+#include "XUSGCluster_DX12.h"
 #include "XUSGShaderTable_DX12.h"
 #include "XUSGRayTracingCommand_DX12.h"
 #include "XUSGRayTracingPipelineLayout_DX12.h"
@@ -18,6 +19,7 @@
 #include "Core/XUSG_VK.h"
 #include "XUSGRayTracing_VK.h"
 #include "XUSGAccelerationStructure_VK.h"
+#include "XUSGCluster_VK.h"
 #include "XUSGShaderTable_VK.h"
 #include "XUSGRayTracingCommand_VK.h"
 #include "XUSGRayTracingPipelineLayout_VK.h"
@@ -283,6 +285,102 @@ OpacityMicromapArray::sptr OpacityMicromapArray::MakeShared()
 	XUSG_IF_VK(return make_shared<OpacityMicromapArray_VK>();)
 
 	return make_shared<OpacityMicromapArray_DX12>();
+}
+
+size_t ClusterLevelAS::Align(size_t byteSize)
+{
+	XUSG::Device::LockApi();
+	XUSG_IF_VK(return ClusterLevelAS_VK::Align(byteSize);)
+
+	return ClusterLevelAS_DX12::Align(byteSize);
+}
+
+ClusterLevelAS::uptr ClusterLevelAS::MakeUnique()
+{
+	XUSG::Device::LockApi();
+	XUSG_IF_VK(return make_unique<ClusterLevelAS_VK>();)
+
+	return make_unique<ClusterLevelAS_DX12>();
+}
+
+ClusterLevelAS::sptr ClusterLevelAS::MakeShared()
+{
+	XUSG::Device::LockApi();
+	XUSG_IF_VK(return make_shared<ClusterLevelAS_VK>();)
+
+	return make_shared<ClusterLevelAS_DX12>();
+}
+
+size_t ClusterTemplate::Align(size_t byteSize)
+{
+	XUSG::Device::LockApi();
+	XUSG_IF_VK(return ClusterTemplate_VK::Align(byteSize);)
+
+	return ClusterTemplate_DX12::Align(byteSize);
+}
+
+ClusterTemplate::uptr ClusterTemplate::MakeUnique()
+{
+	XUSG::Device::LockApi();
+	XUSG_IF_VK(return make_unique<ClusterTemplate_VK>();)
+
+	return make_unique<ClusterTemplate_DX12>();
+}
+
+ClusterTemplate::sptr ClusterTemplate::MakeShared()
+{
+	XUSG::Device::LockApi();
+	XUSG_IF_VK(return make_shared<ClusterTemplate_VK>();)
+
+	return make_shared<ClusterTemplate_DX12>();
+}
+
+size_t ClusterBottomLevelAS::Align(size_t byteSize)
+{
+	XUSG::Device::LockApi();
+	XUSG_IF_VK(return ClusterBottomLevelAS_VK::Align(byteSize);)
+
+	return ClusterBottomLevelAS_DX12::Align(byteSize);
+}
+
+ClusterBottomLevelAS::uptr ClusterBottomLevelAS::MakeUnique()
+{
+	XUSG::Device::LockApi();
+	XUSG_IF_VK(return make_unique<ClusterBottomLevelAS_VK>();)
+
+	return make_unique<ClusterBottomLevelAS_DX12>();
+}
+
+ClusterBottomLevelAS::sptr ClusterBottomLevelAS::MakeShared()
+{
+	XUSG::Device::LockApi();
+	XUSG_IF_VK(return make_shared<ClusterBottomLevelAS_VK>();)
+
+	return make_shared<ClusterBottomLevelAS_DX12>();
+}
+
+size_t PartitionedTLAS::Align(size_t byteSize)
+{
+	XUSG::Device::LockApi();
+	XUSG_IF_VK(return PartitionedTLAS_VK::Align(byteSize);)
+
+	return PartitionedTLAS_DX12::Align(byteSize);
+}
+
+PartitionedTLAS::uptr PartitionedTLAS::MakeUnique()
+{
+	XUSG::Device::LockApi();
+	XUSG_IF_VK(return make_unique<PartitionedTLAS_VK>();)
+
+	return make_unique<PartitionedTLAS_DX12>();
+}
+
+PartitionedTLAS::sptr PartitionedTLAS::MakeShared()
+{
+	XUSG::Device::LockApi();
+	XUSG_IF_VK(return make_shared<PartitionedTLAS_VK>();)
+
+	return make_shared<PartitionedTLAS_DX12>();
 }
 
 const void* ShaderRecord::GetShaderIdentifier(const Pipeline& pipeline, const wchar_t* shaderName)

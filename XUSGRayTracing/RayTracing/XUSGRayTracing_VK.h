@@ -26,6 +26,9 @@ namespace XUSG
 			void* GetRTHandle() const;
 			void* GetRTBackend();
 
+			bool HasClustersAndPTLAS() const;
+			void GetRTASOperationPrebuildInfo(const RTASOperationInputs& desc, RTASPrebuildInfo& info) const;
+
 		protected:
 			bool createInterface(uint8_t flags = 0);
 		};

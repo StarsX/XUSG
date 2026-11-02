@@ -46,6 +46,18 @@ void* Device_VK::GetRTBackend()
 	return this;
 }
 
+bool Device_VK::HasClustersAndPTLAS() const
+{
+	return false;
+}
+
+void Device_VK::GetRTASOperationPrebuildInfo(const RTASOperationInputs& desc, RTASPrebuildInfo& info) const
+{
+	assert(!"GetRTASOperationPrebuildInfo is not implemented on Vulkan");
+	(void)desc;
+	info = {};
+}
+
 bool Device_VK::createInterface(uint8_t flags)
 {
 	(void)flags;

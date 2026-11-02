@@ -13,7 +13,8 @@ using namespace XUSG::RayTracing;
 #define APPEND_GEOMETRY_FLAG(flags, flag) APPEND_FLAG(GeometryFlag, D3D12_RAYTRACING_GEOMETRY_FLAG, flags, flag, NONE)
 #define APPEND_INSTANCE_FLAG(flags, flag) APPEND_FLAG(InstanceFlag, D3D12_RAYTRACING_INSTANCE_FLAG, flags, flag, NONE)
 
-Device_DX12::Device_DX12()
+Device_DX12::Device_DX12() :
+	m_hasClustersAndPTLAS(false)
 {
 }
 
@@ -50,6 +51,20 @@ void* Device_DX12::GetRTBackend()
 	return this;
 }
 
+bool Device_DX12::HasClustersAndPTLAS() const
+{
+	return m_hasClustersAndPTLAS;
+}
+
+void Device_DX12::GetRTASOperationPrebuildInfo(const RTASOperationInputs& desc, RTASPrebuildInfo& info) const
+{
+	assert(m_hasClustersAndPTLAS);
+	assert(m_deviceRT2);
+
+	m_deviceRT2->GetRTASOperationPrebuildInfo(reinterpret_cast<const D3D12_RTAS_OPERATION_INPUTS*>(&desc),
+		reinterpret_cast<D3D12_RTAS_OPERATION_PREBUILD_INFO*>(&info));
+}
+
 bool Device_DX12::createInterface(uint8_t flags)
 {
 	const auto hr = D3D12CreateRaytracingFallbackDevice(m_device.get(), flags, 0, IID_PPV_ARGS(&m_deviceRT));
@@ -58,6 +73,15 @@ bool Device_DX12::createInterface(uint8_t flags)
 		OutputDebugString(L"Couldn't get DirectX Raytracing Fallback interface for the device.\n");
 
 		return false;
+	}
+
+	m_hasClustersAndPTLAS = false;
+	m_deviceRT2 = nullptr;
+	if (SUCCEEDED(m_device->QueryInterface(IID_PPV_ARGS(&m_deviceRT2))))
+	{
+		D3D12_FEATURE_DATA_D3D12_OPTIONS_RAYTRACING2 options = {};
+		const auto hrFeature = m_device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS_RAYTRACING2, &options, sizeof(options));
+		m_hasClustersAndPTLAS = SUCCEEDED(hrFeature) && options.ClustersAndPTLASSupported;
 	}
 
 	return true;

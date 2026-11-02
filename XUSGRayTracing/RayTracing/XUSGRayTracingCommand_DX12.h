@@ -38,6 +38,8 @@ namespace XUSG
 			void CopyRaytracingAccelerationStructure(AccelerationStructure* pDst,
 				AccelerationStructure* pSrc, CopyMode mode,
 				const DescriptorHeap* pDescriptorHeap = nullptr);
+			void ExecuteIndirectRTASOperations(uint32_t numOperationDescs, const RTASOperationDesc* pDescs,
+				RTASExecuteFlag flags = RTASExecuteFlag::NONE);
 
 			void SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps);
 			void SetTopLevelAccelerationStructure(uint32_t index, const TopLevelAS* pTopLevelAS) const;
@@ -54,6 +56,7 @@ namespace XUSG
 			bool createInterface();
 
 			com_ptr<ID3D12RaytracingFallbackCommandList> m_commandListRT;
+			com_ptr<ID3D12CommandListRaytracing2> m_commandListRT2;
 
 			Device* m_pDeviceRT;
 		};

@@ -129,6 +129,17 @@ void RayTracing::CommandList_DX12::CopyRaytracingAccelerationStructure(Accelerat
 		pSrc->GetVirtualAddress(), GetDXRAccelerationStructureCopyMode(mode));
 }
 
+void RayTracing::CommandList_DX12::ExecuteIndirectRTASOperations(uint32_t numOperationDescs,
+	const RTASOperationDesc* pDescs, RTASExecuteFlag flags)
+{
+	assert(m_commandListRT2);
+	assert(numOperationDescs == 0 || pDescs);
+
+	m_commandListRT2->ExecuteIndirectRTASOperations(numOperationDescs,
+		reinterpret_cast<const D3D12_RTAS_OPERATION_DESC*>(pDescs),
+		static_cast<D3D12_EXECUTE_INDIRECT_RTAS_OPERATIONS_FLAGS>(flags));
+}
+
 void RayTracing::CommandList_DX12::SetDescriptorHeaps(uint32_t numDescriptorHeaps, const DescriptorHeap* pDescriptorHeaps)
 {
 	assert(numDescriptorHeaps == 0 || pDescriptorHeaps);
@@ -212,6 +223,9 @@ bool RayTracing::CommandList_DX12::createInterface()
 	XUSG_N_RETURN(pDxDevice, false);
 
 	pDxDevice->QueryRaytracingCommandList(m_commandList.get(), IID_PPV_ARGS(&m_commandListRT));
+
+	m_commandListRT2 = nullptr;
+	if (m_commandList) m_commandList->QueryInterface(IID_PPV_ARGS(&m_commandListRT2));
 
 	return true;
 }

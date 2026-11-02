@@ -38,6 +38,7 @@ namespace XUSG
 				uint32_t MaxAttributeSize;
 				uint32_t MaxRecursionDepth;
 				uint32_t NodeMask;
+				uint32_t Flags;
 			};
 
 			struct KeyShaderLibHeader
@@ -87,6 +88,7 @@ namespace XUSG
 			void SetGlobalPipelineLayout(const XUSG::PipelineLayout& layout);
 			void SetMaxRecursionDepth(uint32_t depth);
 			void SetNodeMask(uint32_t nodeMask);
+			void SetPipelineFlags(PipelineFlag flags);
 
 			Pipeline CreatePipeline(PipelineLib* pPipelineCache, const wchar_t* name = nullptr);
 			Pipeline GetPipeline(PipelineLib* pPipelineCache, const wchar_t* name = nullptr);

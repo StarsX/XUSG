@@ -188,6 +188,7 @@
     <ClInclude Include="..\XUSG\Ultimate\XUSGUltimate_DX12.h" />
     <ClInclude Include="..\XUSG\Ultimate\XUSGUltimate_VK.h" />
     <ClInclude Include="RayTracing\XUSGAccelerationStructure_DX12.h" />
+    <ClInclude Include="RayTracing\XUSGCluster_DX12.h" />
     <ClInclude Include="RayTracing\XUSGRayTracing.h" />
     <ClInclude Include="RayTracing\XUSGRayTracingCommand_DX12.h" />
     <ClInclude Include="RayTracing\XUSGRayTracingPipelineLayout_DX12.h" />
@@ -196,6 +197,7 @@
     <ClInclude Include="RayTracing\XUSGShaderTable_DX12.h" />
     <ClInclude Include="RayTracing\XUSGRayTracing_VK.h" Condition="'$(Platform)'=='x64'" />
     <ClInclude Include="RayTracing\XUSGAccelerationStructure_VK.h" Condition="'$(Platform)'=='x64'" />
+    <ClInclude Include="RayTracing\XUSGCluster_VK.h" Condition="'$(Platform)'=='x64'" />
     <ClInclude Include="RayTracing\XUSGShaderTable_VK.h" Condition="'$(Platform)'=='x64'" />
     <ClInclude Include="RayTracing\XUSGRayTracingCommand_VK.h" Condition="'$(Platform)'=='x64'" />
     <ClInclude Include="RayTracing\XUSGRayTracingPipelineLayout_VK.h" Condition="'$(Platform)'=='x64'" />
@@ -287,6 +289,12 @@
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h</ForcedIncludeFiles>
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdafx.h</ForcedIncludeFiles>
     </ClCompile>
+    <ClCompile Include="RayTracing\XUSGCluster_DX12.cpp">
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">stdafx.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdafx.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdafx.h</ForcedIncludeFiles>
+    </ClCompile>
     <ClCompile Include="RayTracing\XUSGRayTracing.cpp">
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">stdafx.h</ForcedIncludeFiles>
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdafx.h</ForcedIncludeFiles>
@@ -328,6 +336,10 @@
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdafx.h</ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="RayTracing\XUSGAccelerationStructure_VK.cpp" Condition="'$(Platform)'=='x64'">
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdafx.h</ForcedIncludeFiles>
+    </ClCompile>
+    <ClCompile Include="RayTracing\XUSGCluster_VK.cpp" Condition="'$(Platform)'=='x64'">
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h</ForcedIncludeFiles>
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdafx.h</ForcedIncludeFiles>
     </ClCompile>
