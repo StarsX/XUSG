@@ -280,11 +280,11 @@ void ConstantBuffer::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment, 
 	ConstantBuffer_DX12::GetAllocationInfo(byteSize, alignment, pDevice, byteWidth, requiredAlignment);
 }
 
-size_t ConstantBuffer::AlignCBV(size_t byteSize)
+size_t ConstantBuffer::AlignCBV(Device* pDevice, size_t byteSize)
 {
-	XUSG_IF_VK(return ConstantBuffer_VK::AlignCBV(byteSize);)
+	XUSG_IF_VK(return ConstantBuffer_VK::AlignCBV(pDevice, byteSize);)
 
-	return ConstantBuffer_DX12::AlignCBV(byteSize);
+	return ConstantBuffer_DX12::AlignCBV(pDevice, byteSize);
 }
 
 ShaderResource::uptr ShaderResource::MakeUnique()

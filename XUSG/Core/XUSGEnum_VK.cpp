@@ -620,7 +620,7 @@ VkAccessFlags2 XUSG::GetVKAccess(const Device_VK* pDevice, ResourceState state)
 	if ((state & ResourceState::DEPTH_READ) != ResourceState::COMMON)
 		access |= VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
 	if ((state & (ResourceState::PIXEL_SHADER_RESOURCE | ResourceState::NON_PIXEL_SHADER_RESOURCE)) != ResourceState::COMMON)
-		access |= VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_SAMPLED_READ_BIT;
+		access |= VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_SAMPLED_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_READ_BIT;
 	if ((state & ResourceState::UNORDERED_ACCESS) != ResourceState::COMMON)
 		access |= VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
 	if ((state & (ResourceState::COPY_SOURCE | ResourceState::RESOLVE_SOURCE)) != ResourceState::COMMON)

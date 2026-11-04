@@ -17,6 +17,7 @@ void sh_eval_basis_1(float3 v, out float b[4])
 	// l = 0
 	const float p_0_0 = 0.282094791773878140;
 	b[0] = p_0_0; // l = 0, m = 0
+
 	// l = 1
 	const float p_1_0 = 0.488602511902919920 * v.z;
 	b[2] = p_1_0; // l = 1, m = 0
@@ -51,6 +52,7 @@ void sh_eval_basis_2(float3 v, out float b[9])
 	// m = 1 //
 	const float s1 = v.y;
 	const float c1 = v.x;
+
 	// l = 2
 	const float p_2_1 = -1.092548430592079200 * v.z;
 	b[5] = p_2_1 * s1; // l = 2, m = -1
@@ -59,6 +61,7 @@ void sh_eval_basis_2(float3 v, out float b[9])
 	// m = 2 //
 	const float s2 = v.x * s1 + v.y * c1;
 	const float c2 = v.x * c1 - v.y * s1;
+
 	// l = 2
 	const float p_2_2 = 0.546274215296039590;
 	b[4] = p_2_2 * s2; // l = 2, m = -2
@@ -85,6 +88,7 @@ void sh_eval_basis_3(float3 v, out float b[16])
 	// m = 1 //
 	const float s1 = v.y;
 	const float c1 = v.x;
+
 	// l = 3
 	const float p_3_1 = -2.285228997322328800 * z2 + 0.457045799464465770;
 	b[11] = p_3_1 * s1; // l = 3, m = -1
@@ -93,6 +97,7 @@ void sh_eval_basis_3(float3 v, out float b[16])
 	// m = 2 //
 	const float s2 = v.x * s1 + v.y * c1;
 	const float c2 = v.x * c1 - v.y * s1;
+
 	// l = 3
 	const float p_3_2 = 1.445305721320277100 * v.z;
 	b[10] = p_3_2 * s2; // l = 3, m =- 2
@@ -101,6 +106,7 @@ void sh_eval_basis_3(float3 v, out float b[16])
 	// m = 3 //
 	const float s3 = v.x * s2 + v.y * c2;
 	const float c3 = v.x * c2 - v.y * s2;
+
 	// l = 3
 	const float p_3_3 = -0.590043589926643520;
 	b[9] = p_3_3 * s3;  // l = 3, m = -3
@@ -129,6 +135,7 @@ void sh_eval_basis_4(float3 v, out float b[25])
 	// m = 1 //
 	const float s1 = v.y;
 	const float c1 = v.x;
+
 	// l = 4
 	const float p_4_1 = v.z * (-4.683325804901024000 * z2 + 2.007139630671867200);
 	b[19] = p_4_1 * s1; // l = 4, m = -1
@@ -137,6 +144,7 @@ void sh_eval_basis_4(float3 v, out float b[25])
 	// m = 2 //
 	const float s2 = v.x * s1 + v.y * c1;
 	const float c2 = v.x * c1 - v.y * s1;
+
 	// l = 4
 	const float p_4_2 = 3.311611435151459800 * z2 - 0.473087347878779980;
 	b[18] = p_4_2 * s2; // l = 4, m = -2
@@ -145,6 +153,7 @@ void sh_eval_basis_4(float3 v, out float b[25])
 	// m = 3 //
 	const float s3 = v.x * s2 + v.y * c2;
 	const float c3 = v.x * c2 - v.y * s2;
+
 	// l = 4
 	const float p_4_3 = -1.770130769779930200 * v.z;
 	b[17] = p_4_3 * s3; // l = 4, m = -3
@@ -153,6 +162,7 @@ void sh_eval_basis_4(float3 v, out float b[25])
 	// m = 4 //
 	const float s4 = v.x * s3 + v.y * c3;
 	const float c4 = v.x * c3 - v.y * s3;
+
 	// l = 4
 	const float p_4_4 = 0.625835735449176030;
 	b[16] = p_4_4 * s4; // l = 4, m= -4
@@ -182,6 +192,7 @@ void sh_eval_basis_5(float3 v, out float b[36])
 	// m = 1 //
 	const float s1 = v.y;
 	const float c1 = v.x;
+
 	// l = 5
 	const float p_3_1 = -2.285228997322328800 * z2 + 0.457045799464465770;
 	const float p_4_1 = v.z * (-4.683325804901024000 * z2 + 2.007139630671867200);
@@ -192,6 +203,7 @@ void sh_eval_basis_5(float3 v, out float b[36])
 	// m = 2 //
 	const float s2 = v.x * s1 + v.y * c1;
 	const float c2 = v.x * c1 - v.y * s1;
+
 	// l = 5
 	const float p_5_2 = v.z * (7.190305177459987500 * z2 - 2.396768392486662100);
 	b[28] = p_5_2 * s2; // l = 5, m = -2
@@ -200,6 +212,7 @@ void sh_eval_basis_5(float3 v, out float b[36])
 	// m = 3 //
 	const float s3 = v.x * s2 + v.y * c2;
 	const float c3 = v.x * c2 - v.y * s2;
+
 	// l = 5
 	const float p_5_3 = -4.403144694917253700 * z2 + 0.489238299435250430;
 	b[27] = p_5_3 * s3; // l = 5, m = -3
@@ -208,6 +221,7 @@ void sh_eval_basis_5(float3 v, out float b[36])
 	// m = 4 //
 	const float s4 = v.x * s3 + v.y * c3;
 	const float c4 = v.x * c3 - v.y * s3;
+
 	// l = 5
 	const float p_5_4 = 2.075662314881041100 * v.z;
 	b[26] = p_5_4 * s4; // l = 5, m = -4
@@ -216,6 +230,7 @@ void sh_eval_basis_5(float3 v, out float b[36])
 	// m = 5 //
 	const float s5 = v.x * s4 + v.y * c4;
 	const float c5 = v.x * c4 - v.y * s4;
+
 	// l = 5
 	const float p_5_5 = -0.656382056840170150;
 	b[25] = p_5_5 * s5; // l = 5, m = -5

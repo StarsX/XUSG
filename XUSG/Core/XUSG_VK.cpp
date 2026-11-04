@@ -24,6 +24,9 @@ namespace
 	unordered_map<VkQueue, AcquireWait> g_acquireWaits;
 	unordered_map<VkQueue, QueuePendingPresent> g_pendingPresents;
 
+	// DX12 placement until the physical device is queried.
+	uint32_t g_cbvAlignment = 256;
+
 	bool SubmitQueueInfo(bool synchronization2, VkQueue queue, const VkSubmitInfo2& info, VkFence fence,
 		VkSemaphore* pWaitSemaphores, VkPipelineStageFlags* pWaitStages, uint64_t* pWaitValues,
 		VkCommandBuffer* pCommandBuffers, VkSemaphore* pSignalSemaphores, uint64_t* pSignalValues)
@@ -463,6 +466,7 @@ Device_VK::Device_VK() :
 	m_cooperativeMatrixConversions(false),
 	m_cooperativeMatrixPerElementOperations(false),
 	m_cooperativeMatrixGetCoordinate(false),
+	m_cbvAlignment(256),
 	m_subgroupSize(0),
 	m_subgroupStages(0),
 	m_subgroupOperations(0),
@@ -1469,6 +1473,16 @@ bool Device_VK::HasCooperativeMatrixGetCoordinate() const
 	return m_cooperativeMatrixGetCoordinate;
 }
 
+uint32_t Device_VK::GetCbvAlignment() const
+{
+	return m_cbvAlignment;
+}
+
+uint32_t Device_VK::CbvAlignment()
+{
+	return g_cbvAlignment;
+}
+
 uint32_t Device_VK::SubgroupSize() const
 {
 	return m_subgroupSize;
@@ -1718,23 +1732,32 @@ bool Device_VK::EmulatesD24S8() const
 	return m_emulateD24S8;
 }
 
-uint32_t Device_VK::FindMemoryType(uint32_t typeBits, VkMemoryPropertyFlags properties) const
+uint32_t Device_VK::FindMemoryType(uint32_t typeBits, VkMemoryPropertyFlags properties,
+	VkMemoryPropertyFlags avoidFlags) const
 {
 	VkPhysicalDeviceMemoryProperties memory;
 	vkGetPhysicalDeviceMemoryProperties(m_physicalDevice, &memory);
 
-	auto match = [&](VkMemoryPropertyFlags required)
+	auto match = [&](VkMemoryPropertyFlags required, VkMemoryPropertyFlags excluded)
 	{
 		for (auto i = 0u; i < memory.memoryTypeCount; ++i)
-			if ((typeBits & (1u << i)) && (memory.memoryTypes[i].propertyFlags & required) == required)
+			if ((typeBits & (1u << i)) &&
+				(memory.memoryTypes[i].propertyFlags & required) == required &&
+				(memory.memoryTypes[i].propertyFlags & excluded) == 0)
 				return i;
 
 		return UINT32_MAX;
 	};
 
-	auto index = match(properties);
+	// Prefer excluding avoidFlags (e.g. DEVICE_LOCAL for UPLOAD).
+	auto index = match(properties, avoidFlags);
+	if (index == UINT32_MAX && avoidFlags) index = match(properties, 0);
 	if (index == UINT32_MAX && (properties & VK_MEMORY_PROPERTY_HOST_CACHED_BIT))
-		index = match(properties & ~VK_MEMORY_PROPERTY_HOST_CACHED_BIT);
+	{
+		const auto withoutCached = properties & ~VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+		index = match(withoutCached, avoidFlags);
+		if (index == UINT32_MAX && avoidFlags) index = match(withoutCached, 0);
+	}
 
 	return index;
 }
@@ -1906,6 +1929,10 @@ bool Device_VK::createDevice()
 
 	VkPhysicalDeviceProperties props = {};
 	vkGetPhysicalDeviceProperties(m_physicalDevice, &props);
+	// CBV offsets follow this GPU. 256 is only the DX12 upper bound.
+	m_cbvAlignment = static_cast<uint32_t>(props.limits.minUniformBufferOffsetAlignment);
+	if (!m_cbvAlignment) m_cbvAlignment = 1;
+	g_cbvAlignment = m_cbvAlignment;
 	const auto instanceVersion = m_apiVersion;
 	if (props.apiVersion < m_apiVersion) m_apiVersion = props.apiVersion;
 	const auto core11 = m_apiVersion >= VK_API_VERSION_1_1;
@@ -3048,6 +3075,15 @@ bool Device_VK::createDevice()
 		m_pipelineLibraryGroupHandles = pipelineLibraryGroupHandlesQuery.pipelineLibraryGroupHandles == VK_TRUE;
 	if (graphicsPipelineLibraryExt)
 		m_graphicsPipelineLibrary = graphicsPipelineLibraryQuery.graphicsPipelineLibrary == VK_TRUE;
+	// Current AMD drivers report graphicsPipelineLibrary, but enabling it makes
+	// timeline semaphores unusable: the counter stays at UINT64_MAX, so queue
+	// submit never completes. Monolithic pipelines do not need the feature.
+	if (m_graphicsPipelineLibrary)
+	{
+		VkPhysicalDeviceProperties vendorProps = {};
+		vkGetPhysicalDeviceProperties(m_physicalDevice, &vendorProps);
+		if (vendorProps.vendorID == 0x1002) m_graphicsPipelineLibrary = false;
+	}
 	const auto descriptorIndexingOn = m_shaderInputAttachmentArrayDynamicIndexing ||
 		m_shaderUniformTexelBufferArrayDynamicIndexing || m_shaderStorageTexelBufferArrayDynamicIndexing ||
 		m_shaderUniformBufferArrayNonUniformIndexing || m_shaderSampledImageArrayNonUniformIndexing ||

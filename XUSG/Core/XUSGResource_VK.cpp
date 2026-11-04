@@ -173,6 +173,22 @@ namespace
 		return requirements.memoryTypeBits;
 	}
 
+	// GPU_UPLOAD prefers ReBAR (device local). UPLOAD prefers sysmem. Either falls back to the other.
+	uint32_t UploadMemoryTypeIndex(const Device_VK* pDevice, uint32_t typeBits, MemoryType memoryType)
+	{
+		const auto host = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+		if (memoryType == MemoryType::GPU_UPLOAD)
+		{
+			auto index = pDevice->FindMemoryType(typeBits, host | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+			if (index == UINT32_MAX)
+				index = pDevice->FindMemoryType(typeBits, host, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+			return index;
+		}
+
+		return pDevice->FindMemoryType(typeBits, host, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	}
+
 	uint32_t HeapMemoryTypeBits(VkDevice device, MemoryType memoryType)
 	{
 		const auto bufferBits = BufferMemoryTypeBits(device);
@@ -222,12 +238,16 @@ bool Heap_VK::Create(Device* pDevice, uint64_t byteSize, MemoryType memoryType,
 	m_alignment = alignment;
 	m_memoryType = memoryType;
 
-	VkMemoryPropertyFlags properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-	if (memoryType == MemoryType::READBACK)
-		properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
-	else if (memoryType == MemoryType::UPLOAD || memoryType == MemoryType::GPU_UPLOAD)
-		properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-	m_memoryTypeIndex = m_pDevice->FindMemoryType(HeapMemoryTypeBits(device, memoryType), properties);
+	const auto typeBits = HeapMemoryTypeBits(device, memoryType);
+	if (memoryType == MemoryType::UPLOAD || memoryType == MemoryType::GPU_UPLOAD)
+		m_memoryTypeIndex = UploadMemoryTypeIndex(m_pDevice, typeBits, memoryType);
+	else
+	{
+		VkMemoryPropertyFlags properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		if (memoryType == MemoryType::READBACK)
+			properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+		m_memoryTypeIndex = m_pDevice->FindMemoryType(typeBits, properties);
+	}
 	assert(m_memoryTypeIndex != UINT32_MAX);
 
 	VkMemoryAllocateInfo info = {};
@@ -973,14 +993,22 @@ bool Resource_VK::allocateMemory(VkMemoryRequirements requirements, MemoryType m
 {
 	const auto device = m_pDevice->GetDevice();
 
+	if (memoryType == MemoryType::UPLOAD || memoryType == MemoryType::READBACK ||
+		memoryType == MemoryType::GPU_UPLOAD)
+		hostVisible = true;
+
 	VkMemoryPropertyFlags properties = hostVisible ?
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT :
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-	if (memoryType == MemoryType::UPLOAD || memoryType == MemoryType::READBACK) hostVisible = true;
-	if (memoryType == MemoryType::READBACK)
-		properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
-	else if (hostVisible)
-		properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+	auto typeIndex = UINT32_MAX;
+	if (memoryType == MemoryType::UPLOAD || memoryType == MemoryType::GPU_UPLOAD)
+		typeIndex = UploadMemoryTypeIndex(m_pDevice, requirements.memoryTypeBits, memoryType);
+	else
+	{
+		if (memoryType == MemoryType::READBACK)
+			properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+		typeIndex = m_pDevice->FindMemoryType(requirements.memoryTypeBits, properties);
+	}
 
 	VkMemoryAllocateFlagsInfo flags = {};
 	flags.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
@@ -990,7 +1018,7 @@ bool Resource_VK::allocateMemory(VkMemoryRequirements requirements, MemoryType m
 	info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	info.pNext = m_buffer != VK_NULL_HANDLE ? &flags : nullptr;
 	info.allocationSize = requirements.size;
-	info.memoryTypeIndex = m_pDevice->FindMemoryType(requirements.memoryTypeBits, properties);
+	info.memoryTypeIndex = typeIndex;
 	XUSG_VK_CHECK(vkAllocateMemory(device, &info, nullptr, &m_memory), cerr, false);
 	m_ownsMemory = true;
 	m_byteSize = requirements.size;
@@ -1766,18 +1794,18 @@ ConstantBuffer_VK::~ConstantBuffer_VK()
 {
 }
 
-bool ConstantBuffer_VK::Create(Device* pDevice, size_t byteWidth, uint32_t numCBVs,
+bool ConstantBuffer_VK::Create(Device* pDevice, size_t requiredByteSize, uint32_t numCBVs,
 	const size_t* cbvByteOffsets, MemoryType memoryType, MemoryFlag memoryFlags, const wchar_t* name)
 {
 	(void)memoryFlags;
-	assert(byteWidth);
+	assert(requiredByteSize);
 	vector<size_t> offsetList;
+	auto byteWidth = requiredByteSize;
 	if (!cbvByteOffsets)
 	{
-		// Same placement as the DX12 path: each CBV is 256-byte aligned, which also
-		// satisfies Vulkan minUniformBufferOffsetAlignment on current devices.
+		// Each CBV starts on the physical device's uniform-buffer offset alignment.
 		size_t numBytes = 0;
-		const auto cbvSize = AlignCBV(byteWidth / numCBVs);
+		const auto cbvSize = AlignCBV(pDevice, requiredByteSize / numCBVs);
 		offsetList.resize(numCBVs);
 		for (auto& offset : offsetList)
 		{
@@ -1804,15 +1832,16 @@ bool ConstantBuffer_VK::Create(Device* pDevice, size_t byteWidth, uint32_t numCB
 	return true;
 }
 
-bool ConstantBuffer_VK::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, size_t byteWidth,
+bool ConstantBuffer_VK::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, size_t requiredByteSize,
 	uint32_t numCBVs, const size_t* cbvByteOffsets, const wchar_t* name)
 {
-	assert(byteWidth);
+	assert(requiredByteSize);
 	vector<size_t> offsetList;
+	auto byteWidth = requiredByteSize;
 	if (!cbvByteOffsets)
 	{
 		size_t numBytes = 0;
-		const auto cbvSize = AlignCBV(byteWidth / numCBVs);
+		const auto cbvSize = AlignCBV(pDevice, requiredByteSize / numCBVs);
 		offsetList.resize(numCBVs);
 		for (auto& offset : offsetList)
 		{
@@ -1933,14 +1962,16 @@ size_t ConstantBuffer_VK::GetTiledResourceTileSize() const
 void ConstantBuffer_VK::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment,
 	Device* pDevice, size_t byteWidth, uint64_t requiredAlignment)
 {
-	(void)pDevice;
-	alignment = (max)(requiredAlignment, 256ull);
-	byteSize = AlignCBV(byteWidth);
+	const auto cbvAlignment = pDevice ? AsVK(pDevice)->GetCbvAlignment() : Device_VK::CbvAlignment();
+	alignment = (max)(requiredAlignment, static_cast<uint64_t>(cbvAlignment));
+	byteSize = AlignCBV(pDevice, byteWidth);
 }
 
-size_t ConstantBuffer_VK::AlignCBV(size_t byteSize)
+size_t ConstantBuffer_VK::AlignCBV(Device* pDevice, size_t byteSize)
 {
-	return XUSG_DIV_UP(byteSize, 256) * 256;
+	const auto alignment = pDevice ? AsVK(pDevice)->GetCbvAlignment() : Device_VK::CbvAlignment();
+
+	return Align(byteSize, alignment);
 }
 
 //--------------------------------------------------------------------------------------

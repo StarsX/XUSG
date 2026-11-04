@@ -63,8 +63,9 @@ bool AccelerationStructure::AllocateUAVBuffer(Device* pDevice, Buffer* pBuffer, 
 bool AccelerationStructure::AllocateUploadBuffer(Device* pDevice, Buffer* pBuffer,
 	size_t byteWidth, void* pData, MemoryFlag memoryFlags, const wchar_t* name)
 {
-	XUSG_N_RETURN(pBuffer->CreateResource(pDevice, byteWidth, ResourceFlag::ACCELERATION_STRUCTURE_BUILD_INPUT,
-		MemoryType::UPLOAD, memoryFlags, ResourceState::GENERIC_READ_RESOURCE), false);
+	XUSG_N_RETURN(pBuffer->CreateResource(pDevice, byteWidth,
+		ResourceFlag::ACCELERATION_STRUCTURE_BUILD_INPUT,
+		MemoryType::GPU_UPLOAD, memoryFlags), false);
 	pBuffer->SetName(name);
 
 	void* pMappedData = pBuffer->Map();

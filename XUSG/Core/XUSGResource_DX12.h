@@ -123,12 +123,12 @@ namespace XUSG
 		virtual ~ConstantBuffer_DX12();
 
 		using Resource_DX12::Create;
-		bool Create(Device* pDevice, size_t byteWidth, uint32_t numCBVs = 1,
-			const size_t* cbvByteOffsets = nullptr, MemoryType memoryType = MemoryType::UPLOAD,
+		bool Create(Device* pDevice, size_t requiredByteSize, uint32_t numCBVs = 1,
+			const size_t* cbvByteOffsets = nullptr, MemoryType memoryType = MemoryType::GPU_UPLOAD,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr);
-		bool Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, size_t byteWidth,
+		bool Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, size_t requiredByteSize,
 			uint32_t numCBVs = 1, const size_t* cbvByteOffsets = nullptr, const wchar_t* name = nullptr);
-		bool CreateResource(Device* pDevice, size_t byteWidth, MemoryType memoryType = MemoryType::UPLOAD,
+		bool CreateResource(Device* pDevice, size_t byteWidth, MemoryType memoryType = MemoryType::GPU_UPLOAD,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, ResourceState initialResourceState = ResourceState::COMMON);
 		bool CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset, size_t byteWidth,
 			ResourceState initialResourceState = ResourceState::COMMON);
@@ -151,7 +151,7 @@ namespace XUSG
 		static void GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment,
 			Device* pDevice, size_t byteWidth, uint64_t requiredAlignment);
 
-		static size_t AlignCBV(size_t byteSize);
+		static size_t AlignCBV(Device* pDevice, size_t byteSize);
 
 	protected:
 		std::vector<Descriptor>	m_cbvs;

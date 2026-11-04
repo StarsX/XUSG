@@ -20,6 +20,20 @@ namespace
 		return textureLayout.Layout == TextureLayout::GUID;
 	}
 
+	// GPU upload heaps are ReBAR. OPTIONS16 is absent on Kepler, and a failed
+	// CheckFeatureSupport means the heap is unsupported. Sysmem upload is always available.
+	MemoryType ResolveGpuUpload(ID3D12Device* pDevice, MemoryType memoryType)
+	{
+		if (memoryType != MemoryType::GPU_UPLOAD) return memoryType;
+
+		D3D12_FEATURE_DATA_D3D12_OPTIONS16 options16 = {};
+		if (FAILED(pDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS16, &options16, sizeof(options16))) ||
+			!options16.GPUUploadHeapSupported)
+			return MemoryType::UPLOAD;
+
+		return memoryType;
+	}
+
 	// GUID layouts require DESC2 + ID3D12Device16 create APIs. Feature support is app-side native query.
 	HRESULT CreateCommittedGuidTexture(ID3D12Device* pDevice, const D3D12_HEAP_PROPERTIES& heapProps,
 		D3D12_HEAP_FLAGS heapFlags, const D3D12_RESOURCE_DESC2& desc, D3D12_BARRIER_LAYOUT initialLayout,
@@ -77,8 +91,8 @@ bool Heap_DX12::Create(Device* pDevice, uint64_t byteSize, MemoryType memoryType
 	m_device = pDevice->GetNativeHandle();
 	XUSG_M_RETURN(!m_device, cerr, "The device is NULL.", false);
 
-	m_memoryType = memoryType;
-	const CD3DX12_HEAP_DESC desc(byteSize, GetDX12HeapType(memoryType), alignment, GetDX12HeapFlags(memoryFlags));
+	m_memoryType = ResolveGpuUpload(m_device.get(), memoryType);
+	const CD3DX12_HEAP_DESC desc(byteSize, GetDX12HeapType(m_memoryType), alignment, GetDX12HeapFlags(memoryFlags));
 
 	if ((memoryFlags & MemoryFlag::SHARED) == MemoryFlag::SHARED)
 	{
@@ -387,18 +401,19 @@ ConstantBuffer_DX12::~ConstantBuffer_DX12()
 {
 }
 
-bool ConstantBuffer_DX12::Create(Device* pDevice, size_t byteWidth, uint32_t numCBVs,
+bool ConstantBuffer_DX12::Create(Device* pDevice, size_t requiredByteSize, uint32_t numCBVs,
 	const size_t* cbvByteOffsets, MemoryType memoryType, MemoryFlag memoryFlags, const wchar_t* name)
 {
 	// Instanced CBVs
-	assert(byteWidth);
+	assert(requiredByteSize);
 	vector<size_t> offsetList;
+	auto byteWidth = requiredByteSize;
 	if (!cbvByteOffsets)
 	{
 		size_t numBytes = 0;
 
 		// CB size is required to be D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT-byte aligned.
-		const auto cbvSize = AlignCBV(byteWidth / numCBVs);
+		const auto cbvSize = AlignCBV(pDevice, requiredByteSize / numCBVs);
 		offsetList.resize(numCBVs);
 
 		for (auto& offset : offsetList)
@@ -432,18 +447,19 @@ bool ConstantBuffer_DX12::Create(Device* pDevice, size_t byteWidth, uint32_t num
 	return true;
 }
 
-bool ConstantBuffer_DX12::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, size_t byteWidth,
+bool ConstantBuffer_DX12::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, size_t requiredByteSize,
 	uint32_t numCBVs, const size_t* cbvByteOffsets, const wchar_t* name)
 {
 	// Instanced CBVs
-	assert(byteWidth);
+	assert(requiredByteSize);
 	vector<size_t> offsetList;
+	auto byteWidth = requiredByteSize;
 	if (!cbvByteOffsets)
 	{
 		size_t numBytes = 0;
 
 		// CB size is required to be D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT-byte aligned.
-		const auto cbvSize = AlignCBV(byteWidth / numCBVs);
+		const auto cbvSize = AlignCBV(pDevice, requiredByteSize / numCBVs);
 		offsetList.resize(numCBVs);
 
 		for (auto& offset : offsetList)
@@ -483,13 +499,15 @@ bool ConstantBuffer_DX12::CreateResource(Device* pDevice, size_t byteWidth, Memo
 	XUSG_N_RETURN(initialize(pDevice), false);
 
 	assert(byteWidth);
+	memoryType = ResolveGpuUpload(m_device.get(), memoryType);
 	const CD3DX12_HEAP_PROPERTIES heapProperties(GetDX12HeapType(memoryType));
 	const auto desc = CD3DX12_RESOURCE_DESC::Buffer(byteWidth, D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE);
 
-	// Determine initial state
+	// Determine initial state. GPU upload heaps create buffers in COMMON.
 	m_states.resize(1);
 	m_states[0].resize(1);
-	m_states[0][0] = memoryType == MemoryType::DEFAULT ? initialResourceState : ResourceState::GENERIC_READ_RESOURCE;
+	m_states[0][0] = memoryType == MemoryType::GPU_UPLOAD ? ResourceState::COMMON :
+		memoryType == MemoryType::DEFAULT ? initialResourceState : ResourceState::GENERIC_READ_RESOURCE;
 
 	if ((memoryFlags & MemoryFlag::SHARED) == MemoryFlag::SHARED)
 	{
@@ -514,10 +532,12 @@ bool ConstantBuffer_DX12::CreateResource(Device* pDevice, Heap* pHeap, uint64_t 
 	assert(byteWidth);
 	const auto desc = CD3DX12_RESOURCE_DESC::Buffer(byteWidth, D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE);
 
-	// Determine initial state
+	// Determine initial state. GPU upload heaps create buffers in COMMON.
 	m_states.resize(1);
 	m_states[0].resize(1);
-	m_states[0][0] = !pHeap || pHeap->GetType() == MemoryType::DEFAULT ? initialResourceState : ResourceState::GENERIC_READ_RESOURCE;
+	const auto heapType = pHeap ? pHeap->GetType() : MemoryType::DEFAULT;
+	m_states[0][0] = heapType == MemoryType::GPU_UPLOAD ? ResourceState::COMMON :
+		!pHeap || heapType == MemoryType::DEFAULT ? initialResourceState : ResourceState::GENERIC_READ_RESOURCE;
 
 	if (pHeap)
 	{
@@ -643,8 +663,10 @@ void ConstantBuffer_DX12::GetAllocationInfo(uint64_t& byteSize, uint64_t& alignm
 	alignment = info.Alignment;
 }
 
-size_t ConstantBuffer_DX12::AlignCBV(size_t byteSize)
+size_t ConstantBuffer_DX12::AlignCBV(Device* pDevice, size_t byteSize)
 {
+	(void)pDevice;
+
 	return Align(byteSize, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
 }
 
@@ -3122,9 +3144,10 @@ bool Buffer_DX12::CreateResource(Device* pDevice, size_t byteWidth, ResourceFlag
 	const auto isRaytracingAS = (resourceFlags & ResourceFlag::ACCELERATION_STRUCTURE) == ResourceFlag::ACCELERATION_STRUCTURE;
 
 	// Setup the heap properties.
+	memoryType = ResolveGpuUpload(m_device.get(), memoryType);
 	const CD3DX12_HEAP_PROPERTIES heapProperties(GetDX12HeapType(memoryType));
 
-	// Determine initial state
+	// Determine initial state. GPU upload heaps create buffers in COMMON.
 	assert(maxThreads);
 	m_states.resize(maxThreads);
 	for (auto& states : m_states)
@@ -3134,6 +3157,9 @@ bool Buffer_DX12::CreateResource(Device* pDevice, size_t byteWidth, ResourceFlag
 		{
 		case MemoryType::UPLOAD:
 			states[0] = ResourceState::GENERIC_READ_RESOURCE;
+			break;
+		case MemoryType::GPU_UPLOAD:
+			states[0] = ResourceState::COMMON;
 			break;
 		case MemoryType::READBACK:
 			states[0] = ResourceState::COPY_DEST;
@@ -3192,7 +3218,7 @@ bool Buffer_DX12::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffs
 
 	const auto isRaytracingAS = (resourceFlags & ResourceFlag::ACCELERATION_STRUCTURE) == ResourceFlag::ACCELERATION_STRUCTURE;
 
-	// Determine initial state
+	// Determine initial state. GPU upload heaps create buffers in COMMON.
 	assert(maxThreads);
 	m_states.resize(maxThreads);
 	for (auto& states : m_states)
@@ -3204,6 +3230,9 @@ bool Buffer_DX12::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffs
 			{
 			case MemoryType::UPLOAD:
 				states[0] = ResourceState::GENERIC_READ_RESOURCE;
+				break;
+			case MemoryType::GPU_UPLOAD:
+				states[0] = ResourceState::COMMON;
 				break;
 			case MemoryType::READBACK:
 				states[0] = ResourceState::COPY_DEST;

@@ -315,10 +315,11 @@ void SphericalHarmonics_Impl::shCubeMap(CommandList* pCommandList,
 
 	// Set barriers
 	ResourceBarrier barriers[3];
+	const auto srcState = Device::GetApi() == API::VULKAN ? ResourceState::AUTO : ResourceState::COMMON;
 	auto numBarriers = m_coeffSH[0]->SetBarrier(barriers, ResourceState::UNORDERED_ACCESS,
-		0, XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::NONE, ResourceState::COMMON);
+		0, XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::NONE, srcState);
 	numBarriers = m_weightSH[0]->SetBarrier(barriers, ResourceState::UNORDERED_ACCESS,
-		numBarriers, XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::NONE, ResourceState::COMMON);
+		numBarriers, XUSG_BARRIER_ALL_SUBRESOURCES, BarrierFlag::NONE, srcState);
 	numBarriers = pRadiance->SetBarrier(barriers, ResourceState::ALL_SHADER_RESOURCE, numBarriers);
 	pCommandList->Barrier(numBarriers, barriers);
 
@@ -347,7 +348,7 @@ void SphericalHarmonics_Impl::shSum(CommandList* pCommandList, uint8_t order)
 	pCommandList->SetCompute32BitConstant(CONSTANTS, order);
 	pCommandList->SetPipelineState(m_pipelines[SH_SUM]);
 
-	auto srcState = ResourceState::COMMON;
+	auto srcState = Device::GetApi() == API::VULKAN ? ResourceState::AUTO : ResourceState::COMMON;
 	for (auto n = XUSG_DIV_UP(m_numSHTexels, SH_GROUP_SIZE); n > 1; n = XUSG_DIV_UP(n, SH_GROUP_SIZE))
 	{
 		// Set barriers

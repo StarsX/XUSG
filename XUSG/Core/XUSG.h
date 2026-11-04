@@ -1732,12 +1732,13 @@ namespace XUSG
 		virtual ~ConstantBuffer() {};
 
 		using Resource::Create;
-		virtual bool Create(Device* pDevice, size_t byteWidth, uint32_t numCBVs = 1,
-			const size_t* cbvByteOffsets = nullptr, MemoryType memoryType = MemoryType::UPLOAD,
+		// requiredByteSize is the total the caller needs. With null offsets it is split across numCBVs, then each slot is aligned.
+		virtual bool Create(Device* pDevice, size_t requiredByteSize, uint32_t numCBVs = 1,
+			const size_t* cbvByteOffsets = nullptr, MemoryType memoryType = MemoryType::GPU_UPLOAD,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, const wchar_t* name = nullptr) = 0;
-		virtual bool Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, size_t byteWidth,
+		virtual bool Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, size_t requiredByteSize,
 			uint32_t numCBVs, const size_t* cbvByteOffsets, const wchar_t* name) = 0;
-		virtual bool CreateResource(Device* pDevice, size_t byteWidth, MemoryType memoryType = MemoryType::UPLOAD,
+		virtual bool CreateResource(Device* pDevice, size_t byteWidth, MemoryType memoryType = MemoryType::GPU_UPLOAD,
 			MemoryFlag memoryFlags = MemoryFlag::NONE, ResourceState initialResourceState = ResourceState::COMMON) = 0;
 		virtual bool CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffset, size_t byteWidth,
 			ResourceState initialResourceState = ResourceState::COMMON) = 0;
@@ -1766,7 +1767,7 @@ namespace XUSG
 		static void GetAllocationInfo(uint64_t& byteSize, uint64_t& alignment,
 			Device* pDevice, size_t byteWidth, uint64_t requiredAlignment = 0);
 
-		static size_t AlignCBV(size_t byteSize);
+		static size_t AlignCBV(Device* pDevice, size_t byteSize);
 	};
 
 	//--------------------------------------------------------------------------------------

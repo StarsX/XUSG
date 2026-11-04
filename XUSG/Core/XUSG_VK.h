@@ -363,6 +363,8 @@ namespace XUSG
 		bool HasCooperativeMatrixConversions() const;
 		bool HasCooperativeMatrixPerElementOperations() const;
 		bool HasCooperativeMatrixGetCoordinate() const;
+		uint32_t GetCbvAlignment() const;
+		static uint32_t CbvAlignment();
 		uint32_t SubgroupSize() const;
 		VkShaderStageFlags SubgroupStages() const;
 		VkSubgroupFeatureFlags SubgroupOperations() const;
@@ -392,7 +394,8 @@ namespace XUSG
 		void ReadSparseTimeline(VkSemaphore& semaphore, uint64_t& value);
 		bool EmulatesD24S8() const;
 
-		uint32_t FindMemoryType(uint32_t typeBits, VkMemoryPropertyFlags properties) const;
+		uint32_t FindMemoryType(uint32_t typeBits, VkMemoryPropertyFlags properties,
+			VkMemoryPropertyFlags avoidFlags = 0) const;
 		void SetDebugName(VkObjectType type, uint64_t handle, const wchar_t* name) const;
 
 	protected:
@@ -559,6 +562,7 @@ namespace XUSG
 		bool				m_cooperativeMatrixConversions;
 		bool				m_cooperativeMatrixPerElementOperations;
 		bool				m_cooperativeMatrixGetCoordinate;
+		uint32_t			m_cbvAlignment;
 		uint32_t			m_subgroupSize;
 		VkShaderStageFlags	m_subgroupStages;
 		VkSubgroupFeatureFlags m_subgroupOperations;
