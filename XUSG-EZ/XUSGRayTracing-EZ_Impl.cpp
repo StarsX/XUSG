@@ -176,10 +176,107 @@ bool XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::Pre
 }
 
 template<typename CoreList, typename UltimateList, typename RTList>
+bool XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::PrebuildCLAS(ClusterLevelAS* pCLAS,
+	const RTASClusterTrianglesInputs& desc)
+{
+	assert(pCLAS);
+	pCLAS->SetTriangles(desc);
+	XUSG_N_RETURN(pCLAS->Prebuild(m_pDeviceRT), false);
+
+	m_scratchSize = (max)(m_scratchSize, pCLAS->GetScratchDataByteSize());
+
+	return true;
+}
+
+template<typename CoreList, typename UltimateList, typename RTList>
+bool XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::PrebuildCLASInstantiation(ClusterLevelAS* pCLAS,
+	const RTASInstantiateClusterTemplateInputs& desc)
+{
+	assert(pCLAS);
+	pCLAS->SetTemplateInstantiation(desc);
+	XUSG_N_RETURN(pCLAS->Prebuild(m_pDeviceRT), false);
+
+	m_scratchSize = (max)(m_scratchSize, pCLAS->GetScratchDataByteSize());
+
+	return true;
+}
+
+template<typename CoreList, typename UltimateList, typename RTList>
+bool XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::PrebuildClusterTemplate(ClusterTemplate* pClusterTemplate,
+	const RTASClusterTemplateTrianglesInputs& desc)
+{
+	assert(pClusterTemplate);
+	pClusterTemplate->SetTriangles(desc);
+	XUSG_N_RETURN(pClusterTemplate->Prebuild(m_pDeviceRT), false);
+
+	m_scratchSize = (max)(m_scratchSize, pClusterTemplate->GetScratchDataByteSize());
+
+	return true;
+}
+
+template<typename CoreList, typename UltimateList, typename RTList>
+bool XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::PrebuildClusterBLAS(ClusterBottomLevelAS* pClusterBLAS,
+	const RTASClasInputs& desc)
+{
+	assert(pClusterBLAS);
+	pClusterBLAS->SetClusters(desc);
+	XUSG_N_RETURN(pClusterBLAS->Prebuild(m_pDeviceRT), false);
+
+	m_scratchSize = (max)(m_scratchSize, pClusterBLAS->GetScratchDataByteSize());
+
+	return true;
+}
+
+template<typename CoreList, typename UltimateList, typename RTList>
+bool XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::PrebuildPTLAS(PartitionedTLAS* pPTLAS,
+	const RTASPartitionedTLASInputs& desc)
+{
+	assert(pPTLAS);
+	pPTLAS->SetPartitions(desc);
+	XUSG_N_RETURN(pPTLAS->Prebuild(m_pDeviceRT), false);
+
+	m_scratchSize = (max)(m_scratchSize, pPTLAS->GetScratchDataByteSize());
+
+	return true;
+}
+
+template<typename CoreList, typename UltimateList, typename RTList>
 bool XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::AllocateAccelerationStructure(AccelerationStructure* pAccelerationStructure, size_t byteWidth)
 {
 	assert(pAccelerationStructure);
 	return pAccelerationStructure->Allocate(m_pDeviceRT, m_descriptorTableLib.get(), byteWidth);
+}
+
+template<typename CoreList, typename UltimateList, typename RTList>
+bool XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::AllocateCLAS(ClusterLevelAS* pCLAS, size_t byteWidth)
+{
+	assert(pCLAS);
+
+	return pCLAS->Allocate(m_pDeviceRT, byteWidth);
+}
+
+template<typename CoreList, typename UltimateList, typename RTList>
+bool XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::AllocateClusterTemplate(ClusterTemplate* pClusterTemplate, size_t byteWidth)
+{
+	assert(pClusterTemplate);
+
+	return pClusterTemplate->Allocate(m_pDeviceRT, byteWidth);
+}
+
+template<typename CoreList, typename UltimateList, typename RTList>
+bool XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::AllocateClusterBLAS(ClusterBottomLevelAS* pClusterBLAS, size_t byteWidth)
+{
+	assert(pClusterBLAS);
+
+	return pClusterBLAS->Allocate(m_pDeviceRT, byteWidth);
+}
+
+template<typename CoreList, typename UltimateList, typename RTList>
+bool XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::AllocatePTLAS(PartitionedTLAS* pPTLAS, size_t byteWidth)
+{
+	assert(pPTLAS);
+
+	return pPTLAS->Allocate(m_pDeviceRT, byteWidth);
 }
 
 template<typename CoreList, typename UltimateList, typename RTList>
@@ -391,6 +488,126 @@ void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::Bui
 }
 
 template<typename CoreList, typename UltimateList, typename RTList>
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::BuildCLAS(ClusterLevelAS* pCLAS,
+	Resource* pIndirectArguments, uint64_t argumentOffset, uint64_t argumentStride)
+{
+	assert(pCLAS);
+	const auto pScratch = needScratch(m_scratchSize);
+	queueShaderReadBarrier(pIndirectArguments);
+
+	CoreList::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
+	m_barriers.clear();
+
+	pCLAS->Build(this, pScratch, pIndirectArguments->GetVirtualAddress() + argumentOffset, argumentStride);
+
+	ResourceBarrier barriers[2];
+	auto numBarriers = pCLAS->SetBarrier(barriers);
+	numBarriers = pScratch->SetBarrier(barriers, ResourceState::UNORDERED_ACCESS, numBarriers);
+	CoreList::Barrier(numBarriers, barriers);
+}
+
+template<typename CoreList, typename UltimateList, typename RTList>
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::BuildClusterTemplate(ClusterTemplate* pClusterTemplate,
+	Resource* pIndirectArguments, uint64_t argumentOffset, uint64_t argumentStride)
+{
+	assert(pClusterTemplate);
+	const auto pScratch = needScratch(m_scratchSize);
+	queueShaderReadBarrier(pIndirectArguments);
+
+	CoreList::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
+	m_barriers.clear();
+
+	pClusterTemplate->Build(this, pScratch, pIndirectArguments->GetVirtualAddress() + argumentOffset, argumentStride);
+
+	ResourceBarrier barriers[2];
+	auto numBarriers = pClusterTemplate->SetBarrier(barriers);
+	numBarriers = pScratch->SetBarrier(barriers, ResourceState::UNORDERED_ACCESS, numBarriers);
+	CoreList::Barrier(numBarriers, barriers);
+}
+
+template<typename CoreList, typename UltimateList, typename RTList>
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::InstantiateClusterTemplate(ClusterTemplate* pClusterTemplate,
+	ClusterLevelAS* pDestination, Resource* pIndirectArguments, uint64_t argumentOffset, uint64_t argumentStride)
+{
+	assert(pClusterTemplate);
+	assert(pDestination);
+	const auto pScratch = needScratch(m_scratchSize);
+	queueShaderReadBarrier(pIndirectArguments);
+
+	CoreList::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
+	m_barriers.clear();
+
+	pClusterTemplate->Instantiate(this, pDestination, pScratch,
+		pIndirectArguments->GetVirtualAddress() + argumentOffset, argumentStride);
+
+	ResourceBarrier barriers[2];
+	auto numBarriers = pDestination->SetBarrier(barriers);
+	numBarriers = pScratch->SetBarrier(barriers, ResourceState::UNORDERED_ACCESS, numBarriers);
+	CoreList::Barrier(numBarriers, barriers);
+}
+
+template<typename CoreList, typename UltimateList, typename RTList>
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::BuildClusterBLAS(ClusterBottomLevelAS* pClusterBLAS,
+	Resource* pIndirectArguments, uint64_t argumentOffset, uint64_t argumentStride)
+{
+	assert(pClusterBLAS);
+	const auto pScratch = needScratch(m_scratchSize);
+	queueShaderReadBarrier(pIndirectArguments);
+
+	CoreList::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
+	m_barriers.clear();
+
+	pClusterBLAS->Build(this, pScratch, pIndirectArguments->GetVirtualAddress() + argumentOffset, argumentStride);
+
+	ResourceBarrier barriers[2];
+	auto numBarriers = pClusterBLAS->SetBarrier(barriers);
+	numBarriers = pScratch->SetBarrier(barriers, ResourceState::UNORDERED_ACCESS, numBarriers);
+	CoreList::Barrier(numBarriers, barriers);
+}
+
+template<typename CoreList, typename UltimateList, typename RTList>
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::BuildPTLAS(PartitionedTLAS* pPTLAS,
+	Resource* pIndirectOps, uint64_t opsOffset, Resource* pOpCount, uint64_t opCountOffset)
+{
+	assert(pPTLAS);
+	const auto pScratch = needScratch(m_scratchSize);
+	queueShaderReadBarrier(pIndirectOps);
+	if (pOpCount) queueShaderReadBarrier(pOpCount);
+
+	CoreList::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
+	m_barriers.clear();
+
+	const auto opCount = pOpCount ? pOpCount->GetVirtualAddress() + opCountOffset : 0;
+	pPTLAS->Build(this, pScratch, pIndirectOps->GetVirtualAddress() + opsOffset, opCount);
+
+	ResourceBarrier barriers[2];
+	auto numBarriers = pPTLAS->SetBarrier(barriers);
+	numBarriers = pScratch->SetBarrier(barriers, ResourceState::UNORDERED_ACCESS, numBarriers);
+	CoreList::Barrier(numBarriers, barriers);
+}
+
+template<typename CoreList, typename UltimateList, typename RTList>
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::UpdatePTLAS(PartitionedTLAS* pPTLAS,
+	Resource* pIndirectOps, uint64_t opsOffset, Resource* pOpCount, uint64_t opCountOffset)
+{
+	assert(pPTLAS);
+	const auto pScratch = needScratch(m_scratchSize);
+	queueShaderReadBarrier(pIndirectOps);
+	if (pOpCount) queueShaderReadBarrier(pOpCount);
+
+	CoreList::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
+	m_barriers.clear();
+
+	const auto opCount = pOpCount ? pOpCount->GetVirtualAddress() + opCountOffset : 0;
+	pPTLAS->Update(this, pScratch, pIndirectOps->GetVirtualAddress() + opsOffset, opCount);
+
+	ResourceBarrier barriers[2];
+	auto numBarriers = pPTLAS->SetBarrier(barriers);
+	numBarriers = pScratch->SetBarrier(barriers, ResourceState::UNORDERED_ACCESS, numBarriers);
+	CoreList::Barrier(numBarriers, barriers);
+}
+
+template<typename CoreList, typename UltimateList, typename RTList>
 void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::CopyRaytracingAccelerationStructure(AccelerationStructure* pDst,
 	AccelerationStructure* pSrc, CopyMode mode)
 {
@@ -404,6 +621,13 @@ template<typename CoreList, typename UltimateList, typename RTList>
 void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::SetTopLevelAccelerationStructure(uint32_t binding, const TopLevelAS* pTopLevelAS) const
 {
 	RTList::SetTopLevelAccelerationStructure(m_tlasBindingToParamIndexMap[binding], pTopLevelAS);
+}
+
+template<typename CoreList, typename UltimateList, typename RTList>
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::SetPartitionedTopLevelAccelerationStructure(uint32_t binding,
+	const PartitionedTLAS* pPTLAS) const
+{
+	RTList::SetTopLevelAccelerationStructure(m_tlasBindingToParamIndexMap[binding], pPTLAS ? pPTLAS->GetVirtualAddress() : 0);
 }
 
 template<typename CoreList, typename UltimateList, typename RTList>
@@ -436,6 +660,14 @@ void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::RTS
 {
 	assert(m_rayTracingState);
 	m_rayTracingState->SetMaxRecursionDepth(depth);
+	m_isRTStateDirty = true;
+}
+
+template<typename CoreList, typename UltimateList, typename RTList>
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::RTSetPipelineFlags(RayTracing::PipelineFlag flags)
+{
+	assert(m_rayTracingState);
+	m_rayTracingState->SetPipelineFlags(flags);
 	m_isRTStateDirty = true;
 }
 
@@ -757,6 +989,21 @@ XUSG::Resource* XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, R
 	}
 
 	return m_scratches.back().get();
+}
+
+template<typename CoreList, typename UltimateList, typename RTList>
+void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::queueShaderReadBarrier(Resource* pResource)
+{
+	assert(pResource);
+
+	const auto startIdx = m_barriers.size();
+	m_barriers.resize(startIdx + 1);
+	auto numBarriers = 0u;
+	if (pResource->GetResourceState() != ResourceState::COMMON &&
+		pResource->GetResourceState() != ResourceState::GENERIC_READ_RESOURCE)
+		numBarriers = pResource->SetBarrier(&m_barriers[startIdx], ResourceState::NON_PIXEL_SHADER_RESOURCE, numBarriers);
+
+	if (numBarriers < 1) m_barriers.resize(startIdx + numBarriers);
 }
 
 template<typename CoreList, typename UltimateList, typename RTList>

@@ -24,9 +24,12 @@ XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::CommandList_Impl()
 	m_meshShaderPipelineLib(nullptr),
 	m_meshShaderState(nullptr),
 	m_workGraphState(nullptr),
+	m_computeGraphState(nullptr),
 	m_pipelineLayout(nullptr),
 	m_workGraphProperty(nullptr),
 	m_isWGStateDirty(false),
+	m_isCGStateDirty(false),
+	m_hasBoundDepthStencil(false),
 	m_meshShaderConstantParamIndices()
 {
 }
@@ -162,6 +165,176 @@ void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::ResolveSubres
 
 	UltimateList::ResolveSubresourceRegion(pDstResource, dstSubresource,
 		dstX, dstY, pSrcResource, srcSubresource, srcRect, format, resolveMode);
+}
+
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::CopyBufferRegions(uint32_t numRegions,
+	Resource* const* ppDestBuffers, const uint64_t* pDestOffsets, Resource* const* ppSourceBuffers,
+	const uint64_t* pSourceOffsets, const uint64_t* pSizes)
+{
+	assert(numRegions);
+	assert(ppDestBuffers);
+	assert(ppSourceBuffers);
+
+	vector<XUSG::ResourceBarrier> barriers;
+	for (auto i = 0u; i < numRegions; ++i)
+	{
+		queueResourceBarrier(barriers, ppDestBuffers[i], ResourceState::COPY_DEST);
+		queueResourceBarrier(barriers, ppSourceBuffers[i], ResourceState::COPY_SOURCE);
+	}
+	CoreList::Barrier(static_cast<uint32_t>(barriers.size()), barriers.data());
+
+	UltimateList::CopyBufferRegions(numRegions, ppDestBuffers, pDestOffsets, ppSourceBuffers, pSourceOffsets, pSizes);
+}
+
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::CopyTextureRegions(uint32_t numCopyDescs,
+	const TextureCopyDesc* pCopyDescs)
+{
+	assert(numCopyDescs);
+	assert(pCopyDescs);
+
+	vector<XUSG::ResourceBarrier> barriers;
+	for (auto i = 0u; i < numCopyDescs; ++i)
+	{
+		const auto& desc = pCopyDescs[i];
+		if (desc.Type == TextureCopyDescType::TEXTURE_TO_TEXTURE)
+		{
+			queueResourceBarrier(barriers, desc.TextureTextureCopy.pDest, ResourceState::COPY_DEST,
+				desc.TextureTextureCopy.DestSubresourceIndex);
+			queueResourceBarrier(barriers, desc.TextureTextureCopy.pSource, ResourceState::COPY_SOURCE,
+				desc.TextureTextureCopy.SourceSubresourceIndex);
+		}
+		else if (desc.Type == TextureCopyDescType::BUFFER_TO_TEXTURE)
+		{
+			queueResourceBarrier(barriers, desc.BufferTextureCopy.pBuffer, ResourceState::COPY_SOURCE);
+			queueResourceBarrier(barriers, desc.BufferTextureCopy.pTexture, ResourceState::COPY_DEST,
+				desc.BufferTextureCopy.SubresourceIndex);
+		}
+		else
+		{
+			queueResourceBarrier(barriers, desc.BufferTextureCopy.pTexture, ResourceState::COPY_SOURCE,
+				desc.BufferTextureCopy.SubresourceIndex);
+			queueResourceBarrier(barriers, desc.BufferTextureCopy.pBuffer, ResourceState::COPY_DEST);
+		}
+	}
+	CoreList::Barrier(static_cast<uint32_t>(barriers.size()), barriers.data());
+
+	UltimateList::CopyTextureRegions(numCopyDescs, pCopyDescs);
+}
+
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::CopyResources(uint32_t numSourceDestPairs,
+	Resource* const* ppDestResources, Resource* const* ppSourceResources)
+{
+	assert(numSourceDestPairs);
+	assert(ppDestResources);
+	assert(ppSourceResources);
+
+	vector<XUSG::ResourceBarrier> barriers;
+	for (auto i = 0u; i < numSourceDestPairs; ++i)
+	{
+		queueResourceBarrier(barriers, ppDestResources[i], ResourceState::COPY_DEST);
+		queueResourceBarrier(barriers, ppSourceResources[i], ResourceState::COPY_SOURCE);
+	}
+	CoreList::Barrier(static_cast<uint32_t>(barriers.size()), barriers.data());
+
+	UltimateList::CopyResources(numSourceDestPairs, ppDestResources, ppSourceResources);
+}
+
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::CopyTilesAsync(Resource* pTiledResource,
+	const TiledResourceCoord* pTileRegionStartCoord, const TileRegionSize& tileRegionSize,
+	Resource* pBuffer, uint64_t bufferOffset, TileCopyFlag flags)
+{
+	const auto tiledIsSource = (flags & TileCopyFlag::SWIZZLED_TILED_RESOURCE_TO_LINEAR_BUFFER) ==
+		TileCopyFlag::SWIZZLED_TILED_RESOURCE_TO_LINEAR_BUFFER;
+
+	vector<XUSG::ResourceBarrier> barriers;
+	queueResourceBarrier(barriers, pTiledResource, tiledIsSource ? ResourceState::COPY_SOURCE : ResourceState::COPY_DEST);
+	queueResourceBarrier(barriers, pBuffer, tiledIsSource ? ResourceState::COPY_DEST : ResourceState::COPY_SOURCE);
+	CoreList::Barrier(static_cast<uint32_t>(barriers.size()), barriers.data());
+
+	UltimateList::CopyTilesAsync(pTiledResource, pTileRegionStartCoord, tileRegionSize, pBuffer, bufferOffset, flags);
+}
+
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::ResolveSubresourceRegionAsync(Resource* pDstResource,
+	uint32_t dstSubresource, uint32_t dstX, uint32_t dstY, Resource* pSrcResource, uint32_t srcSubresource,
+	const RectRange* pSrcRect, Format format, ResolveMode resolveMode)
+{
+	assert(pDstResource);
+	assert(pSrcResource);
+
+	vector<XUSG::ResourceBarrier> barriers;
+	queueResourceBarrier(barriers, pDstResource, ResourceState::RESOLVE_DEST, dstSubresource);
+	queueResourceBarrier(barriers, pSrcResource, ResourceState::RESOLVE_SOURCE, srcSubresource);
+	CoreList::Barrier(static_cast<uint32_t>(barriers.size()), barriers.data());
+
+	UltimateList::ResolveSubresourceRegionAsync(pDstResource, dstSubresource, dstX, dstY,
+		pSrcResource, srcSubresource, pSrcRect, format, resolveMode);
+}
+
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::ResolveQueryDataAsync(const QueryHeap& queryHeap,
+	QueryType type, uint32_t startIndex, uint32_t numQueries, Resource* pDestBuffer, uint64_t destOffset)
+{
+	vector<XUSG::ResourceBarrier> barriers;
+	queueResourceBarrier(barriers, pDestBuffer, ResourceState::COPY_DEST);
+	CoreList::Barrier(static_cast<uint32_t>(barriers.size()), barriers.data());
+
+	UltimateList::ResolveQueryDataAsync(queryHeap, type, startIndex, numQueries, pDestBuffer, destOffset);
+}
+
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::ClearBoundDepthStencilView(ClearFlag clearFlags,
+	float depth, uint8_t stencil, uint32_t numRegions, const BoxRange* pRegions)
+{
+	if (m_hasBoundDepthStencil) setBarriers(1, &m_boundDepthStencil);
+	CoreList::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
+	m_barriers.clear();
+
+	UltimateList::ClearBoundDepthStencilView(clearFlags, depth, stencil, numRegions, pRegions);
+}
+
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::ClearBoundRenderTargetViews(uint32_t renderTargetMask,
+	const ClearData* pClearValues, const uint32_t* pNumRegions, const BoxRange* const* ppRegions)
+{
+	for (auto i = 0u; i < m_boundRenderTargets.size(); ++i)
+		if (renderTargetMask & (1u << i)) setBarriers(1, &m_boundRenderTargets[i]);
+	CoreList::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
+	m_barriers.clear();
+
+	UltimateList::ClearBoundRenderTargetViews(renderTargetMask, pClearValues, pNumRegions, ppRegions);
+}
+
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::ClearTextureSubresources(uint32_t numClearDescs,
+	const ClearTextureDesc* pClearDescs)
+{
+	assert(numClearDescs == 0 || pClearDescs);
+
+	vector<XUSG::ResourceBarrier> barriers;
+	for (auto i = 0u; i < numClearDescs; ++i)
+		queueResourceBarrier(barriers, pClearDescs[i].pTexture, ResourceState::COPY_DEST, pClearDescs[i].SubresourceIndex);
+	CoreList::Barrier(static_cast<uint32_t>(barriers.size()), barriers.data());
+
+	UltimateList::ClearTextureSubresources(numClearDescs, pClearDescs);
+}
+
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::FillBuffers(uint32_t numFillDescs,
+	const FillBufferDesc* pFillDescs)
+{
+	assert(numFillDescs == 0 || pFillDescs);
+
+	vector<XUSG::ResourceBarrier> barriers;
+	for (auto i = 0u; i < numFillDescs; ++i)
+		queueResourceBarrier(barriers, pFillDescs[i].pBuffer, ResourceState::COPY_DEST);
+	CoreList::Barrier(static_cast<uint32_t>(barriers.size()), barriers.data());
+
+	UltimateList::FillBuffers(numFillDescs, pFillDescs);
 }
 
 template<typename CoreList, typename UltimateList>
@@ -333,10 +506,13 @@ void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::OMSetRenderTa
 {
 	// Set RTV barriers
 	setBarriers(numRenderTargets, pRenderTargetViews);
+	m_boundRenderTargets.assign(pRenderTargetViews, pRenderTargetViews + numRenderTargets);
 
 	// Set DSV barriers
+	m_hasBoundDepthStencil = pDepthStencilView != nullptr;
 	if (pDepthStencilView)
 	{
+		m_boundDepthStencil = *pDepthStencilView;
 		setBarriers(1, pDepthStencilView);
 		const auto format = dynamic_cast<const Texture*>(pDepthStencilView->View->pResource)->GetFormat();
 		m_graphicsState->OMSetDSVFormat(format);
@@ -406,6 +582,30 @@ void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::WGOverrideMax
 }
 
 template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::CGSetProgramName(const wchar_t* name)
+{
+	assert(m_computeGraphState);
+	m_computeGraphState->SetProgramName(name);
+	m_isCGStateDirty = true;
+}
+
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::CGSetBytecode(const void* pBytecode, size_t bytecodeByteSize)
+{
+	assert(m_computeGraphState);
+	m_computeGraphState->SetBytecode(pBytecode, bytecodeByteSize);
+	m_isCGStateDirty = true;
+}
+
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::CGSetNodeMask(uint32_t nodeMask)
+{
+	assert(m_computeGraphState);
+	m_computeGraphState->SetNodeMask(nodeMask);
+	m_isCGStateDirty = true;
+}
+
+template<typename CoreList, typename UltimateList>
 void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride)
 {
 	predispatchGraph();
@@ -417,6 +617,13 @@ void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::DispatchGraph
 {
 	predispatchGraph();
 	UltimateList::DispatchGraph(nodeGPUInputAddress, isMultiNodes);
+}
+
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::DispatchGraph(uint32_t numBindings, const ProgramBinding* pBindings)
+{
+	predispatchComputeGraph();
+	UltimateList::DispatchGraph(numBindings, pBindings);
 }
 
 template<typename CoreList, typename UltimateList>
@@ -534,6 +741,12 @@ bool XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::init(Ultimate
 	{
 		m_workGraphPipelineLib = WorkGraph::PipelineLib::MakeUnique(m_pDevice);
 		m_workGraphState = WorkGraph::State::MakeUnique();
+	}
+
+	if (hasComputeGraph())
+	{
+		m_computeGraphPipelineLib = ComputeGraph::PipelineLib::MakeUnique(m_pDevice);
+		m_computeGraphState = ComputeGraph::State::MakeUnique();
 	}
 
 	return true;
@@ -782,6 +995,20 @@ void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::predispatchGr
 }
 
 template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::predispatchComputeGraph()
+{
+	// Set barrier command
+	CoreList::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
+	m_barriers.clear();
+
+	// Clear UAVs
+	clearUAVs();
+
+	// Create pipeline for dynamic states
+	getComputeGraphPipeline();
+}
+
+template<typename CoreList, typename UltimateList>
 void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::getWorkGraphPipeline()
 {
 	// Create pipeline for dynamic states
@@ -868,6 +1095,25 @@ void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::getWorkGraphP
 }
 
 template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::getComputeGraphPipeline()
+{
+	assert(m_computeGraphState);
+	if (m_isCGStateDirty)
+	{
+		const auto pipeline = m_computeGraphState->GetPipeline(m_computeGraphPipelineLib.get());
+		if (pipeline)
+		{
+			if (m_pipeline != pipeline)
+			{
+				UltimateList::SetProgram(ProgramType::MLIR_PROGRAM, m_computeGraphState->GetProgramIdentifier());
+				m_pipeline = pipeline;
+			}
+			m_isCGStateDirty = false;
+		}
+	}
+}
+
+template<typename CoreList, typename UltimateList>
 const XUSG::Shader::Stage& XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::getShaderStage(uint8_t index) const
 {
 	static const Shader::Stage stages[] =
@@ -900,6 +1146,18 @@ typename XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::StageInde
 	}
 }
 
+template<typename CoreList, typename UltimateList>
+void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::queueResourceBarrier(vector<XUSG::ResourceBarrier>& barriers,
+	Resource* pResource, ResourceState state, uint32_t subresource)
+{
+	assert(pResource);
+
+	const auto start = barriers.size();
+	barriers.resize(start + 1);
+	const auto count = pResource->SetBarrier(&barriers[start], state, 0, subresource);
+	if (count < 1) barriers.resize(start);
+}
+
 bool XUSG::Ultimate::EZ::CommandList_DX12::adoptUltimate(Ultimate::CommandList* pCommandList)
 {
 	m_commandListU = dynamic_cast<Ultimate::CommandList_DX12*>(pCommandList)->GetGraphicsCommandList();
@@ -913,6 +1171,11 @@ bool XUSG::Ultimate::EZ::CommandList_DX12::hasMeshShader() const
 }
 
 bool XUSG::Ultimate::EZ::CommandList_DX12::hasWorkGraph() const
+{
+	return m_commandListU != nullptr;
+}
+
+bool XUSG::Ultimate::EZ::CommandList_DX12::hasComputeGraph() const
 {
 	return m_commandListU != nullptr;
 }
@@ -935,6 +1198,11 @@ bool XUSG::Ultimate::EZ::CommandList_VK::hasMeshShader() const
 }
 
 bool XUSG::Ultimate::EZ::CommandList_VK::hasWorkGraph() const
+{
+	return false;
+}
+
+bool XUSG::Ultimate::EZ::CommandList_VK::hasComputeGraph() const
 {
 	return false;
 }

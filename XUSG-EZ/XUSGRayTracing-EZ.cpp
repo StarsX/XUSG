@@ -25,6 +25,16 @@ XUSG::EZ::ResourceView EZ::GetSRV(const TopLevelAS* pTLAS)
 	return resourceView;
 }
 
+XUSG::EZ::ResourceView EZ::GetSRV(const PartitionedTLAS* pPTLAS)
+{
+	XUSG::EZ::ResourceView resourceView;
+	resourceView.View = pPTLAS->GetSRV();
+	resourceView.Subresources = {};
+	resourceView.DstState = XUSG::ResourceState::RAYTRACING_ACCELERATION_STRUCTURE;
+
+	return resourceView;
+}
+
 EZ::CommandList::uptr EZ::CommandList::MakeUnique()
 {
 	XUSG::Device::LockApi();

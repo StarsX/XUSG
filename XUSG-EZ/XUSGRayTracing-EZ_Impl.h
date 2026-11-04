@@ -56,7 +56,16 @@ namespace XUSG
 					BuildFlag flags = BuildFlag::PREFER_FAST_TRACE);
 				bool PrebuildOmmArray(OpacityMicromapArray* pOmmArray, uint32_t numOpacityMicromaps,
 					const GeometryBuffer& ommArrayDescs, BuildFlag flags = BuildFlag::PREFER_FAST_TRACE);
+				bool PrebuildCLAS(ClusterLevelAS* pCLAS, const RTASClusterTrianglesInputs& desc);
+				bool PrebuildCLASInstantiation(ClusterLevelAS* pCLAS, const RTASInstantiateClusterTemplateInputs& desc);
+				bool PrebuildClusterTemplate(ClusterTemplate* pClusterTemplate, const RTASClusterTemplateTrianglesInputs& desc);
+				bool PrebuildClusterBLAS(ClusterBottomLevelAS* pClusterBLAS, const RTASClasInputs& desc);
+				bool PrebuildPTLAS(PartitionedTLAS* pPTLAS, const RTASPartitionedTLASInputs& desc);
 				bool AllocateAccelerationStructure(AccelerationStructure* pAccelerationStructure, size_t byteWidth = 0);
+				bool AllocateCLAS(ClusterLevelAS* pCLAS, size_t byteWidth = 0);
+				bool AllocateClusterTemplate(ClusterTemplate* pClusterTemplate, size_t byteWidth = 0);
+				bool AllocateClusterBLAS(ClusterBottomLevelAS* pClusterBLAS, size_t byteWidth = 0);
+				bool AllocatePTLAS(PartitionedTLAS* pPTLAS, size_t byteWidth = 0);
 
 				void SetTriangleGeometry(BottomLevelAS::GeometryDesc& geometry, Format vertexFormat,
 					const XUSG::EZ::VertexBufferView& vbv, const XUSG::EZ::IndexBufferView* pIbv = nullptr,
@@ -79,9 +88,22 @@ namespace XUSG
 					uint8_t numPostbuildInfoDescs = 0, const PostbuildInfoType* pPostbuildInfoTypes = nullptr);
 				void BuildOmmArray(OpacityMicromapArray* pOmmArray, OpacityMicromapArray* pSource = nullptr,
 					uint8_t numPostbuildInfoDescs = 0, const PostbuildInfoType* pPostbuildInfoTypes = nullptr);
+				void BuildCLAS(ClusterLevelAS* pCLAS, Resource* pIndirectArguments,
+					uint64_t argumentOffset = 0, uint64_t argumentStride = 0);
+				void BuildClusterTemplate(ClusterTemplate* pClusterTemplate, Resource* pIndirectArguments,
+					uint64_t argumentOffset = 0, uint64_t argumentStride = 0);
+				void InstantiateClusterTemplate(ClusterTemplate* pClusterTemplate, ClusterLevelAS* pDestination,
+					Resource* pIndirectArguments, uint64_t argumentOffset = 0, uint64_t argumentStride = 0);
+				void BuildClusterBLAS(ClusterBottomLevelAS* pClusterBLAS, Resource* pIndirectArguments,
+					uint64_t argumentOffset = 0, uint64_t argumentStride = 0);
+				void BuildPTLAS(PartitionedTLAS* pPTLAS, Resource* pIndirectOps, uint64_t opsOffset = 0,
+					Resource* pOpCount = nullptr, uint64_t opCountOffset = 0);
+				void UpdatePTLAS(PartitionedTLAS* pPTLAS, Resource* pIndirectOps, uint64_t opsOffset = 0,
+					Resource* pOpCount = nullptr, uint64_t opCountOffset = 0);
 				void CopyRaytracingAccelerationStructure(AccelerationStructure* pDst,
 					AccelerationStructure* pSrc, CopyMode mode);
 				void SetTopLevelAccelerationStructure(uint32_t index, const TopLevelAS* pTopLevelAS) const;
+				void SetPartitionedTopLevelAccelerationStructure(uint32_t binding, const PartitionedTLAS* pPTLAS) const;
 				void RTSetShaderLibrary(uint32_t index, const Blob& shaderLib,
 					uint32_t numShaders = 0, const wchar_t** pShaderNames = nullptr);
 				void RTSetShaderConfig(uint32_t maxPayloadSize, uint32_t maxAttributeSize = sizeof(float[2]));
@@ -89,6 +111,7 @@ namespace XUSG
 					const wchar_t* anyHitShaderName = nullptr, const wchar_t* intersectionShaderName = nullptr,
 					HitGroupType type = HitGroupType::TRIANGLES);
 				void RTSetMaxRecursionDepth(uint32_t depth);
+				void RTSetPipelineFlags(PipelineFlag flags);
 				void RTSetPipelineState(const Pipeline& pipelineState, RayTracing::State* pState = nullptr);
 				void DispatchRays(uint32_t width, uint32_t height, uint32_t depth, const wchar_t* rayGenShaderName,
 					const wchar_t* const* pMissShaderNames, uint32_t numMissShaders,
@@ -165,6 +188,7 @@ namespace XUSG
 					const wchar_t* const* pCallableShaderNames, uint32_t numCallableShaders);
 
 				Resource* needScratch(size_t size);
+				void queueShaderReadBarrier(Resource* pResource);
 
 				const ShaderTable* getShaderTable(const std::string& key,
 					std::unordered_map<std::string, ShaderTable::uptr>& shaderTables,

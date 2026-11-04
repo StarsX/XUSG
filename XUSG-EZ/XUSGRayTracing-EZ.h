@@ -14,6 +14,7 @@ namespace XUSG
 		namespace EZ
 		{
 			XUSG_INTERFACE XUSG::EZ::ResourceView GetSRV(const TopLevelAS* pTLAS);
+			XUSG_INTERFACE XUSG::EZ::ResourceView GetSRV(const PartitionedTLAS* pPTLAS);
 
 			//--------------------------------------------------------------------------------------
 			// RayTracing command list
@@ -66,9 +67,18 @@ namespace XUSG
 					BuildFlag flags = BuildFlag::PREFER_FAST_TRACE) = 0;
 				virtual bool PrebuildOmmArray(OpacityMicromapArray* pOmmArray, uint32_t numOpacityMicromaps,
 					const GeometryBuffer& ommArrayDescs, BuildFlag flags = BuildFlag::PREFER_FAST_TRACE) = 0;
+				virtual bool PrebuildCLAS(ClusterLevelAS* pCLAS, const RTASClusterTrianglesInputs& desc) = 0;
+				virtual bool PrebuildCLASInstantiation(ClusterLevelAS* pCLAS, const RTASInstantiateClusterTemplateInputs& desc) = 0;
+				virtual bool PrebuildClusterTemplate(ClusterTemplate* pClusterTemplate, const RTASClusterTemplateTrianglesInputs& desc) = 0;
+				virtual bool PrebuildClusterBLAS(ClusterBottomLevelAS* pClusterBLAS, const RTASClasInputs& desc) = 0;
+				virtual bool PrebuildPTLAS(PartitionedTLAS* pPTLAS, const RTASPartitionedTLASInputs& desc) = 0;
 
 				// Auto allocate a buffer with byteWidth = GetResultDataMaxByteSize() when setting byteWidth = 0
 				virtual bool AllocateAccelerationStructure(AccelerationStructure* pAccelerationStructure, size_t byteWidth = 0) = 0;
+				virtual bool AllocateCLAS(ClusterLevelAS* pCLAS, size_t byteWidth = 0) = 0;
+				virtual bool AllocateClusterTemplate(ClusterTemplate* pClusterTemplate, size_t byteWidth = 0) = 0;
+				virtual bool AllocateClusterBLAS(ClusterBottomLevelAS* pClusterBLAS, size_t byteWidth = 0) = 0;
+				virtual bool AllocatePTLAS(PartitionedTLAS* pPTLAS, size_t byteWidth = 0) = 0;
 
 				virtual void SetTriangleGeometry(BottomLevelAS::GeometryDesc& geometry, Format vertexFormat,
 					const XUSG::EZ::VertexBufferView& vbv, const XUSG::EZ::IndexBufferView* pIbv = nullptr,
@@ -90,9 +100,22 @@ namespace XUSG
 					uint8_t numPostbuildInfoDescs = 0, const PostbuildInfoType* pPostbuildInfoTypes = nullptr) = 0;
 				virtual void BuildOmmArray(OpacityMicromapArray* pOmmArray, OpacityMicromapArray* pSource = nullptr,
 					uint8_t numPostbuildInfoDescs = 0, const PostbuildInfoType* pPostbuildInfoTypes = nullptr) = 0;
+				virtual void BuildCLAS(ClusterLevelAS* pCLAS, Resource* pIndirectArguments,
+					uint64_t argumentOffset = 0, uint64_t argumentStride = 0) = 0;
+				virtual void BuildClusterTemplate(ClusterTemplate* pClusterTemplate, Resource* pIndirectArguments,
+					uint64_t argumentOffset = 0, uint64_t argumentStride = 0) = 0;
+				virtual void InstantiateClusterTemplate(ClusterTemplate* pClusterTemplate, ClusterLevelAS* pDestination,
+					Resource* pIndirectArguments, uint64_t argumentOffset = 0, uint64_t argumentStride = 0) = 0;
+				virtual void BuildClusterBLAS(ClusterBottomLevelAS* pClusterBLAS, Resource* pIndirectArguments,
+					uint64_t argumentOffset = 0, uint64_t argumentStride = 0) = 0;
+				virtual void BuildPTLAS(PartitionedTLAS* pPTLAS, Resource* pIndirectOps, uint64_t opsOffset = 0,
+					Resource* pOpCount = nullptr, uint64_t opCountOffset = 0) = 0;
+				virtual void UpdatePTLAS(PartitionedTLAS* pPTLAS, Resource* pIndirectOps, uint64_t opsOffset = 0,
+					Resource* pOpCount = nullptr, uint64_t opCountOffset = 0) = 0;
 				virtual void CopyRaytracingAccelerationStructure(AccelerationStructure* pDst,
 					AccelerationStructure* pSrc, CopyMode mode) = 0;
 				virtual void SetTopLevelAccelerationStructure(uint32_t binding, const TopLevelAS* pTopLevelAS) const = 0;
+				virtual void SetPartitionedTopLevelAccelerationStructure(uint32_t binding, const PartitionedTLAS* pPTLAS) const = 0;
 				virtual void RTSetShaderLibrary(uint32_t index, const Blob& shaderLib,
 					uint32_t numShaders = 0, const wchar_t** pShaderNames = nullptr) = 0;
 				virtual void RTSetHitGroup(uint32_t index, const wchar_t* hitGroupName, const wchar_t* closestHitShaderName,
@@ -100,6 +123,7 @@ namespace XUSG
 					HitGroupType type = HitGroupType::TRIANGLES) = 0;
 				virtual void RTSetShaderConfig(uint32_t maxPayloadSize, uint32_t maxAttributeSize = sizeof(float[2])) = 0;
 				virtual void RTSetMaxRecursionDepth(uint32_t depth) = 0;
+				virtual void RTSetPipelineFlags(PipelineFlag flags) = 0;
 				virtual void RTSetPipelineState(const Pipeline& pipelineState, RayTracing::State* pState = nullptr) = 0;
 				virtual void DispatchRays(uint32_t width, uint32_t height, uint32_t depth, const wchar_t* rayGenShaderName,
 					const wchar_t* const* pMissShaderNames, uint32_t numMissShaders,

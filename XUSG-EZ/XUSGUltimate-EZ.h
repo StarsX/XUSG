@@ -75,6 +75,25 @@ namespace XUSG
 				virtual void ResolveSubresourceRegion(Resource* pDstResource, uint32_t dstSubresource,
 					uint32_t dstX, uint32_t dstY, Resource* pSrcResource, uint32_t srcSubresource,
 					const RectRange& srcRect, Format format, ResolveMode resolveMode) = 0;
+				virtual void CopyBufferRegions(uint32_t numRegions, Resource* const* ppDestBuffers, const uint64_t* pDestOffsets,
+					Resource* const* ppSourceBuffers, const uint64_t* pSourceOffsets, const uint64_t* pSizes) = 0;
+				virtual void CopyTextureRegions(uint32_t numCopyDescs, const TextureCopyDesc* pCopyDescs) = 0;
+				virtual void CopyResources(uint32_t numSourceDestPairs, Resource* const* ppDestResources,
+					Resource* const* ppSourceResources) = 0;
+				virtual void CopyTilesAsync(Resource* pTiledResource, const TiledResourceCoord* pTileRegionStartCoord,
+					const TileRegionSize& tileRegionSize, Resource* pBuffer, uint64_t bufferOffset,
+					TileCopyFlag flags = TileCopyFlag::NONE) = 0;
+				virtual void ResolveSubresourceRegionAsync(Resource* pDstResource, uint32_t dstSubresource,
+					uint32_t dstX, uint32_t dstY, Resource* pSrcResource, uint32_t srcSubresource,
+					const RectRange* pSrcRect, Format format, ResolveMode resolveMode) = 0;
+				virtual void ResolveQueryDataAsync(const QueryHeap& queryHeap, QueryType type, uint32_t startIndex,
+					uint32_t numQueries, Resource* pDestBuffer, uint64_t destOffset) = 0;
+				virtual void ClearBoundDepthStencilView(ClearFlag clearFlags, float depth, uint8_t stencil = 0,
+					uint32_t numRegions = 0, const BoxRange* pRegions = nullptr) = 0;
+				virtual void ClearBoundRenderTargetViews(uint32_t renderTargetMask, const ClearData* pClearValues,
+					const uint32_t* pNumRegions = nullptr, const BoxRange* const* ppRegions = nullptr) = 0;
+				virtual void ClearTextureSubresources(uint32_t numClearDescs, const ClearTextureDesc* pClearDescs) = 0;
+				virtual void FillBuffers(uint32_t numFillDescs, const FillBufferDesc* pFillDescs) = 0;
 
 				virtual void RSSetShadingRate(ShadingRate baseShadingRate, const ShadingRateCombiner* pCombiners) const = 0;
 				virtual void RSSetShadingRateImage(Resource* pShadingRateImage) = 0;
@@ -109,8 +128,12 @@ namespace XUSG
 					WorkGraph::BoolOverride isEntry = WorkGraph::BoolOverride::IS_NULL) = 0;
 				virtual void WGOverrideMaxDispatchGrid(const wchar_t* shaderName, uint32_t x, uint32_t y, uint32_t z,
 					WorkGraph::BoolOverride isEntry = WorkGraph::BoolOverride::IS_NULL) = 0;
+				virtual void CGSetProgramName(const wchar_t* name) = 0;
+				virtual void CGSetBytecode(const void* pBytecode, size_t bytecodeByteSize) = 0;
+				virtual void CGSetNodeMask(uint32_t nodeMask) = 0;
 				virtual void DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride = 0) = 0;
 				virtual void DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes = false) = 0;
+				virtual void DispatchGraph(uint32_t numBindings, const ProgramBinding* pBindings) = 0;
 
 				virtual const XUSG::PipelineLayout& GetMSPipelineLayout() const = 0;
 

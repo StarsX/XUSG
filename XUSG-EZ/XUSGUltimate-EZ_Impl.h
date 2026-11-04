@@ -84,6 +84,25 @@ namespace XUSG
 				void ResolveSubresourceRegion(Resource* pDstResource, uint32_t dstSubresource,
 					uint32_t dstX, uint32_t dstY, Resource* pSrcResource, uint32_t srcSubresource,
 					const RectRange& srcRect, Format format, ResolveMode resolveMode);
+				void CopyBufferRegions(uint32_t numRegions, Resource* const* ppDestBuffers, const uint64_t* pDestOffsets,
+					Resource* const* ppSourceBuffers, const uint64_t* pSourceOffsets, const uint64_t* pSizes);
+				void CopyTextureRegions(uint32_t numCopyDescs, const TextureCopyDesc* pCopyDescs);
+				void CopyResources(uint32_t numSourceDestPairs, Resource* const* ppDestResources,
+					Resource* const* ppSourceResources);
+				void CopyTilesAsync(Resource* pTiledResource, const TiledResourceCoord* pTileRegionStartCoord,
+					const TileRegionSize& tileRegionSize, Resource* pBuffer, uint64_t bufferOffset,
+					TileCopyFlag flags = TileCopyFlag::NONE);
+				void ResolveSubresourceRegionAsync(Resource* pDstResource, uint32_t dstSubresource,
+					uint32_t dstX, uint32_t dstY, Resource* pSrcResource, uint32_t srcSubresource,
+					const RectRange* pSrcRect, Format format, ResolveMode resolveMode);
+				void ResolveQueryDataAsync(const QueryHeap& queryHeap, QueryType type, uint32_t startIndex,
+					uint32_t numQueries, Resource* pDestBuffer, uint64_t destOffset);
+				void ClearBoundDepthStencilView(ClearFlag clearFlags, float depth, uint8_t stencil = 0,
+					uint32_t numRegions = 0, const BoxRange* pRegions = nullptr);
+				void ClearBoundRenderTargetViews(uint32_t renderTargetMask, const ClearData* pClearValues,
+					const uint32_t* pNumRegions = nullptr, const BoxRange* const* ppRegions = nullptr);
+				void ClearTextureSubresources(uint32_t numClearDescs, const ClearTextureDesc* pClearDescs);
+				void FillBuffers(uint32_t numFillDescs, const FillBufferDesc* pFillDescs);
 
 				void RSSetShadingRate(ShadingRate baseShadingRate, const ShadingRateCombiner* pCombiners) const;
 
@@ -119,8 +138,12 @@ namespace XUSG
 					WorkGraph::BoolOverride isEntry = WorkGraph::BoolOverride::IS_NULL);
 				void WGOverrideMaxDispatchGrid(const wchar_t* shaderName, uint32_t x, uint32_t y, uint32_t z,
 					WorkGraph::BoolOverride isEntry = WorkGraph::BoolOverride::IS_NULL);
+				void CGSetProgramName(const wchar_t* name);
+				void CGSetBytecode(const void* pBytecode, size_t bytecodeByteSize);
+				void CGSetNodeMask(uint32_t nodeMask);
 				void DispatchGraph(uint32_t numNodeInputs, const NodeCPUInput* pNodeInputs, uint64_t nodeInputByteStride = 0);
 				void DispatchGraph(uint64_t nodeGPUInputAddress, bool isMultiNodes = false);
+				void DispatchGraph(uint32_t numBindings, const ProgramBinding* pBindings);
 
 				const XUSG::PipelineLayout& GetMSPipelineLayout() const;
 
@@ -163,6 +186,7 @@ namespace XUSG
 				virtual bool adoptUltimate(Ultimate::CommandList* pCommandList) = 0;
 				virtual bool hasMeshShader() const = 0;
 				virtual bool hasWorkGraph() const = 0;
+				virtual bool hasComputeGraph() const = 0;
 
 				using CoreEZ = XUSG::EZ::CommandList_Impl<CoreList>;
 				using CoreEZ::CbvSrvUavTypes;
@@ -217,15 +241,21 @@ namespace XUSG
 
 				void predispatchMesh();
 				void predispatchGraph();
+				void predispatchComputeGraph();
 				void getWorkGraphPipeline();
+				void getComputeGraphPipeline();
 
 				const Shader::Stage& getShaderStage(uint8_t index) const;
 				StageIndex getShaderStageIndex(Shader::Stage stage) const;
+				void queueResourceBarrier(std::vector<XUSG::ResourceBarrier>& barriers, Resource* pResource,
+					ResourceState state, uint32_t subresource = XUSG_BARRIER_ALL_SUBRESOURCES);
 
 				PipelineLib::uptr		m_meshShaderPipelineLib;
 				WorkGraph::PipelineLib::uptr m_workGraphPipelineLib;
+				ComputeGraph::PipelineLib::uptr m_computeGraphPipelineLib;
 				State::uptr				m_meshShaderState;
 				WorkGraph::State::uptr  m_workGraphState;
+				ComputeGraph::State::uptr m_computeGraphState;
 
 				XUSG::PipelineLayout	m_pipelineLayout;
 
@@ -234,10 +264,15 @@ namespace XUSG
 				const WorkGraphProperty* m_workGraphProperty;
 
 				bool					m_isWGStateDirty;
+				bool					m_isCGStateDirty;
+				bool					m_hasBoundDepthStencil;
 
 				std::unordered_map<Pipeline, std::vector<WorkGraphProperty>> m_workGraphProperties;
 
 				std::vector<uint32_t> m_meshShaderSpaceToParamIndexMap[NUM_STAGE][CbvSrvUavTypes];
+				std::vector<XUSG::EZ::ResourceView> m_boundRenderTargets;
+
+				XUSG::EZ::ResourceView m_boundDepthStencil;
 
 				uint32_t m_meshShaderConstantParamIndices[NUM_STAGE];
 			};
@@ -258,6 +293,7 @@ namespace XUSG
 				bool adoptUltimate(Ultimate::CommandList* pCommandList);
 				bool hasMeshShader() const;
 				bool hasWorkGraph() const;
+				bool hasComputeGraph() const;
 			};
 
 #ifndef XUSG_NO_VULKAN
@@ -272,6 +308,7 @@ namespace XUSG
 				bool adoptUltimate(Ultimate::CommandList* pCommandList);
 				bool hasMeshShader() const;
 				bool hasWorkGraph() const;
+				bool hasComputeGraph() const;
 			};
 #endif
 		}
