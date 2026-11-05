@@ -429,40 +429,43 @@ DescriptorTable DescriptorTableLib_DX12::createCbvSrvUavTable(const string& key,
 		{
 			// Create a descriptor
 			const auto& pResourceView = static_cast<const ResourceView*>(pDescriptors[i]);
-			switch (pResourceView->Type)
+			if (pResourceView)
 			{
-			case ResourceViewType::CBV:
-				m_device->CreateConstantBufferView(&pResourceView->CbvDesc, descriptorHandle);
-				break;
-			case ResourceViewType::SRV:
-			{
-				const auto pDxResource = pResourceView->pResource ?
-					reinterpret_cast<ID3D12Resource*>(pResourceView->pResource->GetNativeHandle()) : nullptr;
-				m_device->CreateShaderResourceView(pDxResource, &pResourceView->SrvDesc, descriptorHandle);
-				break;
-			}
-			case ResourceViewType::UAV:
-			{
-				const auto pDxResource = pResourceView->pResource ?
-					reinterpret_cast<ID3D12Resource*>(pResourceView->pResource->GetNativeHandle()) : nullptr;
-				const auto pDxCounter = pResourceView->pCounterResource ?
-					reinterpret_cast<ID3D12Resource*>(pResourceView->pCounterResource->GetNativeHandle()) : nullptr;
-				m_device->CreateUnorderedAccessView(pDxResource, pDxCounter, &pResourceView->UavDesc, descriptorHandle);
-				break;
-			}
-			case ResourceViewType::SAMPLER_FEEDBACK:
-			{
-				com_ptr<ID3D12Device10> device;
-				V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&device)), cerr, XUSG_NULL);
-				const auto pDxResource = pResourceView->pResource ?
-					reinterpret_cast<ID3D12Resource*>(pResourceView->pResource->GetNativeHandle()) : nullptr;
-				const auto pDxTarget = pResourceView->pSamplerFeedbackTarget ?
-					reinterpret_cast<ID3D12Resource*>(pResourceView->pSamplerFeedbackTarget->GetNativeHandle()) : nullptr;
-				device->CreateSamplerFeedbackUnorderedAccessView(pDxTarget, pDxResource, descriptorHandle);
-				break;
-			}
-			default:
-				assert(!"Invalid CBV/SRV/UAV type");
+				switch (pResourceView->Type)
+				{
+				case ResourceViewType::CBV:
+					m_device->CreateConstantBufferView(&pResourceView->CbvDesc, descriptorHandle);
+					break;
+				case ResourceViewType::SRV:
+				{
+					const auto pDxResource = pResourceView->pResource ?
+						reinterpret_cast<ID3D12Resource*>(pResourceView->pResource->GetNativeHandle()) : nullptr;
+					m_device->CreateShaderResourceView(pDxResource, &pResourceView->SrvDesc, descriptorHandle);
+					break;
+				}
+				case ResourceViewType::UAV:
+				{
+					const auto pDxResource = pResourceView->pResource ?
+						reinterpret_cast<ID3D12Resource*>(pResourceView->pResource->GetNativeHandle()) : nullptr;
+					const auto pDxCounter = pResourceView->pCounterResource ?
+						reinterpret_cast<ID3D12Resource*>(pResourceView->pCounterResource->GetNativeHandle()) : nullptr;
+					m_device->CreateUnorderedAccessView(pDxResource, pDxCounter, &pResourceView->UavDesc, descriptorHandle);
+					break;
+				}
+				case ResourceViewType::SAMPLER_FEEDBACK:
+				{
+					com_ptr<ID3D12Device10> device;
+					V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&device)), cerr, XUSG_NULL);
+					const auto pDxResource = pResourceView->pResource ?
+						reinterpret_cast<ID3D12Resource*>(pResourceView->pResource->GetNativeHandle()) : nullptr;
+					const auto pDxTarget = pResourceView->pSamplerFeedbackTarget ?
+						reinterpret_cast<ID3D12Resource*>(pResourceView->pSamplerFeedbackTarget->GetNativeHandle()) : nullptr;
+					device->CreateSamplerFeedbackUnorderedAccessView(pDxTarget, pDxResource, descriptorHandle);
+					break;
+				}
+				default:
+					assert(!"Invalid CBV/SRV/UAV type");
+				}
 			}
 
 			descriptorHandle.Offset(descriptorStride);
@@ -543,30 +546,33 @@ DescriptorTable DescriptorTableLib_DX12::createSamplerTable(const string& key, D
 		for (auto i = 0u; i < numDescriptors; ++i)
 		{
 			const auto& pSampler = pSamplers[i];
-			D3D12_SAMPLER_DESC2 desc;
-			desc.Filter = GetDX12Filter(pSampler->Filter);
-			desc.AddressU = GetDX12TextureAddressMode(pSampler->AddressU);
-			desc.AddressV = GetDX12TextureAddressMode(pSampler->AddressV);
-			desc.AddressW = GetDX12TextureAddressMode(pSampler->AddressW);
-			desc.MipLODBias = pSampler->MipLODBias;
-			desc.MaxAnisotropy = pSampler->MaxAnisotropy;
-			desc.ComparisonFunc = GetDX12ComparisonFunc(pSampler->Comparison);
-			desc.UintBorderColor[0] = pSampler->BorderColorU[0];
-			desc.UintBorderColor[1] = pSampler->BorderColorU[1];
-			desc.UintBorderColor[2] = pSampler->BorderColorU[2];
-			desc.UintBorderColor[3] = pSampler->BorderColorU[3];
-			desc.MinLOD = pSampler->MinLOD;
-			desc.MaxLOD = pSampler->MaxLOD;
-			desc.Flags = GetDX12SamplerFlags(pSampler->Flags);
-
-			// Create a sampler descriptor
-			if ((pSampler->Flags & (SamplerFlag::UINT_BORDER_COLOR | SamplerFlag::NON_NORMALIZED_COORDINATES)) != SamplerFlag::NONE)
+			if (pSampler)
 			{
-				com_ptr<ID3D12Device11> device = nullptr;
-				V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&device)), cerr, XUSG_NULL);
-				device->CreateSampler2(&desc, dst);
+				D3D12_SAMPLER_DESC2 desc;
+				desc.Filter = GetDX12Filter(pSampler->Filter);
+				desc.AddressU = GetDX12TextureAddressMode(pSampler->AddressU);
+				desc.AddressV = GetDX12TextureAddressMode(pSampler->AddressV);
+				desc.AddressW = GetDX12TextureAddressMode(pSampler->AddressW);
+				desc.MipLODBias = pSampler->MipLODBias;
+				desc.MaxAnisotropy = pSampler->MaxAnisotropy;
+				desc.ComparisonFunc = GetDX12ComparisonFunc(pSampler->Comparison);
+				desc.UintBorderColor[0] = pSampler->BorderColorU[0];
+				desc.UintBorderColor[1] = pSampler->BorderColorU[1];
+				desc.UintBorderColor[2] = pSampler->BorderColorU[2];
+				desc.UintBorderColor[3] = pSampler->BorderColorU[3];
+				desc.MinLOD = pSampler->MinLOD;
+				desc.MaxLOD = pSampler->MaxLOD;
+				desc.Flags = GetDX12SamplerFlags(pSampler->Flags);
+
+				// Create a sampler descriptor
+				if ((pSampler->Flags & (SamplerFlag::UINT_BORDER_COLOR | SamplerFlag::NON_NORMALIZED_COORDINATES)) != SamplerFlag::NONE)
+				{
+					com_ptr<ID3D12Device11> device = nullptr;
+					V_RETURN(m_device->QueryInterface(IID_PPV_ARGS(&device)), cerr, XUSG_NULL);
+					device->CreateSampler2(&desc, dst);
+				}
+				else m_device->CreateSampler(reinterpret_cast<D3D12_SAMPLER_DESC*>(&desc), dst);
 			}
-			else m_device->CreateSampler(reinterpret_cast<D3D12_SAMPLER_DESC*>(&desc), dst);
 
 			dst.Offset(descriptorStride);
 		}
