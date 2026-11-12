@@ -340,6 +340,8 @@ namespace XUSG
 			XUSG::PipelineLayout m_pipelineLayouts[NUM_PIPELINE_LAYOUT];
 			XUSG::PipelineLayout m_blitPipelineLayout;
 			XUSG::Pipeline m_pipeline;
+			XUSG::Pipeline m_graphicsPipeline;
+			XUSG::Pipeline m_computePipeline;
 
 			bool m_isGraphicsDirty;
 			bool m_isComputeDirty;

@@ -165,7 +165,6 @@ namespace XUSG
 				using UltimateEZ::m_computeConstantParamIndex;
 				using UltimateEZ::m_pipelineLayouts;
 				using UltimateEZ::m_pipelineLayoutLib;
-				using UltimateEZ::m_pipeline;
 				using UltimateEZ::m_isComputeDirty;
 				using UltimateEZ::m_barriers;
 				using UltimateEZ::m_descriptorTableLib;
@@ -196,6 +195,9 @@ namespace XUSG
 
 				RayTracing::PipelineLib::uptr m_rayTracingPipelineLib;
 				RayTracing::State::uptr m_rayTracingState;
+
+				XUSG::Pipeline m_rayTracingPipeline;
+				XUSG::Pipeline m_stateObject;
 
 				size_t m_scratchSize;
 

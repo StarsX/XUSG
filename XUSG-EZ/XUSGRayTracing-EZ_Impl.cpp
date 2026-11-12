@@ -27,6 +27,8 @@ XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::CommandL
 	Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>(),
 	m_rayTracingPipelineLib(nullptr),
 	m_rayTracingState(nullptr),
+	m_rayTracingPipeline(nullptr),
+	m_stateObject(nullptr),
 	m_scratchSize(0),
 	m_isRTStateDirty(false),
 	m_scratches(0),
@@ -130,8 +132,9 @@ bool XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::Res
 	}
 
 	m_uploaders.clear();
+	m_stateObject = nullptr;
 
-	return XUSG::EZ::CommandList_Impl<CoreList>::Reset(allocatorIndex, initialState);
+	return Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::Reset(allocatorIndex, initialState);
 }
 
 template<typename CoreList, typename UltimateList, typename RTList>
@@ -620,6 +623,9 @@ void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::Cop
 template<typename CoreList, typename UltimateList, typename RTList>
 void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::SetTopLevelAccelerationStructure(uint32_t binding, const TopLevelAS* pTopLevelAS) const
 {
+	assert(binding < m_tlasBindingToParamIndexMap.size());
+	if (binding >= m_tlasBindingToParamIndexMap.size()) return;
+
 	RTList::SetTopLevelAccelerationStructure(m_tlasBindingToParamIndexMap[binding], pTopLevelAS);
 }
 
@@ -627,6 +633,9 @@ template<typename CoreList, typename UltimateList, typename RTList>
 void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::SetPartitionedTopLevelAccelerationStructure(uint32_t binding,
 	const PartitionedTLAS* pPTLAS) const
 {
+	assert(binding < m_tlasBindingToParamIndexMap.size());
+	if (binding >= m_tlasBindingToParamIndexMap.size()) return;
+
 	RTList::SetTopLevelAccelerationStructure(m_tlasBindingToParamIndexMap[binding], pPTLAS ? pPTLAS->GetVirtualAddress() : 0);
 }
 
@@ -690,12 +699,12 @@ void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::RTS
 
 	if (pipeline)
 	{
-		if (m_pipeline != pipeline)
+		m_rayTracingPipeline = pipeline;
+		if (m_stateObject != m_rayTracingPipeline)
 		{
-			CoreList::SetPipelineState(pipeline);
-			m_pipeline = pipeline;
+			RTList::SetRayTracingPipeline(m_rayTracingPipeline);
+			m_stateObject = m_rayTracingPipeline;
 		}
-		m_isComputeDirty = false;
 	}
 }
 
@@ -889,11 +898,7 @@ void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::pre
 		const auto pipeline = m_rayTracingState->GetPipeline(m_rayTracingPipelineLib.get());
 		if (pipeline)
 		{
-			if (m_pipeline != pipeline)
-			{
-				RTList::SetRayTracingPipeline(pipeline);
-				m_pipeline = pipeline;
-			}
+			m_rayTracingPipeline = pipeline;
 
 			// Get hit-group table; the hit-group has been bound on the pipeline
 			const auto numHitGroups = m_rayTracingState->GetNumHitGroups();
@@ -913,6 +918,11 @@ void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::pre
 			m_isRTStateDirty = false;
 		}
 	}
+	if (m_rayTracingPipeline && m_stateObject != m_rayTracingPipeline)
+	{
+		RTList::SetRayTracingPipeline(m_rayTracingPipeline);
+		m_stateObject = m_rayTracingPipeline;
+	}
 
 	pHitGroup = m_pHitGroup;
 
@@ -921,7 +931,7 @@ void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::pre
 	{
 		string key(sizeof(void*), '\0');
 		auto& shaderID = reinterpret_cast<const void*&>(key[0]);
-		shaderID = ShaderRecord::GetShaderIdentifier(m_pipeline, rayGenShaderName);
+		shaderID = ShaderRecord::GetShaderIdentifier(m_rayTracingPipeline, rayGenShaderName);
 		pRayGen = getShaderTable(key, m_rayGenTables, 1);
 	}
 
@@ -933,7 +943,7 @@ void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::pre
 		for (auto i = 0u; i < numMissShaders; ++i) // Set miss shader IDs into the key
 		{
 			if (pMissShaderNames && pMissShaderNames[i])
-				pShaderIDs[i] = ShaderRecord::GetShaderIdentifier(m_pipeline, pMissShaderNames[i]);
+				pShaderIDs[i] = ShaderRecord::GetShaderIdentifier(m_rayTracingPipeline, pMissShaderNames[i]);
 		}
 		pMiss = getShaderTable(key, m_missTables, numMissShaders);
 	}
@@ -946,7 +956,7 @@ void XUSG::RayTracing::EZ::CommandList_Impl<CoreList, UltimateList, RTList>::pre
 		for (auto i = 0u; i < numCallableShaders; ++i) // Set callable shader IDs into the key
 		{
 			if (pCallableShaderNames && pCallableShaderNames[i])
-				pShaderIDs[i] = ShaderRecord::GetShaderIdentifier(m_pipeline, pCallableShaderNames[i]);
+				pShaderIDs[i] = ShaderRecord::GetShaderIdentifier(m_rayTracingPipeline, pCallableShaderNames[i]);
 		}
 		pCallable = getShaderTable(key, m_callableTables, numCallableShaders);
 	}

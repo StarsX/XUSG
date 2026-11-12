@@ -26,9 +26,14 @@ XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::CommandList_Impl()
 	m_workGraphState(nullptr),
 	m_computeGraphState(nullptr),
 	m_pipelineLayout(nullptr),
+	m_meshPipeline(nullptr),
+	m_workGraphPipeline(nullptr),
+	m_computeGraphPipeline(nullptr),
+	m_program(nullptr),
 	m_workGraphProperty(nullptr),
 	m_isWGStateDirty(false),
 	m_isCGStateDirty(false),
+	m_isMeshDirty(false),
 	m_hasBoundDepthStencil(false),
 	m_meshShaderConstantParamIndices()
 {
@@ -141,6 +146,14 @@ bool XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::Create(Device
 		cbvStartSpaces, maxCbvSpaces, srvStartSpaces, maxSrvSpaces, uavStartSpaces, maxUavSpaces,
 		max32BitConstants,
 		constantSlots, constantSpaces, slotExt, spaceExt);
+}
+
+template<typename CoreList, typename UltimateList>
+bool XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::Reset(uint8_t allocatorIndex, const Pipeline& initialState)
+{
+	m_program = nullptr;
+
+	return XUSG::EZ::CommandList_Impl<CoreList>::Reset(allocatorIndex, initialState);
 }
 
 template<typename CoreList, typename UltimateList>
@@ -381,12 +394,14 @@ void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::SetGraphicsPi
 
 	if (pipeline)
 	{
-		if (m_pipeline != pipeline)
+		m_meshPipeline = pipeline;
+		if (m_pipeline != m_meshPipeline)
 		{
-			CoreList::SetPipelineState(pipeline);
-			m_pipeline = pipeline;
+			CoreList::SetGraphicsPipelineLayout(m_pipelineLayout);
+			CoreList::SetPipelineState(m_meshPipeline);
+			m_pipeline = m_meshPipeline;
 		}
-		m_isGraphicsDirty = false;
+		m_isMeshDirty = false;
 	}
 }
 
@@ -395,6 +410,7 @@ void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::OMSetBlendSta
 {
 	assert(m_meshShaderState);
 	m_meshShaderState->OMSetBlendState(pBlend, sampleMask);
+	m_isMeshDirty = true;
 	XUSG::EZ::CommandList_Impl<CoreList>::OMSetBlendState(pBlend, sampleMask);
 }
 
@@ -403,6 +419,7 @@ void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::OMSetBlendSta
 {
 	assert(m_meshShaderState);
 	m_meshShaderState->OMSetBlendState(preset, m_meshShaderPipelineLib.get(), numColorRTs, sampleMask);
+	m_isMeshDirty = true;
 	XUSG::EZ::CommandList_Impl<CoreList>::OMSetBlendState(preset, numColorRTs, sampleMask);
 }
 
@@ -411,6 +428,7 @@ void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::OMSetSample(u
 {
 	assert(m_meshShaderState);
 	m_meshShaderState->OMSetSample(count, quality);
+	m_isMeshDirty = true;
 	XUSG::EZ::CommandList_Impl<CoreList>::OMSetSample(count, quality);
 }
 
@@ -419,6 +437,7 @@ void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::RSSetState(co
 {
 	assert(m_meshShaderState);
 	m_meshShaderState->RSSetState(pRasterizer);
+	m_isMeshDirty = true;
 	XUSG::EZ::CommandList_Impl<CoreList>::RSSetState(pRasterizer);
 }
 
@@ -427,6 +446,7 @@ void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::RSSetState(Gr
 {
 	assert(m_meshShaderState);
 	m_meshShaderState->RSSetState(preset, m_meshShaderPipelineLib.get());
+	m_isMeshDirty = true;
 	XUSG::EZ::CommandList_Impl<CoreList>::RSSetState(preset);
 }
 
@@ -435,6 +455,7 @@ void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::DSSetState(co
 {
 	assert(m_meshShaderState);
 	m_meshShaderState->DSSetState(pDepthStencil);
+	m_isMeshDirty = true;
 	XUSG::EZ::CommandList_Impl<CoreList>::DSSetState(pDepthStencil);
 }
 
@@ -443,6 +464,7 @@ void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::DSSetState(Gr
 {
 	assert(m_meshShaderState);
 	m_meshShaderState->DSSetState(preset, m_meshShaderPipelineLib.get());
+	m_isMeshDirty = true;
 	XUSG::EZ::CommandList_Impl<CoreList>::DSSetState(preset);
 }
 
@@ -454,11 +476,13 @@ void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::SetGraphicsSh
 		assert(m_meshShaderState);
 		m_meshShaderState->SetShader(stage, shader);
 		m_isGraphicsDirty = true;
+		m_isMeshDirty = true;
 	}
 	else if (stage == Shader::Stage::PS)
 	{
 		assert(m_meshShaderState);
 		m_meshShaderState->SetShader(stage, shader);
+		m_isMeshDirty = true;
 		XUSG::EZ::CommandList_Impl<CoreList>::SetGraphicsShader(stage, shader);
 	}
 	else XUSG::EZ::CommandList_Impl<CoreList>::SetGraphicsShader(stage, shader);
@@ -471,6 +495,7 @@ void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::MSSetGraphics
 	assert(stage == Shader::Stage::PS || stage == Shader::Stage::MS || stage == Shader::Stage::AS);
 	m_meshShaderState->SetShader(stage, shader);
 	m_isGraphicsDirty = true;
+	m_isMeshDirty = true;
 }
 
 template<typename CoreList, typename UltimateList>
@@ -478,6 +503,7 @@ void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::SetGraphicsNo
 {
 	assert(m_meshShaderState);
 	m_meshShaderState->SetNodeMask(nodeMask);
+	m_isMeshDirty = true;
 	XUSG::EZ::CommandList_Impl<CoreList>::SetGraphicsNodeMask(nodeMask);
 }
 
@@ -543,6 +569,7 @@ void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::OMSetRenderTa
 	}
 
 	m_isGraphicsDirty = true;
+	m_isMeshDirty = true;
 
 	CoreList::OMSetRenderTargets(numRenderTargets, pRTVs,
 		pDepthStencilView ? &pDepthStencilView->View : nullptr);
@@ -622,8 +649,7 @@ void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::DispatchGraph
 template<typename CoreList, typename UltimateList>
 void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::DispatchGraph(uint32_t numBindings, const ProgramBinding* pBindings)
 {
-	predispatchComputeGraph();
-	UltimateList::DispatchGraph(numBindings, pBindings);
+	if (predispatchComputeGraph()) UltimateList::DispatchGraph(numBindings, pBindings);
 }
 
 template<typename CoreList, typename UltimateList>
@@ -876,22 +902,21 @@ void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::predispatchMe
 
 	// Create pipeline for dynamic states
 	assert(m_meshShaderState);
-	if (m_isGraphicsDirty)
+	if (m_isMeshDirty)
 	{
-		// Set pipeline layout
-		CoreList::SetGraphicsPipelineLayout(m_pipelineLayout);
-
 		m_meshShaderState->SetPipelineLayout(m_pipelineLayout);
 		const auto pipeline = m_meshShaderState->GetPipeline(m_meshShaderPipelineLib.get());
 		if (pipeline)
 		{
-			if (m_pipeline != pipeline)
-			{
-				CoreList::SetPipelineState(pipeline);
-				m_pipeline = pipeline;
-			}
-			m_isGraphicsDirty = false;
+			m_meshPipeline = pipeline;
+			m_isMeshDirty = false;
 		}
+	}
+	if (m_meshPipeline && m_pipeline != m_meshPipeline)
+	{
+		CoreList::SetGraphicsPipelineLayout(m_pipelineLayout);
+		CoreList::SetPipelineState(m_meshPipeline);
+		m_pipeline = m_meshPipeline;
 	}
 
 	// Set descriptor tables
@@ -995,7 +1020,7 @@ void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::predispatchGr
 }
 
 template<typename CoreList, typename UltimateList>
-void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::predispatchComputeGraph()
+bool XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::predispatchComputeGraph()
 {
 	// Set barrier command
 	CoreList::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
@@ -1005,7 +1030,7 @@ void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::predispatchCo
 	clearUAVs();
 
 	// Create pipeline for dynamic states
-	getComputeGraphPipeline();
+	return getComputeGraphPipeline();
 }
 
 template<typename CoreList, typename UltimateList>
@@ -1019,7 +1044,8 @@ void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::getWorkGraphP
 		const auto pipeline = m_workGraphState->GetPipeline(m_workGraphPipelineLib.get());
 		if (pipeline)
 		{
-			if (m_pipeline != pipeline)
+			m_workGraphPipeline = pipeline;
+			if (m_program != pipeline)
 			{
 				auto flags = WorkGraphFlag::NONE;
 				const auto workGraphName = m_workGraphName.c_str();
@@ -1083,7 +1109,7 @@ void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::getWorkGraphP
 
 				UltimateList::SetProgram(ProgramType::WORK_GRAPH, workGraph.Identifier, flags,
 					workGraph.BackingMemory->GetVirtualAddress(), workGraph.BackingMemory->GetWidth());
-				m_pipeline = pipeline;
+				m_program = pipeline;
 			}
 
 			// Different from other types of state objects, m_workGraphState cannot be reused
@@ -1092,25 +1118,36 @@ void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::getWorkGraphP
 			m_isWGStateDirty = false;
 		}
 	}
+
+	if (m_workGraphPipeline && m_program != m_workGraphPipeline)
+	{
+		UltimateList::SetProgram(ProgramType::WORK_GRAPH, m_workGraphProperty->Identifier, WorkGraphFlag::NONE,
+			m_workGraphProperty->BackingMemory->GetVirtualAddress(), m_workGraphProperty->BackingMemory->GetWidth());
+		m_program = m_workGraphPipeline;
+	}
 }
 
 template<typename CoreList, typename UltimateList>
-void XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::getComputeGraphPipeline()
+bool XUSG::Ultimate::EZ::CommandList_Impl<CoreList, UltimateList>::getComputeGraphPipeline()
 {
 	assert(m_computeGraphState);
 	if (m_isCGStateDirty)
 	{
 		const auto pipeline = m_computeGraphState->GetPipeline(m_computeGraphPipelineLib.get());
-		if (pipeline)
-		{
-			if (m_pipeline != pipeline)
-			{
-				UltimateList::SetProgram(ProgramType::MLIR_PROGRAM, m_computeGraphState->GetProgramIdentifier());
-				m_pipeline = pipeline;
-			}
-			m_isCGStateDirty = false;
-		}
+		assert(pipeline);
+		if (!pipeline) return false;
+
+		m_computeGraphPipeline = pipeline;
+		m_isCGStateDirty = false;
 	}
+
+	if (m_computeGraphPipeline && m_program != m_computeGraphPipeline)
+	{
+		UltimateList::SetProgram(ProgramType::MLIR_PROGRAM, m_computeGraphState->GetProgramIdentifier());
+		m_program = m_computeGraphPipeline;
+	}
+
+	return true;
 }
 
 template<typename CoreList, typename UltimateList>

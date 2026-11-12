@@ -34,6 +34,8 @@ EZ::CommandList_Impl<Base>::CommandList_Impl() :
 	m_pipelineLayouts(),
 	m_blitPipelineLayout(nullptr),
 	m_pipeline(nullptr),
+	m_graphicsPipeline(nullptr),
+	m_computePipeline(nullptr),
 	m_isGraphicsDirty(false),
 	m_isComputeDirty(false),
 	m_descriptors(0),
@@ -458,10 +460,12 @@ void EZ::CommandList_Impl<Base>::SetGraphicsPipelineState(const Pipeline& pipeli
 
 	if (pipeline)
 	{
-		if (m_pipeline != pipeline)
+		m_graphicsPipeline = pipeline;
+		if (m_pipeline != m_graphicsPipeline)
 		{
-			Base::SetPipelineState(pipeline);
-			m_pipeline = pipeline;
+			Base::SetGraphicsPipelineLayout(m_pipelineLayouts[GRAPHICS]);
+			Base::SetPipelineState(m_graphicsPipeline);
+			m_pipeline = m_graphicsPipeline;
 		}
 		m_isGraphicsDirty = false;
 	}
@@ -486,10 +490,12 @@ void EZ::CommandList_Impl<Base>::SetComputePipelineState(const Pipeline& pipelin
 
 	if (pipeline)
 	{
-		if (m_pipeline != pipeline)
+		m_computePipeline = pipeline;
+		if (m_pipeline != m_computePipeline)
 		{
-			Base::SetPipelineState(pipeline);
-			m_pipeline = pipeline;
+			Base::SetComputePipelineLayout(m_pipelineLayouts[COMPUTE]);
+			Base::SetPipelineState(m_computePipeline);
+			m_pipeline = m_computePipeline;
 		}
 		m_isComputeDirty = false;
 	}
@@ -1396,20 +1402,19 @@ void EZ::CommandList_Impl<Base>::predraw()
 	assert(m_graphicsState);
 	if (m_isGraphicsDirty)
 	{
-		// Set pipeline layout
-		Base::SetGraphicsPipelineLayout(m_pipelineLayouts[GRAPHICS]);
-
 		m_graphicsState->SetPipelineLayout(m_pipelineLayouts[GRAPHICS]);
 		const auto pipeline = m_graphicsState->GetPipeline(m_graphicsPipelineLib.get());
 		if (pipeline)
 		{
-			if (m_pipeline != pipeline)
-			{
-				Base::SetPipelineState(pipeline);
-				m_pipeline = pipeline;
-			}
+			m_graphicsPipeline = pipeline;
 			m_isGraphicsDirty = false;
 		}
+	}
+	if (m_graphicsPipeline && m_pipeline != m_graphicsPipeline)
+	{
+		Base::SetGraphicsPipelineLayout(m_pipelineLayouts[GRAPHICS]);
+		Base::SetPipelineState(m_graphicsPipeline);
+		m_pipeline = m_graphicsPipeline;
 	}
 
 	// Set descriptor tables
@@ -1484,13 +1489,15 @@ void EZ::CommandList_Impl<Base>::predispatch()
 		const auto pipeline = m_computeState->GetPipeline(m_computePipelineLib.get());
 		if (pipeline)
 		{
-			if (m_pipeline != pipeline)
-			{
-				Base::SetPipelineState(pipeline);
-				m_pipeline = pipeline;
-			}
+			m_computePipeline = pipeline;
 			m_isComputeDirty = false;
 		}
+	}
+	if (m_computePipeline && m_pipeline != m_computePipeline)
+	{
+		Base::SetComputePipelineLayout(m_pipelineLayouts[COMPUTE]);
+		Base::SetPipelineState(m_computePipeline);
+		m_pipeline = m_computePipeline;
 	}
 
 	// Create and set sampler table

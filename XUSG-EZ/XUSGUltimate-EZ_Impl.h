@@ -78,6 +78,7 @@ namespace XUSG
 					const uint32_t constantSlots[Shader::Stage::NUM_STAGE] = nullptr,
 					const uint32_t constantSpaces[Shader::Stage::NUM_STAGE] = nullptr,
 					uint32_t slotExt = 0, uint32_t spaceExt = 0x7FFF0ADE);
+				bool Reset(uint8_t allocatorIndex, const Pipeline& initialState);
 
 				void SetSamplePositions(uint8_t numSamplesPerPixel, uint8_t numPixels, SamplePosition* pPositions) const;
 
@@ -241,9 +242,9 @@ namespace XUSG
 
 				void predispatchMesh();
 				void predispatchGraph();
-				void predispatchComputeGraph();
+				bool predispatchComputeGraph();
 				void getWorkGraphPipeline();
-				void getComputeGraphPipeline();
+				bool getComputeGraphPipeline();
 
 				const Shader::Stage& getShaderStage(uint8_t index) const;
 				StageIndex getShaderStageIndex(Shader::Stage stage) const;
@@ -259,12 +260,18 @@ namespace XUSG
 
 				XUSG::PipelineLayout	m_pipelineLayout;
 
+				XUSG::Pipeline			m_meshPipeline;
+				XUSG::Pipeline			m_workGraphPipeline;
+				XUSG::Pipeline			m_computeGraphPipeline;
+				XUSG::Pipeline			m_program;
+
 				std::wstring			m_workGraphName;
 
 				const WorkGraphProperty* m_workGraphProperty;
 
 				bool					m_isWGStateDirty;
 				bool					m_isCGStateDirty;
+				bool					m_isMeshDirty;
 				bool					m_hasBoundDepthStencil;
 
 				std::unordered_map<Pipeline, std::vector<WorkGraphProperty>> m_workGraphProperties;
