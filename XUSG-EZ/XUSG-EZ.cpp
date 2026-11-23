@@ -8,13 +8,17 @@ using namespace std;
 using namespace XUSG;
 using namespace XUSG::EZ;
 
-void EZ::CalcSubresources(vector<uint32_t>& subresources, const Texture* pResource, uint8_t mipSlice, uint8_t planeSlice)
+void EZ::CalcSubresources(vector<uint32_t>& subresources, const Texture* pResource,
+	uint8_t mipSlice, uint8_t planeSlice, uint8_t numPlanes)
 {
+	assert(numPlanes >= 1);
 	const auto arraySize = pResource->GetArraySize();
-	subresources.resize(arraySize);
+	subresources.resize(static_cast<size_t>(arraySize) * numPlanes);
 
-	for (uint16_t i = 0; i < arraySize; ++i)
-		subresources[i] = pResource->CalculateSubresource(mipSlice, i, planeSlice);
+	auto i = 0u;
+	for (uint8_t plane = planeSlice; plane < planeSlice + numPlanes; ++plane)
+		for (uint16_t arraySlice = 0; arraySlice < arraySize; ++arraySlice)
+			subresources[i++] = pResource->CalculateSubresource(mipSlice, arraySlice, plane);
 }
 
 ResourceView EZ::GetCBV(const ConstantBuffer* pResource, uint32_t index)
@@ -65,17 +69,19 @@ ResourceView EZ::GetSRV(const Texture* pResource, uint8_t firstLevel, bool singl
 	resourceView.View = pResource->GetSRV(firstLevel, singleLevel);
 	resourceView.DstState = dstState;
 
-	if (singleLevel) CalcSubresources(resourceView.Subresources, pResource, firstLevel);
+	const auto numPlanes = Resource::GetFormatPlaneCount(pResource->GetFormat());
+	if (singleLevel) CalcSubresources(resourceView.Subresources, pResource, firstLevel, 0, numPlanes);
 	else
 	{
 		const auto numMips = pResource->GetNumMips();
 		const auto arraySize = pResource->GetArraySize();
-		resourceView.Subresources.resize((numMips - firstLevel) * arraySize);
+		resourceView.Subresources.resize((numMips - firstLevel) * arraySize * numPlanes);
 
 		auto i = 0u;
-		for (uint16_t arraySlice = 0; arraySlice < arraySize; ++arraySlice)
-			for (auto mipSlice = firstLevel; mipSlice < numMips; ++mipSlice)
-				resourceView.Subresources[i++] = pResource->CalculateSubresource(mipSlice, arraySlice);
+		for (uint8_t plane = 0; plane < numPlanes; ++plane)
+			for (uint16_t arraySlice = 0; arraySlice < arraySize; ++arraySlice)
+				for (auto mipSlice = firstLevel; mipSlice < numMips; ++mipSlice)
+					resourceView.Subresources[i++] = pResource->CalculateSubresource(mipSlice, arraySlice, plane);
 	}
 
 	return resourceView;
@@ -158,13 +164,19 @@ ResourceView EZ::GetRTV(const RenderTarget* pResource, uint16_t slice, uint8_t m
 ResourceView EZ::GetDSV(const DepthStencil* pResource, uint16_t slice, uint8_t mipLevel)
 {
 	const bool isArray = slice == UINT16_MAX;
+	const auto numPlanes = Resource::GetFormatPlaneCount(pResource->GetFormat());
 
 	ResourceView resourceView;
 	resourceView.View = pResource->GetDSV(isArray ? 0 : slice, mipLevel);
 	resourceView.DstState = ResourceState::DEPTH_WRITE;
 
-	if (isArray) CalcSubresources(resourceView.Subresources, pResource, mipLevel);
-	else resourceView.Subresources = { pResource->CalculateSubresource(mipLevel, slice) };
+	if (isArray) CalcSubresources(resourceView.Subresources, pResource, mipLevel, 0, numPlanes);
+	else
+	{
+		resourceView.Subresources.resize(numPlanes);
+		for (uint8_t plane = 0; plane < numPlanes; ++plane)
+			resourceView.Subresources[plane] = pResource->CalculateSubresource(mipLevel, slice, plane);
+	}
 
 	return resourceView;
 }
@@ -172,14 +184,20 @@ ResourceView EZ::GetDSV(const DepthStencil* pResource, uint16_t slice, uint8_t m
 ResourceView EZ::GetReadOnlyDSV(const DepthStencil* pResource, uint16_t slice, uint8_t mipLevel, ResourceState dstSrvState)
 {
 	const bool isArray = slice == UINT16_MAX;
+	const auto numPlanes = Resource::GetFormatPlaneCount(pResource->GetFormat());
 
 	ResourceView resourceView;
 	resourceView.View = pResource->GetDSV(isArray ? 0 : slice, mipLevel, true);
 	resourceView.DstState = ResourceState::DEPTH_READ;
 	resourceView.DstState |= pResource->GetSRV() ? dstSrvState : resourceView.DstState;
 
-	if (isArray) CalcSubresources(resourceView.Subresources, pResource, mipLevel);
-	else resourceView.Subresources = { pResource->CalculateSubresource(mipLevel, slice) };
+	if (isArray) CalcSubresources(resourceView.Subresources, pResource, mipLevel, 0, numPlanes);
+	else
+	{
+		resourceView.Subresources.resize(numPlanes);
+		for (uint8_t plane = 0; plane < numPlanes; ++plane)
+			resourceView.Subresources[plane] = pResource->CalculateSubresource(mipLevel, slice, plane);
+	}
 
 	return resourceView;
 }
@@ -188,7 +206,8 @@ ResourceView EZ::GetStencilSRV(const DepthStencil* pResource, ResourceState dstS
 {
 	ResourceView resourceView;
 	resourceView.View = pResource->GetSRV(0, true, true);
-	resourceView.Subresources = { XUSG_BARRIER_ALL_SUBRESOURCES };
+	// Barrier all planes so CopyResource(ALL) stays consistent with depth SRV/DSV.
+	CalcSubresources(resourceView.Subresources, pResource, 0, 0, Resource::GetFormatPlaneCount(pResource->GetFormat()));
 	resourceView.DstState = dstState;
 
 	return resourceView;

@@ -1731,7 +1731,7 @@ uint32_t Resource_VK::subresourceCount() const
 	const auto mips = m_mipLevels ? m_mipLevels : 1u;
 	if (!m_isImage || m_is3D) return mips;
 
-	return mips * (m_depthOrArray ? m_depthOrArray : 1u);
+	return mips * (m_depthOrArray ? m_depthOrArray : 1u) * Resource::GetFormatPlaneCount(m_resourceFormat);
 }
 
 uint32_t Resource_VK::subresourceIndex(uint32_t mip, uint32_t layer) const
@@ -2046,7 +2046,7 @@ bool Texture_VK::Create(Device* pDevice, uint32_t width, uint32_t height, Format
 
 	XUSG_N_RETURN(createImage(nullptr, 0, width, height, 1, format, arraySize, resourceFlags, numMips, sampleCount,
 		MemoryType::DEFAULT, false, isCubeMap, numUavFormats, uavFormats), false);
-	setState(ResourceState::COMMON, static_cast<uint32_t>(arraySize) * numMips, maxThreads);
+	setState(ResourceState::COMMON, static_cast<uint32_t>(arraySize) * numMips * Resource::GetFormatPlaneCount(format), maxThreads);
 	SetName(name);
 	if (hasSRV) createSRVs(arraySize, format, numMips, sampleCount > 1, isCubeMap, srvComponentMapping);
 	if (hasUAV)
@@ -2083,7 +2083,7 @@ bool Texture_VK::Create(Device* pDevice, Heap* pHeap, uint64_t heapOffset, uint3
 
 	XUSG_N_RETURN(createImage(pHeap, heapOffset, width, height, 1, format, arraySize, resourceFlags, numMips,
 		sampleCount, MemoryType::DEFAULT, false, isCubeMap, numUavFormats, uavFormats, pHeap == nullptr), false);
-	setState(ResourceState::COMMON, static_cast<uint32_t>(arraySize) * numMips, maxThreads);
+	setState(ResourceState::COMMON, static_cast<uint32_t>(arraySize) * numMips * Resource::GetFormatPlaneCount(format), maxThreads);
 	SetName(name);
 	if (hasSRV) createSRVs(arraySize, format, numMips, sampleCount > 1, isCubeMap, srvComponentMapping);
 	if (hasUAV) createUAVs(arraySize, format, numMips);
@@ -2106,7 +2106,7 @@ bool Texture_VK::CreateResource(Device* pDevice, uint32_t width, uint32_t height
 	m_hasPromotion = (resourceFlags & ResourceFlag::ALLOW_SIMULTANEOUS_ACCESS) == ResourceFlag::ALLOW_SIMULTANEOUS_ACCESS;
 	XUSG_N_RETURN(createImage(nullptr, 0, width, height, 1, format, arraySize, resourceFlags, numMips, sampleCount,
 		MemoryType::DEFAULT, false, false, numCastableFormats, pCastableFormats), false);
-	setState(initialResourceState, static_cast<uint32_t>(arraySize) * (numMips ? numMips : 1), maxThreads);
+	setState(initialResourceState, static_cast<uint32_t>(arraySize) * (numMips ? numMips : 1) * Resource::GetFormatPlaneCount(format), maxThreads);
 
 	return true;
 }
@@ -2122,7 +2122,7 @@ bool Texture_VK::CreateResource(Device* pDevice, Heap* pHeap, uint64_t heapOffse
 	m_format = format;
 	XUSG_N_RETURN(createImage(pHeap, heapOffset, width, height, 1, format, arraySize, resourceFlags, numMips,
 		sampleCount, MemoryType::DEFAULT, false, false, numCastableFormats, pCastableFormats, pHeap == nullptr), false);
-	setState(initialResourceState, static_cast<uint32_t>(arraySize) * (numMips ? numMips : 1), maxThreads);
+	setState(initialResourceState, static_cast<uint32_t>(arraySize) * (numMips ? numMips : 1) * Resource::GetFormatPlaneCount(format), maxThreads);
 
 	return true;
 }

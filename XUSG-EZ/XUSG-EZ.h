@@ -32,7 +32,8 @@ namespace XUSG
 			ResourceState DstState;
 		};
 
-		XUSG_INTERFACE void CalcSubresources(std::vector<uint32_t>& subresources, const Texture* pResource, uint8_t mipSlice, uint8_t planeSlice = 0);
+		XUSG_INTERFACE void CalcSubresources(std::vector<uint32_t>& subresources, const Texture* pResource,
+			uint8_t mipSlice, uint8_t planeSlice = 0, uint8_t numPlanes = 1);
 
 		// Resource view generation helpers coupled for XUSG resources
 		XUSG_INTERFACE ResourceView GetCBV(const ConstantBuffer* pResource, uint32_t index = 0);

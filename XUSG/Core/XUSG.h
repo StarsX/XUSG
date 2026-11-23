@@ -1595,8 +1595,6 @@ namespace XUSG
 	//--------------------------------------------------------------------------------------
 	// Swap chain
 	//--------------------------------------------------------------------------------------
-	class Resource;
-
 	class XUSG_INTERFACE SwapChain
 	{
 	public:
@@ -1719,6 +1717,7 @@ namespace XUSG
 		static sptr MakeShared();
 
 		static BarrierLayout GetBarrierLayout(ResourceState resourceState);
+		static uint8_t GetFormatPlaneCount(Format format);
 	};
 
 	//--------------------------------------------------------------------------------------

@@ -2379,11 +2379,12 @@ bool DepthStencil_DX12::CreateResource(Device* pDevice, uint32_t width, uint32_t
 	assert(width && height && arraySize);
 	const CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_DEFAULT);
 
-	// Determine initial state
+	// Determine initial state (include stencil plane for multi-plane DS formats)
 	assert(maxThreads);
+	const auto numSubresources = static_cast<uint32_t>(arraySize) * numMips * Resource::GetFormatPlaneCount(m_format);
 	m_states.resize(maxThreads);
 	for (auto& states : m_states)
-		states.resize(static_cast<uint32_t>(arraySize) * numMips, initialResourceState);
+		states.resize(numSubresources, initialResourceState);
 
 	// Optimized clear value
 	D3D12_CLEAR_VALUE clearValue = { GetDXGIFormat(m_format) };
@@ -2437,12 +2438,13 @@ bool DepthStencil_DX12::CreateResource(Device* pDevice, Heap* pHeap, uint64_t he
 	m_format = m_format != Format::UNKNOWN ? m_format : format;
 	m_hasPromotion = (resourceFlags & ResourceFlag::ALLOW_SIMULTANEOUS_ACCESS) == ResourceFlag::ALLOW_SIMULTANEOUS_ACCESS;
 
-	// Determine initial state
+	// Determine initial state (include stencil plane for multi-plane DS formats)
 	assert(maxThreads);
 	assert(width && height && arraySize);
+	const auto numSubresources = static_cast<uint32_t>(arraySize) * numMips * Resource::GetFormatPlaneCount(m_format);
 	m_states.resize(maxThreads);
 	for (auto& states : m_states)
-		states.resize(static_cast<uint32_t>(arraySize) * numMips, initialResourceState);
+		states.resize(numSubresources, initialResourceState);
 
 	// Optimized clear value
 	D3D12_CLEAR_VALUE clearValue = { GetDXGIFormat(m_format) };
