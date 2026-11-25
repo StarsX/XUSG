@@ -780,8 +780,7 @@ void EZ::CommandList_Impl<Base>::ClearUnorderedAccessViewUint(const ResourceView
 	uavTable->SetDescriptors(0, 1, &unorderedAccessView.View);
 	const auto descriptorTable = uavTable->GetCbvSrvUavTable(m_descriptorTableLib.get());
 
-	m_clearUAVs.emplace_back(unorderedAccessView);
-	m_clearUAVsUint.emplace_back(ClearUAVUint{ &m_clearUAVs.back(),
+	m_clearUAVsUint.emplace_back(ClearUAVUint{ unorderedAccessView,
 		descriptorTable, values[0], values[1], values[2], values[3] });
 
 	auto& clearView = m_clearUAVsUint.back();
@@ -799,8 +798,7 @@ void EZ::CommandList_Impl<Base>::ClearUnorderedAccessViewFloat(const ResourceVie
 	uavTable->SetDescriptors(0, 1, &unorderedAccessView.View);
 	const auto descriptorTable = uavTable->GetCbvSrvUavTable(m_descriptorTableLib.get());
 
-	m_clearUAVs.emplace_back(unorderedAccessView);
-	m_clearUAVsFloat.emplace_back(ClearUAVFloat{ &m_clearUAVs.back(),
+	m_clearUAVsFloat.emplace_back(ClearUAVFloat{ unorderedAccessView,
 		descriptorTable, values[0], values[1], values[2], values[3] });
 
 	auto& clearView = m_clearUAVsFloat.back();
@@ -1563,24 +1561,24 @@ template<typename Base>
 void EZ::CommandList_Impl<Base>::clearUAVs()
 {
 	for (const auto& args : m_clearUAVsUint)
-		Base::ClearUnorderedAccessViewUint(args.UAVTable, args.pUAV->View,
+		Base::ClearUnorderedAccessViewUint(args.UAVTable, args.UAV.View,
 			args.Values, static_cast<uint32_t>(args.Rects.size()), args.Rects.data());
 
 	for (const auto& args : m_clearUAVsFloat)
-		Base::ClearUnorderedAccessViewFloat(args.UAVTable, args.pUAV->View,
+		Base::ClearUnorderedAccessViewFloat(args.UAVTable, args.UAV.View,
 			args.Values, static_cast<uint32_t>(args.Rects.size()), args.Rects.data());
 
 	// Set barrier and barrier command
-	if (!m_clearUAVs.empty())
+	for (const auto& args : m_clearUAVsUint) setBarriers(1, &args.UAV);
+	for (const auto& args : m_clearUAVsFloat) setBarriers(1, &args.UAV);
+	if (!m_barriers.empty())
 	{
-		setBarriers(static_cast<uint32_t>(m_clearUAVs.size()), m_clearUAVs.data());
 		Base::Barrier(static_cast<uint32_t>(m_barriers.size()), m_barriers.data());
 		m_barriers.clear();
 	}
 
 	m_clearUAVsUint.clear();
 	m_clearUAVsFloat.clear();
-	m_clearUAVs.clear();
 }
 
 template<typename Base>

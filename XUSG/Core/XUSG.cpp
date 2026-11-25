@@ -253,6 +253,20 @@ BarrierLayout Resource::GetBarrierLayout(ResourceState resourceState)
 	return BarrierLayout::UNDEFINED;
 }
 
+uint8_t Resource::GetFormatPlaneCount(Format format)
+{
+	switch (format)
+	{
+	case Format::D24_UNORM_S8_UINT:
+	case Format::D32_FLOAT_S8X24_UINT:
+	case Format::R24G8_TYPELESS:
+	case Format::R32G8X24_TYPELESS:
+		return 2;
+	default:
+		return 1;
+	}
+}
+
 ConstantBuffer::uptr ConstantBuffer::MakeUnique()
 {
 	Device::LockApi();

@@ -393,26 +393,31 @@ namespace XUSG
 			MATRICES,
 			PER_FRAME,
 #if XUSG_TEMPORAL_AA
-			TEMPORAL_BIAS,
+			TEMPORAL_JITTER,
 #endif
-			VARIABLE_SLOT
-		};
-
-		enum DescriptorTableSlotOffset : uint8_t
-		{
-			MATERIAL_OFFSET,
-			ALPHA_REF_OFFSET,
-			IMMUTABLE_OFFSET = ALPHA_REF_OFFSET
+			MATERIAL,
+			ALPHA_REF,
+			VEGETATION,
+			IMMUTABLE = ALPHA_REF,
+#if XUSG_TEMPORAL
+			HISTORY = VEGETATION
+#endif
 		};
 
 		enum CBVTableIndex : uint8_t
 		{
 			CBV_MATRICES,
 #if XUSG_TEMPORAL_AA
-			CBV_LOCAL_TEMPORAL_BIAS,
+			CBV_TEMPORAL_JITTER,
 #endif
 
 			NUM_CBV_TABLE
+		};
+
+		enum CBVGlobalTableIndex : uint8_t
+		{
+			CBV_PER_FRAME,
+			CBV_IMMUTABLE
 		};
 
 		//Model(const wchar_t* name);
@@ -429,13 +434,13 @@ namespace XUSG
 		virtual void Update(uint8_t frameIndex) = 0;
 		virtual void SetMatrices(DirectX::CXMMATRIX world, bool isTemporal = true) = 0;
 #if XUSG_TEMPORAL_AA
-		virtual void SetTemporalBias(const DirectX::XMFLOAT2& temporalBias) = 0;
+		virtual void SetTemporalJitter(const DirectX::XMFLOAT2& temporalJitter) = 0;
 #endif
 		virtual void SetPipelineLayout(CommandList* pCommandList, PipelineLayoutIndex layout) const = 0;
 		virtual void SetPipeline(CommandList* pCommandList, PipelineIndex pipeline) const = 0;
 		virtual void SetPipeline(CommandList* pCommandList, SubsetFlags subsetFlag, PipelineLayoutIndex layout) const = 0;
 		virtual void Render(CommandList* pCommandList, SubsetFlags subsetFlags, uint8_t matrixTableIndex,
-			PipelineLayoutIndex layout = NUM_PIPELINE_LAYOUT, const DescriptorTable* pCbvPerFrameTable = nullptr,
+			PipelineLayoutIndex layout = NUM_PIPELINE_LAYOUT, const DescriptorTable* pCbvGlobalTables = nullptr,
 			uint32_t numInstances = 1) const = 0;
 
 		virtual bool IsTwoSidedAll() const = 0;
@@ -465,17 +470,6 @@ namespace XUSG
 		public virtual Model
 	{
 	public:
-		enum DescriptorTableSlot : uint8_t
-		{
-			MATERIAL = VARIABLE_SLOT,
-			ALPHA_REF,
-			SHADOW_MAP,
-			IMMUTABLE = ALPHA_REF,
-#if XUSG_TEMPORAL
-			HISTORY = ALPHA_REF
-#endif
-		};
-
 		struct MeshLink
 		{
 			std::wstring	MeshName;
@@ -507,7 +501,7 @@ namespace XUSG
 		virtual void Skinning(CommandList* pCommandList, uint32_t& numBarriers,
 			ResourceBarrier* pBarriers, bool reset = false) const = 0;
 		virtual void RenderTransformed(CommandList* pCommandList, PipelineLayoutIndex layout,
-			SubsetFlags subsetMask = SUBSET_FULL, const DescriptorTable* pCbvPerFrameTable = nullptr,
+			SubsetFlags subsetMask = SUBSET_FULL, const DescriptorTable* pCbvGlobalTables = nullptr,
 			uint32_t numInstances = 1) const = 0;
 
 		virtual const DirectX::XMFLOAT4& GetPosition() const = 0;
@@ -532,15 +526,6 @@ namespace XUSG
 		public virtual Model
 	{
 	public:
-		enum DescriptorTableSlot : uint8_t
-		{
-			PER_OBJECT = VARIABLE_SLOT,
-			MATERIAL,
-			ALPHA_REF,
-			SHADOW_MAP,
-			IMMUATABLE = ALPHA_REF
-		};
-
 		//StaticModel(const wchar_t* name = nullptr);
 		virtual ~StaticModel() {};
 
@@ -557,7 +542,7 @@ namespace XUSG
 
 		virtual void Update(uint8_t frameIndex, DirectX::FXMMATRIX* pWorld = nullptr, bool isTemporal = true) = 0;
 		virtual void Render(CommandList* pCommandList, uint32_t mesh, PipelineLayoutIndex layout,
-			SubsetFlags subsetMask = SUBSET_FULL, const DescriptorTable* pCbvPerFrameTable = nullptr,
+			SubsetFlags subsetMask = SUBSET_FULL, const DescriptorTable* pCbvGlobalTables = nullptr,
 			uint32_t numInstances = 1) const = 0;
 
 		virtual const SDKMesh::sptr& GetMesh() const = 0;
@@ -738,10 +723,10 @@ namespace XUSG
 			CBV_PER_FRAME_VS,
 			CBV_PER_FRAME_PS = CBV_PER_FRAME_VS + XUSG_FRAME_COUNT,	// Window size dependent
 #if XUSG_TEMPORAL_AA
-			CBV_TEMPORAL_BIAS0 = CBV_PER_FRAME_PS + XUSG_FRAME_COUNT,
-			CBV_TEMPORAL_BIAS,
+			CBV_TEMPORAL_JITTER0 = CBV_PER_FRAME_PS + XUSG_FRAME_COUNT,
+			CBV_TEMPORAL_JITTER,
 
-			NUM_CBV_TABLE = CBV_TEMPORAL_BIAS + XUSG_FRAME_COUNT
+			NUM_CBV_TABLE = CBV_TEMPORAL_JITTER + XUSG_FRAME_COUNT
 #else
 			NUM_CBV_TABLE = CBV_PER_FRAME_PS + FrameCount
 #endif

@@ -240,7 +240,7 @@ namespace XUSG
 
 			struct ClearUAVUint
 			{
-				const ResourceView* pUAV;
+				ResourceView UAV;
 				DescriptorTable UAVTable;
 				uint32_t Values[4];
 				std::vector<RectRange> Rects;
@@ -248,7 +248,7 @@ namespace XUSG
 
 			struct ClearUAVFloat
 			{
-				const ResourceView* pUAV;
+				ResourceView UAV;
 				DescriptorTable UAVTable;
 				float Values[4];
 				std::vector<RectRange> Rects;
@@ -353,7 +353,6 @@ namespace XUSG
 			std::vector<ClearRTV> m_clearRTVs;
 			std::vector<ClearUAVUint> m_clearUAVsUint;
 			std::vector<ClearUAVFloat> m_clearUAVsFloat;
-			std::vector<ResourceView> m_clearUAVs;
 			std::vector<uint32_t> m_graphicsSpaceToParamIndexMap[Shader::Stage::NUM_GRAPHICS][CbvSrvUavTypes];
 			std::vector<uint32_t> m_computeSpaceToParamIndexMap[CbvSrvUavTypes];
 			std::vector<SetDescriptorTable> m_graphicsSetDescriptorTables;

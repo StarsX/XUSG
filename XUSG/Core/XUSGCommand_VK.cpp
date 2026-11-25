@@ -18,20 +18,28 @@ namespace
 	constexpr uint8_t PENDING_CLEAR_DEPTH = 2;
 	constexpr uint8_t PENDING_CLEAR_STENCIL = 4;
 
-	void DecodeSubresource(const Resource_VK* pResource, uint32_t subresource, uint32_t& mip, uint32_t& layer, uint32_t& depth)
+	void DecodeSubresource(const Resource_VK* pResource, uint32_t subresource,
+		uint32_t& mip, uint32_t& layer, uint32_t& depth, uint32_t& plane)
 	{
 		const auto mips = (max)(pResource->GetMipLevels(), 1u);
-		mip = mips ? subresource % mips : 0;
 		if (pResource->Is3D())
 		{
+			plane = 0;
+			mip = mips ? subresource % mips : 0;
 			layer = 0;
 			depth = (max)(pResource->GetDepthOrArray() >> mip, 1u);
+
+			return;
 		}
-		else
-		{
-			layer = subresource / mips;
-			depth = 1;
-		}
+
+		// Match Texture::CalculateSubresource: mip + layer * mips + plane * mips * layers
+		const auto layers = (max)(pResource->GetDepthOrArray(), 1u);
+		const auto planeSize = mips * layers;
+		plane = planeSize ? subresource / planeSize : 0;
+		const auto planeLocal = planeSize ? subresource % planeSize : 0;
+		mip = mips ? planeLocal % mips : 0;
+		layer = planeLocal / mips;
+		depth = 1;
 	}
 
 	VkImageAspectFlags CopyAspect(VkFormat format)
@@ -40,6 +48,22 @@ namespace
 		if ((aspect & VK_IMAGE_ASPECT_DEPTH_BIT) != 0) return VK_IMAGE_ASPECT_DEPTH_BIT;
 
 		return aspect;
+	}
+
+	VkImageAspectFlags BarrierAspect(Format format, uint32_t plane, bool allSubresources)
+	{
+		const auto aspect = GetVKImageAspect(format);
+		if (allSubresources || (aspect & VK_IMAGE_ASPECT_STENCIL_BIT) == 0) return aspect;
+
+		return plane ? VK_IMAGE_ASPECT_STENCIL_BIT : VK_IMAGE_ASPECT_DEPTH_BIT;
+	}
+
+	VkImageAspectFlags CopyPlaneAspect(VkFormat format, uint32_t plane)
+	{
+		const auto aspect = GetVKImageAspect(GetFormatFromVK(format));
+		if ((aspect & VK_IMAGE_ASPECT_STENCIL_BIT) == 0) return aspect;
+
+		return plane ? VK_IMAGE_ASPECT_STENCIL_BIT : VK_IMAGE_ASPECT_DEPTH_BIT;
 	}
 
 	bool HasRaytracingAS(ResourceState state)
@@ -403,10 +427,10 @@ void CommandList_VK::CopyTextureRegion(const TextureCopyLocation& dst, uint32_t 
 	const auto pDst = AsVK(dst.pResource);
 	const auto pSrc = AsVK(src.pResource);
 
-	uint32_t srcMip = 0, srcLayer = 0, srcDepth = 1;
-	uint32_t dstMip = 0, dstLayer = 0, dstDepth = 1;
-	DecodeSubresource(pSrc, src.SubresourceIndex, srcMip, srcLayer, srcDepth);
-	DecodeSubresource(pDst, dst.SubresourceIndex, dstMip, dstLayer, dstDepth);
+	uint32_t srcMip = 0, srcLayer = 0, srcDepth = 1, srcPlane = 0;
+	uint32_t dstMip = 0, dstLayer = 0, dstDepth = 1, dstPlane = 0;
+	DecodeSubresource(pSrc, src.SubresourceIndex, srcMip, srcLayer, srcDepth, srcPlane);
+	DecodeSubresource(pDst, dst.SubresourceIndex, dstMip, dstLayer, dstDepth, dstPlane);
 	const auto srcExtent = MipExtent(pSrc, srcMip, srcDepth);
 
 	VkOffset3D srcOffset = {};
@@ -424,12 +448,12 @@ void CommandList_VK::CopyTextureRegion(const TextureCopyLocation& dst, uint32_t 
 	if (pSrc->IsImage() && pDst->IsImage())
 	{
 		VkImageCopy region = {};
-		region.srcSubresource.aspectMask = CopyAspect(pSrc->GetVkFormat());
+		region.srcSubresource.aspectMask = CopyPlaneAspect(pSrc->GetVkFormat(), srcPlane);
 		region.srcSubresource.mipLevel = srcMip;
 		region.srcSubresource.baseArrayLayer = srcLayer;
 		region.srcSubresource.layerCount = 1;
 		region.srcOffset = srcOffset;
-		region.dstSubresource.aspectMask = CopyAspect(pDst->GetVkFormat());
+		region.dstSubresource.aspectMask = CopyPlaneAspect(pDst->GetVkFormat(), dstPlane);
 		region.dstSubresource.mipLevel = dstMip;
 		region.dstSubresource.baseArrayLayer = dstLayer;
 		region.dstSubresource.layerCount = 1;
@@ -442,7 +466,7 @@ void CommandList_VK::CopyTextureRegion(const TextureCopyLocation& dst, uint32_t 
 	{
 		VkBufferImageCopy region = {};
 		region.bufferOffset = 0;
-		region.imageSubresource.aspectMask = CopyAspect(pSrc->GetVkFormat());
+		region.imageSubresource.aspectMask = CopyPlaneAspect(pSrc->GetVkFormat(), srcPlane);
 		region.imageSubresource.mipLevel = srcMip;
 		region.imageSubresource.baseArrayLayer = srcLayer;
 		region.imageSubresource.layerCount = 1;
@@ -455,7 +479,7 @@ void CommandList_VK::CopyTextureRegion(const TextureCopyLocation& dst, uint32_t 
 	{
 		VkBufferImageCopy region = {};
 		region.bufferOffset = 0;
-		region.imageSubresource.aspectMask = CopyAspect(pDst->GetVkFormat());
+		region.imageSubresource.aspectMask = CopyPlaneAspect(pDst->GetVkFormat(), dstPlane);
 		region.imageSubresource.mipLevel = dstMip;
 		region.imageSubresource.baseArrayLayer = dstLayer;
 		region.imageSubresource.layerCount = 1;
@@ -486,8 +510,8 @@ void CommandList_VK::CopyResource(Resource* pDstResource, Resource* pSrcResource
 		if (m_state->m_imageCopies.size() < mips) m_state->m_imageCopies.resize(mips);
 		for (auto mip = 0u; mip < mips; ++mip)
 		{
-			uint32_t mipLevel = 0, layer = 0, depth = 1;
-			DecodeSubresource(pSrc, mip, mipLevel, layer, depth);
+			uint32_t mipLevel = 0, layer = 0, depth = 1, plane = 0;
+			DecodeSubresource(pSrc, mip, mipLevel, layer, depth, plane);
 			m_state->m_imageCopies[mip] = {};
 			m_state->m_imageCopies[mip].srcSubresource.aspectMask = CopyAspect(pSrc->GetVkFormat());
 			m_state->m_imageCopies[mip].srcSubresource.mipLevel = mipLevel;
@@ -591,17 +615,17 @@ void CommandList_VK::ResolveSubresource(Resource* pDstResource, uint32_t dstSubr
 	assert(pSrcResource);
 	const auto pDst = AsVK(pDstResource);
 	const auto pSrc = AsVK(pSrcResource);
-	uint32_t srcMip = 0, srcLayer = 0, srcDepth = 1;
-	uint32_t dstMip = 0, dstLayer = 0, dstDepth = 1;
-	DecodeSubresource(pSrc, srcSubresource, srcMip, srcLayer, srcDepth);
-	DecodeSubresource(pDst, dstSubresource, dstMip, dstLayer, dstDepth);
+	uint32_t srcMip = 0, srcLayer = 0, srcDepth = 1, srcPlane = 0;
+	uint32_t dstMip = 0, dstLayer = 0, dstDepth = 1, dstPlane = 0;
+	DecodeSubresource(pSrc, srcSubresource, srcMip, srcLayer, srcDepth, srcPlane);
+	DecodeSubresource(pDst, dstSubresource, dstMip, dstLayer, dstDepth, dstPlane);
 
 	VkImageResolve region = {};
-	region.srcSubresource.aspectMask = CopyAspect(GetVKFormat(format));
+	region.srcSubresource.aspectMask = CopyPlaneAspect(GetVKFormat(format), srcPlane);
 	region.srcSubresource.mipLevel = srcMip;
 	region.srcSubresource.baseArrayLayer = srcLayer;
 	region.srcSubresource.layerCount = 1;
-	region.dstSubresource.aspectMask = region.srcSubresource.aspectMask;
+	region.dstSubresource.aspectMask = CopyPlaneAspect(GetVKFormat(format), dstPlane);
 	region.dstSubresource.mipLevel = dstMip;
 	region.dstSubresource.baseArrayLayer = dstLayer;
 	region.dstSubresource.layerCount = 1;
@@ -776,16 +800,18 @@ void CommandList_VK::Barrier(uint32_t numBarriers, const ResourceBarrier* pBarri
 		image.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 		image.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 		image.image = pResource->GetImage();
-		image.subresourceRange.aspectMask = GetVKImageAspect(GetFormatFromVK(pResource->GetVkFormat()));
+		const auto format = GetFormatFromVK(pResource->GetVkFormat());
 		if (barrier.Subresource == XUSG_BARRIER_ALL_SUBRESOURCES)
 		{
+			image.subresourceRange.aspectMask = BarrierAspect(format, 0, true);
 			image.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
 			image.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
 		}
 		else
 		{
-			uint32_t mip = 0, layer = 0, depth = 1;
-			DecodeSubresource(pResource, barrier.Subresource, mip, layer, depth);
+			uint32_t mip = 0, layer = 0, depth = 1, plane = 0;
+			DecodeSubresource(pResource, barrier.Subresource, mip, layer, depth, plane);
+			image.subresourceRange.aspectMask = BarrierAspect(format, plane, false);
 			image.subresourceRange.baseMipLevel = mip;
 			image.subresourceRange.levelCount = 1;
 			image.subresourceRange.baseArrayLayer = layer;
@@ -1549,14 +1575,14 @@ void CommandList_VK::CopyBufferToImage(Resource* pDst, uint32_t dstSubresource, 
 	recordOutside();
 	const auto pDstResource = AsVK(pDst);
 	const auto pSrcResource = AsVK(pSrc);
-	uint32_t mip = 0, layer = 0, depth = 1;
-	DecodeSubresource(pDstResource, dstSubresource, mip, layer, depth);
+	uint32_t mip = 0, layer = 0, depth = 1, plane = 0;
+	DecodeSubresource(pDstResource, dstSubresource, mip, layer, depth, plane);
 
 	VkBufferImageCopy region = {};
 	region.bufferOffset = srcOffset;
 	region.bufferRowLength = bufferRowLength;
 	region.bufferImageHeight = bufferImageHeight;
-	region.imageSubresource.aspectMask = CopyAspect(pDstResource->GetVkFormat());
+	region.imageSubresource.aspectMask = CopyPlaneAspect(pDstResource->GetVkFormat(), plane);
 	region.imageSubresource.mipLevel = mip;
 	region.imageSubresource.baseArrayLayer = layer;
 	region.imageSubresource.layerCount = 1;
@@ -2515,9 +2541,9 @@ void CommandList_VK::submitClearBarrier(Resource_VK* pResource, uint32_t regionC
 			if (undefined) image.srcAccessMask = VK_ACCESS_2_NONE;
 			image.newLayout = pResource->ImageLayout(dst);
 			image.image = pResource->GetImage();
-			image.subresourceRange.aspectMask = GetVKImageAspect(GetFormatFromVK(pResource->GetVkFormat()));
-			uint32_t mip = 0, layer = 0, depth = 1;
-			DecodeSubresource(pResource, region.Subresource, mip, layer, depth);
+			uint32_t mip = 0, layer = 0, depth = 1, plane = 0;
+			DecodeSubresource(pResource, region.Subresource, mip, layer, depth, plane);
+			image.subresourceRange.aspectMask = BarrierAspect(GetFormatFromVK(pResource->GetVkFormat()), plane, false);
 			image.subresourceRange.baseMipLevel = mip;
 			image.subresourceRange.levelCount = 1;
 			image.subresourceRange.baseArrayLayer = layer;
